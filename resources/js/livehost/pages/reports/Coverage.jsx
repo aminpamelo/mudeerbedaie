@@ -33,17 +33,20 @@ export default function CoverageReport({ kpis, weeklyTrend, accountRows, filters
     <>
       <Head title="Schedule Coverage" />
       <TopBar breadcrumb={['Live Host Desk', 'Reports', 'Schedule Coverage']} />
-      <div className="space-y-6 p-8">
-        <header className="flex items-start justify-between gap-4">
-          <div>
+      <div className="space-y-7 p-8" data-accent="sky">
+        <header className="flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-2xl">
             <Link
               href="/livehost/reports"
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              className="label-eyebrow inline-flex items-center gap-1 transition hover:text-[var(--color-ink)]"
             >
-              <ArrowLeft className="size-3" /> Reports
+              <ArrowLeft className="size-3" strokeWidth={2.4} /> Reports
             </Link>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Schedule Coverage</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="mt-3 text-[40px] leading-[1.05] tracking-tight text-[var(--color-ink)]">
+              <span className="font-display">Schedule</span>{' '}
+              <span className="font-display text-[var(--color-sky-ink)]">Coverage</span>
+            </h1>
+            <p className="mt-2 text-[14.5px] leading-relaxed text-[var(--color-muted)]">
               Slots filled vs unassigned, weekly trend, per-account breakdown.
             </p>
           </div>
@@ -103,8 +106,9 @@ CoverageReport.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
 function AccountsTable({ rows, filters }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
-        No scheduled slots in this date range.
+      <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-14 text-center">
+        <div className="font-display text-2xl text-[var(--color-ink-2)]">No slots scheduled</div>
+        <p className="mt-2 text-sm text-[var(--color-muted)]">No scheduled slots in this date range.</p>
       </div>
     );
   }
@@ -120,37 +124,44 @@ function AccountsTable({ rows, filters }) {
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-2)] px-5 py-3">
+        <div className="label-eyebrow">By account</div>
+        <div className="text-[11px] text-[var(--color-muted)]">{rows.length} account{rows.length === 1 ? '' : 's'}</div>
+      </div>
+      <table className="reports-table">
+        <thead>
           <tr>
-            <th className="px-4 py-2.5 text-left font-medium">Account</th>
-            <th className="px-4 py-2.5 text-right font-medium">Total</th>
-            <th className="px-4 py-2.5 text-right font-medium">Assigned</th>
-            <th className="px-4 py-2.5 text-right font-medium">Replaced</th>
-            <th className="px-4 py-2.5 text-right font-medium">Unassigned</th>
-            <th className="px-4 py-2.5 text-right font-medium">Missed</th>
-            <th className="px-4 py-2.5 text-right font-medium">Coverage %</th>
+            <th>Account</th>
+            <th className="num">Total</th>
+            <th className="num">Assigned</th>
+            <th className="num">Replaced</th>
+            <th className="num">Unassigned</th>
+            <th className="num">Missed</th>
+            <th className="num">Coverage %</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.accountId} className="border-t">
-              <td className="px-4 py-2.5 font-medium">{r.name}</td>
-              <td className="px-4 py-2.5 text-right">{fmtInt(r.totalSlots)}</td>
-              <td className="px-4 py-2.5 text-right">{fmtInt(r.assigned)}</td>
-              <td className="px-4 py-2.5 text-right">{fmtInt(r.replaced)}</td>
-              <td className="px-4 py-2.5 text-right">
+            <tr key={r.accountId}>
+              <td className="row-name">{r.name}</td>
+              <td className="num">{fmtInt(r.totalSlots)}</td>
+              <td className="num">{fmtInt(r.assigned)}</td>
+              <td className="num">{fmtInt(r.replaced)}</td>
+              <td className="num">
                 {r.unassigned > 0 ? (
-                  <Link href={slotsHref(r.accountId)} className="hover:underline">
+                  <Link
+                    href={slotsHref(r.accountId)}
+                    className="text-[var(--color-sky-ink)] underline-offset-4 hover:underline"
+                  >
                     {fmtInt(r.unassigned)}
                   </Link>
                 ) : (
                   fmtInt(r.unassigned)
                 )}
               </td>
-              <td className="px-4 py-2.5 text-right">{fmtInt(r.missed)}</td>
-              <td className="px-4 py-2.5 text-right">{fmtPct(r.coverageRate)}</td>
+              <td className="num">{fmtInt(r.missed)}</td>
+              <td className="num">{fmtPct(r.coverageRate)}</td>
             </tr>
           ))}
         </tbody>

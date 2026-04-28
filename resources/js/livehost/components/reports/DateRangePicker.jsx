@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Button } from '@/livehost/components/ui/button';
 
 const PRESETS = [
   { key: 'today', label: 'Today' },
@@ -44,30 +43,39 @@ export default function DateRangePicker({ value, onChange }) {
   }, [value]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {PRESETS.map((p) => (
-        <Button
-          key={p.key}
-          variant={presetMatches === p.key ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => onChange(preset(p.key))}
-        >
-          {p.label}
-        </Button>
-      ))}
-      <div className="ml-2 flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-[var(--color-surface-2)] p-1">
+        {PRESETS.map((p) => {
+          const active = presetMatches === p.key;
+          return (
+            <button
+              type="button"
+              key={p.key}
+              onClick={() => onChange(preset(p.key))}
+              className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                active
+                  ? 'bg-[var(--color-surface)] text-[var(--color-ink)] shadow-sm'
+                  : 'text-[var(--color-muted)] hover:text-[var(--color-ink)]'
+              }`}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="ml-1 flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5">
         <input
           type="date"
           value={value.dateFrom}
           onChange={(e) => onChange({ ...value, dateFrom: e.target.value })}
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="bg-transparent text-xs text-[var(--color-ink)] focus:outline-none [color-scheme:light]"
         />
-        <span className="text-muted-foreground">→</span>
+        <span className="text-[var(--color-muted)]">→</span>
         <input
           type="date"
           value={value.dateTo}
           onChange={(e) => onChange({ ...value, dateTo: e.target.value })}
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="bg-transparent text-xs text-[var(--color-ink)] focus:outline-none [color-scheme:light]"
         />
       </div>
     </div>

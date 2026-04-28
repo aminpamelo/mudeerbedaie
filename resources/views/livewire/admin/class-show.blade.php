@@ -23,6 +23,7 @@ new class extends Component
             'activeStudents.student.user',
             'timetable',
             'pics',
+            'syllabi',
         ]);
 
         // Initialize payment year
@@ -182,6 +183,17 @@ new class extends Component
     public ?int $upsellSessionTeacherId = null;
 
     public $upsellSessionCommissionRate = null;
+
+    // Syllabus tab properties
+    public bool $showSyllabusModal = false;
+
+    public ?int $editingSyllabusId = null;
+
+    public string $syllabusTitle = '';
+
+    public string $syllabusDescription = '';
+
+    public ?int $confirmDeleteSyllabusId = null;
 
     // Student item selection properties
     public array $selectedShipmentItemIds = [];
@@ -3681,6 +3693,161 @@ new class extends Component
         $session->update(['upsell_teacher_ids' => empty($ids) ? null : $ids]);
     }
 
+    public function getAvailableSyllabiProperty()
+    {
+        return $this->class->syllabi()->get();
+    }
+
+    public function openAddSyllabusModal(): void
+    {
+        $this->editingSyllabusId = null;
+        $this->syllabusTitle = '';
+        $this->syllabusDescription = '';
+        $this->resetErrorBag(['syllabusTitle', 'syllabusDescription']);
+        $this->showSyllabusModal = true;
+    }
+
+    public function openEditSyllabusModal(int $syllabusId): void
+    {
+        $topic = $this->class->syllabi()->findOrFail($syllabusId);
+        $this->editingSyllabusId = $topic->id;
+        $this->syllabusTitle = $topic->title;
+        $this->syllabusDescription = (string) $topic->description;
+        $this->resetErrorBag(['syllabusTitle', 'syllabusDescription']);
+        $this->showSyllabusModal = true;
+    }
+
+    public function closeSyllabusModal(): void
+    {
+        $this->showSyllabusModal = false;
+        $this->editingSyllabusId = null;
+        $this->syllabusTitle = '';
+        $this->syllabusDescription = '';
+    }
+
+    public function saveSyllabus(): void
+    {
+        $this->validate([
+            'syllabusTitle' => 'required|string|max:255',
+            'syllabusDescription' => 'nullable|string',
+        ]);
+
+        if ($this->editingSyllabusId) {
+            $topic = $this->class->syllabi()->findOrFail($this->editingSyllabusId);
+            $topic->update([
+                'title' => $this->syllabusTitle,
+                'description' => $this->syllabusDescription ?: null,
+            ]);
+        } else {
+            \App\Models\ClassSyllabus::create([
+                'class_id' => $this->class->id,
+                'title' => $this->syllabusTitle,
+                'description' => $this->syllabusDescription ?: null,
+                'sort_order' => $this->class->syllabi()->count(),
+            ]);
+        }
+
+        $this->closeSyllabusModal();
+        $this->class->refresh();
+    }
+
+    public function confirmDeleteSyllabus(int $syllabusId): void
+    {
+        $this->confirmDeleteSyllabusId = $syllabusId;
+    }
+
+    public function cancelDeleteSyllabus(): void
+    {
+        $this->confirmDeleteSyllabusId = null;
+    }
+
+    public function deleteSyllabus(int $syllabusId): void
+    {
+        $topic = $this->class->syllabi()->findOrFail($syllabusId);
+
+        // Detach this topic from any session referencing it
+        $this->class->sessions()
+            ->whereJsonContains('syllabus_ids', $syllabusId)
+            ->get()
+            ->each(function ($session) use ($syllabusId) {
+                $remaining = array_values(array_diff($session->syllabus_ids ?? [], [$syllabusId]));
+                $session->update(['syllabus_ids' => empty($remaining) ? null : $remaining]);
+            });
+
+        $topic->delete();
+        $this->confirmDeleteSyllabusId = null;
+        $this->densifySyllabusOrder();
+        $this->class->refresh();
+    }
+
+    public function moveSyllabusUp(int $syllabusId): void
+    {
+        $topics = $this->class->syllabi()->get();
+        $index = $topics->search(fn ($t) => $t->id === $syllabusId);
+
+        if ($index === false || $index === 0) {
+            return;
+        }
+
+        $current = $topics[$index];
+        $previous = $topics[$index - 1];
+
+        $tmp = $current->sort_order;
+        $current->update(['sort_order' => $previous->sort_order]);
+        $previous->update(['sort_order' => $tmp]);
+
+        $this->densifySyllabusOrder();
+        $this->class->refresh();
+    }
+
+    public function moveSyllabusDown(int $syllabusId): void
+    {
+        $topics = $this->class->syllabi()->get();
+        $index = $topics->search(fn ($t) => $t->id === $syllabusId);
+
+        if ($index === false || $index === $topics->count() - 1) {
+            return;
+        }
+
+        $current = $topics[$index];
+        $next = $topics[$index + 1];
+
+        $tmp = $current->sort_order;
+        $current->update(['sort_order' => $next->sort_order]);
+        $next->update(['sort_order' => $tmp]);
+
+        $this->densifySyllabusOrder();
+        $this->class->refresh();
+    }
+
+    private function densifySyllabusOrder(): void
+    {
+        $topics = $this->class->syllabi()->get();
+        foreach ($topics->values() as $i => $topic) {
+            if ($topic->sort_order !== $i) {
+                $topic->update(['sort_order' => $i]);
+            }
+        }
+    }
+
+    public function addSessionSyllabus(int $sessionId, int $syllabusId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = $session->syllabus_ids ?? [];
+
+        if (! in_array($syllabusId, $ids)) {
+            $ids[] = $syllabusId;
+            $session->update(['syllabus_ids' => $ids]);
+        }
+    }
+
+    public function removeSessionSyllabus(int $sessionId, int $syllabusId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = array_values(array_diff($session->syllabus_ids ?? [], [$syllabusId]));
+        $session->update(['syllabus_ids' => empty($ids) ? null : $ids]);
+    }
+
     public function updateSessionCommissionRate(int $sessionId, $rate): void
     {
         $session = $this->class->sessions()->findOrFail($sessionId);
@@ -3944,6 +4111,7 @@ new class extends Component
                     ['key' => 'overview', 'label' => 'Overview', 'icon' => 'document-text', 'count' => null],
                     ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'count' => $class->activeStudents->count() ?: null],
                     ['key' => 'timetable', 'label' => 'Timetable', 'icon' => 'calendar', 'count' => null],
+                    ['key' => 'syllabus', 'label' => 'Syllabus', 'icon' => 'book-open', 'count' => $class->syllabi->count() ?: null],
                     ['key' => 'certificates', 'label' => 'Certificates', 'icon' => 'document-check', 'count' => null],
                     ['key' => 'payment-reports', 'label' => 'Payments', 'icon' => 'chart-bar', 'count' => null],
                     ['key' => 'pic-performance', 'label' => 'PIC', 'icon' => 'user-group', 'count' => $this->pic_performance_summary['total_pics'] ?: null],
@@ -5299,6 +5467,142 @@ new class extends Component
             @endif
         </div>
         <!-- End Timetable Tab -->
+
+        <!-- Syllabus Tab -->
+        <div class="{{ $activeTab === 'syllabus' ? 'block' : 'hidden' }}">
+            <div class="space-y-4">
+                {{-- Header --}}
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Syllabus</h2>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Topics this class will cover. Assign topics to individual sessions from the Upsell tab.</p>
+                    </div>
+                    <flux:button variant="primary" size="sm" wire:click="openAddSyllabusModal">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                            Add Topic
+                        </div>
+                    </flux:button>
+                </div>
+
+                @php $topics = $class->syllabi; @endphp
+
+                @if($topics->isEmpty())
+                    <div class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-12 text-center">
+                        <flux:icon name="book-open" class="w-10 h-10 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No syllabus topics yet</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Add the first topic to get started — you can then assign topics to sessions from the Upsell tab.</p>
+                        <flux:button variant="primary" size="sm" wire:click="openAddSyllabusModal">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                                Add First Topic
+                            </div>
+                        </flux:button>
+                    </div>
+                @else
+                    <div class="space-y-2">
+                        @foreach($topics as $i => $topic)
+                            <div wire:key="syllabus-{{ $topic->id }}" class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
+                                <div class="flex items-start gap-3">
+                                    {{-- Reorder controls --}}
+                                    <div class="flex flex-col gap-0.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            wire:click="moveSyllabusUp({{ $topic->id }})"
+                                            @disabled($i === 0)
+                                            class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                            title="Move up"
+                                        >
+                                            <flux:icon name="chevron-up" class="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            wire:click="moveSyllabusDown({{ $topic->id }})"
+                                            @disabled($i === $topics->count() - 1)
+                                            class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                                            title="Move down"
+                                        >
+                                            <flux:icon name="chevron-down" class="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    {{-- Sequence badge --}}
+                                    <div class="shrink-0 mt-0.5">
+                                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-semibold tabular-nums">
+                                            {{ $i + 1 }}
+                                        </span>
+                                    </div>
+
+                                    {{-- Title + description --}}
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $topic->title }}</h3>
+                                        @if($topic->description)
+                                            <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1 line-clamp-3 whitespace-pre-wrap">{{ $topic->description }}</p>
+                                        @endif
+                                    </div>
+
+                                    {{-- Actions --}}
+                                    <div class="flex items-center gap-1 shrink-0">
+                                        @if($confirmDeleteSyllabusId === $topic->id)
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400 mr-1">Delete?</span>
+                                            <flux:button variant="danger" size="sm" wire:click="deleteSyllabus({{ $topic->id }})">Yes</flux:button>
+                                            <flux:button variant="ghost" size="sm" wire:click="cancelDeleteSyllabus">No</flux:button>
+                                        @else
+                                            <button
+                                                type="button"
+                                                wire:click="openEditSyllabusModal({{ $topic->id }})"
+                                                class="p-1.5 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                title="Edit"
+                                            >
+                                                <flux:icon name="pencil-square" class="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                wire:click="confirmDeleteSyllabus({{ $topic->id }})"
+                                                class="p-1.5 rounded text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                title="Delete"
+                                            >
+                                                <flux:icon name="trash" class="w-4 h-4" />
+                                            </button>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            {{-- Add / Edit modal --}}
+            <flux:modal wire:model="showSyllabusModal" class="max-w-lg">
+                <div class="p-6">
+                    <flux:heading size="lg">{{ $editingSyllabusId ? 'Edit Topic' : 'Add Topic' }}</flux:heading>
+                    <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">Define what should be taught for this topic.</flux:text>
+
+                    <div class="mt-4 space-y-4">
+                        <flux:field>
+                            <flux:label>Title</flux:label>
+                            <flux:input wire:model="syllabusTitle" placeholder="e.g. Lesson 3: Surah Al-Fatihah recitation" />
+                            <flux:error name="syllabusTitle" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Description</flux:label>
+                            <flux:textarea wire:model="syllabusDescription" rows="4" placeholder="Optional notes on what to cover" />
+                            <flux:error name="syllabusDescription" />
+                        </flux:field>
+                    </div>
+
+                    <div class="mt-6 flex justify-end gap-2">
+                        <flux:button variant="ghost" wire:click="closeSyllabusModal">Cancel</flux:button>
+                        <flux:button variant="primary" wire:click="saveSyllabus">
+                            {{ $editingSyllabusId ? 'Save Changes' : 'Add Topic' }}
+                        </flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        </div>
+        <!-- End Syllabus Tab -->
 
         <!-- Certificates Tab -->
         <div class="{{ $activeTab === 'certificates' ? 'block' : 'hidden' }}">
@@ -7610,6 +7914,7 @@ new class extends Component
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Day</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Time</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[200px]">Syllabus</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[180px]">Funnel</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[160px]">PIC</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Teacher</th>
@@ -7651,6 +7956,70 @@ new class extends Component
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium {{ $statusColors[$session->status] ?? 'bg-zinc-100 text-zinc-700' }}">
                                                 {{ ucfirst(str_replace('_', ' ', $session->status)) }}
                                             </span>
+                                        </td>
+                                        {{-- Syllabus Multi-Select --}}
+                                        <td class="py-1.5 px-3"
+                                            x-data="{
+                                                open: false,
+                                                search: '',
+                                                selectedIds: @js($session->syllabus_ids ?? []),
+                                                items: @js($this->availableSyllabi->map(fn($s) => ['id' => $s->id, 'label' => '#'.($s->sort_order + 1).' '.$s->title])->values()),
+                                                get filtered() {
+                                                    let available = this.items.filter(i => !this.selectedIds.includes(i.id));
+                                                    if (!this.search) return available;
+                                                    return available.filter(i => i.label.toLowerCase().includes(this.search.toLowerCase()));
+                                                },
+                                                getLabel(id) {
+                                                    let item = this.items.find(i => i.id === id);
+                                                    return item ? item.label : '';
+                                                },
+                                                add(id) {
+                                                    if (!this.selectedIds.includes(id)) {
+                                                        this.selectedIds.push(id);
+                                                        $wire.addSessionSyllabus({{ $session->id }}, id);
+                                                    }
+                                                    this.search = '';
+                                                },
+                                                remove(id) {
+                                                    this.selectedIds = this.selectedIds.filter(i => i !== id);
+                                                    $wire.removeSessionSyllabus({{ $session->id }}, id);
+                                                }
+                                            }"
+                                            @click.outside="open = false; search = ''"
+                                        >
+                                            <div class="relative" wire:ignore>
+                                                <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
+                                                    <template x-for="id in selectedIds" :key="id">
+                                                        <span class="inline-flex items-center gap-0.5 bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[140px]">
+                                                            <span x-text="getLabel(id)" class="truncate"></span>
+                                                            <button @click.stop="remove(id)" type="button" class="hover:text-indigo-900 dark:hover:text-indigo-100 shrink-0">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                            </button>
+                                                        </span>
+                                                    </template>
+                                                    <button
+                                                        @click="open = !open"
+                                                        type="button"
+                                                        @disabled($this->availableSyllabi->isEmpty())
+                                                        class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        @if($this->availableSyllabi->isEmpty()) title="No syllabus topics yet — add one in the Syllabus tab" @endif
+                                                    >
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                                    </button>
+                                                </div>
+                                                <div x-show="open" x-transition.opacity.duration.150ms class="absolute z-50 mt-1 w-64 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg shadow-lg" style="display: none;">
+                                                    <div class="p-1.5">
+                                                        <input x-model="search" @keydown.escape="open = false; search = ''" type="text" placeholder="Search topic..." class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 py-1.5 px-2 focus:border-indigo-500 focus:ring-indigo-500" @click.stop />
+                                                    </div>
+                                                    <div class="max-h-40 overflow-y-auto">
+                                                        <template x-for="item in filtered" :key="item.id">
+                                                            <button @click="add(item.id)" type="button" class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors" x-text="item.label"></button>
+                                                        </template>
+                                                        <div x-show="filtered.length === 0 && search" class="px-3 py-2 text-xs text-zinc-400">No topics found</div>
+                                                        <div x-show="filtered.length === 0 && !search" class="px-3 py-2 text-xs text-zinc-400">All topics assigned</div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </td>
                                         {{-- Funnel Multi-Select --}}
                                         <td class="py-1.5 px-3"
@@ -7868,7 +8237,7 @@ new class extends Component
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="13" class="py-8 text-center">
+                                        <td colspan="14" class="py-8 text-center">
                                             <flux:icon name="calendar" class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
                                             <p class="text-xs text-zinc-400 dark:text-zinc-500">No sessions found matching your filters.</p>
                                         </td>

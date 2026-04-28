@@ -10,6 +10,8 @@
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    --font-teacher: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -26,6 +28,17 @@
     --color-accent: var(--color-neutral-800);
     --color-accent-content: var(--color-neutral-800);
     --color-accent-foreground: var(--color-white);
+
+    /* Teacher experience tokens — livehost violet identity */
+    --color-teacher-deep: #5B21B6;     /* violet-800 */
+    --color-teacher-ink:  #6D28D9;     /* violet-700 */
+    --color-teacher-from: #7C3AED;     /* violet-600 */
+    --color-teacher-base: #8B5CF6;     /* violet-500  ← livehost primary */
+    --color-teacher-soft: #F5F3FF;     /* violet-50 */
+    --color-teacher-success: #10b981;
+    --color-teacher-warn:    #f59e0b;
+    --color-teacher-danger:  #f43f5e;
+    --color-teacher-info:    #0ea5e9;
 }
 
 @layer theme {
@@ -84,6 +97,317 @@ select:focus[data-flux-control] {
         backface-visibility: hidden !important;
     }
 }
+
+/* ========================================================================
+   Teacher app — modern colorful redesign
+   Scoped to .teacher-app so other roles are untouched.
+   ======================================================================== */
+.teacher-app {
+    font-family: var(--font-teacher);
+    font-feature-settings: "cv11", "ss03", "ss01";
+}
+
+.teacher-app .teacher-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+}
+
+.teacher-app .teacher-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+/* Hero gradient (animated) — clean violet ramp, livehost identity */
+.teacher-hero {
+    background: linear-gradient(135deg, #5B21B6 0%, #6D28D9 35%, #7C3AED 70%, #8B5CF6 100%);
+    background-size: 200% 200%;
+    animation: teacher-hero-shift 18s ease-in-out infinite;
+}
+
+@keyframes teacher-hero-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+}
+
+/* Decorative grain layer — subtle violet highlights, no fuchsia or cyan */
+.teacher-grain {
+    background-image:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.14) 0%, transparent 38%),
+        radial-gradient(circle at 80% 30%, rgba(255,255,255,0.10) 0%, transparent 42%),
+        radial-gradient(circle at 50% 90%, rgba(196,181,253,0.16) 0%, transparent 48%);
+}
+
+/* Card base — light + dark */
+.teacher-card {
+    background: #ffffff;
+    border-radius: 1rem;
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 4px 16px -4px rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(226, 232, 240, 0.85);
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.dark .teacher-card {
+    background: rgba(24, 24, 27, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.4),
+        0 8px 24px -4px rgba(0, 0, 0, 0.4);
+}
+.teacher-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 4px 8px rgba(15, 23, 42, 0.06),
+        0 18px 40px -10px rgba(124, 58, 237, 0.22);
+    border-color: rgba(139, 92, 246, 0.35);
+}
+.dark .teacher-card-hover:hover {
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        0 18px 40px -10px rgba(139, 92, 246, 0.45);
+    border-color: rgba(167, 139, 250, 0.4);
+}
+
+/* Stat card variants — pastel light, glow dark */
+.teacher-stat {
+    position: relative;
+    overflow: hidden;
+}
+.teacher-stat::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0.55;
+    z-index: 0;
+    transition: opacity .25s ease;
+}
+.dark .teacher-stat::before { opacity: 0.18; }
+.teacher-stat-hover:hover::before { opacity: 0.75; }
+.dark .teacher-stat-hover:hover::before { opacity: 0.28; }
+.teacher-stat > * { position: relative; z-index: 1; }
+
+.teacher-stat-indigo::before  { background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); }
+.teacher-stat-emerald::before { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); }
+.teacher-stat-violet::before  { background: linear-gradient(135deg, #faf5ff 0%, #e9d5ff 100%); }
+.teacher-stat-amber::before   { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+.dark .teacher-stat-indigo::before  { background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); }
+.dark .teacher-stat-emerald::before { background: linear-gradient(135deg, #10b981 0%, #064e3b 100%); }
+.dark .teacher-stat-violet::before  { background: linear-gradient(135deg, #8b5cf6 0%, #5b21b6 100%); }
+.dark .teacher-stat-amber::before   { background: linear-gradient(135deg, #f59e0b 0%, #78350f 100%); }
+
+/* Iconified pill — gradient bg used inside hero CTA */
+.teacher-pill-gradient {
+    background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+    color: #6d28d9;
+}
+
+/* Animated live dot for ongoing sessions */
+.teacher-live-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: #10b981;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+    animation: teacher-live-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes teacher-live-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+    50%      { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+/* Sidebar (desktop) — teacher scope */
+.teacher-app [data-flux-sidebar] {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-right: 1px solid rgba(226, 232, 240, 0.85);
+}
+.dark .teacher-app [data-flux-sidebar] {
+    background: linear-gradient(180deg, #0a0a0a 0%, #18181b 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Bottom nav (mobile) — teacher scope */
+.teacher-bottom-nav {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(226, 232, 240, 0.85);
+}
+.dark .teacher-bottom-nav {
+    background: rgba(9, 9, 11, 0.92);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.teacher-bottom-link {
+    color: #64748b;
+    transition: color .2s ease, transform .2s ease;
+}
+.teacher-bottom-link.is-active {
+    color: #7c3aed;
+}
+.dark .teacher-bottom-link { color: #a1a1aa; }
+.dark .teacher-bottom-link.is-active { color: #c4b5fd; }
+
+.teacher-bottom-spotlight {
+    background: linear-gradient(135deg, #6D28D9 0%, #7C3AED 50%, #8B5CF6 100%);
+    box-shadow:
+        0 8px 20px -4px rgba(124, 58, 237, 0.55),
+        0 0 0 4px rgba(255, 255, 255, 0.7);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+.dark .teacher-bottom-spotlight {
+    box-shadow:
+        0 8px 20px -4px rgba(139, 92, 246, 0.6),
+        0 0 0 4px rgba(9, 9, 11, 0.7);
+}
+.teacher-bottom-spotlight:hover {
+    transform: translateY(-2px) scale(1.04);
+}
+
+/* ────────────────────────────────────────
+   Modals — vibrant gradient SaaS treatment
+   ──────────────────────────────────────── */
+.teacher-modal-stripe {
+    height: 4px;
+    background: linear-gradient(90deg, #5B21B6 0%, #7C3AED 50%, #8B5CF6 100%);
+    background-size: 200% 100%;
+    animation: teacher-stripe-shimmer 6s ease-in-out infinite;
+}
+
+@keyframes teacher-stripe-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+}
+
+.teacher-modal-hero {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(167,139,250,0.32) 0%, transparent 55%),
+        radial-gradient(circle at 0% 100%, rgba(196,181,253,0.18) 0%, transparent 55%),
+        linear-gradient(135deg, #5B21B6 0%, #6D28D9 35%, #7C3AED 70%, #8B5CF6 100%);
+}
+
+.teacher-modal-orb {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #6D28D9 0%, #7C3AED 50%, #8B5CF6 100%);
+    box-shadow:
+        0 12px 32px -8px rgba(124, 58, 237, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    color: white;
+}
+.teacher-modal-orb::before,
+.teacher-modal-orb::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 9999px;
+    border: 2px solid rgba(139, 92, 246, 0.45);
+    animation: teacher-orb-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.teacher-modal-orb::after {
+    animation-delay: 1.2s;
+}
+.dark .teacher-modal-orb::before,
+.dark .teacher-modal-orb::after {
+    border-color: rgba(167, 139, 250, 0.6);
+}
+
+@keyframes teacher-orb-ring {
+    0%   { transform: scale(0.85); opacity: 0.7; }
+    100% { transform: scale(1.45); opacity: 0; }
+}
+
+.teacher-modal-timer {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
+    color: white;
+}
+.teacher-modal-timer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(110,231,183,0.35) 0%, transparent 50%),
+        radial-gradient(circle at 0% 100%, rgba(52,211,153,0.25) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+/* CTA gradient button — clean violet ramp */
+.teacher-cta {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, #6D28D9 0%, #7C3AED 50%, #8B5CF6 100%);
+    background-size: 200% 200%;
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+    box-shadow: 0 12px 24px -8px rgba(124, 58, 237, 0.55);
+    transition: transform .2s ease, box-shadow .2s ease, background-position .4s ease;
+}
+.teacher-cta:hover {
+    transform: translateY(-1px);
+    background-position: 100% 0;
+    box-shadow: 0 16px 32px -8px rgba(139, 92, 246, 0.65);
+}
+.teacher-cta:active {
+    transform: translateY(0);
+}
+.teacher-cta-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    color: rgb(71 85 105);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: background-color .2s ease, color .2s ease;
+}
+.teacher-cta-ghost:hover {
+    background: rgb(248 250 252);
+    color: rgb(15 23 42);
+}
+.dark .teacher-cta-ghost {
+    color: rgb(161 161 170);
+}
+.dark .teacher-cta-ghost:hover {
+    background: rgba(63, 63, 70, 0.5);
+    color: rgb(244 244 245);
+}
+
+/* Avatar bubble */
+.teacher-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: white;
+    flex-shrink: 0;
+}
+.teacher-avatar-1 { background: linear-gradient(135deg, #6D28D9, #8B5CF6); }
+.teacher-avatar-2 { background: linear-gradient(135deg, #10b981, #14b8a6); }
+.teacher-avatar-3 { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+.teacher-avatar-4 { background: linear-gradient(135deg, #7C3AED, #A78BFA); }
+.teacher-avatar-5 { background: linear-gradient(135deg, #0ea5e9, #14b8a6); }
+.teacher-avatar-6 { background: linear-gradient(135deg, #f43f5e, #be123c); }
 
 /* Mobile layout fix - Force main content to full viewport width */
 @media (max-width: 1023px) {

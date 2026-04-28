@@ -1,26 +1,32 @@
 <?php
 
+use App\Models\ClassCategory;
 use App\Models\ClassModel;
 use App\Models\ClassSession;
-use App\Models\ClassCategory;
-use App\Models\ClassTimetable;
 use App\Models\Teacher;
 use Carbon\Carbon;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public string $currentView = 'week';
+
     public string $previousView = '';
+
     public Carbon $currentDate;
 
     // Filters
     public string $categoryFilter = 'all';
+
     public string $classFilter = 'all';
+
     public string $teacherFilter = 'all';
+
     public string $statusFilter = 'all'; // Default to show all statuses
 
     // Modal state
     public bool $showModal = false;
+
     public ?ClassSession $selectedSession = null;
 
     // Color palette for classes (with dark mode support)
@@ -116,9 +122,34 @@ new class extends Component {
             'attendances.student.user',
             'starter',
             'verifier',
-            'assignedTeacher.user'
+            'assignedTeacher.user',
+            'funnelOrders',
+            'funnelSessions',
         ])->find($sessionId);
         $this->showModal = true;
+    }
+
+    public function getUpsellStats(ClassSession $session): array
+    {
+        $funnels = $session->upsellFunnels();
+        $configured = $funnels->isNotEmpty();
+
+        $visitors = $session->funnelSessions->count();
+        $conversions = $session->funnelOrders->count();
+        $revenue = (float) $session->funnelOrders->sum('funnel_revenue');
+        $conversionRate = $visitors > 0 ? round(($conversions / $visitors) * 100, 1) : 0;
+
+        return [
+            'configured' => $configured,
+            'funnels' => $funnels,
+            'pics' => $session->upsellPics(),
+            'teachers' => $session->upsellTeachers(),
+            'commission_rate' => $session->upsell_teacher_commission_rate,
+            'visitors' => $visitors,
+            'conversions' => $conversions,
+            'conversion_rate' => $conversionRate,
+            'revenue' => $revenue,
+        ];
     }
 
     public function closeModal(): void
@@ -131,7 +162,7 @@ new class extends Component {
     {
         $classes = ClassModel::query()
             ->when($this->categoryFilter !== 'all', function ($q) {
-                $q->whereHas('categories', fn($q) => $q->where('class_categories.id', $this->categoryFilter));
+                $q->whereHas('categories', fn ($q) => $q->where('class_categories.id', $this->categoryFilter));
             })
             ->when($this->classFilter !== 'all', function ($q) {
                 $q->where('id', $this->classFilter);
@@ -158,12 +189,12 @@ new class extends Component {
 
     public function isClassEnded($session): bool
     {
-        if (!$session->class || !$session->class->timetable) {
+        if (! $session->class || ! $session->class->timetable) {
             return false;
         }
 
         $timetable = $session->class->timetable;
-        if (!$timetable->end_date) {
+        if (! $timetable->end_date) {
             return false;
         }
 
@@ -173,12 +204,12 @@ new class extends Component {
 
     public function hasClassEnded($session): bool
     {
-        if (!$session->class || !$session->class->timetable) {
+        if (! $session->class || ! $session->class->timetable) {
             return false;
         }
 
         $timetable = $session->class->timetable;
-        if (!$timetable->end_date) {
+        if (! $timetable->end_date) {
             return false;
         }
 
@@ -215,7 +246,7 @@ new class extends Component {
             'class.categories',
             'class.pics',
             'class.timetable',
-            'attendances'
+            'attendances',
         ]);
 
         // Apply date range based on view
@@ -237,7 +268,7 @@ new class extends Component {
 
         // Apply filters
         if ($this->categoryFilter !== 'all') {
-            $query->whereHas('class.categories', fn($q) => $q->where('class_categories.id', $this->categoryFilter));
+            $query->whereHas('class.categories', fn ($q) => $q->where('class_categories.id', $this->categoryFilter));
         }
 
         if ($this->classFilter !== 'all') {
@@ -245,7 +276,7 @@ new class extends Component {
         }
 
         if ($this->teacherFilter !== 'all') {
-            $query->whereHas('class', fn($q) => $q->where('teacher_id', $this->teacherFilter));
+            $query->whereHas('class', fn ($q) => $q->where('teacher_id', $this->teacherFilter));
         }
 
         // Status filtering
@@ -271,13 +302,13 @@ new class extends Component {
 
         // Apply same filters for statistics
         if ($this->categoryFilter !== 'all') {
-            $baseQuery->whereHas('class.categories', fn($q) => $q->where('class_categories.id', $this->categoryFilter));
+            $baseQuery->whereHas('class.categories', fn ($q) => $q->where('class_categories.id', $this->categoryFilter));
         }
         if ($this->classFilter !== 'all') {
             $baseQuery->where('class_id', $this->classFilter);
         }
         if ($this->teacherFilter !== 'all') {
-            $baseQuery->whereHas('class', fn($q) => $q->where('teacher_id', $this->teacherFilter));
+            $baseQuery->whereHas('class', fn ($q) => $q->where('teacher_id', $this->teacherFilter));
         }
 
         return [
@@ -294,7 +325,8 @@ new class extends Component {
             case 'week':
                 $start = $this->currentDate->copy()->startOfWeek();
                 $end = $this->currentDate->copy()->endOfWeek();
-                return $start->format('M d') . ' - ' . $end->format('M d, Y');
+
+                return $start->format('M d').' - '.$end->format('M d, Y');
             case 'month':
                 return $this->currentDate->format('F Y');
             case 'day':
@@ -402,7 +434,7 @@ new class extends Component {
         $query = ClassModel::query();
 
         if ($this->categoryFilter !== 'all') {
-            $query->whereHas('categories', fn($q) => $q->where('class_categories.id', $this->categoryFilter));
+            $query->whereHas('categories', fn ($q) => $q->where('class_categories.id', $this->categoryFilter));
         }
         if ($this->classFilter !== 'all') {
             $query->where('id', $this->classFilter);
@@ -731,6 +763,86 @@ new class extends Component {
                                 <div class="text-center py-6 text-gray-400 dark:text-zinc-500">
                                     <flux:icon name="users" class="w-8 h-8 mx-auto mb-2 opacity-50" />
                                     <flux:text>No attendance recorded yet</flux:text>
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Upsell --}}
+                        @php $upsell = $this->getUpsellStats($selectedSession); @endphp
+                        <div class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <flux:heading size="sm">Upsell</flux:heading>
+                                @if($upsell['configured'])
+                                    <flux:badge size="sm" color="green">Configured</flux:badge>
+                                @else
+                                    <flux:badge size="sm" color="zinc">Not Configured</flux:badge>
+                                @endif
+                            </div>
+
+                            @if($upsell['configured'])
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                                        <div class="text-2xl font-bold text-gray-900 dark:text-zinc-100">{{ $upsell['visitors'] }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-zinc-400">Visitors</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $upsell['conversions'] }}</div>
+                                        <div class="text-xs text-blue-600 dark:text-blue-400">Conversions</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $upsell['conversion_rate'] }}%</div>
+                                        <div class="text-xs text-purple-600 dark:text-purple-400">Conv. Rate</div>
+                                    </div>
+                                    <div class="text-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">RM {{ number_format($upsell['revenue'], 2) }}</div>
+                                        <div class="text-xs text-green-600 dark:text-green-400">Revenue</div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <flux:text class="font-medium text-sm text-gray-500 dark:text-zinc-400 mb-1">Funnels</flux:text>
+                                        <div class="flex flex-wrap gap-2">
+                                            @foreach($upsell['funnels'] as $funnel)
+                                                <flux:badge size="sm" variant="outline">{{ $funnel->name }}</flux:badge>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <flux:text class="font-medium text-sm text-gray-500 dark:text-zinc-400 mb-1">Commission Rate</flux:text>
+                                        <flux:text class="text-gray-900 dark:text-zinc-100">
+                                            {{ $upsell['commission_rate'] !== null ? number_format($upsell['commission_rate'], 2) . '%' : 'N/A' }}
+                                        </flux:text>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <flux:text class="font-medium text-sm text-gray-500 dark:text-zinc-400 mb-1">Upsell PICs</flux:text>
+                                        <flux:text class="text-gray-900 dark:text-zinc-100">
+                                            {{ $upsell['pics']->isNotEmpty() ? $upsell['pics']->pluck('name')->join(', ') : 'None assigned' }}
+                                        </flux:text>
+                                    </div>
+                                    <div>
+                                        <flux:text class="font-medium text-sm text-gray-500 dark:text-zinc-400 mb-1">Upsell Teachers</flux:text>
+                                        <flux:text class="text-gray-900 dark:text-zinc-100">
+                                            {{ $upsell['teachers']->isNotEmpty() ? $upsell['teachers']->pluck('name')->join(', ') : 'None assigned' }}
+                                        </flux:text>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 flex justify-end">
+                                    <flux:button variant="ghost" size="sm" href="{{ route('admin.upsell-dashboard') }}" wire:navigate>
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="arrow-top-right-on-square" class="w-4 h-4 mr-1" />
+                                            View in Upsell Dashboard
+                                        </div>
+                                    </flux:button>
+                                </div>
+                            @else
+                                <div class="text-center py-6 text-gray-400 dark:text-zinc-500">
+                                    <flux:icon name="megaphone" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <flux:text>No upsell configured for this session</flux:text>
                                 </div>
                             @endif
                         </div>

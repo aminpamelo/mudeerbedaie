@@ -1,22 +1,29 @@
 <?php
 
 use App\Models\ClassModel;
-use Livewire\Volt\Component;
-use Livewire\Attributes\Layout;
+use App\Models\ClassSession;
+use App\Support\TeacherStartBriefing;
 use Carbon\Carbon;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.teacher')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component
+{
     public ClassModel $class;
+
     public Carbon $currentDate;
+
     public bool $showStartConfirmation = false;
+
     public ?string $dateToStart = null;
+
     public ?string $timeToStart = null;
 
     public function mount(ClassModel $class): void
     {
         // Ensure this class belongs to the current teacher
         $teacher = auth()->user()->teacher;
-        if (!$teacher || $class->teacher_id !== $teacher->id) {
+        if (! $teacher || $class->teacher_id !== $teacher->id) {
             abort(403, 'You are not authorized to view this class.');
         }
 
@@ -25,15 +32,15 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'teacher.user',
             'sessions.attendances.student.user',
             'activeStudents.student.user',
-            'timetable'
+            'timetable',
         ]);
 
         $this->currentDate = Carbon::now();
-        
+
         // Set active tab based on URL parameter
         $requestedTab = request()->query('tab', 'overview');
         $validTabs = ['overview', 'sessions', 'students', 'timetable'];
-        
+
         if (in_array($requestedTab, $validTabs)) {
             $this->activeTab = $requestedTab;
         }
@@ -99,7 +106,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         if ($this->total_attendance_records === 0) {
             return 0;
         }
-        
+
         return round(($this->total_present_count / $this->total_attendance_records) * 100, 1);
     }
 
@@ -107,11 +114,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     {
         return $this->class->sessions
             ->sortBy('session_date')
-            ->groupBy(function($session) {
+            ->groupBy(function ($session) {
                 return $session->session_date->format('Y-m');
             })
-            ->map(function($sessions, $key) {
+            ->map(function ($sessions, $key) {
                 [$year, $month] = explode('-', $key);
+
                 return [
                     'year' => $year,
                     'month' => $month,
@@ -124,20 +132,25 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         'no_show' => $sessions->where('status', 'no_show')->count(),
                         'upcoming' => $sessions->where('status', 'scheduled')->count(),
                         'ongoing' => $sessions->where('status', 'ongoing')->count(),
-                    ]
+                    ],
                 ];
             })
             ->toArray();
     }
 
     public $activeTab = 'overview';
-    
+
     // Session management properties
     public $showSessionModal = false;
+
     public $sessionModalState = 'management'; // 'management' or 'completion'
+
     public $showAttendanceViewModal = false;
+
     public $currentSession = null;
+
     public $viewingSession = null;
+
     public $completionBookmark = '';
 
     public function markSessionAsOngoing($sessionId): void
@@ -145,16 +158,16 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $session = \App\Models\ClassSession::find($sessionId);
         if ($session && $session->isScheduled()) {
             $session->markAsOngoing();
-            
+
             // Refresh the class data
             $this->class->refresh();
             $this->class->load([
                 'course',
                 'teacher.user',
                 'sessions.attendances.student.user',
-                'activeStudents.student.user'
+                'activeStudents.student.user',
             ]);
-            
+
             session()->flash('success', 'Session started successfully.');
         }
     }
@@ -187,27 +200,27 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function completeSessionWithBookmark(): void
     {
         $this->validate([
-            'completionBookmark' => 'required|string|min:3|max:500'
+            'completionBookmark' => 'required|string|min:3|max:500',
         ], [
             'completionBookmark.required' => 'Bookmark is required before completing the session.',
             'completionBookmark.min' => 'Bookmark must be at least 3 characters.',
-            'completionBookmark.max' => 'Bookmark cannot exceed 500 characters.'
+            'completionBookmark.max' => 'Bookmark cannot exceed 500 characters.',
         ]);
 
         if ($this->currentSession && ($this->currentSession->isScheduled() || $this->currentSession->isOngoing())) {
             $this->currentSession->markCompleted($this->completionBookmark);
             session()->flash('success', 'Session completed with bookmark.');
-            
+
             // Close session modal
             $this->closeSessionModal();
-            
+
             // Refresh data
             $this->class->refresh();
             $this->class->load([
                 'course',
                 'teacher.user',
                 'sessions.attendances.student.user',
-                'activeStudents.student.user'
+                'activeStudents.student.user',
             ]);
         }
     }
@@ -218,14 +231,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         if ($session && ($session->isScheduled() || $session->isOngoing())) {
             $session->markAsNoShow('Student did not attend');
             session()->flash('success', 'Session marked as no-show.');
-            
+
             // Refresh the class data
             $this->class->refresh();
             $this->class->load([
                 'course',
                 'teacher.user',
                 'sessions.attendances.student.user',
-                'activeStudents.student.user'
+                'activeStudents.student.user',
             ]);
         }
     }
@@ -236,14 +249,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         if ($session && ($session->isScheduled() || $session->isOngoing())) {
             $session->cancel();
             session()->flash('success', 'Session cancelled.');
-            
+
             // Refresh the class data
             $this->class->refresh();
             $this->class->load([
                 'course',
                 'teacher.user',
                 'sessions.attendances.student.user',
-                'activeStudents.student.user'
+                'activeStudents.student.user',
             ]);
         }
     }
@@ -283,8 +296,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function selectSession($sessionId): void
     {
         $session = \App\Models\ClassSession::with(['attendances.student.user'])->find($sessionId);
-        
-        if (!$session) {
+
+        if (! $session) {
             return;
         }
 
@@ -299,25 +312,25 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 
     public function updateStudentAttendance($studentId, $status): void
     {
-        if (!$this->currentSession || !$this->currentSession->isOngoing()) {
+        if (! $this->currentSession || ! $this->currentSession->isOngoing()) {
             return;
         }
 
         $success = $this->currentSession->updateStudentAttendance($studentId, $status);
-        
+
         if ($success) {
             // Refresh the current session data
             $this->currentSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($this->currentSession->id);
-            
+
             // Refresh the class data to update statistics
             $this->class->refresh();
             $this->class->load([
                 'course',
                 'teacher.user',
                 'sessions.attendances.student.user',
-                'activeStudents.student.user'
+                'activeStudents.student.user',
             ]);
-            
+
             session()->flash('success', 'Attendance updated successfully.');
         }
     }
@@ -326,34 +339,34 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 
     public function updateSessionBookmark(): void
     {
-        if (!$this->currentSession || !$this->currentSession->isOngoing()) {
+        if (! $this->currentSession || ! $this->currentSession->isOngoing()) {
             return;
         }
 
         $this->currentSession->updateBookmark($this->bookmarkText);
-        
+
         // Refresh the current session data
         $this->currentSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($this->currentSession->id);
-        
+
         // Refresh the class data
         $this->class->refresh();
         $this->class->load([
             'course',
             'teacher.user',
             'sessions.attendances.student.user',
-            'activeStudents.student.user'
+            'activeStudents.student.user',
         ]);
-        
+
         session()->flash('success', 'Bookmark updated successfully.');
     }
 
     public function setActiveTab($tab): void
     {
         $validTabs = ['overview', 'sessions', 'students', 'timetable'];
-        
+
         if (in_array($tab, $validTabs)) {
             $this->activeTab = $tab;
-            
+
             // Update URL without page reload
             $this->dispatch('update-url', tab: $tab);
         }
@@ -389,14 +402,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $completedSessions = $this->class->sessions()
             ->where('status', 'completed')
             ->get();
-            
+
         if ($completedSessions->isEmpty()) {
             return 0;
         }
-        
+
         $totalMinutes = $completedSessions->sum('duration_minutes');
-        
-        $totalWeeks = $completedSessions->groupBy(function($session) {
+
+        $totalWeeks = $completedSessions->groupBy(function ($session) {
             return $session->session_date->format('Y-W');
         })->count();
 
@@ -412,28 +425,28 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     {
         // Get the class timetable schedule
         $timetable = $this->class->timetable;
-        if (!$timetable || !$timetable->weekly_schedule) {
+        if (! $timetable || ! $timetable->weekly_schedule) {
             return [];
         }
 
         // Get current week dates
         $currentWeek = $this->currentDate->copy()->startOfWeek();
         $weekDays = [];
-        
+
         for ($i = 0; $i < 7; $i++) {
             $date = $currentWeek->copy()->addDays($i);
             $dayName = strtolower($date->format('l'));
-            
+
             $weekDays[$dayName] = [
                 'date' => $date,
                 'day_name' => $date->format('D'),
                 'day_number' => $date->format('j'),
                 'is_today' => $date->isToday(),
                 'scheduled_times' => $timetable->weekly_schedule[$dayName] ?? [],
-                'sessions' => $this->getSessionsForDate($date)
+                'sessions' => $this->getSessionsForDate($date),
             ];
         }
-        
+
         return $weekDays;
     }
 
@@ -465,8 +478,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     {
         $start = $this->currentDate->startOfWeek();
         $end = $this->currentDate->endOfWeek();
-        
-        return $start->format('M d') . ' - ' . $end->format('M d, Y');
+
+        return $start->format('M d').' - '.$end->format('M d, Y');
     }
 
     public function closeStartConfirmation()
@@ -491,32 +504,50 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $this->closeStartConfirmation();
     }
 
+    public function getStartBriefingProperty(): ?array
+    {
+        if (! $this->dateToStart || ! $this->timeToStart) {
+            return null;
+        }
+
+        $this->class->loadMissing(['course', 'pics', 'activeStudents']);
+
+        $when = Carbon::parse($this->dateToStart.' '.$this->timeToStart);
+
+        $session = ClassSession::where('class_id', $this->class->id)
+            ->whereDate('session_date', $when->toDateString())
+            ->whereTime('session_time', $when->format('H:i:s'))
+            ->first();
+
+        return TeacherStartBriefing::build($session, $this->class, $when);
+    }
+
     // Create or start session from timetable and open modal
     public function startSessionFromTimetable($date, $time): void
     {
         $dateObj = \Carbon\Carbon::parse($date);
         $timeObj = \Carbon\Carbon::parse($time);
-        
+
         // Check if session already exists for this date/time
         $existingSession = $this->class->sessions()
             ->whereDate('session_date', $dateObj->toDateString())
             ->whereTime('session_time', $timeObj->format('H:i:s'))
             ->first();
-        
+
         if ($existingSession) {
             // If session exists and is scheduled, start it
             if ($existingSession->isScheduled()) {
                 $existingSession->markAsOngoing();
-                
+
                 // Open the session management modal
                 $this->openSessionModal($existingSession->id);
-                
+
                 session()->flash('success', 'Session started successfully!');
             } elseif ($existingSession->isOngoing()) {
                 // Open the session management modal for ongoing session
                 $this->openSessionModal($existingSession->id);
             } else {
-                session()->flash('warning', 'Session cannot be started (status: ' . $existingSession->status . ')');
+                session()->flash('warning', 'Session cannot be started (status: '.$existingSession->status.')');
             }
         } else {
             // Create new session and start it
@@ -529,16 +560,16 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            
+
             // Auto-create attendance records
             $newSession->createAttendanceRecords();
-            
+
             // Open the session management modal
             $this->openSessionModal($newSession->id);
-            
+
             session()->flash('success', 'New session created and started successfully!');
         }
-        
+
         // Refresh class data
         $this->class->refresh();
         $this->class->load([
@@ -546,14 +577,17 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'teacher.user',
             'sessions.attendances.student.user',
             'activeStudents.student.user',
-            'timetable'
+            'timetable',
         ]);
     }
 
     // Session creation properties
     public $showCreateSessionModal = false;
+
     public $newSessionDate = '';
+
     public $newSessionTime = '09:00';
+
     public $newSessionDuration = 60;
 
     public function openCreateSessionModal(): void
@@ -579,7 +613,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $this->validate([
             'newSessionDate' => 'required|date|after_or_equal:today',
             'newSessionTime' => 'required',
-            'newSessionDuration' => 'required|integer|min:15|max:300'
+            'newSessionDuration' => 'required|integer|min:15|max:300',
         ], [
             'newSessionDate.required' => 'Session date is required.',
             'newSessionDate.date' => 'Please enter a valid date.',
@@ -588,7 +622,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'newSessionDuration.required' => 'Session duration is required.',
             'newSessionDuration.integer' => 'Duration must be a number.',
             'newSessionDuration.min' => 'Duration must be at least 15 minutes.',
-            'newSessionDuration.max' => 'Duration cannot exceed 5 hours.'
+            'newSessionDuration.max' => 'Duration cannot exceed 5 hours.',
         ]);
 
         // Create new session
@@ -610,1863 +644,623 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'teacher.user',
             'sessions.attendances.student.user',
             'activeStudents.student.user',
-            'timetable'
+            'timetable',
         ]);
     }
 }; ?>
 
-<div class="space-y-6">
-    <div class="mb-6 flex items-center justify-between">
-        <div>
-            <flux:heading size="xl">{{ $class->title }}</flux:heading>
-            <flux:text class="mt-2">{{ $class->course->name }} - Class Management</flux:text>
+@php
+    $statusKey = $class->status ?? 'active';
+    $statusBadge = match($statusKey) {
+        'active'    => ['bg' => 'bg-emerald-400/95', 'text' => 'text-emerald-950', 'icon' => 'check',                'label' => 'Active'],
+        'completed' => ['bg' => 'bg-emerald-400/95', 'text' => 'text-emerald-950', 'icon' => 'check',                'label' => 'Completed'],
+        'cancelled' => ['bg' => 'bg-rose-400/95',    'text' => 'text-rose-950',    'icon' => 'x-mark',               'label' => 'Cancelled'],
+        'suspended' => ['bg' => 'bg-amber-400/95',   'text' => 'text-amber-950',   'icon' => 'pause',                'label' => 'Suspended'],
+        'draft'     => ['bg' => 'bg-white/95',       'text' => 'text-violet-700',  'icon' => 'pencil-square',        'label' => 'Draft'],
+        default     => ['bg' => 'bg-white/95',       'text' => 'text-violet-700',  'icon' => 'sparkles',             'label' => ucfirst($statusKey)],
+    };
+
+    $startDate = $class->date_time ?? optional($class->sessions->sortBy('session_date')->first())->session_date;
+@endphp
+
+<div class="teacher-app w-full space-y-6">
+    {{-- ──────────────────────────────────────────────────────────
+         FLASH SUCCESS
+         ────────────────────────────────────────────────────────── --}}
+    @if(session('success'))
+        <div class="rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-200/70 dark:ring-emerald-800/50 px-4 py-3 flex items-center gap-2.5">
+            <div class="shrink-0 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                <flux:icon name="check" class="w-4 h-4" />
+            </div>
+            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-200">{{ session('success') }}</p>
         </div>
-        <div class="flex gap-2">
-            <flux:button variant="ghost" href="{{ route('teacher.classes.index') }}">
-                Back to Classes
-            </flux:button>
+    @endif
+
+    @if(session('warning'))
+        <div class="rounded-2xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-200/70 dark:ring-amber-800/50 px-4 py-3 flex items-center gap-2.5">
+            <div class="shrink-0 w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center">
+                <flux:icon name="exclamation-triangle" class="w-4 h-4" />
+            </div>
+            <p class="text-sm font-medium text-amber-800 dark:text-amber-200">{{ session('warning') }}</p>
+        </div>
+    @endif
+
+    {{-- ──────────────────────────────────────────────────────────
+         GRADIENT HERO HEADER
+         ────────────────────────────────────────────────────────── --}}
+    <div class="teacher-modal-hero relative overflow-hidden rounded-2xl px-6 py-7 sm:px-8 sm:py-8 text-white">
+        <div class="teacher-grain absolute inset-0 pointer-events-none"></div>
+
+        <div class="relative">
+            {{-- Back link --}}
+            <a href="{{ route('teacher.classes.index') }}" wire:navigate class="inline-flex items-center gap-1 text-xs font-semibold text-white/80 hover:text-white mb-3 transition">
+                <flux:icon name="arrow-left" class="w-3.5 h-3.5" />
+                Back to classes
+            </a>
+
+            {{-- Status pill --}}
+            <span class="inline-flex items-center gap-1.5 rounded-full {{ $statusBadge['bg'] }} {{ $statusBadge['text'] }} px-3 py-1 text-xs font-bold ring-1 ring-white/40">
+                <flux:icon name="{{ $statusBadge['icon'] }}" class="w-3 h-3" />
+                {{ $statusBadge['label'] }}
+            </span>
+
+            {{-- Title --}}
+            <h1 class="teacher-display mt-3 text-2xl sm:text-3xl font-bold leading-tight">
+                {{ $class->title }}
+            </h1>
+            <p class="text-white/80 text-sm sm:text-base mt-1">{{ $class->course->title ?? $class->course->name }}</p>
+
+            {{-- Meta chips --}}
+            <div class="mt-4 flex flex-wrap gap-2">
+                @if($class->class_type)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                        <flux:icon name="tag" class="w-3.5 h-3.5" />
+                        {{ ucfirst(str_replace('_', ' ', $class->class_type)) }}
+                    </span>
+                @endif
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                    <flux:icon name="users" class="w-3.5 h-3.5" />
+                    {{ $this->enrolled_students_count }} {{ Str::plural('student', $this->enrolled_students_count) }}
+                </span>
+                @if($class->duration_minutes)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                        <flux:icon name="clock" class="w-3.5 h-3.5" />
+                        {{ $class->duration_minutes }} min
+                    </span>
+                @endif
+                @if($class->location)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                        <flux:icon name="map-pin" class="w-3.5 h-3.5" />
+                        {{ $class->location }}
+                    </span>
+                @endif
+                @if($startDate)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                        <flux:icon name="calendar" class="w-3.5 h-3.5" />
+                        {{ \Carbon\Carbon::parse($startDate)->format('j M Y') }}
+                    </span>
+                @endif
+            </div>
         </div>
     </div>
 
-    <!-- Tab Navigation -->
-    <div class="mb-6 border-b border-gray-200">
-        <nav class="flex space-x-8">
-            <button 
-                wire:click="setActiveTab('overview')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'overview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon name="document-text" class="h-4 w-4" />
-                    Overview
-                </div>
-            </button>
-            
-            <button 
-                wire:click="setActiveTab('sessions')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon name="calendar" class="h-4 w-4" />
-                    Sessions
-                </div>
-            </button>
+    {{-- ──────────────────────────────────────────────────────────
+         STAT STRIP
+         ────────────────────────────────────────────────────────── --}}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <x-teacher.stat-card
+            eyebrow="Students"
+            :value="$this->enrolled_students_count"
+            tone="indigo"
+            icon="users"
+        >
+            <span class="text-slate-500 dark:text-zinc-400">Active enrolments</span>
+        </x-teacher.stat-card>
 
-            <button 
-                wire:click="setActiveTab('students')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'students' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon name="users" class="h-4 w-4" />
-                    Students ({{ $this->enrolled_students_count }})
-                </div>
-            </button>
+        <x-teacher.stat-card
+            eyebrow="Completed"
+            :value="$this->completed_sessions_count"
+            tone="emerald"
+            icon="check-circle"
+        >
+            <span class="text-slate-500 dark:text-zinc-400">of {{ $this->total_sessions_count }} {{ Str::plural('session', $this->total_sessions_count) }}</span>
+        </x-teacher.stat-card>
 
-            <button 
-                wire:click="setActiveTab('timetable')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'timetable' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon name="calendar-days" class="h-4 w-4" />
-                    Timetable
-                </div>
-            </button>
-        </nav>
+        <x-teacher.stat-card
+            eyebrow="Upcoming"
+            :value="$this->upcoming_sessions_count"
+            tone="violet"
+            icon="calendar"
+        >
+            <span class="text-slate-500 dark:text-zinc-400">Scheduled ahead</span>
+        </x-teacher.stat-card>
+
+        <x-teacher.stat-card
+            eyebrow="Attendance"
+            :value="$this->overall_attendance_rate . '%'"
+            tone="amber"
+            icon="chart-bar"
+        >
+            <span class="text-slate-500 dark:text-zinc-400">{{ $this->total_present_count }} / {{ $this->total_attendance_records }} present</span>
+        </x-teacher.stat-card>
     </div>
 
-    <!-- Tab Content -->
+    {{-- ──────────────────────────────────────────────────────────
+         TAB NAVIGATION
+         ────────────────────────────────────────────────────────── --}}
+    <x-teacher.tabs
+        :tabs="[
+            ['key' => 'overview', 'label' => 'Overview', 'icon' => 'home'],
+            ['key' => 'sessions', 'label' => 'Sessions', 'icon' => 'clock', 'badge' => $this->total_sessions_count ?: null],
+            ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'badge' => $this->enrolled_students_count ?: null],
+            ['key' => 'timetable', 'label' => 'Timetable', 'icon' => 'calendar'],
+        ]"
+        :active="$activeTab"
+    />
+
+    {{-- ──────────────────────────────────────────────────────────
+         TAB CONTENT  -  do not modify the @switch / @include calls
+         ────────────────────────────────────────────────────────── --}}
     <div>
-        <!-- Overview Tab -->
-        <div class="{{ $activeTab === 'overview' ? 'block' : 'hidden' }}">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Class Information -->
-                <div class="lg:col-span-2 space-y-6">
-                    <!-- Basic Info -->
-                    <flux:card>
-                        <div class="p-6">
-                            <flux:heading size="lg" class="mb-4">Class Information</flux:heading>
-                            
-                            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Course</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ $class->course->name }}</dd>
-                                </div>
-                                
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Duration</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ $class->formatted_duration }}</dd>
-                                </div>
-                                
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Type</dt>
-                                    <dd class="mt-1">
-                                        <div class="flex items-center gap-2">
-                                            @if($class->isIndividual())
-                                                <flux:icon name="user" class="h-4 w-4 text-blue-500" />
-                                                <span class="text-sm text-gray-900">Individual</span>
-                                            @else
-                                                <flux:icon name="users" class="h-4 w-4 text-green-500" />
-                                                <span class="text-sm text-gray-900">Group</span>
-                                                @if($class->max_capacity)
-                                                    <span class="text-xs text-gray-500">(Max: {{ $class->max_capacity }})</span>
-                                                @endif
-                                            @endif
-                                        </div>
-                                    </dd>
-                                </div>
-                                
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Status</dt>
-                                    <dd class="mt-1">
-                                        @if($class->status === 'active')
-                                            <flux:badge color="green" size="sm">Active</flux:badge>
-                                        @elseif($class->status === 'draft')
-                                            <flux:badge color="gray" size="sm">Draft</flux:badge>
-                                        @elseif($class->status === 'completed')
-                                            <flux:badge color="blue" size="sm">Completed</flux:badge>
-                                        @elseif($class->status === 'suspended')
-                                            <flux:badge color="yellow" size="sm">Suspended</flux:badge>
-                                        @else
-                                            <flux:badge color="red" size="sm">{{ ucfirst($class->status) }}</flux:badge>
-                                        @endif
-                                    </dd>
-                                </div>
+        @switch($activeTab)
+            @case('overview')
+                @include('livewire.teacher.classes-show.tab-overview')
+                @break
 
-                                @if($class->location)
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">Location</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">{{ $class->location }}</dd>
-                                    </div>
-                                @endif
+            @case('sessions')
+                @include('livewire.teacher.classes-show.tab-sessions')
+                @break
 
-                                @if($class->meeting_url)
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500">Meeting URL</dt>
-                                        <dd class="mt-1">
-                                            <a href="{{ $class->meeting_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
-                                                Join Meeting
-                                            </a>
-                                        </dd>
-                                    </div>
-                                @endif
-                                
-                                @if($class->description)
-                                    <div class="sm:col-span-2">
-                                        <dt class="text-sm font-medium text-gray-500">Description</dt>
-                                        <dd class="mt-1 text-sm text-gray-900">{{ $class->description }}</dd>
-                                    </div>
-                                @endif
-                            </dl>
-                        </div>
-                    </flux:card>
-                </div>
+            @case('students')
+                @include('livewire.teacher.classes-show.tab-students')
+                @break
 
-                <!-- Sidebar -->
-                <div class="space-y-6">
-                    <!-- Attendance Summary -->
-                    <flux:card>
-                        <div class="p-6">
-                            <flux:heading size="lg" class="mb-4">Attendance Summary</flux:heading>
-                            
-                            <!-- Session Stats -->
-                            <div class="mb-4 space-y-3">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-600">Total Sessions:</span>
-                                    <span class="font-medium">{{ $this->total_sessions_count }}</span>
-                                </div>
-                                
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-green-600">Completed:</span>
-                                    <span class="font-medium text-green-600">{{ $this->completed_sessions_count }}</span>
-                                </div>
-                                
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-blue-600">Upcoming:</span>
-                                    <span class="font-medium text-blue-600">{{ $this->upcoming_sessions_count }}</span>
-                                </div>
-                            </div>
-
-                            @if($this->total_sessions_count > 0)
-                                <div class="border-t pt-4">
-                                    <div class="text-sm font-medium text-gray-600 mb-3">Overall Attendance</div>
-                                    
-                                    <div class="space-y-3">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-gray-600">Total Records:</span>
-                                            <span class="font-medium">{{ $this->total_attendance_records }}</span>
-                                        </div>
-                                        
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-green-600">Present:</span>
-                                            <span class="font-medium text-green-600">{{ $this->total_present_count }}</span>
-                                        </div>
-                                        
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-red-600">Absent:</span>
-                                            <span class="font-medium text-red-600">{{ $this->total_absent_count }}</span>
-                                        </div>
-                                        
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-yellow-600">Late:</span>
-                                            <span class="font-medium text-yellow-600">{{ $this->total_late_count }}</span>
-                                        </div>
-                                    </div>
-
-                                    @if($this->total_attendance_records > 0)
-                                        <div class="mt-3 pt-3 border-t">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm text-gray-600">Attendance Rate:</span>
-                                                <span class="font-medium">{{ $this->overall_attendance_rate }}%</span>
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    </flux:card>
-
-                    <!-- Quick Actions -->
-                    <flux:card>
-                        <div class="p-6">
-                            <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
-                                
-                                <div class="space-y-3">
-                                    @if($this->upcoming_sessions_count > 0)
-                                        <div>
-                                            <div class="text-xs font-medium text-gray-500 mb-2">Next Session</div>
-                                            @php
-                                                $nextSession = $class->sessions->where('status', 'scheduled')->where('session_date', '>', now()->toDateString())->sortBy('session_date')->first();
-                                            @endphp
-                                            @if($nextSession)
-                                                <div class="text-sm text-gray-700  mb-2">
-                                                    {{ $nextSession->formatted_date_time }}
-                                                </div>
-                                                <flux:button 
-                                                    wire:click="markSessionAsOngoing({{ $nextSession->id }})"
-                                                    variant="primary"
-                                                    size="sm"
-                                                    class="w-full"
-                                                    icon="play"
-                                                >
-                                                    Start Session
-                                                </flux:button>
-                                            @endif
-                                        </div>
-                                    @endif
-
-                                    @php
-                                        $ongoingSession = $class->sessions->where('status', 'ongoing')->first();
-                                    @endphp
-                                    @if($ongoingSession)
-                                        <div class="pt-2 border-t">
-                                            <div class="text-xs font-medium text-gray-500 mb-2">Current Session</div>
-                                            <div class="text-sm text-gray-700  mb-2">
-                                                {{ $ongoingSession->formatted_date_time }}
-                                            </div>
-                                            
-                                            <div 
-                                                x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')" 
-                                                x-init="startTimer()"
-                                                class="flex items-center gap-2 mb-3 p-2 bg-yellow-50 /20 rounded border border-yellow-200"
-                                            >
-                                                <div class="flex items-center gap-2">
-                                                    <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                    <span class="text-sm font-medium text-yellow-800">Running:</span>
-                                                    <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
-                                                </div>
-                                            </div>
-                                            
-                                            @if($ongoingSession->hasBookmark())
-                                                <div class="mb-3 p-2 bg-amber-50 /20 rounded border border-amber-200">
-                                                    <div class="flex items-center gap-2 mb-1">
-                                                        <flux:icon name="bookmark" class="h-3 w-3 text-amber-600" />
-                                                        <span class="text-xs font-medium text-amber-800">Current Progress:</span>
-                                                    </div>
-                                                    <div class="text-sm text-amber-900  font-medium">
-                                                        {{ $ongoingSession->bookmark }}
-                                                    </div>
-                                                </div>
-                                            @endif
-                                            
-                                            <div class="flex gap-2">
-                                                <flux:button 
-                                                    wire:click="openSessionModal({{ $ongoingSession->id }})"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="flex-1"
-                                                    icon="users"
-                                                >
-                                                    Manage
-                                                </flux:button>
-                                                <flux:button 
-                                                    wire:click="switchToCompletionState()"
-                                                    variant="primary"
-                                                    size="sm"
-                                                    class="flex-1"
-                                                    icon="check"
-                                                >
-                                                    Complete
-                                                </flux:button>
-                                            </div>
-                                        </div>
-                                    @endif
-                                    
-                                    @if($this->upcoming_sessions_count === 0 && !$ongoingSession)
-                                        <div class="text-center py-4">
-                                            <flux:icon name="plus" class="mx-auto h-6 w-6 text-gray-400 mb-2" />
-                                            <div class="text-sm text-gray-500 mb-3">No sessions scheduled</div>
-                                            <flux:button 
-                                                wire:click="openCreateSessionModal"
-                                                variant="primary"
-                                                size="sm"
-                                                icon="plus"
-                                                class="w-full"
-                                            >
-                                                Create New Session
-                                            </flux:button>
-                                        </div>
-                                    @endif
-                                </div>
-                        </div>
-                    </flux:card>
-                </div>
-            </div>
-
-            <!-- Sessions Management - Full Width -->
-            @if($this->total_sessions_count > 0)
-                <flux:card>
-                    <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
-                            <flux:heading size="lg">Sessions</flux:heading>
-                        </div>
-                        
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Date & Time</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Duration</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Bookmark</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white">
-                                    @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
-                                    @if($hasAnySessions)
-                                        @foreach($this->sessions_by_month as $monthData)
-                                            <!-- Month Header Row -->
-                                            <tr class="bg-gray-50  border-t-2 border-gray-300">
-                                                <td colspan="6" class="px-6 py-3">
-                                                    <div class="flex items-center justify-between">
-                                                        <div class="flex items-center gap-3">
-                                                            <flux:icon name="calendar" class="h-5 w-5 text-gray-500" />
-                                                            <span class="font-semibold text-gray-700">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
-                                                            <flux:badge color="gray" size="sm">{{ $monthData['stats']['total'] }} sessions</flux:badge>
-                                                        </div>
-                                                        <div class="flex gap-3 text-sm text-gray-500">
-                                                            @if($monthData['stats']['completed'] > 0)
-                                                                <span class="text-green-600">✓ {{ $monthData['stats']['completed'] }} completed</span>
-                                                            @endif
-                                                            @if($monthData['stats']['upcoming'] > 0)
-                                                                <span class="text-blue-600">📅 {{ $monthData['stats']['upcoming'] }} upcoming</span>
-                                                            @endif
-                                                            @if($monthData['stats']['ongoing'] > 0)
-                                                                <span class="text-yellow-600">▶️ {{ $monthData['stats']['ongoing'] }} running</span>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            
-                                            <!-- Sessions for this month -->
-                                            @foreach($monthData['sessions'] as $session)
-                                                <tr class="divide-y divide-gray-200  hover:bg-gray-50 :bg-gray-800/50">
-                                                    <td class="px-6 py-4 whitespace-nowrap">
-                                                        <div class="text-sm font-medium text-gray-900">
-                                                            {{ $session->formatted_date_time }}
-                                                        </div>
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {{ $session->formatted_duration }}
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap">
-                                                        @if($session->isOngoing())
-                                                            <div 
-                                                                x-data="sessionTimer('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}')" 
-                                                                x-init="startTimer()"
-                                                                class="flex items-center gap-2"
-                                                            >
-                                                                <div class="flex items-center gap-1">
-                                                                    <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                                    <span class="text-sm font-medium text-yellow-800">Running</span>
-                                                                </div>
-                                                                <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
-                                                            </div>
-                                                        @else
-                                                            @if($session->status === 'completed')
-                                                                <flux:badge color="green" size="sm">Completed</flux:badge>
-                                                            @elseif($session->status === 'scheduled')
-                                                                <flux:badge color="blue" size="sm">Scheduled</flux:badge>
-                                                            @elseif($session->status === 'cancelled')
-                                                                <flux:badge color="red" size="sm">Cancelled</flux:badge>
-                                                            @elseif($session->status === 'no_show')
-                                                                <flux:badge color="orange" size="sm">No Show</flux:badge>
-                                                            @else
-                                                                <flux:badge color="gray" size="sm">{{ ucfirst($session->status) }}</flux:badge>
-                                                            @endif
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        @if($session->hasBookmark())
-                                                            <div class="flex items-center gap-2 group" title="{{ $session->bookmark }}">
-                                                                <flux:icon name="bookmark" class="h-4 w-4 text-amber-500" />
-                                                                <span class="text-gray-900">{{ $session->formatted_bookmark }}</span>
-                                                            </div>
-                                                        @else
-                                                            <span class="text-gray-400">—</span>
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        @php
-                                                            $presentCount = $session->attendances->where('status', 'present')->count();
-                                                            $totalCount = $session->attendances->count();
-                                                            $attendanceRate = $totalCount > 0 ? round(($presentCount / $totalCount) * 100) : 0;
-                                                        @endphp
-                                                        
-                                                        @if($totalCount == 0)
-                                                            <span class="text-gray-400">—</span>
-                                                        @elseif($totalCount == 1)
-                                                            @if($presentCount == 1)
-                                                                <span class="text-green-600 text-lg">✓</span>
-                                                            @else
-                                                                <span class="text-red-600 text-lg">✗</span>
-                                                            @endif
-                                                        @else
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="text-sm font-semibold {{ $attendanceRate >= 80 ? 'text-green-600' : ($attendanceRate >= 60 ? 'text-amber-600' : 'text-red-600') }}">
-                                                                    {{ $presentCount }}
-                                                                </span>
-                                                                <div class="w-12 h-1.5 bg-gray-200 rounded-full">
-                                                                    <div class="h-full rounded-full {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-amber-500' : 'bg-red-500') }}" 
-                                                                         style="width: {{ $attendanceRate }}%"></div>
-                                                                </div>
-                                                                <span class="text-xs text-gray-500">/ {{ $totalCount }}</span>
-                                                            </div>
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                        <div class="flex items-center justify-end gap-2">
-                                                            @if($session->isScheduled())
-                                                                <flux:button 
-                                                                    wire:click="markSessionAsOngoing({{ $session->id }})"
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    icon="play"
-                                                                    class="text-yellow-600 hover:text-yellow-800"
-                                                                >
-                                                                    Start
-                                                                </flux:button>
-                                                                
-                                                            @elseif($session->isOngoing())
-                                                                <flux:button 
-                                                                    wire:click="openSessionModal({{ $session->id }})"
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    icon="users"
-                                                                    class="text-blue-600 hover:text-blue-800"
-                                                                >
-                                                                    Manage
-                                                                </flux:button>
-                                                                
-                                                                <flux:button 
-                                                                    wire:click="openCompletionModal({{ $session->id }})"
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    icon="check"
-                                                                    class="text-green-600 hover:text-green-800"
-                                                                >
-                                                                    Complete
-                                                                </flux:button>
-                                                                
-                                                            @elseif($session->isCompleted())
-                                                                <flux:button 
-                                                                    wire:click="openAttendanceViewModal({{ $session->id }})"
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    icon="eye"
-                                                                    class="text-blue-600 hover:text-blue-800"
-                                                                >
-                                                                    View
-                                                                </flux:button>
-                                                            @endif
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        @endforeach
-                                    @else
-                                        <tr>
-                                            <td colspan="6" class="px-6 py-12 text-center">
-                                                <div class="text-gray-500">
-                                                    <flux:icon name="calendar" class="mx-auto h-8 w-8 text-gray-400 mb-4" />
-                                                    <p>No sessions scheduled yet</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endif
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </flux:card>
-            @else
-                <!-- No Sessions - Show message -->
-                <flux:card>
-                    <div class="p-6 text-center">
-                        <flux:icon name="calendar" class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <flux:heading size="lg" class="mb-2">No Sessions Scheduled</flux:heading>
-                        <flux:text class="mb-4">This class doesn't have any sessions yet. Create your first session to get started.</flux:text>
-                        <flux:button 
-                            wire:click="openCreateSessionModal"
-                            variant="primary"
-                            icon="plus"
-                        >
-                            Create New Session
-                        </flux:button>
-                    </div>
-                </flux:card>
-            @endif
-
-            <!-- Enrolled Students -->
-            @if($class->activeStudents->count() > 0)
-                <flux:card>
-                    <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
-                            <div>
-                                <flux:heading size="lg">Enrolled Students</flux:heading>
-                                <flux:text size="sm" class="text-gray-500">
-                                    {{ $class->activeStudents->count() }} student(s) enrolled
-                                    @if($class->max_capacity)
-                                        / {{ $class->max_capacity }} max capacity
-                                    @endif
-                                </flux:text>
-                            </div>
-                        </div>
-                        
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Student</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Enrolled</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Sessions Attended</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance Rate</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white  divide-y divide-gray-200">
-                                    @foreach($class->activeStudents as $classStudent)
-                                        @php
-                                            $student = $classStudent->student;
-                                            $completedSessions = $this->completed_sessions_count;
-                                            
-                                            // Calculate attendance for this student across all sessions
-                                            $studentAttendances = collect();
-                                            foreach($class->sessions as $session) {
-                                                $attendance = $session->attendances->where('student_id', $student->id)->first();
-                                                if($attendance) {
-                                                    $studentAttendances->push($attendance);
-                                                }
-                                            }
-                                            
-                                            $presentCount = $studentAttendances->where('status', 'present')->count();
-                                            $totalRecords = $studentAttendances->count();
-                                            $attendanceRate = $totalRecords > 0 ? round(($presentCount / $totalRecords) * 100, 1) : 0;
-                                        @endphp
-                                        <tr>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="flex items-center gap-3">
-                                                    <flux:avatar size="sm" :name="$student->fullName" />
-                                                    <div>
-                                                        <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $classStudent->enrolled_at->format('M d, Y') }}
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-medium text-green-600">{{ $presentCount }}</span>
-                                                    <span>/</span>
-                                                    <span>{{ $totalRecords }}</span>
-                                                </div>
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                @if($totalRecords > 0)
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="font-medium {{ $attendanceRate >= 80 ? 'text-green-600' : ($attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
-                                                            {{ $attendanceRate }}%
-                                                        </span>
-                                                        <div class="w-12 bg-gray-200 rounded-full h-2">
-                                                            <div class="h-2 rounded-full {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-yellow-500' : 'bg-red-500') }}" 
-                                                                 style="width: {{ $attendanceRate }}%"></div>
-                                                        </div>
-                                                    </div>
-                                                @else
-                                                    <span class="text-gray-400">No records</span>
-                                                @endif
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge color="green" size="sm">
-                                                    Active
-                                                </flux:badge>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </flux:card>
-            @else
-                <!-- No Students Enrolled -->
-                <flux:card>
-                    <div class="p-6 text-center">
-                        <flux:icon name="users" class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <flux:heading size="lg" class="mb-2">No Students Enrolled</flux:heading>
-                        <flux:text class="mb-4">This class doesn't have any students enrolled yet.</flux:text>
-                    </div>
-                </flux:card>
-            @endif
-        </div>
-        <!-- End Overview Tab -->
-
-        <!-- Sessions Tab -->
-        <div class="{{ $activeTab === 'sessions' ? 'block' : 'hidden' }}">
-            <!-- Session Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-blue-600">{{ $this->total_sessions_count }}</div>
-                            <div class="text-sm text-gray-600">Total Sessions</div>
-                        </div>
-                        <flux:icon name="calendar" class="h-8 w-8 text-blue-500" />
-                    </div>
-                </flux:card>
-                
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-green-600">{{ $this->completed_sessions_count }}</div>
-                            <div class="text-sm text-gray-600">Completed</div>
-                        </div>
-                        <flux:icon name="check-circle" class="h-8 w-8 text-green-500" />
-                    </div>
-                </flux:card>
-                
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-blue-600">{{ $this->upcoming_sessions_count }}</div>
-                            <div class="text-sm text-gray-600">Upcoming</div>
-                        </div>
-                        <flux:icon name="clock" class="h-8 w-8 text-blue-500" />
-                    </div>
-                </flux:card>
-                
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-yellow-600">
-                                {{ $class->sessions->where('status', 'ongoing')->count() }}
-                            </div>
-                            <div class="text-sm text-gray-600">Active Now</div>
-                        </div>
-                        <flux:icon name="play" class="h-8 w-8 text-yellow-500" />
-                    </div>
-                </flux:card>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <!-- Quick Start Session -->
-                @if($this->upcoming_sessions_count > 0)
-                    <flux:card class="p-6">
-                        <div class="flex items-center gap-3 mb-4">
-                            <flux:icon name="play" class="h-6 w-6 text-green-600" />
-                            <flux:heading size="lg">Quick Start</flux:heading>
-                        </div>
-                        @php
-                            $nextSession = $class->sessions->where('status', 'scheduled')->where('session_date', '>', now()->toDateString())->sortBy('session_date')->first();
-                        @endphp
-                        @if($nextSession)
-                            <div class="space-y-3">
-                                <div>
-                                    <div class="text-sm text-gray-500">Next Session</div>
-                                    <div class="font-medium">{{ $nextSession->formatted_date_time }}</div>
-                                </div>
-                                <flux:button 
-                                    wire:click="markSessionAsOngoing({{ $nextSession->id }})"
-                                    variant="primary"
-                                    class="w-full"
-                                    icon="play"
-                                >
-                                    Start Session Now
-                                </flux:button>
-                            </div>
-                        @endif
-                    </flux:card>
-                @else
-                    <!-- No Upcoming Sessions - Show Create Session -->
-                    <flux:card class="p-6">
-                        <div class="text-center">
-                            <flux:icon name="plus" class="mx-auto h-8 w-8 text-gray-400 mb-3" />
-                            <flux:heading size="lg" class="mb-2">No Upcoming Sessions</flux:heading>
-                            <flux:text class="text-gray-500 mb-4">Create a new session to get started</flux:text>
-                            <flux:button 
-                                wire:click="openCreateSessionModal"
-                                variant="primary"
-                                icon="plus"
-                                class="w-full"
-                            >
-                                Create New Session
-                            </flux:button>
-                        </div>
-                    </flux:card>
-                @endif
-
-                <!-- Active Session Management -->
-                @php $ongoingSession = $class->sessions->where('status', 'ongoing')->first(); @endphp
-                @if($ongoingSession)
-                    <flux:card class="p-6 border-l-4 border-yellow-500">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                            <flux:heading size="lg">Session Running</flux:heading>
-                        </div>
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <div class="text-sm text-gray-500">Started</div>
-                                <div class="font-medium">{{ $ongoingSession->formatted_date_time }}</div>
-                            </div>
-                            
-                            <div 
-                                x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')"
-                                x-init="startTimer()"
-                                class="p-3 bg-yellow-50 /20 rounded border border-yellow-200"
-                            >
-                                <div class="text-sm text-yellow-800  mb-1">Duration</div>
-                                <div class="text-xl font-mono font-bold text-yellow-900" x-text="formattedTime"></div>
-                            </div>
-                            
-                            @if($ongoingSession->hasBookmark())
-                                <div class="p-3 bg-blue-50 /20 rounded border border-blue-200">
-                                    <div class="text-sm text-blue-800  mb-1">Current Progress</div>
-                                    <div class="text-sm text-blue-900">{{ $ongoingSession->formatted_bookmark }}</div>
-                                </div>
-                            @endif
-                            
-                            <div class="flex gap-2">
-                                <flux:button 
-                                    wire:click="openSessionModal({{ $ongoingSession->id }})"
-                                    variant="outline"
-                                    class="flex-1"
-                                    icon="users"
-                                >
-                                    Manage Attendance
-                                </flux:button>
-                                <flux:button 
-                                    wire:click="openCompletionModal({{ $ongoingSession->id }})"
-                                    variant="primary"
-                                    class="flex-1"
-                                    icon="check"
-                                >
-                                    Complete Session
-                                </flux:button>
-                            </div>
-                        </div>
-                    </flux:card>
-                @endif
-            </div>
-
-            <!-- Sessions Calendar/List View -->
-            @if($this->total_sessions_count > 0)
-                <flux:card>
-                    <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
-                            <div>
-                                <flux:heading size="lg">Session Calendar</flux:heading>
-                                <div class="text-sm text-gray-500">
-                                    {{ $this->total_sessions_count }} total sessions
-                                </div>
-                            </div>
-                            <flux:button 
-                                wire:click="openCreateSessionModal"
-                                variant="primary"
-                                icon="plus"
-                            >
-                                Create New Session
-                            </flux:button>
-                        </div>
-                        
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Date & Time</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Duration</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Progress</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white">
-                                    @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
-                                    @if($hasAnySessions)
-                                        @foreach($this->sessions_by_month as $monthData)
-                                            <!-- Month Header Row -->
-                                            <tr class="bg-gray-50  border-t-2 border-gray-300">
-                                                <td colspan="6" class="px-6 py-4">
-                                                    <div class="flex items-center justify-between">
-                                                        <div class="flex items-center gap-3">
-                                                            <flux:icon name="calendar" class="h-5 w-5 text-gray-500" />
-                                                            <span class="font-semibold text-gray-700">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
-                                                            <flux:badge color="gray" size="sm">{{ $monthData['stats']['total'] }} sessions</flux:badge>
-                                                        </div>
-                                                        <div class="flex gap-2 text-sm">
-                                                            @if($monthData['stats']['completed'] > 0)
-                                                                <flux:badge color="green" size="sm">{{ $monthData['stats']['completed'] }} completed</flux:badge>
-                                                            @endif
-                                                            @if($monthData['stats']['upcoming'] > 0)
-                                                                <flux:badge color="blue" size="sm">{{ $monthData['stats']['upcoming'] }} upcoming</flux:badge>
-                                                            @endif
-                                                            @if($monthData['stats']['ongoing'] > 0)
-                                                                <flux:badge color="yellow" size="sm">{{ $monthData['stats']['ongoing'] }} running</flux:badge>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            
-                                            <!-- Sessions for this month -->
-                                            @foreach($monthData['sessions'] as $session)
-                                                <tr class="divide-y divide-gray-200  hover:bg-gray-50 :bg-gray-800/50 {{ $session->isOngoing() ? 'bg-yellow-50 /10' : '' }}">
-                                                    <td class="px-6 py-4 whitespace-nowrap">
-                                                        <div class="text-sm font-medium text-gray-900">
-                                                            {{ $session->formatted_date_time }}
-                                                        </div>
-                                                        @if($session->isOngoing())
-                                                            <div class="text-xs text-yellow-700  mt-1 flex items-center gap-1">
-                                                                <div class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                                Active session
-                                                            </div>
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {{ $session->formatted_duration }}
-                                                        @if($session->isOngoing())
-                                                            <div 
-                                                                x-data="sessionTimer('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}')"
-                                                                x-init="startTimer()"
-                                                                class="text-xs text-yellow-700  font-mono mt-1"
-                                                            >
-                                                                <span x-text="formattedTime"></span>
-                                                            </div>
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap">
-                                                        @if($session->isOngoing())
-                                                            <div class="flex items-center gap-2">
-                                                                <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                                <span class="text-sm font-medium text-yellow-800">Running</span>
-                                                            </div>
-                                                        @else
-                                                            @if($session->status === 'completed')
-                                                                <flux:badge color="green" size="sm">Completed</flux:badge>
-                                                            @elseif($session->status === 'scheduled')
-                                                                <flux:badge color="blue" size="sm">Scheduled</flux:badge>
-                                                            @elseif($session->status === 'cancelled')
-                                                                <flux:badge color="red" size="sm">Cancelled</flux:badge>
-                                                            @elseif($session->status === 'no_show')
-                                                                <flux:badge color="orange" size="sm">No Show</flux:badge>
-                                                            @else
-                                                                <flux:badge color="gray" size="sm">{{ ucfirst($session->status) }}</flux:badge>
-                                                            @endif
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        @if($session->hasBookmark())
-                                                            <div class="flex items-center gap-2 group max-w-xs" title="{{ $session->bookmark }}">
-                                                                <flux:icon name="bookmark" class="h-4 w-4 text-amber-500 flex-shrink-0" />
-                                                                <span class="text-gray-900  truncate">{{ $session->formatted_bookmark }}</span>
-                                                            </div>
-                                                        @else
-                                                            <span class="text-gray-400">No progress notes</span>
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        @php
-                                                            $presentCount = $session->attendances->where('status', 'present')->count();
-                                                            $totalCount = $session->attendances->count();
-                                                            $attendanceRate = $totalCount > 0 ? round(($presentCount / $totalCount) * 100) : 0;
-                                                        @endphp
-                                                        
-                                                        @if($totalCount == 0)
-                                                            <span class="text-gray-400">Not recorded</span>
-                                                        @elseif($totalCount == 1)
-                                                            @if($presentCount == 1)
-                                                                <div class="flex items-center gap-1 text-green-600">
-                                                                    <flux:icon name="check" class="h-4 w-4" />
-                                                                    <span class="text-sm font-medium">Present</span>
-                                                                </div>
-                                                            @else
-                                                                <div class="flex items-center gap-1 text-red-600">
-                                                                    <flux:icon name="x-mark" class="h-4 w-4" />
-                                                                    <span class="text-sm font-medium">Absent</span>
-                                                                </div>
-                                                            @endif
-                                                        @else
-                                                            <div class="flex items-center gap-3">
-                                                                <div class="flex items-center gap-1">
-                                                                    <span class="text-sm font-semibold {{ $attendanceRate >= 80 ? 'text-green-600' : ($attendanceRate >= 60 ? 'text-amber-600' : 'text-red-600') }}">
-                                                                        {{ $presentCount }}/{{ $totalCount }}
-                                                                    </span>
-                                                                </div>
-                                                                <div class="flex-1 w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                                    <div class="h-full rounded-full {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-amber-500' : 'bg-red-500') }}" 
-                                                                         style="width: {{ $attendanceRate }}%"></div>
-                                                                </div>
-                                                                <span class="text-xs text-gray-400">{{ $attendanceRate }}%</span>
-                                                            </div>
-                                                        @endif
-                                                    </td>
-                                                    
-                                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                                        <div class="flex items-center justify-end gap-2">
-                                                            @if($session->isScheduled())
-                                                                <flux:button 
-                                                                    wire:click="markSessionAsOngoing({{ $session->id }})"
-                                                                    variant="primary" 
-                                                                    size="sm" 
-                                                                    icon="play"
-                                                                >
-                                                                    Start
-                                                                </flux:button>
-                                                                
-                                                            @elseif($session->isOngoing())
-                                                                <flux:button 
-                                                                    wire:click="openSessionModal({{ $session->id }})"
-                                                                    variant="outline" 
-                                                                    size="sm" 
-                                                                    icon="users"
-                                                                >
-                                                                    Manage
-                                                                </flux:button>
-                                                                
-                                                                <flux:button 
-                                                                    wire:click="openCompletionModal({{ $session->id }})"
-                                                                    variant="primary" 
-                                                                    size="sm" 
-                                                                    icon="check"
-                                                                >
-                                                                    Complete
-                                                                </flux:button>
-                                                                
-                                                            @elseif($session->isCompleted())
-                                                                <flux:button 
-                                                                    wire:click="openAttendanceViewModal({{ $session->id }})"
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    icon="eye"
-                                                                >
-                                                                    View Details
-                                                                </flux:button>
-                                                            @endif
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        @endforeach
-                                    @else
-                                        <tr>
-                                            <td colspan="6" class="px-6 py-12 text-center">
-                                                <div class="text-gray-500">
-                                                    <flux:icon name="calendar" class="mx-auto h-8 w-8 text-gray-400 mb-4" />
-                                                    <p class="text-lg font-medium mb-2">No sessions scheduled yet</p>
-                                                    <p class="text-sm">Contact your administrator to schedule sessions for this class</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endif
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </flux:card>
-            @else
-                <!-- No Sessions - Show message -->
-                <flux:card>
-                    <div class="p-12 text-center">
-                        <flux:icon name="calendar" class="mx-auto h-16 w-16 text-gray-400 mb-6" />
-                        <flux:heading size="xl" class="mb-4">No Sessions Scheduled</flux:heading>
-                        <flux:text class="text-lg mb-6 text-gray-600">This class doesn't have any sessions yet. Contact your administrator to schedule sessions.</flux:text>
-                        <div class="max-w-md mx-auto p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
-                            <flux:text size="sm" class="text-blue-800">
-                                💡 <strong>Tip:</strong> Sessions are where you'll conduct your classes, track attendance, and monitor progress.
-                            </flux:text>
-                        </div>
-                    </div>
-                </flux:card>
-            @endif
-        </div>
-        <!-- End Sessions Tab -->
-
-        <!-- Students Tab -->
-        <div class="{{ $activeTab === 'students' ? 'block' : 'hidden' }}">
-            <!-- Student Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-blue-600">{{ $this->enrolled_students_count }}</div>
-                            <div class="text-sm text-gray-600">Total Students</div>
-                        </div>
-                        <flux:icon name="users" class="h-8 w-8 text-blue-500" />
-                    </div>
-                </flux:card>
-                
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-green-600">{{ $this->overall_attendance_rate }}%</div>
-                            <div class="text-sm text-gray-600">Avg. Attendance</div>
-                        </div>
-                        <flux:icon name="chart-bar" class="h-8 w-8 text-green-500" />
-                    </div>
-                </flux:card>
-                
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-emerald-600">{{ $this->total_present_count }}</div>
-                            <div class="text-sm text-gray-600">Total Present</div>
-                        </div>
-                        <flux:icon name="check-circle" class="h-8 w-8 text-emerald-500" />
-                    </div>
-                </flux:card>
-                
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-2xl font-bold text-red-600">{{ $this->total_absent_count }}</div>
-                            <div class="text-sm text-gray-600">Total Absent</div>
-                        </div>
-                        <flux:icon name="x-circle" class="h-8 w-8 text-red-500" />
-                    </div>
-                </flux:card>
-            </div>
-
-            @if($class->activeStudents->count() > 0)
-                <!-- Class Capacity Info -->
-                @if($class->max_capacity)
-                    <div class="mb-6">
-                        <flux:card class="p-4">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <flux:icon name="users" class="h-5 w-5 text-blue-600" />
-                                    <div>
-                                        <div class="font-medium text-gray-900">Class Capacity</div>
-                                        <div class="text-sm text-gray-500">{{ $this->enrolled_students_count }} of {{ $class->max_capacity }} students enrolled</div>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div class="h-full bg-blue-500 rounded-full" style="width: {{ ($this->enrolled_students_count / $class->max_capacity) * 100 }}%"></div>
-                                    </div>
-                                    <span class="text-sm font-medium text-gray-700">{{ round(($this->enrolled_students_count / $class->max_capacity) * 100, 1) }}%</span>
-                                </div>
-                            </div>
-                        </flux:card>
-                    </div>
-                @endif
-
-                <!-- Students List -->
-                <flux:card>
-                    <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
-                            <div>
-                                <flux:heading size="lg">Student Performance</flux:heading>
-                                <flux:text size="sm" class="text-gray-500">
-                                    Individual attendance tracking and performance overview
-                                </flux:text>
-                            </div>
-                            <div class="text-sm text-gray-500">
-                                {{ $class->activeStudents->count() }} student(s) enrolled
-                            </div>
-                        </div>
-                        
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Student</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Enrollment Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Sessions Attended</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance Rate</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Performance</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white  divide-y divide-gray-200">
-                                    @foreach($class->activeStudents->sortBy('student.user.name') as $classStudent)
-                                        @php
-                                            $student = $classStudent->student;
-                                            $completedSessions = $this->completed_sessions_count;
-                                            
-                                            // Calculate detailed attendance for this student across all sessions
-                                            $studentAttendances = collect();
-                                            foreach($class->sessions as $session) {
-                                                $attendance = $session->attendances->where('student_id', $student->id)->first();
-                                                if($attendance) {
-                                                    $studentAttendances->push($attendance);
-                                                }
-                                            }
-                                            
-                                            $presentCount = $studentAttendances->where('status', 'present')->count();
-                                            $lateCount = $studentAttendances->where('status', 'late')->count();
-                                            $absentCount = $studentAttendances->where('status', 'absent')->count();
-                                            $excusedCount = $studentAttendances->where('status', 'excused')->count();
-                                            $totalRecords = $studentAttendances->count();
-                                            $attendanceRate = $totalRecords > 0 ? round(($presentCount / $totalRecords) * 100, 1) : 0;
-                                            
-                                            // Performance indicators
-                                            $performanceColor = $attendanceRate >= 90 ? 'text-green-600' : ($attendanceRate >= 80 ? 'text-yellow-600' : ($attendanceRate >= 70 ? 'text-orange-600' : 'text-red-600'));
-                                            $performanceText = $attendanceRate >= 90 ? 'Excellent' : ($attendanceRate >= 80 ? 'Good' : ($attendanceRate >= 70 ? 'Needs Improvement' : 'Poor'));
-                                        @endphp
-                                        <tr class="hover:bg-gray-50 :bg-gray-800/50">
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="flex items-center gap-3">
-                                                    <flux:avatar size="md" :name="$student->fullName" />
-                                                    <div>
-                                                        <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500">ID: {{ $student->student_id }}</div>
-                                                        @if($student->user->email)
-                                                            <div class="text-xs text-gray-400">{{ $student->user->email }}</div>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <div class="flex items-center gap-2">
-                                                    <flux:icon name="calendar-days" class="h-4 w-4 text-gray-400" />
-                                                    <div>
-                                                        <div class="font-medium">{{ $classStudent->enrolled_at->format('M d, Y') }}</div>
-                                                        <div class="text-xs text-gray-400">
-                                                            {{ $classStudent->enrolled_at->diffForHumans() }}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                                <div class="space-y-2">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="font-medium text-green-600">{{ $presentCount }}</span>
-                                                        <span class="text-gray-400">/</span>
-                                                        <span class="text-gray-600">{{ $totalRecords }}</span>
-                                                        <span class="text-gray-400">sessions</span>
-                                                    </div>
-                                                    
-                                                    @if($totalRecords > 0)
-                                                        <div class="flex gap-2 text-xs">
-                                                            @if($lateCount > 0)
-                                                                <span class="text-yellow-600">{{ $lateCount }} late</span>
-                                                            @endif
-                                                            @if($absentCount > 0)
-                                                                <span class="text-red-600">{{ $absentCount }} absent</span>
-                                                            @endif
-                                                            @if($excusedCount > 0)
-                                                                <span class="text-blue-600">{{ $excusedCount }} excused</span>
-                                                            @endif
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                                @if($totalRecords > 0)
-                                                    <div class="flex items-center gap-3">
-                                                        <div class="flex items-center gap-2">
-                                                            <span class="font-bold {{ $attendanceRate >= 80 ? 'text-green-600' : ($attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
-                                                                {{ $attendanceRate }}%
-                                                            </span>
-                                                        </div>
-                                                        <div class="flex-1">
-                                                            <div class="w-20 bg-gray-200 rounded-full h-2.5">
-                                                                <div class="h-2.5 rounded-full {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-yellow-500' : 'bg-red-500') }}" 
-                                                                     style="width: {{ $attendanceRate }}%"></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                @else
-                                                    <span class="text-gray-400">No attendance data</span>
-                                                @endif
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                                @if($totalRecords > 0)
-                                                    <div class="flex items-center gap-2">
-                                                        <div class="w-2 h-2 rounded-full {{ $attendanceRate >= 90 ? 'bg-green-500' : ($attendanceRate >= 80 ? 'bg-yellow-500' : ($attendanceRate >= 70 ? 'bg-orange-500' : 'bg-red-500')) }}"></div>
-                                                        <span class="font-medium {{ $performanceColor }}">{{ $performanceText }}</span>
-                                                    </div>
-                                                    <div class="text-xs text-gray-400 mt-1">
-                                                        @if($attendanceRate >= 90)
-                                                            Outstanding attendance record
-                                                        @elseif($attendanceRate >= 80)
-                                                            Consistent attendance
-                                                        @elseif($attendanceRate >= 70)
-                                                            Some absences noted
-                                                        @else
-                                                            Frequent absences
-                                                        @endif
-                                                    </div>
-                                                @else
-                                                    <span class="text-gray-400">No data</span>
-                                                @endif
-                                            </td>
-                                            
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge color="green" size="sm">
-                                                    Active
-                                                </flux:badge>
-                                                <div class="text-xs text-gray-400 mt-1">
-                                                    Since {{ $classStudent->enrolled_at->format('M Y') }}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </flux:card>
-
-                <!-- Attendance Summary Charts -->
-                @if($this->total_attendance_records > 0)
-                    <div class="mt-6">
-                        <flux:card>
-                            <div class="p-6">
-                                <flux:heading size="lg" class="mb-4">Class Attendance Summary</flux:heading>
-                                
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    <!-- Present Attendance -->
-                                    <div class="text-center p-4 bg-green-50 /20 rounded-lg">
-                                        <div class="text-3xl font-bold text-green-600 mb-2">{{ $this->total_present_count }}</div>
-                                        <div class="text-sm text-green-800  font-medium">Present Records</div>
-                                        <div class="text-xs text-green-700  mt-1">
-                                            {{ round(($this->total_present_count / $this->total_attendance_records) * 100, 1) }}% of all records
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Late Attendance -->
-                                    <div class="text-center p-4 bg-yellow-50 /20 rounded-lg">
-                                        <div class="text-3xl font-bold text-yellow-600 mb-2">{{ $this->total_late_count }}</div>
-                                        <div class="text-sm text-yellow-800  font-medium">Late Records</div>
-                                        <div class="text-xs text-yellow-700  mt-1">
-                                            {{ $this->total_attendance_records > 0 ? round(($this->total_late_count / $this->total_attendance_records) * 100, 1) : 0 }}% of all records
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Absent Records -->
-                                    <div class="text-center p-4 bg-red-50 /20 rounded-lg">
-                                        <div class="text-3xl font-bold text-red-600 mb-2">{{ $this->total_absent_count }}</div>
-                                        <div class="text-sm text-red-800  font-medium">Absent Records</div>
-                                        <div class="text-xs text-red-700  mt-1">
-                                            {{ round(($this->total_absent_count / $this->total_attendance_records) * 100, 1) }}% of all records
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Excused Records -->
-                                    <div class="text-center p-4 bg-blue-50 /20 rounded-lg">
-                                        <div class="text-3xl font-bold text-blue-600 mb-2">{{ $this->total_excused_count }}</div>
-                                        <div class="text-sm text-blue-800  font-medium">Excused Records</div>
-                                        <div class="text-xs text-blue-700  mt-1">
-                                            {{ $this->total_attendance_records > 0 ? round(($this->total_excused_count / $this->total_attendance_records) * 100, 1) : 0 }}% of all records
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Overall Class Performance -->
-                                <div class="mt-6 p-4 bg-gray-50  rounded-lg">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="font-medium text-gray-900">Overall Class Performance</div>
-                                        <div class="text-xl font-bold text-blue-600">{{ $this->overall_attendance_rate }}%</div>
-                                    </div>
-                                    
-                                    <div class="w-full bg-gray-200 rounded-full h-3">
-                                        <div class="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all duration-500" 
-                                             style="width: {{ $this->overall_attendance_rate }}%"></div>
-                                    </div>
-                                    
-                                    <div class="mt-2 text-sm text-gray-600">
-                                        Based on {{ $this->total_attendance_records }} attendance records across {{ $this->completed_sessions_count }} completed sessions
-                                    </div>
-                                </div>
-                            </div>
-                        </flux:card>
-                    </div>
-                @endif
-            @else
-                <!-- No Students Enrolled -->
-                <flux:card>
-                    <div class="p-12 text-center">
-                        <flux:icon name="users" class="mx-auto h-16 w-16 text-gray-400 mb-6" />
-                        <flux:heading size="xl" class="mb-4">No Students Enrolled</flux:heading>
-                        <flux:text class="text-lg mb-6 text-gray-600">This class doesn't have any students enrolled yet.</flux:text>
-                        
-                        <div class="max-w-md mx-auto space-y-4">
-                            <div class="p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
-                                <flux:text size="sm" class="text-blue-800">
-                                    📚 <strong>Class Type:</strong> {{ ucfirst($class->class_type) }} 
-                                    @if($class->max_capacity)
-                                        (Max {{ $class->max_capacity }} students)
-                                    @endif
-                                </flux:text>
-                            </div>
-                            
-                            <div class="p-4 bg-green-50 /20 rounded-lg border border-green-200">
-                                <flux:text size="sm" class="text-green-800">
-                                    📈 <strong>Ready to teach:</strong> Once students are enrolled, you'll be able to track their attendance and monitor their progress here.
-                                </flux:text>
-                            </div>
-                        </div>
-                    </div>
-                </flux:card>
-            @endif
-        </div>
-        <!-- End Students Tab -->
-
-        <!-- Timetable Tab -->
-        <div class="{{ $activeTab === 'timetable' ? 'block' : 'hidden' }}">
-            <!-- Timetable Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Total Sessions</flux:heading>
-                            <flux:heading size="xl">{{ $this->class_sessions_count }}</flux:heading>
-                            <flux:text size="sm" class="text-blue-600">All time</flux:text>
-                        </div>
-                        <flux:icon name="calendar" class="w-8 h-8 text-blue-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Upcoming</flux:heading>
-                            <flux:heading size="xl">{{ $this->upcoming_sessions_count }}</flux:heading>
-                            <flux:text size="sm" class="text-emerald-600">Next 7 days</flux:text>
-                        </div>
-                        <flux:icon name="clock" class="w-8 h-8 text-emerald-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Completed</flux:heading>
-                            <flux:heading size="xl">{{ $this->completed_sessions_count }}</flux:heading>
-                            <flux:text size="sm" class="text-green-600">Finished</flux:text>
-                        </div>
-                        <flux:icon name="check-circle" class="w-8 h-8 text-green-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Weekly Hours</flux:heading>
-                            <flux:heading size="xl">{{ round($this->weekly_hours, 1) }}</flux:heading>
-                            <flux:text size="sm" class="text-purple-600">Average</flux:text>
-                        </div>
-                        <flux:icon name="chart-bar" class="w-8 h-8 text-purple-500" />
-                    </div>
-                </flux:card>
-            </div>
-
-            <!-- Weekly Timetable Calendar -->
-            <div class="mb-6">
-                <div class="mb-4 flex items-center justify-between">
-                    <div>
-                        <flux:heading size="lg">Weekly Timetable</flux:heading>
-                        <flux:text>Regular class schedule with ability to start sessions</flux:text>
-                    </div>
-                    <div class="flex gap-2">
-                        <flux:button variant="outline" size="sm" icon="plus" wire:click="openCreateSessionModal">
-                            Add Session
-                        </flux:button>
-                    </div>
-                </div>
-
-                <!-- Week Navigation -->
-                <div class="mb-4">
-                    <div class="flex items-center gap-3 bg-gray-50  rounded-lg p-3 border">
-                        <flux:button 
-                            variant="outline" 
-                            wire:click="previousWeek" 
-                            size="sm"
-                            title="Previous Week"
-                        >
-                            <span class="flex items-center">
-                                <flux:icon name="chevron-left" class="w-4 h-4 mr-2" />
-                                Previous
-                            </span>
-                        </flux:button>
-                        
-                        <div class="px-4 py-2 text-sm font-semibold text-gray-900  bg-white  rounded border min-w-[200px] text-center">
-                            <div class="text-xs text-gray-500  uppercase tracking-wide">Current Week</div>
-                            <div class="font-medium">{{ $this->current_week_label }}</div>
-                        </div>
-                        
-                        <flux:button 
-                            variant="outline" 
-                            wire:click="nextWeek" 
-                            size="sm"
-                            title="Next Week"
-                        >
-                            <span class="flex items-center">
-                                Next
-                                <flux:icon name="chevron-right" class="w-4 h-4 ml-2" />
-                            </span>
-                        </flux:button>
-                        
-                        <div class="border-l border-gray-300  pl-3">
-                            <flux:button 
-                                variant="primary" 
-                                wire:click="goToCurrentWeek" 
-                                size="sm"
-                                title="Go to current week"
-                            >
-                                <span class="flex items-center">
-                                    <flux:icon name="calendar-days" class="w-4 h-4 mr-2" />
-                                    This Week
-                                </span>
-                            </flux:button>
-                        </div>
-                    </div>
-                </div>
-
-                @if($this->class->timetable && $this->class->timetable->weekly_schedule)
-                    <flux:card>
-                        <div class="grid grid-cols-8 gap-0 border-b border-gray-200">
-                            <!-- Time column header -->
-                            <div class="p-3 font-medium text-gray-600  border-r border-gray-200">
-                                Time
-                            </div>
-                            
-                            <!-- Day headers -->
-                            @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $dayKey)
-                                @php
-                                    $dayData = $this->weekly_calendar_data[$dayKey] ?? null;
-                                @endphp
-                                <div class="p-3 text-center border-r border-gray-200  last:border-r-0">
-                                    <div class="font-medium text-gray-900">{{ ucfirst(substr($dayKey, 0, 3)) }}</div>
-                                    @if($dayData)
-                                        <div class="text-sm {{ $dayData['is_today'] ? 'text-blue-600 font-semibold' : 'text-gray-500' }}">
-                                            {{ $dayData['day_number'] }}
-                                        </div>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
-
-                        <!-- Time slots and schedule -->
-                        @php
-                            $timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-                        @endphp
-                        
-                        @foreach($timeSlots as $timeSlot)
-                            <div class="grid grid-cols-8 gap-0 border-b border-gray-100">
-                                <!-- Time label -->
-                                <div class="p-4 text-sm font-medium text-gray-600  border-r border-gray-200  bg-gray-50">
-                                    {{ Carbon::parse($timeSlot)->format('g:i A') }}
-                                </div>
-                                
-                                <!-- Day columns -->
-                                @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $dayKey)
-                                    @php
-                                        $dayData = $this->weekly_calendar_data[$dayKey] ?? null;
-                                        $isScheduled = $dayData && in_array($timeSlot, $dayData['scheduled_times']);
-                                        $session = null;
-                                        if ($dayData) {
-                                            $session = $dayData['sessions']->first(function($s) use ($timeSlot) {
-                                                return $s->session_time->format('H:i') === $timeSlot;
-                                            });
-                                        }
-                                    @endphp
-                                    
-                                    <div class="p-2 border-r border-gray-200  last:border-r-0 min-h-[60px] relative">
-                                        @if($isScheduled)
-                                            <div class="h-full">
-                                                @if($session)
-                                                    <!-- Existing session -->
-                                                    <div class="p-2 rounded-lg text-xs cursor-pointer hover:shadow-md transition-all duration-200 {{ $session->status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' : ($session->status === 'ongoing' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 hover:bg-yellow-200' : ($session->status === 'scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200' : 'bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200')) }}"
-                                                         wire:click="selectSession({{ $session->id }})">
-                                                        <div class="font-medium">{{ $class->course->name }}</div>
-                                                        <div class="mt-1">
-                                                            <flux:badge 
-                                                                :color="$session->status === 'completed' ? 'emerald' : ($session->status === 'ongoing' ? 'yellow' : ($session->status === 'scheduled' ? 'blue' : 'gray'))"
-                                                                size="xs">
-                                                                {{ ucfirst($session->status) }}
-                                                            </flux:badge>
-                                                        </div>
-                                                        
-                                                        @if($session->isScheduled())
-                                                            <flux:button
-                                                                variant="primary"
-                                                                size="xs"
-                                                                icon="play"
-                                                                class="mt-2 w-full"
-                                                                wire:click.stop="requestStartSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
-                                                                Start
-                                                            </flux:button>
-                                                        @elseif($session->isOngoing())
-                                                            <flux:button 
-                                                                variant="primary" 
-                                                                size="xs" 
-                                                                icon="cog"
-                                                                class="mt-2 w-full"
-                                                                wire:click.stop="openSessionModal({{ $session->id }})">
-                                                                Manage
-                                                            </flux:button>
-                                                        @elseif($session->isCompleted())
-                                                            <div class="mt-2 text-center text-xs text-green-700">
-                                                                Click to view details
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                @else
-                                                    <!-- Scheduled time without session -->
-                                                    <div class="p-2 rounded-lg text-xs bg-indigo-50 text-indigo-800 border border-indigo-200 h-full flex flex-col justify-between">
-                                                        <div>
-                                                            <div class="font-medium">{{ $class->course->name }}</div>
-                                                            <div class="text-indigo-600 mt-1">Scheduled</div>
-                                                        </div>
-                                                        <flux:button
-                                                            variant="primary"
-                                                            size="xs"
-                                                            icon="play"
-                                                            class="mt-2 w-full"
-                                                            wire:click="requestStartSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
-                                                            Start Session
-                                                        </flux:button>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endforeach
-                    </flux:card>
-                @else
-                    <flux:card>
-                        <div class="text-center py-12">
-                            <flux:icon name="calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <flux:heading size="lg" class="text-gray-600  mb-2">No timetable configured</flux:heading>
-                            <flux:text class="text-gray-600  mb-6">Set up a regular schedule for this class to use the weekly timetable view</flux:text>
-                            <flux:button variant="primary" icon="plus" wire:click="openCreateSessionModal">
-                                Add Manual Session
-                            </flux:button>
-                        </div>
-                    </flux:card>
-                @endif
-            </div>
-
-        </div>
-        <!-- End Timetable Tab -->
+            @case('timetable')
+                @include('livewire.teacher.classes-show.tab-timetable')
+                @break
+        @endswitch
     </div>
 
-    <!-- Session Management Modal -->
-    <flux:modal name="session-management" :show="$showSessionModal" wire:model="showSessionModal" max-width="4xl">
+    {{-- ──────────────────────────────────────────────────────────
+         SESSION MANAGEMENT MODAL  -  manage attendance / complete
+         ────────────────────────────────────────────────────────── --}}
+    <flux:modal name="session-management" :show="$showSessionModal" wire:model="showSessionModal" class="max-w-3xl !p-0 overflow-hidden">
         @if($currentSession)
-            @if($sessionModalState === 'management')
-                <!-- Management State -->
-                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-                    <flux:heading size="lg">Manage Session - {{ $currentSession->formatted_date_time }}</flux:heading>
-                    <flux:text class="text-gray-600">Mark students as present, late, absent, or excused during this session</flux:text>
-                </div>
-                
-                <!-- Session Timer -->
-                <div 
-                    x-data="sessionTimer('{{ $currentSession->started_at ? $currentSession->started_at->toISOString() : now()->toISOString() }}')" 
-                    x-init="startTimer()"
-                    class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 /20 rounded-lg border border-yellow-200"
-                >
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                        <span class="font-medium text-yellow-800">Session Running:</span>
-                        <span class="font-mono font-bold text-yellow-900" x-text="formattedTime"></span>
-                    </div>
-                    
-                    <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700">
-                        <span>{{ $currentSession->attendances->where('status', 'present')->count() }} present</span>
-                        <span>•</span>
-                        <span>{{ $currentSession->attendances->count() }} total</span>
-                    </div>
-                </div>
+            <div class="teacher-app">
+                @if($sessionModalState === 'management')
+                    {{-- HERO --}}
+                    <div class="teacher-modal-hero relative px-6 pt-6 pb-7 sm:px-8 sm:pt-8 sm:pb-8 text-white">
+                        <div class="teacher-grain absolute inset-0 pointer-events-none"></div>
 
+                        <button
+                            type="button"
+                            wire:click="closeSessionModal"
+                            class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 ring-1 ring-white/20 backdrop-blur flex items-center justify-center transition"
+                            aria-label="Close"
+                        >
+                            <flux:icon name="x-mark" class="w-4 h-4 text-white" />
+                        </button>
 
-                <!-- Student Attendance List -->
-                <div class="space-y-3 max-h-96 overflow-y-auto">
-                    @foreach($currentSession->attendances as $attendance)
-                        <div class="flex items-center justify-between p-3 border border-gray-200  rounded-lg">
-                            <div class="flex items-center gap-3">
-                                <flux:avatar size="sm" :name="$attendance->student->fullName" />
+                        <div class="relative">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/95 text-emerald-950 ring-1 ring-white/40 px-3 py-1 text-xs font-bold">
+                                <span class="teacher-live-dot bg-emerald-700 !shadow-none"></span>
+                                Live now
+                            </span>
+
+                            <h2 class="teacher-display mt-3 text-2xl sm:text-3xl font-bold leading-tight pr-10">
+                                Manage Session
+                            </h2>
+                            <p class="text-white/80 text-sm sm:text-base mt-1">
+                                {{ $currentSession->formatted_date_time }}
+                            </p>
+
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                                    <flux:icon name="users" class="w-3.5 h-3.5" />
+                                    {{ $currentSession->attendances->count() }} {{ Str::plural('student', $currentSession->attendances->count()) }}
+                                </span>
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur px-3 py-1 text-xs font-medium">
+                                    <flux:icon name="check" class="w-3.5 h-3.5" />
+                                    {{ $currentSession->attendances->where('status', 'present')->count() }} present
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- BODY --}}
+                    <div class="bg-white dark:bg-zinc-900 px-6 py-6 sm:px-8 sm:py-7 space-y-5 max-h-[60vh] overflow-y-auto">
+
+                        {{-- Live timer --}}
+                        <div
+                            x-data="sessionTimer('{{ $currentSession->started_at ? $currentSession->started_at->toISOString() : now()->toISOString() }}')"
+                            x-init="startTimer()"
+                            class="teacher-modal-timer rounded-2xl px-5 py-5 sm:px-6"
+                        >
+                            <div class="relative flex items-center justify-between gap-4">
                                 <div>
-                                    <div class="font-medium text-gray-900">{{ $attendance->student->fullName }}</div>
-                                    <div class="text-sm text-gray-500">{{ $attendance->student->student_id }}</div>
+                                    <div class="flex items-center gap-2 text-emerald-100/95 text-xs font-bold uppercase tracking-[0.2em]">
+                                        <span class="teacher-live-dot bg-emerald-300"></span>
+                                        Session live
+                                    </div>
+                                    <p class="mt-1 text-emerald-50/80 text-sm">Mark each student's attendance below.</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="teacher-num text-3xl sm:text-4xl font-mono font-bold text-white tracking-tight" x-text="formattedTime"></div>
+                                    <div class="text-emerald-200/80 text-[10px] font-bold uppercase tracking-[0.18em] mt-0.5">Elapsed</div>
                                 </div>
                             </div>
-                            
-                            <div class="flex items-center gap-2">
-                                @foreach(['present', 'late', 'absent', 'excused'] as $status)
-                                    <flux:button
-                                        wire:click="updateStudentAttendance({{ $attendance->student_id }}, '{{ $status }}')"
-                                        variant="{{ $attendance->status === $status ? 'primary' : 'ghost' }}"
-                                        size="sm"
-                                        class="{{ match($status) {
-                                            'present' => $attendance->status === $status ? '' : 'text-green-600 border-green-600 hover:bg-green-50',
-                                            'late' => $attendance->status === $status ? '' : 'text-yellow-600 border-yellow-600 hover:bg-yellow-50',
-                                            'absent' => $attendance->status === $status ? '' : 'text-red-600 border-red-600 hover:bg-red-50',
-                                            'excused' => $attendance->status === $status ? '' : 'text-blue-600 border-blue-600 hover:bg-blue-50',
-                                            default => ''
-                                        } }}"
-                                    >
-                                        {{ ucfirst($status) }}
-                                    </flux:button>
+                        </div>
+
+                        {{-- Student attendance list --}}
+                        <div>
+                            <h3 class="teacher-display font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-3">
+                                <flux:icon name="users" class="w-4 h-4 text-violet-500" />
+                                Attendance
+                            </h3>
+                            <div class="space-y-2">
+                                @foreach($currentSession->attendances as $i => $attendance)
+                                    @php
+                                        $initials = collect(explode(' ', trim($attendance->student->fullName)))
+                                            ->take(2)
+                                            ->map(fn ($p) => strtoupper(substr($p, 0, 1)))
+                                            ->join('');
+                                        $avatarVariant = ($i % 6) + 1;
+                                    @endphp
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl px-3 py-2.5 ring-1 ring-slate-200/70 dark:ring-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 hover:ring-violet-300 dark:hover:ring-violet-700/60 transition">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="teacher-avatar teacher-avatar-{{ $avatarVariant }}">{{ $initials }}</div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ $attendance->student->fullName }}</p>
+                                                <p class="text-[11px] text-slate-500 dark:text-zinc-400 truncate">{{ $attendance->student->student_id }}</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            @php
+                                                $statusButtons = [
+                                                    'present' => ['active' => 'bg-emerald-500 text-white', 'idle' => 'text-emerald-700 ring-emerald-200 hover:bg-emerald-50 dark:text-emerald-300 dark:ring-emerald-700/40 dark:hover:bg-emerald-500/10'],
+                                                    'late'    => ['active' => 'bg-amber-500 text-white',   'idle' => 'text-amber-700 ring-amber-200 hover:bg-amber-50 dark:text-amber-300 dark:ring-amber-700/40 dark:hover:bg-amber-500/10'],
+                                                    'absent'  => ['active' => 'bg-rose-500 text-white',    'idle' => 'text-rose-700 ring-rose-200 hover:bg-rose-50 dark:text-rose-300 dark:ring-rose-700/40 dark:hover:bg-rose-500/10'],
+                                                    'excused' => ['active' => 'bg-sky-500 text-white',     'idle' => 'text-sky-700 ring-sky-200 hover:bg-sky-50 dark:text-sky-300 dark:ring-sky-700/40 dark:hover:bg-sky-500/10'],
+                                                ];
+                                            @endphp
+                                            @foreach($statusButtons as $status => $tones)
+                                                @php
+                                                    $isActive = ($attendance->status === $status);
+                                                    $classes = $isActive
+                                                        ? "ring-0 shadow-sm {$tones['active']}"
+                                                        : "bg-white dark:bg-zinc-900 ring-1 {$tones['idle']}";
+                                                @endphp
+                                                <button
+                                                    type="button"
+                                                    wire:click="updateStudentAttendance({{ $attendance->student_id }}, '{{ $status }}')"
+                                                    class="rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition {{ $classes }}"
+                                                >
+                                                    {{ ucfirst($status) }}
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
                                 @endforeach
                             </div>
                         </div>
-                    @endforeach
+                    </div>
+
+                    {{-- FOOTER --}}
+                    <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 sm:px-8 border-t border-slate-200/70 dark:border-zinc-800 flex items-center justify-between gap-3">
+                        <button type="button" wire:click="closeSessionModal" class="teacher-cta-ghost">
+                            Close
+                        </button>
+                        <button type="button" wire:click="switchToCompletionState()" class="teacher-cta">
+                            <flux:icon name="check" class="w-4 h-4" />
+                            Complete Session
+                        </button>
+                    </div>
+
+                @else
+                    {{-- COMPLETION STATE --}}
+                    <div class="teacher-modal-stripe"></div>
+
+                    <div class="bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 sm:px-8 sm:pt-9 sm:pb-7">
+                        <div class="flex justify-center mb-5">
+                            <div class="teacher-modal-orb">
+                                <flux:icon name="check" class="w-9 h-9" variant="solid" />
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <h2 class="teacher-display text-2xl font-bold text-slate-900 dark:text-white">Complete Session</h2>
+                            <p class="mt-2 text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                                {{ $currentSession->formatted_date_time }}
+                            </p>
+                        </div>
+
+                        <div class="mt-6 space-y-4">
+                            <div>
+                                <label class="teacher-display text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 mb-2">
+                                    <flux:icon name="bookmark" class="w-3.5 h-3.5 text-violet-500" />
+                                    Session Bookmark <span class="text-rose-500">*</span>
+                                </label>
+                                <textarea
+                                    wire:model="completionBookmark"
+                                    rows="3"
+                                    placeholder="e.g., Completed Chapter 3, stopped at page 45, reviewed exercises 1-10"
+                                    class="w-full rounded-xl border-0 ring-1 ring-slate-200 dark:ring-zinc-700 bg-white dark:bg-zinc-900 text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 px-4 py-3 focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 transition"
+                                ></textarea>
+                                @error('completionBookmark')
+                                    <p class="text-xs text-rose-600 dark:text-rose-400 mt-1.5">{{ $message }}</p>
+                                @enderror
+                                <p class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5">Describe what was covered or where you stopped in this session.</p>
+                            </div>
+
+                            @if($currentSession->attendances->count() > 0)
+                                <div class="rounded-2xl bg-gradient-to-br from-emerald-50 via-emerald-100/60 to-emerald-200/30 dark:from-emerald-950/50 dark:via-emerald-900/30 dark:to-emerald-800/20 ring-1 ring-emerald-100 dark:ring-emerald-900/40 px-4 py-4">
+                                    <div class="flex items-start gap-3">
+                                        <div class="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center">
+                                            <flux:icon name="check-circle" class="w-4 h-4" variant="solid" />
+                                        </div>
+                                        <div class="flex-1 text-xs leading-relaxed">
+                                            <p class="font-semibold text-emerald-900 dark:text-emerald-200 text-[13px] mb-0.5">Attendance recorded</p>
+                                            <p class="text-emerald-700/80 dark:text-emerald-300/80">{{ $currentSession->attendances->where('status', 'present')->count() }} of {{ $currentSession->attendances->count() }} students marked as present.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 border-t border-slate-200/70 dark:border-zinc-800 flex gap-2 justify-between">
+                        <button type="button" wire:click="switchToManagementState()" class="teacher-cta-ghost">
+                            <flux:icon name="arrow-left" class="w-4 h-4" />
+                            Back
+                        </button>
+                        <button type="button" wire:click="completeSessionWithBookmark" class="teacher-cta">
+                            <flux:icon name="check" class="w-4 h-4" />
+                            Complete Session
+                        </button>
+                    </div>
+                @endif
+            </div>
+        @endif
+    </flux:modal>
+
+    {{-- ──────────────────────────────────────────────────────────
+         ATTENDANCE VIEW MODAL  -  read-only completed session
+         ────────────────────────────────────────────────────────── --}}
+    <flux:modal name="attendance-view" :show="$showAttendanceViewModal" wire:model="showAttendanceViewModal" class="max-w-2xl !p-0 overflow-hidden">
+        @if($viewingSession)
+            <div class="teacher-app">
+                {{-- HERO --}}
+                <div class="teacher-modal-hero relative px-6 pt-6 pb-7 sm:px-8 sm:pt-8 sm:pb-8 text-white">
+                    <div class="teacher-grain absolute inset-0 pointer-events-none"></div>
+
+                    <button
+                        type="button"
+                        wire:click="closeAttendanceViewModal"
+                        class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 ring-1 ring-white/20 backdrop-blur flex items-center justify-center transition"
+                        aria-label="Close"
+                    >
+                        <flux:icon name="x-mark" class="w-4 h-4 text-white" />
+                    </button>
+
+                    <div class="relative">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/95 text-emerald-950 ring-1 ring-white/40 px-3 py-1 text-xs font-bold">
+                            <flux:icon name="check" class="w-3 h-3" />
+                            Completed
+                        </span>
+
+                        <h2 class="teacher-display mt-3 text-2xl sm:text-3xl font-bold leading-tight pr-10">
+                            Session Details
+                        </h2>
+                        <p class="text-white/80 text-sm sm:text-base mt-1">
+                            {{ $viewingSession->formatted_date_time }}
+                        </p>
+                    </div>
                 </div>
 
-                <div class="flex justify-between items-center gap-3 pt-6 border-t border-gray-200 mt-6">
-                    <flux:button variant="ghost" wire:click="closeSessionModal">Close</flux:button>
-                    
-                    <div class="flex gap-2">
-                        <flux:button 
-                            wire:click="switchToCompletionState()"
-                            variant="primary"
-                            icon="check"
-                        >
-                            Complete Session
-                        </flux:button>
-                    </div>
-                </div>
-                
-            @else
-                <!-- Completion State -->
-                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-                    <flux:heading size="lg">Complete Session</flux:heading>
-                    <flux:text class="text-gray-600">{{ $currentSession->formatted_date_time }}</flux:text>
-                </div>
-                
-                <div class="space-y-4 mb-6">
-                    <flux:text>Please add a bookmark to track your progress before completing this session.</flux:text>
-                    
-                    <div>
-                        <flux:field>
-                            <flux:label>Session Bookmark <span class="text-red-500">*</span></flux:label>
-                            <flux:textarea 
-                                wire:model="completionBookmark" 
-                                placeholder="e.g., Completed Chapter 3, stopped at page 45, reviewed exercises 1-10"
-                                rows="3"
-                            />
-                            <flux:error name="completionBookmark" />
-                            <flux:description>Describe what was covered or where you stopped in this session.</flux:description>
-                        </flux:field>
-                    </div>
-                    
-                    @if($currentSession->attendances->count() > 0)
-                        <div class="p-3 bg-green-50 /20 rounded border border-green-200">
-                            <div class="flex items-center gap-2 text-sm text-green-800">
-                                <flux:icon name="check-circle" class="h-4 w-4" />
-                                <span>{{ $currentSession->attendances->where('status', 'present')->count() }} of {{ $currentSession->attendances->count() }} students marked as present</span>
+                {{-- BODY --}}
+                <div class="bg-white dark:bg-zinc-900 px-6 py-6 sm:px-8 sm:py-7 space-y-5 max-h-[60vh] overflow-y-auto">
+                    @if($viewingSession->hasBookmark())
+                        <div>
+                            <h3 class="teacher-display font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-2">
+                                <flux:icon name="bookmark" class="w-4 h-4 text-violet-500" />
+                                Session Bookmark
+                            </h3>
+                            <div class="rounded-xl px-4 py-3 bg-gradient-to-br from-violet-50/70 to-violet-50/40 dark:from-violet-950/30 dark:to-violet-950/20 ring-1 ring-violet-100/80 dark:ring-violet-900/40">
+                                <p class="text-sm text-slate-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">{{ $viewingSession->bookmark }}</p>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($viewingSession->attendances->count() > 0)
+                        <div>
+                            <h3 class="teacher-display font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-3">
+                                <flux:icon name="users" class="w-4 h-4 text-violet-500" />
+                                Students <span class="text-slate-400 dark:text-zinc-500 font-medium">({{ $viewingSession->attendances->count() }})</span>
+                            </h3>
+                            <div class="grid sm:grid-cols-2 gap-2">
+                                @foreach($viewingSession->attendances as $i => $attendance)
+                                    @php
+                                        $statusTone = match($attendance->status) {
+                                            'present' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+                                            'absent'  => 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+                                            'late'    => 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+                                            'excused' => 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+                                            default   => 'bg-slate-100 text-slate-600 dark:bg-zinc-700/50 dark:text-zinc-300',
+                                        };
+                                        $initials = collect(explode(' ', trim($attendance->student->fullName)))
+                                            ->take(2)
+                                            ->map(fn ($p) => strtoupper(substr($p, 0, 1)))
+                                            ->join('');
+                                        $avatarVariant = ($i % 6) + 1;
+                                    @endphp
+                                    <div class="flex items-center gap-3 rounded-xl px-3 py-2.5 ring-1 ring-slate-200/70 dark:ring-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40">
+                                        <div class="teacher-avatar teacher-avatar-{{ $avatarVariant }}">{{ $initials }}</div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ $attendance->student->fullName }}</p>
+                                        </div>
+                                        <span class="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider {{ $statusTone }}">
+                                            {{ ucfirst($attendance->status) }}
+                                        </span>
+                                    </div>
+                                @endforeach
                             </div>
                         </div>
                     @endif
                 </div>
 
-                <div class="flex justify-between items-center gap-3 pt-4 border-t border-gray-200">
-                    <flux:button variant="ghost" wire:click="switchToManagementState()">Back</flux:button>
-                    <flux:button 
-                        variant="primary" 
-                        wire:click="completeSessionWithBookmark"
-                        icon="check"
-                    >
-                        Complete Session
-                    </flux:button>
+                {{-- FOOTER --}}
+                <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 sm:px-8 border-t border-slate-200/70 dark:border-zinc-800 flex justify-end">
+                    <button type="button" wire:click="closeAttendanceViewModal" class="teacher-cta-ghost">
+                        Close
+                    </button>
                 </div>
-            @endif
+            </div>
         @endif
     </flux:modal>
 
+    {{-- ──────────────────────────────────────────────────────────
+         CREATE SESSION MODAL  -  schedule a brand new session
+         ────────────────────────────────────────────────────────── --}}
+    <flux:modal wire:model="showCreateSessionModal" class="max-w-md !p-0 overflow-hidden">
+        <div class="teacher-app">
+            <div class="teacher-modal-stripe"></div>
 
-    <!-- Attendance View Modal -->
-    <flux:modal name="attendance-view" :show="$showAttendanceViewModal" wire:model="showAttendanceViewModal" max-width="2xl">
-        @if($viewingSession)
-            <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-                <flux:heading size="lg">Session Details</flux:heading>
-                <flux:text class="text-gray-600">{{ $viewingSession->formatted_date_time }}</flux:text>
-            </div>
+            <form wire:submit="createSession">
+                <div class="bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 sm:px-8">
+                    <div class="flex justify-center mb-5">
+                        <div class="teacher-modal-orb">
+                            <flux:icon name="calendar-days" class="w-9 h-9" variant="solid" />
+                        </div>
+                    </div>
 
-            @if($viewingSession->hasBookmark())
-                <div class="mb-6 p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
-                    <div class="flex items-start gap-3">
-                        <flux:icon name="bookmark" class="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div class="text-center">
+                        <h2 class="teacher-display text-2xl font-bold text-slate-900 dark:text-white">Create New Session</h2>
+                        <p class="mt-2 text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                            Schedule a session for {{ $class->title }}.
+                        </p>
+                    </div>
+
+                    <div class="mt-6 space-y-4 text-left">
                         <div>
-                            <div class="text-sm font-medium text-blue-900  mb-1">Session Bookmark</div>
-                            <div class="text-sm text-blue-800">{{ $viewingSession->bookmark }}</div>
+                            <label for="newSessionDate" class="teacher-display text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 mb-2">
+                                <flux:icon name="calendar" class="w-3.5 h-3.5 text-violet-500" />
+                                Session Date
+                            </label>
+                            <input
+                                wire:model="newSessionDate"
+                                id="newSessionDate"
+                                name="newSessionDate"
+                                type="date"
+                                required
+                                class="w-full rounded-xl border-0 ring-1 ring-slate-200 dark:ring-zinc-700 bg-white dark:bg-zinc-900 text-sm text-slate-900 dark:text-zinc-100 px-4 py-2.5 focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 transition"
+                            />
+                            @error('newSessionDate')
+                                <p class="text-xs text-rose-600 dark:text-rose-400 mt-1.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="newSessionTime" class="teacher-display text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 mb-2">
+                                <flux:icon name="clock" class="w-3.5 h-3.5 text-violet-500" />
+                                Session Time
+                            </label>
+                            <input
+                                wire:model="newSessionTime"
+                                id="newSessionTime"
+                                name="newSessionTime"
+                                type="time"
+                                required
+                                class="w-full rounded-xl border-0 ring-1 ring-slate-200 dark:ring-zinc-700 bg-white dark:bg-zinc-900 text-sm text-slate-900 dark:text-zinc-100 px-4 py-2.5 focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 transition"
+                            />
+                            @error('newSessionTime')
+                                <p class="text-xs text-rose-600 dark:text-rose-400 mt-1.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="newSessionDuration" class="teacher-display text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 mb-2">
+                                <flux:icon name="bolt" class="w-3.5 h-3.5 text-violet-500" />
+                                Duration
+                            </label>
+                            <select
+                                wire:model="newSessionDuration"
+                                id="newSessionDuration"
+                                name="newSessionDuration"
+                                required
+                                class="w-full rounded-xl border-0 ring-1 ring-slate-200 dark:ring-zinc-700 bg-white dark:bg-zinc-900 text-sm text-slate-900 dark:text-zinc-100 px-4 py-2.5 focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 transition"
+                            >
+                                <option value="30">30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">1 hour</option>
+                                <option value="90">1.5 hours</option>
+                                <option value="120">2 hours</option>
+                                <option value="180">3 hours</option>
+                            </select>
+                            @error('newSessionDuration')
+                                <p class="text-xs text-rose-600 dark:text-rose-400 mt-1.5">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
                 </div>
-            @endif
 
-
-            <div class="mt-6 flex justify-end">
-                <flux:button 
-                    wire:click="closeAttendanceViewModal"
-                    variant="outline"
-                >
-                    Close
-                </flux:button>
-            </div>
-        @endif
+                <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 border-t border-slate-200/70 dark:border-zinc-800 flex gap-2 justify-end">
+                    <button type="button" wire:click="closeCreateSessionModal" class="teacher-cta-ghost">
+                        Cancel
+                    </button>
+                    <button type="submit" class="teacher-cta">
+                        <flux:icon name="plus" class="w-4 h-4" />
+                        Create Session
+                    </button>
+                </div>
+            </form>
+        </div>
     </flux:modal>
 
-    <!-- Create Session Modal -->
-    <flux:modal wire:model="showCreateSessionModal" variant="flyout">
-        <form wire:submit="createSession">
-            <div class="flex items-center justify-between pb-4 border-b border-gray-200">
-                <flux:heading size="lg">Create New Session</flux:heading>
-            </div>
-            
-            <div class="py-4 space-y-4">
-                <div>
-                    <flux:field>
-                        <flux:label for="newSessionDate">Session Date</flux:label>
-                        <flux:input 
-                            wire:model="newSessionDate"
-                            name="newSessionDate"
-                            type="date"
-                            required
-                        />
-                        <flux:error name="newSessionDate" />
-                    </flux:field>
-                </div>
-                
-                <div>
-                    <flux:field>
-                        <flux:label for="newSessionTime">Session Time</flux:label>
-                        <flux:input 
-                            wire:model="newSessionTime"
-                            name="newSessionTime"
-                            type="time"
-                            required
-                        />
-                        <flux:error name="newSessionTime" />
-                    </flux:field>
-                </div>
-                
-                <div>
-                    <flux:field>
-                        <flux:label for="newSessionDuration">Duration (minutes)</flux:label>
-                        <flux:select 
-                            wire:model="newSessionDuration"
-                            name="newSessionDuration"
-                            required
-                        >
-                            <option value="30">30 minutes</option>
-                            <option value="45">45 minutes</option>
-                            <option value="60">1 hour</option>
-                            <option value="90">1.5 hours</option>
-                            <option value="120">2 hours</option>
-                            <option value="180">3 hours</option>
-                        </flux:select>
-                        <flux:error name="newSessionDuration" />
-                    </flux:field>
-                </div>
-            </div>
-            
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <flux:button 
-                    wire:click="closeCreateSessionModal"
-                    variant="ghost"
-                    type="button"
-                >
-                    Cancel
-                </flux:button>
-                <flux:button 
-                    type="submit"
-                    variant="primary"
-                    icon="plus"
-                >
-                    Create Session
-                </flux:button>
-            </div>
-        </form>
-    </flux:modal>
+    {{-- ──────────────────────────────────────────────────────────
+         START SESSION CONFIRMATION MODAL  -  compact, focused
+         ────────────────────────────────────────────────────────── --}}
+    <flux:modal wire:model="showStartConfirmation" class="max-w-md !p-0 overflow-hidden">
+        <div class="teacher-app">
+            <div class="teacher-modal-stripe"></div>
 
-    <!-- Start Session Confirmation Modal -->
-    <flux:modal wire:model="showStartConfirmation" class="max-w-md">
-        <div class="p-6">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <flux:icon name="play" class="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                    <flux:heading size="lg">Start Session?</flux:heading>
-                    <flux:text size="sm" class="text-gray-600">Are you ready to begin this session?</flux:text>
-                </div>
-            </div>
-
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <flux:text size="sm" class="text-blue-800">
-                    Once you start the session, the timer will begin and you'll be able start your sessions.
-                </flux:text>
-            </div>
-
-            <div class="flex gap-3 justify-end">
-                <flux:button wire:click="closeStartConfirmation" variant="ghost">
-                    Cancel
-                </flux:button>
-                <flux:button wire:click="confirmStartSession" variant="primary">
-                    <div class="flex items-center justify-center gap-2">
-                        <flux:icon name="play" class="w-4 h-4" />
-                        Yes, Start Session
+            <div class="bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 text-center">
+                <div class="flex justify-center mb-5">
+                    <div class="teacher-modal-orb">
+                        <flux:icon name="play" class="w-9 h-9" variant="solid" />
                     </div>
-                </flux:button>
+                </div>
+
+                <h2 class="teacher-display text-2xl font-bold text-slate-900 dark:text-white">
+                    Start Session?
+                </h2>
+                <p class="mt-2 text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                    Once you start, the timer begins and you'll be able to manage attendance and notes.
+                </p>
+
+                @include('livewire.teacher._partials.start-session-briefing', ['briefing' => $this->startBriefing])
+
+                <div class="mt-5 rounded-2xl bg-gradient-to-br from-violet-50 via-violet-100/60 to-violet-200/30 dark:from-violet-950/50 dark:via-violet-900/30 dark:to-violet-800/20 ring-1 ring-violet-100 dark:ring-violet-900/40 px-4 py-4 text-left">
+                    <div class="flex items-start gap-3">
+                        <div class="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center">
+                            <flux:icon name="bolt" class="w-4 h-4" variant="solid" />
+                        </div>
+                        <div class="flex-1 text-xs leading-relaxed">
+                            <p class="font-semibold text-violet-900 dark:text-violet-200 text-[13px] mb-0.5">You're all set</p>
+                            <p class="text-violet-700/80 dark:text-violet-300/80">Timer starts immediately and runs in real-time.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 border-t border-slate-200/70 dark:border-zinc-800 flex gap-2 justify-end">
+                <button type="button" wire:click="closeStartConfirmation" class="teacher-cta-ghost">
+                    Cancel
+                </button>
+                <button type="button" wire:click="confirmStartSession" class="teacher-cta">
+                    <flux:icon name="play" class="w-4 h-4" variant="solid" />
+                    Yes, Start Session
+                </button>
             </div>
         </div>
     </flux:modal>

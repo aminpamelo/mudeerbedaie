@@ -1,88 +1,93 @@
-{{-- Teacher Mobile Bottom Navigation --}}
-<nav class="fixed-bottom-nav bg-white  border-t border-zinc-200  lg:hidden z-50">
+{{-- Teacher Mobile Bottom Navigation - modern colorful redesign --}}
+<nav class="fixed-bottom-nav teacher-bottom-nav lg:hidden z-50">
     {{-- Safe area padding for iOS devices --}}
     <div class="pb-safe">
-        <div class="flex justify-around items-end px-2 py-2">
+        <div class="grid grid-cols-5 items-end px-1.5 pt-2 pb-1.5 gap-0.5">
             {{-- Dashboard --}}
             <a
                 href="{{ route('teacher.dashboard') }}"
                 wire:navigate
-                class="flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('teacher.dashboard') ? 'text-blue-600 ' : 'text-zinc-600  hover:text-zinc-900 :text-zinc-100' }}"
+                @class([
+                    'teacher-bottom-link flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl text-center group',
+                    'is-active' => request()->routeIs('teacher.dashboard'),
+                ])
             >
-                <flux:icon
-                    name="home"
-                    class="w-5 h-5 mb-1 {{ request()->routeIs('teacher.dashboard') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}"
-                />
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('teacher.dashboard') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}">
-                    Dashboard
-                </span>
+                <div @class([
+                    'flex items-center justify-center w-9 h-7 rounded-lg transition-all',
+                    'bg-gradient-to-br from-violet-500/15 to-violet-500/15 dark:from-violet-400/20 dark:to-violet-400/20' => request()->routeIs('teacher.dashboard'),
+                ])>
+                    <flux:icon name="home" class="w-5 h-5" variant="{{ request()->routeIs('teacher.dashboard') ? 'solid' : 'outline' }}" />
+                </div>
+                <span class="text-[10px] font-semibold leading-none">Home</span>
             </a>
 
             {{-- My Classes --}}
             <a
                 href="{{ route('teacher.classes.index') }}"
                 wire:navigate
-                class="flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('teacher.classes.*') ? 'text-blue-600 ' : 'text-zinc-600  hover:text-zinc-900 :text-zinc-100' }}"
+                @class([
+                    'teacher-bottom-link flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl text-center group',
+                    'is-active' => request()->routeIs('teacher.classes.*'),
+                ])
             >
-                <flux:icon
-                    name="calendar-days"
-                    class="w-5 h-5 mb-1 {{ request()->routeIs('teacher.classes.*') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}"
-                />
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('teacher.classes.*') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}">
-                    My Classes
-                </span>
+                <div @class([
+                    'flex items-center justify-center w-9 h-7 rounded-lg transition-all',
+                    'bg-gradient-to-br from-violet-500/15 to-violet-500/15 dark:from-violet-400/20 dark:to-violet-400/20' => request()->routeIs('teacher.classes.*'),
+                ])>
+                    <flux:icon name="academic-cap" class="w-5 h-5" variant="{{ request()->routeIs('teacher.classes.*') ? 'solid' : 'outline' }}" />
+                </div>
+                <span class="text-[10px] font-semibold leading-none">Classes</span>
             </a>
 
-            {{-- Timetable (Highlighted/Featured) --}}
+            {{-- Timetable (Centered/Featured) --}}
             <a
                 href="{{ route('teacher.timetable') }}"
                 wire:navigate
-                class="relative flex flex-col items-center justify-center px-3 py-1 min-w-0 text-center group"
+                class="relative flex flex-col items-center justify-end -mt-6 px-1 group"
             >
-                {{-- Spotlight background --}}
-                <div class="{{ request()->routeIs('teacher.timetable') ? 'bg-blue-600  shadow-lg border-2 border-blue-500 ' : 'bg-blue-500  hover:bg-blue-600  border-2 border-blue-400 ' }} rounded-full p-2 mb-1 transform transition-all duration-200 hover:scale-105">
-                    <flux:icon
-                        name="calendar"
-                        class="w-6 h-6 text-white"
-                    />
+                <div class="teacher-bottom-spotlight relative rounded-full p-3.5 mb-1.5 ring-4 ring-white/90 dark:ring-zinc-950/80">
+                    <flux:icon name="calendar" class="w-6 h-6 text-white" variant="solid" />
+                    @if(request()->routeIs('teacher.timetable'))
+                        <span class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-zinc-950 animate-pulse"></span>
+                    @endif
                 </div>
-                <span class="text-xs font-bold {{ request()->routeIs('teacher.timetable') ? 'text-blue-600 ' : 'text-blue-500  group-hover:text-blue-600 ' }}">
-                    Timetable
-                </span>
-                {{-- Spotlight indicator --}}
-                @if(request()->routeIs('teacher.timetable'))
-                    <div class="absolute -top-1 -right-1 w-3 h-3 bg-orange-400 rounded-full border-2 border-white  animate-pulse"></div>
-                @endif
+                <span class="text-[10px] font-bold leading-none bg-gradient-to-r from-violet-700 to-violet-600 dark:from-violet-400 dark:to-violet-400 bg-clip-text text-transparent">Timetable</span>
             </a>
 
             {{-- My Sessions --}}
             <a
                 href="{{ route('teacher.sessions.index') }}"
                 wire:navigate
-                class="flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('teacher.sessions.*') ? 'text-blue-600 ' : 'text-zinc-600  hover:text-zinc-900 :text-zinc-100' }}"
+                @class([
+                    'teacher-bottom-link flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl text-center group',
+                    'is-active' => request()->routeIs('teacher.sessions.*'),
+                ])
             >
-                <flux:icon
-                    name="clock"
-                    class="w-5 h-5 mb-1 {{ request()->routeIs('teacher.sessions.*') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}"
-                />
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('teacher.sessions.*') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}">
-                    My Sessions
-                </span>
+                <div @class([
+                    'flex items-center justify-center w-9 h-7 rounded-lg transition-all',
+                    'bg-gradient-to-br from-violet-500/15 to-violet-500/15 dark:from-violet-400/20 dark:to-violet-400/20' => request()->routeIs('teacher.sessions.*'),
+                ])>
+                    <flux:icon name="clock" class="w-5 h-5" variant="{{ request()->routeIs('teacher.sessions.*') ? 'solid' : 'outline' }}" />
+                </div>
+                <span class="text-[10px] font-semibold leading-none">Sessions</span>
             </a>
 
             {{-- My Students --}}
             <a
                 href="{{ route('teacher.students.index') }}"
                 wire:navigate
-                class="flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('teacher.students.*') ? 'text-blue-600 ' : 'text-zinc-600  hover:text-zinc-900 :text-zinc-100' }}"
+                @class([
+                    'teacher-bottom-link flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl text-center group',
+                    'is-active' => request()->routeIs('teacher.students.*'),
+                ])
             >
-                <flux:icon
-                    name="users"
-                    class="w-5 h-5 mb-1 {{ request()->routeIs('teacher.students.*') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}"
-                />
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('teacher.students.*') ? 'text-blue-600 ' : 'text-zinc-600  group-hover:text-zinc-900 :text-zinc-100' }}">
-                    My Students
-                </span>
+                <div @class([
+                    'flex items-center justify-center w-9 h-7 rounded-lg transition-all',
+                    'bg-gradient-to-br from-violet-500/15 to-violet-500/15 dark:from-violet-400/20 dark:to-violet-400/20' => request()->routeIs('teacher.students.*'),
+                ])>
+                    <flux:icon name="users" class="w-5 h-5" variant="{{ request()->routeIs('teacher.students.*') ? 'solid' : 'outline' }}" />
+                </div>
+                <span class="text-[10px] font-semibold leading-none">Students</span>
             </a>
         </div>
     </div>

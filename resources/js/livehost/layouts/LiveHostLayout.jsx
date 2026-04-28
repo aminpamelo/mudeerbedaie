@@ -14,7 +14,9 @@ import {
   UserCircle2,
   Megaphone,
   Replace,
+  Activity,
   BarChart3,
+  CalendarRange,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -41,10 +43,18 @@ const NAV_GROUPS = [
     label: 'Records',
     items: [
       { key: 'sessions', label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
-      { key: 'reports', label: 'Reports', href: '/livehost/reports', icon: BarChart3 },
       { key: 'commission', label: 'Commission', href: '/livehost/commission', icon: DollarSign },
       { key: 'payroll', label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
       { key: 'tiktok-imports', label: 'TikTok Imports', href: '/livehost/tiktok-imports', icon: FileSpreadsheet },
+    ],
+  },
+  {
+    label: 'Reports',
+    items: [
+      { key: 'reports.host-scorecard', label: 'Host Scorecard', href: '/livehost/reports/host-scorecard', icon: Activity },
+      { key: 'reports.gmv', label: 'GMV Performance', href: '/livehost/reports/gmv', icon: BarChart3 },
+      { key: 'reports.coverage', label: 'Schedule Coverage', href: '/livehost/reports/coverage', icon: CalendarRange },
+      { key: 'reports.replacements', label: 'Replacement Activity', href: '/livehost/reports/replacements', icon: Replace },
     ],
   },
 ];
@@ -59,10 +69,13 @@ const NAV_ITEM_PERMISSION = {
   'platform-accounts': null,
   creators: null,
   sessions: 'canSeeSessions',
-  reports: null,
   commission: 'canSeeFinancials',
   payroll: 'canSeePayroll',
   'tiktok-imports': 'canSeeTiktokImports',
+  'reports.host-scorecard': null,
+  'reports.gmv': null,
+  'reports.coverage': null,
+  'reports.replacements': null,
 };
 
 function canSeeNavItem(itemKey, permissions) {

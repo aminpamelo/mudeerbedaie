@@ -80,6 +80,11 @@ class ClassModel extends Model
         return $this->hasMany(ClassSession::class, 'class_id');
     }
 
+    public function syllabi(): HasMany
+    {
+        return $this->hasMany(ClassSyllabus::class, 'class_id')->orderBy('sort_order');
+    }
+
     public function classStudents(): HasMany
     {
         return $this->hasMany(ClassStudent::class, 'class_id');

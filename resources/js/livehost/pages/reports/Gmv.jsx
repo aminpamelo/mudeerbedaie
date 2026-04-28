@@ -34,18 +34,21 @@ export default function GmvReport({ kpis, trendByAccount, accountSeries, hostRow
     <>
       <Head title="GMV Performance" />
       <TopBar breadcrumb={['Live Host Desk', 'Reports', 'GMV Performance']} />
-      <div className="space-y-6 p-8">
-        <header className="flex items-start justify-between gap-4">
-          <div>
+      <div className="space-y-7 p-8" data-accent="amber">
+        <header className="flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-2xl">
             <Link
               href="/livehost/reports"
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              className="label-eyebrow inline-flex items-center gap-1 transition hover:text-[var(--color-ink)]"
             >
-              <ArrowLeft className="size-3" /> Reports
+              <ArrowLeft className="size-3" strokeWidth={2.4} /> Reports
             </Link>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">GMV Performance</h1>
-            <p className="text-sm text-muted-foreground">
-              Daily GMV trend by account, top hosts and sessions.
+            <h1 className="mt-3 text-[40px] leading-[1.05] tracking-tight text-[var(--color-ink)]">
+              <span className="font-display">GMV</span>{' '}
+              <span className="font-display text-[var(--color-amber-ink)]">Performance</span>
+            </h1>
+            <p className="mt-2 text-[14.5px] leading-relaxed text-[var(--color-muted)]">
+              Daily revenue trend by account, top hosts, and the highest-grossing sessions.
             </p>
           </div>
           <ExportCsvButton
@@ -74,13 +77,15 @@ export default function GmvReport({ kpis, trendByAccount, accountSeries, hostRow
             format={fmtMyr}
           />
           <KpiCard
-            label={topAccount ? `Top account: ${topAccount.name}` : 'Top account'}
+            label={topAccount ? `Top account · ${topAccount.name}` : 'Top account'}
             value={kpis.current.topAccountGmv}
+            valueSize="sm"
             format={fmtMyr}
           />
           <KpiCard
-            label={topHost ? `Top host: ${topHost.hostName}` : 'Top host'}
+            label={topHost ? `Top host · ${topHost.hostName}` : 'Top host'}
             value={kpis.current.topHostGmv}
+            valueSize="sm"
             format={fmtMyr}
           />
         </div>
@@ -104,31 +109,32 @@ GmvReport.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
 
 function HostsTable({ rows }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <div className="bg-muted/50 px-4 py-2.5 text-sm font-medium">By host</div>
+    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-2)] px-5 py-3">
+        <div className="label-eyebrow">By host · sorted by GMV</div>
+        <div className="text-[11px] text-[var(--color-muted)]">{rows.length} host{rows.length === 1 ? '' : 's'}</div>
+      </div>
       {rows.length === 0 ? (
-        <div className="p-6 text-center text-sm text-muted-foreground">No host activity in this range.</div>
+        <div className="p-10 text-center text-sm text-[var(--color-muted)]">No host activity in this range.</div>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
+        <table className="reports-table">
+          <thead>
             <tr>
-              <th className="px-4 py-2 text-left font-medium">Host</th>
-              <th className="px-4 py-2 text-right font-medium">Sessions</th>
-              <th className="px-4 py-2 text-right font-medium">GMV</th>
-              <th className="px-4 py-2 text-right font-medium">Avg/session</th>
+              <th>Host</th>
+              <th className="num">Sessions</th>
+              <th className="num">GMV</th>
+              <th className="num">Avg / session</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.hostId} className="border-t">
-                <td className="px-4 py-2.5">
-                  <Link href={`/livehost/hosts/${r.hostId}/edit`} className="font-medium hover:underline">
-                    {r.hostName}
-                  </Link>
+              <tr key={r.hostId}>
+                <td className="row-name">
+                  <Link href={`/livehost/hosts/${r.hostId}/edit`}>{r.hostName}</Link>
                 </td>
-                <td className="px-4 py-2.5 text-right">{r.sessions}</td>
-                <td className="px-4 py-2.5 text-right">{fmtMyr(r.gmv)}</td>
-                <td className="px-4 py-2.5 text-right">{fmtMyr(r.avgGmvPerSession)}</td>
+                <td className="num">{r.sessions}</td>
+                <td className="num">{fmtMyr(r.gmv)}</td>
+                <td className="num">{fmtMyr(r.avgGmvPerSession)}</td>
               </tr>
             ))}
           </tbody>
@@ -140,21 +146,30 @@ function HostsTable({ rows }) {
 
 function TopSessionsPanel({ sessions }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <div className="bg-muted/50 px-4 py-2.5 text-sm font-medium">Top sessions</div>
+    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-2)] px-5 py-3">
+        <div className="label-eyebrow">Top sessions</div>
+        <div className="text-[11px] text-[var(--color-muted)]">{sessions.length}</div>
+      </div>
       {sessions.length === 0 ? (
-        <div className="p-6 text-center text-sm text-muted-foreground">No sessions in this range.</div>
+        <div className="p-10 text-center text-sm text-[var(--color-muted)]">No sessions in this range.</div>
       ) : (
-        <ul className="divide-y">
+        <ul className="divide-y divide-[var(--color-border-2)]">
           {sessions.map((s) => (
-            <li key={s.sessionId} className="px-4 py-2.5 text-sm">
-              <Link href={`/livehost/sessions/${s.sessionId}`} className="flex items-center justify-between gap-3 hover:underline">
-                <div className="min-w-0 flex-1 truncate">
-                  <span className="font-medium">{fmtMyr(s.gmv)}</span>
-                  <span className="text-muted-foreground"> · {s.hostName ?? '—'}</span>
-                  <span className="text-muted-foreground"> · {s.accountName ?? '—'}</span>
+            <li key={s.sessionId}>
+              <Link
+                href={`/livehost/sessions/${s.sessionId}`}
+                className="flex items-center justify-between gap-3 px-5 py-3 transition hover:bg-[color-mix(in_oklab,var(--color-amber)_5%,transparent)]"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-lg tabular-nums text-[var(--color-ink)]">
+                    {fmtMyr(s.gmv)}
+                  </div>
+                  <div className="mt-0.5 truncate text-[12.5px] text-[var(--color-muted)]">
+                    {s.hostName ?? '—'} · {s.accountName ?? '—'}
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">{s.date}</span>
+                <span className="font-mono text-[11px] tabular-nums text-[var(--color-muted)]">{s.date}</span>
               </Link>
             </li>
           ))}

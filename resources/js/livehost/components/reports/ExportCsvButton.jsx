@@ -1,5 +1,4 @@
 import { Download } from 'lucide-react';
-import { Button } from '@/livehost/components/ui/button';
 
 export default function ExportCsvButton({ exportPath, filters }) {
   const params = new URLSearchParams();
@@ -10,10 +9,13 @@ export default function ExportCsvButton({ exportPath, filters }) {
   const href = `${exportPath}?${params.toString()}`;
 
   return (
-    <Button asChild variant="outline" size="sm">
-      <a href={href} download>
-        <Download className="mr-1.5 size-4" /> Export CSV
-      </a>
-    </Button>
+    <a
+      href={href}
+      download
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-ink-2)] transition hover:border-[var(--color-ink)] hover:text-[var(--color-ink)]"
+    >
+      <Download className="size-3.5" strokeWidth={2.2} />
+      <span>Export CSV</span>
+    </a>
   );
 }

@@ -221,249 +221,334 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     }
 }; ?>
 
-<div>
-    <!-- Page Header -->
-    <div class="mb-6 flex items-center justify-between">
-        <div>
-            <flux:heading size="xl">Students</flux:heading>
-            <flux:text class="mt-2">View and manage students enrolled in your courses and classes</flux:text>
+<div class="teacher-app w-full">
+    {{-- Page Header --}}
+    <x-teacher.page-header
+        title="My Students"
+        subtitle="Students across all your classes"
+    />
+
+    {{-- Stat Strip --}}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <x-teacher.stat-card
+            eyebrow="Total Students"
+            :value="$statistics['total_students']"
+            tone="indigo"
+            icon="users"
+        >
+            <span class="text-violet-700/80 dark:text-violet-300/80 font-medium">Across all classes</span>
+        </x-teacher.stat-card>
+
+        <x-teacher.stat-card
+            eyebrow="Active"
+            :value="$statistics['active_students']"
+            tone="emerald"
+            icon="check-circle"
+        >
+            <span class="text-emerald-700/80 dark:text-emerald-300/80 font-medium">Currently enrolled</span>
+        </x-teacher.stat-card>
+
+        <x-teacher.stat-card
+            eyebrow="Avg Attendance"
+            :value="$statistics['average_attendance'].'%'"
+            tone="amber"
+            icon="chart-pie"
+        >
+            <div class="mt-1 h-1.5 w-full rounded-full bg-amber-200/50 dark:bg-amber-900/40 overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500" style="width: {{ min(100, $statistics['average_attendance']) }}%"></div>
+            </div>
+        </x-teacher.stat-card>
+
+        <x-teacher.stat-card
+            eyebrow="This Week"
+            :value="$statistics['this_week_sessions']"
+            tone="violet"
+            icon="calendar"
+        >
+            <span class="text-violet-700/80 dark:text-violet-300/80 font-medium">{{ Str::plural('session', $statistics['this_week_sessions']) }} scheduled</span>
+        </x-teacher.stat-card>
+    </div>
+
+    {{-- Filter Bar --}}
+    <x-teacher.filter-bar>
+        <div class="flex-1 min-w-[220px] max-w-md">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                placeholder="Search by name, email, or ID..."
+                icon="magnifying-glass"
+            />
         </div>
-    </div>
 
-    <!-- Statistics Cards -->
-    <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 mb-6">
-        <flux:card class="p-4 md:p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="text-xl md:text-2xl font-bold text-blue-600">{{ $statistics['total_students'] }}</div>
-                    <div class="text-sm text-gray-600">Total Students</div>
-                </div>
-                <flux:icon name="users" class="h-8 w-8 text-blue-500" />
-            </div>
-        </flux:card>
+        <flux:select wire:model.live="classFilter" class="min-w-40">
+            <option value="all">All Classes</option>
+            @foreach($classes as $class)
+                <option value="{{ $class->id }}">{{ $class->title }}</option>
+            @endforeach
+        </flux:select>
 
-        <flux:card class="p-4 md:p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="text-xl md:text-2xl font-bold text-emerald-600">{{ $statistics['active_students'] }}</div>
-                    <div class="text-sm text-gray-600">Active Students</div>
-                </div>
-                <flux:icon name="check-circle" class="h-8 w-8 text-emerald-500" />
-            </div>
-        </flux:card>
+        <flux:select wire:model.live="courseFilter" class="min-w-40">
+            <option value="all">All Courses</option>
+            @foreach($courses as $course)
+                <option value="{{ $course->id }}">{{ $course->name }}</option>
+            @endforeach
+        </flux:select>
 
-        <flux:card class="p-4 md:p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="text-xl md:text-2xl font-bold text-purple-600">{{ $statistics['average_attendance'] }}%</div>
-                    <div class="text-sm text-gray-600">Avg Attendance</div>
-                </div>
-                <flux:icon name="chart-bar" class="h-8 w-8 text-purple-500" />
-            </div>
-        </flux:card>
+        <flux:select wire:model.live="statusFilter" class="min-w-32">
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="completed">Completed</option>
+        </flux:select>
 
-        <flux:card class="p-4 md:p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="text-xl md:text-2xl font-bold text-orange-600">{{ $statistics['this_week_sessions'] }}</div>
-                    <div class="text-sm text-gray-600">This Week Sessions</div>
-                </div>
-                <flux:icon name="calendar-days" class="h-8 w-8 text-orange-500" />
-            </div>
-        </flux:card>
-    </div>
+        <flux:select wire:model.live="sortBy" class="min-w-32">
+            <option value="name">Sort by Name</option>
+            <option value="attendance">Sort by Attendance</option>
+            <option value="recent">Recently Active</option>
+        </flux:select>
 
-    <!-- Filters and Search -->
-    <flux:card class="p-6 mb-6">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <!-- Search -->
-            <div class="flex-1 max-w-md">
-                <flux:input 
-                    wire:model.live.debounce.300ms="search" 
-                    placeholder="Search students by name, email, or ID..." 
-                    icon="magnifying-glass" 
-                />
-            </div>
-            
-            <!-- Filters -->
-            <div class="flex flex-col sm:flex-row gap-3">
-                <flux:select wire:model.live="classFilter" placeholder="All Classes" class="min-w-40">
-                    <option value="all">All Classes</option>
-                    @foreach($classes as $class)
-                        <option value="{{ $class->id }}">{{ $class->title }}</option>
-                    @endforeach
-                </flux:select>
-                
-                <flux:select wire:model.live="courseFilter" placeholder="All Courses" class="min-w-40">
-                    <option value="all">All Courses</option>
-                    @foreach($courses as $course)
-                        <option value="{{ $course->id }}">{{ $course->name }}</option>
-                    @endforeach
-                </flux:select>
-                
-                <flux:select wire:model.live="statusFilter" placeholder="All Status" class="min-w-32">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="completed">Completed</option>
-                </flux:select>
-                
-                <flux:select wire:model.live="sortBy" class="min-w-32">
-                    <option value="name">Sort by Name</option>
-                    <option value="attendance">Sort by Attendance</option>
-                    <option value="recent">Recently Active</option>
-                </flux:select>
-            </div>
-            
-            <!-- View Mode Toggle -->
-            <div class="flex rounded-lg border border-gray-200">
-                <button 
-                    wire:click="$set('viewMode', 'grid')" 
-                    class="p-2 {{ $viewMode === 'grid' ? 'bg-blue-50 text-blue-600 /20 ' : 'text-gray-600 ' }}"
-                >
-                    <flux:icon name="view-columns" class="w-4 h-4" />
+        <x-slot name="actions">
+            <div class="inline-flex items-center gap-1 rounded-xl bg-slate-100/70 dark:bg-zinc-800/60 p-1 ring-1 ring-slate-200/70 dark:ring-zinc-700/60">
+                <button type="button" wire:click="$set('viewMode','grid')" @class([
+                    'inline-flex items-center justify-center w-9 h-9 rounded-lg transition',
+                    'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 shadow-sm' => $viewMode === 'grid',
+                    'text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800' => $viewMode !== 'grid',
+                ]) aria-label="Grid view">
+                    <flux:icon name="squares-2x2" class="w-4 h-4" />
                 </button>
-                <button 
-                    wire:click="$set('viewMode', 'list')" 
-                    class="p-2 {{ $viewMode === 'list' ? 'bg-blue-50 text-blue-600 /20 ' : 'text-gray-600 ' }}"
-                >
+                <button type="button" wire:click="$set('viewMode','list')" @class([
+                    'inline-flex items-center justify-center w-9 h-9 rounded-lg transition',
+                    'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 shadow-sm' => $viewMode === 'list',
+                    'text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800' => $viewMode !== 'list',
+                ]) aria-label="List view">
                     <flux:icon name="bars-3" class="w-4 h-4" />
                 </button>
             </div>
-        </div>
-    </flux:card>
+        </x-slot>
+    </x-teacher.filter-bar>
 
     @if($students->count() > 0)
-        <!-- Students Grid/List -->
-        <div class="{{ $viewMode === 'grid' ? 'grid gap-6 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4' }}">
-            @foreach($students as $student)
-                @php
-                    $attendanceRate = $this->getStudentAttendanceRate($student, $classes);
-                    $recentSession = $student->classAttendances()->with('session')->latest()->first();
-                    $activeEnrollments = $student->activeEnrollments;
-                @endphp
-                
-                <flux:card class="{{ $viewMode === 'grid' ? 'p-6' : 'p-4' }} hover:shadow-lg transition-shadow">
-                    <div class="{{ $viewMode === 'grid' ? 'text-center' : 'flex items-center space-x-4' }}">
-                        <!-- Student Avatar -->
-                        <div class="{{ $viewMode === 'grid' ? 'mb-4' : 'flex-shrink-0' }}">
-                            <div class="{{ $viewMode === 'grid' ? 'w-16 h-16 mx-auto' : 'w-12 h-12' }} bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                {{ substr($student->user->name, 0, 2) }}
+        @if($viewMode === 'grid')
+            {{-- ─── GRID VIEW ─── --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                @foreach($students as $student)
+                    @php
+                        $attendanceRate = $this->getStudentAttendanceRate($student, $classes);
+                        $activeEnrollments = $student->activeEnrollments;
+                        $totalAttendances = $student->classAttendances->count();
+                        $presentAttendances = $student->classAttendances->whereIn('status', ['present', 'late'])->count();
+                        $initials = collect(explode(' ', trim($student->user->name)))
+                            ->take(2)
+                            ->map(fn ($p) => strtoupper(substr($p, 0, 1)))
+                            ->join('');
+                        $avatarVariant = ($loop->index % 6) + 1;
+                        $progressGradient = $attendanceRate >= 80
+                            ? 'from-emerald-500 to-teal-500'
+                            : ($attendanceRate >= 60 ? 'from-amber-400 to-orange-500' : 'from-rose-500 to-red-500');
+                    @endphp
+
+                    <div wire:key="student-grid-{{ $student->id }}"
+                         wire:click="selectStudent({{ $student->id }})"
+                         class="teacher-card teacher-card-hover p-5 cursor-pointer flex flex-col">
+                        {{-- Avatar + name --}}
+                        <div class="flex flex-col items-center text-center">
+                            <div class="teacher-avatar teacher-avatar-{{ $avatarVariant }}" style="width: 3rem; height: 3rem; font-size: 0.95rem;">
+                                {{ $initials }}
                             </div>
-                            @if($student->status === 'active')
-                                <div class="{{ $viewMode === 'grid' ? 'mt-1' : 'mt-1 -ml-1' }}">
-                                    <flux:badge color="green" size="sm">Active</flux:badge>
-                                </div>
-                            @endif
+                            <h3 class="teacher-display font-bold text-base text-slate-900 dark:text-white mt-3 truncate max-w-full">
+                                {{ $student->user->name }}
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 truncate max-w-full">
+                                {{ $student->user->email }}
+                            </p>
+                            <div class="mt-2">
+                                <x-teacher.status-pill :status="$student->status" size="sm" />
+                            </div>
                         </div>
-                        
-                        <!-- Student Info -->
-                        <div class="flex-1 {{ $viewMode === 'grid' ? 'text-center' : 'text-left' }}">
-                            <div class="{{ $viewMode === 'grid' ? 'mb-2' : 'mb-1' }}">
-                                <flux:heading size="sm" class="mb-1">{{ $student->user->name }}</flux:heading>
-                                <flux:text size="xs" class="text-gray-500">
-                                    ID: {{ $student->student_id }}
-                                </flux:text>
-                            </div>
-                            
-                            <!-- Course/Class Info -->
-                            <div class="{{ $viewMode === 'grid' ? 'mb-3' : 'mb-2' }}">
-                                @if($activeEnrollments->isNotEmpty())
-                                    <div class="flex {{ $viewMode === 'grid' ? 'justify-center' : '' }} flex-wrap gap-1">
-                                        @foreach($activeEnrollments->take(2) as $enrollment)
-                                            <flux:badge color="blue" size="sm">{{ $enrollment->course->name }}</flux:badge>
-                                        @endforeach
-                                        @if($activeEnrollments->count() > 2)
-                                            <flux:badge color="gray" size="sm">+{{ $activeEnrollments->count() - 2 }} more</flux:badge>
-                                        @endif
-                                    </div>
+
+                        {{-- Course chip --}}
+                        @if($activeEnrollments->isNotEmpty())
+                            <div class="mt-3 flex flex-wrap justify-center gap-1">
+                                @foreach($activeEnrollments->take(2) as $enrollment)
+                                    <span class="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-violet-100 dark:ring-violet-900/40 truncate max-w-[140px]">
+                                        {{ $enrollment->course->name }}
+                                    </span>
+                                @endforeach
+                                @if($activeEnrollments->count() > 2)
+                                    <span class="inline-flex items-center rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 px-2 py-0.5 text-[10px] font-semibold">
+                                        +{{ $activeEnrollments->count() - 2 }}
+                                    </span>
                                 @endif
                             </div>
-                            
-                            <!-- Attendance Rate -->
-                            <div class="{{ $viewMode === 'grid' ? 'mb-3' : 'mb-2' }}">
-                                <div class="flex items-center {{ $viewMode === 'grid' ? 'justify-center' : '' }} text-sm text-gray-600  mb-1">
-                                    <flux:icon name="chart-bar" class="w-4 h-4 mr-1" />
-                                    Attendance: {{ $attendanceRate }}%
-                                </div>
-                                <div class="w-full bg-gray-200  rounded-full h-2">
-                                    <div class="bg-{{ $attendanceRate >= 80 ? 'green' : ($attendanceRate >= 60 ? 'yellow' : 'red') }}-600 h-2 rounded-full" 
-                                         style="width: {{ $attendanceRate }}%"></div>
-                                </div>
+                        @endif
+
+                        {{-- Mini stats --}}
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Attended</div>
+                                <div class="teacher-num text-sm font-bold text-slate-900 dark:text-white mt-0.5">{{ $presentAttendances }}/{{ $totalAttendances }}</div>
                             </div>
-                            
-                            <!-- Recent Activity -->
-                            @if($recentSession)
-                                <div class="{{ $viewMode === 'grid' ? 'text-center' : '' }}">
-                                    <flux:text size="xs" class="text-gray-500">
-                                        Last session: {{ $recentSession->session->formatted_date_time ?? 'N/A' }}
-                                    </flux:text>
+                            <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Rate</div>
+                                <div class="teacher-num text-sm font-bold text-slate-900 dark:text-white mt-0.5">{{ $attendanceRate }}%</div>
+                            </div>
+                        </div>
+
+                        {{-- Attendance progress --}}
+                        <div class="mt-3">
+                            <div class="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                                <span>Attendance</span>
+                                <span class="teacher-num text-slate-900 dark:text-white">{{ $attendanceRate }}%</span>
+                            </div>
+                            <div class="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
+                                <div style="width: {{ min(100, $attendanceRate) }}%" class="h-full rounded-full bg-gradient-to-r {{ $progressGradient }}"></div>
+                            </div>
+                        </div>
+
+                        {{-- Action --}}
+                        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+                            <a href="{{ route('teacher.students.show', $student) }}"
+                               wire:navigate
+                               wire:click.stop
+                               class="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300">
+                                <flux:icon name="arrow-right" class="w-3.5 h-3.5" />
+                                Open profile
+                            </a>
+                            <button type="button"
+                                    wire:click.stop="selectStudent({{ $student->id }})"
+                                    class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300 ring-1 ring-slate-200 dark:ring-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 transition">
+                                <flux:icon name="eye" class="w-3.5 h-3.5" />
+                                Preview
+                            </button>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            {{-- ─── LIST VIEW ─── --}}
+            <div class="space-y-3">
+                @foreach($students as $student)
+                    @php
+                        $attendanceRate = $this->getStudentAttendanceRate($student, $classes);
+                        $activeEnrollments = $student->activeEnrollments;
+                        $initials = collect(explode(' ', trim($student->user->name)))
+                            ->take(2)
+                            ->map(fn ($p) => strtoupper(substr($p, 0, 1)))
+                            ->join('');
+                        $avatarVariant = ($loop->index % 6) + 1;
+                        $progressGradient = $attendanceRate >= 80
+                            ? 'from-emerald-500 to-teal-500'
+                            : ($attendanceRate >= 60 ? 'from-amber-400 to-orange-500' : 'from-rose-500 to-red-500');
+                    @endphp
+
+                    <div wire:key="student-list-{{ $student->id }}"
+                         wire:click="selectStudent({{ $student->id }})"
+                         class="teacher-card teacher-card-hover p-4 cursor-pointer flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                        {{-- Avatar --}}
+                        <div class="teacher-avatar teacher-avatar-{{ $avatarVariant }}" style="width: 2.5rem; height: 2.5rem; font-size: 0.85rem;">
+                            {{ $initials }}
+                        </div>
+
+                        {{-- Center info --}}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="font-semibold text-slate-900 dark:text-white truncate">
+                                    {{ $student->user->name }}
+                                </h3>
+                                <x-teacher.status-pill :status="$student->status" size="sm" />
+                            </div>
+                            <p class="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5">
+                                {{ $student->user->email }}
+                                @if($student->student_id)
+                                    · ID {{ $student->student_id }}
+                                @endif
+                            </p>
+                            @if($activeEnrollments->isNotEmpty())
+                                <div class="mt-1.5 flex flex-wrap gap-1">
+                                    @foreach($activeEnrollments->take(3) as $enrollment)
+                                        <span class="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-violet-100 dark:ring-violet-900/40 truncate max-w-[160px]">
+                                            {{ $enrollment->course->name }}
+                                        </span>
+                                    @endforeach
+                                    @if($activeEnrollments->count() > 3)
+                                        <span class="inline-flex items-center rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 px-2 py-0.5 text-[10px] font-semibold">
+                                            +{{ $activeEnrollments->count() - 3 }}
+                                        </span>
+                                    @endif
                                 </div>
                             @endif
                         </div>
-                        
-                        <!-- Quick Actions (List View) -->
-                        @if($viewMode === 'list')
-                            <div class="flex-shrink-0">
-                                <flux:button size="sm" variant="ghost" href="{{ route('teacher.students.show', $student) }}">
-                                    <flux:icon name="eye" class="w-4 h-4" />
-                                </flux:button>
+
+                        {{-- Right rail --}}
+                        <div class="flex items-center gap-3 sm:justify-end shrink-0">
+                            <div class="text-right hidden sm:block">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Attendance</div>
+                                <div class="teacher-num text-sm font-bold text-slate-900 dark:text-white">{{ $attendanceRate }}%</div>
+                                <div class="mt-1 h-1 w-24 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
+                                    <div style="width: {{ min(100, $attendanceRate) }}%" class="h-full rounded-full bg-gradient-to-r {{ $progressGradient }}"></div>
+                                </div>
                             </div>
-                        @endif
-                    </div>
-                    
-                    <!-- Quick Actions (Grid View) -->
-                    @if($viewMode === 'grid')
-                        <div class="mt-4 flex justify-center space-x-2">
-                            <flux:button size="sm" variant="ghost" href="{{ route('teacher.students.show', $student) }}">
-                                <flux:icon name="eye" class="w-4 h-4 mr-1" />
-                                View
-                            </flux:button>
-                            <flux:button size="sm" variant="ghost" wire:click="selectStudent({{ $student->id }})">
-                                <flux:icon name="chart-bar" class="w-4 h-4 mr-1" />
-                                Quick Preview
-                            </flux:button>
+                            <a href="{{ route('teacher.students.show', $student) }}"
+                               wire:navigate
+                               wire:click.stop
+                               class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-violet-600 dark:hover:text-violet-300 transition"
+                               aria-label="Open profile">
+                                <flux:icon name="arrow-right" class="w-4 h-4" />
+                            </a>
                         </div>
-                    @endif
-                </flux:card>
-            @endforeach
-        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
     @else
-        <!-- Empty State -->
-        <flux:card class="text-center py-12">
-            <flux:icon icon="users" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            @if($search || $classFilter !== 'all' || $courseFilter !== 'all' || $statusFilter !== 'all')
-                <flux:heading size="lg" class="mb-4">No Students Found</flux:heading>
-                <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
-                    No students match your current search criteria. Try adjusting your filters or search terms.
-                </flux:text>
-                <flux:button variant="ghost" wire:click="$set('search', ''); $set('classFilter', 'all'); $set('courseFilter', 'all'); $set('statusFilter', 'all')">
-                    Clear All Filters
-                </flux:button>
-            @else
-                <flux:heading size="lg" class="mb-4">No Students Assigned</flux:heading>
-                <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
-                    You don't have any students in your classes yet. Students will appear here once they are enrolled in your courses and classes.
-                </flux:text>
-            @endif
-        </flux:card>
+        {{-- Empty state --}}
+        @if($search || $classFilter !== 'all' || $courseFilter !== 'all' || $statusFilter !== 'all')
+            <x-teacher.empty-state
+                icon="users"
+                title="No students found"
+                message="No students match your current filters. Try adjusting search terms or clearing filters."
+            >
+                <button type="button"
+                        wire:click="$set('search', ''); $set('classFilter', 'all'); $set('courseFilter', 'all'); $set('statusFilter', 'all')"
+                        class="teacher-cta">
+                    Clear all filters
+                </button>
+            </x-teacher.empty-state>
+        @else
+            <x-teacher.empty-state
+                icon="users"
+                title="No students yet"
+                message="You don't have any students in your classes yet. They'll appear here once enrolled."
+            />
+        @endif
     @endif
-    
-    <!-- Student Detail Modal -->
+
+    {{-- ──────────────────────────────────────────────────────────
+         STUDENT DETAIL MODAL  -  vibrant gradient redesign
+         ────────────────────────────────────────────────────────── --}}
     @if($showStudentModal && $this->selectedStudent)
-        @php $student = $this->selectedStudent; @endphp
-        <div class="fixed inset-0 z-50 overflow-y-auto" 
+        @php
+            $student = $this->selectedStudent;
+            $modalAttendanceRate = $this->getStudentAttendanceRate($student, $classes);
+            $modalTotalAttendances = $student->classAttendances->count();
+            $modalPresentAttendances = $student->classAttendances->whereIn('status', ['present', 'late'])->count();
+            $modalInitials = collect(explode(' ', trim($student->user->name)))
+                ->take(2)
+                ->map(fn ($p) => strtoupper(substr($p, 0, 1)))
+                ->join('');
+        @endphp
+        <div class="fixed inset-0 z-50 overflow-y-auto teacher-app"
              x-data="{ show: @entangle('showStudentModal') }"
              x-show="show"
+             x-cloak
              x-transition:enter="ease-out duration-300"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
              x-transition:leave="ease-in duration-200"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0">
-            
-            <!-- Backdrop -->
-            <div class="fixed inset-0 bg-black bg-opacity-50" 
+
+            {{-- Backdrop --}}
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
                  x-show="show"
                  x-transition:enter="ease-out duration-300"
                  x-transition:enter-start="opacity-0"
@@ -472,10 +557,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                  x-transition:leave-start="opacity-100"
                  x-transition:leave-end="opacity-0"
                  @click="$wire.closeStudentModal()"></div>
-            
-            <!-- Modal -->
-            <div class="flex items-center justify-center min-h-screen px-4 py-8">
-                <div class="relative bg-white  rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+
+            {{-- Modal --}}
+            <div class="flex items-start sm:items-center justify-center min-h-screen px-4 py-8">
+                <div class="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden ring-1 ring-slate-200/60 dark:ring-zinc-800"
                      x-show="show"
                      x-transition:enter="ease-out duration-300"
                      x-transition:enter-start="opacity-0 scale-95"
@@ -483,170 +568,199 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                      x-transition:leave="ease-in duration-200"
                      x-transition:leave-start="opacity-100 scale-100"
                      x-transition:leave-end="opacity-0 scale-95">
-                    
-                    <!-- Modal Header -->
-                    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                {{ substr($student->user->name, 0, 2) }}
+
+                    {{-- HERO HEADER --}}
+                    <div class="teacher-modal-hero relative px-6 pt-6 pb-7 sm:px-8 sm:pt-8 sm:pb-9 text-white">
+                        <div class="teacher-grain absolute inset-0 pointer-events-none"></div>
+
+                        {{-- Close --}}
+                        <button type="button"
+                                wire:click="closeStudentModal"
+                                class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 ring-1 ring-white/20 backdrop-blur flex items-center justify-center transition"
+                                aria-label="Close">
+                            <flux:icon name="x-mark" class="w-4 h-4 text-white" />
+                        </button>
+
+                        <div class="relative flex items-start gap-4">
+                            <div class="shrink-0 w-16 h-16 rounded-2xl bg-white/15 ring-1 ring-white/30 backdrop-blur flex items-center justify-center text-white font-bold text-xl teacher-display">
+                                {{ $modalInitials }}
                             </div>
+                            <div class="min-w-0 flex-1 pr-8">
+                                {{-- status pill --}}
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 text-violet-700 px-3 py-1 text-xs font-bold ring-1 ring-white/40">
+                                    @if($student->status === 'active')
+                                        <flux:icon name="check-circle" class="w-3 h-3" />
+                                        Active
+                                    @else
+                                        <flux:icon name="user" class="w-3 h-3" />
+                                        {{ ucfirst($student->status) }}
+                                    @endif
+                                </span>
+
+                                <h2 class="teacher-display mt-2 text-2xl sm:text-3xl font-bold leading-tight truncate">
+                                    {{ $student->user->name }}
+                                </h2>
+
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur max-w-full truncate">
+                                        <flux:icon name="envelope" class="w-3.5 h-3.5 shrink-0" />
+                                        <span class="truncate">{{ $student->user->email }}</span>
+                                    </span>
+                                    @if($student->student_id)
+                                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
+                                            <flux:icon name="sparkles" class="w-3.5 h-3.5" />
+                                            ID {{ $student->student_id }}
+                                        </span>
+                                    @endif
+                                    @if($student->phone)
+                                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium ring-1 ring-white/20 backdrop-blur">
+                                            <flux:icon name="phone" class="w-3.5 h-3.5" />
+                                            {{ $student->phone }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- BODY --}}
+                    <div class="bg-white dark:bg-zinc-900 px-6 py-6 sm:px-8 sm:py-7 space-y-6 max-h-[55vh] overflow-y-auto">
+
+                        {{-- Stat row --}}
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="rounded-2xl ring-1 ring-violet-100 dark:ring-violet-900/40 bg-gradient-to-br from-violet-50 to-violet-100/40 dark:from-violet-950/40 dark:to-violet-900/20 px-4 py-4 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-violet-700/80 dark:text-violet-300/80">Active Courses</div>
+                                <div class="teacher-num teacher-display text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ $student->activeEnrollments->count() }}</div>
+                            </div>
+                            <div class="rounded-2xl ring-1 ring-emerald-100 dark:ring-emerald-900/40 bg-gradient-to-br from-emerald-50 to-emerald-100/40 dark:from-emerald-950/40 dark:to-emerald-900/20 px-4 py-4 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">Attendance</div>
+                                <div class="teacher-num teacher-display text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ $modalAttendanceRate }}%</div>
+                            </div>
+                            <div class="rounded-2xl ring-1 ring-amber-100 dark:ring-amber-900/40 bg-gradient-to-br from-amber-50 to-amber-100/40 dark:from-amber-950/40 dark:to-amber-900/20 px-4 py-4 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-amber-700/80 dark:text-amber-300/80">Sessions</div>
+                                <div class="teacher-num teacher-display text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ $modalPresentAttendances }}<span class="text-base text-slate-500 dark:text-zinc-400">/{{ $modalTotalAttendances }}</span></div>
+                            </div>
+                        </div>
+
+                        {{-- Personal info & enrollments --}}
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {{-- Personal --}}
+                            <div class="rounded-2xl ring-1 ring-slate-200/70 dark:ring-zinc-800 bg-slate-50/40 dark:bg-zinc-800/30 p-4">
+                                <h3 class="teacher-display font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-3">
+                                    <flux:icon name="user" class="w-4 h-4 text-violet-500" />
+                                    Personal Info
+                                </h3>
+                                <div class="space-y-2.5 text-sm">
+                                    <div class="flex justify-between gap-2">
+                                        <span class="text-slate-500 dark:text-zinc-400">Full Name</span>
+                                        <span class="font-medium text-slate-900 dark:text-white text-right truncate">{{ $student->user->name }}</span>
+                                    </div>
+                                    <div class="flex justify-between gap-2">
+                                        <span class="text-slate-500 dark:text-zinc-400">Email</span>
+                                        <span class="font-medium text-slate-900 dark:text-white text-right truncate">{{ $student->user->email }}</span>
+                                    </div>
+                                    @if($student->phone)
+                                        <div class="flex justify-between gap-2">
+                                            <span class="text-slate-500 dark:text-zinc-400">Phone</span>
+                                            <span class="font-medium text-slate-900 dark:text-white text-right">{{ $student->phone }}</span>
+                                        </div>
+                                    @endif
+                                    @if($student->date_of_birth)
+                                        <div class="flex justify-between gap-2">
+                                            <span class="text-slate-500 dark:text-zinc-400">Date of Birth</span>
+                                            <span class="font-medium text-slate-900 dark:text-white text-right">{{ $student->date_of_birth->format('M d, Y') }}</span>
+                                        </div>
+                                    @endif
+                                    @if($student->gender)
+                                        <div class="flex justify-between gap-2">
+                                            <span class="text-slate-500 dark:text-zinc-400">Gender</span>
+                                            <span class="font-medium text-slate-900 dark:text-white text-right">{{ ucfirst($student->gender) }}</span>
+                                        </div>
+                                    @endif
+                                    <div class="flex justify-between items-center gap-2 pt-1">
+                                        <span class="text-slate-500 dark:text-zinc-400">Status</span>
+                                        <x-teacher.status-pill :status="$student->status" size="sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Enrollments --}}
+                            <div class="rounded-2xl ring-1 ring-slate-200/70 dark:ring-zinc-800 bg-slate-50/40 dark:bg-zinc-800/30 p-4">
+                                <h3 class="teacher-display font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-3">
+                                    <flux:icon name="sparkles" class="w-4 h-4 text-violet-500" />
+                                    Course Enrollments
+                                </h3>
+                                @if($student->activeEnrollments->isNotEmpty())
+                                    <div class="space-y-2">
+                                        @foreach($student->activeEnrollments as $enrollment)
+                                            <div class="flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 ring-1 ring-slate-200/70 dark:ring-zinc-800 bg-white dark:bg-zinc-900/60">
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ $enrollment->course->name }}</p>
+                                                    <p class="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                                                        {{ $enrollment->enrollment_date ? 'Enrolled '.$enrollment->enrollment_date->format('M d, Y') : 'Active' }}
+                                                    </p>
+                                                </div>
+                                                <span class="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+                                                    {{ $enrollment->academic_status->label() }}
+                                                </span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p class="text-sm text-slate-500 dark:text-zinc-400">No active enrollments</p>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Recent attendance --}}
+                        @if($student->classAttendances->isNotEmpty())
                             <div>
-                                <flux:heading size="lg">{{ $student->user->name }}</flux:heading>
-                                <flux:text size="sm" class="text-gray-500">
-                                    Student ID: {{ $student->student_id }} • {{ $student->user->email }}
-                                </flux:text>
-                            </div>
-                        </div>
-                        <flux:button variant="ghost" wire:click="closeStudentModal">
-                            <flux:icon name="x-mark" class="w-5 h-5" />
-                        </flux:button>
-                    </div>
-                    
-                    <!-- Modal Content -->
-                    <div class="overflow-y-auto max-h-[calc(90vh-140px)]">
-                        <div class="p-6">
-                            <!-- Student Stats -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                <flux:card class="p-4 text-center">
-                                    <div class="text-xl font-bold text-blue-600  mb-1">
-                                        {{ $student->activeEnrollments->count() }}
-                                    </div>
-                                    <div class="text-sm text-gray-600">Active Courses</div>
-                                </flux:card>
-                                
-                                <flux:card class="p-4 text-center">
-                                    <div class="text-xl font-bold text-emerald-600  mb-1">
-                                        {{ $this->getStudentAttendanceRate($student, $classes) }}%
-                                    </div>
-                                    <div class="text-sm text-gray-600">Attendance Rate</div>
-                                </flux:card>
-                                
-                                <flux:card class="p-4 text-center">
-                                    @php
-                                        $totalAttendances = $student->classAttendances->count();
-                                        $presentAttendances = $student->classAttendances->whereIn('status', ['present', 'late'])->count();
-                                    @endphp
-                                    <div class="text-xl font-bold text-purple-600  mb-1">
-                                        {{ $presentAttendances }}/{{ $totalAttendances }}
-                                    </div>
-                                    <div class="text-sm text-gray-600">Sessions Attended</div>
-                                </flux:card>
-                            </div>
-                            
-                            <!-- Student Information -->
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <!-- Personal Information -->
-                                <flux:card>
-                                    <div class="p-4">
-                                        <flux:heading size="md" class="mb-4">Personal Information</flux:heading>
-                                        <div class="space-y-3">
-                                            <div class="flex justify-between">
-                                                <flux:text class="font-medium">Full Name:</flux:text>
-                                                <flux:text>{{ $student->user->name }}</flux:text>
+                                <h3 class="teacher-display font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-3">
+                                    <flux:icon name="calendar" class="w-4 h-4 text-violet-500" />
+                                    Recent Attendance
+                                </h3>
+                                <div class="space-y-2">
+                                    @foreach($student->classAttendances()->with(['session.class'])->latest()->limit(8)->get() as $attendance)
+                                        @php
+                                            $statusTone = match($attendance->status) {
+                                                'present' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+                                                'absent'  => 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+                                                'late'    => 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+                                                'excused' => 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+                                                default   => 'bg-slate-100 text-slate-600 dark:bg-zinc-700/50 dark:text-zinc-300',
+                                            };
+                                        @endphp
+                                        <div class="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 ring-1 ring-slate-200/70 dark:ring-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40">
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ $attendance->session->class->title ?? 'N/A' }}</p>
+                                                <p class="text-xs text-slate-500 dark:text-zinc-400 truncate">{{ $attendance->session->formatted_date_time ?? 'N/A' }}</p>
                                             </div>
-                                            <div class="flex justify-between">
-                                                <flux:text class="font-medium">Email:</flux:text>
-                                                <flux:text>{{ $student->user->email }}</flux:text>
-                                            </div>
-                                            @if($student->phone)
-                                                <div class="flex justify-between">
-                                                    <flux:text class="font-medium">Phone:</flux:text>
-                                                    <flux:text>{{ $student->phone }}</flux:text>
-                                                </div>
-                                            @endif
-                                            @if($student->date_of_birth)
-                                                <div class="flex justify-between">
-                                                    <flux:text class="font-medium">Date of Birth:</flux:text>
-                                                    <flux:text>{{ $student->date_of_birth->format('M d, Y') }}</flux:text>
-                                                </div>
-                                            @endif
-                                            @if($student->gender)
-                                                <div class="flex justify-between">
-                                                    <flux:text class="font-medium">Gender:</flux:text>
-                                                    <flux:text>{{ ucfirst($student->gender) }}</flux:text>
-                                                </div>
-                                            @endif
-                                            <div class="flex justify-between">
-                                                <flux:text class="font-medium">Status:</flux:text>
-                                                <flux:badge color="{{ $student->status === 'active' ? 'green' : 'gray' }}" size="sm">
-                                                    {{ ucfirst($student->status) }}
-                                                </flux:badge>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <span class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ $statusTone }}">
+                                                    {{ ucfirst($attendance->status) }}
+                                                </span>
+                                                @if($attendance->checked_in_at)
+                                                    <span class="text-xs text-slate-500 dark:text-zinc-400 font-mono whitespace-nowrap">{{ $attendance->checked_in_at->format('g:i A') }}</span>
+                                                @endif
                                             </div>
                                         </div>
-                                    </div>
-                                </flux:card>
-                                
-                                <!-- Course Enrollments -->
-                                <flux:card>
-                                    <div class="p-4">
-                                        <flux:heading size="md" class="mb-4">Course Enrollments</flux:heading>
-                                        @if($student->activeEnrollments->isNotEmpty())
-                                            <div class="space-y-3">
-                                                @foreach($student->activeEnrollments as $enrollment)
-                                                    <div class="flex items-center justify-between p-3 bg-gray-50  rounded">
-                                                        <div>
-                                                            <flux:text class="font-medium">{{ $enrollment->course->name }}</flux:text>
-                                                            <flux:text size="sm" class="text-gray-500">
-                                                                Enrolled: {{ $enrollment->enrollment_date ? $enrollment->enrollment_date->format('M d, Y') : 'N/A' }}
-                                                            </flux:text>
-                                                        </div>
-                                                        <flux:badge :class="$enrollment->academic_status->badgeClass()" size="sm">
-                                                            {{ $enrollment->academic_status->label() }}
-                                                        </flux:badge>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @else
-                                            <flux:text class="text-gray-500">No active course enrollments</flux:text>
-                                        @endif
-                                    </div>
-                                </flux:card>
+                                    @endforeach
+                                </div>
                             </div>
-                            
-                            <!-- Recent Attendance -->
-                            @if($student->classAttendances->isNotEmpty())
-                                <flux:card class="mt-6">
-                                    <div class="p-4">
-                                        <flux:heading size="md" class="mb-4">Recent Attendance</flux:heading>
-                                        <div class="space-y-3">
-                                            @foreach($student->classAttendances()->with(['session.class'])->latest()->limit(10)->get() as $attendance)
-                                                <div class="flex items-center justify-between p-3 bg-gray-50  rounded">
-                                                    <div class="flex-1">
-                                                        <flux:text class="font-medium">{{ $attendance->session->class->title ?? 'N/A' }}</flux:text>
-                                                        <flux:text size="sm" class="text-gray-500">
-                                                            {{ $attendance->session->formatted_date_time ?? 'N/A' }}
-                                                        </flux:text>
-                                                    </div>
-                                                    <div class="flex items-center space-x-2">
-                                                        <flux:badge color="{{ 
-                                                            $attendance->status === 'present' ? 'green' : 
-                                                            ($attendance->status === 'late' ? 'yellow' : 
-                                                            ($attendance->status === 'excused' ? 'blue' : 'red')) 
-                                                        }}" size="sm">
-                                                            {{ ucfirst($attendance->status) }}
-                                                        </flux:badge>
-                                                        @if($attendance->checked_in_at)
-                                                            <flux:text size="sm" class="text-gray-500">
-                                                                {{ $attendance->checked_in_at->format('g:i A') }}
-                                                            </flux:text>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                </flux:card>
-                            @endif
-                        </div>
+                        @endif
                     </div>
-                    
-                    <!-- Modal Footer -->
-                    <div class="flex items-center justify-end p-6 border-t border-gray-200  space-x-3">
-                        <flux:button variant="ghost" wire:click="closeStudentModal">Close</flux:button>
-                        <flux:button variant="primary">
-                            <flux:icon name="chat-bubble-left" class="w-4 h-4 mr-2" />
-                            Send Message
-                        </flux:button>
+
+                    {{-- FOOTER --}}
+                    <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 sm:px-8 border-t border-slate-200/70 dark:border-zinc-800 flex items-center justify-between gap-3">
+                        <button type="button" wire:click="closeStudentModal" class="teacher-cta-ghost">
+                            Close
+                        </button>
+                        <a href="{{ route('teacher.students.show', $student) }}"
+                           wire:navigate
+                           class="teacher-cta">
+                            <flux:icon name="arrow-right" class="w-4 h-4" />
+                            Open full profile
+                        </a>
                     </div>
                 </div>
             </div>

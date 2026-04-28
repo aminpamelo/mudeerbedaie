@@ -1,25 +1,41 @@
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 
-export default function KpiCard({ label, value, delta, format = (v) => v }) {
+/**
+ * KPI card — bold sans display number, mono eyebrow label, soft delta chip.
+ * `valueSize="sm"` shrinks the number for cards that show text-heavy values.
+ */
+export default function KpiCard({
+  label,
+  value,
+  delta,
+  format = (v) => v,
+  valueSize = 'lg',
+  hint,
+}) {
   const direction = delta == null ? 'flat' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
   const Icon = direction === 'up' ? ArrowUp : direction === 'down' ? ArrowDown : Minus;
-  const tone =
-    direction === 'up'
-      ? 'text-emerald-600'
-      : direction === 'down'
-        ? 'text-rose-600'
-        : 'text-muted-foreground';
 
   return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
+    <div className="kpi-card">
+      <div className="label-eyebrow">{label}</div>
+      <div className={valueSize === 'sm' ? 'kpi-value-sm mt-3' : 'kpi-value mt-3'}>
+        {format(value)}
       </div>
-      <div className="mt-2 text-2xl font-semibold">{format(value)}</div>
-      {delta != null && (
-        <div className={`mt-1 flex items-center gap-1 text-xs ${tone}`}>
-          <Icon className="size-3" />
-          <span>{Math.abs(delta).toFixed(1)}% vs prior period</span>
+      {(delta != null || hint) && (
+        <div className="mt-3 flex items-center gap-2">
+          {delta != null && (
+            <span className="delta-chip" data-direction={direction}>
+              <Icon className="size-3" strokeWidth={2.4} />
+              <span>{Math.abs(delta).toFixed(1)}%</span>
+            </span>
+          )}
+          {hint ? (
+            <span className="text-[11px] text-[var(--color-muted)]">{hint}</span>
+          ) : (
+            delta != null && (
+              <span className="text-[11px] text-[var(--color-muted)]">vs prior period</span>
+            )
+          )}
         </div>
       )}
     </div>

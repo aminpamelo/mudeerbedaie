@@ -51,6 +51,7 @@ class ClassSession extends Model
         'upsell_pic_user_ids',
         'upsell_teacher_commission_rate',
         'upsell_teacher_ids',
+        'syllabus_ids',
         'is_adhoc',
     ];
 
@@ -66,6 +67,7 @@ class ClassSession extends Model
             'upsell_pic_user_ids' => 'array',
             'upsell_teacher_commission_rate' => 'decimal:2',
             'upsell_teacher_ids' => 'array',
+            'syllabus_ids' => 'array',
             'is_adhoc' => 'boolean',
         ];
     }
@@ -119,6 +121,15 @@ class ClassSession extends Model
         $ids = $this->upsell_pic_user_ids ?? [];
 
         return $ids ? User::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
+    }
+
+    public function syllabusItems(): \Illuminate\Database\Eloquent\Collection
+    {
+        $ids = $this->syllabus_ids ?? [];
+
+        return $ids
+            ? ClassSyllabus::whereIn('id', $ids)->orderBy('sort_order')->get()
+            : new \Illuminate\Database\Eloquent\Collection;
     }
 
     public function funnelOrders(): HasMany

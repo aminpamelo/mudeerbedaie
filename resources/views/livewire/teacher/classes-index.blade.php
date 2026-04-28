@@ -27,154 +27,167 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     }
 }; ?>
 
-<div>
-    <!-- Page Header -->
-    <div class="mb-6 flex items-center justify-between">
-        <div>
-            <flux:heading size="xl">My Classes</flux:heading>
-            <flux:text class="mt-2">View and manage your individual and group classes</flux:text>
-        </div>
-    </div>
+<div class="teacher-app w-full">
+    <x-teacher.page-header
+        title="My Classes"
+        subtitle="All classes you teach"
+    />
 
     @if($classes->count() > 0)
-        <!-- Summary Cards -->
-        <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 mb-8">
-            <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-blue-600  mb-2">
-                    {{ $classes->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600">
-                    Total Classes
-                </flux:text>
-            </flux:card>
+        {{-- ──────────────────────────────────────────────────────────
+             STAT STRIP
+             ────────────────────────────────────────────────────────── --}}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <x-teacher.stat-card
+                eyebrow="Total Classes"
+                :value="$classes->count()"
+                tone="indigo"
+                icon="academic-cap"
+            >
+                <span class="text-violet-700/80 dark:text-violet-300/80 font-medium">All assigned</span>
+            </x-teacher.stat-card>
 
-            <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-emerald-600  mb-2">
-                    {{ $classes->where('status', 'active')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600">
-                    Active Classes
-                </flux:text>
-            </flux:card>
+            <x-teacher.stat-card
+                eyebrow="Active"
+                :value="$classes->where('status', 'active')->count()"
+                tone="emerald"
+                icon="check-circle"
+            >
+                <span class="text-emerald-700/80 dark:text-emerald-300/80 font-medium">Currently running</span>
+            </x-teacher.stat-card>
 
-            <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-purple-600  mb-2">
-                    {{ $classes->where('class_type', 'individual')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600">
-                    Individual
-                </flux:text>
-            </flux:card>
+            <x-teacher.stat-card
+                eyebrow="Individual"
+                :value="$classes->where('class_type', 'individual')->count()"
+                tone="violet"
+                icon="user"
+            >
+                <span class="text-violet-700/80 dark:text-violet-300/80 font-medium">1-on-1 sessions</span>
+            </x-teacher.stat-card>
 
-            <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-orange-600  mb-2">
-                    {{ $classes->where('class_type', 'group')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600">
-                    Group Classes
-                </flux:text>
-            </flux:card>
+            <x-teacher.stat-card
+                eyebrow="Group"
+                :value="$classes->where('class_type', 'group')->count()"
+                tone="amber"
+                icon="users"
+            >
+                <span class="text-amber-700/80 dark:text-amber-300/80 font-medium">Group classes</span>
+            </x-teacher.stat-card>
         </div>
-        <!-- Classes Grid -->
-        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+
+        {{-- ──────────────────────────────────────────────────────────
+             CLASS CARD GRID
+             ────────────────────────────────────────────────────────── --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($classes as $class)
-                <flux:card class="p-6">
-                    <div class="flex items-start justify-between mb-4">
-                        <div class="flex-1">
-                            <flux:heading size="sm" class="mb-2">{{ $class->title }}</flux:heading>
-                            <flux:text size="xs" class="text-gray-500  mb-2">
-                                {{ $class->course->name }}
-                            </flux:text>
-                            <flux:text size="sm" class="text-gray-600  mb-3 line-clamp-2">
-                                {{ $class->description ?? 'No description available' }}
-                            </flux:text>
-                        </div>
-                        @if($class->status === 'active')
-                            <flux:badge color="green" size="sm">Active</flux:badge>
-                        @elseif($class->status === 'draft')
-                            <flux:badge color="gray" size="sm">Draft</flux:badge>
-                        @elseif($class->status === 'completed')
-                            <flux:badge color="blue" size="sm">Completed</flux:badge>
-                        @elseif($class->status === 'suspended')
-                            <flux:badge color="yellow" size="sm">Suspended</flux:badge>
-                        @else
-                            <flux:badge color="red" size="sm">Cancelled</flux:badge>
-                        @endif
+                @php
+                    $accentBorder = match($class->status) {
+                        'active'    => 'border-l-emerald-500',
+                        'draft'     => 'border-l-violet-500',
+                        'completed' => 'border-l-slate-300 dark:border-l-zinc-700',
+                        'suspended' => 'border-l-amber-500',
+                        'cancelled' => 'border-l-rose-500',
+                        default     => 'border-l-violet-500',
+                    };
+
+                    $statusKey = match($class->status) {
+                        'active'    => 'active',
+                        'completed' => 'completed',
+                        'cancelled' => 'cancelled',
+                        'suspended' => 'no_show',
+                        'draft'     => 'scheduled',
+                        default     => 'inactive',
+                    };
+                    $statusLabel = ucfirst($class->status);
+
+                    $typeIcon = $class->class_type === 'individual' ? 'user' : 'users';
+                    $studentLabel = $class->class_type === 'individual' ? 'student' : 'students';
+                @endphp
+
+                <div
+                    wire:key="class-{{ $class->id }}"
+                    class="teacher-card teacher-card-hover border-l-4 {{ $accentBorder }} p-5 flex flex-col"
+                >
+                    {{-- Header: course eyebrow + status pill --}}
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-violet-700/80 dark:text-violet-300/90 truncate">
+                            {{ $class->course->name }}
+                        </span>
+                        <x-teacher.status-pill :status="$statusKey" :label="$statusLabel" size="sm" />
                     </div>
 
-                    <div class="space-y-2 mb-4">
-                        <div class="flex items-center justify-between text-sm text-gray-600">
-                            <div class="flex items-center">
-                                <flux:icon icon="users" class="w-4 h-4 mr-1" />
-                                {{ $class->active_students_count }} 
-                                @if($class->class_type === 'individual')
-                                    student
-                                @else
-                                    students
-                                @endif
-                            </div>
-                            <flux:badge color="{{ $class->class_type === 'individual' ? 'purple' : 'blue' }}" size="sm">
-                                {{ ucfirst($class->class_type) }}
-                            </flux:badge>
-                        </div>
+                    {{-- Title --}}
+                    <h3 class="teacher-display text-lg font-bold text-slate-900 dark:text-white leading-snug mb-2">
+                        {{ $class->title }}
+                    </h3>
 
-                        <div class="flex items-center justify-between text-sm text-gray-600">
-                            <div class="flex items-center">
-                                <flux:icon icon="clock" class="w-4 h-4 mr-1" />
-                                {{ $class->formatted_duration }}
+                    {{-- Description --}}
+                    @if($class->description)
+                        <p class="text-sm text-slate-500 dark:text-zinc-400 line-clamp-2 mb-4">
+                            {{ $class->description }}
+                        </p>
+                    @endif
+
+                    {{-- Quick stats row --}}
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2.5">
+                            <div class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                                <flux:icon name="users" class="w-3.5 h-3.5" />
+                                Students
                             </div>
-                            <div class="flex items-center">
-                                <flux:icon icon="calendar" class="w-4 h-4 mr-1" />
-                                {{ $class->sessions_count }} sessions
+                            <div class="teacher-num text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                                {{ $class->active_students_count }}
+                                <span class="text-xs font-medium text-slate-500 dark:text-zinc-400">{{ $studentLabel }}</span>
                             </div>
                         </div>
-
-                        @if($class->location)
-                            <div class="flex items-center text-sm text-gray-600">
-                                <flux:icon icon="map-pin" class="w-4 h-4 mr-1" />
-                                {{ $class->location }}
+                        <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2.5">
+                            <div class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                                <flux:icon name="{{ $typeIcon }}" class="w-3.5 h-3.5" />
+                                Type
                             </div>
-                        @endif
+                            <div class="text-sm font-bold text-slate-900 dark:text-white mt-0.5 capitalize">
+                                {{ $class->class_type }}
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Schedule preview --}}
+                    <div class="space-y-1.5 mb-4 text-xs text-slate-500 dark:text-zinc-400">
+                        <div class="flex items-center gap-1.5">
+                            <flux:icon name="clock" class="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
+                            <span class="font-medium">{{ $class->formatted_duration }}</span>
+                            <span class="text-slate-400 dark:text-zinc-500">·</span>
+                            <flux:icon name="calendar" class="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
+                            <span class="font-medium">{{ $class->sessions_count }} {{ Str::plural('session', $class->sessions_count) }}</span>
+                        </div>
 
                         @if($class->date_time)
-                            <div class="flex items-center text-sm text-gray-600">
-                                <flux:icon icon="calendar-days" class="w-4 h-4 mr-1" />
-                                {{ $class->formatted_date_time }}
+                            <div class="flex items-center gap-1.5">
+                                <flux:icon name="sparkles" class="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
+                                <span class="truncate">{{ $class->formatted_date_time }}</span>
                             </div>
                         @endif
                     </div>
 
-                    <div class="flex space-x-2">
-                        <flux:button 
-                            size="sm" 
-                            variant="ghost" 
-                            class="flex-1"
+                    {{-- Footer link --}}
+                    <div class="mt-auto pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end">
+                        <a
                             href="{{ route('teacher.classes.show', $class) }}"
+                            wire:navigate
+                            class="inline-flex items-center gap-1 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition"
                         >
-                            <flux:icon icon="eye" class="w-4 h-4 mr-1" />
-                            View
-                        </flux:button>
-                        <flux:button 
-                            size="sm" 
-                            variant="ghost" 
-                            class="flex-1"
-                            href="{{ route('teacher.classes.show', ['class' => $class, 'tab' => 'sessions']) }}"
-                        >
-                            <flux:icon icon="calendar" class="w-4 h-4 mr-1" />
-                            Sessions
-                        </flux:button>
+                            View class
+                            <flux:icon name="arrow-right" class="w-4 h-4" />
+                        </a>
                     </div>
-                </flux:card>
+                </div>
             @endforeach
         </div>
     @else
-        <!-- Empty State -->
-        <flux:card class="text-center py-12">
-            <flux:icon icon="calendar-days" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <flux:heading size="lg" class="mb-4">No Classes Assigned</flux:heading>
-            <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
-                You don't have any classes assigned yet. Contact your administrator to get classes assigned to you.
-            </flux:text>
-        </flux:card>
+        <x-teacher.empty-state
+            icon="academic-cap"
+            title="No classes yet"
+            message="You don't have any classes assigned. Contact your administrator to get started."
+        />
     @endif
 </div>
