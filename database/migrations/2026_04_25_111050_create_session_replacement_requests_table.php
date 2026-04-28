@@ -45,7 +45,10 @@ return new class extends Migration
 
             $table->index(['status', 'expires_at']);
             $table->index(['original_host_id', 'requested_at']);
-            $table->index(['live_schedule_assignment_id', 'target_date', 'status']);
+            $table->index(
+                ['live_schedule_assignment_id', 'target_date', 'status'],
+                'srr_assignment_date_status_idx'
+            );
         });
     }
 
