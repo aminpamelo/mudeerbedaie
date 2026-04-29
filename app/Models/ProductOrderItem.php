@@ -350,6 +350,120 @@ class ProductOrderItem extends Model
     }
 
     /**
+     * Restore stock previously deducted by this item.
+     * Mirror of deductStock(): increments stock and writes an 'in' StockMovement.
+     */
+    public function restoreStock(): void
+    {
+        if ($this->isPackage() && $this->package) {
+            $this->restorePackageStock();
+        } elseif ($this->isProduct() && $this->product) {
+            $this->restoreProductStock();
+        }
+    }
+
+    /**
+     * Restore stock for a package item
+     */
+    protected function restorePackageStock(): void
+    {
+        $package = $this->package;
+
+        if (! $package || ! $package->track_stock) {
+            return;
+        }
+
+        $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
+
+        foreach ($package->products as $product) {
+            $requiredQuantity = $product->pivot->quantity * $this->quantity_ordered;
+            $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
+
+            $stockLevel = $product->stockLevels()
+                ->where('warehouse_id', $productWarehouseId)
+                ->first();
+
+            if ($stockLevel) {
+                $quantityBefore = $stockLevel->quantity;
+
+                $stockLevel->increment('quantity', $requiredQuantity);
+
+                $stockLevel->refresh();
+                $quantityAfter = $stockLevel->quantity;
+
+                $stockLevel->update(['last_movement_at' => now()]);
+
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'product_variant_id' => $product->pivot->product_variant_id ?? null,
+                    'warehouse_id' => $productWarehouseId,
+                    'type' => 'in',
+                    'quantity' => $requiredQuantity,
+                    'quantity_before' => $quantityBefore,
+                    'quantity_after' => $quantityAfter,
+                    'unit_cost' => $stockLevel->average_cost ?? 0,
+                    'reference_type' => ProductOrder::class,
+                    'reference_id' => $this->order_id,
+                    'notes' => "POS edit: stock returned for package {$package->name} (Order #{$this->order->order_number})",
+                    'metadata' => [
+                        'order_item_id' => $this->id,
+                        'package_id' => $package->id,
+                        'package_name' => $package->name,
+                        'product_quantity_in_package' => $product->pivot->quantity,
+                        'packages_ordered' => $this->quantity_ordered,
+                        'total_product_quantity' => $requiredQuantity,
+                    ],
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Restore stock for a regular product item
+     */
+    protected function restoreProductStock(): void
+    {
+        $product = $this->product;
+
+        if (! $product || ! $product->shouldTrackQuantity()) {
+            return;
+        }
+
+        $stockLevel = $product->stockLevels()
+            ->where('warehouse_id', $this->warehouse_id)
+            ->first();
+
+        if ($stockLevel) {
+            $quantityBefore = $stockLevel->quantity;
+
+            $stockLevel->increment('quantity', $this->quantity_ordered);
+
+            $stockLevel->refresh();
+            $quantityAfter = $stockLevel->quantity;
+
+            $stockLevel->update(['last_movement_at' => now()]);
+
+            StockMovement::create([
+                'product_id' => $product->id,
+                'product_variant_id' => $this->product_variant_id ?? null,
+                'warehouse_id' => $this->warehouse_id,
+                'type' => 'in',
+                'quantity' => $this->quantity_ordered,
+                'quantity_before' => $quantityBefore,
+                'quantity_after' => $quantityAfter,
+                'unit_cost' => $stockLevel->average_cost ?? 0,
+                'reference_type' => ProductOrder::class,
+                'reference_id' => $this->order_id,
+                'notes' => "POS edit: stock returned (Order #{$this->order->order_number})",
+                'metadata' => [
+                    'order_item_id' => $this->id,
+                    'product_name' => $product->name,
+                ],
+            ]);
+        }
+    }
+
+    /**
      * Check if sufficient stock is available for this order item
      */
     public function hasInsufficientStock(): array
