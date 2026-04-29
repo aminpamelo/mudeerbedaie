@@ -53,6 +53,10 @@ it('builds client using app credentials for the requested category', function ()
     $client = $factory->createClientForAccount($account, PlatformApp::CATEGORY_ANALYTICS_REPORTING);
 
     expect($client)->toBeInstanceOf(\EcomPHP\TiktokShop\Client::class);
+
+    $analyticsCredential->refresh();
+    expect($analyticsCredential->last_used_at)->not->toBeNull();
+    expect($analyticsCredential->last_used_at->isToday())->toBeTrue();
 });
 
 it('throws MissingPlatformAppConnectionException when no credential exists for category', function () {
@@ -67,7 +71,7 @@ it('throws MissingPlatformAppConnectionException when no credential exists for c
     $factory = app(TikTokClientFactory::class);
 
     expect(fn () => $factory->createClientForAccount($account, PlatformApp::CATEGORY_ANALYTICS_REPORTING))
-        ->toThrow(MissingPlatformAppConnectionException::class);
+        ->toThrow(MissingPlatformAppConnectionException::class, 'has no active credential for app category');
 });
 
 it('throws when no PlatformApp exists for the requested category', function () {
@@ -79,5 +83,5 @@ it('throws when no PlatformApp exists for the requested category', function () {
     $factory = app(TikTokClientFactory::class);
 
     expect(fn () => $factory->createClientForAccount($account, PlatformApp::CATEGORY_ANALYTICS_REPORTING))
-        ->toThrow(MissingPlatformAppConnectionException::class);
+        ->toThrow(MissingPlatformAppConnectionException::class, 'No active PlatformApp registered');
 });

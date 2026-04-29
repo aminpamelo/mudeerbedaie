@@ -19,11 +19,23 @@ class TikTokClientFactory
      */
     public function createBaseClient(PlatformApp $app): Client
     {
+        if (empty($app->app_key)) {
+            throw new RuntimeException(
+                "PlatformApp #{$app->id} is missing app_key."
+            );
+        }
+
+        if (empty($app->encrypted_app_secret)) {
+            throw new RuntimeException(
+                "PlatformApp #{$app->id} is missing app_secret."
+            );
+        }
+
         $appSecret = $app->getAppSecret();
 
-        if (empty($app->app_key) || empty($appSecret)) {
+        if (empty($appSecret)) {
             throw new RuntimeException(
-                "PlatformApp #{$app->id} has missing app_key or app_secret."
+                "PlatformApp #{$app->id} app_secret could not be decrypted (likely an APP_KEY rotation issue)."
             );
         }
 
@@ -41,8 +53,14 @@ class TikTokClientFactory
         $accessToken = $credential->getValue();
 
         if (! $accessToken) {
+            if (! empty($credential->encrypted_value)) {
+                throw new RuntimeException(
+                    "Access token for account #{$account->id} (app category: {$category}) could not be decrypted — likely an APP_KEY rotation issue. Reconnect the account."
+                );
+            }
+
             throw new RuntimeException(
-                "Unable to decrypt access token for account: {$account->name} (app category: {$category})"
+                "Access token for account #{$account->id} (app category: {$category}) is missing."
             );
         }
 
