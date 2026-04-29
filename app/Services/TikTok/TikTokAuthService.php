@@ -7,6 +7,7 @@ namespace App\Services\TikTok;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\PlatformApiCredential;
+use App\Models\PlatformApp;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -22,9 +23,9 @@ class TikTokAuthService
     /**
      * Generate the OAuth authorization URL.
      */
-    public function getAuthorizationUrl(?string $state = null): string
+    public function getAuthorizationUrl(PlatformApp $app, ?string $state = null): string
     {
-        $client = $this->clientFactory->createBaseClient();
+        $client = $this->clientFactory->createBaseClient($app);
         $auth = $client->Auth();
 
         $state = $state ?? Str::random(32);
@@ -37,9 +38,9 @@ class TikTokAuthService
      *
      * @return array{access_token: string, refresh_token: string, expires_in: int, refresh_expires_in: int}
      */
-    public function handleCallback(string $code): array
+    public function handleCallback(PlatformApp $app, string $code): array
     {
-        $client = $this->clientFactory->createBaseClient();
+        $client = $this->clientFactory->createBaseClient($app);
         $auth = $client->Auth();
 
         try {
@@ -54,10 +55,12 @@ class TikTokAuthService
                 'refresh_token' => $tokenResponse['refresh_token'] ?? null,
                 'expires_in' => $tokenResponse['access_token_expire_in'] ?? 86400,
                 'refresh_expires_in' => $tokenResponse['refresh_token_expire_in'] ?? 31536000,
+                'scopes' => $tokenResponse['granted_scopes'] ?? $tokenResponse['scopes'] ?? [],
             ];
         } catch (Exception $e) {
             $this->clientFactory->logError('OAuth callback failed', [
                 'error' => $e->getMessage(),
+                'platform_app_id' => $app->id,
             ]);
             throw $e;
         }
@@ -68,9 +71,9 @@ class TikTokAuthService
      *
      * @return array<array{shop_id: string, shop_name: string, region: string, shop_cipher: string}>
      */
-    public function getAuthorizedShops(string $accessToken): array
+    public function getAuthorizedShops(PlatformApp $app, string $accessToken): array
     {
-        $client = $this->clientFactory->createBaseClient();
+        $client = $this->clientFactory->createBaseClient($app);
         $client->setAccessToken($accessToken);
 
         try {
@@ -92,6 +95,7 @@ class TikTokAuthService
         } catch (Exception $e) {
             $this->clientFactory->logError('Failed to get authorized shops', [
                 'error' => $e->getMessage(),
+                'platform_app_id' => $app->id,
             ]);
             throw $e;
         }
@@ -102,12 +106,13 @@ class TikTokAuthService
      */
     public function createOrUpdateAccount(
         User $user,
+        PlatformApp $app,
         array $tokenData,
         array $shopData
     ): PlatformAccount {
         $platform = Platform::where('slug', 'tiktok-shop')->firstOrFail();
 
-        return DB::transaction(function () use ($platform, $user, $tokenData, $shopData) {
+        return DB::transaction(function () use ($platform, $user, $app, $tokenData, $shopData) {
             // Find or create the platform account
             $account = PlatformAccount::updateOrCreate(
                 [
@@ -137,7 +142,7 @@ class TikTokAuthService
             );
 
             // Store the API credentials
-            $this->storeCredentials($account, $tokenData);
+            $this->storeCredentials($account, $app, $tokenData);
 
             Log::info('[TikTok] Account connected successfully', [
                 'account_id' => $account->id,
@@ -154,6 +159,7 @@ class TikTokAuthService
      */
     public function linkExistingAccount(
         int $accountId,
+        PlatformApp $app,
         array $tokenData,
         array $shopData
     ): PlatformAccount {
@@ -205,7 +211,7 @@ class TikTokAuthService
             );
         }
 
-        return DB::transaction(function () use ($account, $tokenData, $shopData) {
+        return DB::transaction(function () use ($account, $app, $tokenData, $shopData) {
             // Update the account with OAuth data
             $account->update([
                 'shop_id' => $shopData['shop_id'],
@@ -228,7 +234,7 @@ class TikTokAuthService
             ]);
 
             // Store the API credentials
-            $this->storeCredentials($account, $tokenData);
+            $this->storeCredentials($account, $app, $tokenData);
 
             Log::info('[TikTok] Existing account linked successfully', [
                 'account_id' => $account->id,
@@ -244,16 +250,30 @@ class TikTokAuthService
     /**
      * Refresh the access token for an account.
      */
-    public function refreshToken(PlatformAccount $account): bool
+    public function refreshToken(PlatformAccount $account, ?PlatformApp $app = null): bool
     {
-        $credential = $account->credentials()
+        $query = $account->credentials()
             ->where('credential_type', 'oauth_token')
-            ->where('is_active', true)
-            ->first();
+            ->where('is_active', true);
+
+        if ($app) {
+            $query->where('platform_app_id', $app->id);
+        }
+
+        $credential = $query->orderByDesc('created_at')->first();
 
         if (! $credential) {
             $this->clientFactory->logError('No active credential found for refresh', [
                 'account_id' => $account->id,
+                'platform_app_id' => $app?->id,
+            ]);
+
+            return false;
+        }
+
+        if (! $credential->platformApp) {
+            $this->clientFactory->logError('Credential has no associated PlatformApp', [
+                'credential_id' => $credential->id,
             ]);
 
             return false;
@@ -269,7 +289,7 @@ class TikTokAuthService
         }
 
         try {
-            $client = $this->clientFactory->createBaseClient();
+            $client = $this->clientFactory->createBaseClient($credential->platformApp);
             $auth = $client->Auth();
 
             $tokenResponse = $auth->refreshNewToken($refreshToken);
@@ -278,7 +298,6 @@ class TikTokAuthService
                 throw new Exception('Invalid refresh token response');
             }
 
-            // Update the credential with new tokens
             $credential->setValue($tokenResponse['access_token']);
             $credential->setRefreshToken($tokenResponse['refresh_token'] ?? $refreshToken);
             $credential->expires_at = $this->calculateExpiryDate(
@@ -292,7 +311,7 @@ class TikTokAuthService
 
             Log::info('[TikTok] Token refreshed successfully', [
                 'account_id' => $account->id,
-                'expires_at' => $credential->expires_at,
+                'platform_app_id' => $credential->platform_app_id,
             ]);
 
             return true;
@@ -301,13 +320,7 @@ class TikTokAuthService
                 'account_id' => $account->id,
                 'error' => $e->getMessage(),
                 'credential_id' => $credential->id,
-                'expires_at' => $credential->expires_at?->toIso8601String(),
             ]);
-
-            // Don't mark credential as inactive on refresh failure
-            // The credential might still be valid, and marking it inactive
-            // would prevent all future sync attempts until re-authentication.
-            // Only mark inactive if the refresh token itself is expired/revoked.
 
             return false;
         }
@@ -320,24 +333,23 @@ class TikTokAuthService
      * We only refresh when the token is close to expiring (within 1 hour)
      * or already expired, not days in advance.
      */
-    public function needsTokenRefresh(PlatformAccount $account): bool
+    public function needsTokenRefresh(PlatformAccount $account, PlatformApp $app): bool
     {
         $credential = $account->credentials()
+            ->where('platform_app_id', $app->id)
             ->where('credential_type', 'oauth_token')
             ->where('is_active', true)
+            ->orderByDesc('created_at')
             ->first();
 
         if (! $credential || ! $credential->expires_at) {
             return true;
         }
 
-        // Check if token is already expired
         if ($credential->isExpired()) {
             return true;
         }
 
-        // Only refresh if expiring within 1 hour (access tokens last ~24 hours)
-        // Don't use the 7-day config - that's for refresh tokens, not access tokens
         $hoursBeforeExpiry = config('services.tiktok.token_refresh_hours_before_expiry', 1);
 
         return $credential->expires_at->isBefore(now()->addHours($hoursBeforeExpiry));
@@ -371,19 +383,23 @@ class TikTokAuthService
     /**
      * Store OAuth credentials for an account.
      */
-    private function storeCredentials(PlatformAccount $account, array $tokenData): PlatformApiCredential
-    {
-        // Deactivate any existing credentials
+    private function storeCredentials(
+        PlatformAccount $account,
+        PlatformApp $app,
+        array $tokenData
+    ): PlatformApiCredential {
+        // Deactivate existing credentials FOR THIS APP only
         $account->credentials()
+            ->where('platform_app_id', $app->id)
             ->where('credential_type', 'oauth_token')
             ->update(['is_active' => false]);
 
-        // Create new credential
         $credential = new PlatformApiCredential([
             'platform_id' => $account->platform_id,
             'platform_account_id' => $account->id,
+            'platform_app_id' => $app->id,
             'credential_type' => 'oauth_token',
-            'name' => 'TikTok OAuth Token',
+            'name' => $app->name.' OAuth Token',
             'metadata' => [
                 'created_via' => 'oauth_callback',
                 'api_version' => $this->clientFactory->getApiVersion(),

@@ -85,3 +85,30 @@ it('throws when no PlatformApp exists for the requested category', function () {
     expect(fn () => $factory->createClientForAccount($account, PlatformApp::CATEGORY_ANALYTICS_REPORTING))
         ->toThrow(MissingPlatformAppConnectionException::class, 'No active PlatformApp registered');
 });
+
+it('looks up needsTokenRefresh per-app', function () {
+    $multiChannelApp = PlatformApp::factory()->multiChannel()->create(['platform_id' => $this->platform->id]);
+    $analyticsApp = PlatformApp::factory()->analytics()->create(['platform_id' => $this->platform->id]);
+
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->platform->id,
+        'user_id' => $this->user->id,
+    ]);
+
+    $mcCred = new PlatformApiCredential([
+        'platform_id' => $this->platform->id,
+        'platform_account_id' => $account->id,
+        'platform_app_id' => $multiChannelApp->id,
+        'credential_type' => 'oauth_token',
+        'name' => 'MC',
+        'is_active' => true,
+        'expires_at' => now()->addHours(20),
+    ]);
+    $mcCred->setValue('mc_token');
+    $mcCred->save();
+
+    $authService = app(\App\Services\TikTok\TikTokAuthService::class);
+
+    expect($authService->needsTokenRefresh($account, $multiChannelApp))->toBeFalse();
+    expect($authService->needsTokenRefresh($account, $analyticsApp))->toBeTrue();
+});
