@@ -353,19 +353,19 @@ class ProductOrderItem extends Model
      * Restore stock previously deducted by this item.
      * Mirror of deductStock(): increments stock and writes an 'in' StockMovement.
      */
-    public function restoreStock(): void
+    public function restoreStock(?int $quantity = null): void
     {
         if ($this->isPackage() && $this->package) {
-            $this->restorePackageStock();
+            $this->restorePackageStock($quantity);
         } elseif ($this->isProduct() && $this->product) {
-            $this->restoreProductStock();
+            $this->restoreProductStock($quantity);
         }
     }
 
     /**
      * Restore stock for a package item
      */
-    protected function restorePackageStock(): void
+    protected function restorePackageStock(?int $quantity = null): void
     {
         $package = $this->package;
 
@@ -374,9 +374,10 @@ class ProductOrderItem extends Model
         }
 
         $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
+        $packagesOrdered = $quantity ?? $this->quantity_ordered;
 
         foreach ($package->products as $product) {
-            $requiredQuantity = $product->pivot->quantity * $this->quantity_ordered;
+            $requiredQuantity = $product->pivot->quantity * $packagesOrdered;
             $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
 
             $stockLevel = $product->stockLevels()
@@ -410,7 +411,7 @@ class ProductOrderItem extends Model
                         'package_id' => $package->id,
                         'package_name' => $package->name,
                         'product_quantity_in_package' => $product->pivot->quantity,
-                        'packages_ordered' => $this->quantity_ordered,
+                        'packages_ordered' => $packagesOrdered,
                         'total_product_quantity' => $requiredQuantity,
                     ],
                 ]);
@@ -421,7 +422,7 @@ class ProductOrderItem extends Model
     /**
      * Restore stock for a regular product item
      */
-    protected function restoreProductStock(): void
+    protected function restoreProductStock(?int $quantity = null): void
     {
         $product = $this->product;
 
@@ -434,9 +435,10 @@ class ProductOrderItem extends Model
             ->first();
 
         if ($stockLevel) {
+            $qty = $quantity ?? $this->quantity_ordered;
             $quantityBefore = $stockLevel->quantity;
 
-            $stockLevel->increment('quantity', $this->quantity_ordered);
+            $stockLevel->increment('quantity', $qty);
 
             $stockLevel->refresh();
             $quantityAfter = $stockLevel->quantity;
@@ -448,7 +450,7 @@ class ProductOrderItem extends Model
                 'product_variant_id' => $this->product_variant_id ?? null,
                 'warehouse_id' => $this->warehouse_id,
                 'type' => 'in',
-                'quantity' => $this->quantity_ordered,
+                'quantity' => $qty,
                 'quantity_before' => $quantityBefore,
                 'quantity_after' => $quantityAfter,
                 'unit_cost' => $stockLevel->average_cost ?? 0,
