@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Cms;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Cms\UpdatePlatformPostRequest;
+use App\Http\Requests\Cms\UpdatePlatformPostStatsRequest;
 use App\Models\CmsContentPlatformPost;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,18 @@ class CmsContentPlatformPostController extends Controller
 
         return response()->json([
             'data' => $platformPost->fresh()->load(['content:id,title', 'platform', 'assignee:id,full_name,profile_photo']),
+        ]);
+    }
+
+    public function updateStats(UpdatePlatformPostStatsRequest $request, CmsContentPlatformPost $platformPost): JsonResponse
+    {
+        $existing = $platformPost->stats ?? [];
+        $merged = array_merge($existing, $request->validated(), ['last_synced_at' => now()->toIso8601String()]);
+
+        $platformPost->update(['stats' => $merged]);
+
+        return response()->json([
+            'data' => $platformPost->fresh(),
         ]);
     }
 }

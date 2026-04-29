@@ -1148,6 +1148,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     Route::get('platform-posts', [CmsContentPlatformPostController::class, 'index']);
     Route::get('platform-posts/{platformPost}', [CmsContentPlatformPostController::class, 'show']);
     Route::patch('platform-posts/{platformPost}', [CmsContentPlatformPostController::class, 'update']);
+    Route::patch('platform-posts/{platformPost}/stats', [CmsContentPlatformPostController::class, 'updateStats']);
 
     // Contents
     Route::get('contents/kanban', [CmsContentController::class, 'kanban']);
