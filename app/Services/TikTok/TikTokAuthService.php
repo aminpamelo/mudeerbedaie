@@ -30,7 +30,9 @@ class TikTokAuthService
 
         $state = $state ?? Str::random(32);
 
-        return $auth->createAuthRequest($state);
+        // Pass true for $returnAuthUrl so we receive the URL string instead of
+        // having the underlying SDK call header()+exit on us.
+        return $auth->createAuthRequest($state, true);
     }
 
     /**

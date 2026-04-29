@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\TikTok;
 
 use App\Http\Controllers\Controller;
+use App\Models\Platform;
+use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
 use App\Models\User;
 use App\Services\TikTok\TikTokAuthService;
-use App\Services\TikTok\TikTokClientFactory;
 use Exception;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,25 +20,35 @@ use Illuminate\Support\Str;
 class TikTokAuthController extends Controller
 {
     public function __construct(
-        private TikTokAuthService $authService,
-        private TikTokClientFactory $clientFactory
+        private TikTokAuthService $authService
     ) {}
 
     /**
      * Initiate the OAuth flow - redirect to TikTok authorization.
      *
      * @param  Request  $request  Accepts optional 'link_account' query param to link existing account
+     *                            and optional 'app' query param (slug or id) to pick which TikTok app
+     *                            to authorize. Defaults to 'tiktok-multi-channel'.
      */
     public function redirect(Request $request): RedirectResponse
     {
-        // Check if TikTok is configured
-        if (! $this->clientFactory->isConfigured()) {
+        $platform = Platform::where('slug', 'tiktok-shop')->firstOrFail();
+
+        $appIdentifier = $request->get('app', 'tiktok-multi-channel');
+        $app = PlatformApp::where('platform_id', $platform->id)
+            ->where(function ($q) use ($appIdentifier) {
+                $q->where('slug', $appIdentifier)->orWhere('id', $appIdentifier);
+            })
+            ->where('is_active', true)
+            ->first();
+
+        if (! $app) {
             return redirect()
                 ->route('platforms.index')
-                ->with('error', 'TikTok API is not configured. Please set TIKTOK_APP_KEY and TIKTOK_APP_SECRET in your .env file.');
+                ->with('error', "TikTok app '{$appIdentifier}' is not registered. Register it under Platform Management → Apps first.");
         }
 
-        // Generate a unique state with user ID and link_account_id embedded
+        // Generate a unique state with user ID, link_account_id, and platform_app_id embedded
         // This is necessary for cross-domain OAuth (via Expose/ngrok) where sessions don't persist
         $csrfToken = Str::random(40);
         $userId = auth()->id();
@@ -45,7 +57,7 @@ class TikTokAuthController extends Controller
         // If linking an existing account, validate and store the account ID
         if ($request->has('link_account')) {
             $linkAccountId = (int) $request->get('link_account');
-            $existingAccount = \App\Models\PlatformAccount::find($linkAccountId);
+            $existingAccount = PlatformAccount::find($linkAccountId);
 
             if ($existingAccount && $existingAccount->platform->slug === 'tiktok-shop') {
                 Log::info('[TikTok OAuth] Linking existing account', [
@@ -59,10 +71,11 @@ class TikTokAuthController extends Controller
         }
 
         // Encode state as: csrfToken.base64(encryptedPayload)
-        // Payload contains both user_id and link_account_id to survive cross-domain redirect
+        // Payload contains user_id, link_account_id, and platform_app_id to survive cross-domain redirect
         $payload = json_encode([
             'user_id' => $userId,
             'link_account_id' => $linkAccountId,
+            'platform_app_id' => $app->id,
         ]);
         $encryptedPayload = Crypt::encryptString($payload);
         $state = $csrfToken.'.'.base64_encode($encryptedPayload);
@@ -72,22 +85,25 @@ class TikTokAuthController extends Controller
             'tiktok_oauth_state' => $csrfToken,
             'tiktok_oauth_user_id' => $userId,
             'tiktok_link_account_id' => $linkAccountId,
+            'tiktok_oauth_app_id' => $app->id,
         ]);
 
         // Get the authorization URL
         try {
-            $authUrl = $this->authService->getAuthorizationUrl($state);
+            $authUrl = $this->authService->getAuthorizationUrl($app, $state);
 
             Log::info('[TikTok OAuth] Redirecting to authorization', [
                 'csrf_token' => $csrfToken,
                 'user_id' => $userId,
                 'link_account_id' => $linkAccountId,
+                'platform_app_id' => $app->id,
             ]);
 
             return redirect()->away($authUrl);
         } catch (Exception $e) {
             Log::error('[TikTok OAuth] Failed to generate authorization URL', [
                 'error' => $e->getMessage(),
+                'platform_app_id' => $app->id,
             ]);
 
             return redirect()
@@ -121,12 +137,13 @@ class TikTokAuthController extends Controller
                 ->with('error', 'No authorization code received from TikTok.');
         }
 
-        // Parse state to extract CSRF token, user ID, and link_account_id
+        // Parse state to extract CSRF token, user ID, link_account_id, and platform_app_id
         // State format: csrfToken.base64(encryptedPayload)
-        // Payload: {user_id: int, link_account_id: int|null}
+        // Payload: {user_id: int, link_account_id: int|null, platform_app_id: int|null}
         $state = $request->get('state');
         $user = null;
         $linkAccountId = null;
+        $platformAppId = null;
 
         if ($state && str_contains($state, '.')) {
             [$csrfToken, $encodedPayload] = explode('.', $state, 2);
@@ -141,12 +158,14 @@ class TikTokAuthController extends Controller
                     // New format with JSON payload
                     $userId = (int) ($payload['user_id'] ?? 0);
                     $linkAccountId = $payload['link_account_id'] ?? null;
+                    $platformAppId = $payload['platform_app_id'] ?? null;
                     $user = User::find($userId);
 
                     Log::info('[TikTok OAuth] Extracted payload from state', [
                         'user_id' => $userId,
                         'user_found' => $user !== null,
                         'link_account_id' => $linkAccountId,
+                        'platform_app_id' => $platformAppId,
                     ]);
                 } else {
                     // Legacy format - payload was just the user ID string
@@ -213,28 +232,49 @@ class TikTokAuthController extends Controller
                 ->with('error', 'Session expired. Please log in and try again.');
         }
 
+        // Resolve PlatformApp from state payload, falling back to session
+        if (! $platformAppId) {
+            $platformAppId = session('tiktok_oauth_app_id');
+        }
+
+        $app = $platformAppId
+            ? PlatformApp::find($platformAppId)
+            : null;
+
+        if (! $app) {
+            Log::error('[TikTok OAuth] No PlatformApp resolved for callback', [
+                'platform_app_id' => $platformAppId,
+            ]);
+
+            return redirect()
+                ->route('platforms.index')
+                ->with('error', 'OAuth callback could not identify which TikTok app this connection is for. Please retry from the Platform page.');
+        }
+
         // Clear the state from session
         session()->forget(['tiktok_oauth_state', 'tiktok_oauth_user_id', 'tiktok_link_account_id']);
 
         try {
             // Exchange code for tokens
-            $tokenData = $this->authService->handleCallback($code);
+            $tokenData = $this->authService->handleCallback($app, $code);
 
-            // Store tokens, user, and link_account_id temporarily in session for shop selection
+            // Store tokens, user, link_account_id, and app_id temporarily in session for shop selection
             session([
                 'tiktok_token_data' => $tokenData,
                 'tiktok_auth_timestamp' => now()->timestamp,
                 'tiktok_auth_user_id' => $user->id,
                 'tiktok_link_account_id' => $linkAccountId,
+                'tiktok_oauth_app_id' => $app->id,
             ]);
 
             Log::info('[TikTok OAuth] Tokens stored in session', [
                 'user_id' => $user->id,
                 'link_account_id' => $linkAccountId,
+                'platform_app_id' => $app->id,
             ]);
 
             // Get authorized shops
-            $shops = $this->authService->getAuthorizedShops($tokenData['access_token']);
+            $shops = $this->authService->getAuthorizedShops($app, $tokenData['access_token']);
 
             if (empty($shops)) {
                 Log::warning('[TikTok OAuth] No shops found for authorized account');
@@ -246,7 +286,7 @@ class TikTokAuthController extends Controller
 
             // If only one shop, connect it directly
             if (count($shops) === 1) {
-                return $this->connectShop($shops[0], $user, $linkAccountId);
+                return $this->connectShop($shops[0], $user, $linkAccountId, $app);
             }
 
             // Multiple shops - store in session and redirect to selection page
@@ -280,7 +320,7 @@ class TikTokAuthController extends Controller
         }
 
         // Get the TikTok platform
-        $platform = \App\Models\Platform::where('slug', 'tiktok-shop')->first();
+        $platform = Platform::where('slug', 'tiktok-shop')->first();
 
         // Get the linking account info if we're linking an existing account
         $linkAccountId = session('tiktok_link_account_id');
@@ -291,7 +331,7 @@ class TikTokAuthController extends Controller
         // Check which shops are already linked to accounts
         if ($platform) {
             $shopIds = array_column($shops, 'shop_id');
-            $existingAccounts = \App\Models\PlatformAccount::where('platform_id', $platform->id)
+            $existingAccounts = PlatformAccount::where('platform_id', $platform->id)
                 ->whereIn('shop_id', $shopIds)
                 ->when($linkAccountId, function ($query) use ($linkAccountId) {
                     // Exclude the account being linked (it's OK to re-link to itself)
@@ -306,7 +346,7 @@ class TikTokAuthController extends Controller
         }
 
         if ($linkAccountId) {
-            $linkingAccount = \App\Models\PlatformAccount::find($linkAccountId);
+            $linkingAccount = PlatformAccount::find($linkAccountId);
 
             // Try to find the best matching shop based on name similarity
             if ($linkingAccount) {
@@ -370,7 +410,16 @@ class TikTokAuthController extends Controller
                 ->with('error', 'Invalid shop selection.');
         }
 
-        return $this->connectShop($shops[$shopIndex]);
+        $appId = session('tiktok_oauth_app_id');
+        $app = $appId ? PlatformApp::find($appId) : null;
+
+        if (! $app) {
+            return redirect()
+                ->route('platforms.index')
+                ->with('error', 'OAuth session expired. Please try connecting again.');
+        }
+
+        return $this->connectShop($shops[$shopIndex], null, null, $app);
     }
 
     /**
@@ -379,9 +428,14 @@ class TikTokAuthController extends Controller
      * @param  array  $shopData  Shop data from TikTok API
      * @param  User|null  $user  User to associate with the account
      * @param  int|null  $linkAccountId  Existing account ID to link (if linking instead of creating)
+     * @param  PlatformApp|null  $app  PlatformApp providing the OAuth credentials
      */
-    private function connectShop(array $shopData, ?User $user = null, ?int $linkAccountId = null): RedirectResponse
-    {
+    private function connectShop(
+        array $shopData,
+        ?User $user = null,
+        ?int $linkAccountId = null,
+        ?PlatformApp $app = null
+    ): RedirectResponse {
         $tokenData = session('tiktok_token_data');
 
         if (empty($tokenData)) {
@@ -407,11 +461,24 @@ class TikTokAuthController extends Controller
             $linkAccountId = session('tiktok_link_account_id');
         }
 
+        // Resolve PlatformApp from session if not passed
+        if (! $app) {
+            $appId = session('tiktok_oauth_app_id');
+            $app = $appId ? PlatformApp::find($appId) : null;
+        }
+
+        if (! $app) {
+            return redirect()
+                ->route('platforms.index')
+                ->with('error', 'OAuth session expired. Please try connecting again.');
+        }
+
         try {
             if ($linkAccountId) {
                 // Link existing account
                 $account = $this->authService->linkExistingAccount(
                     $linkAccountId,
+                    $app,
                     $tokenData,
                     $shopData
                 );
@@ -420,6 +487,7 @@ class TikTokAuthController extends Controller
                 // Create new account
                 $account = $this->authService->createOrUpdateAccount(
                     $user,
+                    $app,
                     $tokenData,
                     $shopData
                 );
@@ -433,6 +501,7 @@ class TikTokAuthController extends Controller
                 'tiktok_auth_timestamp',
                 'tiktok_auth_user_id',
                 'tiktok_link_account_id',
+                'tiktok_oauth_app_id',
             ]);
 
             Log::info('[TikTok OAuth] Account connected successfully', [
@@ -459,11 +528,14 @@ class TikTokAuthController extends Controller
 
     /**
      * Disconnect a TikTok account.
+     *
+     * Accepts an optional 'app' query parameter (slug) to scope the disconnect to a single
+     * PlatformApp's credentials, leaving credentials for other apps intact.
      */
     public function disconnect(Request $request, int $accountId): RedirectResponse
     {
         try {
-            $account = \App\Models\PlatformAccount::findOrFail($accountId);
+            $account = PlatformAccount::findOrFail($accountId);
 
             // Verify the account belongs to TikTok platform
             if ($account->platform->slug !== 'tiktok-shop') {
@@ -472,11 +544,26 @@ class TikTokAuthController extends Controller
                     ->with('error', 'Invalid account.');
             }
 
-            $this->authService->disconnectAccount($account);
+            $appSlug = $request->get('app');
+            $app = $appSlug
+                ? PlatformApp::where('platform_id', $account->platform_id)
+                    ->where('slug', $appSlug)
+                    ->first()
+                : null;
+
+            if ($app) {
+                $account->credentials()
+                    ->where('platform_app_id', $app->id)
+                    ->update(['is_active' => false]);
+                $message = "Disconnected '{$app->name}' from {$account->name}.";
+            } else {
+                $this->authService->disconnectAccount($account);
+                $message = "TikTok Shop '{$account->name}' has been disconnected.";
+            }
 
             return redirect()
-                ->route('platforms.accounts.index', ['platform' => 'tiktok-shop'])
-                ->with('success', "TikTok Shop '{$account->name}' has been disconnected.");
+                ->route('platforms.accounts.show', ['platform' => 'tiktok-shop', 'account' => $account->id])
+                ->with('success', $message);
         } catch (Exception $e) {
             Log::error('[TikTok OAuth] Failed to disconnect account', [
                 'account_id' => $accountId,
@@ -495,7 +582,7 @@ class TikTokAuthController extends Controller
     public function refreshTokens(Request $request, int $accountId): RedirectResponse
     {
         try {
-            $account = \App\Models\PlatformAccount::findOrFail($accountId);
+            $account = PlatformAccount::findOrFail($accountId);
 
             if ($account->platform->slug !== 'tiktok-shop') {
                 return redirect()
