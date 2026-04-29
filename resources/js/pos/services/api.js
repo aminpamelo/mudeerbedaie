@@ -106,6 +106,10 @@ export const saleApi = {
         method: 'PUT',
         body: JSON.stringify(data),
     }),
+    update: (id, data) => request(`/sales/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
     delete: (id) => request(`/sales/${id}`, {
         method: 'DELETE',
     }),
