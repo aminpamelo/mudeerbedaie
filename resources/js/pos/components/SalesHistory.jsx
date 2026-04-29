@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { saleApi } from '../services/api';
+import EditSaleModal from './EditSaleModal';
 
 const STATUS_OPTIONS = [
     { value: 'paid', label: 'Paid', color: 'bg-green-100 text-green-700' },
@@ -43,6 +44,7 @@ export default function SalesHistory({ isMobile = false }) {
     const [updating, setUpdating] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [editingSale, setEditingSale] = useState(false);
 
     // Inline editing states
     const [editingTracking, setEditingTracking] = useState(false);
@@ -732,7 +734,15 @@ export default function SalesHistory({ isMobile = false }) {
                         {selectedSale && !isMobile && (
                             <div className="w-80 shrink-0">
                                 <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-0">
-                                    <h3 className="font-semibold text-gray-900 mb-4">{selectedSale.order_number}</h3>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold text-gray-900">{selectedSale.order_number}</h3>
+                                        <button
+                                            onClick={() => setEditingSale(true)}
+                                            className="text-xs font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
+                                        >
+                                            Edit Order
+                                        </button>
+                                    </div>
                                     {renderSaleDetail()}
                                 </div>
                             </div>
@@ -746,19 +756,39 @@ export default function SalesHistory({ isMobile = false }) {
                 <div className="fixed inset-0 z-50 bg-white flex flex-col">
                     <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between shrink-0">
                         <h3 className="font-semibold text-gray-900">{selectedSale.order_number}</h3>
-                        <button
-                            onClick={() => setSelectedSale(null)}
-                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 active:text-gray-800"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setEditingSale(true)}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
+                            >
+                                Edit Order
+                            </button>
+                            <button
+                                onClick={() => setSelectedSale(null)}
+                                className="p-2 -mr-2 text-gray-400 hover:text-gray-600 active:text-gray-800"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4">
                         {renderSaleDetail()}
                     </div>
                 </div>
+            )}
+
+            {editingSale && selectedSale && (
+                <EditSaleModal
+                    sale={selectedSale}
+                    onClose={() => setEditingSale(false)}
+                    onSaved={(updated) => {
+                        setSales((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)));
+                        setSelectedSale((prev) => ({ ...prev, ...updated }));
+                        setEditingSale(false);
+                    }}
+                />
             )}
         </div>
     );
