@@ -4,117 +4,84 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
+use App\Exceptions\MissingPlatformAppConnectionException;
 use App\Models\PlatformAccount;
 use App\Models\PlatformApiCredential;
+use App\Models\PlatformApp;
 use EcomPHP\TiktokShop\Client;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class TikTokClientFactory
 {
-    private string $appKey;
-
-    private string $appSecret;
-
-    public function __construct()
-    {
-        $this->appKey = config('services.tiktok.app_key', '');
-        $this->appSecret = config('services.tiktok.app_secret', '');
-    }
-
     /**
-     * Create a base TikTok client without account-specific credentials.
-     * Used for OAuth initialization.
+     * Create an unauthenticated client using the app's keys for OAuth bootstrap.
      */
-    public function createBaseClient(): Client
+    public function createBaseClient(PlatformApp $app): Client
     {
-        $this->validateAppCredentials();
+        $appSecret = $app->getAppSecret();
 
-        return new Client($this->appKey, $this->appSecret);
-    }
-
-    /**
-     * Create an authenticated TikTok client for a specific platform account.
-     */
-    public function createClientForAccount(PlatformAccount $account): Client
-    {
-        $this->validateAppCredentials();
-
-        $credential = $this->getActiveCredential($account);
-
-        if (! $credential) {
+        if (empty($app->app_key) || empty($appSecret)) {
             throw new RuntimeException(
-                "No active TikTok API credentials found for account: {$account->name}"
+                "PlatformApp #{$app->id} has missing app_key or app_secret."
             );
         }
+
+        return new Client($app->app_key, $appSecret);
+    }
+
+    /**
+     * Create an authenticated client for a specific account + app category.
+     */
+    public function createClientForAccount(PlatformAccount $account, string $category): Client
+    {
+        $app = $this->resolveApp($account, $category);
+        $credential = $this->resolveCredential($account, $app);
 
         $accessToken = $credential->getValue();
+
         if (! $accessToken) {
             throw new RuntimeException(
-                "Unable to decrypt access token for account: {$account->name}"
+                "Unable to decrypt access token for account: {$account->name} (app category: {$category})"
             );
         }
 
-        $client = new Client($this->appKey, $this->appSecret);
+        $client = $this->createBaseClient($app);
         $client->setAccessToken($accessToken);
 
-        // Set shop cipher if available
         $shopCipher = $account->metadata['shop_cipher'] ?? null;
         if ($shopCipher) {
             $client->setShopCipher($shopCipher);
         }
 
-        // Mark credential as used for tracking
         $credential->markAsUsed();
 
         return $client;
     }
 
-    /**
-     * Check if the TikTok integration is properly configured.
-     */
-    public function isConfigured(): bool
+    public function resolveApp(PlatformAccount $account, string $category): PlatformApp
     {
-        return ! empty($this->appKey) && ! empty($this->appSecret);
-    }
+        $app = PlatformApp::query()
+            ->where('platform_id', $account->platform_id)
+            ->where('category', $category)
+            ->where('is_active', true)
+            ->first();
 
-    /**
-     * Get the OAuth redirect URI.
-     */
-    public function getRedirectUri(): string
-    {
-        $redirectUri = config('services.tiktok.redirect_uri');
-
-        if (empty($redirectUri)) {
-            // Generate default redirect URI
-            return url('/tiktok/callback');
+        if (! $app) {
+            throw new MissingPlatformAppConnectionException(
+                $account,
+                $category,
+                "No active PlatformApp registered for platform_id={$account->platform_id}, category='{$category}'. Register the app under Platform Management → Apps."
+            );
         }
 
-        return $redirectUri;
+        return $app;
     }
 
-    /**
-     * Get the configured API version.
-     */
-    public function getApiVersion(): string
+    public function resolveCredential(PlatformAccount $account, PlatformApp $app): PlatformApiCredential
     {
-        return config('services.tiktok.api_version', '202309');
-    }
-
-    /**
-     * Check if sandbox mode is enabled.
-     */
-    public function isSandbox(): bool
-    {
-        return (bool) config('services.tiktok.sandbox', false);
-    }
-
-    /**
-     * Get the active credential for an account.
-     */
-    private function getActiveCredential(PlatformAccount $account): ?PlatformApiCredential
-    {
-        return $account->credentials()
+        $credential = $account->credentials()
+            ->where('platform_app_id', $app->id)
             ->where('credential_type', 'oauth_token')
             ->where('is_active', true)
             ->where(function ($query) {
@@ -123,33 +90,38 @@ class TikTokClientFactory
             })
             ->orderByDesc('created_at')
             ->first();
+
+        if (! $credential) {
+            throw new MissingPlatformAppConnectionException($account, $app->category);
+        }
+
+        return $credential;
     }
 
-    /**
-     * Validate that app credentials are configured.
-     */
-    private function validateAppCredentials(): void
+    public function getRedirectUri(?PlatformApp $app = null): string
     {
-        if (empty($this->appKey)) {
-            throw new RuntimeException(
-                'TikTok App Key not configured. Set TIKTOK_APP_KEY in .env file.'
-            );
+        if ($app && ! empty($app->redirect_uri)) {
+            return $app->redirect_uri;
         }
 
-        if (empty($this->appSecret)) {
-            throw new RuntimeException(
-                'TikTok App Secret not configured. Set TIKTOK_APP_SECRET in .env file.'
-            );
-        }
+        $configured = config('services.tiktok.redirect_uri');
+
+        return $configured ?: url('/tiktok/callback');
     }
 
-    /**
-     * Log API errors for debugging.
-     */
+    public function getApiVersion(): string
+    {
+        return config('services.tiktok.api_version', '202309');
+    }
+
+    public function isSandbox(): bool
+    {
+        return (bool) config('services.tiktok.sandbox', false);
+    }
+
     public function logError(string $message, array $context = []): void
     {
         Log::channel('daily')->error("[TikTok API] {$message}", array_merge($context, [
-            'app_key' => substr($this->appKey, 0, 8).'...',
             'sandbox' => $this->isSandbox(),
         ]));
     }
