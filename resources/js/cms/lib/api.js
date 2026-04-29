@@ -140,4 +140,33 @@ export function fetchEmployees(params) {
     }).then((r) => r.data);
 }
 
+// ─── Platform Posts ─────────────────────────────────────────────────────────
+
+export function fetchPlatforms() {
+    return api.get('/platforms').then((r) => r.data);
+}
+
+export function fetchPlatformPosts(params) {
+    return api.get('/platform-posts', { params }).then((r) => r.data);
+}
+
+export function fetchPlatformPost(id) {
+    return api.get(`/platform-posts/${id}`).then((r) => r.data);
+}
+
+export function updatePlatformPost(id, data) {
+    return api.patch(`/platform-posts/${id}`, data).then((r) => r.data);
+}
+
+export function updatePlatformPostStats(id, data) {
+    return api.patch(`/platform-posts/${id}/stats`, data).then((r) => r.data);
+}
+
+export function bulkAssignPlatformPosts(postIds, assigneeId) {
+    return api.post('/platform-posts/bulk-assign', {
+        post_ids: postIds,
+        assignee_id: assigneeId,
+    }).then((r) => r.data);
+}
+
 export default api;
