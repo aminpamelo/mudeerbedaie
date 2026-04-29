@@ -77,6 +77,11 @@ class Content extends Model
         return $this->belongsTo(Employee::class, 'marked_by');
     }
 
+    public function platformPosts(): HasMany
+    {
+        return $this->hasMany(CmsContentPlatformPost::class);
+    }
+
     /**
      * Get the stages for this content
      */
