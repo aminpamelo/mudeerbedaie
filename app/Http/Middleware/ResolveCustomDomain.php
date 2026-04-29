@@ -15,11 +15,13 @@ class ResolveCustomDomain
      */
     private function isAppDomain(string $host): bool
     {
-        $appDomains = [
+        $tunnelHosts = array_filter(array_map('trim', explode(',', (string) env('DEV_TUNNEL_HOSTS', ''))));
+
+        $appDomains = array_merge([
             parse_url(config('app.url'), PHP_URL_HOST),
             'localhost',
             '127.0.0.1',
-        ];
+        ], $tunnelHosts);
 
         // Also skip if it matches the main app test domain pattern
         if (str_ends_with($host, '.test')) {
