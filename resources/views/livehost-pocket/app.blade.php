@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#F0F0F5">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title inertia>{{ config('app.name', 'Live Host Pocket') }}</title>
+    <title inertia>{{ config('app.name', 'Sistem Livehost Bedaie') }}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

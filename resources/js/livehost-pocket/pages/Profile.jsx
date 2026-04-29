@@ -20,7 +20,7 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
 
   const handleSignOut = () => {
-    if (!window.confirm('Sign out of the Pocket?')) {
+    if (!window.confirm('Log keluar dari Sistem Livehost Bedaie?')) {
       return;
     }
     router.post('/logout');
