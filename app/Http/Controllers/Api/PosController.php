@@ -533,8 +533,177 @@ class PosController extends Controller
             return response()->json(['message' => 'Only POS sales can be edited here.'], 403);
         }
 
-        // Implementation lands in Task 4.
-        return response()->json(['message' => 'Not implemented yet.'], 501);
+        $validated = $request->validated();
+
+        return DB::transaction(function () use ($validated, $sale, $request) {
+            $existingItems = $sale->items()->get()->keyBy('id');
+            $modelClassMap = [
+                'product' => Product::class,
+                'package' => Package::class,
+                'course' => Course::class,
+            ];
+
+            $subtotal = 0;
+            $touchedExistingIds = [];
+            $itemUpserts = [];
+
+            foreach ($validated['items'] as $row) {
+                $modelClass = $modelClassMap[$row['itemable_type']];
+                $model = $modelClass::findOrFail($row['itemable_id']);
+                $totalPrice = $row['quantity'] * $row['unit_price'];
+                $subtotal += $totalPrice;
+
+                $variantName = null;
+                $sku = $model->sku ?? null;
+                $productId = null;
+                $productVariantId = null;
+                $packageId = null;
+
+                if ($row['itemable_type'] === 'product') {
+                    $productId = $model->id;
+                    if (! empty($row['product_variant_id'])) {
+                        $variant = $model->variants()->find($row['product_variant_id']);
+                        if ($variant) {
+                            $variantName = $variant->name;
+                            $sku = $variant->sku;
+                            $productVariantId = $variant->id;
+                        }
+                    }
+                } elseif ($row['itemable_type'] === 'package') {
+                    $packageId = $model->id;
+                }
+
+                $data = [
+                    'itemable_type' => $modelClass,
+                    'itemable_id' => $row['itemable_id'],
+                    'product_id' => $productId,
+                    'product_variant_id' => $productVariantId,
+                    'package_id' => $packageId,
+                    'product_name' => $model->name,
+                    'variant_name' => $variantName,
+                    'sku' => $sku ?? '',
+                    'quantity_ordered' => $row['quantity'],
+                    'unit_price' => $row['unit_price'],
+                    'total_price' => $totalPrice,
+                    'item_metadata' => $row['itemable_type'] === 'course' && ! empty($row['class_id'])
+                        ? ['class_id' => $row['class_id'], 'class_title' => ClassModel::find($row['class_id'])?->title]
+                        : null,
+                ];
+
+                $existing = isset($row['id']) ? $existingItems->get($row['id']) : null;
+                if ($existing) {
+                    $touchedExistingIds[] = $existing->id;
+                }
+                $itemUpserts[] = ['existing' => $existing, 'data' => $data];
+            }
+
+            foreach ($existingItems as $id => $oldItem) {
+                if (! in_array($id, $touchedExistingIds, true)) {
+                    $oldItem->restoreStock();
+                    $oldItem->delete();
+                }
+            }
+
+            foreach ($itemUpserts as $upsert) {
+                $existing = $upsert['existing'];
+                $data = $upsert['data'];
+
+                if ($existing) {
+                    $oldQty = (int) $existing->quantity_ordered;
+                    $newQty = (int) $data['quantity_ordered'];
+                    $existing->update($data);
+
+                    if ($newQty > $oldQty) {
+                        $delta = $newQty - $oldQty;
+                        $stockHelper = $existing->replicate(['quantity_ordered']);
+                        $stockHelper->id = $existing->id;
+                        $stockHelper->order_id = $existing->order_id;
+                        $stockHelper->quantity_ordered = $delta;
+                        $stockHelper->setRelations($existing->getRelations());
+                        $stockHelper->deductStock();
+                    } elseif ($newQty < $oldQty) {
+                        $delta = $oldQty - $newQty;
+                        $existing->restoreStock($delta);
+                    }
+                } else {
+                    $newItem = $sale->items()->create($data);
+                    $newItem->deductStock();
+                }
+            }
+
+            $discountAmount = 0;
+            if (! empty($validated['discount_amount']) && $validated['discount_amount'] > 0) {
+                if (($validated['discount_type'] ?? null) === 'percentage') {
+                    $discountAmount = round($subtotal * ($validated['discount_amount'] / 100), 2);
+                } else {
+                    $discountAmount = $validated['discount_amount'];
+                }
+            }
+            $shippingCost = $validated['shipping_cost'] ?? 0;
+            $totalAmount = max(0, $subtotal - $discountAmount + $shippingCost);
+
+            $shippingAddress = ! empty($validated['customer_address'])
+                ? ['full_address' => $validated['customer_address']]
+                : null;
+
+            $customerId = $validated['customer_id'] ?? null;
+            $customerName = $validated['customer_name'] ?? null;
+            $customerPhone = $validated['customer_phone'] ?? null;
+            $customerEmail = $validated['customer_email'] ?? null;
+
+            if ($customerId) {
+                $customerUser = User::find($customerId);
+                if ($customerUser) {
+                    $customerName = $customerName ?: $customerUser->name;
+                    $customerPhone = $customerPhone ?: $customerUser->phone;
+                    $customerEmail = $customerEmail ?: $customerUser->email;
+                }
+            }
+
+            $metadata = $sale->metadata ?? [];
+            $metadata['payment_reference'] = $validated['payment_reference'] ?? null;
+            $metadata['discount_type'] = $validated['discount_type'] ?? null;
+            $metadata['discount_input'] = $validated['discount_amount'] ?? null;
+
+            $sale->update([
+                'customer_id' => $customerId,
+                'customer_name' => $customerName,
+                'customer_phone' => $customerPhone,
+                'guest_email' => $customerEmail,
+                'shipping_address' => $shippingAddress,
+                'sales_source_id' => $validated['sales_source_id'],
+                'payment_method' => $validated['payment_method'],
+                'subtotal' => $subtotal,
+                'discount_amount' => $discountAmount,
+                'shipping_cost' => $shippingCost,
+                'total_amount' => $totalAmount,
+                'internal_notes' => $validated['notes'] ?? $sale->internal_notes,
+                'metadata' => $metadata,
+            ]);
+
+            $payment = $sale->payments()->first();
+            if ($payment) {
+                $payment->update([
+                    'payment_method' => $validated['payment_method'],
+                    'amount' => $totalAmount,
+                    'reference_number' => $validated['payment_reference'] ?? null,
+                ]);
+            }
+
+            $funnelOrder = FunnelOrder::where('product_order_id', $sale->id)->first();
+            if ($funnelOrder) {
+                $funnelOrder->update(['funnel_revenue' => $totalAmount]);
+            }
+
+            $sale->addSystemNote('Order edited from POS by '.$request->user()->name);
+
+            $sale->load(['items', 'customer', 'payments']);
+
+            return response()->json([
+                'message' => 'Sale updated successfully.',
+                'data' => $sale,
+            ]);
+        });
     }
 
     /**
