@@ -11,8 +11,11 @@ import {
     ChevronDown,
     Columns3,
     Calendar,
+    CheckCheck,
     Flag,
     BarChart3,
+    ListChecks,
+    Share2,
     TrendingUp,
     Users,
 } from 'lucide-react';
@@ -38,6 +41,15 @@ const navigation = [
         children: [
             { name: 'Marked Posts', to: '/ads/marked', icon: Flag },
             { name: 'Campaigns', to: '/ads', icon: BarChart3 },
+        ],
+    },
+    {
+        name: 'Platform',
+        icon: Share2,
+        prefix: '/platform',
+        children: [
+            { name: 'Cross-Post Queue', to: '/platform/queue', icon: ListChecks },
+            { name: 'Posted History', to: '/platform/history', icon: CheckCheck },
         ],
     },
     { name: 'Performance', to: '/reports/performance', icon: TrendingUp },

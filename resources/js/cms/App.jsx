@@ -15,6 +15,8 @@ import AdsList from './pages/AdsList';
 import AdCampaignDetail from './pages/AdCampaignDetail';
 import PerformanceReport from './pages/PerformanceReport';
 import CreatorLeaderboard from './pages/CreatorLeaderboard';
+import PlatformQueue from './pages/PlatformQueue';
+import PlatformHistory from './pages/PlatformHistory';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -67,6 +69,8 @@ export default function App() {
                         <Route path="ads/marked" element={<MarkedPosts />} />
                         <Route path="ads" element={<AdsList />} />
                         <Route path="ads/:id" element={<AdCampaignDetail />} />
+                        <Route path="platform/queue" element={<PlatformQueue />} />
+                        <Route path="platform/history" element={<PlatformHistory />} />
                         <Route path="reports/performance" element={<PerformanceReport />} />
                         <Route path="creators" element={<CreatorLeaderboard />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
