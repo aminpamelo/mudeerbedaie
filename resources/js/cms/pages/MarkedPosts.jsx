@@ -72,6 +72,17 @@ function formatNumber(num) {
     return Number(num).toLocaleString();
 }
 
+function formatDateTime(dateString) {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('en-MY', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 function StageBadge({ stage }) {
@@ -274,6 +285,7 @@ export default function MarkedPosts() {
                                 <TableHead>TikTok URL</TableHead>
                                 <TableHead>Stats</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Marked At</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -319,6 +331,11 @@ export default function MarkedPosts() {
                                         </TableCell>
                                         <TableCell>
                                             <StatusBadges content={content} />
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="text-sm text-zinc-600 whitespace-nowrap">
+                                                {formatDateTime(content.marked_at)}
+                                            </span>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
