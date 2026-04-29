@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Cms\CmsAdCampaignController;
 use App\Http\Controllers\Api\Cms\CmsAffiliateController;
 use App\Http\Controllers\Api\Cms\CmsContentController;
+use App\Http\Controllers\Api\Cms\CmsContentPlatformPostController;
 use App\Http\Controllers\Api\Cms\CmsContentStageController;
 use App\Http\Controllers\Api\Cms\CmsDashboardController;
 use App\Http\Controllers\Api\Cms\CmsPerformanceReportController;
@@ -1142,6 +1143,9 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
 
     // CMS Platform routes
     Route::get('platforms', [CmsPlatformController::class, 'index']);
+
+    // CMS Content Platform Posts
+    Route::get('platform-posts', [CmsContentPlatformPostController::class, 'index']);
 
     // Contents
     Route::get('contents/kanban', [CmsContentController::class, 'kanban']);
