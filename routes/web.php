@@ -698,6 +698,11 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('platforms/{platform}/accounts/{account}/credentials', 'admin.platforms.accounts.credentials')->name('platforms.accounts.credentials');
     Volt::route('platforms/{platform}/accounts/{account}/pending-products', 'admin.platforms.products.pending')->name('platforms.accounts.pending-products');
 
+    // Platform App Management routes
+    Volt::route('platforms/{platform}/apps', 'admin.platform-apps.index')->name('platforms.apps.index');
+    Volt::route('platforms/{platform}/apps/create', 'admin.platform-apps.edit')->name('platforms.apps.create');
+    Volt::route('platforms/{platform}/apps/{app}/edit', 'admin.platform-apps.edit')->name('platforms.apps.edit');
+
     // Platform-specific order routes
     Volt::route('platforms/{platform}/orders', 'admin.platforms.orders.index')->name('platforms.orders.platform.index');
     Volt::route('platforms/{platform}/orders/{order}', 'admin.platforms.orders.show')->name('platforms.orders.show');
