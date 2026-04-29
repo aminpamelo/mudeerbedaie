@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Cms;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Cms\UpdatePlatformPostRequest;
 use App\Models\CmsContentPlatformPost;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,15 @@ class CmsContentPlatformPostController extends Controller
     {
         return response()->json([
             'data' => $platformPost->load(['content:id,title,tiktok_url', 'platform', 'assignee:id,full_name,profile_photo']),
+        ]);
+    }
+
+    public function update(UpdatePlatformPostRequest $request, CmsContentPlatformPost $platformPost): JsonResponse
+    {
+        $platformPost->update($request->validated());
+
+        return response()->json([
+            'data' => $platformPost->fresh()->load(['content:id,title', 'platform', 'assignee:id,full_name,profile_photo']),
         ]);
     }
 }
