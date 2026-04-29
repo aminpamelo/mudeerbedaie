@@ -8,6 +8,7 @@ use App\Jobs\SyncTikTokProducts;
 use App\Models\PendingPlatformProduct;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
 use App\Models\PlatformSkuMapping;
 use App\Models\ProductOrder;
 use App\Models\TiktokAffiliateOrder;
@@ -544,6 +545,23 @@ new class extends Component
             ->where('is_active', true)
             ->exists();
     }
+
+    public function with(): array
+    {
+        return [
+            'apps' => PlatformApp::where('platform_id', $this->platform->id)
+                ->where('is_active', true)
+                ->orderBy('category')
+                ->get(),
+            'credentialsByAppId' => $this->account->credentials()
+                ->with('platformApp')
+                ->whereNotNull('platform_app_id')
+                ->where('credential_type', 'oauth_token')
+                ->where('is_active', true)
+                ->get()
+                ->keyBy('platform_app_id'),
+        ];
+    }
 }; ?>
 
 <div>
@@ -985,8 +1003,9 @@ new class extends Component
         @if($account->isTikTokShop())
             <div class="reveal d3 mb-6 overflow-x-auto -mx-1 px-1">
                 <div class="pf-tabs">
-                    <button type="button" wire:click="setTab('overview')"   class="pf-tab" aria-pressed="{{ $activeTab === 'overview' ? 'true' : 'false' }}">Overview</button>
-                    <button type="button" wire:click="setTab('orders')"     class="pf-tab" aria-pressed="{{ $activeTab === 'orders' ? 'true' : 'false' }}">Orders <span class="count">{{ number_format($syncStats['total_orders'] ?? 0) }}</span></button>
+                    <button type="button" wire:click="setTab('overview')"    class="pf-tab" aria-pressed="{{ $activeTab === 'overview' ? 'true' : 'false' }}">Overview</button>
+                    <button type="button" wire:click="setTab('connections')" class="pf-tab" aria-pressed="{{ $activeTab === 'connections' ? 'true' : 'false' }}">Connections</button>
+                    <button type="button" wire:click="setTab('orders')"      class="pf-tab" aria-pressed="{{ $activeTab === 'orders' ? 'true' : 'false' }}">Orders <span class="count">{{ number_format($syncStats['total_orders'] ?? 0) }}</span></button>
                     <button type="button" wire:click="setTab('products')"   class="pf-tab" aria-pressed="{{ $activeTab === 'products' ? 'true' : 'false' }}">
                         Products
                         @if(($syncStats['pending_products'] ?? 0) > 0)
@@ -1258,6 +1277,56 @@ new class extends Component
                         </button>
                     </section>
                 </aside>
+            </div>
+
+        {{-- ═══════════════════════════════════════════════════ Connections --}}
+        @elseif($activeTab === 'connections')
+            <div class="reveal d4 space-y-5">
+                <section class="pf-surface overflow-hidden">
+                    <div class="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
+                        <flux:heading size="lg">App Connections</flux:heading>
+                        <flux:text class="mt-1">TikTok Shop categorizes apps. Each category needs its own OAuth connection to grant the relevant scopes.</flux:text>
+                    </div>
+
+                    <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        @forelse($apps as $app)
+                            @php
+                                $cred = $credentialsByAppId[$app->id] ?? null;
+                                $isConnected = $cred && $cred->is_active && (! $cred->expires_at || ! $cred->expires_at->isPast());
+                            @endphp
+                            <div wire:key="app-{{ $app->id }}" class="px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
+                                <div>
+                                    <div class="font-medium text-[14px] text-zinc-900 dark:text-zinc-100">{{ $app->name }}</div>
+                                    <div class="text-[12px] text-zinc-500 dark:text-zinc-400">Category: {{ $app->category }}</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    @if($isConnected)
+                                        <flux:badge color="green">Connected</flux:badge>
+                                        <flux:button size="sm" variant="outline"
+                                            href="{{ route('tiktok.connect', ['app' => $app->slug, 'link_account' => $account->id]) }}">
+                                            Reconnect
+                                        </flux:button>
+                                        <form method="POST" action="{{ route('tiktok.disconnect', $account->id) }}?app={{ $app->slug }}">
+                                            @csrf
+                                            <flux:button size="sm" variant="ghost" type="submit">Disconnect</flux:button>
+                                        </form>
+                                    @else
+                                        <flux:badge color="amber">Not connected</flux:badge>
+                                        <flux:button size="sm" variant="primary"
+                                            href="{{ route('tiktok.connect', ['app' => $app->slug, 'link_account' => $account->id]) }}">
+                                            Connect
+                                        </flux:button>
+                                    @endif
+                                </div>
+                            </div>
+                        @empty
+                            <div class="px-6 py-12 text-center text-zinc-500 dark:text-zinc-400">
+                                No apps registered yet.
+                                <a href="{{ route('platforms.apps.index', $platform) }}" class="text-blue-600 hover:underline">Register apps →</a>
+                            </div>
+                        @endforelse
+                    </div>
+                </section>
             </div>
 
         {{-- ═══════════════════════════════════════════════════ Orders --}}
@@ -1642,11 +1711,26 @@ new class extends Component
                             </div>
                         </div>
                     @else
-                        <div class="empty-state">
-                            <div class="icon"><flux:icon name="chart-bar" class="w-5 h-5" /></div>
-                            <h3>No analytics data yet</h3>
-                            <p>Run <code class="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[11px]">php artisan tiktok:sync-analytics</code> to pull shop performance data.</p>
-                        </div>
+                        @php
+                            $analyticsCred = ($credentialsByAppId ?? collect())
+                                ->first(fn ($c) => optional($c->platformApp)->category === 'analytics_reporting');
+                        @endphp
+                        @if(! $analyticsCred)
+                            <div class="empty-state">
+                                <div class="icon"><flux:icon name="chart-bar" class="w-5 h-5" /></div>
+                                <h3>Connect Analytics & Reporting</h3>
+                                <p class="mb-4">Analytics requires a separate TikTok app connection.</p>
+                                <flux:button variant="primary" wire:click="setTab('connections')">
+                                    Connect Analytics & Reporting
+                                </flux:button>
+                            </div>
+                        @else
+                            <div class="empty-state">
+                                <div class="icon"><flux:icon name="chart-bar" class="w-5 h-5" /></div>
+                                <h3>No analytics data yet</h3>
+                                <p>Run <code class="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[11px]">php artisan tiktok:sync-analytics</code> to pull shop performance data.</p>
+                            </div>
+                        @endif
                     @endif
                 </section>
 
