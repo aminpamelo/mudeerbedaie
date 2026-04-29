@@ -12,6 +12,7 @@ class PlatformApiCredential extends Model
     protected $fillable = [
         'platform_id',
         'platform_account_id',
+        'platform_app_id',
         'credential_type',
         'name',
         'encrypted_value',
@@ -49,6 +50,11 @@ class PlatformApiCredential extends Model
     public function platformAccount(): BelongsTo
     {
         return $this->belongsTo(PlatformAccount::class);
+    }
+
+    public function platformApp(): BelongsTo
+    {
+        return $this->belongsTo(PlatformApp::class);
     }
 
     public function scopeActive(Builder $query): Builder
