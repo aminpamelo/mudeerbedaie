@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Cms\CmsContentController;
 use App\Http\Controllers\Api\Cms\CmsContentStageController;
 use App\Http\Controllers\Api\Cms\CmsDashboardController;
 use App\Http\Controllers\Api\Cms\CmsPerformanceReportController;
+use App\Http\Controllers\Api\Cms\CmsPlatformController;
 use App\Http\Controllers\Api\ContactActivityController;
 use App\Http\Controllers\Api\Hr\HrApplicantController;
 use App\Http\Controllers\Api\Hr\HrAssetAssignmentController;
@@ -1138,6 +1139,9 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     // Dashboard
     Route::get('dashboard/stats', [CmsDashboardController::class, 'stats']);
     Route::get('dashboard/top-posts', [CmsDashboardController::class, 'topPosts']);
+
+    // CMS Platform routes
+    Route::get('platforms', [CmsPlatformController::class, 'index']);
 
     // Contents
     Route::get('contents/kanban', [CmsContentController::class, 'kanban']);
