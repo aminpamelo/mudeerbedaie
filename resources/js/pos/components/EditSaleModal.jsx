@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { saleApi, salesSourceApi } from '../services/api';
+import { productApi, saleApi, salesSourceApi } from '../services/api';
 
 const PAYMENT_METHODS = [
     { value: 'cash', label: 'Cash' },
@@ -53,6 +53,9 @@ export default function EditSaleModal({ sale, onClose, onSaved }) {
     const [notes, setNotes] = useState(sale.internal_notes || '');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
+    const [productSearch, setProductSearch] = useState('');
+    const [productResults, setProductResults] = useState([]);
+    const [searchingProducts, setSearchingProducts] = useState(false);
 
     useEffect(() => {
         salesSourceApi
@@ -60,6 +63,55 @@ export default function EditSaleModal({ sale, onClose, onSaved }) {
             .then((res) => setSalesSources(res.data || []))
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        const term = productSearch.trim();
+        if (!term) {
+            setProductResults([]);
+            setSearchingProducts(false);
+            return undefined;
+        }
+        setSearchingProducts(true);
+        const timer = setTimeout(() => {
+            productApi
+                .list({ search: term })
+                .then((res) => {
+                    const products = res.data || [];
+                    const flattened = [];
+                    products.forEach((p) => {
+                        if (p.variants && p.variants.length > 0) {
+                            p.variants.forEach((v) => {
+                                flattened.push({ product: p, variant: v });
+                            });
+                        } else {
+                            flattened.push({ product: p, variant: null });
+                        }
+                    });
+                    setProductResults(flattened.slice(0, 8));
+                })
+                .catch(() => setProductResults([]))
+                .finally(() => setSearchingProducts(false));
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [productSearch]);
+
+    const addProductToItems = (product, variant) => {
+        setItems((prev) => [
+            ...prev,
+            {
+                id: null,
+                itemable_type: 'product',
+                itemable_id: product.id,
+                product_variant_id: variant?.id || null,
+                product_name: product.name,
+                variant_name: variant?.name || null,
+                quantity: 1,
+                unit_price: Number(variant?.price ?? product.base_price ?? product.price ?? 0),
+            },
+        ]);
+        setProductSearch('');
+        setProductResults([]);
+    };
 
     useEffect(() => {
         const handleKey = (e) => {
@@ -304,6 +356,78 @@ export default function EditSaleModal({ sale, onClose, onSaved }) {
                                         </button>
                                     </div>
                                 ))
+                            )}
+                        </div>
+
+                        {/* + Add Item */}
+                        <div className="relative mt-3">
+                            <div className="relative">
+                                <svg
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 4v16m8-8H4"
+                                    />
+                                </svg>
+                                <input
+                                    type="text"
+                                    value={productSearch}
+                                    onChange={(e) => setProductSearch(e.target.value)}
+                                    placeholder="Add item — search products..."
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                            {productSearch.trim() !== '' && (
+                                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                    {searchingProducts && productResults.length === 0 ? (
+                                        <p className="px-3 py-3 text-sm text-gray-400">
+                                            Searching...
+                                        </p>
+                                    ) : productResults.length === 0 ? (
+                                        <p className="px-3 py-3 text-sm text-gray-400">
+                                            No products found.
+                                        </p>
+                                    ) : (
+                                        productResults.map((row, idx) => {
+                                            const { product, variant } = row;
+                                            const displayName = variant
+                                                ? `${product.name} — ${variant.name}`
+                                                : product.name;
+                                            const sku = variant?.sku || product.sku || '';
+                                            const price = Number(
+                                                variant?.price ?? product.base_price ?? product.price ?? 0,
+                                            );
+                                            return (
+                                                <button
+                                                    key={`${product.id}-${variant?.id || 'base'}-${idx}`}
+                                                    type="button"
+                                                    onClick={() => addProductToItems(product, variant)}
+                                                    className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center justify-between gap-3 border-b border-gray-100 last:border-b-0"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {displayName}
+                                                        </p>
+                                                        {sku && (
+                                                            <p className="text-xs text-gray-400">
+                                                                {sku}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-blue-600 shrink-0">
+                                                        RM {price.toFixed(2)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })
+                                    )}
+                                </div>
                             )}
                         </div>
                     </section>
