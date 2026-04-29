@@ -6,6 +6,7 @@ namespace App\Services\TikTok;
 
 use App\Models\Platform;
 use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
 use Carbon\Carbon;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Log;
 
 class TikTokOrderSyncService
 {
+    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_MULTI_CHANNEL;
+
     private const PROGRESS_CACHE_PREFIX = 'tiktok_sync_progress_';
 
     private const PROGRESS_TTL = 600; // 10 minutes
@@ -125,16 +128,22 @@ class TikTokOrderSyncService
             'errors' => [],
         ];
 
+        // Resolve the app for our required category up front so we can pass it to auth/refresh.
+        $app = $this->clientFactory->resolveApp($account, static::REQUIRED_CATEGORY);
+
         // Check if token needs refresh (only if expiring within 1 hour)
-        if ($this->authService->needsTokenRefresh($account)) {
+        if ($this->authService->needsTokenRefresh($account, $app)) {
             Log::info('[TikTok Order Sync] Refreshing token before sync', [
                 'account_id' => $account->id,
+                'platform_app_id' => $app->id,
+                'category' => static::REQUIRED_CATEGORY,
             ]);
 
-            if (! $this->authService->refreshToken($account)) {
+            if (! $this->authService->refreshToken($account, $app)) {
                 // Token refresh failed, but the current token might still be valid
                 // Check if we have a credential that's not yet expired
                 $credential = $account->credentials()
+                    ->where('platform_app_id', $app->id)
                     ->where('credential_type', 'oauth_token')
                     ->where('is_active', true)
                     ->first();
@@ -155,7 +164,7 @@ class TikTokOrderSyncService
         }
 
         try {
-            $client = $this->clientFactory->createClientForAccount($account);
+            $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
             $orders = $this->fetchOrders($client->Order, $filters);
 
             $totalOrders = count($orders);
@@ -624,7 +633,7 @@ class TikTokOrderSyncService
         }
 
         try {
-            $client = $this->clientFactory->createClientForAccount($account);
+            $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
             $response = $client->Order->getOrderDetail($orderIds);
 
             return $response['orders'] ?? [];

@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\MissingPlatformAppConnectionException;
+use App\Models\Platform;
 use App\Models\PlatformAccount;
+use App\Models\PlatformApiCredential;
+use App\Models\PlatformApp;
 use App\Models\TiktokShopPerformanceSnapshot;
+use App\Models\User;
 use App\Services\TikTok\TikTokAnalyticsSyncService;
 use App\Services\TikTok\TikTokAuthService;
 use App\Services\TikTok\TikTokClientFactory;
@@ -143,4 +148,33 @@ it('syncs product performance list', function () {
         'orders' => 20,
         'buyers' => 18,
     ]);
+});
+
+it('refuses to sync analytics when only multi-channel credential exists', function () {
+    $platform = Platform::factory()->create(['slug' => 'tiktok-shop']);
+    $user = User::factory()->create();
+
+    $multiChannelApp = PlatformApp::factory()->multiChannel()->create(['platform_id' => $platform->id]);
+
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $platform->id,
+        'user_id' => $user->id,
+    ]);
+
+    $cred = new PlatformApiCredential([
+        'platform_id' => $platform->id,
+        'platform_account_id' => $account->id,
+        'platform_app_id' => $multiChannelApp->id,
+        'credential_type' => 'oauth_token',
+        'name' => 'MC',
+        'is_active' => true,
+        'expires_at' => now()->addHours(20),
+    ]);
+    $cred->setValue('token');
+    $cred->save();
+
+    $service = app(TikTokAnalyticsSyncService::class);
+
+    expect(fn () => $service->syncShopPerformance($account))
+        ->toThrow(MissingPlatformAppConnectionException::class);
 });

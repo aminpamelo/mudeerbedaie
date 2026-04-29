@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\TikTok;
 
 use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
 use App\Models\TiktokAffiliateOrder;
 use App\Models\TiktokCreator;
 use App\Models\TiktokCreatorContent;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Log;
 
 class TikTokAffiliateSyncService
 {
+    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_MULTI_CHANNEL;
+
     public function __construct(
         private TikTokClientFactory $clientFactory,
         private TikTokAuthService $authService
@@ -222,15 +225,18 @@ class TikTokAffiliateSyncService
      */
     protected function getClient(PlatformAccount $account): mixed
     {
-        if ($this->authService->needsTokenRefresh($account)) {
-            Log::info('[TikTok Affiliate Sync] Refreshing token before sync', [
-                'account_id' => $account->id,
-            ]);
+        $app = $this->clientFactory->resolveApp($account, static::REQUIRED_CATEGORY);
 
-            $this->authService->refreshToken($account);
+        if ($this->authService->needsTokenRefresh($account, $app)) {
+            Log::info('[TikTok Sync] Refreshing token before sync', [
+                'account_id' => $account->id,
+                'platform_app_id' => $app->id,
+                'category' => static::REQUIRED_CATEGORY,
+            ]);
+            $this->authService->refreshToken($account, $app);
         }
 
-        $client = $this->clientFactory->createClientForAccount($account);
+        $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
         $client->useVersion($this->clientFactory->getApiVersion());
 
         return $client;

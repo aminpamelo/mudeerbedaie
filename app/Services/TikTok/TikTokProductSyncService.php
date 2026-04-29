@@ -6,6 +6,7 @@ namespace App\Services\TikTok;
 
 use App\Models\PendingPlatformProduct;
 use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
 use App\Models\PlatformSkuMapping;
 use App\Models\Product;
 use Exception;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Log;
 
 class TikTokProductSyncService
 {
+    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_MULTI_CHANNEL;
+
     private const PROGRESS_CACHE_PREFIX = 'tiktok_product_sync_progress_';
 
     private const PROGRESS_TTL = 600; // 10 minutes
@@ -123,7 +126,7 @@ class TikTokProductSyncService
      */
     public function fetchProducts(PlatformAccount $account, array $options = []): Collection
     {
-        $client = $this->clientFactory->createClientForAccount($account);
+        $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
         $products = collect();
 
         $pageSize = $options['page_size'] ?? 50;
@@ -325,7 +328,7 @@ class TikTokProductSyncService
     public function getProductDetails(PlatformAccount $account, string $productId): ?array
     {
         try {
-            $client = $this->clientFactory->createClientForAccount($account);
+            $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
             $response = $client->Product->getProductDetail($productId);
 
             return $response['data'] ?? null;
@@ -346,7 +349,7 @@ class TikTokProductSyncService
     public function getCategories(PlatformAccount $account): array
     {
         try {
-            $client = $this->clientFactory->createClientForAccount($account);
+            $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
             $response = $client->Product->getCategories();
 
             return $response['data']['categories'] ?? [];

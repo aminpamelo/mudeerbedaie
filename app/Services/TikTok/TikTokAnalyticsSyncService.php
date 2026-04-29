@@ -7,12 +7,15 @@ namespace App\Services\TikTok;
 use App\Models\Content;
 use App\Models\ContentStat;
 use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
 use App\Models\TiktokProductPerformance;
 use App\Models\TiktokShopPerformanceSnapshot;
 use Illuminate\Support\Facades\Log;
 
 class TikTokAnalyticsSyncService
 {
+    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_ANALYTICS_REPORTING;
+
     public function __construct(
         private TikTokClientFactory $clientFactory,
         private TikTokAuthService $authService
@@ -154,15 +157,18 @@ class TikTokAnalyticsSyncService
      */
     protected function getClient(PlatformAccount $account): mixed
     {
-        if ($this->authService->needsTokenRefresh($account)) {
-            Log::info('[TikTok Analytics Sync] Refreshing token before sync', [
-                'account_id' => $account->id,
-            ]);
+        $app = $this->clientFactory->resolveApp($account, static::REQUIRED_CATEGORY);
 
-            $this->authService->refreshToken($account);
+        if ($this->authService->needsTokenRefresh($account, $app)) {
+            Log::info('[TikTok Sync] Refreshing token before sync', [
+                'account_id' => $account->id,
+                'platform_app_id' => $app->id,
+                'category' => static::REQUIRED_CATEGORY,
+            ]);
+            $this->authService->refreshToken($account, $app);
         }
 
-        $client = $this->clientFactory->createClientForAccount($account);
+        $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
         $client->useVersion($this->clientFactory->getApiVersion());
 
         return $client;
