@@ -19,6 +19,12 @@ import {
     Link as LinkIcon,
     ExternalLink,
     Users,
+    Globe,
+    Eye,
+    Heart,
+    MessageSquare,
+    Plus,
+    Check,
 } from 'lucide-react';
 import {
     fetchContent,
@@ -32,6 +38,8 @@ import {
     updateStageDueDate,
     updateStageMeta,
     fetchContentCreators,
+    updatePlatformPost,
+    updatePlatformPostStats,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { toastSuccess, toastError } from '../lib/toast';
@@ -91,6 +99,18 @@ const PRIORITY_COLORS = {
     high: 'bg-amber-100 text-amber-700',
     urgent: 'bg-rose-100 text-rose-700',
 };
+
+const PLATFORM_POST_STATUS_COLORS = {
+    pending: 'bg-amber-100 text-amber-800',
+    posted: 'bg-green-100 text-green-800',
+    skipped: 'bg-zinc-100 text-zinc-700',
+};
+
+const PLATFORM_POST_STATUS_OPTIONS = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'posted', label: 'Posted' },
+    { value: 'skipped', label: 'Skipped' },
+];
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -182,6 +202,13 @@ export default function ContentDetail() {
     const [statsForm, setStatsForm] = useState({ views: '', likes: '', comments: '', shares: '' });
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [videoForm, setVideoForm] = useState({ video_url: '', tiktok_url: '' });
+
+    // Cross-Platform Posts card state
+    const [editingUrlPostId, setEditingUrlPostId] = useState(null);
+    const [urlInput, setUrlInput] = useState('');
+    const [statsModalOpen, setStatsModalOpen] = useState(false);
+    const [editingStatsPost, setEditingStatsPost] = useState(null);
+    const [statsModalForm, setStatsModalForm] = useState({ views: '', likes: '', comments: '' });
 
     const { data: content, isLoading } = useQuery({
         queryKey: ['cms', 'content', id],
@@ -297,6 +324,27 @@ export default function ContentDetail() {
         onError: (error) => toastError(error, 'Failed to save stage details'),
     });
 
+    const platformPostMutation = useMutation({
+        mutationFn: ({ postId, payload }) => updatePlatformPost(postId, payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Platform post updated');
+        },
+        onError: (error) => toastError(error, 'Failed to update platform post'),
+    });
+
+    const platformPostStatsMutation = useMutation({
+        mutationFn: ({ postId, payload }) => updatePlatformPostStats(postId, payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            setStatsModalOpen(false);
+            setEditingStatsPost(null);
+            setStatsModalForm({ views: '', likes: '', comments: '' });
+            toastSuccess('Stats updated');
+        },
+        onError: (error) => toastError(error, 'Failed to update stats'),
+    });
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
@@ -345,6 +393,66 @@ export default function ContentDetail() {
             setNextStage(availableNextStages[0]);
         }
         setMoveStageOpen(true);
+    }
+
+    const platformPosts = data.platform_posts || [];
+
+    function handleStatusChange(post, newStatus) {
+        platformPostMutation.mutate({
+            postId: post.id,
+            payload: { status: newStatus },
+        });
+    }
+
+    function handleStartEditUrl(post) {
+        setEditingUrlPostId(post.id);
+        setUrlInput(post.post_url || '');
+    }
+
+    function handleCancelEditUrl() {
+        setEditingUrlPostId(null);
+        setUrlInput('');
+    }
+
+    function handleSaveUrl(post) {
+        const trimmed = urlInput.trim();
+        platformPostMutation.mutate(
+            {
+                postId: post.id,
+                payload: { post_url: trimmed || null },
+            },
+            {
+                onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+                    setEditingUrlPostId(null);
+                    setUrlInput('');
+                    toastSuccess('Platform post updated');
+                },
+            }
+        );
+    }
+
+    function handleOpenStatsModal(post) {
+        const currentStats = post.stats || {};
+        setEditingStatsPost(post);
+        setStatsModalForm({
+            views: currentStats.views ?? '',
+            likes: currentStats.likes ?? '',
+            comments: currentStats.comments ?? '',
+        });
+        setStatsModalOpen(true);
+    }
+
+    function handleSaveStats() {
+        if (!editingStatsPost) return;
+        platformPostStatsMutation.mutate({
+            postId: editingStatsPost.id,
+            payload: {
+                views: parseInt(statsModalForm.views, 10) || 0,
+                likes: parseInt(statsModalForm.likes, 10) || 0,
+                comments: parseInt(statsModalForm.comments, 10) || 0,
+            },
+        });
     }
 
     return (
@@ -779,6 +887,202 @@ export default function ContentDetail() {
                 </div>
             </div>
 
+            {/* Cross-Platform Posts */}
+            {platformPosts.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-indigo-500" />
+                            Cross-Platform Posts
+                            <Badge variant="secondary" className="ml-1 text-[10px]">
+                                {platformPosts.length}
+                            </Badge>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {platformPosts.map((post) => {
+                            const statusColor =
+                                PLATFORM_POST_STATUS_COLORS[post.status] ||
+                                'bg-zinc-100 text-zinc-700';
+                            const stats = post.stats || {};
+                            const isEditingThisUrl = editingUrlPostId === post.id;
+                            const assigneeName =
+                                post.assignee?.full_name || null;
+
+                            return (
+                                <div
+                                    key={post.id}
+                                    className="rounded-lg border border-slate-200 bg-white p-4"
+                                >
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {post.platform && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="font-semibold"
+                                                >
+                                                    {post.platform.name}
+                                                </Badge>
+                                            )}
+                                            <Badge className={statusColor}>
+                                                {post.status
+                                                    ? post.status
+                                                          .charAt(0)
+                                                          .toUpperCase() +
+                                                      post.status.slice(1)
+                                                    : 'Unknown'}
+                                            </Badge>
+                                            <Select
+                                                value={post.status}
+                                                onValueChange={(v) =>
+                                                    handleStatusChange(post, v)
+                                                }
+                                            >
+                                                <SelectTrigger className="h-7 w-[120px] text-xs">
+                                                    <SelectValue placeholder="Status" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {PLATFORM_POST_STATUS_OPTIONS.map(
+                                                        (opt) => (
+                                                            <SelectItem
+                                                                key={opt.value}
+                                                                value={opt.value}
+                                                            >
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        )
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {assigneeName && (
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                <Avatar className="h-5 w-5">
+                                                    <AvatarFallback className="text-[8px] bg-slate-200">
+                                                        {getInitials(assigneeName)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <span>{assigneeName}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Post URL row */}
+                                    <div className="mt-3">
+                                        <Label className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                            <LinkIcon className="h-3 w-3" />
+                                            Post URL
+                                        </Label>
+                                        {isEditingThisUrl ? (
+                                            <div className="mt-1.5 flex items-center gap-2">
+                                                <Input
+                                                    type="url"
+                                                    placeholder="https://..."
+                                                    value={urlInput}
+                                                    onChange={(e) =>
+                                                        setUrlInput(e.target.value)
+                                                    }
+                                                    className="h-8 text-xs"
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        handleSaveUrl(post)
+                                                    }
+                                                    disabled={
+                                                        platformPostMutation.isPending
+                                                    }
+                                                >
+                                                    <Check className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleCancelEditUrl}
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ) : post.post_url ? (
+                                            <div className="mt-1.5 flex items-center gap-2">
+                                                <a
+                                                    href={post.post_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex-1 truncate text-xs text-indigo-600 hover:underline"
+                                                >
+                                                    {post.post_url}
+                                                </a>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleStartEditUrl(post)
+                                                    }
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </Button>
+                                                <a
+                                                    href={post.post_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                                                    title="Open post"
+                                                >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-1.5">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        handleStartEditUrl(post)
+                                                    }
+                                                >
+                                                    <Plus className="mr-1 h-3 w-3" />
+                                                    Add URL
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Stats row */}
+                                    <div className="mt-3 flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
+                                        <div className="flex items-center gap-4 text-xs text-slate-600">
+                                            <span className="flex items-center gap-1">
+                                                <Eye className="h-3.5 w-3.5 text-slate-400" />
+                                                {(stats.views || 0).toLocaleString()} views
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Heart className="h-3.5 w-3.5 text-slate-400" />
+                                                {(stats.likes || 0).toLocaleString()} likes
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <MessageSquare className="h-3.5 w-3.5 text-slate-400" />
+                                                {(stats.comments || 0).toLocaleString()} comments
+                                            </span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                handleOpenStatsModal(post)
+                                            }
+                                        >
+                                            <Pencil className="mr-1 h-3 w-3" />
+                                            Edit Stats
+                                        </Button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Description */}
             {data.description && (
                 <Card>
@@ -940,6 +1244,92 @@ export default function ContentDetail() {
                             disabled={deleteMutation.isPending}
                         >
                             {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Platform Post Stats Dialog */}
+            <Dialog open={statsModalOpen} onOpenChange={setStatsModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            Edit Stats
+                            {editingStatsPost?.platform?.name
+                                ? ` — ${editingStatsPost.platform.name}`
+                                : ''}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Update views, likes, and comments for this platform post.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-3 gap-4 py-4">
+                        <div>
+                            <Label htmlFor="pp-views">Views</Label>
+                            <Input
+                                id="pp-views"
+                                type="number"
+                                min="0"
+                                className="mt-1.5"
+                                value={statsModalForm.views}
+                                onChange={(e) =>
+                                    setStatsModalForm((f) => ({
+                                        ...f,
+                                        views: e.target.value,
+                                    }))
+                                }
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="pp-likes">Likes</Label>
+                            <Input
+                                id="pp-likes"
+                                type="number"
+                                min="0"
+                                className="mt-1.5"
+                                value={statsModalForm.likes}
+                                onChange={(e) =>
+                                    setStatsModalForm((f) => ({
+                                        ...f,
+                                        likes: e.target.value,
+                                    }))
+                                }
+                                placeholder="0"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="pp-comments">Comments</Label>
+                            <Input
+                                id="pp-comments"
+                                type="number"
+                                min="0"
+                                className="mt-1.5"
+                                value={statsModalForm.comments}
+                                onChange={(e) =>
+                                    setStatsModalForm((f) => ({
+                                        ...f,
+                                        comments: e.target.value,
+                                    }))
+                                }
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setStatsModalOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSaveStats}
+                            disabled={platformPostStatsMutation.isPending}
+                        >
+                            {platformPostStatsMutation.isPending
+                                ? 'Saving...'
+                                : 'Save Stats'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

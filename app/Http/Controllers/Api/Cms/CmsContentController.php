@@ -134,6 +134,8 @@ class CmsContentController extends Controller
                 $query->latest('fetched_at')->limit(10);
             },
             'adCampaigns.assignedByEmployee:id,full_name,profile_photo',
+            'platformPosts.platform',
+            'platformPosts.assignee:id,full_name,profile_photo',
         ]);
 
         return response()->json(['data' => $content]);
