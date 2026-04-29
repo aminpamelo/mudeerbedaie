@@ -1146,9 +1146,10 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
 
     // CMS Content Platform Posts
     Route::get('platform-posts', [CmsContentPlatformPostController::class, 'index']);
-    Route::get('platform-posts/{platformPost}', [CmsContentPlatformPostController::class, 'show']);
-    Route::patch('platform-posts/{platformPost}', [CmsContentPlatformPostController::class, 'update']);
-    Route::patch('platform-posts/{platformPost}/stats', [CmsContentPlatformPostController::class, 'updateStats']);
+    Route::post('platform-posts/bulk-assign', [CmsContentPlatformPostController::class, 'bulkAssign']);
+    Route::get('platform-posts/{platformPost}', [CmsContentPlatformPostController::class, 'show'])->whereNumber('platformPost');
+    Route::patch('platform-posts/{platformPost}', [CmsContentPlatformPostController::class, 'update'])->whereNumber('platformPost');
+    Route::patch('platform-posts/{platformPost}/stats', [CmsContentPlatformPostController::class, 'updateStats'])->whereNumber('platformPost');
 
     // Contents
     Route::get('contents/kanban', [CmsContentController::class, 'kanban']);

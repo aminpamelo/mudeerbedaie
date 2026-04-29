@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Cms;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Cms\BulkAssignPlatformPostsRequest;
 use App\Http\Requests\Cms\UpdatePlatformPostRequest;
 use App\Http\Requests\Cms\UpdatePlatformPostStatsRequest;
 use App\Models\CmsContentPlatformPost;
@@ -68,5 +69,15 @@ class CmsContentPlatformPostController extends Controller
         return response()->json([
             'data' => $platformPost->fresh(),
         ]);
+    }
+
+    public function bulkAssign(BulkAssignPlatformPostsRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        CmsContentPlatformPost::whereIn('id', $validated['post_ids'])
+            ->update(['assignee_id' => $validated['assignee_id'] ?? null]);
+
+        return response()->json(['updated' => count($validated['post_ids'])]);
     }
 }
