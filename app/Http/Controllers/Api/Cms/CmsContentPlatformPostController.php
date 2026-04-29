@@ -39,4 +39,11 @@ class CmsContentPlatformPostController extends Controller
             'data' => $query->paginate($request->integer('per_page', 25))->items(),
         ]);
     }
+
+    public function show(CmsContentPlatformPost $platformPost): JsonResponse
+    {
+        return response()->json([
+            'data' => $platformPost->load(['content:id,title,tiktok_url', 'platform', 'assignee:id,full_name,profile_photo']),
+        ]);
+    }
 }
