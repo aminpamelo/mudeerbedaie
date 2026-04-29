@@ -49,6 +49,7 @@ class DatabaseSeeder extends Seeder
             // 9. Platforms and Integrations
             PlatformSeeder::class,
             LiveHostSeeder::class,
+            CmsPlatformSeeder::class,
         ]);
 
         $this->command->newLine();
