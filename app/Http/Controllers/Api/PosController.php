@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePosSaleRequest;
+use App\Http\Requests\UpdatePosSaleRequest;
 use App\Models\ClassModel;
 use App\Models\ClassSession;
 use App\Models\Course;
@@ -520,6 +521,20 @@ class PosController extends Controller
             'message' => 'Sale details updated successfully.',
             'data' => $sale,
         ]);
+    }
+
+    /**
+     * Edit a POS sale: customer info, items, discount, shipping, payment, sales source.
+     * Salesperson is intentionally not editable. Status is handled by updateSaleStatus.
+     */
+    public function updateSale(UpdatePosSaleRequest $request, ProductOrder $sale): JsonResponse
+    {
+        if ($sale->source !== 'pos') {
+            return response()->json(['message' => 'Only POS sales can be edited here.'], 403);
+        }
+
+        // Implementation lands in Task 4.
+        return response()->json(['message' => 'Not implemented yet.'], 501);
     }
 
     /**
