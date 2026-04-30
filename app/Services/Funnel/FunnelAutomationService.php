@@ -361,11 +361,48 @@ class FunnelAutomationService
             }
 
             $resolved = $this->getValueFromContext(trim($key), $context);
+            $resolved = $this->stringifyResolvedValue($resolved);
 
-            return ! empty($resolved) ? (string) $resolved : $default;
+            return $resolved !== '' ? $resolved : $default;
         }
 
         return $value;
+    }
+
+    /**
+     * Coerce a resolved context value into a safe string representation.
+     *
+     * Merge tag targets must render as text in WhatsApp/email templates, but
+     * dot-notation paths can land on non-scalar nodes (e.g. shipping_address
+     * is array-cast on ProductOrder). Casting those to string would raise an
+     * "Array to string conversion" runtime error, so flatten them instead.
+     */
+    protected function stringifyResolvedValue(mixed $resolved): string
+    {
+        if ($resolved === null || $resolved === '' || $resolved === []) {
+            return '';
+        }
+
+        if (is_scalar($resolved)) {
+            return (string) $resolved;
+        }
+
+        if (is_object($resolved) && method_exists($resolved, '__toString')) {
+            return (string) $resolved;
+        }
+
+        if (is_array($resolved)) {
+            $parts = [];
+            foreach ($resolved as $leaf) {
+                if (is_scalar($leaf) && (string) $leaf !== '') {
+                    $parts[] = (string) $leaf;
+                }
+            }
+
+            return implode(', ', $parts);
+        }
+
+        return '';
     }
 
     /**
