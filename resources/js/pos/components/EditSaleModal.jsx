@@ -7,6 +7,12 @@ const PAYMENT_METHODS = [
     { value: 'cod', label: 'COD' },
 ];
 
+const STATUS_OPTIONS = [
+    { value: 'paid', label: 'Paid' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'cancelled', label: 'Cancelled' },
+];
+
 const INPUT_CLASS =
     'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
 
@@ -18,7 +24,13 @@ function normalizeItemableType(rawType) {
     return 'product';
 }
 
-export default function EditSaleModal({ sale, onClose, onSaved }) {
+function getDisplayStatus(sale) {
+    if (sale.paid_time) return 'paid';
+    if (sale.status === 'cancelled') return 'cancelled';
+    return 'pending';
+}
+
+export default function EditSaleModal({ sale, onClose, onSaved, onUpdated }) {
     const [customer, setCustomer] = useState({
         customer_id: sale.customer?.id || sale.customer_id || null,
         name: sale.customer?.name || sale.customer_name || '',
@@ -51,6 +63,8 @@ export default function EditSaleModal({ sale, onClose, onSaved }) {
     );
     const [shippingCost, setShippingCost] = useState(Number(sale.shipping_cost || 0));
     const [notes, setNotes] = useState(sale.internal_notes || '');
+    const [status, setStatus] = useState(getDisplayStatus(sale));
+    const [updatingStatus, setUpdatingStatus] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [productSearch, setProductSearch] = useState('');
@@ -140,6 +154,25 @@ export default function EditSaleModal({ sale, onClose, onSaved }) {
         setItems((prev) => prev.filter((_, i) => i !== index));
 
     const salespersonName = sale.metadata?.salesperson_name || sale.salesperson_name || '—';
+
+    const handleStatusChange = async (newStatus) => {
+        if (updatingStatus || newStatus === status) {
+            return;
+        }
+        setUpdatingStatus(true);
+        setError(null);
+        try {
+            const res = await saleApi.updateStatus(sale.id, newStatus);
+            setStatus(getDisplayStatus(res.data));
+            if (onUpdated) {
+                onUpdated(res.data);
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to update status.');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
 
     const handleSave = async () => {
         if (saving) {
@@ -474,6 +507,33 @@ export default function EditSaleModal({ sale, onClose, onSaved }) {
                                     onChange={(e) => setPaymentReference(e.target.value)}
                                 />
                             )}
+                        </div>
+                    </section>
+
+                    {/* Status */}
+                    <section>
+                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                            Status
+                        </h4>
+                        <div className="flex gap-2 flex-wrap">
+                            {STATUS_OPTIONS.map((option) => {
+                                const isActive = status === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => handleStatusChange(option.value)}
+                                        disabled={isActive || updatingStatus}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                                            isActive
+                                                ? 'border-blue-300 bg-blue-50 text-blue-700 cursor-default'
+                                                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 cursor-pointer'
+                                        } ${updatingStatus ? 'opacity-50' : ''}`}
+                                    >
+                                        {updatingStatus && !isActive ? '...' : option.label}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </section>
 

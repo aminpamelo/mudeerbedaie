@@ -788,6 +788,10 @@ export default function SalesHistory({ isMobile = false }) {
                         setSelectedSale((prev) => ({ ...prev, ...updated }));
                         setEditingSale(false);
                     }}
+                    onUpdated={(updated) => {
+                        setSales((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)));
+                        setSelectedSale((prev) => ({ ...prev, ...updated }));
+                    }}
                 />
             )}
         </div>
