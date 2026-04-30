@@ -32,6 +32,7 @@ const navigation = [
             { name: 'All Contents', to: '/contents', icon: FileText },
             { name: 'Kanban Board', to: '/kanban', icon: Columns3 },
             { name: 'Calendar', to: '/calendar', icon: Calendar },
+            { name: 'Content Report', to: '/reports/content', icon: BarChart3 },
         ],
     },
     {
@@ -63,8 +64,12 @@ function getExpandedSections(pathname) {
             expanded[item.name] = true;
         }
     });
-    // Also expand Contents when on /kanban or /calendar
-    if (pathname.startsWith('/kanban') || pathname.startsWith('/calendar')) {
+    // Also expand Contents when on /kanban, /calendar, or /reports/content
+    if (
+        pathname.startsWith('/kanban') ||
+        pathname.startsWith('/calendar') ||
+        pathname.startsWith('/reports/content')
+    ) {
         expanded['Contents'] = true;
     }
     return expanded;
@@ -106,7 +111,11 @@ function NavItem({ item, mobile, toggleSidebar }) {
 function NavGroup({ item, expanded, onToggle, mobile, toggleSidebar, pathname }) {
     const Icon = item.icon;
     const isActive = pathname.startsWith(item.prefix) ||
-        (item.name === 'Contents' && (pathname.startsWith('/kanban') || pathname.startsWith('/calendar')));
+        (item.name === 'Contents' && (
+            pathname.startsWith('/kanban') ||
+            pathname.startsWith('/calendar') ||
+            pathname.startsWith('/reports/content')
+        ));
 
     return (
         <div>

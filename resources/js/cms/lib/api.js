@@ -59,6 +59,10 @@ export function fetchKanban() {
     return api.get('/contents/kanban').then((r) => r.data);
 }
 
+export function searchContentsForReference(params) {
+    return api.get('/contents/search', { params }).then((r) => r.data);
+}
+
 export function fetchCalendar(params) {
     return api.get('/contents/calendar', { params }).then((r) => r.data);
 }
@@ -138,6 +142,21 @@ export function fetchEmployees(params) {
             'Accept': 'application/json',
         },
     }).then((r) => r.data);
+}
+
+// ─── Content Report ─────────────────────────────────────────────────────────
+
+export function fetchContentReport(params) {
+    return api.get('/reports/content', { params }).then((r) => r.data);
+}
+
+export function contentReportExportUrl(params = {}) {
+    const cleaned = {};
+    Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') cleaned[k] = v;
+    });
+    const search = new URLSearchParams(cleaned).toString();
+    return `/api/cms/reports/content/export${search ? `?${search}` : ''}`;
 }
 
 // ─── Platform Posts ─────────────────────────────────────────────────────────

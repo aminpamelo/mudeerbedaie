@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Cms\CmsAdCampaignController;
 use App\Http\Controllers\Api\Cms\CmsAffiliateController;
 use App\Http\Controllers\Api\Cms\CmsContentController;
 use App\Http\Controllers\Api\Cms\CmsContentPlatformPostController;
+use App\Http\Controllers\Api\Cms\CmsContentReportController;
 use App\Http\Controllers\Api\Cms\CmsContentStageController;
 use App\Http\Controllers\Api\Cms\CmsDashboardController;
 use App\Http\Controllers\Api\Cms\CmsPerformanceReportController;
@@ -1154,6 +1155,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     // Contents
     Route::get('contents/kanban', [CmsContentController::class, 'kanban']);
     Route::get('contents/calendar', [CmsContentController::class, 'calendar']);
+    Route::get('contents/search', [CmsContentController::class, 'searchForReference']);
     Route::apiResource('contents', CmsContentController::class);
     Route::patch('contents/{content}/stage', [CmsContentController::class, 'updateStage']);
     Route::post('contents/{content}/stats', [CmsContentController::class, 'addStats']);
@@ -1167,6 +1169,10 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
 
     // Performance Report
     Route::get('performance-report', [CmsPerformanceReportController::class, 'index']);
+
+    // Content Report
+    Route::get('reports/content', [CmsContentReportController::class, 'index']);
+    Route::get('reports/content/export', [CmsContentReportController::class, 'export']);
 
     // Ad Campaigns
     Route::apiResource('ads', CmsAdCampaignController::class)->parameters(['ads' => 'adCampaign']);
