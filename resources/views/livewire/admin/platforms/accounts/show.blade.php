@@ -1283,9 +1283,14 @@ new class extends Component
         @elseif($activeTab === 'connections')
             <div class="reveal d4 space-y-5">
                 <section class="pf-surface overflow-hidden">
-                    <div class="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
-                        <flux:heading size="lg">App Connections</flux:heading>
-                        <flux:text class="mt-1">TikTok Shop categorizes apps. Each category needs its own OAuth connection to grant the relevant scopes.</flux:text>
+                    <div class="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800 flex items-start justify-between gap-4">
+                        <div>
+                            <flux:heading size="lg">App Connections</flux:heading>
+                            <flux:text class="mt-1">TikTok Shop categorizes apps. Each category needs its own OAuth connection to grant the relevant scopes.</flux:text>
+                        </div>
+                        <flux:button variant="outline" size="sm" icon="key" :href="route('platforms.apps.index', $platform)" wire:navigate>
+                            Manage Apps
+                        </flux:button>
                     </div>
 
                     <div class="divide-y divide-zinc-100 dark:divide-zinc-800">

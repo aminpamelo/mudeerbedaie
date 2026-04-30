@@ -275,7 +275,8 @@
                     data-section='platformMgmt' x-init="if (!isExpanded('platformMgmt')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('platformMgmt', $event)"
                 >
-                    <flux:navlist.item icon="squares-2x2" :href="route('platforms.index')" :current="request()->routeIs('platforms.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
+                    <flux:navlist.item icon="squares-2x2" :href="route('platforms.index')" :current="request()->routeIs('platforms.*') && ! request()->routeIs('platforms.apps.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
+                    <flux:navlist.item icon="key" :href="route('platforms.apps.index', 'tiktok-shop')" :current="request()->routeIs('platforms.apps.*')" wire:navigate>{{ __('TikTok Apps') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrows-right-left" :href="route('platforms.sku-mappings.index')" :current="request()->routeIs('platforms.sku-mappings.*')" wire:navigate>{{ __('SKU Mappings') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-down-tray" :href="route('platforms.orders.import')" :current="request()->routeIs('platforms.orders.import')" wire:navigate>{{ __('Import Orders') }}</flux:navlist.item>
                     <flux:navlist.item icon="clock" :href="route('platforms.import-history')" :current="request()->routeIs('platforms.import-history')" wire:navigate>{{ __('Import History') }}</flux:navlist.item>

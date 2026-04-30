@@ -65,6 +65,9 @@ new class extends Component {
             <flux:button variant="outline" icon="user-group" :href="route('platforms.accounts.index', $platform)" wire:navigate>
                 Manage Accounts
             </flux:button>
+            <flux:button variant="outline" icon="key" :href="route('platforms.apps.index', $platform)" wire:navigate>
+                Manage Apps
+            </flux:button>
             <flux:button variant="outline" icon="pencil" :href="route('platforms.edit', $platform)" wire:navigate>
                 Edit Platform
             </flux:button>
