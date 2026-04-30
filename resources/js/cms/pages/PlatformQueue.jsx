@@ -6,7 +6,6 @@ import {
     Pencil,
     ExternalLink,
     Inbox,
-    User as UserIcon,
     ChevronDown,
     ChevronRight,
     Plus,
@@ -16,6 +15,7 @@ import {
     fetchPlatforms,
     fetchPlatformPosts,
     updatePlatformPost,
+    fetchEmployees,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { toastSuccess, toastError } from '../lib/toast';
@@ -24,7 +24,6 @@ import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import {
     Select,
     SelectContent,
@@ -102,13 +101,6 @@ function toDatetimeLocalValue(dateString) {
     );
 }
 
-function getInitials(name) {
-    if (!name) return '?';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
-
 function groupByContent(posts) {
     const map = new Map();
     for (const post of posts) {
@@ -157,24 +149,35 @@ function StatusBadge({ status }) {
     );
 }
 
-function AssigneeCell({ assignee }) {
-    if (!assignee) {
-        return <span className="text-xs text-zinc-400">Unassigned</span>;
-    }
+function AssigneePicker({ assignee, employees, isUpdating, onAssign }) {
+    const value = assignee?.id ? String(assignee.id) : 'unassigned';
     return (
-        <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-                {assignee.profile_photo ? (
-                    <AvatarImage src={assignee.profile_photo} alt={assignee.full_name} />
-                ) : null}
-                <AvatarFallback className="text-[10px]">
-                    {getInitials(assignee.full_name)}
-                </AvatarFallback>
-            </Avatar>
-            <span className="text-xs text-zinc-700 truncate max-w-[120px]">
-                {assignee.full_name}
-            </span>
-        </div>
+        <Select
+            value={value}
+            onValueChange={(v) =>
+                onAssign(v === 'unassigned' ? null : Number(v))
+            }
+            disabled={isUpdating}
+        >
+            <SelectTrigger
+                className={cn(
+                    'h-8 border-0 bg-transparent px-2 text-xs hover:bg-zinc-100',
+                    !assignee && 'text-zinc-400'
+                )}
+            >
+                <SelectValue placeholder="Unassigned" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+                <SelectItem value="unassigned">
+                    <span className="text-zinc-500">— Unassigned</span>
+                </SelectItem>
+                {employees.map((e) => (
+                    <SelectItem key={e.id} value={String(e.id)}>
+                        {e.full_name}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
     );
 }
 
@@ -196,7 +199,14 @@ function ProgressBar({ posted, skipped, total }) {
     );
 }
 
-function PlatformRow({ post, onEdit, onInlineStatusChange, isUpdating }) {
+function PlatformRow({
+    post,
+    onEdit,
+    onInlineStatusChange,
+    onInlineAssigneeChange,
+    isUpdating,
+    employees,
+}) {
     return (
         <div className="grid grid-cols-12 items-center gap-3 px-5 py-3 transition-colors hover:bg-zinc-50/60">
             {/* Platform - col 1-3 */}
@@ -266,7 +276,14 @@ function PlatformRow({ post, onEdit, onInlineStatusChange, isUpdating }) {
 
             {/* Assignee - col 11 */}
             <div className="col-span-1">
-                <AssigneeCell assignee={post.assignee} />
+                <AssigneePicker
+                    assignee={post.assignee}
+                    employees={employees}
+                    isUpdating={isUpdating}
+                    onAssign={(assigneeId) =>
+                        onInlineAssigneeChange(assigneeId)
+                    }
+                />
             </div>
 
             {/* Edit - col 12 */}
@@ -292,7 +309,9 @@ function ContentGroupCard({
     platformFilter,
     onEdit,
     onInlineStatusChange,
+    onInlineAssigneeChange,
     pendingMutationId,
+    employees,
 }) {
     const { content } = group;
     const sortedPosts = useMemo(
@@ -395,7 +414,11 @@ function ContentGroupCard({
                             onInlineStatusChange={(newStatus) =>
                                 onInlineStatusChange(post, newStatus)
                             }
+                            onInlineAssigneeChange={(assigneeId) =>
+                                onInlineAssigneeChange(post, assigneeId)
+                            }
                             isUpdating={pendingMutationId === post.id}
+                            employees={employees}
                         />
                     ))}
                 </div>
@@ -465,6 +488,7 @@ export default function PlatformQueue() {
         status: 'pending',
         post_url: '',
         posted_at: '',
+        assignee_id: 'unassigned',
     });
 
     // Debounce search
@@ -487,6 +511,14 @@ export default function PlatformQueue() {
         queryFn: () => fetchPlatforms(),
     });
     const platforms = platformsData?.data || [];
+
+    const { data: employeesData } = useQuery({
+        queryKey: ['cms', 'employees', 'active'],
+        queryFn: () =>
+            fetchEmployees({ per_page: 200, status: 'active', sort_by: 'full_name' }),
+        staleTime: 1000 * 60 * 10,
+    });
+    const employees = employeesData?.data || [];
 
     const { data: postsData, isLoading } = useQuery({
         queryKey: ['cms', 'platform-posts', queryParams],
@@ -538,6 +570,19 @@ export default function PlatformQueue() {
         onError: (error) => toastError(error, 'Failed to update status'),
     });
 
+    const inlineAssigneeMutation = useMutation({
+        mutationFn: ({ id, assigneeId }) =>
+            updatePlatformPost(id, { assignee_id: assigneeId }),
+        ...sharedMutationConfig,
+        onSuccess: (data, variables, ...rest) => {
+            sharedMutationConfig.onSuccess(data, variables, ...rest);
+            toastSuccess(
+                variables.assigneeId == null ? 'Assignee cleared' : 'Assignee updated'
+            );
+        },
+        onError: (error) => toastError(error, 'Failed to update assignee'),
+    });
+
     const updateMutation = useMutation({
         mutationFn: ({ id, payload }) => updatePlatformPost(id, payload),
         onSuccess: () => {
@@ -580,12 +625,20 @@ export default function PlatformQueue() {
         inlineStatusMutation.mutate({ id: post.id, status: newStatus });
     }
 
+    function handleInlineAssigneeChange(post, assigneeId) {
+        const current = post.assignee?.id ?? null;
+        if (current === assigneeId) return;
+        setPendingMutationId(post.id);
+        inlineAssigneeMutation.mutate({ id: post.id, assigneeId });
+    }
+
     function openEdit(post) {
         setEditingPost(post);
         setEditForm({
             status: post.status || 'pending',
             post_url: post.post_url || '',
             posted_at: toDatetimeLocalValue(post.posted_at),
+            assignee_id: post.assignee?.id ? String(post.assignee.id) : 'unassigned',
         });
         setEditOpen(true);
     }
@@ -598,6 +651,10 @@ export default function PlatformQueue() {
             posted_at: editForm.posted_at
                 ? new Date(editForm.posted_at).toISOString()
                 : null,
+            assignee_id:
+                editForm.assignee_id === 'unassigned'
+                    ? null
+                    : Number(editForm.assignee_id),
         };
         updateMutation.mutate({ id: editingPost.id, payload });
     }
@@ -728,7 +785,9 @@ export default function PlatformQueue() {
                                 platformFilter={platformFilter}
                                 onEdit={openEdit}
                                 onInlineStatusChange={handleInlineStatusChange}
+                                onInlineAssigneeChange={handleInlineAssigneeChange}
                                 pendingMutationId={pendingMutationId}
+                                employees={employees}
                             />
                         );
                     })}
@@ -798,17 +857,29 @@ export default function PlatformQueue() {
                                 }
                             />
                         </div>
-                        {editingPost?.assignee && (
-                            <div className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                                <UserIcon className="h-3.5 w-3.5" />
-                                <span>
-                                    Currently assigned to{' '}
-                                    <span className="font-medium text-zinc-800">
-                                        {editingPost.assignee.full_name}
-                                    </span>
-                                </span>
-                            </div>
-                        )}
+                        <div>
+                            <Label htmlFor="edit-assignee">Assignee</Label>
+                            <Select
+                                value={editForm.assignee_id}
+                                onValueChange={(v) =>
+                                    setEditForm((f) => ({ ...f, assignee_id: v }))
+                                }
+                            >
+                                <SelectTrigger id="edit-assignee" className="mt-1.5">
+                                    <SelectValue placeholder="Unassigned" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[280px]">
+                                    <SelectItem value="unassigned">
+                                        <span className="text-zinc-500">— Unassigned</span>
+                                    </SelectItem>
+                                    {employees.map((e) => (
+                                        <SelectItem key={e.id} value={String(e.id)}>
+                                            {e.full_name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditOpen(false)}>
