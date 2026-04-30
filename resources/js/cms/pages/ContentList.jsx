@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -113,6 +113,16 @@ const PIPELINE_STAGES = [
 function isOverdue(dateString) {
     if (!dateString) return false;
     return new Date(dateString) < new Date();
+}
+
+function hasOverdueStage(content) {
+    if (!content?.stages) return false;
+    const currentIndex = PIPELINE_STAGES.findIndex((s) => s.key === content.stage);
+    return content.stages.some((s, idx) => {
+        const stageIdx = PIPELINE_STAGES.findIndex((p) => p.key === s.stage);
+        if (stageIdx < 0 || stageIdx < currentIndex) return false;
+        return isOverdue(s.due_date);
+    });
 }
 
 function StageHoverCard({ stageData, stageDef, isCompleted, isCurrent, children }) {
@@ -297,7 +307,7 @@ function MarkBadges({ content }) {
     const marked = content.is_marked_for_ads;
 
     if (!flagged && !marked) {
-        return <span className="text-sm text-zinc-300">-</span>;
+        return <span aria-hidden="true" className="text-zinc-200">·</span>;
     }
 
     return (
@@ -400,12 +410,31 @@ function AssigneeStack({ assignees }) {
 
 function SortIcon({ column, currentSort, currentDirection }) {
     if (currentSort !== column) {
-        return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />;
+        return <ArrowUpDown className="ml-1 h-3 w-3 text-zinc-400 group-hover/sort:text-zinc-600" />;
     }
     return currentDirection === 'asc' ? (
-        <ArrowUp className="ml-1 h-3 w-3" />
+        <ArrowUp className="ml-1 h-3 w-3 text-indigo-600" />
     ) : (
-        <ArrowDown className="ml-1 h-3 w-3" />
+        <ArrowDown className="ml-1 h-3 w-3 text-indigo-600" />
+    );
+}
+
+function SortableHeaderInner({ column, currentSort, currentDirection, children }) {
+    const isActive = currentSort === column;
+    return (
+        <div
+            className={cn(
+                'group/sort flex items-center transition-colors',
+                isActive ? 'text-indigo-700 font-semibold' : 'text-zinc-600',
+            )}
+        >
+            {children}
+            <SortIcon
+                column={column}
+                currentSort={currentSort}
+                currentDirection={currentDirection}
+            />
+        </div>
     );
 }
 
@@ -557,7 +586,15 @@ function Pagination({ currentPage, lastPage, total, perPage, onPageChange }) {
 
 function SearchInput({ value, onChange, placeholder = 'Search...', className }) {
     const [localValue, setLocalValue] = useState(value);
-    const timerRef = { current: null };
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+            }
+        };
+    }, []);
 
     function handleChange(e) {
         const newValue = e.target.value;
@@ -732,17 +769,23 @@ export default function ContentList() {
                             </SelectContent>
                         </Select>
 
-                        {hasFilters && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={clearFilters}
-                                className="lg:ml-auto"
-                            >
-                                <X className="mr-1 h-4 w-4" />
-                                Clear
-                            </Button>
-                        )}
+                        <div className="flex items-center gap-2 lg:ml-auto">
+                            {!isLoading && (
+                                <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
+                                    {total.toLocaleString()} {total === 1 ? 'item' : 'items'}
+                                </span>
+                            )}
+                            {hasFilters && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={clearFilters}
+                                >
+                                    <X className="mr-1 h-4 w-4" />
+                                    Clear
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -756,46 +799,43 @@ export default function ContentList() {
                 ) : (
                     <>
                         <Table className="table-fixed w-full">
-                            <TableHeader>
+                            <TableHeader className="sticky top-0 z-10 bg-zinc-50/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-50/80">
                                 <TableRow>
                                     <TableHead
                                         className="cursor-pointer select-none w-[35%]"
                                         onClick={() => handleSort('title')}
                                     >
-                                        <div className="flex items-center">
+                                        <SortableHeaderInner
+                                            column="title"
+                                            currentSort={sort}
+                                            currentDirection={direction}
+                                        >
                                             Title
-                                            <SortIcon
-                                                column="title"
-                                                currentSort={sort}
-                                                currentDirection={direction}
-                                            />
-                                        </div>
+                                        </SortableHeaderInner>
                                     </TableHead>
                                     <TableHead
                                         className="cursor-pointer select-none"
                                         onClick={() => handleSort('stage')}
                                     >
-                                        <div className="flex items-center">
+                                        <SortableHeaderInner
+                                            column="stage"
+                                            currentSort={sort}
+                                            currentDirection={direction}
+                                        >
                                             Pipeline
-                                            <SortIcon
-                                                column="stage"
-                                                currentSort={sort}
-                                                currentDirection={direction}
-                                            />
-                                        </div>
+                                        </SortableHeaderInner>
                                     </TableHead>
                                     <TableHead
                                         className="cursor-pointer select-none w-[8%]"
                                         onClick={() => handleSort('priority')}
                                     >
-                                        <div className="flex items-center">
+                                        <SortableHeaderInner
+                                            column="priority"
+                                            currentSort={sort}
+                                            currentDirection={direction}
+                                        >
                                             Priority
-                                            <SortIcon
-                                                column="priority"
-                                                currentSort={sort}
-                                                currentDirection={direction}
-                                            />
-                                        </div>
+                                        </SortableHeaderInner>
                                     </TableHead>
                                     <TableHead className="w-[9%]">Mark</TableHead>
                                     <TableHead className="w-[12%]">Assignees</TableHead>
@@ -803,79 +843,94 @@ export default function ContentList() {
                                         className="cursor-pointer select-none w-[10%]"
                                         onClick={() => handleSort('due_date')}
                                     >
-                                        <div className="flex items-center">
+                                        <SortableHeaderInner
+                                            column="due_date"
+                                            currentSort={sort}
+                                            currentDirection={direction}
+                                        >
                                             Due Date
-                                            <SortIcon
-                                                column="due_date"
-                                                currentSort={sort}
-                                                currentDirection={direction}
-                                            />
-                                        </div>
+                                        </SortableHeaderInner>
                                     </TableHead>
                                     <TableHead className="w-[7%] text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {contents.map((content) => (
-                                    <TableRow
-                                        key={content.id}
-                                        className="cursor-pointer"
-                                        onClick={() => navigate(`/contents/${content.id}`)}
-                                    >
-                                        <TableCell>
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <CreatorAvatar creator={content.creator} />
-                                                <p className="truncate text-sm font-medium text-zinc-900">
-                                                    {content.title}
-                                                </p>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <StagePipeline stage={content.stage} stages={content.stages || []} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <PriorityBadge priority={content.priority} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <MarkBadges content={content} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <AssigneeStack
-                                                assignees={getUniqueAssigneesFromStages(content)}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="whitespace-nowrap text-sm">
-                                            {formatDate(content.due_date)}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div
-                                                className="flex items-center justify-end gap-1"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    asChild
-                                                    className="h-8 w-8"
+                                {contents.map((content) => {
+                                    const overdue = hasOverdueStage(content);
+                                    return (
+                                        <TableRow
+                                            key={content.id}
+                                            className="group/row cursor-pointer transition-colors hover:bg-zinc-50"
+                                            onClick={() => navigate(`/contents/${content.id}`)}
+                                        >
+                                            <TableCell>
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <CreatorAvatar creator={content.creator} />
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-1.5">
+                                                            {overdue && (
+                                                                <span
+                                                                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
+                                                                    title="Has overdue stage"
+                                                                />
+                                                            )}
+                                                            <p className="truncate text-sm font-medium text-zinc-900">
+                                                                {content.title}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <StagePipeline stage={content.stage} stages={content.stages || []} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <PriorityBadge priority={content.priority} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <MarkBadges content={content} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <AssigneeStack
+                                                    assignees={getUniqueAssigneesFromStages(content)}
+                                                />
+                                            </TableCell>
+                                            <TableCell className={cn(
+                                                'whitespace-nowrap text-sm tabular-nums',
+                                                overdue && 'text-red-600 font-medium',
+                                            )}>
+                                                {formatDate(content.due_date)}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div
+                                                    className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100"
+                                                    onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    <Link to={`/contents/${content.id}`}>
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    asChild
-                                                    className="h-8 w-8"
-                                                >
-                                                    <Link to={`/contents/${content.id}/edit`}>
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        asChild
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Link to={`/contents/${content.id}`} aria-label={`View ${content.title}`}>
+                                                            <Eye className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        asChild
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <Link to={`/contents/${content.id}/edit`} aria-label={`Edit ${content.title}`}>
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                         <Pagination
