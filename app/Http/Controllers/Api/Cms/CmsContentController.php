@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Cms\StoreContentRequest;
 use App\Http\Requests\Cms\UpdateContentRequest;
 use App\Models\Content;
+use App\Models\ContentReference;
 use App\Models\ContentStage;
 use App\Models\ContentStat;
 use App\Models\Employee;
@@ -109,9 +110,12 @@ class CmsContentController extends Controller
                 }
             }
 
+            $this->syncReferences($content, $validated['references'] ?? []);
+
             $content->load([
                 'creator:id,full_name,profile_photo',
                 'stages.assignees.employee:id,full_name,profile_photo',
+                'references.referencedContent:id,title,stage',
             ]);
 
             return response()->json([
@@ -136,6 +140,7 @@ class CmsContentController extends Controller
             'adCampaigns.assignedByEmployee:id,full_name,profile_photo',
             'platformPosts.platform',
             'platformPosts.assignee:id,full_name,profile_photo',
+            'references.referencedContent:id,title,stage',
         ]);
 
         return response()->json(['data' => $content]);
@@ -149,7 +154,11 @@ class CmsContentController extends Controller
         $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $content) {
-            $content->update(collect($validated)->except('stages')->toArray());
+            $content->update(collect($validated)->except(['stages', 'references'])->toArray());
+
+            if (array_key_exists('references', $validated)) {
+                $this->syncReferences($content, $validated['references'] ?? []);
+            }
 
             if (! empty($validated['stages'])) {
                 foreach ($validated['stages'] as $stageData) {
@@ -178,6 +187,7 @@ class CmsContentController extends Controller
             $content->load([
                 'creator:id,full_name,profile_photo',
                 'stages.assignees.employee:id,full_name,profile_photo',
+                'references.referencedContent:id,title,stage',
             ]);
 
             return response()->json([
@@ -185,6 +195,58 @@ class CmsContentController extends Controller
                 'message' => 'Content updated successfully.',
             ]);
         });
+    }
+
+    /**
+     * Replace this content's references with the provided list.
+     *
+     * Each entry must have either referenced_content_id or referenced_url
+     * (validation enforces that). Self-references are silently dropped.
+     *
+     * @param  array<int, array{referenced_content_id?: int|null, referenced_url?: string|null}>  $references
+     */
+    protected function syncReferences(Content $content, array $references): void
+    {
+        $content->references()->delete();
+
+        foreach (array_values($references) as $position => $reference) {
+            $referencedContentId = $reference['referenced_content_id'] ?? null;
+
+            if ($referencedContentId && (int) $referencedContentId === $content->id) {
+                continue;
+            }
+
+            ContentReference::create([
+                'content_id' => $content->id,
+                'referenced_content_id' => $referencedContentId ?: null,
+                'referenced_url' => $reference['referenced_url'] ?? null,
+                'position' => $position,
+            ]);
+        }
+    }
+
+    /**
+     * Lightweight typeahead for the references picker.
+     */
+    public function searchForReference(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->get('q', ''));
+        $excludeId = $request->integer('exclude_id');
+
+        $query = Content::query()
+            ->select('id', 'title', 'stage')
+            ->orderByDesc('created_at')
+            ->limit(10);
+
+        if ($search !== '') {
+            $query->where('title', 'like', "%{$search}%");
+        }
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return response()->json(['data' => $query->get()]);
     }
 
     /**

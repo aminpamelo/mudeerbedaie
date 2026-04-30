@@ -25,6 +25,7 @@ import {
     MessageSquare,
     Plus,
     Check,
+    FileText,
 } from 'lucide-react';
 import {
     fetchContent,
@@ -1093,6 +1094,63 @@ export default function ContentDetail() {
                         <p className="text-sm leading-relaxed text-slate-600 whitespace-pre-wrap">
                             {data.description}
                         </p>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* References */}
+            {Array.isArray(data.references) && data.references.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>References</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ul className="space-y-2">
+                            {data.references.map((ref) => {
+                                if (ref.referenced_content) {
+                                    return (
+                                        <li key={ref.id}>
+                                            <Link
+                                                to={`/contents/${ref.referenced_content.id}`}
+                                                className="group flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-2 hover:border-blue-300 hover:bg-blue-50/40"
+                                            >
+                                                <FileText className="h-4 w-4 shrink-0 text-blue-500" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-medium text-zinc-900 group-hover:text-blue-600">
+                                                        {ref.referenced_content.title}
+                                                    </p>
+                                                    <p className="text-xs text-zinc-500 capitalize">
+                                                        {ref.referenced_content.stage}
+                                                    </p>
+                                                </div>
+                                                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+                                            </Link>
+                                        </li>
+                                    );
+                                }
+
+                                if (ref.referenced_url) {
+                                    return (
+                                        <li key={ref.id}>
+                                            <a
+                                                href={ref.referenced_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="group flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-2 hover:border-blue-300 hover:bg-blue-50/40"
+                                            >
+                                                <LinkIcon className="h-4 w-4 shrink-0 text-zinc-500" />
+                                                <p className="min-w-0 flex-1 truncate text-sm text-zinc-900 group-hover:text-blue-600">
+                                                    {ref.referenced_url}
+                                                </p>
+                                                <ExternalLink className="h-4 w-4 shrink-0 text-zinc-400" />
+                                            </a>
+                                        </li>
+                                    );
+                                }
+
+                                return null;
+                            })}
+                        </ul>
                     </CardContent>
                 </Card>
             )}

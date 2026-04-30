@@ -34,6 +34,36 @@ class StoreContentRequest extends FormRequest
             'stages.*.assignees' => ['nullable', 'array'],
             'stages.*.assignees.*.employee_id' => ['required', 'exists:employees,id'],
             'stages.*.assignees.*.role' => ['nullable', 'string', 'max:100'],
+            'references' => ['nullable', 'array'],
+            'references.*.referenced_content_id' => ['nullable', 'integer', 'exists:contents,id'],
+            'references.*.referenced_url' => ['nullable', 'string', 'url', 'max:500'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'references.*.referenced_url.url' => 'Each reference URL must be a valid URL.',
+        ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            foreach ($this->input('references', []) as $i => $ref) {
+                $hasInternal = ! empty($ref['referenced_content_id']);
+                $hasExternal = ! empty($ref['referenced_url']);
+
+                if (! $hasInternal && ! $hasExternal) {
+                    $validator->errors()->add(
+                        "references.{$i}",
+                        'Each reference must have either an internal content or a URL.'
+                    );
+                }
+            }
+        });
     }
 }

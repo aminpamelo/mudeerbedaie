@@ -86,6 +86,14 @@ class Content extends Model
     }
 
     /**
+     * References attached to this content (sources / inspiration).
+     */
+    public function references(): HasMany
+    {
+        return $this->hasMany(ContentReference::class)->orderBy('position');
+    }
+
+    /**
      * Get the stages for this content
      */
     public function stages(): HasMany

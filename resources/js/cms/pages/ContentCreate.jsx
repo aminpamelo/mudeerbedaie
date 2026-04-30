@@ -17,6 +17,7 @@ import {
     SelectValue,
 } from '../components/ui/select';
 import AssigneePicker from '../components/AssigneePicker';
+import ReferencesEditor from '../components/ReferencesEditor';
 
 const STAGES = [
     {
@@ -68,6 +69,7 @@ export default function ContentCreate() {
         description: '',
         priority: 'medium',
         due_date: '',
+        references: [],
         stages: [
             { stage: 'idea', due_date: '', assignees: [] },
             { stage: 'shooting', due_date: '', assignees: [] },
@@ -134,7 +136,18 @@ export default function ContentCreate() {
     function handleSubmit(e) {
         e.preventDefault();
         setErrors({});
-        mutation.mutate(form);
+
+        const payload = {
+            ...form,
+            references: form.references
+                .map((row) => ({
+                    referenced_content_id: row.referenced_content_id ?? null,
+                    referenced_url: (row.referenced_url ?? '').trim() || null,
+                }))
+                .filter((row) => row.referenced_content_id || row.referenced_url),
+        };
+
+        mutation.mutate(payload);
     }
 
     function getFieldError(field) {
@@ -237,7 +250,33 @@ export default function ContentCreate() {
                     </CardContent>
                 </Card>
 
-                {/* Section 2: Stage Assignments */}
+                {/* Section 2: References */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>References</CardTitle>
+                        <p className="text-sm text-zinc-500">
+                            Link the content this idea is based on or referenced from. Optional.
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        <ReferencesEditor
+                            value={form.references}
+                            onChange={(references) =>
+                                setForm((prev) => ({ ...prev, references }))
+                            }
+                            errors={Object.fromEntries(
+                                Object.entries(errors)
+                                    .filter(([k]) => k.startsWith('references.'))
+                                    .map(([k, v]) => {
+                                        const idx = parseInt(k.split('.')[1], 10);
+                                        return [idx, Array.isArray(v) ? v[0] : v];
+                                    })
+                            )}
+                        />
+                    </CardContent>
+                </Card>
+
+                {/* Section 3: Stage Assignments */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Stage Assignments</CardTitle>
