@@ -15,6 +15,7 @@ class CmsContentPlatformPostController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = CmsContentPlatformPost::query()
+            ->whereHas('content') // exclude orphans whose content was soft-deleted
             ->with([
                 'content:id,title,tiktok_url',
                 'platform',
