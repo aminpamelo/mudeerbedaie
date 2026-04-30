@@ -63,34 +63,53 @@ class SyncTikTokAnalytics implements ShouldQueue
             'type' => $this->type,
         ]);
 
-        try {
-            if (in_array($this->type, ['all', 'shop'])) {
-                $service->syncShopPerformance($this->account);
+        $steps = [
+            'shop' => fn () => $service->syncShopPerformance($this->account),
+            'videos' => fn () => $service->syncVideoPerformanceList($this->account),
+            'products' => fn () => $service->syncProductPerformance($this->account),
+        ];
+
+        $succeeded = [];
+        $failed = [];
+
+        foreach ($steps as $step => $callable) {
+            if (! in_array($this->type, ['all', $step])) {
+                continue;
             }
 
-            if (in_array($this->type, ['all', 'videos'])) {
-                $service->syncVideoPerformanceList($this->account);
+            try {
+                $callable();
+                $succeeded[] = $step;
+            } catch (Exception $e) {
+                $failed[$step] = $e->getMessage();
+                Log::error('[SyncTikTokAnalytics] Step failed', [
+                    'account_id' => $this->account->id,
+                    'step' => $step,
+                    'error' => $e->getMessage(),
+                    'attempt' => $this->attempts(),
+                ]);
             }
+        }
 
-            if (in_array($this->type, ['all', 'products'])) {
-                $service->syncProductPerformance($this->account);
-            }
-
-            $this->account->updateSyncStatus('completed', 'analytics');
-
-            Log::info('[SyncTikTokAnalytics] Sync completed', [
-                'account_id' => $this->account->id,
-                'type' => $this->type,
-            ]);
-        } catch (Exception $e) {
+        if (empty($succeeded)) {
+            $msg = 'All analytics sync steps failed: '.json_encode($failed);
             Log::error('[SyncTikTokAnalytics] Sync failed', [
                 'account_id' => $this->account->id,
-                'error' => $e->getMessage(),
+                'failed' => $failed,
                 'attempt' => $this->attempts(),
             ]);
 
-            throw $e;
+            throw new Exception($msg);
         }
+
+        $this->account->updateSyncStatus('completed', 'analytics');
+
+        Log::info('[SyncTikTokAnalytics] Sync completed', [
+            'account_id' => $this->account->id,
+            'type' => $this->type,
+            'succeeded' => $succeeded,
+            'failed' => $failed,
+        ]);
     }
 
     /**

@@ -29,7 +29,7 @@ class TikTokAffiliateSyncService
     {
         $client = $this->getClient($account);
 
-        $response = $client->AffiliateSeller->searchCreatorOnMarketplace(['page_size' => 100], []);
+        $response = $client->AffiliateSeller->searchCreatorOnMarketplace(['page_size' => 20], []);
 
         $creators = $response['creators'] ?? $response['data'] ?? [];
         $count = 0;

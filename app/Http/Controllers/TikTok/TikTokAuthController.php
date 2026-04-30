@@ -273,7 +273,29 @@ class TikTokAuthController extends Controller
                 'platform_app_id' => $app->id,
             ]);
 
-            // Get authorized shops
+            // When linking an existing account, the seller has already chosen the target shop
+            // on TikTok's consent screen, and we already know the shop from the account record.
+            // Skip the getAuthorizedShop API call — apps with scope-restricted categories (e.g.
+            // Analytics & Reporting) are denied access to that endpoint.
+            if ($linkAccountId) {
+                $existing = PlatformAccount::find($linkAccountId);
+
+                if ($existing && $existing->shop_id) {
+                    $metadata = $existing->metadata ?? [];
+
+                    $shopData = [
+                        'shop_id' => $existing->shop_id,
+                        'shop_name' => $existing->name,
+                        'region' => $metadata['region'] ?? $existing->country_code ?? '',
+                        'shop_cipher' => $metadata['shop_cipher'] ?? '',
+                        'seller_base_region' => $metadata['seller_base_region'] ?? '',
+                    ];
+
+                    return $this->connectShop($shopData, $user, $linkAccountId, $app);
+                }
+            }
+
+            // Get authorized shops (used when creating a new account)
             $shops = $this->authService->getAuthorizedShops($app, $tokenData['access_token']);
 
             if (empty($shops)) {

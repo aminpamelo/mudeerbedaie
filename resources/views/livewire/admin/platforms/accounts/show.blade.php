@@ -1739,6 +1739,122 @@ new class extends Component
                     @endif
                 </section>
 
+                @php
+                    $interval = $latestSnapshot?->raw_response['performance']['intervals'][0] ?? null;
+                    $byType = function (?array $list, string $type) {
+                        foreach ($list ?? [] as $row) {
+                            if (($row['type'] ?? null) === $type) {
+                                return $row;
+                            }
+                        }
+                        return null;
+                    };
+                    $totalGmv = (float) ($interval['gmv']['amount'] ?? 0);
+                    $channels = $interval ? [
+                        [
+                            'key' => 'LIVE',
+                            'label' => 'TikTok LIVE',
+                            'icon' => 'video-camera',
+                            'tone' => 'rose',
+                            'gmv' => (float) ($byType($interval['gmv_breakdowns'] ?? null, 'LIVE')['amount'] ?? 0),
+                            'buyers' => (int) ($byType($interval['buyer_breakdowns'] ?? null, 'LIVE')['amount'] ?? 0),
+                            'impressions' => (int) ($byType($interval['product_impression_breakdowns'] ?? null, 'LIVE')['amount'] ?? 0),
+                            'page_views' => (int) ($byType($interval['product_page_view_breakdowns'] ?? null, 'LIVE')['amount'] ?? 0),
+                        ],
+                        [
+                            'key' => 'VIDEO',
+                            'label' => 'Short Video',
+                            'icon' => 'film',
+                            'tone' => 'sky',
+                            'gmv' => (float) ($byType($interval['gmv_breakdowns'] ?? null, 'VIDEO')['amount'] ?? 0),
+                            'buyers' => (int) ($byType($interval['buyer_breakdowns'] ?? null, 'VIDEO')['amount'] ?? 0),
+                            'impressions' => (int) ($byType($interval['product_impression_breakdowns'] ?? null, 'VIDEO')['amount'] ?? 0),
+                            'page_views' => (int) ($byType($interval['product_page_view_breakdowns'] ?? null, 'VIDEO')['amount'] ?? 0),
+                        ],
+                        [
+                            'key' => 'PRODUCT_CARD',
+                            'label' => 'Product Card',
+                            'icon' => 'shopping-bag',
+                            'tone' => 'amber',
+                            'gmv' => (float) ($byType($interval['gmv_breakdowns'] ?? null, 'PRODUCT_CARD')['amount'] ?? 0),
+                            'buyers' => (int) ($byType($interval['buyer_breakdowns'] ?? null, 'PRODUCT_CARD')['amount'] ?? 0),
+                            'impressions' => (int) ($byType($interval['product_impression_breakdowns'] ?? null, 'PRODUCT_CARD')['amount'] ?? 0),
+                            'page_views' => (int) ($byType($interval['product_page_view_breakdowns'] ?? null, 'PRODUCT_CARD')['amount'] ?? 0),
+                        ],
+                    ] : [];
+                    $toneClasses = [
+                        'rose'  => ['accent' => 'text-rose-600 dark:text-rose-400',  'bar' => 'bg-rose-500',  'dot' => 'bg-rose-500'],
+                        'sky'   => ['accent' => 'text-sky-600 dark:text-sky-400',    'bar' => 'bg-sky-500',   'dot' => 'bg-sky-500'],
+                        'amber' => ['accent' => 'text-amber-600 dark:text-amber-400','bar' => 'bg-amber-500', 'dot' => 'bg-amber-500'],
+                    ];
+                @endphp
+
+                @if($interval && $totalGmv > 0)
+                    <section class="pf-surface p-6">
+                        <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+                            <div>
+                                <h3 class="section-h text-[15px] flex items-center gap-2">
+                                    <flux:icon name="signal" class="w-4 h-4 text-zinc-400" />
+                                    Channel Breakdown
+                                </h3>
+                                <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mt-1">
+                                    Where sales come from — LIVE streams vs. short videos vs. product cards.
+                                </p>
+                            </div>
+                            <span class="text-[11.5px] text-zinc-400">
+                                Window: {{ $interval['start_date'] ?? '' }} → {{ $interval['end_date'] ?? '' }}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            @foreach($channels as $ch)
+                                @php
+                                    $tone = $toneClasses[$ch['tone']];
+                                    $share = $totalGmv > 0 ? ($ch['gmv'] / $totalGmv) * 100 : 0;
+                                @endphp
+                                <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-block w-2 h-2 rounded-full {{ $tone['dot'] }}"></span>
+                                            <flux:icon :name="$ch['icon']" class="w-4 h-4 text-zinc-400" />
+                                            <span class="text-[12.5px] font-semibold text-zinc-700 dark:text-zinc-200">
+                                                {{ $ch['label'] }}
+                                            </span>
+                                        </div>
+                                        <span class="text-[11.5px] mono {{ $tone['accent'] }}">
+                                            {{ number_format($share, 1) }}%
+                                        </span>
+                                    </div>
+
+                                    <div class="text-[22px] font-bold {{ $tone['accent'] }} leading-none mb-1">
+                                        RM {{ number_format($ch['gmv'], 2) }}
+                                    </div>
+                                    <div class="text-[11px] uppercase tracking-wider text-zinc-400 mb-3">GMV</div>
+
+                                    <div class="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden mb-4">
+                                        <div class="h-full {{ $tone['bar'] }}" style="width: {{ min($share, 100) }}%"></div>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-2 text-center">
+                                        <div>
+                                            <div class="text-[13px] font-semibold mono text-zinc-800 dark:text-zinc-100">{{ number_format($ch['buyers']) }}</div>
+                                            <div class="text-[10.5px] uppercase tracking-wider text-zinc-400 mt-0.5">Buyers</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[13px] font-semibold mono text-zinc-800 dark:text-zinc-100">{{ number_format($ch['page_views']) }}</div>
+                                            <div class="text-[10.5px] uppercase tracking-wider text-zinc-400 mt-0.5">Views</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[13px] font-semibold mono text-zinc-800 dark:text-zinc-100">{{ number_format($ch['impressions']) }}</div>
+                                            <div class="text-[10.5px] uppercase tracking-wider text-zinc-400 mt-0.5">Impr.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </section>
+                @endif
+
                 <section class="pf-surface overflow-hidden">
                     <div class="p-6 pb-4">
                         <h3 class="section-h text-[15px] flex items-center gap-2">

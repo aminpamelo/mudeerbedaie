@@ -33,14 +33,23 @@ class TikTokAnalyticsSyncService
             'end_date_lt' => now()->format('Y-m-d'),
         ]);
 
+        $interval = $response['performance']['intervals'][0] ?? [];
+
+        $videoImpressions = collect($interval['product_impression_breakdowns'] ?? [])
+            ->firstWhere('type', 'VIDEO')['amount'] ?? 0;
+
+        $pageViews = (int) ($interval['product_page_views'] ?? 0);
+        $buyers = (int) ($interval['buyers'] ?? 0);
+        $conversionRate = $pageViews > 0 ? round(($buyers / $pageViews) * 100, 4) : 0;
+
         return TiktokShopPerformanceSnapshot::create([
             'platform_account_id' => $account->id,
-            'total_orders' => $response['total_orders'] ?? 0,
-            'total_gmv' => $response['total_gmv'] ?? 0,
-            'total_buyers' => $response['total_buyers'] ?? 0,
-            'total_video_views' => $response['total_video_views'] ?? 0,
-            'total_product_impressions' => $response['total_product_impressions'] ?? 0,
-            'conversion_rate' => $response['conversion_rate'] ?? 0,
+            'total_orders' => (int) ($interval['orders'] ?? 0),
+            'total_gmv' => (float) ($interval['gmv']['amount'] ?? 0),
+            'total_buyers' => $buyers,
+            'total_video_views' => (int) $videoImpressions,
+            'total_product_impressions' => (int) ($interval['product_impressions'] ?? 0),
+            'conversion_rate' => $conversionRate,
             'raw_response' => $response,
             'fetched_at' => now(),
         ]);
@@ -94,36 +103,68 @@ class TikTokAnalyticsSyncService
 
     /**
      * Sync product performance list.
+     *
+     * Iterates pages via TikTok's `next_page_token` cursor and upserts each
+     * product keyed on (platform_account_id, tiktok_product_id) so re-syncs
+     * refresh existing rows instead of duplicating them.
      */
     public function syncProductPerformance(PlatformAccount $account): int
     {
         $client = $this->getClient($account);
 
-        $response = $client->Analytics->getShopProductPerformanceList([
-            'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
-            'end_date_lt' => now()->format('Y-m-d'),
-            'page_size' => 100,
-        ]);
-
-        $products = $response['products'] ?? $response['data'] ?? [];
         $count = 0;
+        $pageToken = null;
+        $page = 0;
+        $maxPages = 50;
 
-        foreach ($products as $product) {
-            TiktokProductPerformance::create([
-                'platform_account_id' => $account->id,
-                'tiktok_product_id' => $product['product_id'] ?? $product['id'] ?? null,
-                'impressions' => $product['impressions'] ?? 0,
-                'clicks' => $product['clicks'] ?? 0,
-                'orders' => $product['orders'] ?? 0,
-                'gmv' => $product['gmv'] ?? 0,
-                'buyers' => $product['buyers'] ?? 0,
-                'conversion_rate' => $product['conversion_rate'] ?? 0,
-                'raw_response' => $product,
-                'fetched_at' => now(),
-            ]);
+        do {
+            $params = [
+                'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
+                'end_date_lt' => now()->format('Y-m-d'),
+                'page_size' => 100,
+            ];
 
-            $count++;
-        }
+            if ($pageToken) {
+                $params['page_token'] = $pageToken;
+            }
+
+            $response = $client->Analytics->getShopProductPerformanceList($params);
+            $products = $response['products'] ?? $response['data'] ?? [];
+
+            foreach ($products as $product) {
+                $productId = $product['product_id'] ?? $product['id'] ?? null;
+
+                if (! $productId) {
+                    continue;
+                }
+
+                // TikTok returns gmv as {amount, currency} and click_through_rate as a 0-1 decimal.
+                $gmv = is_array($product['gmv'] ?? null) ? (float) ($product['gmv']['amount'] ?? 0) : (float) ($product['gmv'] ?? 0);
+                $ctr = isset($product['click_through_rate']) ? round(((float) $product['click_through_rate']) * 100, 4) : 0;
+
+                TiktokProductPerformance::updateOrCreate(
+                    [
+                        'platform_account_id' => $account->id,
+                        'tiktok_product_id' => (string) $productId,
+                    ],
+                    [
+                        'impressions' => (int) ($product['impressions'] ?? 0),
+                        'clicks' => (int) ($product['clicks'] ?? 0),
+                        'orders' => (int) ($product['orders'] ?? 0),
+                        'gmv' => $gmv,
+                        'buyers' => (int) ($product['buyers'] ?? 0),
+                        'conversion_rate' => $product['conversion_rate'] ?? $ctr,
+                        'raw_response' => $product,
+                        'fetched_at' => now(),
+                    ]
+                );
+
+                $count++;
+            }
+
+            $pageToken = $response['next_page_token'] ?? null;
+            $page++;
+        } while ($pageToken && $page < $maxPages);
 
         return $count;
     }
