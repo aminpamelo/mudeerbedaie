@@ -14,6 +14,8 @@ import {
     ArrowDown,
     FileText,
     Check,
+    Flag,
+    Megaphone,
 } from 'lucide-react';
 import { fetchContents } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -290,6 +292,38 @@ function PriorityBadge({ priority }) {
     );
 }
 
+function MarkBadges({ content }) {
+    const flagged = content.is_flagged_for_ads && !content.is_marked_for_ads;
+    const marked = content.is_marked_for_ads;
+
+    if (!flagged && !marked) {
+        return <span className="text-sm text-zinc-300">-</span>;
+    }
+
+    return (
+        <div className="flex items-center gap-1">
+            {marked && (
+                <span
+                    className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-800"
+                    title="Marked for ads"
+                >
+                    <Megaphone className="h-3 w-3" />
+                    Marked
+                </span>
+            )}
+            {flagged && (
+                <span
+                    className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-800"
+                    title="Flagged for ads"
+                >
+                    <Flag className="h-3 w-3" />
+                    Flagged
+                </span>
+            )}
+        </div>
+    );
+}
+
 function CreatorAvatar({ creator }) {
     if (!creator) return null;
 
@@ -387,6 +421,7 @@ function SkeletonTable() {
                     </div>
                     <div className="h-5 w-16 animate-pulse rounded-full bg-zinc-200" />
                     <div className="h-5 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-5 w-14 animate-pulse rounded-full bg-zinc-200" />
                     <div className="flex -space-x-2">
                         <div className="h-7 w-7 animate-pulse rounded-full bg-zinc-200" />
                         <div className="h-7 w-7 animate-pulse rounded-full bg-zinc-200" />
@@ -762,6 +797,7 @@ export default function ContentList() {
                                             />
                                         </div>
                                     </TableHead>
+                                    <TableHead className="w-[9%]">Mark</TableHead>
                                     <TableHead className="w-[12%]">Assignees</TableHead>
                                     <TableHead
                                         className="cursor-pointer select-none w-[10%]"
@@ -799,6 +835,9 @@ export default function ContentList() {
                                         </TableCell>
                                         <TableCell>
                                             <PriorityBadge priority={content.priority} />
+                                        </TableCell>
+                                        <TableCell>
+                                            <MarkBadges content={content} />
                                         </TableCell>
                                         <TableCell>
                                             <AssigneeStack
