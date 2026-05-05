@@ -267,6 +267,24 @@ class SessionController extends Controller
                     'verified_at' => now(),
                 ]);
 
+                // Mirror the linked record's stats onto the session's
+                // analytics row so the detail page reflects what was verified.
+                // TikTok's xlsx exposes a single viewer figure; we treat it as
+                // peak. gifts_value isn't tracked on actual_live_records.
+                LiveAnalytics::updateOrCreate(
+                    ['live_session_id' => $session->id],
+                    [
+                        'viewers_peak' => $record->viewers ?? 0,
+                        'viewers_avg' => $record->viewers ?? 0,
+                        'total_likes' => $record->likes ?? 0,
+                        'total_comments' => $record->comments ?? 0,
+                        'total_shares' => $record->shares ?? 0,
+                        'duration_minutes' => $record->duration_seconds
+                            ? (int) round($record->duration_seconds / 60)
+                            : 0,
+                    ]
+                );
+
                 LiveSessionVerificationEvent::create([
                     'live_session_id' => $session->id,
                     'actual_live_record_id' => $record->id,
