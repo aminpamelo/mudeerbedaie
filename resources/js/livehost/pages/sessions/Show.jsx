@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Download, Eye, FileText, Image as ImageIcon, Lock, Plus, Trash2, Video, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, Eye, FileText, Image as ImageIcon, Lock, Plus, Trash2, Video, X } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { Button } from '@/livehost/components/ui/button';
@@ -123,6 +123,11 @@ export default function SessionsShow() {
 
         {/* Verification (pending sessions only) */}
         <VerifyLinkPanel session={session} candidates={candidates ?? []} />
+
+        {/* Verified record panel (after a session has been linked) */}
+        {session.verificationStatus === 'verified' && session.matched_actual_live_record && (
+          <VerifiedRecordPanel session={session} />
+        )}
 
         {/* Timing */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -320,6 +325,86 @@ function AttachmentPreviewModal({ attachment, onClose }) {
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-3 py-1.5 text-xs text-white">
         {attachment.fileName} · {attachment.fileSizeFormatted}
+      </div>
+    </div>
+  );
+}
+
+function VerifiedRecordPanel({ session }) {
+  const record = session.matched_actual_live_record;
+  if (!record) return null;
+
+  const formatSeconds = (seconds) => {
+    if (!seconds) return '—';
+    const m = Math.floor(seconds / 60);
+    const h = Math.floor(m / 60);
+    return h > 0 ? `${h}h ${m % 60}m` : `${m}m`;
+  };
+
+  const sourceLabel = {
+    csv_import: 'TikTok Live Analysis xlsx',
+    api: 'TikTok API sync',
+  }[record.source] ?? record.source;
+
+  return (
+    <div className="rounded-[16px] border border-[#BBF7D0] bg-[#F0FDF4] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex items-start gap-3">
+        <div className="rounded-full bg-[#DCFCE7] p-1.5">
+          <CheckCircle2 className="h-4 w-4 text-[#15803D]" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-semibold tracking-[-0.015em] text-[#14532D]">
+              Verified — linked to TikTok record
+            </h3>
+            <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[11px] font-medium text-[#15803D]">
+              {sourceLabel}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-[#166534]">
+            {session.verifiedByName ? `Verified by ${session.verifiedByName}` : 'Verified'}
+            {session.verifiedAt ? ` on ${formatDateTime(session.verifiedAt)}` : ''}
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-[10px] bg-white/60 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-[#15803D] font-medium">Launched</div>
+              <div className="mt-1 text-[13px] font-semibold tabular-nums text-[#14532D]">
+                {formatDateTime(record.launched_time)}
+              </div>
+            </div>
+            <div className="rounded-[10px] bg-white/60 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-[#15803D] font-medium">Duration</div>
+              <div className="mt-1 text-[13px] font-semibold tabular-nums text-[#14532D]">
+                {formatSeconds(record.duration_seconds)}
+              </div>
+            </div>
+            <div className="rounded-[10px] bg-white/60 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-[#15803D] font-medium">GMV (record)</div>
+              <div className="mt-1 text-[13px] font-semibold tabular-nums text-[#14532D]">
+                {formatMyr(record.gmv_myr)}
+              </div>
+            </div>
+            <div className="rounded-[10px] bg-white/60 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-[#15803D] font-medium">Viewers</div>
+              <div className="mt-1 text-[13px] font-semibold tabular-nums text-[#14532D]">
+                {record.viewers?.toLocaleString() ?? '—'}
+              </div>
+            </div>
+          </div>
+
+          {record.import_id && (
+            <div className="mt-3 text-[11.5px] text-[#15803D]">
+              Source upload:{' '}
+              <Link
+                href={`/livehost/tiktok-imports/${record.import_id}`}
+                className="font-medium text-[#15803D] underline hover:text-[#166534]"
+              >
+                Import #{record.import_id}
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

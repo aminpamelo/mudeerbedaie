@@ -336,6 +336,7 @@ class SessionController extends Controller
             'liveHost:id,name,email',
             'liveHostPlatformAccount.platformAccount.platform:id,name,display_name,slug',
             'verifiedBy:id,name',
+            'matchedActualLiveRecord:id,launched_time,ended_time,duration_seconds,gmv_myr,live_attributed_gmv_myr,viewers,items_sold,creator_handle,source,import_id',
             'analytics',
             'attachments.uploader:id,name',
             'gmvAdjustments.adjustedBy:id,name',
@@ -472,6 +473,21 @@ class SessionController extends Controller
             $base['creator_handle'] = $s->liveHostPlatformAccount?->creator_handle;
             $base['creator_platform_user_id'] = $s->liveHostPlatformAccount?->creator_platform_user_id;
             $base['payroll_locked'] = $this->isSessionPayrollLocked($s);
+            $base['gmv_source'] = $s->gmv_source;
+            $base['matched_actual_live_record_id'] = $s->matched_actual_live_record_id;
+            $base['matched_actual_live_record'] = $s->matchedActualLiveRecord ? [
+                'id' => $s->matchedActualLiveRecord->id,
+                'launched_time' => $s->matchedActualLiveRecord->launched_time?->toIso8601String(),
+                'ended_time' => $s->matchedActualLiveRecord->ended_time?->toIso8601String(),
+                'duration_seconds' => $s->matchedActualLiveRecord->duration_seconds,
+                'gmv_myr' => (float) $s->matchedActualLiveRecord->gmv_myr,
+                'live_attributed_gmv_myr' => (float) $s->matchedActualLiveRecord->live_attributed_gmv_myr,
+                'viewers' => $s->matchedActualLiveRecord->viewers,
+                'items_sold' => $s->matchedActualLiveRecord->items_sold,
+                'creator_handle' => $s->matchedActualLiveRecord->creator_handle,
+                'source' => $s->matchedActualLiveRecord->source,
+                'import_id' => $s->matchedActualLiveRecord->import_id,
+            ] : null;
         }
 
         return $base;
