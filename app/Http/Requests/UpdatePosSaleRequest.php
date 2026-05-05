@@ -29,6 +29,8 @@ class UpdatePosSaleRequest extends FormRequest
             'discount_type' => ['nullable', 'in:fixed,percentage'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'receipt_attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'remove_receipt_attachment' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['nullable', 'integer', 'exists:product_order_items,id'],
             'items.*.itemable_type' => ['required', 'in:product,package,course'],

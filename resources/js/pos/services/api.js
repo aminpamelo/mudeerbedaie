@@ -106,10 +106,44 @@ export const saleApi = {
         method: 'PUT',
         body: JSON.stringify(data),
     }),
-    update: (id, data) => request(`/sales/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-    }),
+    update: (id, data, options = {}) => {
+        const { receiptFile = null, removeReceipt = false } = options;
+        const needsMultipart = Boolean(receiptFile) || removeReceipt;
+
+        if (!needsMultipart) {
+            return request(`/sales/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data),
+            });
+        }
+
+        const formData = new FormData();
+        formData.append('_method', 'PUT');
+        Object.entries(data).forEach(([key, value]) => {
+            if (key === 'items' && Array.isArray(value)) {
+                value.forEach((item, index) => {
+                    Object.entries(item).forEach(([itemKey, itemValue]) => {
+                        if (itemValue !== null && itemValue !== undefined) {
+                            formData.append(`items[${index}][${itemKey}]`, itemValue);
+                        }
+                    });
+                });
+            } else if (value !== null && value !== undefined) {
+                formData.append(key, value);
+            }
+        });
+        if (receiptFile) {
+            formData.append('receipt_attachment', receiptFile);
+        }
+        if (removeReceipt) {
+            formData.append('remove_receipt_attachment', '1');
+        }
+
+        return request(`/sales/${id}`, {
+            method: 'POST',
+            body: formData,
+        });
+    },
     delete: (id) => request(`/sales/${id}`, {
         method: 'DELETE',
     }),

@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PosController extends Controller
@@ -665,7 +666,22 @@ class PosController extends Controller
             $metadata['discount_type'] = $validated['discount_type'] ?? null;
             $metadata['discount_input'] = $validated['discount_amount'] ?? null;
 
-            $sale->update([
+            $receiptChange = null;
+            $newReceiptPath = null;
+            if ($request->hasFile('receipt_attachment')) {
+                if ($sale->receipt_attachment) {
+                    Storage::disk('public')->delete($sale->receipt_attachment);
+                }
+                $newReceiptPath = $request->file('receipt_attachment')->store('pos/receipts', 'public');
+                $receiptChange = 'replaced';
+            } elseif ($request->boolean('remove_receipt_attachment')) {
+                if ($sale->receipt_attachment) {
+                    Storage::disk('public')->delete($sale->receipt_attachment);
+                }
+                $receiptChange = 'removed';
+            }
+
+            $updatePayload = [
                 'customer_id' => $customerId,
                 'customer_name' => $customerName,
                 'customer_phone' => $customerPhone,
@@ -679,7 +695,15 @@ class PosController extends Controller
                 'total_amount' => $totalAmount,
                 'internal_notes' => $validated['notes'] ?? $sale->internal_notes,
                 'metadata' => $metadata,
-            ]);
+            ];
+
+            if ($receiptChange === 'replaced') {
+                $updatePayload['receipt_attachment'] = $newReceiptPath;
+            } elseif ($receiptChange === 'removed') {
+                $updatePayload['receipt_attachment'] = null;
+            }
+
+            $sale->update($updatePayload);
 
             $payment = $sale->payments()->first();
             if ($payment) {
@@ -696,6 +720,12 @@ class PosController extends Controller
             }
 
             $sale->addSystemNote('Order edited from POS by '.$request->user()->name);
+
+            if ($receiptChange === 'replaced') {
+                $sale->addSystemNote('Receipt attachment replaced by '.$request->user()->name);
+            } elseif ($receiptChange === 'removed') {
+                $sale->addSystemNote('Receipt attachment removed by '.$request->user()->name);
+            }
 
             $sale->load(['items', 'customer', 'payments']);
 

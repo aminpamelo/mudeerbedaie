@@ -70,6 +70,63 @@ export default function EditSaleModal({ sale, onClose, onSaved, onUpdated }) {
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState([]);
     const [searchingProducts, setSearchingProducts] = useState(false);
+    const [existingReceiptUrl, setExistingReceiptUrl] = useState(sale.receipt_attachment_url || null);
+    const [existingReceiptPath, setExistingReceiptPath] = useState(sale.receipt_attachment || null);
+    const [receiptFile, setReceiptFile] = useState(null);
+    const [receiptPreview, setReceiptPreview] = useState(null);
+    const [removeReceipt, setRemoveReceipt] = useState(false);
+    const [receiptError, setReceiptError] = useState(null);
+
+    useEffect(() => {
+        if (!receiptFile) {
+            setReceiptPreview(null);
+            return undefined;
+        }
+        if (receiptFile.type === 'application/pdf') {
+            setReceiptPreview(null);
+            return undefined;
+        }
+        const url = URL.createObjectURL(receiptFile);
+        setReceiptPreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [receiptFile]);
+
+    const handleReceiptChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            return;
+        }
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+        if (!allowed.includes(file.type)) {
+            setReceiptError('Receipt must be a JPG, PNG, WebP or PDF file.');
+            e.target.value = '';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setReceiptError('Receipt must be 5MB or smaller.');
+            e.target.value = '';
+            return;
+        }
+        setReceiptError(null);
+        setReceiptFile(file);
+        setRemoveReceipt(false);
+        e.target.value = '';
+    };
+
+    const cancelReceiptChange = () => {
+        setReceiptFile(null);
+        setReceiptError(null);
+    };
+
+    const requestRemoveExistingReceipt = () => {
+        setRemoveReceipt(true);
+        setReceiptFile(null);
+        setReceiptError(null);
+    };
+
+    const undoRemoveReceipt = () => {
+        setRemoveReceipt(false);
+    };
 
     useEffect(() => {
         salesSourceApi
@@ -214,7 +271,15 @@ export default function EditSaleModal({ sale, onClose, onSaved, onUpdated }) {
                 payload.payment_reference = paymentReference;
             }
 
-            const res = await saleApi.update(sale.id, payload);
+            const res = await saleApi.update(sale.id, payload, {
+                receiptFile,
+                removeReceipt,
+            });
+            setExistingReceiptUrl(res.data?.receipt_attachment_url || null);
+            setExistingReceiptPath(res.data?.receipt_attachment || null);
+            setReceiptFile(null);
+            setRemoveReceipt(false);
+            setReceiptError(null);
             onSaved(res.data);
         } catch (err) {
             setError(err.message || 'Failed to save changes.');
@@ -611,6 +676,138 @@ export default function EditSaleModal({ sale, onClose, onSaved, onUpdated }) {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                             placeholder="Internal notes..."
                         />
+                    </section>
+
+                    {/* Attachment */}
+                    <section>
+                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                            Attachment
+                        </h4>
+                        {receiptFile ? (
+                            <div className="border border-gray-200 rounded-lg p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {receiptPreview ? (
+                                            <img
+                                                src={receiptPreview}
+                                                alt="Receipt preview"
+                                                className="w-10 h-10 rounded object-cover shrink-0"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded bg-red-50 flex items-center justify-center shrink-0">
+                                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-700 truncate">
+                                                {receiptFile.name}
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                New file · {(receiptFile.size / 1024).toFixed(0)} KB
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={cancelReceiptChange}
+                                        className="p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                                        aria-label="Cancel new attachment"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {existingReceiptUrl
+                                        ? 'Existing attachment will be replaced when you save.'
+                                        : 'Attachment will be uploaded when you save.'}
+                                </p>
+                            </div>
+                        ) : existingReceiptUrl && !removeReceipt ? (
+                            <div className="border border-gray-200 rounded-lg p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {existingReceiptPath?.toLowerCase().endsWith('.pdf') ? (
+                                            <div className="w-10 h-10 rounded bg-red-50 flex items-center justify-center shrink-0">
+                                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={existingReceiptUrl}
+                                                alt="Current receipt"
+                                                className="w-10 h-10 rounded object-cover shrink-0"
+                                            />
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-700 truncate">
+                                                Current receipt
+                                            </p>
+                                            <a
+                                                href={existingReceiptUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-blue-600 hover:text-blue-700"
+                                            >
+                                                View
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <label className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                            Replace
+                                            <input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                                onChange={handleReceiptChange}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={requestRemoveExistingReceipt}
+                                            className="px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : removeReceipt ? (
+                            <div className="border border-red-200 bg-red-50 rounded-lg p-3 flex items-center justify-between gap-3">
+                                <p className="text-sm text-red-600">
+                                    Existing attachment will be removed when you save.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={undoRemoveReceipt}
+                                    className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                                >
+                                    Undo
+                                </button>
+                            </div>
+                        ) : (
+                            <label className="flex flex-col items-center justify-center w-full py-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                                <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-xs text-gray-500">Upload receipt image or PDF</span>
+                                <span className="text-xs text-gray-400 mt-0.5">JPG, PNG, PDF, WebP (max 5MB)</span>
+                                <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                                    onChange={handleReceiptChange}
+                                    className="hidden"
+                                />
+                            </label>
+                        )}
+                        {receiptError && (
+                            <p className="text-xs text-red-600 mt-2">{receiptError}</p>
+                        )}
                     </section>
 
                     {error && (
