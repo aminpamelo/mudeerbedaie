@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
+use App\Actions\LiveHost\MatchProductOrderToLiveSession;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\PlatformApp;
@@ -418,6 +419,11 @@ class TikTokOrderSyncService
             } else {
                 $order->addSystemNote('Order updated from TikTok Shop sync');
             }
+
+            // Tag this order with its originating live session for refund
+            // reconciliation and the /livehost/orders surface. Cheap indexed
+            // lookup; safe to run inside the sync transaction.
+            app(MatchProductOrderToLiveSession::class)->handle($order);
 
             return $isNew;
         });
