@@ -7,6 +7,7 @@ use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\ProductOrder;
 use App\Models\User;
+use App\Services\ImpersonationService;
 use App\Services\SettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -56,6 +57,8 @@ class HandleInertiaRequests extends Middleware
                     ]
                     : null,
                 'permissions' => fn () => $this->permissions($request->user()),
+                'isImpersonating' => fn () => app(ImpersonationService::class)->isImpersonating(),
+                'impersonator' => fn () => $this->impersonator(),
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
@@ -116,6 +119,20 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
+     * Original admin user when an impersonation session is active. Surfaced
+     * to Inertia so the Live Host Desk sidebar can offer a "Stop
+     * impersonation" action without re-querying on each page.
+     *
+     * @return array{id: int, name: string}|null
+     */
+    private function impersonator(): ?array
+    {
+        $admin = app(ImpersonationService::class)->getImpersonator();
+
+        return $admin ? ['id' => $admin->id, 'name' => $admin->name] : null;
+    }
+
+    /**
      * Role-derived capability flags consumed by the sidebar and action buttons.
      *
      * PIC roles (admin + admin_livehost) get full access to every flag. The
@@ -138,6 +155,7 @@ class HandleInertiaRequests extends Middleware
             'canSeePayroll' => $isPic,
             'canRecruit' => $isPic,
             'canSeeTiktokImports' => $isPic,
+            'canSeeReports' => $isPic,
         ];
     }
 
@@ -161,6 +179,9 @@ class HandleInertiaRequests extends Middleware
                 'hosts' => User::query()->where('role', 'live_host')->count(),
                 'platformAccounts' => PlatformAccount::query()->count(),
                 'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
+                'replacements' => \App\Models\SessionReplacementRequest::query()
+                    ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
+                    ->count(),
                 'unmatchedOrders' => ProductOrder::query()
                     ->where('source', 'tiktok_shop')
                     ->whereNull('matched_live_session_id')

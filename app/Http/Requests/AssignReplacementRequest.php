@@ -11,7 +11,7 @@ class AssignReplacementRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role, ['admin', 'admin_livehost'], true);
+        return in_array($this->user()?->role, ['admin', 'admin_livehost', 'livehost_assistant'], true);
     }
 
     /**

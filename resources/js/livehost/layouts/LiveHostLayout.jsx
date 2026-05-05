@@ -18,8 +18,18 @@ import {
   BarChart3,
   CalendarRange,
   ShoppingBag,
+  LogOut,
+  UserMinus,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/livehost/components/ui/dropdown-menu';
 
 const NAV_GROUPS = [
   {
@@ -75,10 +85,10 @@ const NAV_ITEM_PERMISSION = {
   commission: 'canSeeFinancials',
   payroll: 'canSeePayroll',
   'tiktok-imports': 'canSeeTiktokImports',
-  'reports.host-scorecard': null,
-  'reports.gmv': null,
-  'reports.coverage': null,
-  'reports.replacements': null,
+  'reports.host-scorecard': 'canSeeReports',
+  'reports.gmv': 'canSeeReports',
+  'reports.coverage': 'canSeeReports',
+  'reports.replacements': 'canSeeReports',
 };
 
 function canSeeNavItem(itemKey, permissions) {
@@ -111,11 +121,50 @@ function formatCount(value) {
 function Sidebar({ auth, brand, navCounts, currentUrl }) {
   const user = auth?.user;
   const permissions = auth?.permissions ?? {};
+  const isImpersonating = Boolean(auth?.isImpersonating);
+  const impersonator = auth?.impersonator ?? null;
   const roleLabel = user?.role === 'admin'
     ? 'Admin'
     : user?.role === 'admin_livehost'
       ? 'PIC · Admin'
       : user?.role ?? '';
+
+  // Both endpoints redirect to non-Inertia (Livewire/Volt) pages, so a
+  // native <form> submit is used instead of router.post() — Inertia's POST
+  // helper renders non-Inertia HTML responses inside an error modal, which
+  // breaks the redirect we actually want here.
+  const submitNativeForm = (action) => {
+    const csrfToken = document
+      .querySelector('meta[name="csrf-token"]')
+      ?.getAttribute('content');
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.style.display = 'none';
+
+    if (csrfToken) {
+      const tokenField = document.createElement('input');
+      tokenField.type = 'hidden';
+      tokenField.name = '_token';
+      tokenField.value = csrfToken;
+      form.appendChild(tokenField);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  const handleStopImpersonation = () => {
+    submitNativeForm('/stop-impersonation');
+  };
+
+  const handleLogout = () => {
+    if (!window.confirm('Log out of Live Host Desk?')) {
+      return;
+    }
+    submitNativeForm('/logout');
+  };
 
   const brandName = brand?.name || 'Live Host Desk';
   const brandLogoUrl = brand?.logoUrl || null;
@@ -236,21 +285,63 @@ function Sidebar({ auth, brand, navCounts, currentUrl }) {
       </nav>
 
       {/* User footer */}
-      <button
-        type="button"
-        className="flex cursor-pointer items-center gap-[10px] rounded-[10px] border border-border bg-surface p-[10px] text-left transition-colors hover:bg-surface-2"
-      >
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet to-[#EC4899] text-[12px] font-semibold text-white">
-          {initialsFrom(user?.name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium leading-tight text-ink">
-            {user?.name ?? 'Guest'}
-          </div>
-          <div className="mt-0.5 text-[11px] text-muted">{roleLabel}</div>
-        </div>
-        <ChevronsUpDown className="h-[14px] w-[14px] shrink-0 text-muted" strokeWidth={2} />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="flex cursor-pointer items-center gap-[10px] rounded-[10px] border border-border bg-surface p-[10px] text-left transition-colors hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
+          >
+            <div className="relative shrink-0">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-violet to-[#EC4899] text-[12px] font-semibold text-white">
+                {initialsFrom(user?.name)}
+              </div>
+              {isImpersonating && (
+                <span
+                  className="absolute -right-1 -top-1 grid h-3.5 w-3.5 place-items-center rounded-full bg-amber-500 ring-2 ring-surface"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-medium leading-tight text-ink">
+                {user?.name ?? 'Guest'}
+              </div>
+              <div className="mt-0.5 truncate text-[11px] text-muted">
+                {isImpersonating && impersonator
+                  ? `Impersonating · ${impersonator.name}`
+                  : roleLabel}
+              </div>
+            </div>
+            <ChevronsUpDown className="h-[14px] w-[14px] shrink-0 text-muted" strokeWidth={2} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start" className="w-[212px]">
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="truncate text-[13px] font-semibold text-ink">
+              {user?.name ?? 'Guest'}
+            </span>
+            {user?.email && (
+              <span className="truncate text-[11px] font-normal text-muted">
+                {user.email}
+              </span>
+            )}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {isImpersonating && (
+            <>
+              <DropdownMenuItem onSelect={handleStopImpersonation}>
+                <UserMinus className="h-4 w-4" />
+                <span>Stop impersonation</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+            <LogOut className="h-4 w-4" />
+            <span>Log out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </aside>
   );
 }

@@ -166,7 +166,7 @@ class ReplacementRequestController extends Controller
 
     public function reject(Request $request, SessionReplacementRequest $replacementRequest): RedirectResponse
     {
-        abort_unless(in_array($request->user()->role, ['admin', 'admin_livehost'], true), 403);
+        abort_unless(in_array($request->user()->role, ['admin', 'admin_livehost', 'livehost_assistant'], true), 403);
         abort_unless($replacementRequest->isPending(), 422, 'Permohonan ini tidak lagi tertunda.');
 
         $data = $request->validate([
