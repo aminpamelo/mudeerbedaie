@@ -20,6 +20,21 @@ class MatchProductOrderToLiveSession
      * Match a TikTok Shop product order to its originating live session and
      * persist the link. Returns the matched session id (or null if no match).
      *
+     * Multi-match policy: if multiple sessions on the same shop overlap the
+     * order's reference time, the most recently started session wins. Overlap
+     * is not expected under normal scheduling rules, so we bias to "latest"
+     * deterministically rather than aborting (the stricter
+     * OrderRefundReconciler::matchSessionByWindow returns null on ambiguity
+     * because refund attribution is money-sensitive — this action is used for
+     * presentation/grouping where a best-effort guess is preferable).
+     *
+     * Clear-on-no-match: if the order had a previous match but no session
+     * window now covers it (e.g. session edited or deleted), the existing
+     * link is cleared back to null.
+     *
+     * Idempotent: no UPDATE is issued when the resolved session id matches
+     * the persisted value.
+     *
      * No-ops for non-tiktok_shop sources or orders missing platform_account_id.
      */
     public function handle(ProductOrder $order): ?int

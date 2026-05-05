@@ -160,3 +160,77 @@ it('skips cancelled live sessions', function () {
 
     expect($this->action->handle($order))->toBeNull();
 });
+
+it('picks the most recently started session when multiple overlap', function () {
+    $account = PlatformAccount::factory()->create();
+
+    LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'actual_start_at' => '2026-05-01 09:00:00',
+        'actual_end_at' => '2026-05-01 13:00:00',
+        'status' => 'ended',
+    ]);
+    $later = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'actual_start_at' => '2026-05-01 10:30:00',
+        'actual_end_at' => '2026-05-01 12:00:00',
+        'status' => 'ended',
+    ]);
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $account->id,
+        'paid_time' => '2026-05-01 11:00:00',
+    ]);
+
+    expect($this->action->handle($order))->toBe($later->id);
+});
+
+it('clears a stale match when no session window covers the reference time', function () {
+    $account = PlatformAccount::factory()->create();
+    $oldSession = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'actual_start_at' => '2026-04-01 10:00:00',
+        'actual_end_at' => '2026-04-01 12:00:00',
+        'status' => 'ended',
+    ]);
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $account->id,
+        'paid_time' => '2026-05-01 11:00:00', // way past the old session window
+        'matched_live_session_id' => $oldSession->id,
+    ]);
+
+    expect($this->action->handle($order))->toBeNull();
+    expect($order->fresh()->matched_live_session_id)->toBeNull();
+});
+
+it('does not issue an UPDATE when the order is already linked to the matched session', function () {
+    $account = PlatformAccount::factory()->create();
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'actual_start_at' => '2026-05-01 10:00:00',
+        'actual_end_at' => '2026-05-01 12:00:00',
+        'status' => 'ended',
+    ]);
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $account->id,
+        'paid_time' => '2026-05-01 11:00:00',
+        'matched_live_session_id' => $session->id,
+    ]);
+
+    $updateCount = 0;
+    \Illuminate\Support\Facades\DB::listen(function ($query) use (&$updateCount) {
+        if (str_starts_with(strtolower($query->sql), 'update')) {
+            $updateCount++;
+        }
+    });
+
+    $matched = $this->action->handle($order);
+
+    expect($matched)->toBe($session->id);
+    expect($updateCount)->toBe(0);
+});
