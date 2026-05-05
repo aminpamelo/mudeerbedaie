@@ -74,3 +74,15 @@ it('filters unmatched only', function () {
         ->get('/livehost/orders?unmatched_only=1')
         ->assertInertia(fn (Assert $page) => $page->has('orders.data', 1));
 });
+
+it('rejects invalid date_from format with 422', function () {
+    actingAs($this->admin)
+        ->get('/livehost/orders?date_from=not-a-date')
+        ->assertSessionHasErrors('date_from');
+});
+
+it('rejects unknown shop id with 422', function () {
+    actingAs($this->admin)
+        ->get('/livehost/orders?shop=999999999')
+        ->assertSessionHasErrors('shop');
+});

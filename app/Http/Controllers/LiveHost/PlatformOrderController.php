@@ -15,6 +15,15 @@ class PlatformOrderController extends Controller
 {
     public function index(Request $request): Response
     {
+        $request->validate([
+            'shop' => ['nullable', 'integer', 'exists:platform_accounts,id'],
+            'status' => ['nullable', 'string', 'max:50'],
+            'unmatched_only' => ['nullable', 'boolean'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'search' => ['nullable', 'string', 'max:200'],
+        ]);
+
         $query = ProductOrder::query()
             ->where('source', 'tiktok_shop')
             ->with([
@@ -44,11 +53,12 @@ class PlatformOrderController extends Controller
         }
 
         if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('order_number', 'like', "%{$search}%")
-                    ->orWhere('platform_order_id', 'like', "%{$search}%")
-                    ->orWhere('platform_order_number', 'like', "%{$search}%")
-                    ->orWhere('guest_email', 'like', "%{$search}%");
+            $escaped = addcslashes($search, '%_\\');
+            $query->where(function ($q) use ($escaped) {
+                $q->where('order_number', 'like', "%{$escaped}%")
+                    ->orWhere('platform_order_id', 'like', "%{$escaped}%")
+                    ->orWhere('platform_order_number', 'like', "%{$escaped}%")
+                    ->orWhere('guest_email', 'like', "%{$escaped}%");
             });
         }
 
