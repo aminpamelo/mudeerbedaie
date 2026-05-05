@@ -66,9 +66,12 @@ class ProcessTiktokImportJob implements ShouldQueue
 
             if ($import->report_type === 'live_analysis') {
                 $this->processLiveAnalysis($import, $liveAnalysisParser, $matcher, $absolutePath);
-            } else {
-                $this->processOrderList($import, $allOrderParser, $absolutePath);
                 $reconciler->reconcile($import);
+            } else {
+                // Legacy order_list imports are no longer accepted by validation
+                // (Task 9). Past rows remain readable in the UI; new uploads of
+                // this type cannot be created.
+                $this->processOrderList($import, $allOrderParser, $absolutePath);
             }
         } catch (Throwable $e) {
             $import->status = 'failed';

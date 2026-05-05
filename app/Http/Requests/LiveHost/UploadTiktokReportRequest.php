@@ -5,9 +5,11 @@ namespace App\Http\Requests\LiveHost;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * PIC-only upload of a TikTok export xlsx (Live Analysis or All Order).
- * The file is stored untouched and a TiktokReportImport row is created;
- * actual parsing happens asynchronously in ProcessTiktokImportJob.
+ * PIC-only upload of a TikTok export xlsx. Only Live Analysis is accepted as
+ * of Task 9 — the legacy `order_list` (All Orders) flow has been retired in
+ * favour of webhook-driven ProductOrder ingestion. The file is stored
+ * untouched and a TiktokReportImport row is created; actual parsing happens
+ * asynchronously in ProcessTiktokImportJob.
  */
 class UploadTiktokReportRequest extends FormRequest
 {
@@ -24,7 +26,7 @@ class UploadTiktokReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'report_type' => ['required', 'in:live_analysis,order_list'],
+            'report_type' => ['required', 'in:live_analysis'],
             'platform_account_id' => ['required', 'integer', 'exists:platform_accounts,id'],
             'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
             'period_start' => ['required', 'date'],

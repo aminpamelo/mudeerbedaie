@@ -6,7 +6,6 @@ import { Button } from '@/livehost/components/ui/button';
 
 const REPORT_TYPES = [
   { value: 'live_analysis', label: 'Live Analysis' },
-  { value: 'order_list', label: 'All Orders' },
 ];
 
 export default function TiktokImportsCreate() {
@@ -91,8 +90,8 @@ export default function TiktokImportsCreate() {
             New TikTok Import
           </h1>
           <p className="mt-1.5 text-sm text-[#737373]">
-            Upload a Live Analysis or All Orders xlsx export for one TikTok Shop. Parsing runs in
-            the background — status updates on the import detail page; refresh to see progress.
+            Upload a Live Analysis xlsx export for one TikTok Shop. Parsing runs in the background
+            — status updates on the import detail page; refresh to see progress.
           </p>
         </div>
 

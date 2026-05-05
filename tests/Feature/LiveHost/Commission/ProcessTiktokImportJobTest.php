@@ -3,8 +3,10 @@
 use App\Jobs\ProcessTiktokImportJob;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveSession;
+use App\Models\LiveSessionGmvAdjustment;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
+use App\Models\ProductOrder;
 use App\Models\TiktokLiveReport;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReportImport;
@@ -199,6 +201,134 @@ it('marks import failed on parse error', function () {
     expect($import->error_log_json)->toBeArray();
     expect($import->error_log_json)->toHaveKey('message');
     expect($import->error_log_json)->toHaveKey('line');
+});
+
+it('runs OrderRefundReconciler after a live_analysis import is processed', function () {
+    Storage::fake('local');
+    $path = copyFixtureToStorage('live_analysis_sample.xlsx', 'tiktok-imports/live.xlsx');
+
+    $platform = Platform::firstOrCreate(
+        ['slug' => 'tiktok-shop'],
+        Platform::factory()->make(['slug' => 'tiktok-shop', 'name' => 'TikTok Shop'])->toArray()
+    );
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $platform->id,
+        'user_id' => $this->pic->id,
+    ]);
+
+    // A live session covering a refunded order's paid_time inside the period.
+    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'status' => 'ended',
+        'scheduled_start_at' => $paidAt->copy()->subHours(2),
+        'actual_start_at' => $paidAt->copy()->subHour(),
+        'actual_end_at' => $paidAt->copy()->addMinutes(10),
+        'duration_minutes' => 70,
+        'gmv_amount' => 500,
+        'gmv_adjustment' => 0,
+    ]);
+
+    ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $account->id,
+        'matched_live_session_id' => $session->id,
+        'platform_order_id' => 'JOB-RECONCILE-1',
+        'status' => 'refunded',
+        'paid_time' => $paidAt,
+        'total_amount' => 200,
+    ]);
+
+    $import = TiktokReportImport::create([
+        'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
+        'file_path' => $path,
+        'uploaded_by' => $this->pic->id,
+        'uploaded_at' => now(),
+        'period_start' => '2026-04-01',
+        'period_end' => '2026-04-30',
+        'status' => 'pending',
+    ]);
+
+    (new ProcessTiktokImportJob($import->id))->handle(
+        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
+        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
+        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+    );
+
+    $import->refresh();
+    expect($import->status)->toBe('completed');
+
+    // Reconciler must have proposed a negative adjustment for the refunded order.
+    $adjustment = LiveSessionGmvAdjustment::where('live_session_id', $session->id)->first();
+    expect($adjustment)->not->toBeNull();
+    expect($adjustment->status)->toBe('proposed');
+    expect((float) $adjustment->amount_myr)->toBe(-200.0);
+    expect($adjustment->reason)->toContain('JOB-RECONCILE-1');
+});
+
+it('does NOT run OrderRefundReconciler on legacy order_list imports', function () {
+    Storage::fake('local');
+    $path = copyFixtureToStorage('all_order_sample.xlsx', 'tiktok-imports/orders.xlsx');
+
+    $platform = Platform::firstOrCreate(
+        ['slug' => 'tiktok-shop'],
+        Platform::factory()->make(['slug' => 'tiktok-shop', 'name' => 'TikTok Shop'])->toArray()
+    );
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $platform->id,
+        'user_id' => $this->pic->id,
+    ]);
+
+    // ProductOrder data that, if reconciler were triggered, would propose
+    // an adjustment. We assert NO adjustment is proposed because Task 9
+    // moved the trigger to the live_analysis branch only.
+    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'status' => 'ended',
+        'scheduled_start_at' => $paidAt->copy()->subHours(2),
+        'actual_start_at' => $paidAt->copy()->subHour(),
+        'actual_end_at' => $paidAt->copy()->addMinutes(10),
+        'duration_minutes' => 70,
+        'gmv_amount' => 500,
+        'gmv_adjustment' => 0,
+    ]);
+
+    ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $account->id,
+        'matched_live_session_id' => $session->id,
+        'platform_order_id' => 'JOB-NORECON-1',
+        'status' => 'refunded',
+        'paid_time' => $paidAt,
+        'total_amount' => 200,
+    ]);
+
+    $import = TiktokReportImport::create([
+        'report_type' => 'order_list',
+        'platform_account_id' => $account->id,
+        'file_path' => $path,
+        'uploaded_by' => $this->pic->id,
+        'uploaded_at' => now(),
+        'period_start' => '2026-04-01',
+        'period_end' => '2026-04-30',
+        'status' => 'pending',
+    ]);
+
+    (new ProcessTiktokImportJob($import->id))->handle(
+        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
+        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
+        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+    );
+
+    $import->refresh();
+    expect($import->status)->toBe('completed');
+
+    // Reconciler must NOT have run on the order_list branch.
+    expect(LiveSessionGmvAdjustment::count())->toBe(0);
 });
 
 it('skips already-completed imports (idempotent re-run)', function () {

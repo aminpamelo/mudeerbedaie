@@ -114,7 +114,7 @@ it('PIC uploads Live Analysis xlsx and gets an import record', function () {
     Storage::disk('local')->assertExists($import->file_path);
 });
 
-it('PIC uploads All Order xlsx and gets an order_list import record', function () {
+it('rejects order_list as a report_type (Task 9 — All Orders xlsx flow retired)', function () {
     Storage::fake('local');
     Queue::fake();
 
@@ -123,21 +123,18 @@ it('PIC uploads All Order xlsx and gets an order_list import record', function (
         'user_id' => $this->ahmad->id,
     ]);
 
-    $response = actingAs($this->pic)->post('/livehost/tiktok-imports', [
-        'report_type' => 'order_list',
-        'platform_account_id' => $account->id,
-        'file' => UploadedFile::fake()->create('orders.xlsx', 100, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
-        'period_start' => '2026-04-01',
-        'period_end' => '2026-04-30',
-    ]);
+    actingAs($this->pic)
+        ->post('/livehost/tiktok-imports', [
+            'report_type' => 'order_list',
+            'platform_account_id' => $account->id,
+            'file' => UploadedFile::fake()->create('orders.xlsx', 100, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+            'period_start' => '2026-04-01',
+            'period_end' => '2026-04-30',
+        ])
+        ->assertSessionHasErrors('report_type');
 
-    $response->assertRedirect();
-    $this->assertDatabaseHas('tiktok_report_imports', [
-        'report_type' => 'order_list',
-        'platform_account_id' => $account->id,
-        'status' => 'pending',
-    ]);
-    Queue::assertPushed(ProcessTiktokImportJob::class);
+    expect(TiktokReportImport::count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 it('validates required fields on upload', function () {
