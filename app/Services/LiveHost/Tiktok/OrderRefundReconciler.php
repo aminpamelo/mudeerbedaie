@@ -4,31 +4,26 @@ declare(strict_types=1);
 
 namespace App\Services\LiveHost\Tiktok;
 
-use App\Models\LiveSession;
 use App\Models\LiveSessionGmvAdjustment;
-use App\Models\TiktokOrder;
+use App\Models\ProductOrder;
 use App\Models\TiktokReportImport;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 class OrderRefundReconciler
 {
     /**
-     * Tail window after a session's actual_end_at within which a freshly
-     * created order is still considered attributable to that live. TikTok
-     * often delays checkout confirmation by several hours, so we accept up
-     * to 12h post-end.
-     */
-    private const TAIL_HOURS = 12;
-
-    /**
-     * Scan every `TiktokOrder` tied to the given `order_list` import and
-     * propose a negative `LiveSessionGmvAdjustment` for each row that is
-     * refunded or cancelled and can be unambiguously attributed to a single
-     * LiveSession by time window.
+     * Scan tiktok_shop ProductOrders within the import's period that are
+     * refunded or cancelled and matched to a live session, then propose a
+     * negative LiveSessionGmvAdjustment for each.
      *
-     * Proposed adjustments do NOT feed the session's cached
-     * `gmv_adjustment` aggregate until a PIC approves them
+     * Trusts the pre-tagged `matched_live_session_id` (populated by the
+     * sync hook in TikTokOrderSyncService and the backfill command). The
+     * matcher uses "most recently started session wins" semantics; this
+     * is looser than the strict-no-multi-match policy of the legacy xlsx
+     * path, but acceptable here because PIC must approve every proposal.
+     *
+     * Proposed adjustments do NOT feed the session's cached gmv_adjustment
+     * aggregate until a PIC approves them
      * (see LiveSessionGmvAdjustmentController::approve).
      *
      * @return array{proposed_count: int, skipped_count: int}
@@ -38,22 +33,24 @@ class OrderRefundReconciler
         $proposed = 0;
         $skipped = 0;
 
-        $orders = TiktokOrder::query()
-            ->where('import_id', $import->id)
-            ->where(function ($query) {
-                $query->where('order_refund_amount_myr', '>', 0)
-                    ->orWhereNotNull('cancelled_time');
+        $periodStart = $import->period_start->copy()->startOfDay();
+        $periodEnd = $import->period_end->copy()->endOfDay();
+
+        $orders = ProductOrder::query()
+            ->where('source', 'tiktok_shop')
+            ->when($import->platform_account_id, function ($query) use ($import) {
+                $query->where('platform_account_id', $import->platform_account_id);
+            })
+            ->whereNotNull('matched_live_session_id')
+            ->whereIn('status', ['refunded', 'cancelled', 'returned'])
+            ->where(function ($query) use ($periodStart, $periodEnd) {
+                $query->whereBetween('paid_time', [$periodStart, $periodEnd])
+                    ->orWhereBetween('cancelled_at', [$periodStart, $periodEnd]);
             })
             ->get();
 
         foreach ($orders as $order) {
             if ($this->alreadyProposed($order)) {
-                $skipped++;
-
-                continue;
-            }
-
-            if ($order->created_time === null) {
                 $skipped++;
 
                 continue;
@@ -67,26 +64,15 @@ class OrderRefundReconciler
                 continue;
             }
 
-            $session = $this->matchSessionByWindow($order->created_time, $import->platform_account_id);
-
-            if ($session === null) {
-                $skipped++;
-
-                continue;
-            }
-
-            DB::transaction(function () use ($order, $session, $refundAmount) {
+            DB::transaction(function () use ($order, $refundAmount) {
                 LiveSessionGmvAdjustment::create([
-                    'live_session_id' => $session->id,
+                    'live_session_id' => $order->matched_live_session_id,
                     'amount_myr' => -1 * $refundAmount,
-                    'reason' => "Auto: Order #{$order->tiktok_order_id} refunded/cancelled (RM {$refundAmount})",
+                    'reason' => "Auto: Order #{$this->orderRef($order)} refunded/cancelled (RM {$refundAmount})",
                     'status' => 'proposed',
                     'adjusted_by' => null,
                     'adjusted_at' => now(),
                 ]);
-
-                $order->matched_live_session_id = $session->id;
-                $order->save();
             });
 
             $proposed++;
@@ -99,84 +85,39 @@ class OrderRefundReconciler
     }
 
     /**
-     * Resolve the refund amount for an order. Prefer the explicit
-     * `order_refund_amount_myr` column when populated; fall back to the full
-     * `order_amount_myr` for cancelled orders where the platform may not have
-     * recorded a refund figure.
+     * Refund amount: prefer the sum of refunded payment amounts when present;
+     * fall back to total_amount for cancelled/refunded/returned orders.
      */
-    private function refundAmountFor(TiktokOrder $order): float
+    private function refundAmountFor(ProductOrder $order): float
     {
-        $refund = (float) ($order->order_refund_amount_myr ?? 0);
+        $refundedFromPayments = (float) $order->payments()
+            ->where('status', 'refunded')
+            ->sum('amount');
 
-        if ($refund > 0) {
-            return $refund;
+        if ($refundedFromPayments > 0) {
+            return $refundedFromPayments;
         }
 
-        if ($order->cancelled_time !== null) {
-            return (float) ($order->order_amount_myr ?? 0);
+        if (in_array($order->status, ['cancelled', 'refunded', 'returned'], true)) {
+            return (float) $order->total_amount;
         }
 
         return 0.0;
     }
 
-    /**
-     * Find the unique LiveSession whose live-window overlaps the order's
-     * created_time. Returns null if zero or more than one session matches;
-     * multi-match requires PIC review.
-     *
-     * When $platformAccountId is provided (i.e. the parent import is pinned
-     * to a specific shop), the candidate set is restricted to sessions from
-     * that shop — so a refund on Shop A can't land on a parallel Shop B
-     * live-window by accident.
-     */
-    private function matchSessionByWindow(CarbonInterface $createdAt, ?int $platformAccountId = null): ?LiveSession
+    private function orderRef(ProductOrder $order): string
     {
-        $candidates = LiveSession::query()
-            ->whereNotNull('actual_start_at')
-            ->when($platformAccountId !== null, function ($query) use ($platformAccountId) {
-                $query->where('platform_account_id', $platformAccountId);
-            })
-            ->where('actual_start_at', '<=', $createdAt)
-            ->where(function ($query) use ($createdAt) {
-                $query->whereNull('actual_end_at')
-                    ->orWhereRaw(
-                        $this->dateAddExpr(),
-                        [self::TAIL_HOURS, $createdAt]
-                    );
-            })
-            ->limit(2)
-            ->get();
-
-        if ($candidates->count() !== 1) {
-            return null;
-        }
-
-        return $candidates->first();
-    }
-
-    /**
-     * Build a driver-aware "actual_end_at + X hours >= ?" raw predicate so the
-     * window check works on both MySQL and SQLite.
-     */
-    private function dateAddExpr(): string
-    {
-        $driver = DB::getDriverName();
-
-        if ($driver === 'mysql') {
-            return 'DATE_ADD(actual_end_at, INTERVAL ? HOUR) >= ?';
-        }
-
-        return "datetime(actual_end_at, '+' || ? || ' hours') >= ?";
+        return $order->platform_order_id ?? $order->order_number;
     }
 
     /**
      * Idempotency guard — don't create a duplicate proposal if a prior
      * reconciler run already recorded one for this order.
      */
-    private function alreadyProposed(TiktokOrder $order): bool
+    private function alreadyProposed(ProductOrder $order): bool
     {
         return LiveSessionGmvAdjustment::query()
-            ->where('reason', 'like', "Auto: Order #{$order->tiktok_order_id} %")
+            ->where('reason', 'like', "Auto: Order #{$this->orderRef($order)} %")
             ->exists();
     }
 }

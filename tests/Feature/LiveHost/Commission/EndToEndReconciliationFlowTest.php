@@ -6,6 +6,7 @@ use App\Models\LiveSession;
 use App\Models\LiveSessionGmvAdjustment;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
+use App\Models\ProductOrder;
 use App\Models\TiktokLiveReport;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReportImport;
@@ -216,6 +217,32 @@ it('end-to-end: host entry → PIC verify → payroll draft → TikTok import + 
     // 8. PIC uploads the All Order fixture xlsx — reconciler runs inline.
     //    Target Amin's platform account so the 15/04 refund window matches
     //    his session under the shop-scoped reconciler.
+    //
+    //    Note: post-Task 5 the reconciler reads ProductOrder rows tagged with
+    //    matched_live_session_id (sync-hook semantics), not tiktok_orders rows.
+    //    Seed ProductOrder refund/cancel rows here so step 9 has data to
+    //    assert against — the xlsx import still flows through the job, but
+    //    its tiktok_orders rows are no longer the reconciler's input.
+    ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $aminSession->platform_account_id,
+        'matched_live_session_id' => $aminSession->id,
+        'platform_order_id' => 'E2E-REFUND-AMIN-1',
+        'status' => 'refunded',
+        'paid_time' => Carbon::parse('2026-04-15 08:22:00'),
+        'total_amount' => 70.00,
+    ]);
+    ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $ahmadSession2->platform_account_id,
+        'matched_live_session_id' => $ahmadSession2->id,
+        'platform_order_id' => 'E2E-CANCEL-AHMAD2-1',
+        'status' => 'cancelled',
+        'paid_time' => Carbon::parse('2026-04-17 10:15:00'),
+        'cancelled_at' => Carbon::parse('2026-04-17 10:30:00'),
+        'total_amount' => 80.00,
+    ]);
+
     $orderContents = file_get_contents(base_path('tests/Fixtures/tiktok/all_order_sample.xlsx'));
     actingAs($pic)
         ->post('/livehost/tiktok-imports', [
