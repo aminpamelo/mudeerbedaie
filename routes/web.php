@@ -395,6 +395,11 @@ Route::middleware(['auth'])
             Route::post('tiktok-imports/{import}/apply', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'apply'])
                 ->name('tiktok-imports.apply');
 
+            // Platform Orders (Task 6) — Inertia listing of tiktok_shop ProductOrders
+            // with shop / status / matching / date filters for the PIC reconciliation UI.
+            Route::get('orders', [\App\Http\Controllers\LiveHost\PlatformOrderController::class, 'index'])
+                ->name('orders.index');
+
             // Recruitment admin — campaigns + stage editor + lifecycle transitions.
             Route::prefix('recruitment')->name('recruitment.')->group(function () {
                 Route::get('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'index'])
