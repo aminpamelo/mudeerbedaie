@@ -11,6 +11,7 @@ use App\Services\ImpersonationService;
 use App\Services\SettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -160,6 +161,24 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
+     * Defensive count — returns 0 if the column hasn't been migrated yet.
+     * The matched_live_session_id column was added late; without this guard
+     * a deploy that lands the middleware before the migration runs would
+     * 500 every Live Host page.
+     */
+    private function unmatchedOrderCount(): int
+    {
+        if (! Schema::hasColumn('product_orders', 'matched_live_session_id')) {
+            return 0;
+        }
+
+        return ProductOrder::query()
+            ->where('source', 'tiktok_shop')
+            ->whereNull('matched_live_session_id')
+            ->count();
+    }
+
+    /**
      * Counts powering the sidebar badges on the Live Host Desk. Shared so every
      * PIC/admin page shows real numbers without each controller passing them
      * through manually. Cached briefly to keep the cost negligible.
@@ -182,10 +201,7 @@ class HandleInertiaRequests extends Middleware
                 'replacements' => \App\Models\SessionReplacementRequest::query()
                     ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
                     ->count(),
-                'unmatchedOrders' => ProductOrder::query()
-                    ->where('source', 'tiktok_shop')
-                    ->whereNull('matched_live_session_id')
-                    ->count(),
+                'unmatchedOrders' => $this->unmatchedOrderCount(),
             ]);
         }
 
@@ -202,10 +218,7 @@ class HandleInertiaRequests extends Middleware
             'replacements' => \App\Models\SessionReplacementRequest::query()
                 ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
                 ->count(),
-            'unmatchedOrders' => ProductOrder::query()
-                ->where('source', 'tiktok_shop')
-                ->whereNull('matched_live_session_id')
-                ->count(),
+            'unmatchedOrders' => $this->unmatchedOrderCount(),
         ]);
     }
 }
