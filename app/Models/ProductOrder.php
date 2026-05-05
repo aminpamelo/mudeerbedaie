@@ -43,6 +43,7 @@ class ProductOrder extends Model
         // Platform integration fields
         'platform_id',
         'platform_account_id',
+        'matched_live_session_id',
         'platform_order_id',
         'platform_order_number',
         'tracking_id',
@@ -203,6 +204,11 @@ class ProductOrder extends Model
     public function platformAccount(): BelongsTo
     {
         return $this->belongsTo(PlatformAccount::class);
+    }
+
+    public function matchedLiveSession(): BelongsTo
+    {
+        return $this->belongsTo(LiveSession::class, 'matched_live_session_id');
     }
 
     // Address helpers
