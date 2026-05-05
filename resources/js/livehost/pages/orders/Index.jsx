@@ -55,6 +55,29 @@ function formatDateTime(iso) {
   });
 }
 
+function formatSessionRange(startIso, endIso) {
+  if (!startIso) {
+    return '—';
+  }
+  const start = new Date(startIso);
+  if (Number.isNaN(start.getTime())) {
+    return startIso;
+  }
+  const startFmt = formatDateTime(startIso);
+  if (!endIso) {
+    return `${startFmt} → ongoing`;
+  }
+  const end = new Date(endIso);
+  if (Number.isNaN(end.getTime())) {
+    return startFmt;
+  }
+  const sameDay = start.toDateString() === end.toDateString();
+  const endFmt = sameDay
+    ? end.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' })
+    : formatDateTime(endIso);
+  return `${startFmt} → ${endFmt}`;
+}
+
 function StatCard({ label, value, icon: Icon, tint = 'default', accent = false }) {
   const tintClasses = {
     emerald: 'bg-[#ECFDF5] text-[#059669]',
@@ -278,7 +301,6 @@ export default function PlatformOrdersIndex() {
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
                   <th className="px-5 py-3 text-left">Order</th>
                   <th className="px-5 py-3 text-left">Shop</th>
-                  <th className="px-5 py-3 text-left">Customer</th>
                   <th className="px-5 py-3 text-right">Total</th>
                   <th className="px-5 py-3 text-left">Status</th>
                   <th className="px-5 py-3 text-left">Matched session</th>
@@ -309,9 +331,6 @@ export default function PlatformOrdersIndex() {
                     <td className="px-5 py-3.5 text-[12.5px] text-[#0A0A0A]">
                       {order.platform_account?.name ?? '—'}
                     </td>
-                    <td className="px-5 py-3.5 text-[12.5px] text-[#404040]">
-                      {order.guest_email ?? '—'}
-                    </td>
                     <td className="px-5 py-3.5 text-right tabular-nums text-[13px] font-semibold text-[#0A0A0A]">
                       {formatMoney(order.total_amount, order.currency)}
                     </td>
@@ -324,7 +343,10 @@ export default function PlatformOrdersIndex() {
                           href={`/livehost/sessions/${order.matched_live_session.id}`}
                           className="text-[12.5px] font-medium text-[#10B981] hover:underline"
                         >
-                          {formatDateTime(order.matched_live_session.actual_start_at)}
+                          {formatSessionRange(
+                            order.matched_live_session.actual_start_at,
+                            order.matched_live_session.actual_end_at
+                          )}
                           {order.matched_live_session.live_host?.name && (
                             <span className="ml-1 text-[#737373]">
                               · {order.matched_live_session.live_host.name}

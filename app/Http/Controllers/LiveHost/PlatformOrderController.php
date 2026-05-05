@@ -28,7 +28,7 @@ class PlatformOrderController extends Controller
             ->where('source', 'tiktok_shop')
             ->with([
                 'platformAccount:id,name,platform_id',
-                'matchedLiveSession:id,actual_start_at,live_host_id',
+                'matchedLiveSession:id,actual_start_at,actual_end_at,live_host_id',
                 'matchedLiveSession.liveHost:id,name',
             ]);
 
