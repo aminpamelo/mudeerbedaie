@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\LiveSchedule;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
+use App\Models\ProductOrder;
 use App\Models\User;
 use App\Services\SettingsService;
 use Illuminate\Http\Request;
@@ -145,7 +146,7 @@ class HandleInertiaRequests extends Middleware
      * PIC/admin page shows real numbers without each controller passing them
      * through manually. Cached briefly to keep the cost negligible.
      *
-     * @return array{hosts: int, schedules: int, sessions: int, platformAccounts: int}|null
+     * @return array{hosts: int, schedules: int, sessions: int, platformAccounts: int, unmatchedOrders: int}|null
      */
     private function navCounts(Request $request): ?array
     {
@@ -160,6 +161,10 @@ class HandleInertiaRequests extends Middleware
                 'hosts' => User::query()->where('role', 'live_host')->count(),
                 'platformAccounts' => PlatformAccount::query()->count(),
                 'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
+                'unmatchedOrders' => ProductOrder::query()
+                    ->where('source', 'tiktok_shop')
+                    ->whereNull('matched_live_session_id')
+                    ->count(),
             ]);
         }
 
@@ -175,6 +180,10 @@ class HandleInertiaRequests extends Middleware
             'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
             'replacements' => \App\Models\SessionReplacementRequest::query()
                 ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
+                ->count(),
+            'unmatchedOrders' => ProductOrder::query()
+                ->where('source', 'tiktok_shop')
+                ->whereNull('matched_live_session_id')
                 ->count(),
         ]);
     }

@@ -17,6 +17,7 @@ import {
   Activity,
   BarChart3,
   CalendarRange,
+  ShoppingBag,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -43,6 +44,7 @@ const NAV_GROUPS = [
     label: 'Records',
     items: [
       { key: 'sessions', label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
+      { key: 'orders', label: 'Orders', href: '/livehost/orders', icon: ShoppingBag, countKey: 'unmatchedOrders' },
       { key: 'commission', label: 'Commission', href: '/livehost/commission', icon: DollarSign },
       { key: 'payroll', label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
       { key: 'tiktok-imports', label: 'TikTok Imports', href: '/livehost/tiktok-imports', icon: FileSpreadsheet },
@@ -69,6 +71,7 @@ const NAV_ITEM_PERMISSION = {
   'platform-accounts': null,
   creators: null,
   sessions: 'canSeeSessions',
+  orders: 'canSeeFinancials',
   commission: 'canSeeFinancials',
   payroll: 'canSeePayroll',
   'tiktok-imports': 'canSeeTiktokImports',
