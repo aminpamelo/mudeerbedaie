@@ -225,6 +225,42 @@ class SessionController extends Controller
         return back()->with('success', $flash);
     }
 
+    /**
+     * JSON endpoint feeding the quick-verify modal on the Live Sessions list.
+     * Returns the same candidate shape as the Show page so the modal can
+     * require a record selection before calling verify-link.
+     */
+    public function candidates(Request $request, LiveSession $session): \Illuminate\Http\JsonResponse
+    {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
+        $candidates = app(ActualLiveRecordCandidateFinder::class)
+            ->forSession($session)
+            ->map(fn (ActualLiveRecord $r) => [
+                'id' => $r->id,
+                'launchedTime' => $r->launched_time?->toIso8601String(),
+                'endedTime' => $r->ended_time?->toIso8601String(),
+                'durationSeconds' => $r->duration_seconds,
+                'gmvMyr' => (float) $r->gmv_myr,
+                'liveAttributedGmvMyr' => (float) $r->live_attributed_gmv_myr,
+                'viewers' => $r->viewers,
+                'itemsSold' => $r->items_sold,
+                'creatorHandle' => $r->creator_handle,
+                'source' => $r->source,
+                'isSuggested' => false,
+            ])
+            ->values()
+            ->all();
+
+        if ($candidates !== []) {
+            $candidates[0]['isSuggested'] = true;
+        }
+
+        return response()->json([
+            'candidates' => $candidates,
+        ]);
+    }
+
     public function verifyLink(VerifyLinkLiveSessionRequest $request, LiveSession $session): RedirectResponse
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);

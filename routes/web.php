@@ -240,11 +240,10 @@ Route::middleware(['auth'])
     ->name('livehost.')
     ->group(function () {
 
-        // Admin-only: everything outside the shared scheduling surface (admin, admin_livehost).
-        Route::middleware('role:admin,admin_livehost')->group(function () {
-            Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
-                ->name('live-now');
-
+        // Replacement queue — shared between PIC roles and livehost_assistant.
+        // Assistants act as front-line dispatchers: they triage requests and assign
+        // replacements alongside admins, so they need the same read + write surface.
+        Route::middleware('role:admin,admin_livehost,livehost_assistant')->group(function () {
             Route::get('replacements', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'index'])
                 ->name('replacements.index');
             Route::get('replacements/{replacementRequest}', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'show'])
@@ -253,6 +252,12 @@ Route::middleware(['auth'])
                 ->name('replacements.assign');
             Route::post('replacements/{replacementRequest}/reject', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'reject'])
                 ->name('replacements.reject');
+        });
+
+        // Admin-only: everything outside the shared scheduling surface (admin, admin_livehost).
+        Route::middleware('role:admin,admin_livehost')->group(function () {
+            Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
+                ->name('live-now');
 
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', [\App\Http\Controllers\LiveHost\Reports\ReportsController::class, 'index'])
@@ -346,6 +351,8 @@ Route::middleware(['auth'])
                 ->name('sessions.verify');
             Route::post('sessions/{session}/verify-link', [\App\Http\Controllers\LiveHost\SessionController::class, 'verifyLink'])
                 ->name('sessions.verify-link');
+            Route::get('sessions/{session}/candidates', [\App\Http\Controllers\LiveHost\SessionController::class, 'candidates'])
+                ->name('sessions.candidates');
             Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHost\SessionController::class, 'storeAttachment'])
                 ->name('sessions.attachments.store');
             Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])

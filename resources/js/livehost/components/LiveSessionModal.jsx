@@ -112,6 +112,9 @@ function formatDuration(minutes) {
 export default function LiveSessionModal({ open, onOpenChange, session, hosts = [], platformAccounts = [] }) {
   const [editing, setEditing] = useState(false);
   const [verifyNotesOpen, setVerifyNotesOpen] = useState(false);
+  const [candidates, setCandidates] = useState(null); // null = not loaded, [] = loaded empty
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   const form = useForm({
@@ -151,6 +154,8 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
     if (!open) {
       setEditing(false);
       setVerifyNotesOpen(false);
+      setCandidates(null);
+      setSelectedCandidateId(null);
       uploadForm.reset();
       uploadForm.clearErrors();
       verifyForm.reset();
@@ -192,6 +197,43 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, session?.id]);
+
+  // Load candidate TikTok records when the modal opens on a pending session.
+  // Mirrors the Show page's behaviour so PIC must pick a record before Verify.
+  useEffect(() => {
+    if (!open || !session || (session.verificationStatus ?? 'pending') !== 'pending') {
+      return;
+    }
+    let cancelled = false;
+    setCandidatesLoading(true);
+    setCandidates(null);
+    setSelectedCandidateId(null);
+    fetch(`/livehost/sessions/${session.id}/candidates`, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then((res) => (res.ok ? res.json() : { candidates: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const list = data.candidates ?? [];
+        setCandidates(list);
+        const suggested = list.find((c) => c.isSuggested);
+        if (suggested) {
+          setSelectedCandidateId(suggested.id);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCandidates([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setCandidatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, session?.id, session?.verificationStatus]);
 
   if (!session) {
     return null;
@@ -260,6 +302,24 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
   };
 
   const submitVerify = (nextStatus) => {
+    // Verifying requires linking to an actual_live_record — go through
+    // verify-link, not the generic /verify (which 422s on 'verified').
+    if (nextStatus === 'verified') {
+      if (selectedCandidateId === null) {
+        return;
+      }
+      router.post(
+        `/livehost/sessions/${session.id}/verify-link`,
+        { actual_live_record_id: selectedCandidateId },
+        {
+          preserveScroll: true,
+          onSuccess: () => {
+            setVerifyNotesOpen(false);
+          },
+        }
+      );
+      return;
+    }
     verifyForm.transform((data) => ({
       ...data,
       verification_status: nextStatus,
@@ -534,6 +594,10 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
               onVerify={() => submitVerify('verified')}
               onReject={() => submitVerify('rejected')}
               onReset={() => submitVerify('pending')}
+              candidates={candidates}
+              candidatesLoading={candidatesLoading}
+              selectedCandidateId={selectedCandidateId}
+              onSelectCandidate={setSelectedCandidateId}
             />
 
             <div>
@@ -859,9 +923,24 @@ function AttachmentRow({ attachment, onDelete }) {
   );
 }
 
-function VerificationPanel({ session, verifyForm, notesOpen, onToggleNotes, onVerify, onReject, onReset }) {
+function VerificationPanel({
+  session,
+  verifyForm,
+  notesOpen,
+  onToggleNotes,
+  onVerify,
+  onReject,
+  onReset,
+  candidates,
+  candidatesLoading,
+  selectedCandidateId,
+  onSelectCandidate,
+}) {
   const current = session.verificationStatus ?? 'pending';
   const processing = verifyForm.processing;
+  const isPending = current === 'pending';
+  const hasCandidates = Array.isArray(candidates) && candidates.length > 0;
+  const canVerify = isPending && hasCandidates && selectedCandidateId !== null;
 
   const meta = {
     pending: {
@@ -911,6 +990,77 @@ function VerificationPanel({ session, verifyForm, notesOpen, onToggleNotes, onVe
           {session.verificationNotes && (
             <div className="mt-1 rounded-md bg-[#FAFAFA] px-2.5 py-1.5 text-[11.5px] text-[#404040]">
               {session.verificationNotes}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isPending && (
+        <div className="mt-3">
+          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+            Pick the TikTok record to link
+          </div>
+          {candidatesLoading && (
+            <div className="rounded-md border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-2 text-[12px] text-[#737373]">
+              Loading candidates…
+            </div>
+          )}
+          {!candidatesLoading && !hasCandidates && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+              No TikTok records found for this day + host. Upload the xlsx report or wait for API sync — Verify is blocked until a record is linked.
+            </div>
+          )}
+          {!candidatesLoading && hasCandidates && (
+            <div className="flex max-h-[180px] flex-col gap-1.5 overflow-y-auto pr-1">
+              {candidates.map((c) => {
+                const selected = selectedCandidateId === c.id;
+                const launched = c.launchedTime
+                  ? new Date(c.launchedTime).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : '—';
+                const durationMin = c.durationSeconds
+                  ? Math.round(c.durationSeconds / 60)
+                  : null;
+                return (
+                  <label
+                    key={c.id}
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 transition-colors ${
+                      selected
+                        ? 'border-[#10B981] bg-[#ECFDF5]'
+                        : 'border-[#EAEAEA] hover:bg-[#FAFAFA]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="actual-live-record"
+                      checked={selected}
+                      onChange={() => onSelectCandidate(c.id)}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0 flex-1 text-[12px]">
+                      <div className="flex items-center gap-1.5 text-[#0A0A0A]">
+                        <span className="font-medium">{launched}</span>
+                        {durationMin !== null && (
+                          <span className="text-[#737373]">· {durationMin}m</span>
+                        )}
+                        {c.isSuggested && (
+                          <span className="rounded-full bg-[#DCFCE7] px-1.5 py-0.5 text-[10px] font-medium text-[#15803D]">
+                            Suggested
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11.5px] text-[#737373]">
+                        GMV {c.liveAttributedGmvMyr.toFixed(2)} · {c.viewers ?? 0} viewers
+                        {c.creatorHandle ? ` · ${c.creatorHandle}` : ''}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           )}
         </div>
@@ -969,8 +1119,15 @@ function VerificationPanel({ session, verifyForm, notesOpen, onToggleNotes, onVe
             <Button
               type="button"
               onClick={onVerify}
-              disabled={processing}
-              className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669]"
+              disabled={processing || (isPending && !canVerify)}
+              title={
+                isPending && !hasCandidates
+                  ? 'No TikTok records found — verification blocked'
+                  : isPending && selectedCandidateId === null
+                    ? 'Select a TikTok record first'
+                    : undefined
+              }
+              className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
               Verify
