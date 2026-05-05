@@ -25,7 +25,7 @@ it('returns Inertia response for admin', function () {
     actingAs($this->admin)
         ->get('/livehost/orders')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('LiveHost/Orders/Index', false));
+        ->assertInertia(fn (Assert $page) => $page->component('orders/Index', false));
 });
 
 it('only includes tiktok_shop source orders', function () {
@@ -40,7 +40,7 @@ it('only includes tiktok_shop source orders', function () {
     actingAs($this->admin)
         ->get('/livehost/orders')
         ->assertInertia(fn (Assert $page) => $page
-            ->component('LiveHost/Orders/Index', false)
+            ->component('orders/Index', false)
             ->has('orders.data', 2)
         );
 });

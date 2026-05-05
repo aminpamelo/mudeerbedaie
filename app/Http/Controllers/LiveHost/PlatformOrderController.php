@@ -18,7 +18,7 @@ class PlatformOrderController extends Controller
         $query = ProductOrder::query()
             ->where('source', 'tiktok_shop')
             ->with([
-                'platformAccount:id,display_name',
+                'platformAccount:id,name,platform_id',
                 'matchedLiveSession:id,actual_start_at,live_host_id',
                 'matchedLiveSession.liveHost:id,name',
             ]);
@@ -65,9 +65,9 @@ class PlatformOrderController extends Controller
 
         $shops = PlatformAccount::query()
             ->whereIn('id', ProductOrder::query()->where('source', 'tiktok_shop')->select('platform_account_id'))
-            ->get(['id', 'display_name']);
+            ->get(['id', 'name']);
 
-        return Inertia::render('LiveHost/Orders/Index', [
+        return Inertia::render('orders/Index', [
             'orders' => $orders,
             'summary' => $summary,
             'shops' => $shops,

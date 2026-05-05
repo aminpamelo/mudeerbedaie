@@ -220,7 +220,7 @@ export default function PlatformOrdersIndex() {
             <option value="">All shops</option>
             {(shops ?? []).map((s) => (
               <option key={s.id} value={s.id}>
-                {s.display_name}
+                {s.name}
               </option>
             ))}
           </select>
@@ -307,7 +307,7 @@ export default function PlatformOrdersIndex() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-[12.5px] text-[#0A0A0A]">
-                      {order.platform_account?.display_name ?? '—'}
+                      {order.platform_account?.name ?? '—'}
                     </td>
                     <td className="px-5 py-3.5 text-[12.5px] text-[#404040]">
                       {order.guest_email ?? '—'}
