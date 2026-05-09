@@ -19,6 +19,9 @@ new class extends Component
 
     public $selectedStudents = [];
 
+    // Quick search (name / phone)
+    public string $search = '';
+
     // Rule builder state
     public array $rules = [];
 
@@ -69,13 +72,36 @@ new class extends Component
         $this->resetPage();
     }
 
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearSearch(): void
+    {
+        $this->search = '';
+        $this->resetPage();
+    }
+
     private function buildFilteredQuery()
     {
-        if ($this->rulesApplied) {
-            return AudienceRuleBuilder::buildQuery($this->rules, $this->matchMode);
+        $query = $this->rulesApplied
+            ? AudienceRuleBuilder::buildQuery($this->rules, $this->matchMode)
+            : Student::query()->with(['user']);
+
+        $term = trim($this->search);
+        if ($term !== '') {
+            $like = '%'.$term.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('students.phone', 'like', $like)
+                    ->orWhereHas('user', function ($u) use ($like) {
+                        $u->where('name', 'like', $like)
+                            ->orWhere('phone', 'like', $like);
+                    });
+            });
         }
 
-        return Student::query()->with(['user']);
+        return $query;
     }
 
     public function with(): array
@@ -375,6 +401,33 @@ new class extends Component
                             <flux:button variant="outline" size="sm" wire:click="deselectAll">
                                 Deselect All
                             </flux:button>
+                        </div>
+                    </div>
+
+                    {{-- Quick Search --}}
+                    <div class="mb-3 flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <flux:icon name="magnifying-glass" class="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                            </div>
+                            <input
+                                type="search"
+                                wire:model.live.debounce.300ms="search"
+                                placeholder="Search by name or phone number..."
+                                class="block w-full rounded-md border border-zinc-200 bg-white py-2 pl-9 pr-9 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                            />
+                            @if($search !== '')
+                                <button
+                                    type="button"
+                                    wire:click="clearSearch"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                                >
+                                    <flux:icon name="x-mark" class="h-4 w-4" />
+                                </button>
+                            @endif
+                        </div>
+                        <div wire:loading wire:target="search" class="text-xs text-zinc-500 dark:text-zinc-400">
+                            Searching...
                         </div>
                     </div>
 
