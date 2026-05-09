@@ -10,8 +10,10 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
+use App\Notifications\Hr\ClaimSubmitted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -761,6 +763,130 @@ test('mileage claim warns when monthly limit exceeded', function () {
 
     $response->assertCreated();
     expect($response->json('warning'))->not->toBeNull();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Admin-Created Claim Tests (Claim Requests page)
+|--------------------------------------------------------------------------
+*/
+
+test('admin can create a claim on behalf of an employee with status pending', function () {
+    Storage::fake('public');
+    Notification::fake();
+
+    $admin = createClaimsAdminUser();
+    $secondAdmin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+
+    $response = $this->actingAs($admin)->postJson('/api/hr/claims/requests', [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 175.50,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Filed by admin on behalf of employee.',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('message', 'Claim request created successfully.')
+        ->assertJsonPath('data.status', 'pending')
+        ->assertJsonPath('data.employee_id', $data['employee']->id);
+
+    $claim = ClaimRequest::where('employee_id', $data['employee']->id)->first();
+    expect($claim)->not->toBeNull()
+        ->and($claim->status)->toBe('pending')
+        ->and($claim->submitted_at)->not->toBeNull()
+        ->and((float) $claim->amount)->toBe(175.50);
+
+    Notification::assertSentTo($secondAdmin, ClaimSubmitted::class);
+    Notification::assertNotSentTo($admin, ClaimSubmitted::class);
+});
+
+test('admin claim store auto-calculates amount for mileage claim type', function () {
+    Notification::fake();
+
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => true,
+        'requires_receipt' => false,
+    ]);
+    $vehicleRate = ClaimTypeVehicleRate::factory()->create([
+        'claim_type_id' => $claimType->id,
+        'rate_per_km' => 0.50,
+    ]);
+
+    $response = $this->actingAs($admin)->postJson('/api/hr/claims/requests', [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'vehicle_rate_id' => $vehicleRate->id,
+        'distance_km' => 40,
+        'origin' => 'KL',
+        'destination' => 'PJ',
+        'trip_purpose' => 'Site visit',
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Admin-filed mileage claim',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.status', 'pending');
+
+    $claim = ClaimRequest::where('employee_id', $data['employee']->id)->first();
+    expect((float) $claim->amount)->toBe(20.00);
+});
+
+test('admin claim store stores receipt under employee folder', function () {
+    Storage::fake('public');
+    Notification::fake();
+
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => true]);
+
+    $response = $this->actingAs($admin)->postJson('/api/hr/claims/requests', [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 99.00,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'With receipt',
+        'receipt' => UploadedFile::fake()->image('admin-receipt.jpg'),
+    ]);
+
+    $response->assertCreated();
+
+    $claim = ClaimRequest::where('employee_id', $data['employee']->id)->first();
+    expect($claim->receipt_path)->toStartWith("claim-receipts/{$data['employee']->id}/");
+});
+
+test('admin claim store validates required employee_id', function () {
+    $admin = createClaimsAdminUser();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+
+    $response = $this->actingAs($admin)->postJson('/api/hr/claims/requests', [
+        'claim_type_id' => $claimType->id,
+        'amount' => 50,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'No employee picked',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['employee_id']);
+});
+
+test('non-admin user cannot create a claim via admin endpoint', function () {
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/claims/requests', [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 50,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Should be blocked',
+    ]);
+
+    $response->assertForbidden();
 });
 
 test('mileage claim rejects inactive vehicle rate', function () {

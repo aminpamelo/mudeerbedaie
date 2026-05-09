@@ -317,6 +317,9 @@ export const deleteVehicleRate = (typeId, rateId) => api.delete(`/claims/types/$
 // ========== Claim Requests ==========
 export const fetchClaimRequests = (params) => api.get('/claims/requests', { params }).then(r => r.data);
 export const fetchClaimRequest = (id) => api.get(`/claims/requests/${id}`).then(r => r.data);
+export const createAdminClaimRequest = (data) => api.post('/claims/requests', data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+}).then(r => r.data);
 export const approveClaimRequest = (id, data) => api.post(`/claims/requests/${id}/approve`, data).then(r => r.data);
 export const rejectClaimRequest = (id, data) => api.post(`/claims/requests/${id}/reject`, data).then(r => r.data);
 export const markClaimPaid = (id, data) => api.post(`/claims/requests/${id}/mark-paid`, data).then(r => r.data);

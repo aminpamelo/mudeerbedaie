@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Download,
@@ -16,6 +16,8 @@ import {
     Car,
     MapPin,
     Route,
+    Plus,
+    Upload,
 } from 'lucide-react';
 import {
     fetchClaimRequests,
@@ -26,6 +28,8 @@ import {
     exportClaimRequests,
     fetchClaimTypes,
     fetchDepartments,
+    fetchEmployees,
+    createAdminClaimRequest,
 } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import PageHeader from '../../components/PageHeader';
@@ -118,6 +122,22 @@ export default function ClaimRequests() {
     const [actionDialog, setActionDialog] = useState({ open: false, type: null, request: null });
     const [actionError, setActionError] = useState('');
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        employee_id: '',
+        claim_type_id: '',
+        amount: '',
+        claim_date: new Date().toISOString().split('T')[0],
+        description: '',
+        receipt: null,
+        vehicle_rate_id: '',
+        distance_km: '',
+        origin: '',
+        destination: '',
+        trip_purpose: '',
+    });
+    const [createErrors, setCreateErrors] = useState({});
+    const [createWarning, setCreateWarning] = useState('');
 
     const { data, isLoading } = useQuery({
         queryKey: ['hr', 'claims', 'requests', { search, status, claimTypeId, page }],
@@ -166,6 +186,31 @@ export default function ClaimRequests() {
         },
     });
 
+    const { data: employeesData } = useQuery({
+        queryKey: ['hr', 'employees', 'list-for-claims'],
+        queryFn: () => fetchEmployees({ per_page: 200, sort: 'full_name' }),
+        enabled: createOpen,
+    });
+
+    const createMutation = useMutation({
+        mutationFn: (formData) => createAdminClaimRequest(formData),
+        onSuccess: (res) => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'requests'] });
+            if (res?.warning) {
+                setCreateWarning(res.warning);
+            } else {
+                closeCreateDialog();
+            }
+        },
+        onError: (err) => {
+            if (err?.response?.data?.errors) {
+                setCreateErrors(err.response.data.errors);
+            } else {
+                setCreateErrors({ _: [err?.response?.data?.message || 'Failed to create claim.'] });
+            }
+        },
+    });
+
     const exportMutation = useMutation({
         mutationFn: () => exportClaimRequests({
             search: search || undefined,
@@ -184,6 +229,84 @@ export default function ClaimRequests() {
     const requests = data?.data || [];
     const meta = data?.meta || {};
     const claimTypes = claimTypesData?.data || [];
+    const employees = employeesData?.data || [];
+
+    const selectedClaimType = useMemo(
+        () => claimTypes.find((t) => String(t.id) === String(createForm.claim_type_id)) || null,
+        [claimTypes, createForm.claim_type_id],
+    );
+    const isMileageType = selectedClaimType?.is_mileage_type === true;
+    const vehicleRates = selectedClaimType?.vehicle_rates?.filter((r) => r.is_active) || [];
+    const selectedVehicleRate = vehicleRates.find((r) => String(r.id) === String(createForm.vehicle_rate_id));
+    const calculatedAmount = isMileageType && selectedVehicleRate && createForm.distance_km
+        ? (parseFloat(createForm.distance_km) * parseFloat(selectedVehicleRate.rate_per_km)).toFixed(2)
+        : null;
+
+    function openCreateDialog() {
+        setCreateForm({
+            employee_id: '',
+            claim_type_id: '',
+            amount: '',
+            claim_date: new Date().toISOString().split('T')[0],
+            description: '',
+            receipt: null,
+            vehicle_rate_id: '',
+            distance_km: '',
+            origin: '',
+            destination: '',
+            trip_purpose: '',
+        });
+        setCreateErrors({});
+        setCreateWarning('');
+        setCreateOpen(true);
+    }
+
+    function closeCreateDialog() {
+        setCreateOpen(false);
+        setCreateErrors({});
+        setCreateWarning('');
+    }
+
+    function updateCreateForm(field, value) {
+        setCreateForm((prev) => {
+            const next = { ...prev, [field]: value };
+            if (field === 'claim_type_id') {
+                next.vehicle_rate_id = '';
+                next.distance_km = '';
+                next.origin = '';
+                next.destination = '';
+                next.trip_purpose = '';
+                next.amount = '';
+            }
+            return next;
+        });
+        setCreateErrors((prev) => {
+            const { [field]: _omit, ...rest } = prev;
+            return rest;
+        });
+    }
+
+    function submitCreateForm(e) {
+        e?.preventDefault?.();
+        const fd = new FormData();
+        fd.append('employee_id', createForm.employee_id);
+        fd.append('claim_type_id', createForm.claim_type_id);
+        fd.append('claim_date', createForm.claim_date);
+        fd.append('description', createForm.description);
+        if (isMileageType) {
+            fd.append('vehicle_rate_id', createForm.vehicle_rate_id);
+            fd.append('distance_km', createForm.distance_km);
+            fd.append('origin', createForm.origin);
+            fd.append('destination', createForm.destination);
+            fd.append('trip_purpose', createForm.trip_purpose);
+        } else {
+            fd.append('amount', createForm.amount);
+        }
+        if (createForm.receipt) {
+            fd.append('receipt', createForm.receipt);
+        }
+        createMutation.mutate(fd);
+    }
 
     const handleSearch = useCallback((val) => {
         setSearch(val);
@@ -261,6 +384,13 @@ export default function ClaimRequests() {
                                 <Download className="mr-1.5 h-4 w-4" />
                             )}
                             Export
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={openCreateDialog}
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            New Claim
                         </Button>
                     </div>
 
@@ -612,6 +742,286 @@ export default function ClaimRequests() {
                             )}
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Dialog */}
+            <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { closeCreateDialog(); } }}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>New Claim Request</DialogTitle>
+                        <DialogDescription>
+                            File a claim on behalf of an employee. The claim will be submitted for approval.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={submitCreateForm} className="space-y-4">
+                        {/* Employee */}
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                Employee <span className="text-red-500">*</span>
+                            </label>
+                            <Select
+                                value={createForm.employee_id ? String(createForm.employee_id) : ''}
+                                onValueChange={(v) => updateCreateForm('employee_id', v)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an employee..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {employees.map((emp) => (
+                                        <SelectItem key={emp.id} value={String(emp.id)}>
+                                            {emp.full_name}
+                                            {emp.department?.name && (
+                                                <span className="ml-2 text-xs text-zinc-400">
+                                                    · {emp.department.name}
+                                                </span>
+                                            )}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {createErrors.employee_id && (
+                                <p className="mt-1 text-xs text-red-600">{createErrors.employee_id[0]}</p>
+                            )}
+                        </div>
+
+                        {/* Claim Type */}
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                Claim Type <span className="text-red-500">*</span>
+                            </label>
+                            <Select
+                                value={createForm.claim_type_id ? String(createForm.claim_type_id) : ''}
+                                onValueChange={(v) => updateCreateForm('claim_type_id', v)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a claim type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {claimTypes.map((t) => (
+                                        <SelectItem key={t.id} value={String(t.id)}>
+                                            {t.name}
+                                            {t.is_mileage_type && (
+                                                <span className="ml-1.5 text-xs text-blue-500">(mileage)</span>
+                                            )}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {createErrors.claim_type_id && (
+                                <p className="mt-1 text-xs text-red-600">{createErrors.claim_type_id[0]}</p>
+                            )}
+                        </div>
+
+                        {/* Mileage fields */}
+                        {isMileageType && (
+                            <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                                    <Route className="h-3.5 w-3.5" />
+                                    Mileage Details
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                        Vehicle Type <span className="text-red-500">*</span>
+                                    </label>
+                                    <Select
+                                        value={createForm.vehicle_rate_id ? String(createForm.vehicle_rate_id) : ''}
+                                        onValueChange={(v) => updateCreateForm('vehicle_rate_id', v)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select vehicle type..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {vehicleRates.map((r) => (
+                                                <SelectItem key={r.id} value={String(r.id)}>
+                                                    {r.name} · RM {parseFloat(r.rate_per_km).toFixed(2)}/km
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {createErrors.vehicle_rate_id && (
+                                        <p className="mt-1 text-xs text-red-600">{createErrors.vehicle_rate_id[0]}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                        Distance (km) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        value={createForm.distance_km}
+                                        onChange={(e) => updateCreateForm('distance_km', e.target.value)}
+                                        placeholder="e.g. 12.5"
+                                        className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    />
+                                    {createErrors.distance_km && (
+                                        <p className="mt-1 text-xs text-red-600">{createErrors.distance_km[0]}</p>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                            Origin <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={createForm.origin}
+                                            onChange={(e) => updateCreateForm('origin', e.target.value)}
+                                            placeholder="From"
+                                            className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        />
+                                        {createErrors.origin && (
+                                            <p className="mt-1 text-xs text-red-600">{createErrors.origin[0]}</p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                            Destination <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={createForm.destination}
+                                            onChange={(e) => updateCreateForm('destination', e.target.value)}
+                                            placeholder="To"
+                                            className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        />
+                                        {createErrors.destination && (
+                                            <p className="mt-1 text-xs text-red-600">{createErrors.destination[0]}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                        Trip Purpose <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={createForm.trip_purpose}
+                                        onChange={(e) => updateCreateForm('trip_purpose', e.target.value)}
+                                        placeholder="e.g. Client meeting"
+                                        className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    />
+                                    {createErrors.trip_purpose && (
+                                        <p className="mt-1 text-xs text-red-600">{createErrors.trip_purpose[0]}</p>
+                                    )}
+                                </div>
+                                {calculatedAmount && (
+                                    <div className="flex items-center justify-between rounded bg-white px-3 py-2 text-sm">
+                                        <span className="text-zinc-500">Calculated amount</span>
+                                        <span className="font-semibold text-emerald-700">
+                                            {formatCurrency(calculatedAmount)}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Amount (non-mileage) */}
+                        {selectedClaimType && !isMileageType && (
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                    Amount (MYR) <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={createForm.amount}
+                                    onChange={(e) => updateCreateForm('amount', e.target.value)}
+                                    placeholder="e.g. 50.00"
+                                    className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                />
+                                {createErrors.amount && (
+                                    <p className="mt-1 text-xs text-red-600">{createErrors.amount[0]}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Date */}
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                Claim Date <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={createForm.claim_date}
+                                onChange={(e) => updateCreateForm('claim_date', e.target.value)}
+                                className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            />
+                            {createErrors.claim_date && (
+                                <p className="mt-1 text-xs text-red-600">{createErrors.claim_date[0]}</p>
+                            )}
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                Description <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                value={createForm.description}
+                                onChange={(e) => updateCreateForm('description', e.target.value)}
+                                placeholder="Describe the claim..."
+                                rows={3}
+                                className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            />
+                            {createErrors.description && (
+                                <p className="mt-1 text-xs text-red-600">{createErrors.description[0]}</p>
+                            )}
+                        </div>
+
+                        {/* Receipt */}
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                Receipt (optional)
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-3 py-3 text-sm text-zinc-600 hover:border-zinc-400">
+                                <Upload className="h-4 w-4" />
+                                {createForm.receipt ? createForm.receipt.name : 'Click to upload PDF / JPG / PNG (max 5 MB)'}
+                                <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => updateCreateForm('receipt', e.target.files?.[0] || null)}
+                                    className="hidden"
+                                />
+                            </label>
+                            {createErrors.receipt && (
+                                <p className="mt-1 text-xs text-red-600">{createErrors.receipt[0]}</p>
+                            )}
+                        </div>
+
+                        {createWarning && (
+                            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                <div className="flex-1 text-sm text-amber-800">
+                                    <p className="font-medium">Limit warning</p>
+                                    <p>{createWarning}</p>
+                                    <p className="mt-1 text-xs">Claim was created. You can close this dialog.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {createErrors._ && (
+                            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                                <p className="text-sm text-red-700">{createErrors._[0]}</p>
+                            </div>
+                        )}
+
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={closeCreateDialog}>
+                                {createWarning ? 'Close' : 'Cancel'}
+                            </Button>
+                            {!createWarning && (
+                                <Button type="submit" disabled={createMutation.isPending}>
+                                    {createMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                                    Create Claim
+                                </Button>
+                            )}
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
 

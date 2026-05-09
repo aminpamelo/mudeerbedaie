@@ -799,6 +799,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // Claim Requests (Admin)
     Route::get('claims/requests', [HrClaimRequestController::class, 'index'])->name('api.hr.claims.requests.index');
+    Route::post('claims/requests', [HrClaimRequestController::class, 'store'])->name('api.hr.claims.requests.store');
     Route::get('claims/requests/{claimRequest}', [HrClaimRequestController::class, 'show'])->name('api.hr.claims.requests.show');
     Route::post('claims/requests/{claimRequest}/approve', [HrClaimRequestController::class, 'approve'])->name('api.hr.claims.requests.approve');
     Route::post('claims/requests/{claimRequest}/reject', [HrClaimRequestController::class, 'reject'])->name('api.hr.claims.requests.reject');
