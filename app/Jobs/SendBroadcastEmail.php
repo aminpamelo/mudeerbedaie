@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Broadcast;
 use App\Models\BroadcastLog;
 use App\Models\Student;
+use App\Services\MergeTag\MergeTagEngine;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -122,12 +123,18 @@ class SendBroadcastEmail implements ShouldQueue
 
     private function replaceMergeTags(string $content, Student $student): string
     {
-        $replacements = [
-            '{{name}}' => $student->user->name,
-            '{{email}}' => $student->user->email,
-            '{{student_id}}' => $student->student_id,
+        // Legacy tags kept for broadcasts created with the older simple-tag picker.
+        $legacy = [
+            '{{name}}' => $student->user?->name ?? '',
+            '{{email}}' => $student->user?->email ?? '',
+            '{{student_id}}' => $student->student_id ?? '',
         ];
+        $content = str_replace(array_keys($legacy), array_values($legacy), $content);
 
-        return str_replace(array_keys($replacements), array_values($replacements), $content);
+        // Modern tags (e.g. {{contact.first_name}}) advertised by the variable
+        // picker and funnel email templates — resolved via MergeTagEngine.
+        return (new MergeTagEngine)
+            ->setContext(['student' => $student])
+            ->resolve($content);
     }
 }
