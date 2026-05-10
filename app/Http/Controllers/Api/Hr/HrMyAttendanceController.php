@@ -540,6 +540,21 @@ class HrMyAttendanceController extends Controller
 
         $validated = $request->validated();
 
+        // Block submission if the employee already has an active claim
+        // (pending or approved) for this date. Cancelled/rejected claims
+        // are kept for audit trail and do not block resubmission.
+        $hasActiveClaim = OvertimeClaimRequest::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('claim_date', $validated['claim_date'])
+            ->whereIn('status', ['pending', 'approved'])
+            ->exists();
+
+        if ($hasActiveClaim) {
+            return response()->json([
+                'message' => 'You already have an active OT claim for this date.',
+            ], 422);
+        }
+
         $claim = DB::transaction(function () use ($validated, $employee) {
             $balance = $this->computeOvertimeBalance($employee);
 
