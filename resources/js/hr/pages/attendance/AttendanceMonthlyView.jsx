@@ -42,7 +42,7 @@ const STATUS_CONFIG = {
     wfh:         { short: 'W',  bg: 'bg-sky-500',     text: 'text-white',      label: 'WFH',         ring: 'ring-sky-300' },
     on_leave:    { short: 'OL', bg: 'bg-violet-500',  text: 'text-white',      label: 'On Leave',    ring: 'ring-violet-300' },
     half_day:    { short: 'H',  bg: 'bg-orange-400',  text: 'text-white',      label: 'Half Day',    ring: 'ring-orange-300' },
-    early_leave: { short: 'EL', bg: 'bg-teal-500',    text: 'text-white',      label: 'Early Leave', ring: 'ring-teal-300' },
+    early_leave: { short: 'EL', bg: 'bg-fuchsia-500', text: 'text-white',      label: 'Early Leave', ring: 'ring-fuchsia-300' },
     holiday:     { short: 'HO', bg: 'bg-zinc-300',    text: 'text-zinc-700',   label: 'Holiday',     ring: 'ring-zinc-200' },
 };
 
@@ -127,7 +127,7 @@ function SummaryPill({ count, variant }) {
         absent:      'bg-red-50 text-red-700',
         late:        'bg-amber-50 text-amber-700',
         leave:       'bg-violet-50 text-violet-700',
-        early_leave: 'bg-teal-50 text-teal-700',
+        early_leave: 'bg-fuchsia-50 text-fuchsia-700',
     };
     if (count === 0) { return null; }
     return (

@@ -66,6 +66,8 @@ const DAY_COLORS = {
     wfh: 'bg-indigo-500',
     on_leave: 'bg-violet-500',
     leave: 'bg-violet-500',
+    half_day: 'bg-orange-500',
+    early_leave: 'bg-fuchsia-500',
     holiday: 'bg-slate-300',
     off_day: 'bg-slate-300',
     none: 'bg-slate-200',
@@ -863,6 +865,8 @@ export default function ClockInOut() {
                         {[
                             { label: 'Present', color: 'bg-teal-500' },
                             { label: 'Late', color: 'bg-amber-500' },
+                            { label: 'Early Leave', color: 'bg-fuchsia-500' },
+                            { label: 'Half Day', color: 'bg-orange-500' },
                             { label: 'Absent', color: 'bg-rose-500' },
                             { label: 'WFH', color: 'bg-indigo-500' },
                             { label: 'On Leave', color: 'bg-violet-500' },
