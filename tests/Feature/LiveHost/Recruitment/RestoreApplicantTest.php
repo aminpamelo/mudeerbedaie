@@ -67,12 +67,15 @@ it('rejects restoring a hired applicant', function () {
         ->assertStatus(422);
 });
 
-it('forbids livehost assistants', function () {
+it('allows livehost assistants to restore', function () {
     $assistant = User::factory()->create(['role' => 'livehost_assistant']);
+    $this->applicant->update(['status' => 'rejected']);
 
     $this->actingAs($assistant)
         ->patch("/livehost/recruitment/applicants/{$this->applicant->id}/restore")
-        ->assertForbidden();
+        ->assertRedirect();
+
+    expect($this->applicant->fresh()->status)->toBe('active');
 });
 
 it('closes any pre-existing open row before opening a fresh one', function () {

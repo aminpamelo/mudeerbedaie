@@ -416,6 +416,7 @@ function NotesTab({ applicant }) {
 }
 
 function ActionBar({ applicant, stages }) {
+  const canRecruit = Boolean(usePage().props?.auth?.permissions?.canRecruit);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectNotes, setRejectNotes] = useState('');
@@ -636,20 +637,22 @@ function ActionBar({ applicant, stages }) {
               Reject
             </Button>
 
-            <Button
-              type="button"
-              disabled={!isActive || !isFinalStage || busy}
-              onClick={() => setHireOpen(true)}
-              className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:bg-[#10B981]/40 disabled:text-white/80"
-              title={
-                isFinalStage
-                  ? 'Hire this applicant'
-                  : 'Move applicant to the final stage before hiring'
-              }
-            >
-              <UserCheck className="h-3.5 w-3.5" />
-              Hire
-            </Button>
+            {canRecruit && (
+              <Button
+                type="button"
+                disabled={!isActive || !isFinalStage || busy}
+                onClick={() => setHireOpen(true)}
+                className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:bg-[#10B981]/40 disabled:text-white/80"
+                title={
+                  isFinalStage
+                    ? 'Hire this applicant'
+                    : 'Move applicant to the final stage before hiring'
+                }
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                Hire
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -769,6 +772,7 @@ function ActionBar({ applicant, stages }) {
 }
 
 function HiredPanel({ applicant }) {
+  const canRecruit = Boolean(usePage().props?.auth?.permissions?.canRecruit);
   const [copyState, setCopyState] = useState('idle'); // idle | loading | copied | error
 
   const copyResetLink = async () => {
@@ -825,6 +829,7 @@ function HiredPanel({ applicant }) {
           </div>
         </div>
 
+        {canRecruit && (
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -862,6 +867,7 @@ function HiredPanel({ applicant }) {
             </Link>
           )}
         </div>
+        )}
       </div>
     </div>
   );

@@ -155,6 +155,7 @@ class HandleInertiaRequests extends Middleware
             'canSeeFinancials' => $isPic,
             'canSeePayroll' => $isPic,
             'canRecruit' => $isPic,
+            'canSeeRecruitment' => $user && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true),
             'canSeeTiktokImports' => $isPic,
             'canSeeReports' => $isPic,
         ];

@@ -65,10 +65,10 @@ it('returns 409 when there is no open stage row', function () {
         ->assertStatus(409);
 });
 
-it('forbids livehost assistants', function () {
+it('allows livehost assistants to edit current stage details', function () {
     $assistant = User::factory()->create(['role' => 'livehost_assistant']);
 
     $this->actingAs($assistant)
-        ->patch(applicantUrl($this->applicant), ['stage_notes' => 'nope'])
-        ->assertForbidden();
+        ->patch(applicantUrl($this->applicant), ['stage_notes' => 'set by assistant'])
+        ->assertNoContent();
 });

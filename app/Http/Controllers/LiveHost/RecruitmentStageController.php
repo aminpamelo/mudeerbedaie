@@ -13,8 +13,6 @@ class RecruitmentStageController extends Controller
 {
     public function store(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -42,7 +40,6 @@ class RecruitmentStageController extends Controller
 
     public function update(Request $request, LiveHostRecruitmentCampaign $campaign, LiveHostRecruitmentStage $stage): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($stage->campaign_id === $campaign->id, 404);
 
         $data = $request->validate([
@@ -73,7 +70,6 @@ class RecruitmentStageController extends Controller
 
     public function destroy(Request $request, LiveHostRecruitmentCampaign $campaign, LiveHostRecruitmentStage $stage): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($stage->campaign_id === $campaign->id, 404);
 
         if ($stage->applicants()->exists()) {
@@ -91,8 +87,6 @@ class RecruitmentStageController extends Controller
 
     public function reorder(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $data = $request->validate([
             'stage_ids' => ['required', 'array', 'min:1'],
             'stage_ids.*' => ['integer'],

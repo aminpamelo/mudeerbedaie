@@ -16,8 +16,6 @@ class RecruitmentCampaignController extends Controller
 {
     public function index(Request $request): Response
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $campaigns = LiveHostRecruitmentCampaign::query()
             ->withCount('applicants')
             ->latest()
@@ -41,15 +39,11 @@ class RecruitmentCampaignController extends Controller
 
     public function create(Request $request): Response
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         return Inertia::render('recruitment/campaigns/Create', []);
     }
 
     public function store(CampaignRequest $request): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $data = $request->validated();
         $data['created_by'] = $request->user()->id;
 
@@ -62,15 +56,11 @@ class RecruitmentCampaignController extends Controller
 
     public function show(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         return redirect()->route('livehost.recruitment.campaigns.edit', $campaign);
     }
 
     public function edit(Request $request, LiveHostRecruitmentCampaign $campaign): Response
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $campaign->loadCount('applicants');
 
         return Inertia::render('recruitment/campaigns/Edit', [
@@ -101,8 +91,6 @@ class RecruitmentCampaignController extends Controller
 
     public function update(CampaignRequest $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         if ($request->has('form_schema')) {
             try {
                 (new FormSchemaValidator)->validate($request->input('form_schema'));
@@ -123,8 +111,6 @@ class RecruitmentCampaignController extends Controller
 
     public function publish(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         if ($campaign->status !== 'draft') {
             abort(422, 'Only draft campaigns can be published.');
         }
@@ -146,8 +132,6 @@ class RecruitmentCampaignController extends Controller
 
     public function pause(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         if ($campaign->status !== 'open') {
             abort(422, 'Only open campaigns can be paused.');
         }
@@ -159,8 +143,6 @@ class RecruitmentCampaignController extends Controller
 
     public function close(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         if (! in_array($campaign->status, ['open', 'paused'], true)) {
             abort(422, 'Only open or paused campaigns can be closed.');
         }
@@ -172,8 +154,6 @@ class RecruitmentCampaignController extends Controller
 
     public function destroy(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         if ($campaign->applicants()->count() > 0) {
             abort(422, 'Cannot delete a campaign that already has applicants.');
         }

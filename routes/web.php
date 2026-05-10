@@ -407,8 +407,16 @@ Route::middleware(['auth'])
             Route::get('orders', [\App\Http\Controllers\LiveHost\PlatformOrderController::class, 'index'])
                 ->name('orders.index');
 
-            // Recruitment admin — campaigns + stage editor + lifecycle transitions.
-            Route::prefix('recruitment')->name('recruitment.')->group(function () {
+        });
+
+        // Recruitment — campaigns, stages, and applicant funnel are operational
+        // for both PIC roles and livehost_assistant. Hiring an applicant and
+        // generating a password-reset link both create / affect user accounts,
+        // so those two endpoints stay PIC-only inside this group.
+        Route::middleware('role:admin,admin_livehost,livehost_assistant')
+            ->prefix('recruitment')
+            ->name('recruitment.')
+            ->group(function () {
                 Route::get('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'index'])
                     ->name('campaigns.index');
                 Route::get('campaigns/create', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'create'])
@@ -455,12 +463,15 @@ Route::middleware(['auth'])
                     ->name('applicants.notes');
                 Route::patch('applicants/{applicant}/current-stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateCurrentStage'])
                     ->name('applicants.current-stage');
-                Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
-                    ->name('applicants.hire');
-                Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
-                    ->name('applicants.password-reset-link');
+
+                // Hire + password-reset-link affect user accounts; PIC-only.
+                Route::middleware('role:admin,admin_livehost')->group(function () {
+                    Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
+                        ->name('applicants.hire');
+                    Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
+                        ->name('applicants.password-reset-link');
+                });
             });
-        });
 
         // Shared: scheduling + read-only reference data (admin, admin_livehost, livehost_assistant).
         // Declared AFTER the admin-only group so the admin-only literal routes (e.g.

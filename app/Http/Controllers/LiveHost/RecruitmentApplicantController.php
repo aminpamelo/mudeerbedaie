@@ -25,8 +25,6 @@ class RecruitmentApplicantController extends Controller
 {
     public function index(Request $request): Response
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $campaignId = $request->integer('campaign') ?: null;
 
         $campaign = $campaignId
@@ -147,8 +145,6 @@ class RecruitmentApplicantController extends Controller
 
     public function show(Request $request, LiveHostApplicant $applicant): Response
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $applicant->load([
             'campaign.stages' => fn ($q) => $q->orderBy('position'),
             'currentStage',
@@ -211,7 +207,6 @@ class RecruitmentApplicantController extends Controller
 
     public function moveStage(Request $request, LiveHostApplicant $applicant): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_if($applicant->status !== 'active', HttpResponse::HTTP_UNPROCESSABLE_ENTITY, 'Applicant is not active.');
 
         $data = $request->validate([
@@ -250,7 +245,6 @@ class RecruitmentApplicantController extends Controller
 
     public function reject(Request $request, LiveHostApplicant $applicant): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_if($applicant->status !== 'active', HttpResponse::HTTP_UNPROCESSABLE_ENTITY, 'Applicant is not active.');
 
         $data = $request->validate([
@@ -274,7 +268,6 @@ class RecruitmentApplicantController extends Controller
 
     public function restore(Request $request, LiveHostApplicant $applicant): RedirectResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_if(
             $applicant->status !== 'rejected',
             HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
@@ -310,8 +303,6 @@ class RecruitmentApplicantController extends Controller
 
     public function updateNotes(Request $request, LiveHostApplicant $applicant): HttpResponse
     {
-        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-
         $data = $request->validate([
             'notes' => ['nullable', 'string', 'max:10000'],
         ]);

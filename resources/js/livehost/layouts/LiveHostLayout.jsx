@@ -75,7 +75,7 @@ const NAV_ITEM_PERMISSION = {
   dashboard: null,
   hosts: null,
   replacements: null,
-  recruitment: 'canRecruit',
+  recruitment: 'canSeeRecruitment',
   'time-slots': null,
   'session-slots': null,
   'platform-accounts': null,

@@ -9,8 +9,10 @@ class UpdateApplicantCurrentStageRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null
-            && $this->user()->isLiveHostAssistant() === false;
+        $user = $this->user();
+
+        return $user !== null
+            && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true);
     }
 
     public function rules(): array
