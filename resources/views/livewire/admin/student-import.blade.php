@@ -19,12 +19,12 @@ new class extends Component
     public $isProcessing = false;
 
     protected $rules = [
-        'csvFile' => 'required|file|mimetypes:text/csv,text/plain,application/csv,application/vnd.ms-excel|max:2048',
+        'csvFile' => 'required|file|mimes:csv,txt|max:2048',
     ];
 
     protected $messages = [
         'csvFile.required' => 'Please select a CSV file to upload.',
-        'csvFile.mimetypes' => 'Please upload a valid CSV file.',
+        'csvFile.mimes' => 'Please upload a valid CSV file (.csv or .txt).',
         'csvFile.max' => 'File size must not exceed 2MB.',
     ];
 
