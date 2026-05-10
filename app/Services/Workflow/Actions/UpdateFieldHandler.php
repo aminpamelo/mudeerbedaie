@@ -20,7 +20,7 @@ class UpdateFieldHandler implements ActionHandlerInterface
         'country',
     ];
 
-    public function execute(Student $student, array $config): array
+    public function execute(Student $student, array $config, array $context = []): array
     {
         $field = $config['field'] ?? null;
         $value = $config['value'] ?? null;

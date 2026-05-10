@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class AddTagHandler implements ActionHandlerInterface
 {
-    public function execute(Student $student, array $config): array
+    public function execute(Student $student, array $config, array $context = []): array
     {
         $tagId = $config['tag_id'] ?? null;
         $tagName = $config['tag_name'] ?? null;

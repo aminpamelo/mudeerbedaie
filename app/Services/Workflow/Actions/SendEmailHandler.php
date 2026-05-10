@@ -4,12 +4,13 @@ namespace App\Services\Workflow\Actions;
 
 use App\Models\MessageTemplate;
 use App\Models\Student;
+use App\Services\MergeTag\MergeTagEngine;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class SendEmailHandler implements ActionHandlerInterface
 {
-    public function execute(Student $student, array $config): array
+    public function execute(Student $student, array $config, array $context = []): array
     {
         $templateId = $config['template_id'] ?? null;
         $subject = $config['subject'] ?? null;
@@ -83,17 +84,24 @@ class SendEmailHandler implements ActionHandlerInterface
 
     /**
      * Replace placeholders in text with student data.
+     *
+     * Legacy simple tags ({{name}}, {{first_name}}, ...) and modern tags
+     * advertised by the variable picker ({{contact.first_name}}, ...) both
+     * resolve here, with modern tags handled by MergeTagEngine.
      */
     protected function replacePlaceholders(string $text, Student $student): string
     {
-        $placeholders = [
+        $legacy = [
             '{{name}}' => $student->name ?? '',
             '{{first_name}}' => $student->first_name ?? $student->name ?? '',
             '{{email}}' => $student->email ?? '',
             '{{phone}}' => $student->phone ?? '',
             '{{student_id}}' => $student->student_id ?? '',
         ];
+        $text = str_replace(array_keys($legacy), array_values($legacy), $text);
 
-        return str_replace(array_keys($placeholders), array_values($placeholders), $text);
+        return (new MergeTagEngine)
+            ->setContext(['student' => $student])
+            ->resolve($text);
     }
 }

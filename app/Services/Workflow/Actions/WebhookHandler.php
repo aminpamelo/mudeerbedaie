@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookHandler implements ActionHandlerInterface
 {
-    public function execute(Student $student, array $config): array
+    public function execute(Student $student, array $config, array $context = []): array
     {
         $url = $config['url'] ?? null;
         $method = strtoupper($config['method'] ?? 'POST');

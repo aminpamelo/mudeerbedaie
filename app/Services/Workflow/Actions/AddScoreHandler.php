@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class AddScoreHandler implements ActionHandlerInterface
 {
-    public function execute(Student $student, array $config): array
+    public function execute(Student $student, array $config, array $context = []): array
     {
         $points = $config['points'] ?? 0;
         $reason = $config['reason'] ?? 'Workflow action';
