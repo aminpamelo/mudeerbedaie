@@ -94,11 +94,13 @@ new class extends Component
     public function updatingSearch(): void
     {
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingActiveTab(): void
     {
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingDateFilter(): void
@@ -106,28 +108,33 @@ new class extends Component
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingDateFrom(): void
     {
         $this->dateFilter = '';
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingDateTo(): void
     {
         $this->dateFilter = '';
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingSourceTab(): void
     {
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingProductFilter(): void
     {
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function setSortBy(string $field): void
@@ -140,6 +147,7 @@ new class extends Component
         }
 
         $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updateOrderStatus(int $orderId, string $status): void
@@ -495,12 +503,19 @@ new class extends Component
     public string $classAssignSearch = '';
     public array $classAssignSelectedIds = [];
 
+    // Bulk selection (page-scoped)
+    public array $selectedOrderIds = [];
+    public bool $classAssignBulkMode = false;
+    public array $classAssignBulkOrderIds = [];
+
     // Create student from modal
     public string $newStudentName = '';
     public string $newStudentPhone = '';
 
     public function openClassAssignModal(int $orderId): void
     {
+        $this->classAssignBulkMode = false;
+        $this->classAssignBulkOrderIds = [];
         $this->classAssignOrderId = $orderId;
         $this->classAssignSearch = '';
         $this->classAssignSelectedIds = [];
@@ -515,6 +530,40 @@ new class extends Component
         }
 
         $this->showClassAssignModal = true;
+    }
+
+    public function openBulkClassAssignModal(): void
+    {
+        if (empty($this->selectedOrderIds)) {
+            return;
+        }
+
+        $this->classAssignBulkMode = true;
+        $this->classAssignBulkOrderIds = array_values(array_unique(array_map('intval', $this->selectedOrderIds)));
+        $this->classAssignOrderId = null;
+        $this->classAssignSearch = '';
+        $this->classAssignSelectedIds = [];
+        $this->newStudentName = '';
+        $this->newStudentPhone = '';
+        $this->showClassAssignModal = true;
+    }
+
+    public function clearOrderSelection(): void
+    {
+        $this->selectedOrderIds = [];
+    }
+
+    public function toggleSelectAllOnPage(): void
+    {
+        $visibleIds = $this->getOrders()->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+        $current = array_map('intval', $this->selectedOrderIds);
+        $allSelected = ! empty($visibleIds) && empty(array_diff($visibleIds, $current));
+
+        if ($allSelected) {
+            $this->selectedOrderIds = array_values(array_diff($current, $visibleIds));
+        } else {
+            $this->selectedOrderIds = array_values(array_unique(array_merge($current, $visibleIds)));
+        }
     }
 
     public function getMatchingStudentsProperty()
@@ -652,19 +701,29 @@ new class extends Component
 
     public function getClassAssignAvailableProperty()
     {
-        if (! $this->classAssignOrderId) {
+        $orderIds = $this->classAssignBulkMode
+            ? $this->classAssignBulkOrderIds
+            : ($this->classAssignOrderId ? [$this->classAssignOrderId] : []);
+
+        if (empty($orderIds)) {
             return collect();
         }
 
-        $order = ProductOrder::find($this->classAssignOrderId);
-        if (! $order) {
-            return collect();
-        }
-
-        $alreadyAssignedClassIds = $order->classAssignmentApprovals()
+        // Hide classes already assigned to EVERY selected order (intersection).
+        // For single-row mode this matches the previous behaviour exactly.
+        $assignmentsPerOrder = \App\Models\ClassAssignmentApproval::query()
+            ->whereIn('product_order_id', $orderIds)
             ->whereIn('status', ['pending', 'approved'])
-            ->pluck('class_id')
-            ->toArray();
+            ->get(['product_order_id', 'class_id'])
+            ->groupBy('product_order_id');
+
+        $alreadyAssignedClassIds = [];
+        if ($assignmentsPerOrder->count() === count($orderIds)) {
+            $perOrderClassIds = $assignmentsPerOrder->map(
+                fn ($rows) => $rows->pluck('class_id')->unique()->values()->all()
+            )->values()->all();
+            $alreadyAssignedClassIds = array_values(array_intersect(...$perOrderClassIds));
+        }
 
         $query = \App\Models\ClassModel::query()
             ->where('status', 'active')
@@ -705,39 +764,66 @@ new class extends Component
 
     public function submitClassAssignment(): void
     {
-        if (empty($this->classAssignSelectedIds) || ! $this->classAssignOrderId) {
+        if (empty($this->classAssignSelectedIds)) {
             return;
         }
 
-        $order = ProductOrder::find($this->classAssignOrderId);
-        if (! $order) {
+        $orderIds = $this->classAssignBulkMode
+            ? $this->classAssignBulkOrderIds
+            : ($this->classAssignOrderId ? [$this->classAssignOrderId] : []);
+
+        if (empty($orderIds)) {
             return;
         }
 
-        $student = $this->resolveStudentForOrder($order);
-        if (! $student) {
-            session()->flash('error', 'No student could be found for this order.');
-            return;
+        $orders = ProductOrder::whereIn('id', $orderIds)->get();
+        $classCount = count($this->classAssignSelectedIds);
+        $assignedOrderCount = 0;
+        $skippedOrderCount = 0;
+
+        foreach ($orders as $order) {
+            $student = $this->resolveStudentForOrder($order);
+            if (! $student) {
+                $skippedOrderCount++;
+                continue;
+            }
+
+            foreach ($this->classAssignSelectedIds as $classId) {
+                \App\Models\ClassAssignmentApproval::firstOrCreate(
+                    [
+                        'class_id' => $classId,
+                        'student_id' => $student->id,
+                        'product_order_id' => $order->id,
+                    ],
+                    [
+                        'status' => 'pending',
+                        'assigned_by' => auth()->id(),
+                    ]
+                );
+            }
+
+            $assignedOrderCount++;
         }
 
-        $count = count($this->classAssignSelectedIds);
-
-        foreach ($this->classAssignSelectedIds as $classId) {
-            \App\Models\ClassAssignmentApproval::firstOrCreate(
-                [
-                    'class_id' => $classId,
-                    'student_id' => $student->id,
-                    'product_order_id' => $order->id,
-                ],
-                [
-                    'status' => 'pending',
-                    'assigned_by' => auth()->id(),
-                ]
-            );
+        if ($this->classAssignBulkMode) {
+            $message = "Assigned {$assignedOrderCount} order(s) to {$classCount} class(es).";
+            if ($skippedOrderCount > 0) {
+                $message .= " Skipped {$skippedOrderCount} (no linked student).";
+            }
+            $this->selectedOrderIds = [];
+            $this->classAssignBulkMode = false;
+            $this->classAssignBulkOrderIds = [];
+            $this->showClassAssignModal = false;
+        } else {
+            if ($assignedOrderCount === 0) {
+                session()->flash('error', 'No student could be found for this order.');
+                return;
+            }
+            $message = "Assigned to {$classCount} class(es).";
         }
 
         $this->classAssignSelectedIds = [];
-        $this->dispatch('order-updated', message: "Assigned to {$count} class(es).");
+        $this->dispatch('order-updated', message: $message);
     }
 
     public function removeClassAssignment(int $approvalId): void
@@ -1059,12 +1145,43 @@ new class extends Component
         </div>
     </div>
 
+    <!-- Bulk Action Bar -->
+    @if(count($selectedOrderIds) > 0)
+        <div class="mb-3 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-900/20">
+            <div class="flex items-center gap-2 text-sm text-blue-900 dark:text-blue-100">
+                <flux:icon name="check-circle" class="w-4 h-4" />
+                <span class="font-medium">{{ count($selectedOrderIds) }} order{{ count($selectedOrderIds) === 1 ? '' : 's' }} selected</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <flux:button size="sm" variant="ghost" wire:click="clearOrderSelection">Clear selection</flux:button>
+                <flux:button size="sm" variant="primary" wire:click="openBulkClassAssignModal">
+                    <flux:icon name="academic-cap" class="w-4 h-4 mr-1.5" />
+                    Assign to Class
+                </flux:button>
+            </div>
+        </div>
+    @endif
+
     <!-- Orders Table -->
     <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
                 <thead>
+                    @php
+                        $visibleOrderIds = $this->getOrders()->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+                        $selectedOnPageCount = count(array_intersect($visibleOrderIds, array_map('intval', $selectedOrderIds)));
+                        $allOnPageSelected = ! empty($visibleOrderIds) && $selectedOnPageCount === count($visibleOrderIds);
+                    @endphp
                     <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                        <th class="px-3 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-50/50 dark:bg-zinc-800 w-10">
+                            <input
+                                type="checkbox"
+                                aria-label="Select all on this page"
+                                wire:click="toggleSelectAllOnPage"
+                                @checked($allOnPageSelected)
+                                class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                        </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
                             <button wire:click="setSortBy('order_number')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Order
@@ -1118,7 +1235,18 @@ new class extends Component
                 <tbody>
                     @php $orders = $this->getOrders(); @endphp
                     @forelse($orders as $order)
-                        <tr class="border-b border-zinc-100 dark:border-zinc-700/50 hover:bg-zinc-50/70 dark:hover:bg-zinc-700/30 transition-colors" wire:key="order-{{ $order->id }}">
+                        <tr class="border-b border-zinc-100 dark:border-zinc-700/50 hover:bg-zinc-50/70 dark:hover:bg-zinc-700/30 transition-colors {{ in_array((int) $order->id, array_map('intval', $selectedOrderIds), true) ? 'bg-blue-50/40 dark:bg-blue-900/10' : '' }}" wire:key="order-{{ $order->id }}">
+                            <!-- Bulk select checkbox -->
+                            <td class="px-3 py-3.5 align-middle">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Select order {{ $order->order_number }}"
+                                    wire:model.live="selectedOrderIds"
+                                    value="{{ $order->id }}"
+                                    class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                            </td>
+
                             <!-- Order Number -->
                             <td class="px-5 py-3.5 whitespace-nowrap">
                                 <a href="{{ route('admin.orders.show', $order) }}" wire:navigate class="block group">
@@ -1435,7 +1563,7 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="12" class="px-6 py-16 text-center">
+                            <td colspan="13" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center">
                                     <div class="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center mb-4">
                                         <flux:icon name="shopping-bag" class="w-7 h-7 text-zinc-400 dark:text-zinc-500" />
@@ -1567,8 +1695,65 @@ new class extends Component
     <flux:modal wire:model.self="showClassAssignModal" class="md:w-2xl">
         @php
             $classAssignOrder = $this->classAssignOrder;
+            $bulkOrderCount = count($classAssignBulkOrderIds);
         @endphp
-        @if($classAssignOrder)
+        @if($classAssignBulkMode)
+            <div class="space-y-5">
+                <!-- Header -->
+                <div>
+                    <flux:heading size="lg">Bulk Class Assignment</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 mt-1">
+                        Assign {{ $bulkOrderCount }} order{{ $bulkOrderCount === 1 ? '' : 's' }} to one or more classes. Orders without a linked student will be skipped.
+                    </flux:text>
+                </div>
+
+                <!-- Search -->
+                <flux:input wire:model.live.debounce.300ms="classAssignSearch" placeholder="Search classes or courses..." size="sm" />
+
+                <!-- Available Classes -->
+                @php
+                    $availableClasses = $this->classAssignAvailable;
+                @endphp
+                @if($availableClasses->isNotEmpty())
+                    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-60 overflow-y-auto">
+                        @foreach($availableClasses as $courseName => $classes)
+                            <div>
+                                <div class="px-4 py-2 bg-zinc-50 dark:bg-zinc-700/50 sticky top-0">
+                                    <flux:text size="sm" class="font-semibold text-zinc-500 dark:text-zinc-400">{{ $courseName }}</flux:text>
+                                </div>
+                                @foreach($classes as $class)
+                                    <div wire:click="toggleClassAssignSelection({{ $class->id }})" wire:key="bulk-class-assign-{{ $class->id }}"
+                                        class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700/30 transition-colors border-t border-zinc-100 dark:border-zinc-700">
+                                        <div class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0
+                                            {{ in_array($class->id, $classAssignSelectedIds) ? 'bg-blue-500 border-blue-500' : 'border-zinc-300 dark:border-zinc-600' }}">
+                                            @if(in_array($class->id, $classAssignSelectedIds))
+                                                <flux:icon name="check" class="w-3 h-3 text-white" />
+                                            @endif
+                                        </div>
+                                        <div class="min-w-0">
+                                            <flux:text size="sm" class="font-medium text-zinc-900 dark:text-white">{{ $class->title }}</flux:text>
+                                            <flux:text size="sm" class="text-zinc-400">{{ $class->schedule ?? 'No schedule' }}</flux:text>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-6 text-zinc-400 dark:text-zinc-500">
+                        <flux:icon name="academic-cap" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <flux:text size="sm">{{ $classAssignSearch ? 'No classes found' : 'No available classes (already assigned to all selected orders).' }}</flux:text>
+                    </div>
+                @endif
+
+                <!-- Submit Button -->
+                @if(!empty($classAssignSelectedIds))
+                    <flux:button variant="primary" wire:click="submitClassAssignment" class="w-full">
+                        Assign {{ $bulkOrderCount }} order{{ $bulkOrderCount === 1 ? '' : 's' }} to {{ count($classAssignSelectedIds) }} class{{ count($classAssignSelectedIds) !== 1 ? 'es' : '' }}
+                    </flux:button>
+                @endif
+            </div>
+        @elseif($classAssignOrder)
             <div class="space-y-5">
                 <!-- Header -->
                 <div>
