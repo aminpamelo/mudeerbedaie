@@ -508,6 +508,10 @@ new class extends Component
     public bool $classAssignBulkMode = false;
     public array $classAssignBulkOrderIds = [];
 
+    // Bulk student creation confirmation (Step 2)
+    public bool $bulkConfirmStudents = false;
+    public array $bulkStudentPlans = []; // ['ready' => [...], 'creatable' => [...], 'skipped' => [...]]
+
     // Create student from modal
     public string $newStudentName = '';
     public string $newStudentPhone = '';
@@ -545,7 +549,15 @@ new class extends Component
         $this->classAssignSelectedIds = [];
         $this->newStudentName = '';
         $this->newStudentPhone = '';
+        $this->bulkConfirmStudents = false;
+        $this->bulkStudentPlans = [];
         $this->showClassAssignModal = true;
+    }
+
+    public function backToClassPicker(): void
+    {
+        $this->bulkConfirmStudents = false;
+        $this->bulkStudentPlans = [];
     }
 
     public function clearOrderSelection(): void
@@ -762,6 +774,171 @@ new class extends Component
         return null;
     }
 
+    /**
+     * Build a plan for each bulk-selected order describing what student
+     * action (if any) is needed before classes can be assigned.
+     *
+     * @param  array<int>  $orderIds
+     * @return array{ready: array<int, array{order: ProductOrder, student: \App\Models\Student}>, creatable: array<int, array<string, mixed>>, skipped: array<int, array{order: ProductOrder, reason: string}>}
+     */
+    public function prepareBulkStudentPlans(array $orderIds): array
+    {
+        $orders = ProductOrder::whereIn('id', $orderIds)->get();
+        $ready = [];
+        $creatable = [];
+        $skipped = [];
+
+        foreach ($orders as $order) {
+            $student = $this->resolveStudentForOrder($order);
+            if ($student) {
+                $ready[] = ['order' => $order, 'student' => $student];
+
+                continue;
+            }
+
+            $name = trim((string) $order->customer_name);
+            $phone = trim((string) $order->customer_phone);
+
+            if (strlen($name) < 2) {
+                $skipped[] = ['order' => $order, 'reason' => 'Missing customer name on order.'];
+
+                continue;
+            }
+            if ($phone === '' || str_contains($phone, '*') || ! preg_match('/^\+?[0-9]+$/', $phone)) {
+                $skipped[] = ['order' => $order, 'reason' => 'Customer phone is missing, masked, or invalid.'];
+
+                continue;
+            }
+
+            $existingStudent = \App\Models\Student::query()
+                ->where(function ($q) use ($phone) {
+                    $q->where('phone', $phone)
+                        ->orWhereHas('user', fn ($uq) => $uq->where('phone', $phone));
+                })
+                ->with('user')
+                ->first();
+
+            if ($existingStudent) {
+                $creatable[] = [
+                    'order' => $order,
+                    'name' => $name,
+                    'phone' => $phone,
+                    'action' => 'link_student',
+                    'student_id' => $existingStudent->id,
+                    'user_id' => $existingStudent->user_id,
+                    'matched_name' => $existingStudent->user?->name ?? $name,
+                ];
+
+                continue;
+            }
+
+            $existingUser = \App\Models\User::where('phone', $phone)->first();
+            if ($existingUser) {
+                $creatable[] = [
+                    'order' => $order,
+                    'name' => $name,
+                    'phone' => $phone,
+                    'action' => 'link_user',
+                    'student_id' => null,
+                    'user_id' => $existingUser->id,
+                    'matched_name' => $existingUser->name,
+                ];
+
+                continue;
+            }
+
+            $creatable[] = [
+                'order' => $order,
+                'name' => $name,
+                'phone' => $phone,
+                'action' => 'create',
+                'student_id' => null,
+                'user_id' => null,
+                'matched_name' => null,
+            ];
+        }
+
+        return ['ready' => $ready, 'creatable' => $creatable, 'skipped' => $skipped];
+    }
+
+    /**
+     * Execute a plan item, returning the resolved Student (or null on failure).
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function executeBulkStudentPlan(array $item): ?\App\Models\Student
+    {
+        /** @var ProductOrder $order */
+        $order = $item['order'];
+        $action = $item['action'];
+
+        if ($action === 'link_student') {
+            $student = \App\Models\Student::find($item['student_id']);
+            if (! $student) {
+                return null;
+            }
+            $order->update(['student_id' => $student->id]);
+
+            return $student;
+        }
+
+        if ($action === 'link_user') {
+            $student = \App\Models\Student::firstOrCreate(
+                ['user_id' => $item['user_id']],
+                ['phone' => $item['phone'], 'status' => 'active']
+            );
+            $order->update(['student_id' => $student->id]);
+
+            return $student;
+        }
+
+        // action === 'create'
+        $name = $item['name'];
+        $phone = $item['phone'];
+
+        $baseEmail = preg_replace('/[^0-9]/', '', $phone).'@student.local';
+        while (\App\Models\User::where('email', $baseEmail)->exists()) {
+            $baseEmail = \Illuminate\Support\Str::slug($name).'-'.\Illuminate\Support\Str::random(6).'@student.local';
+        }
+
+        try {
+            $user = \App\Models\User::create([
+                'name' => $name,
+                'email' => $baseEmail,
+                'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                'role' => 'student',
+                'phone' => $phone,
+            ]);
+
+            $student = \App\Models\Student::create([
+                'user_id' => $user->id,
+                'phone' => $phone,
+                'status' => 'active',
+            ]);
+
+            $order->update(['student_id' => $student->id]);
+
+            return $student;
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // Race: someone created a matching user/student between plan and execute.
+            // Retry by re-resolving.
+            $existing = \App\Models\Student::query()
+                ->where(function ($q) use ($phone) {
+                    $q->where('phone', $phone)
+                        ->orWhereHas('user', fn ($uq) => $uq->where('phone', $phone));
+                })
+                ->first();
+
+            if ($existing) {
+                $order->update(['student_id' => $existing->id]);
+
+                return $existing;
+            }
+
+            return null;
+        }
+    }
+
     public function submitClassAssignment(): void
     {
         if (empty($this->classAssignSelectedIds)) {
@@ -776,15 +953,98 @@ new class extends Component
             return;
         }
 
-        $orders = ProductOrder::whereIn('id', $orderIds)->get();
         $classCount = count($this->classAssignSelectedIds);
+
+        // Bulk mode: gate on Step 2 confirmation when some orders need student creation.
+        if ($this->classAssignBulkMode) {
+            $plans = $this->prepareBulkStudentPlans($orderIds);
+
+            if (! empty($plans['creatable']) && ! $this->bulkConfirmStudents) {
+                $this->bulkStudentPlans = $plans;
+                $this->bulkConfirmStudents = true;
+
+                return;
+            }
+
+            $createdCount = 0;
+            $linkedCount = 0;
+            $assignedOrderCount = 0;
+            $assignTargets = [];
+
+            // Existing-student orders go straight through.
+            foreach ($plans['ready'] as $row) {
+                $assignTargets[] = ['order' => $row['order'], 'student' => $row['student']];
+            }
+
+            // Execute creatable plans (only if user confirmed Step 2; otherwise this list is empty above).
+            foreach ($plans['creatable'] as $item) {
+                $student = $this->executeBulkStudentPlan($item);
+                if (! $student) {
+                    $plans['skipped'][] = ['order' => $item['order'], 'reason' => 'Failed to create or link student.'];
+
+                    continue;
+                }
+
+                if ($item['action'] === 'create') {
+                    $createdCount++;
+                } else {
+                    $linkedCount++;
+                }
+                $assignTargets[] = ['order' => $item['order'], 'student' => $student];
+            }
+
+            foreach ($assignTargets as $target) {
+                foreach ($this->classAssignSelectedIds as $classId) {
+                    \App\Models\ClassAssignmentApproval::firstOrCreate(
+                        [
+                            'class_id' => $classId,
+                            'student_id' => $target['student']->id,
+                            'product_order_id' => $target['order']->id,
+                        ],
+                        [
+                            'status' => 'pending',
+                            'assigned_by' => auth()->id(),
+                        ]
+                    );
+                }
+                $assignedOrderCount++;
+            }
+
+            $skippedOrderCount = count($plans['skipped']);
+
+            $messageParts = [];
+            if ($createdCount > 0) {
+                $messageParts[] = "Created {$createdCount} student(s)";
+            }
+            if ($linkedCount > 0) {
+                $messageParts[] = "linked {$linkedCount}";
+            }
+            $messageParts[] = "assigned {$assignedOrderCount} order(s) to {$classCount} class(es)";
+            $message = ucfirst(implode(', ', $messageParts)).'.';
+            if ($skippedOrderCount > 0) {
+                $message .= " Skipped {$skippedOrderCount} (no name/phone).";
+            }
+
+            $this->selectedOrderIds = [];
+            $this->classAssignBulkMode = false;
+            $this->classAssignBulkOrderIds = [];
+            $this->bulkConfirmStudents = false;
+            $this->bulkStudentPlans = [];
+            $this->classAssignSelectedIds = [];
+            $this->showClassAssignModal = false;
+
+            $this->dispatch('order-updated', message: $message);
+
+            return;
+        }
+
+        // Single-row mode: original behaviour.
+        $orders = ProductOrder::whereIn('id', $orderIds)->get();
         $assignedOrderCount = 0;
-        $skippedOrderCount = 0;
 
         foreach ($orders as $order) {
             $student = $this->resolveStudentForOrder($order);
             if (! $student) {
-                $skippedOrderCount++;
                 continue;
             }
 
@@ -801,29 +1061,17 @@ new class extends Component
                     ]
                 );
             }
-
             $assignedOrderCount++;
         }
 
-        if ($this->classAssignBulkMode) {
-            $message = "Assigned {$assignedOrderCount} order(s) to {$classCount} class(es).";
-            if ($skippedOrderCount > 0) {
-                $message .= " Skipped {$skippedOrderCount} (no linked student).";
-            }
-            $this->selectedOrderIds = [];
-            $this->classAssignBulkMode = false;
-            $this->classAssignBulkOrderIds = [];
-            $this->showClassAssignModal = false;
-        } else {
-            if ($assignedOrderCount === 0) {
-                session()->flash('error', 'No student could be found for this order.');
-                return;
-            }
-            $message = "Assigned to {$classCount} class(es).";
+        if ($assignedOrderCount === 0) {
+            session()->flash('error', 'No student could be found for this order.');
+
+            return;
         }
 
         $this->classAssignSelectedIds = [];
-        $this->dispatch('order-updated', message: $message);
+        $this->dispatch('order-updated', message: "Assigned to {$classCount} class(es).");
     }
 
     public function removeClassAssignment(int $approvalId): void
@@ -1697,13 +1945,119 @@ new class extends Component
             $classAssignOrder = $this->classAssignOrder;
             $bulkOrderCount = count($classAssignBulkOrderIds);
         @endphp
-        @if($classAssignBulkMode)
+        @if($classAssignBulkMode && $bulkConfirmStudents)
+            @php
+                $plansCreatable = $bulkStudentPlans['creatable'] ?? [];
+                $plansSkipped = $bulkStudentPlans['skipped'] ?? [];
+                $plansReadyCount = count($bulkStudentPlans['ready'] ?? []);
+                $createCount = count(array_filter($plansCreatable, fn ($p) => $p['action'] === 'create'));
+                $linkCount = count($plansCreatable) - $createCount;
+            @endphp
+            <div class="space-y-5">
+                <!-- Header -->
+                <div>
+                    <flux:heading size="lg">Confirm student records</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 mt-1">
+                        {{ count($plansCreatable) }} of {{ $bulkOrderCount }} selected order{{ $bulkOrderCount === 1 ? '' : 's' }} need a student record. Review and confirm to create / link them and proceed with the class assignment.
+                    </flux:text>
+                </div>
+
+                <!-- Summary chips -->
+                <div class="flex flex-wrap gap-2 text-xs font-medium">
+                    @if($createCount > 0)
+                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Will create {{ $createCount }}
+                        </span>
+                    @endif
+                    @if($linkCount > 0)
+                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            Will link {{ $linkCount }}
+                        </span>
+                    @endif
+                    @if($plansReadyCount > 0)
+                        <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                            <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+                            Already linked {{ $plansReadyCount }}
+                        </span>
+                    @endif
+                    @if(count($plansSkipped) > 0)
+                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                            <flux:icon name="exclamation-triangle" class="w-3 h-3" />
+                            Skipping {{ count($plansSkipped) }}
+                        </span>
+                    @endif
+                </div>
+
+                <!-- Creatable list -->
+                @if(!empty($plansCreatable))
+                    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-72 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-700">
+                        @foreach($plansCreatable as $plan)
+                            <div class="flex items-start justify-between gap-3 px-4 py-3" wire:key="bulk-plan-{{ $plan['order']->id }}">
+                                <div class="min-w-0 flex-1">
+                                    <flux:text size="sm" class="font-mono text-zinc-500 dark:text-zinc-400">{{ $plan['order']->order_number }}</flux:text>
+                                    <flux:text class="font-medium text-zinc-900 dark:text-white truncate">{{ $plan['name'] }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-400">{{ $plan['phone'] }}</flux:text>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    @if($plan['action'] === 'create')
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                            <flux:icon name="user-plus" class="w-3 h-3" />
+                                            Will create
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                            <flux:icon name="link" class="w-3 h-3" />
+                                            Will link
+                                        </span>
+                                        @if(!empty($plan['matched_name']))
+                                            <flux:text size="sm" class="text-zinc-400 mt-1 block truncate max-w-[12rem]">to {{ $plan['matched_name'] }}</flux:text>
+                                        @endif
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <!-- Skipped list (collapsed style) -->
+                @if(!empty($plansSkipped))
+                    <details class="rounded-xl border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20">
+                        <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-amber-800 dark:text-amber-300">
+                            {{ count($plansSkipped) }} order{{ count($plansSkipped) === 1 ? '' : 's' }} will be skipped (cannot create student)
+                        </summary>
+                        <div class="border-t border-amber-200 dark:border-amber-700/50 max-h-40 overflow-y-auto divide-y divide-amber-100 dark:divide-amber-800/30">
+                            @foreach($plansSkipped as $skip)
+                                <div class="px-4 py-2 text-sm" wire:key="bulk-skip-{{ $skip['order']->id }}">
+                                    <span class="font-mono text-zinc-500 dark:text-zinc-400">{{ $skip['order']->order_number }}</span>
+                                    <span class="text-amber-800 dark:text-amber-300"> &middot; {{ $skip['reason'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </details>
+                @endif
+
+                <!-- Footer buttons -->
+                <div class="flex justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-700">
+                    <flux:button variant="ghost" wire:click="backToClassPicker">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
+                            Back
+                        </div>
+                    </flux:button>
+                    <flux:button variant="primary" wire:click="submitClassAssignment">
+                        Create students &amp; assign
+                    </flux:button>
+                </div>
+            </div>
+        @elseif($classAssignBulkMode)
             <div class="space-y-5">
                 <!-- Header -->
                 <div>
                     <flux:heading size="lg">Bulk Class Assignment</flux:heading>
                     <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 mt-1">
-                        Assign {{ $bulkOrderCount }} order{{ $bulkOrderCount === 1 ? '' : 's' }} to one or more classes. Orders without a linked student will be skipped.
+                        Assign {{ $bulkOrderCount }} order{{ $bulkOrderCount === 1 ? '' : 's' }} to one or more classes. If any orders have no student linked yet, you'll be asked to confirm creating them.
                     </flux:text>
                 </div>
 
