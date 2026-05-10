@@ -39,8 +39,11 @@ class TeacherImportService
             throw new \Exception('CSV file appears to be empty');
         }
 
-        // Clean up headers
-        $headers = array_map('trim', $headers);
+        // Clean up headers (normalize encoding, strip UTF-8 BOM, trim)
+        $headers = array_map(fn ($h) => $this->normalizeCell($h), $headers);
+        if (isset($headers[0])) {
+            $headers[0] = preg_replace('/^\xEF\xBB\xBF/', '', $headers[0]);
+        }
         $expectedHeaders = $this->getExpectedHeaders();
 
         // Validate required headers only
@@ -65,7 +68,7 @@ class TeacherImportService
                 $row = array_slice($row, 0, count($headers));
             }
 
-            $rowData = array_combine($headers, array_map('trim', $row));
+            $rowData = array_combine($headers, array_map(fn ($v) => $this->normalizeCell($v), $row));
             $rowData['_row_number'] = $rowNumber;
 
             $this->csvData[] = $rowData;
@@ -74,6 +77,25 @@ class TeacherImportService
         fclose($handle);
 
         return $this->csvData;
+    }
+
+    /**
+     * Normalize a CSV cell to a trimmed, valid UTF-8 string.
+     *
+     * Excel exports on Windows commonly produce Windows-1252 / ISO-8859-1 bytes
+     * (e.g. curly quotes 0x91/0x92) which break json_encode and prevent Livewire
+     * from serializing previewData back to the client.
+     */
+    protected function normalizeCell(?string $value): string
+    {
+        $value = (string) $value;
+
+        if ($value !== '' && ! mb_check_encoding($value, 'UTF-8')) {
+            $detected = mb_detect_encoding($value, ['UTF-8', 'Windows-1252', 'ISO-8859-1'], true) ?: 'Windows-1252';
+            $value = mb_convert_encoding($value, 'UTF-8', $detected);
+        }
+
+        return trim($value);
     }
 
     public function validateData(): array
