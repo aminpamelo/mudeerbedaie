@@ -337,7 +337,7 @@ test('admin can list all claim requests', function () {
 test('admin can approve a pending claim with custom amount', function () {
     $admin = createClaimsAdminUser();
     $data = createClaimsEmployeeWithRecord();
-    Employee::factory()->create(['user_id' => $admin->id]);
+    $approver = Employee::factory()->create(['user_id' => $admin->id]);
 
     $claimType = ClaimType::factory()->create();
     $claim = ClaimRequest::factory()->pending()->create([
@@ -357,6 +357,33 @@ test('admin can approve a pending claim with custom amount', function () {
     expect($claim->status)->toBe('approved');
     expect((float) $claim->approved_amount)->toBe(150.0);
     expect($claim->approved_at)->not->toBeNull();
+    expect($claim->approved_by)->toBe($approver->id);
+});
+
+test('approved_by stores employee id not user id when approving claim', function () {
+    // Force a user_id that does NOT collide with any employee.id to expose
+    // a FK violation if the controller writes user.id into the employees FK column.
+    $admin = User::factory()->create(['role' => 'admin', 'id' => 9999]);
+    $data = createClaimsEmployeeWithRecord();
+    $adminEmployee = Employee::factory()->create(['user_id' => $admin->id]);
+
+    expect($admin->id)->not->toBe($adminEmployee->id);
+
+    $claimType = ClaimType::factory()->create();
+    $claim = ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 200.00,
+    ]);
+
+    $response = $this->actingAs($admin)->postJson("/api/hr/claims/requests/{$claim->id}/approve", [
+        'approved_amount' => 150.00,
+    ]);
+
+    $response->assertSuccessful();
+
+    $claim->refresh();
+    expect($claim->approved_by)->toBe($adminEmployee->id);
 });
 
 test('admin can reject a pending claim with reason', function () {

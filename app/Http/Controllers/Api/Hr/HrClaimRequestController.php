@@ -183,10 +183,12 @@ class HrClaimRequestController extends Controller
             'remarks' => ['nullable', 'string'],
         ]);
 
+        $approver = Employee::where('user_id', $request->user()->id)->first();
+
         $claimRequest->update([
             'status' => 'approved',
             'approved_amount' => $validated['approved_amount'],
-            'approved_by' => $request->user()->id,
+            'approved_by' => $approver?->id,
             'approved_at' => now(),
         ]);
 
