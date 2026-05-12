@@ -112,6 +112,10 @@ export default function TiktokImportsIndex() {
           </div>
         )}
 
+        <div className="rounded-[12px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm text-[#1E3A8A]">
+          LIVE performance data now syncs automatically from TikTok. CSV upload remains available for backfilling older periods or accounts where the API is not yet enabled.
+        </div>
+
         <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {imports.data.length === 0 ? (
             <div className="py-16 text-center text-sm text-[#737373]">

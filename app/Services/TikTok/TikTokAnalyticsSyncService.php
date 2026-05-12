@@ -16,6 +16,17 @@ class TikTokAnalyticsSyncService
 {
     protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_ANALYTICS_REPORTING;
 
+    /**
+     * TikTok rejects the same API version across all Analytics endpoints.
+     * Each endpoint is pinned to a version that TikTok currently accepts
+     * for the live (non-sandbox) Analytics API.
+     */
+    private const VERSION_SHOP_PERFORMANCE = '202405';
+
+    private const VERSION_VIDEO_PERFORMANCE = '202409';
+
+    private const VERSION_PRODUCT_PERFORMANCE = '202405';
+
     public function __construct(
         private TikTokClientFactory $clientFactory,
         private TikTokAuthService $authService
@@ -26,7 +37,7 @@ class TikTokAnalyticsSyncService
      */
     public function syncShopPerformance(PlatformAccount $account): TiktokShopPerformanceSnapshot
     {
-        $client = $this->getClient($account);
+        $client = $this->getClient($account, self::VERSION_SHOP_PERFORMANCE);
 
         $response = $client->Analytics->getShopPerformance([
             'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
@@ -60,7 +71,7 @@ class TikTokAnalyticsSyncService
      */
     public function syncVideoPerformanceList(PlatformAccount $account): int
     {
-        $client = $this->getClient($account);
+        $client = $this->getClient($account, self::VERSION_VIDEO_PERFORMANCE);
 
         $response = $client->Analytics->getShopVideoPerformanceList([
             'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
@@ -110,7 +121,7 @@ class TikTokAnalyticsSyncService
      */
     public function syncProductPerformance(PlatformAccount $account): int
     {
-        $client = $this->getClient($account);
+        $client = $this->getClient($account, self::VERSION_PRODUCT_PERFORMANCE);
 
         $count = 0;
         $pageToken = null;
@@ -176,7 +187,7 @@ class TikTokAnalyticsSyncService
      */
     public function fetchVideoPerformanceOverview(PlatformAccount $account): array
     {
-        $client = $this->getClient($account);
+        $client = $this->getClient($account, self::VERSION_VIDEO_PERFORMANCE);
 
         return $client->Analytics->getShopVideoPerformanceOverview();
     }
@@ -188,15 +199,15 @@ class TikTokAnalyticsSyncService
      */
     public function fetchVideoProductPerformance(PlatformAccount $account, string $videoId): array
     {
-        $client = $this->getClient($account);
+        $client = $this->getClient($account, self::VERSION_VIDEO_PERFORMANCE);
 
         return $client->Analytics->getShopVideoProductPerformanceList($videoId);
     }
 
     /**
-     * Get an authenticated client, refreshing the token if needed.
+     * Get an authenticated client pinned to the given Analytics API version.
      */
-    protected function getClient(PlatformAccount $account): mixed
+    protected function getClient(PlatformAccount $account, string $version): mixed
     {
         $app = $this->clientFactory->resolveApp($account, static::REQUIRED_CATEGORY);
 
@@ -210,7 +221,7 @@ class TikTokAnalyticsSyncService
         }
 
         $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
-        $client->useVersion($this->clientFactory->getApiVersion());
+        $client->useVersion($version);
 
         return $client;
     }

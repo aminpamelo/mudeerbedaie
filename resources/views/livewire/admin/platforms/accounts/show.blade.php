@@ -3,6 +3,7 @@
 use App\Jobs\SyncTikTokAffiliates;
 use App\Jobs\SyncTikTokAnalytics;
 use App\Jobs\SyncTikTokFinance;
+use App\Jobs\SyncTikTokLive;
 use App\Jobs\SyncTikTokOrders;
 use App\Jobs\SyncTikTokProducts;
 use App\Models\PendingPlatformProduct;
@@ -448,6 +449,15 @@ new class extends Component
             job: SyncTikTokAnalytics::class,
             label: 'Analytics',
             notFoundMsg: 'Analytics sync is only available for TikTok Shop accounts.',
+        );
+    }
+
+    public function syncLiveNow(): void
+    {
+        $this->dispatchTikTokSyncJob(
+            job: SyncTikTokLive::class,
+            label: 'LIVE',
+            notFoundMsg: 'LIVE sync is only available for TikTok Shop accounts.',
         );
     }
 
@@ -1854,6 +1864,70 @@ new class extends Component
                         </div>
                     </section>
                 @endif
+
+                <section class="pf-surface p-6">
+                    <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+                        <div>
+                            <h3 class="section-h text-[15px] flex items-center gap-2">
+                                <flux:icon name="video-camera" class="w-4 h-4 text-zinc-400" />
+                                LIVE Performance
+                            </h3>
+                            <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mt-1">
+                                Per-LIVE detail synced from TikTok Shop. Powers host scorecards and commission attribution.
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[12px] text-zinc-500 dark:text-zinc-400">
+                                Last sync: {{ $account->last_live_analytics_sync_at ? $account->last_live_analytics_sync_at->diffForHumans() : 'Never' }}
+                            </span>
+                            <button type="button" wire:click="syncLiveNow" wire:loading.attr="disabled" wire:target="syncLiveNow" class="btn btn-secondary btn-sm">
+                                <flux:icon name="arrow-path" class="w-3.5 h-3.5" wire:loading.class="animate-spin" wire:target="syncLiveNow" />
+                                <span wire:loading.remove wire:target="syncLiveNow">Sync Now</span>
+                                <span wire:loading wire:target="syncLiveNow">Queuing…</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @php
+                        $lastLiveResult = $account->metadata['last_live_sync_result'] ?? null;
+                        $liveApiSupported = ($account->metadata['live_api_supported'] ?? null) !== false;
+                    @endphp
+
+                    @if(! $liveApiSupported)
+                        <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 px-4 py-3 text-[13px] text-amber-900 dark:text-amber-200">
+                            This shop is not yet authorized for TikTok's LIVE Performance API. Auto-sync is paused. CSV upload remains available under
+                            <a href="{{ url('/livehost/tiktok-imports') }}" class="underline">TikTok Imports</a>.
+                        </div>
+                    @elseif($lastLiveResult)
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="kpi">
+                                <div class="lbl">Synced</div>
+                                <div class="val">{{ number_format($lastLiveResult['synced'] ?? 0) }}</div>
+                            </div>
+                            <div class="kpi">
+                                <div class="lbl">Matched</div>
+                                <div class="val emerald">{{ number_format($lastLiveResult['matched'] ?? 0) }}</div>
+                            </div>
+                            <div class="kpi">
+                                <div class="lbl">Unmatched</div>
+                                <div class="val">
+                                    @php
+                                        $unmatched = $lastLiveResult['unmatched'] ?? 0;
+                                    @endphp
+                                    <span class="{{ $unmatched > 0 ? 'text-amber-600 dark:text-amber-400' : '' }}">{{ number_format($unmatched) }}</span>
+                                </div>
+                            </div>
+                            <div class="kpi">
+                                <div class="lbl">Pages Pulled</div>
+                                <div class="val">{{ number_format($lastLiveResult['pages'] ?? 0) }}</div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="text-[13px] text-zinc-500 dark:text-zinc-400">
+                            No sync has been run yet. Click <span class="font-semibold">Sync Now</span> to fetch the last 30 days of LIVE data.
+                        </div>
+                    @endif
+                </section>
 
                 <section class="pf-surface overflow-hidden">
                     <div class="p-6 pb-4">
