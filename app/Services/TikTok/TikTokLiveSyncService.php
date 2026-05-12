@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
+use App\Models\ActualLiveRecord;
+use App\Models\LiveHostPlatformAccount;
 use App\Models\PlatformAccount;
 use App\Models\PlatformApp;
 use App\Models\TiktokLiveReport;
+use App\Services\LiveHost\Tiktok\LiveSessionMatcher;
 use App\Services\TikTok\Sdk\AnalyticsExtended;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -21,13 +24,16 @@ class TikTokLiveSyncService
     public function __construct(
         private TikTokClientFactory $clientFactory,
         private TikTokAuthService $authService,
+        private LiveSessionMatcher $matcher,
     ) {}
 
     /**
      * Sync per-LIVE rows from TikTok's Shop Lives Performance API and upsert
      * into tiktok_live_reports keyed on (platform_account_id, tiktok_live_id).
+     * Also mirrors a paired ActualLiveRecord (source='api') so commission/payroll
+     * downstream sees this row the same way as a CSV import.
      *
-     * @return array{synced: int, created: int, updated: int, pages: int}
+     * @return array{synced: int, created: int, updated: int, matched: int, unmatched: int, pages: int}
      */
     public function syncLivePerformance(
         PlatformAccount $account,
@@ -42,6 +48,8 @@ class TikTokLiveSyncService
         $synced = 0;
         $created = 0;
         $updated = 0;
+        $matched = 0;
+        $unmatched = 0;
         $pages = 0;
         $pageToken = null;
 
@@ -83,8 +91,67 @@ class TikTokLiveSyncService
                 $report->synced_at = now();
                 $report->save();
 
+                // Resolve creator_platform_user_id from the username via the
+                // live_host_platform_account pivot, scoped to this shop so a
+                // creator id can't bleed across sibling accounts. The matcher
+                // requires tiktok_creator_id to be non-null, so we do this first.
+                if ($report->tiktok_creator_id === null && $report->creator_nickname !== null) {
+                    $pivot = LiveHostPlatformAccount::query()
+                        ->where('platform_account_id', $account->id)
+                        ->where('creator_handle', $report->creator_nickname)
+                        ->first();
+
+                    if ($pivot && $pivot->creator_platform_user_id !== null) {
+                        $report->tiktok_creator_id = $pivot->creator_platform_user_id;
+                        $report->save();
+                    }
+                }
+
+                if ($report->matched_live_session_id === null) {
+                    $matchedSession = $this->matcher->match($report, $account->id);
+                    if ($matchedSession !== null) {
+                        $report->matched_live_session_id = $matchedSession->id;
+                        $report->save();
+                    }
+                }
+
+                // Mirror the ActualLiveRecord that ProcessTiktokImportJob creates
+                // for CSV imports. Keyed on (platform_account_id, source, source_record_id)
+                // so re-syncs update in place without duplicating.
+                ActualLiveRecord::updateOrCreate(
+                    [
+                        'platform_account_id' => $account->id,
+                        'source' => 'api_sync',
+                        'source_record_id' => $tiktokLiveId,
+                    ],
+                    [
+                        'creator_platform_user_id' => $report->tiktok_creator_id,
+                        'creator_handle' => $report->creator_nickname,
+                        'launched_time' => $report->launched_time,
+                        'duration_seconds' => $report->duration_seconds,
+                        'gmv_myr' => $report->gmv_myr ?? 0,
+                        'live_attributed_gmv_myr' => $report->live_attributed_gmv_myr ?? 0,
+                        'viewers' => $report->viewers,
+                        'views' => $report->views,
+                        'comments' => $report->comments,
+                        'shares' => $report->shares,
+                        'likes' => $report->likes,
+                        'new_followers' => $report->new_followers,
+                        'products_added' => $report->products_added,
+                        'products_sold' => $report->products_sold,
+                        'items_sold' => $report->items_sold,
+                        'sku_orders' => $report->sku_orders,
+                        'unique_customers' => $report->unique_customers,
+                        'avg_price_myr' => $report->avg_price_myr,
+                        'click_to_order_rate' => $report->click_to_order_rate,
+                        'ctr' => $report->ctr,
+                        'raw_json' => $report->raw_row_json,
+                    ],
+                );
+
                 $synced++;
                 $existed ? $updated++ : $created++;
+                $report->matched_live_session_id !== null ? $matched++ : $unmatched++;
             }
 
             $pageToken = $response['next_page_token'] ?? null;
@@ -96,10 +163,12 @@ class TikTokLiveSyncService
             'synced' => $synced,
             'created' => $created,
             'updated' => $updated,
+            'matched' => $matched,
+            'unmatched' => $unmatched,
             'pages' => $pages,
         ]);
 
-        return compact('synced', 'created', 'updated', 'pages');
+        return compact('synced', 'created', 'updated', 'matched', 'unmatched', 'pages');
     }
 
     /**
@@ -110,8 +179,14 @@ class TikTokLiveSyncService
      */
     private function normalize(array $s): array
     {
-        $start = isset($s['start_time']) ? Carbon::createFromTimestamp((int) $s['start_time']) : null;
-        $end = isset($s['end_time']) ? Carbon::createFromTimestamp((int) $s['end_time']) : null;
+        // Carbon::createFromTimestamp returns UTC by default. Convert to the
+        // app timezone so Eloquent's wall-clock write to the DB lines up with
+        // other models (like LiveSession.actual_start_at) that originate from
+        // now()-style calls. Without this, launched_time round-trips 8h off
+        // for Asia/Kuala_Lumpur and the LiveSessionMatcher window misses.
+        $appTz = config('app.timezone');
+        $start = isset($s['start_time']) ? Carbon::createFromTimestamp((int) $s['start_time'])->setTimezone($appTz) : null;
+        $end = isset($s['end_time']) ? Carbon::createFromTimestamp((int) $s['end_time'])->setTimezone($appTz) : null;
         // Carbon 3 returns a signed float and the sign depends on call ordering;
         // abs+cast normalizes it to a non-negative integer.
         $duration = ($start && $end) ? (int) abs($end->diffInSeconds($start)) : null;
