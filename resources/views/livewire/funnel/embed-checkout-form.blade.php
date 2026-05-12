@@ -134,7 +134,7 @@ new class extends Component
 
         // If only one method available or show_method_selector is false, just use default
         if (! $showMethodSelector && count($methods) > 1) {
-            $defaultId = match($defaultMethod) {
+            $defaultId = match ($defaultMethod) {
                 'stripe' => 'credit_card',
                 'cod' => 'cod',
                 default => 'fpx',
@@ -145,7 +145,7 @@ new class extends Component
 
         // Reorder methods to put the default one first
         if (count($methods) > 1) {
-            $defaultId = match($defaultMethod) {
+            $defaultId = match ($defaultMethod) {
                 'stripe' => 'credit_card',
                 'cod' => 'cod',
                 default => 'fpx',
@@ -213,7 +213,7 @@ new class extends Component
 
     public function getFullPhone(): string
     {
-        return $this->phone ? $this->countryCode . $this->phone : '';
+        return $this->phone ? $this->countryCode.$this->phone : '';
     }
 
     public function toggleProduct(int $productId): void
@@ -442,6 +442,7 @@ new class extends Component
                 'session_id' => $this->funnelSession?->id,
                 'product_order_id' => $productOrder->id,
                 'step_id' => $this->step->id,
+                'class_session_id' => $this->funnelSession?->class_session_id,
                 'order_type' => 'main',
                 'funnel_revenue' => $this->calculateTotal(),
                 'bumps_offered' => $this->step->orderBumps->count(),
@@ -474,7 +475,7 @@ new class extends Component
                 return; // Redirect happens in processBayarcashPayment
             }
 
-            // COD: create payment record, set to processing, payment pending until delivery
+            // COD: create payment record, leave order in 'pending' for team to review and confirm
             if ($this->paymentMethod === 'cod') {
                 $productOrder->payments()->create([
                     'payment_method' => 'cod',
@@ -484,7 +485,7 @@ new class extends Component
                     'status' => 'pending',
                     'transaction_id' => 'COD-'.date('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8)),
                 ]);
-                $productOrder->markAsProcessing();
+                $productOrder->addSystemNote('COD order placed — awaiting team confirmation');
 
                 $this->funnelSession?->markAsConverted();
                 $this->funnelSession?->trackEvent('purchase_completed', [

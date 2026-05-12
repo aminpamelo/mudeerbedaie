@@ -73,16 +73,21 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Upsell to share</p>
                         <ul class="mt-1.5 space-y-1.5">
                             @foreach($briefing['upsell_funnels'] as $funnel)
+                                @php
+                                    $funnelUrl = $briefing['session']
+                                        ? $funnel->getPublicUrl().'?cls='.$briefing['session']->id
+                                        : $funnel->getPublicUrl();
+                                @endphp
                                 <li
                                     class="flex items-center justify-between gap-2 text-xs"
                                     x-data="{
                                         copied: false,
                                         async copy() {
                                             try {
-                                                await navigator.clipboard.writeText(@js($funnel->getPublicUrl()));
+                                                await navigator.clipboard.writeText(@js($funnelUrl));
                                             } catch (e) {
                                                 const ta = document.createElement('textarea');
-                                                ta.value = @js($funnel->getPublicUrl());
+                                                ta.value = @js($funnelUrl);
                                                 document.body.appendChild(ta);
                                                 ta.select();
                                                 document.execCommand('copy');
@@ -106,7 +111,7 @@
                                             <span x-text="copied ? 'Copied' : 'Copy'"></span>
                                         </button>
                                         <a
-                                            href="{{ $funnel->getPublicUrl() }}"
+                                            href="{{ $funnelUrl }}"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium transition-colors"

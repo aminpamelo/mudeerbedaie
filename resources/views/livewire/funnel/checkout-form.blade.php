@@ -513,6 +513,7 @@ new class extends Component
                 'session_id' => $this->funnelSession?->id,
                 'product_order_id' => $productOrder->id,
                 'step_id' => $this->step->id,
+                'class_session_id' => $this->funnelSession?->class_session_id,
                 'order_type' => 'main',
                 'funnel_revenue' => $this->calculateTotal(),
                 'bumps_offered' => $this->step->orderBumps->count(),
@@ -540,7 +541,7 @@ new class extends Component
                 return; // Redirect happens in processBayarcashPayment
             }
 
-            // COD: create payment record, set order to confirmed, payment pending until delivery
+            // COD: create payment record, leave order in 'pending' for team to review and confirm
             if ($this->paymentMethod === 'cod') {
                 $productOrder->payments()->create([
                     'payment_method' => 'cod',
@@ -550,7 +551,7 @@ new class extends Component
                     'status' => 'pending',
                     'transaction_id' => 'COD-'.date('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8)),
                 ]);
-                $productOrder->markAsConfirmed();
+                $productOrder->addSystemNote('COD order placed — awaiting team confirmation');
 
                 // Track Facebook Pixel Purchase event (server-side)
                 if ($this->funnelSession) {
