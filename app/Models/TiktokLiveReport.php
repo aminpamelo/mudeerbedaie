@@ -35,6 +35,10 @@ class TiktokLiveReport extends Model
         'ctr',
         'matched_live_session_id',
         'raw_row_json',
+        'tiktok_live_id',
+        'platform_account_id',
+        'source',
+        'synced_at',
     ];
 
     protected function casts(): array
@@ -47,6 +51,7 @@ class TiktokLiveReport extends Model
             'click_to_order_rate' => 'decimal:2',
             'ctr' => 'decimal:2',
             'raw_row_json' => 'array',
+            'synced_at' => 'datetime',
         ];
     }
 
@@ -58,5 +63,10 @@ class TiktokLiveReport extends Model
     public function matchedLiveSession(): BelongsTo
     {
         return $this->belongsTo(LiveSession::class, 'matched_live_session_id');
+    }
+
+    public function platformAccount(): BelongsTo
+    {
+        return $this->belongsTo(PlatformAccount::class);
     }
 }
