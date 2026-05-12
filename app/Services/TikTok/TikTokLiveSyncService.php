@@ -173,7 +173,20 @@ class TikTokLiveSyncService
         // PHP 8.1+ makes setAccessible() a no-op for visibility; ReflectionMethod
         // can invoke a protected method directly.
         $analytics = new AnalyticsExtended;
-        $analytics->useHttpClient((new ReflectionMethod($client, 'httpClient'))->invoke($client));
+
+        try {
+            $reflection = new ReflectionMethod($client, 'httpClient');
+            $httpClient = $reflection->invoke($client);
+        } catch (\ReflectionException $e) {
+            throw new \RuntimeException(
+                'Cannot access SDK Client::httpClient(). The vendor package may have changed its internal API. '
+                .'Update App\Services\TikTok\TikTokLiveSyncService::getClient() to match.',
+                0,
+                $e,
+            );
+        }
+
+        $analytics->useHttpClient($httpClient);
         $analytics->useVersion(self::API_VERSION);
 
         return new class($analytics)

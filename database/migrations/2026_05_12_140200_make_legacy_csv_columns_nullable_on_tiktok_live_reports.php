@@ -34,6 +34,9 @@ return new class extends Migration
             });
             DB::statement('ALTER TABLE tiktok_live_reports MODIFY tiktok_creator_id VARCHAR(255) NULL');
 
+            // launched_time: API payloads may omit start_time; normalize() writes null.
+            DB::statement('ALTER TABLE tiktok_live_reports MODIFY launched_time TIMESTAMP NULL');
+
             // Decimals: API may legitimately produce null (e.g. non-MYR currency).
             DB::statement('ALTER TABLE tiktok_live_reports MODIFY gmv_myr DECIMAL(12,2) NULL');
             DB::statement('ALTER TABLE tiktok_live_reports MODIFY live_attributed_gmv_myr DECIMAL(12,2) NULL');
@@ -61,7 +64,7 @@ return new class extends Migration
             $table->string('tiktok_creator_id')->nullable()->index();
             $table->string('creator_nickname')->nullable();
             $table->string('creator_display_name')->nullable();
-            $table->timestamp('launched_time')->index();
+            $table->timestamp('launched_time')->nullable()->index();
             $table->integer('duration_seconds')->nullable();
             $table->decimal('gmv_myr', 12, 2)->nullable();
             $table->decimal('live_attributed_gmv_myr', 12, 2)->nullable();
@@ -99,7 +102,48 @@ return new class extends Migration
             $table->unique(['platform_account_id', 'tiktok_live_id'], 'tlr_new_account_live_unique');
         });
 
-        DB::statement('INSERT INTO tiktok_live_reports_new SELECT * FROM tiktok_live_reports');
+        // Bind columns by name, not by position: a future migration that
+        // reorders columns on either table would silently corrupt data under
+        // SELECT *. Order here matches the live tiktok_live_reports schema
+        // and the tiktok_live_reports_new definition above.
+        $columns = implode(', ', [
+            'id',
+            'import_id',
+            'tiktok_creator_id',
+            'creator_nickname',
+            'creator_display_name',
+            'launched_time',
+            'duration_seconds',
+            'gmv_myr',
+            'live_attributed_gmv_myr',
+            'products_added',
+            'products_sold',
+            'sku_orders',
+            'items_sold',
+            'unique_customers',
+            'avg_price_myr',
+            'click_to_order_rate',
+            'viewers',
+            'views',
+            'avg_view_duration_sec',
+            'comments',
+            'shares',
+            'likes',
+            'new_followers',
+            'product_impressions',
+            'product_clicks',
+            'ctr',
+            'matched_live_session_id',
+            'raw_row_json',
+            'created_at',
+            'updated_at',
+            'tiktok_live_id',
+            'platform_account_id',
+            'source',
+            'synced_at',
+        ]);
+
+        DB::statement("INSERT INTO tiktok_live_reports_new ({$columns}) SELECT {$columns} FROM tiktok_live_reports");
         Schema::drop('tiktok_live_reports');
         Schema::rename('tiktok_live_reports_new', 'tiktok_live_reports');
 
