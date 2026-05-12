@@ -40,6 +40,9 @@ class TikTokLiveSyncService
         ?Carbon $from = null,
         ?Carbon $to = null,
     ): array {
+        // Strict === false: an absent or null value (e.g. on a freshly connected
+        // account, or after a manual clear via unset()) does NOT trigger the skip.
+        // Only an explicit false-write from a prior failed call suppresses syncs.
         if (($account->metadata['live_api_supported'] ?? null) === false) {
             Log::info('[TikTokLiveSync] Skipping account flagged as live_api_supported=false', [
                 'account_id' => $account->id,
@@ -181,9 +184,10 @@ class TikTokLiveSyncService
                 $pages++;
             } while ($pageToken && $pages < 50);
         } catch (\EcomPHP\TiktokShop\Errors\ResponseException $e) {
-            if (str_contains($e->getMessage(), 'not_authorized') || str_contains($e->getMessage(), 'permission_denied')) {
+            if ($this->isNotAuthorized($e)) {
                 Log::warning('[TikTokLiveSync] LIVE API not enabled for account', [
                     'account_id' => $account->id,
+                    'code' => $e->getCode(),
                     'message' => $e->getMessage(),
                 ]);
 
@@ -313,5 +317,34 @@ class TikTokLiveSyncService
         {
             public function __construct(public object $Analytics) {}
         };
+    }
+
+    /**
+     * Detects whether a TikTok ResponseException represents an "endpoint not
+     * authorized for this shop" error vs a transient/recoverable one.
+     *
+     * Matched both by code (more reliable) and by message text (fallback for
+     * codes TikTok may introduce later or vary by locale).
+     */
+    private function isNotAuthorized(\EcomPHP\TiktokShop\Errors\ResponseException $e): bool
+    {
+        // Known "shop not authorized for this feature" codes seen so far.
+        // The token-related 105xxx codes are intentionally NOT here — those
+        // get raised as TokenException by the SDK and trigger token refresh
+        // upstream, not the silent-skip path.
+        $notAuthorizedCodes = [12001, 12002, 13001, 13002];
+
+        if (in_array((int) $e->getCode(), $notAuthorizedCodes, true)) {
+            return true;
+        }
+
+        $message = $e->getMessage();
+        foreach (['not_authorized', 'permission_denied', 'not authorized', 'permission denied', 'not enabled'] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
