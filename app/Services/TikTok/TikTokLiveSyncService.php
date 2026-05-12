@@ -40,6 +40,21 @@ class TikTokLiveSyncService
         ?Carbon $from = null,
         ?Carbon $to = null,
     ): array {
+        if (($account->metadata['live_api_supported'] ?? null) === false) {
+            Log::info('[TikTokLiveSync] Skipping account flagged as live_api_supported=false', [
+                'account_id' => $account->id,
+            ]);
+
+            return [
+                'synced' => 0,
+                'created' => 0,
+                'updated' => 0,
+                'matched' => 0,
+                'unmatched' => 0,
+                'pages' => 0,
+            ];
+        }
+
         $client = $this->getClient($account);
 
         $from ??= now()->subDays(30);
@@ -56,114 +71,138 @@ class TikTokLiveSyncService
         /** @var array<string, ?\App\Models\LiveHostPlatformAccount> */
         $pivotCache = [];
 
-        do {
-            $params = [
-                'start_date_ge' => $from->format('Y-m-d'),
-                'end_date_lt' => $to->format('Y-m-d'),
-                'page_size' => 100,
-            ];
+        try {
+            do {
+                $params = [
+                    'start_date_ge' => $from->format('Y-m-d'),
+                    'end_date_lt' => $to->format('Y-m-d'),
+                    'page_size' => 100,
+                ];
 
-            if ($pageToken) {
-                $params['page_token'] = $pageToken;
-            }
-
-            $response = $client->Analytics->getShopLivePerformanceList($params);
-            $sessions = $response['live_stream_sessions'] ?? [];
-
-            foreach ($sessions as $session) {
-                $tiktokLiveId = $session['id'] ?? null;
-
-                if (! $tiktokLiveId) {
-                    continue;
+                if ($pageToken) {
+                    $params['page_token'] = $pageToken;
                 }
 
-                $attrs = $this->normalize($session);
+                $response = $client->Analytics->getShopLivePerformanceList($params);
+                $sessions = $response['live_stream_sessions'] ?? [];
 
-                /** @var TiktokLiveReport $report */
-                $report = TiktokLiveReport::firstOrNew([
-                    'platform_account_id' => $account->id,
-                    'tiktok_live_id' => $tiktokLiveId,
-                ]);
-                $existed = $report->exists;
+                foreach ($sessions as $session) {
+                    $tiktokLiveId = $session['id'] ?? null;
 
-                // Preserve matched_live_session_id and import_id on re-sync.
-                $report->fill($attrs);
-                $report->platform_account_id = $account->id;
-                $report->tiktok_live_id = $tiktokLiveId;
-                $report->source = 'api';
-                $report->synced_at = now();
-                $report->save();
-
-                // Resolve creator_platform_user_id from the username via the
-                // live_host_platform_account pivot, scoped to this shop so a
-                // creator id can't bleed across sibling accounts. The matcher
-                // requires tiktok_creator_id to be non-null, so we do this first.
-                if ($report->tiktok_creator_id === null && $report->creator_nickname !== null) {
-                    $key = $report->creator_nickname;
-                    if (! array_key_exists($key, $pivotCache)) {
-                        $pivotCache[$key] = LiveHostPlatformAccount::query()
-                            ->where('platform_account_id', $account->id)
-                            ->where('creator_handle', $key)
-                            ->first();
+                    if (! $tiktokLiveId) {
+                        continue;
                     }
-                    $pivot = $pivotCache[$key];
 
-                    if ($pivot && $pivot->creator_platform_user_id !== null) {
-                        $report->tiktok_creator_id = $pivot->creator_platform_user_id;
-                        $report->save();
-                    }
-                }
+                    $attrs = $this->normalize($session);
 
-                if ($report->matched_live_session_id === null) {
-                    $matchedSession = $this->matcher->match($report, $account->id);
-                    if ($matchedSession !== null) {
-                        $report->matched_live_session_id = $matchedSession->id;
-                        $report->save();
-                    }
-                }
-
-                // Mirror the ActualLiveRecord that ProcessTiktokImportJob creates
-                // for CSV imports. Keyed on (platform_account_id, source, source_record_id)
-                // so re-syncs update in place without duplicating.
-                ActualLiveRecord::updateOrCreate(
-                    [
+                    /** @var TiktokLiveReport $report */
+                    $report = TiktokLiveReport::firstOrNew([
                         'platform_account_id' => $account->id,
-                        'source' => 'api_sync',
-                        'source_record_id' => $tiktokLiveId,
-                    ],
-                    [
-                        'creator_platform_user_id' => $report->tiktok_creator_id,
-                        'creator_handle' => $report->creator_nickname,
-                        'launched_time' => $report->launched_time,
-                        'duration_seconds' => $report->duration_seconds,
-                        'gmv_myr' => $report->gmv_myr ?? 0,
-                        'live_attributed_gmv_myr' => $report->live_attributed_gmv_myr ?? 0,
-                        'viewers' => $report->viewers,
-                        'views' => $report->views,
-                        'comments' => $report->comments,
-                        'shares' => $report->shares,
-                        'likes' => $report->likes,
-                        'new_followers' => $report->new_followers,
-                        'products_added' => $report->products_added,
-                        'products_sold' => $report->products_sold,
-                        'items_sold' => $report->items_sold,
-                        'sku_orders' => $report->sku_orders,
-                        'unique_customers' => $report->unique_customers,
-                        'avg_price_myr' => $report->avg_price_myr,
-                        'click_to_order_rate' => $report->click_to_order_rate,
-                        'ctr' => $report->ctr,
-                        'raw_json' => $report->raw_row_json,
-                    ],
-                );
+                        'tiktok_live_id' => $tiktokLiveId,
+                    ]);
+                    $existed = $report->exists;
 
-                $synced++;
-                $existed ? $updated++ : $created++;
-                $report->matched_live_session_id !== null ? $matched++ : $unmatched++;
+                    // Preserve matched_live_session_id and import_id on re-sync.
+                    $report->fill($attrs);
+                    $report->platform_account_id = $account->id;
+                    $report->tiktok_live_id = $tiktokLiveId;
+                    $report->source = 'api';
+                    $report->synced_at = now();
+                    $report->save();
+
+                    // Resolve creator_platform_user_id from the username via the
+                    // live_host_platform_account pivot, scoped to this shop so a
+                    // creator id can't bleed across sibling accounts. The matcher
+                    // requires tiktok_creator_id to be non-null, so we do this first.
+                    if ($report->tiktok_creator_id === null && $report->creator_nickname !== null) {
+                        $key = $report->creator_nickname;
+                        if (! array_key_exists($key, $pivotCache)) {
+                            $pivotCache[$key] = LiveHostPlatformAccount::query()
+                                ->where('platform_account_id', $account->id)
+                                ->where('creator_handle', $key)
+                                ->first();
+                        }
+                        $pivot = $pivotCache[$key];
+
+                        if ($pivot && $pivot->creator_platform_user_id !== null) {
+                            $report->tiktok_creator_id = $pivot->creator_platform_user_id;
+                            $report->save();
+                        }
+                    }
+
+                    if ($report->matched_live_session_id === null) {
+                        $matchedSession = $this->matcher->match($report, $account->id);
+                        if ($matchedSession !== null) {
+                            $report->matched_live_session_id = $matchedSession->id;
+                            $report->save();
+                        }
+                    }
+
+                    // Mirror the ActualLiveRecord that ProcessTiktokImportJob creates
+                    // for CSV imports. Keyed on (platform_account_id, source, source_record_id)
+                    // so re-syncs update in place without duplicating.
+                    ActualLiveRecord::updateOrCreate(
+                        [
+                            'platform_account_id' => $account->id,
+                            'source' => 'api_sync',
+                            'source_record_id' => $tiktokLiveId,
+                        ],
+                        [
+                            'creator_platform_user_id' => $report->tiktok_creator_id,
+                            'creator_handle' => $report->creator_nickname,
+                            'launched_time' => $report->launched_time,
+                            'duration_seconds' => $report->duration_seconds,
+                            'gmv_myr' => $report->gmv_myr ?? 0,
+                            'live_attributed_gmv_myr' => $report->live_attributed_gmv_myr ?? 0,
+                            'viewers' => $report->viewers,
+                            'views' => $report->views,
+                            'comments' => $report->comments,
+                            'shares' => $report->shares,
+                            'likes' => $report->likes,
+                            'new_followers' => $report->new_followers,
+                            'products_added' => $report->products_added,
+                            'products_sold' => $report->products_sold,
+                            'items_sold' => $report->items_sold,
+                            'sku_orders' => $report->sku_orders,
+                            'unique_customers' => $report->unique_customers,
+                            'avg_price_myr' => $report->avg_price_myr,
+                            'click_to_order_rate' => $report->click_to_order_rate,
+                            'ctr' => $report->ctr,
+                            'raw_json' => $report->raw_row_json,
+                        ],
+                    );
+
+                    $synced++;
+                    $existed ? $updated++ : $created++;
+                    $report->matched_live_session_id !== null ? $matched++ : $unmatched++;
+                }
+
+                $pageToken = $response['next_page_token'] ?? null;
+                $pages++;
+            } while ($pageToken && $pages < 50);
+        } catch (\EcomPHP\TiktokShop\Errors\ResponseException $e) {
+            if (str_contains($e->getMessage(), 'not_authorized') || str_contains($e->getMessage(), 'permission_denied')) {
+                Log::warning('[TikTokLiveSync] LIVE API not enabled for account', [
+                    'account_id' => $account->id,
+                    'message' => $e->getMessage(),
+                ]);
+
+                $meta = $account->metadata ?? [];
+                $meta['live_api_supported'] = false;
+                $account->update(['metadata' => $meta]);
+
+                return [
+                    'synced' => 0,
+                    'created' => 0,
+                    'updated' => 0,
+                    'matched' => 0,
+                    'unmatched' => 0,
+                    'pages' => 0,
+                ];
             }
 
-            $pageToken = $response['next_page_token'] ?? null;
-            $pages++;
-        } while ($pageToken && $pages < 50);
+            throw $e;
+        }
 
         Log::info('[TikTokLiveSync] Completed', [
             'account_id' => $account->id,

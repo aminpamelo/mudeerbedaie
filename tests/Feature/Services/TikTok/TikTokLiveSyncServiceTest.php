@@ -306,3 +306,49 @@ it('leaves duration_seconds null when end_time is missing from the API payload',
     $alr = \App\Models\ActualLiveRecord::where('source_record_id', 'live_no_end')->first();
     expect($alr->duration_seconds)->toBeNull();
 });
+
+it('skips cleanly and flags the account when API returns not_authorized', function () {
+    $account = PlatformAccount::factory()->create();
+    $fake = new class
+    {
+        public function getShopLivePerformanceList(array $params): array
+        {
+            throw new \EcomPHP\TiktokShop\Errors\ResponseException('not_authorized', 105005);
+        }
+    };
+    $service = makeLiveSyncService($fake);
+
+    $result = $service->syncLivePerformance($account);
+
+    $account->refresh();
+    expect($result['synced'])->toBe(0)
+        ->and($result['created'])->toBe(0)
+        ->and($result['updated'])->toBe(0)
+        ->and($result['matched'])->toBe(0)
+        ->and($result['unmatched'])->toBe(0)
+        ->and($result['pages'])->toBe(0)
+        ->and($account->metadata['live_api_supported'] ?? null)->toBeFalse();
+});
+
+it('short-circuits on subsequent runs when account is flagged live_api_supported=false', function () {
+    $account = PlatformAccount::factory()->create();
+    $account->update(['metadata' => array_merge($account->metadata ?? [], ['live_api_supported' => false])]);
+
+    // Use a fake that would throw if called — we expect zero invocations
+    $fake = new class
+    {
+        public int $called = 0;
+
+        public function getShopLivePerformanceList(array $params): array
+        {
+            $this->called++;
+            throw new \RuntimeException('Should not have been called');
+        }
+    };
+
+    $service = makeLiveSyncService($fake);
+    $result = $service->syncLivePerformance($account);
+
+    expect($result['synced'])->toBe(0);
+    expect($fake->called)->toBe(0);
+});
