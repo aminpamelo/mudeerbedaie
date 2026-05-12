@@ -9,8 +9,8 @@ it('defines getShopLivePerformanceList and getShopLivePerformanceOverview method
     expect(method_exists(AnalyticsExtended::class, 'getShopLivePerformanceOverview'))->toBeTrue();
 });
 
-it('declares minimum_version 202508', function () {
+it('declares minimum_version 202509', function () {
     $reflection = new ReflectionClass(AnalyticsExtended::class);
     $prop = $reflection->getProperty('minimum_version');
-    expect((int) $prop->getValue($reflection->newInstance()))->toBe(202508);
+    expect((int) $prop->getValue($reflection->newInstance()))->toBe(202509);
 });

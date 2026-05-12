@@ -17,9 +17,17 @@ use ReflectionMethod;
 
 class TikTokLiveSyncService
 {
-    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_ANALYTICS_REPORTING;
+    /**
+     * The shop_lives/* endpoints are scoped under "TikTok Shop Analytics" on
+     * the Multi-Channel app (CATEGORY_MULTI_CHANNEL), not the Analytics &
+     * Reporting app. TikTok groups the LIVE data scopes there even though
+     * other "analytics" endpoints (shop/performance, shop_videos/*) live on
+     * the Analytics & Reporting app. Route this sync through Multi-Channel
+     * so the token carries the correct scope.
+     */
+    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_MULTI_CHANNEL;
 
-    private const API_VERSION = '202508';
+    private const API_VERSION = '202509';
 
     public function __construct(
         private TikTokClientFactory $clientFactory,
@@ -241,34 +249,54 @@ class TikTokLiveSyncService
         // abs+cast normalizes it to a non-negative integer.
         $duration = ($start && $end) ? (int) abs($end->diffInSeconds($start)) : null;
 
+        $sales = $s['sales_performance'] ?? [];
+        $interaction = $s['interaction_performance'] ?? [];
+
         $myr = fn (?array $money) => (is_array($money) && ($money['currency'] ?? null) === 'MYR')
             ? (float) ($money['amount'] ?? 0)
             : null;
+
+        // Percentage fields come back as strings like "5.86%". Strip the suffix
+        // and store as a decimal (so 5.86% → 5.86, NOT 0.0586). This matches
+        // how the existing CSV path stores these columns.
+        $pct = function ($value) {
+            if ($value === null || $value === '') {
+                return null;
+            }
+            $clean = rtrim((string) $value, '%');
+
+            return is_numeric($clean) ? (float) $clean : null;
+        };
 
         return [
             'creator_nickname' => $s['username'] ?? null,
             'creator_display_name' => $s['username'] ?? null,
             'launched_time' => $start,
             'duration_seconds' => $duration,
-            'gmv_myr' => $myr($s['gmv'] ?? null),
-            'live_attributed_gmv_myr' => $myr($s['24h_live_gmv'] ?? null),
-            'avg_price_myr' => $myr($s['avg_price'] ?? null),
-            'products_added' => $s['products_added'] ?? null,
-            'products_sold' => $s['different_products_sold'] ?? null,
-            'sku_orders' => $s['sku_orders'] ?? null,
-            'items_sold' => $s['unit_sold'] ?? null,
-            'unique_customers' => $s['customers'] ?? null,
-            'click_to_order_rate' => $s['click_to_order_rate'] ?? null,
-            'viewers' => $s['viewers'] ?? null,
-            'views' => $s['views'] ?? null,
-            'avg_view_duration_sec' => isset($s['avg_viewing_duration']) ? (int) $s['avg_viewing_duration'] : null,
-            'comments' => $s['comments'] ?? null,
-            'shares' => $s['shares'] ?? null,
-            'likes' => $s['likes'] ?? null,
-            'new_followers' => $s['new_followers'] ?? null,
-            'product_impressions' => $s['product_impressions'] ?? null,
-            'product_clicks' => $s['product_clicks'] ?? null,
-            'ctr' => $s['click_through_rate'] ?? null,
+
+            // Sales metrics
+            'gmv_myr' => $myr($sales['gmv'] ?? null),
+            'live_attributed_gmv_myr' => $myr($sales['24h_live_gmv'] ?? null),
+            'avg_price_myr' => $myr($sales['avg_price'] ?? null),
+            'products_added' => $sales['products_added'] ?? null,
+            'products_sold' => $sales['different_products_sold'] ?? null,
+            'sku_orders' => $sales['sku_orders'] ?? null,
+            'items_sold' => $sales['items_sold'] ?? null,
+            'unique_customers' => $sales['customers'] ?? null,
+            'click_to_order_rate' => $pct($sales['click_to_order_rate'] ?? null),
+
+            // Interaction metrics
+            'viewers' => $interaction['viewers'] ?? null,
+            'views' => $interaction['views'] ?? null,
+            'avg_view_duration_sec' => isset($interaction['avg_viewing_duration']) ? (int) $interaction['avg_viewing_duration'] : null,
+            'comments' => $interaction['comments'] ?? null,
+            'shares' => $interaction['shares'] ?? null,
+            'likes' => $interaction['likes'] ?? null,
+            'new_followers' => $interaction['new_followers'] ?? null,
+            'product_impressions' => $interaction['product_impressions'] ?? null,
+            'product_clicks' => $interaction['product_clicks'] ?? null,
+            'ctr' => $pct($interaction['click_through_rate'] ?? null),
+
             'raw_row_json' => $s,
         ];
     }

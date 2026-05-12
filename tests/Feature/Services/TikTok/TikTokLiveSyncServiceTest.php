@@ -62,22 +62,24 @@ it('upserts a new TiktokLiveReport from one API live_stream_session row', functi
         public function getShopLivePerformanceList(array $params): array
         {
             return [
-                'live_stream_sessions' => [
-                    [
-                        'id' => 'live_12345',
-                        'title' => 'Friday Night Promo',
-                        'username' => 'amarmirzabedaie',
-                        'start_time' => '1746000000',
-                        'end_time' => '1746003600',
+                'live_stream_sessions' => [[
+                    'id' => 'live_12345',
+                    'title' => 'Friday Night Promo',
+                    'username' => 'amarmirzabedaie',
+                    'start_time' => '1746000000',
+                    'end_time' => '1746003600',
+                    'sales_performance' => [
                         'gmv' => ['amount' => '1234.56', 'currency' => 'MYR'],
                         '24h_live_gmv' => ['amount' => '1500.00', 'currency' => 'MYR'],
                         'avg_price' => ['amount' => '45.00', 'currency' => 'MYR'],
                         'products_added' => 10,
                         'different_products_sold' => 5,
                         'sku_orders' => 25,
-                        'unit_sold' => 30,
+                        'items_sold' => 30,
                         'customers' => 20,
-                        'click_to_order_rate' => '0.05',
+                        'click_to_order_rate' => '5.00%',
+                    ],
+                    'interaction_performance' => [
                         'viewers' => 1500,
                         'views' => 5000,
                         'avg_viewing_duration' => '120',
@@ -87,11 +89,9 @@ it('upserts a new TiktokLiveReport from one API live_stream_session row', functi
                         'new_followers' => 15,
                         'product_impressions' => 8000,
                         'product_clicks' => 400,
-                        'click_through_rate' => '0.05',
-                        'acu' => 800,
-                        'pcu' => 1200,
+                        'click_through_rate' => '5.00%',
                     ],
-                ],
+                ]],
                 'next_page_token' => null,
                 'total_count' => 1,
             ];
@@ -129,7 +129,9 @@ it('writes null to gmv_myr when currency is not MYR but preserves raw_row_json',
                     'username' => 'h',
                     'start_time' => '1746000000',
                     'end_time' => '1746000100',
-                    'gmv' => ['amount' => '99', 'currency' => 'USD'],
+                    'sales_performance' => [
+                        'gmv' => ['amount' => '99', 'currency' => 'USD'],
+                    ],
                 ]],
                 'next_page_token' => null,
             ];
@@ -140,7 +142,7 @@ it('writes null to gmv_myr when currency is not MYR but preserves raw_row_json',
 
     $row = TiktokLiveReport::firstWhere('tiktok_live_id', 'live_x');
     expect($row->gmv_myr)->toBeNull()
-        ->and($row->raw_row_json['gmv']['amount'])->toBe('99');
+        ->and($row->raw_row_json['sales_performance']['gmv']['amount'])->toBe('99');
 });
 
 it('looks up creator_platform_user_id from creator_handle and matches a LiveSession', function () {
@@ -179,7 +181,9 @@ it('looks up creator_platform_user_id from creator_handle and matches a LiveSess
                     'username' => 'amarmirzabedaie',
                     'start_time' => (string) $this->startTime->timestamp,
                     'end_time' => (string) $this->startTime->copy()->addMinutes(30)->timestamp,
-                    'gmv' => ['amount' => '500', 'currency' => 'MYR'],
+                    'sales_performance' => [
+                        'gmv' => ['amount' => '500', 'currency' => 'MYR'],
+                    ],
                 ]],
                 'next_page_token' => null,
             ];
@@ -206,8 +210,12 @@ it('creates a paired ActualLiveRecord per upserted TiktokLiveReport', function (
                     'username' => 'host1',
                     'start_time' => '1746000000',
                     'end_time' => '1746003600',
-                    'gmv' => ['amount' => '300', 'currency' => 'MYR'],
-                    'viewers' => 50,
+                    'sales_performance' => [
+                        'gmv' => ['amount' => '300', 'currency' => 'MYR'],
+                    ],
+                    'interaction_performance' => [
+                        'viewers' => 50,
+                    ],
                 ]],
                 'next_page_token' => null,
             ];
@@ -240,7 +248,9 @@ it('re-syncing the same live preserves matched_live_session_id', function () {
             'username' => 'h',
             'start_time' => '1746000000',
             'end_time' => '1746003600',
-            'gmv' => ['amount' => (string) $gmv, 'currency' => 'MYR'],
+            'sales_performance' => [
+                'gmv' => ['amount' => (string) $gmv, 'currency' => 'MYR'],
+            ],
         ]],
         'next_page_token' => null,
     ];
@@ -291,7 +301,9 @@ it('leaves duration_seconds null when end_time is missing from the API payload',
                     'username' => 'h',
                     'start_time' => '1746000000',
                     // end_time deliberately omitted
-                    'gmv' => ['amount' => '10', 'currency' => 'MYR'],
+                    'sales_performance' => [
+                        'gmv' => ['amount' => '10', 'currency' => 'MYR'],
+                    ],
                 ]],
                 'next_page_token' => null,
             ];

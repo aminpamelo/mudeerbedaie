@@ -9,7 +9,7 @@ use GuzzleHttp\RequestOptions;
 
 class AnalyticsExtended extends Analytics
 {
-    protected $minimum_version = 202508;
+    protected $minimum_version = 202509;
 
     /**
      * GET /analytics/{version}/shop_lives/performance
