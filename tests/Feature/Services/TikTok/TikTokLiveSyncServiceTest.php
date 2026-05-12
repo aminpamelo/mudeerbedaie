@@ -278,3 +278,31 @@ it('re-syncing the same live preserves matched_live_session_id', function () {
     expect($row->matched_live_session_id)->toBe($session->id)
         ->and((float) $row->gmv_myr)->toBe(200.00);
 });
+
+it('leaves duration_seconds null when end_time is missing from the API payload', function () {
+    $account = PlatformAccount::factory()->create();
+    $fakeAnalytics = new class
+    {
+        public function getShopLivePerformanceList(array $params): array
+        {
+            return [
+                'live_stream_sessions' => [[
+                    'id' => 'live_no_end',
+                    'username' => 'h',
+                    'start_time' => '1746000000',
+                    // end_time deliberately omitted
+                    'gmv' => ['amount' => '10', 'currency' => 'MYR'],
+                ]],
+                'next_page_token' => null,
+            ];
+        }
+    };
+    $service = makeLiveSyncService($fakeAnalytics);
+    $service->syncLivePerformance($account);
+
+    $row = TiktokLiveReport::firstWhere('tiktok_live_id', 'live_no_end');
+    expect($row->duration_seconds)->toBeNull();
+
+    $alr = \App\Models\ActualLiveRecord::where('source_record_id', 'live_no_end')->first();
+    expect($alr->duration_seconds)->toBeNull();
+});

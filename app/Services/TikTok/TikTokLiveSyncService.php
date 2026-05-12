@@ -30,7 +30,7 @@ class TikTokLiveSyncService
     /**
      * Sync per-LIVE rows from TikTok's Shop Lives Performance API and upsert
      * into tiktok_live_reports keyed on (platform_account_id, tiktok_live_id).
-     * Also mirrors a paired ActualLiveRecord (source='api') so commission/payroll
+     * Also mirrors a paired ActualLiveRecord (source='api_sync') so commission/payroll
      * downstream sees this row the same way as a CSV import.
      *
      * @return array{synced: int, created: int, updated: int, matched: int, unmatched: int, pages: int}
@@ -52,6 +52,9 @@ class TikTokLiveSyncService
         $unmatched = 0;
         $pages = 0;
         $pageToken = null;
+
+        /** @var array<string, ?\App\Models\LiveHostPlatformAccount> */
+        $pivotCache = [];
 
         do {
             $params = [
@@ -96,10 +99,14 @@ class TikTokLiveSyncService
                 // creator id can't bleed across sibling accounts. The matcher
                 // requires tiktok_creator_id to be non-null, so we do this first.
                 if ($report->tiktok_creator_id === null && $report->creator_nickname !== null) {
-                    $pivot = LiveHostPlatformAccount::query()
-                        ->where('platform_account_id', $account->id)
-                        ->where('creator_handle', $report->creator_nickname)
-                        ->first();
+                    $key = $report->creator_nickname;
+                    if (! array_key_exists($key, $pivotCache)) {
+                        $pivotCache[$key] = LiveHostPlatformAccount::query()
+                            ->where('platform_account_id', $account->id)
+                            ->where('creator_handle', $key)
+                            ->first();
+                    }
+                    $pivot = $pivotCache[$key];
 
                     if ($pivot && $pivot->creator_platform_user_id !== null) {
                         $report->tiktok_creator_id = $pivot->creator_platform_user_id;
@@ -198,7 +205,6 @@ class TikTokLiveSyncService
         return [
             'creator_nickname' => $s['username'] ?? null,
             'creator_display_name' => $s['username'] ?? null,
-            'tiktok_creator_id' => null, // API doesn't expose this here
             'launched_time' => $start,
             'duration_seconds' => $duration,
             'gmv_myr' => $myr($s['gmv'] ?? null),
