@@ -1,0 +1,184 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\TikTok;
+
+use App\Models\PlatformAccount;
+use App\Models\PlatformApp;
+use App\Models\TiktokLiveReport;
+use App\Services\TikTok\Sdk\AnalyticsExtended;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use ReflectionMethod;
+
+class TikTokLiveSyncService
+{
+    protected const REQUIRED_CATEGORY = PlatformApp::CATEGORY_ANALYTICS_REPORTING;
+
+    private const API_VERSION = '202508';
+
+    public function __construct(
+        private TikTokClientFactory $clientFactory,
+        private TikTokAuthService $authService,
+    ) {}
+
+    /**
+     * Sync per-LIVE rows from TikTok's Shop Lives Performance API and upsert
+     * into tiktok_live_reports keyed on (platform_account_id, tiktok_live_id).
+     *
+     * @return array{synced: int, created: int, updated: int, pages: int}
+     */
+    public function syncLivePerformance(
+        PlatformAccount $account,
+        ?Carbon $from = null,
+        ?Carbon $to = null,
+    ): array {
+        $client = $this->getClient($account);
+
+        $from ??= now()->subDays(30);
+        $to ??= now();
+
+        $synced = 0;
+        $created = 0;
+        $updated = 0;
+        $pages = 0;
+        $pageToken = null;
+
+        do {
+            $params = [
+                'start_date_ge' => $from->format('Y-m-d'),
+                'end_date_lt' => $to->format('Y-m-d'),
+                'page_size' => 100,
+            ];
+
+            if ($pageToken) {
+                $params['page_token'] = $pageToken;
+            }
+
+            $response = $client->Analytics->getShopLivePerformanceList($params);
+            $sessions = $response['live_stream_sessions'] ?? [];
+
+            foreach ($sessions as $session) {
+                $tiktokLiveId = $session['id'] ?? null;
+
+                if (! $tiktokLiveId) {
+                    continue;
+                }
+
+                $attrs = $this->normalize($session);
+
+                /** @var TiktokLiveReport $report */
+                $report = TiktokLiveReport::firstOrNew([
+                    'platform_account_id' => $account->id,
+                    'tiktok_live_id' => $tiktokLiveId,
+                ]);
+                $existed = $report->exists;
+
+                // Preserve matched_live_session_id and import_id on re-sync.
+                $report->fill($attrs);
+                $report->platform_account_id = $account->id;
+                $report->tiktok_live_id = $tiktokLiveId;
+                $report->source = 'api';
+                $report->synced_at = now();
+                $report->save();
+
+                $synced++;
+                $existed ? $updated++ : $created++;
+            }
+
+            $pageToken = $response['next_page_token'] ?? null;
+            $pages++;
+        } while ($pageToken && $pages < 50);
+
+        Log::info('[TikTokLiveSync] Completed', [
+            'account_id' => $account->id,
+            'synced' => $synced,
+            'created' => $created,
+            'updated' => $updated,
+            'pages' => $pages,
+        ]);
+
+        return compact('synced', 'created', 'updated', 'pages');
+    }
+
+    /**
+     * Map an API live_stream_session payload into TiktokLiveReport columns.
+     *
+     * @param  array<string, mixed>  $s
+     * @return array<string, mixed>
+     */
+    private function normalize(array $s): array
+    {
+        $start = isset($s['start_time']) ? Carbon::createFromTimestamp((int) $s['start_time']) : null;
+        $end = isset($s['end_time']) ? Carbon::createFromTimestamp((int) $s['end_time']) : null;
+        // Carbon 3 returns a signed float and the sign depends on call ordering;
+        // abs+cast normalizes it to a non-negative integer.
+        $duration = ($start && $end) ? (int) abs($end->diffInSeconds($start)) : null;
+
+        $myr = fn (?array $money) => (is_array($money) && ($money['currency'] ?? null) === 'MYR')
+            ? (float) ($money['amount'] ?? 0)
+            : null;
+
+        return [
+            'creator_nickname' => $s['username'] ?? null,
+            'creator_display_name' => $s['username'] ?? null,
+            'tiktok_creator_id' => null, // API doesn't expose this here
+            'launched_time' => $start,
+            'duration_seconds' => $duration,
+            'gmv_myr' => $myr($s['gmv'] ?? null),
+            'live_attributed_gmv_myr' => $myr($s['24h_live_gmv'] ?? null),
+            'avg_price_myr' => $myr($s['avg_price'] ?? null),
+            'products_added' => $s['products_added'] ?? null,
+            'products_sold' => $s['different_products_sold'] ?? null,
+            'sku_orders' => $s['sku_orders'] ?? null,
+            'items_sold' => $s['unit_sold'] ?? null,
+            'unique_customers' => $s['customers'] ?? null,
+            'click_to_order_rate' => $s['click_to_order_rate'] ?? null,
+            'viewers' => $s['viewers'] ?? null,
+            'views' => $s['views'] ?? null,
+            'avg_view_duration_sec' => isset($s['avg_viewing_duration']) ? (int) $s['avg_viewing_duration'] : null,
+            'comments' => $s['comments'] ?? null,
+            'shares' => $s['shares'] ?? null,
+            'likes' => $s['likes'] ?? null,
+            'new_followers' => $s['new_followers'] ?? null,
+            'product_impressions' => $s['product_impressions'] ?? null,
+            'product_clicks' => $s['product_clicks'] ?? null,
+            'ctr' => $s['click_through_rate'] ?? null,
+            'raw_row_json' => $s,
+        ];
+    }
+
+    /**
+     * Get an authenticated client whose ->Analytics is an AnalyticsExtended
+     * resource (so getShopLive* methods exist) pinned to API_VERSION.
+     */
+    protected function getClient(PlatformAccount $account): mixed
+    {
+        $app = $this->clientFactory->resolveApp($account, static::REQUIRED_CATEGORY);
+
+        if ($this->authService->needsTokenRefresh($account, $app)) {
+            Log::info('[TikTokLiveSync] Refreshing token before sync', [
+                'account_id' => $account->id,
+                'platform_app_id' => $app->id,
+            ]);
+            $this->authService->refreshToken($account, $app);
+        }
+
+        $client = $this->clientFactory->createClientForAccount($account, static::REQUIRED_CATEGORY);
+        $client->useVersion(self::API_VERSION);
+
+        // Reuse the SDK Client's already-configured Guzzle (signing + base URI)
+        // so we don't have to replicate signing in our extended resource.
+        // PHP 8.1+ makes setAccessible() a no-op for visibility; ReflectionMethod
+        // can invoke a protected method directly.
+        $analytics = new AnalyticsExtended;
+        $analytics->useHttpClient((new ReflectionMethod($client, 'httpClient'))->invoke($client));
+        $analytics->useVersion(self::API_VERSION);
+
+        return new class($analytics)
+        {
+            public function __construct(public object $Analytics) {}
+        };
+    }
+}
