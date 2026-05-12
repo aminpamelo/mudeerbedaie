@@ -12,6 +12,5 @@ it('defines getShopLivePerformanceList and getShopLivePerformanceOverview method
 it('declares minimum_version 202508', function () {
     $reflection = new ReflectionClass(AnalyticsExtended::class);
     $prop = $reflection->getProperty('minimum_version');
-    $prop->setAccessible(true);
     expect((int) $prop->getValue($reflection->newInstance()))->toBe(202508);
 });
