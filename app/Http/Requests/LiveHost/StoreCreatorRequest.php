@@ -36,8 +36,6 @@ class StoreCreatorRequest extends FormRequest
                 'required',
                 'integer',
                 Rule::exists('platform_accounts', 'id'),
-                Rule::unique('live_host_platform_account', 'platform_account_id')
-                    ->where(fn ($q) => $q->where('user_id', $this->input('user_id'))),
             ],
             'creator_handle' => ['nullable', 'string', 'max:191'],
             'creator_platform_user_id' => ['required', 'string', 'max:191'],
@@ -51,7 +49,6 @@ class StoreCreatorRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'platform_account_id.unique' => 'This host is already linked to the selected platform account.',
             'creator_platform_user_id.required' => 'Creator ID is required to match TikTok reports.',
         ];
     }
