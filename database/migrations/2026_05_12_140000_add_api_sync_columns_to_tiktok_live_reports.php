@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\TiktokLiveReport;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -11,29 +12,49 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('tiktok_live_reports', function (Blueprint $table) {
-            $table->string('tiktok_live_id')->nullable()->after('id');
-            $table->foreignId('platform_account_id')->nullable()->after('tiktok_live_id')
-                ->constrained('platform_accounts')->nullOnDelete();
-            $table->string('source', 16)->default('csv')->after('platform_account_id');
-            $table->timestamp('synced_at')->nullable()->after('source');
-        });
+        if (Schema::hasColumn('tiktok_live_reports', 'tiktok_live_id')) {
+            return;
+        }
 
-        // Plain unique works on both drivers and tolerates multiple NULL pairs
+        $driver = DB::getDriverName();
+
+        if ($driver === 'mysql') {
+            Schema::table('tiktok_live_reports', function (Blueprint $table) {
+                $table->string('tiktok_live_id')->nullable()->after('id');
+                $table->foreignId('platform_account_id')->nullable()->after('tiktok_live_id')
+                    ->constrained('platform_accounts')->nullOnDelete();
+                $table->string('source', 16)->default('csv')->after('platform_account_id');
+                $table->timestamp('synced_at')->nullable()->after('source');
+            });
+        } else {
+            Schema::table('tiktok_live_reports', function (Blueprint $table) {
+                $table->string('tiktok_live_id')->nullable();
+                $table->foreignId('platform_account_id')->nullable()
+                    ->constrained('platform_accounts')->nullOnDelete();
+                $table->string('source', 16)->default('csv');
+                $table->timestamp('synced_at')->nullable();
+            });
+        }
+
         Schema::table('tiktok_live_reports', function (Blueprint $table) {
             $table->unique(['platform_account_id', 'tiktok_live_id'], 'tlr_account_live_unique');
         });
 
-        // Backfill platform_account_id for already-matched CSV rows
-        DB::table('tiktok_live_reports')
+        TiktokLiveReport::query()
             ->whereNotNull('matched_live_session_id')
             ->whereNull('platform_account_id')
-            ->update([
-                'platform_account_id' => DB::raw(
-                    '(SELECT live_sessions.platform_account_id FROM live_sessions '
-                    .'WHERE live_sessions.id = tiktok_live_reports.matched_live_session_id)'
-                ),
-            ]);
+            ->with('matchedLiveSession:id,platform_account_id')
+            ->chunkById(500, function ($reports) {
+                foreach ($reports as $report) {
+                    $accountId = $report->matchedLiveSession?->platform_account_id;
+
+                    if ($accountId !== null) {
+                        DB::table('tiktok_live_reports')
+                            ->where('id', $report->id)
+                            ->update(['platform_account_id' => $accountId]);
+                    }
+                }
+            });
     }
 
     public function down(): void
