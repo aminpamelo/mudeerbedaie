@@ -34,7 +34,7 @@ function makeAnalyticsService(object $fakeClient): TikTokAnalyticsSyncService
             $this->testClient = $testClient;
         }
 
-        protected function getClient(PlatformAccount $account): mixed
+        protected function getClient(PlatformAccount $account, string $version): mixed
         {
             return $this->testClient;
         }
