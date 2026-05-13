@@ -182,3 +182,61 @@ it('rejects non-admin users', function () {
             'slug' => 'x',
         ])->assertForbidden();
 });
+
+it('duplicates a campaign as a fresh draft copying form schema and stages', function () {
+    $admin = adminLivehost();
+    $source = LiveHostRecruitmentCampaign::factory()->create([
+        'title' => 'Live Host Tiktok Bedaie 1.0',
+        'slug' => 'live-host-tiktok-bedaie-1-0',
+        'description' => 'Recruitment for Bedaie hosts.',
+        'status' => 'open',
+        'target_count' => 100,
+        'form_schema' => ['pages' => [['title' => 'Page 1', 'fields' => [['id' => 'name', 'type' => 'text', 'label' => 'Name']]]]],
+    ]);
+
+    // Customize one stage on the source so we can prove stages are copied (not re-seeded).
+    $source->stages()->where('position', 1)->update(['name' => 'Custom Review']);
+
+    LiveHostApplicant::factory()->create(['campaign_id' => $source->id]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('livehost.recruitment.campaigns.duplicate', $source));
+
+    $copy = LiveHostRecruitmentCampaign::where('id', '!=', $source->id)->latest('id')->firstOrFail();
+
+    $response->assertRedirect(route('livehost.recruitment.campaigns.edit', $copy));
+    expect($copy->title)->toBe('Live Host Tiktok Bedaie 1.0 (Copy)');
+    expect($copy->slug)->toBe('live-host-tiktok-bedaie-10-copy');
+    expect($copy->status)->toBe('draft');
+    expect($copy->target_count)->toBe(100);
+    expect($copy->description)->toBe('Recruitment for Bedaie hosts.');
+    expect($copy->form_schema)->toBe($source->form_schema);
+    expect($copy->created_by)->toBe($admin->id);
+    expect($copy->applicants()->count())->toBe(0);
+    expect($copy->stages()->count())->toBe($source->stages()->count());
+    expect($copy->stages()->where('position', 1)->value('name'))->toBe('Custom Review');
+});
+
+it('generates incremental slugs when duplicating the same source twice', function () {
+    $admin = adminLivehost();
+    $source = LiveHostRecruitmentCampaign::factory()->create([
+        'title' => 'My Form',
+        'slug' => 'my-form',
+    ]);
+
+    $this->actingAs($admin)->post(route('livehost.recruitment.campaigns.duplicate', $source));
+    $this->actingAs($admin)->post(route('livehost.recruitment.campaigns.duplicate', $source));
+
+    $slugs = LiveHostRecruitmentCampaign::where('id', '!=', $source->id)->pluck('slug')->all();
+    expect($slugs)->toContain('my-form-copy');
+    expect($slugs)->toContain('my-form-copy-2');
+});
+
+it('rejects duplicate endpoint for non-recruitment users', function () {
+    $user = User::factory()->create(['role' => 'student']);
+    $campaign = LiveHostRecruitmentCampaign::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('livehost.recruitment.campaigns.duplicate', $campaign))
+        ->assertForbidden();
+});

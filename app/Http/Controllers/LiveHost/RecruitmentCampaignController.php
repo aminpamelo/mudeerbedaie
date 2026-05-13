@@ -9,6 +9,8 @@ use App\Models\LiveHostRecruitmentCampaign;
 use App\Services\Recruitment\FormSchemaValidator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -164,5 +166,60 @@ class RecruitmentCampaignController extends Controller
         return redirect()
             ->route('livehost.recruitment.campaigns.index')
             ->with('success', "Campaign \"{$title}\" deleted.");
+    }
+
+    /**
+     * Clone a campaign's setup (title, form schema, stages, schedule) into a
+     * fresh draft so PIC can spin up sibling campaigns for different hosts
+     * without re-typing the form. Applicants are intentionally NOT carried over.
+     */
+    public function duplicate(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
+    {
+        $duplicate = DB::transaction(function () use ($request, $campaign) {
+            $newTitle = $campaign->title.' (Copy)';
+
+            // Skip model events so the `created` listener does not seed the
+            // default 4 stages — we copy stages from the source instead.
+            $new = LiveHostRecruitmentCampaign::withoutEvents(function () use ($campaign, $newTitle, $request) {
+                return LiveHostRecruitmentCampaign::create([
+                    'title' => $newTitle,
+                    'slug' => $this->uniqueSlugFor($newTitle),
+                    'description' => $campaign->description,
+                    'status' => 'draft',
+                    'target_count' => $campaign->target_count,
+                    'opens_at' => $campaign->opens_at,
+                    'closes_at' => $campaign->closes_at,
+                    'created_by' => $request->user()->id,
+                    'form_schema' => $campaign->form_schema,
+                ]);
+            });
+
+            foreach ($campaign->stages()->orderBy('position')->get() as $stage) {
+                $new->stages()->create([
+                    'position' => $stage->position,
+                    'name' => $stage->name,
+                    'description' => $stage->description,
+                    'is_final' => $stage->is_final,
+                ]);
+            }
+
+            return $new;
+        });
+
+        return redirect()
+            ->route('livehost.recruitment.campaigns.edit', $duplicate)
+            ->with('success', 'Campaign duplicated as draft. Rename and publish when ready.');
+    }
+
+    private function uniqueSlugFor(string $title): string
+    {
+        $base = Str::slug($title) ?: 'campaign';
+        $slug = $base;
+        $i = 2;
+        while (LiveHostRecruitmentCampaign::query()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i++;
+        }
+
+        return $slug;
     }
 }

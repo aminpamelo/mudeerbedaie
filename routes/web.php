@@ -437,6 +437,8 @@ Route::middleware(['auth'])
                     ->name('campaigns.close');
                 Route::delete('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'destroy'])
                     ->name('campaigns.destroy');
+                Route::post('campaigns/{campaign}/duplicate', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'duplicate'])
+                    ->name('campaigns.duplicate');
 
                 // Stage editor endpoints (note: reorder must come before the {stage} routes).
                 Route::post('campaigns/{campaign}/stages', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'store'])

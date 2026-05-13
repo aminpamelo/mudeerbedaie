@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Copy,
+  CopyPlus,
   Link as LinkIcon,
   Pause,
   Pencil,
@@ -84,6 +85,14 @@ export default function CampaignsIndex() {
     router.delete(`/livehost/recruitment/campaigns/${campaign.id}`, {
       preserveScroll: true,
     });
+  };
+
+  const handleDuplicate = (campaign) => {
+    router.post(
+      `/livehost/recruitment/campaigns/${campaign.id}/duplicate`,
+      {},
+      { preserveScroll: true }
+    );
   };
 
   const newCampaignAction = (
@@ -189,6 +198,14 @@ export default function CampaignsIndex() {
                         >
                           <Users className="h-[12px] w-[12px]" strokeWidth={2.25} /> Applicants
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicate(campaign)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                          title="Duplicate campaign (form & stages, as a new draft)"
+                        >
+                          <CopyPlus className="h-[14px] w-[14px]" strokeWidth={2} />
+                        </button>
                         {campaign.public_url && (
                           <button
                             type="button"
