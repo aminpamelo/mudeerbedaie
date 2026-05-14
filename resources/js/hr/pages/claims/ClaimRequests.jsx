@@ -18,6 +18,8 @@ import {
     Route,
     Plus,
     Upload,
+    Users,
+    Wallet,
 } from 'lucide-react';
 import {
     fetchClaimRequests,
@@ -25,6 +27,7 @@ import {
     approveClaimRequest,
     rejectClaimRequest,
     markClaimPaid,
+    payAllClaimsForEmployee,
     exportClaimRequests,
     fetchClaimTypes,
     fetchDepartments,
@@ -138,15 +141,22 @@ export default function ClaimRequests() {
     });
     const [createErrors, setCreateErrors] = useState({});
     const [createWarning, setCreateWarning] = useState('');
+    const [groupByEmployee, setGroupByEmployee] = useState(true);
+    const [payAllDialog, setPayAllDialog] = useState(null);
+    const [payAllReference, setPayAllReference] = useState('');
+    const [payAllError, setPayAllError] = useState('');
+
+    const perPage = groupByEmployee ? 200 : 15;
+    const effectivePage = groupByEmployee ? 1 : page;
 
     const { data, isLoading } = useQuery({
-        queryKey: ['hr', 'claims', 'requests', { search, status, claimTypeId, page }],
+        queryKey: ['hr', 'claims', 'requests', { search, status, claimTypeId, page: effectivePage, perPage }],
         queryFn: () => fetchClaimRequests({
             search: search || undefined,
             status: status !== 'all' ? status : undefined,
             claim_type_id: claimTypeId !== 'all' ? claimTypeId : undefined,
-            page,
-            per_page: 15,
+            page: effectivePage,
+            per_page: perPage,
         }),
     });
 
@@ -184,6 +194,18 @@ export default function ClaimRequests() {
             setActionDialog({ open: false, type: null, request: null });
             setPayReference('');
         },
+    });
+
+    const payAllMutation = useMutation({
+        mutationFn: ({ employeeId, reference }) =>
+            payAllClaimsForEmployee(employeeId, { paid_reference: reference || null }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'requests'] });
+            setPayAllDialog(null);
+            setPayAllReference('');
+            setPayAllError('');
+        },
+        onError: (err) => setPayAllError(err?.response?.data?.message || 'Failed to mark claims as paid.'),
     });
 
     const { data: employeesData } = useQuery({
@@ -230,6 +252,35 @@ export default function ClaimRequests() {
     const meta = data?.meta || {};
     const claimTypes = claimTypesData?.data || [];
     const employees = employeesData?.data || [];
+
+    const groupedRequests = useMemo(() => {
+        if (!groupByEmployee) return [];
+        const map = new Map();
+        for (const req of requests) {
+            const empId = req.employee?.id ?? req.employee_id ?? 'unknown';
+            if (!map.has(empId)) {
+                map.set(empId, {
+                    employee_id: empId,
+                    employee: req.employee,
+                    claims: [],
+                    approvedTotal: 0,
+                    approvedCount: 0,
+                });
+            }
+            const group = map.get(empId);
+            group.claims.push(req);
+            if (req.status === 'approved') {
+                group.approvedCount += 1;
+                group.approvedTotal += parseFloat(req.approved_amount ?? req.amount ?? 0);
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => {
+            if (b.approvedTotal !== a.approvedTotal) return b.approvedTotal - a.approvedTotal;
+            const aName = a.employee?.full_name || '';
+            const bName = b.employee?.full_name || '';
+            return aName.localeCompare(bName);
+        });
+    }, [groupByEmployee, requests]);
 
     const selectedClaimType = useMemo(
         () => claimTypes.find((t) => String(t.id) === String(createForm.claim_type_id)) || null,
@@ -365,6 +416,14 @@ export default function ClaimRequests() {
                             />
                         </div>
                         <Button
+                            variant={groupByEmployee ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => { setGroupByEmployee((p) => !p); setPage(1); }}
+                        >
+                            <Users className="mr-1.5 h-4 w-4" />
+                            {groupByEmployee ? 'Grouped by Staff' : 'Group by Staff'}
+                        </Button>
+                        <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setFiltersOpen((p) => !p)}
@@ -437,6 +496,142 @@ export default function ClaimRequests() {
                             <FileText className="mb-3 h-10 w-10 text-zinc-300" />
                             <p className="text-sm font-medium text-zinc-600">No claim requests found</p>
                             <p className="mt-1 text-xs text-zinc-400">Try adjusting your search or filters.</p>
+                        </div>
+                    ) : groupByEmployee ? (
+                        <div className="space-y-4">
+                            {groupedRequests.map((group) => {
+                                const empName = group.employee?.full_name || 'Unknown';
+                                const deptName = group.employee?.department?.name;
+                                const initials = empName.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+                                return (
+                                    <div key={group.employee_id} className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 bg-zinc-50/70 px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+                                                    {initials}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-zinc-900">{empName}</p>
+                                                    <p className="text-xs text-zinc-500">
+                                                        {deptName ? `${deptName} · ` : ''}{group.claims.length} claim{group.claims.length !== 1 ? 's' : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <p className="text-[10px] uppercase tracking-wide text-zinc-400">Pay-out</p>
+                                                    <p className="text-base font-bold text-emerald-700">
+                                                        {formatCurrency(group.approvedTotal)}
+                                                    </p>
+                                                    <p className="text-[10px] text-zinc-400">
+                                                        {group.approvedCount} approved
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    disabled={group.approvedCount === 0}
+                                                    onClick={() => {
+                                                        setPayAllDialog({
+                                                            employee_id: group.employee_id,
+                                                            name: empName,
+                                                            count: group.approvedCount,
+                                                            total: group.approvedTotal,
+                                                        });
+                                                        setPayAllReference('');
+                                                        setPayAllError('');
+                                                    }}
+                                                >
+                                                    <Wallet className="mr-1.5 h-4 w-4" />
+                                                    Pay All
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Claim No.</TableHead>
+                                                    <TableHead>Type</TableHead>
+                                                    <TableHead>Amount</TableHead>
+                                                    <TableHead>Date</TableHead>
+                                                    <TableHead>Receipt</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {group.claims.map((request) => {
+                                                    const badge = STATUS_BADGE[request.status] || { className: 'bg-zinc-100 text-zinc-600', label: request.status };
+                                                    return (
+                                                        <TableRow key={request.id}>
+                                                            <TableCell className="font-mono text-sm">{request.claim_number}</TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="outline" className="gap-1">
+                                                                    {request.claim_type?.is_mileage_type && (
+                                                                        <Car className="h-3 w-3 text-blue-500" />
+                                                                    )}
+                                                                    {request.claim_type?.name || '-'}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="font-medium">
+                                                                {formatCurrency(request.status === 'approved' && request.approved_amount ? request.approved_amount : request.amount)}
+                                                            </TableCell>
+                                                            <TableCell className="text-sm text-zinc-500">{formatDate(request.claim_date)}</TableCell>
+                                                            <TableCell>
+                                                                {request.receipt_url ? (
+                                                                    <a
+                                                                        href={request.receipt_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                                                    >
+                                                                        <Paperclip className="h-3.5 w-3.5" />
+                                                                        View
+                                                                    </a>
+                                                                ) : (
+                                                                    <span className="text-xs text-zinc-400">-</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', badge.className)}>
+                                                                    {badge.label}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    <Button variant="ghost" size="sm" onClick={() => viewDetail(request)}>
+                                                                        <Eye className="h-4 w-4" />
+                                                                    </Button>
+                                                                    {request.status === 'pending' && (
+                                                                        <>
+                                                                            <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700" onClick={() => handleAction('approve', request)}>
+                                                                                <CheckCircle2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleAction('reject', request)}>
+                                                                                <XCircle className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </>
+                                                                    )}
+                                                                    {request.status === 'approved' && (
+                                                                        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700" onClick={() => handleAction('pay', request)}>
+                                                                            <CreditCard className="h-4 w-4" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                );
+                            })}
+                            {meta.total > requests.length && (
+                                <p className="text-center text-xs text-zinc-400">
+                                    Showing {requests.length} of {meta.total} claims. Narrow filters to group all matching claims.
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -1105,6 +1300,64 @@ export default function ClaimRequests() {
                             {actionDialog.type === 'approve' && 'Approve'}
                             {actionDialog.type === 'reject' && 'Reject'}
                             {actionDialog.type === 'pay' && 'Mark as Paid'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Pay All Dialog */}
+            <Dialog open={!!payAllDialog} onOpenChange={(open) => { if (!open) { setPayAllDialog(null); setPayAllError(''); } }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Pay All Approved Claims</DialogTitle>
+                        <DialogDescription>
+                            All approved claims for this staff will be marked as paid in one transaction.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {payAllDialog && (
+                        <div className="space-y-3">
+                            <div className="rounded-lg bg-emerald-50/60 p-3 text-sm">
+                                <p className="font-medium text-zinc-900">{payAllDialog.name}</p>
+                                <p className="text-zinc-600">
+                                    <span className="font-semibold text-emerald-700">{payAllDialog.count}</span>{' '}
+                                    approved claim{payAllDialog.count !== 1 ? 's' : ''} &middot;{' '}
+                                    Total{' '}
+                                    <span className="font-semibold text-emerald-700">{formatCurrency(payAllDialog.total)}</span>
+                                </p>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                    Payment Reference (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={payAllReference}
+                                    onChange={(e) => setPayAllReference(e.target.value)}
+                                    placeholder="e.g. BNK-20260514-001"
+                                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                                />
+                                <p className="mt-1 text-xs text-zinc-500">
+                                    The same reference will be saved on every claim in this transfer.
+                                </p>
+                            </div>
+                            {payAllError && (
+                                <p className="flex items-center gap-1.5 text-sm text-red-600">
+                                    <AlertCircle className="h-4 w-4 shrink-0" /> {payAllError}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setPayAllDialog(null); setPayAllError(''); }}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => payAllMutation.mutate({ employeeId: payAllDialog.employee_id, reference: payAllReference })}
+                            disabled={payAllMutation.isPending || !payAllDialog?.count}
+                        >
+                            {payAllMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                            <Wallet className="mr-1.5 h-4 w-4" />
+                            Confirm Pay All
                         </Button>
                     </DialogFooter>
                 </DialogContent>

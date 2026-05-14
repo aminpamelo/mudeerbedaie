@@ -323,6 +323,7 @@ export const createAdminClaimRequest = (data) => api.post('/claims/requests', da
 export const approveClaimRequest = (id, data) => api.post(`/claims/requests/${id}/approve`, data).then(r => r.data);
 export const rejectClaimRequest = (id, data) => api.post(`/claims/requests/${id}/reject`, data).then(r => r.data);
 export const markClaimPaid = (id, data) => api.post(`/claims/requests/${id}/mark-paid`, data).then(r => r.data);
+export const payAllClaimsForEmployee = (employeeId, data) => api.post(`/claims/requests/employees/${employeeId}/pay-all`, data).then(r => r.data);
 export const exportClaimRequests = (params) => api.get('/claims/requests/export', { params, responseType: 'blob' }).then(r => r.data);
 
 // ========== Claim Approvers ==========

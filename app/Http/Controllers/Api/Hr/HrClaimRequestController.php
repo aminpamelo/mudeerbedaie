@@ -48,9 +48,67 @@ class HrClaimRequestController extends Controller
             $query->whereDate('claim_date', '<=', $dateTo);
         }
 
-        $requests = $query->orderByDesc('created_at')->paginate(15);
+        $perPage = (int) $request->get('per_page', 15);
+        $perPage = max(1, min($perPage, 200));
+
+        $requests = $query->orderByDesc('created_at')->paginate($perPage);
 
         return response()->json($requests);
+    }
+
+    /**
+     * Mark all approved claims for a given employee as paid in one bulk transfer.
+     */
+    public function payAllByEmployee(Request $request, Employee $employee): JsonResponse
+    {
+        $validated = $request->validate([
+            'paid_reference' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $reference = $validated['paid_reference'] ?? null;
+
+        $approvedClaims = ClaimRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->get();
+
+        if ($approvedClaims->isEmpty()) {
+            return response()->json([
+                'count' => 0,
+                'total' => 0,
+                'employee_id' => $employee->id,
+                'message' => 'No approved claims to pay for this employee.',
+            ]);
+        }
+
+        $total = (float) $approvedClaims->sum(function (ClaimRequest $claim) {
+            return (float) ($claim->approved_amount ?? $claim->amount);
+        });
+
+        DB::transaction(function () use ($approvedClaims, $reference) {
+            foreach ($approvedClaims as $claim) {
+                $claim->update([
+                    'status' => 'paid',
+                    'paid_at' => now(),
+                    'paid_reference' => $reference,
+                ]);
+            }
+        });
+
+        $employee->load('user');
+        if ($employee->user) {
+            foreach ($approvedClaims as $claim) {
+                $claim->load('claimType');
+                $employee->user->notify(new ClaimMarkedPaid($claim->fresh()));
+            }
+        }
+
+        return response()->json([
+            'count' => $approvedClaims->count(),
+            'total' => $total,
+            'employee_id' => $employee->id,
+            'message' => 'All approved claims marked as paid.',
+        ]);
     }
 
     /**

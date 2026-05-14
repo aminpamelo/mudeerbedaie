@@ -804,6 +804,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::post('claims/requests/{claimRequest}/approve', [HrClaimRequestController::class, 'approve'])->name('api.hr.claims.requests.approve');
     Route::post('claims/requests/{claimRequest}/reject', [HrClaimRequestController::class, 'reject'])->name('api.hr.claims.requests.reject');
     Route::post('claims/requests/{claimRequest}/mark-paid', [HrClaimRequestController::class, 'markPaid'])->name('api.hr.claims.requests.mark-paid');
+    Route::post('claims/requests/employees/{employee}/pay-all', [HrClaimRequestController::class, 'payAllByEmployee'])->name('api.hr.claims.requests.pay-all-by-employee');
 
     // Claims Reports
     Route::get('claims/reports', [HrClaimReportController::class, 'index'])->name('api.hr.claims.reports');

@@ -939,3 +939,87 @@ test('mileage claim rejects inactive vehicle rate', function () {
 
     $response->assertStatus(404);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Per-page + Bulk Pay-by-Employee Tests
+|--------------------------------------------------------------------------
+*/
+
+test('claims index honors per_page param up to the cap', function () {
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create();
+
+    ClaimRequest::factory()->count(20)->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $this->actingAs($admin)->getJson('/api/hr/claims/requests?per_page=5')
+        ->assertSuccessful()
+        ->assertJsonCount(5, 'data');
+
+    $this->actingAs($admin)->getJson('/api/hr/claims/requests?per_page=100')
+        ->assertSuccessful()
+        ->assertJsonCount(20, 'data');
+});
+
+test('admin can bulk-pay all approved claims for an employee with a shared reference', function () {
+    Notification::fake();
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $other = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create();
+
+    $approved = ClaimRequest::factory()->approved()->count(3)->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 50,
+        'approved_amount' => 50,
+    ]);
+    ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+    $foreignApproved = ClaimRequest::factory()->approved()->create([
+        'employee_id' => $other['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->postJson("/api/hr/claims/requests/employees/{$data['employee']->id}/pay-all", [
+            'paid_reference' => 'BULK-2026-001',
+        ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('count', 3)
+        ->assertJsonPath('total', 150)
+        ->assertJsonPath('employee_id', $data['employee']->id);
+
+    foreach ($approved as $claim) {
+        $fresh = $claim->fresh();
+        expect($fresh->status)->toBe('paid');
+        expect($fresh->paid_reference)->toBe('BULK-2026-001');
+        expect($fresh->paid_at)->not->toBeNull();
+    }
+
+    expect($foreignApproved->fresh()->status)->toBe('approved');
+});
+
+test('bulk pay returns zero when no approved claims exist for the employee', function () {
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create();
+
+    ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->postJson("/api/hr/claims/requests/employees/{$data['employee']->id}/pay-all", [])
+        ->assertSuccessful()
+        ->assertJsonPath('count', 0)
+        ->assertJsonPath('total', 0);
+});
