@@ -235,6 +235,13 @@
                                         {{ $session->class->course->title ?? $session->class->course->name }}
                                     </div>
 
+                                    @if($session->isUpsellOnlyForUser(auth()->user()))
+                                        <span class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                            <flux:icon name="megaphone" class="w-3 h-3" />
+                                            Upsell role
+                                        </span>
+                                    @endif
+
                                     <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-zinc-400">
                                         <span class="inline-flex items-center gap-1">
                                             <flux:icon name="clock" class="w-3 h-3" />

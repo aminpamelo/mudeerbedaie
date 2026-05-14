@@ -114,25 +114,26 @@ new #[Layout('components.layouts.teacher')] class extends Component
     // Today's sessions for the teacher (including scheduled slots from timetables)
     public function getTodaySessionsProperty()
     {
-        $teacher = auth()->user()->teacher;
+        $user = auth()->user();
+        $teacher = $user?->teacher;
 
-        if (! $teacher) {
+        if (! $user) {
             return collect();
         }
 
         $today = now();
         $dayName = strtolower($today->format('l')); // e.g., 'monday', 'tuesday'
 
-        // Get existing sessions for today
-        $existingSessions = $teacher->classes()
-            ->with(['sessions' => function ($query) {
-                $query->today()->with(['class.course', 'attendances.student.user']);
-            }])
-            ->get()
-            ->flatMap->sessions;
+        // Get existing sessions for today — both as main teacher and as upsell teacher
+        $existingSessions = ClassSession::accessibleByUser($user)
+            ->today()
+            ->with(['class.course', 'attendances.student.user'])
+            ->get();
 
-        // Get all classes with their timetables
-        $classes = $teacher->classes()->with(['course', 'timetable'])->get();
+        // Get all classes the user runs as main teacher (for scheduled-slot rendering)
+        $classes = $teacher
+            ? $teacher->classes()->with(['course', 'timetable'])->get()
+            : collect();
 
         // Create collection to hold combined items
         $combinedSessions = collect();
@@ -148,6 +149,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
                 'duration' => $session->duration_minutes,
                 'status' => $session->status,
                 'is_scheduled_slot' => false,
+                'is_upsell_only' => $session->isUpsellOnlyForUser($user),
             ]);
         }
 
@@ -172,6 +174,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
                             'duration' => $class->duration_minutes ?? 60,
                             'status' => 'scheduled',
                             'is_scheduled_slot' => true,
+                            'is_upsell_only' => false,
                         ]);
                     }
                 }
@@ -239,53 +242,61 @@ new #[Layout('components.layouts.teacher')] class extends Component
     // Upcoming sessions (next 7 days) including scheduled slots from timetables
     public function getUpcomingSessionsProperty()
     {
-        $teacher = auth()->user()->teacher;
+        $user = auth()->user();
+        $teacher = $user?->teacher;
 
-        if (! $teacher) {
+        if (! $user) {
             return collect();
         }
 
         $upcomingDates = collect();
+
+        $rangeStart = now()->addDay()->startOfDay();
+        $rangeEnd = now()->addDays(7)->endOfDay();
+
+        // Existing sessions in the upcoming window — main-teacher OR upsell-teacher
+        $upcomingExistingSessions = ClassSession::accessibleByUser($user)
+            ->whereBetween('session_date', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+            ->with(['class.course'])
+            ->get();
 
         // Get next 7 days
         for ($i = 1; $i <= 7; $i++) {
             $date = now()->addDays($i);
             $dayName = strtolower($date->format('l'));
 
-            // Get existing sessions for this date
-            $existingSessions = $teacher->classes()
-                ->with(['sessions' => function ($query) use ($date) {
-                    $query->whereDate('session_date', $date->toDateString())
-                        ->with(['class.course']);
-                }])
-                ->get()
-                ->flatMap->sessions;
+            $existingSessionsForDate = $upcomingExistingSessions->filter(
+                fn ($session) => $session->session_date->isSameDay($date)
+            );
 
-            // Get classes with timetables for this day
-            $classes = $teacher->classes()->with(['course', 'timetable'])->get();
+            // Add existing sessions for this date (covers both main + upsell-teacher rows)
+            foreach ($existingSessionsForDate as $existingSession) {
+                $upcomingDates->push([
+                    'type' => 'session',
+                    'session' => $existingSession,
+                    'class' => $existingSession->class,
+                    'date' => $date,
+                    'time' => $existingSession->session_time->format('H:i'),
+                    'display_time' => $existingSession->session_time->format('g:i A'),
+                    'sort_key' => $date->format('Y-m-d').' '.$existingSession->session_time->format('H:i'),
+                    'is_upsell_only' => $existingSession->isUpsellOnlyForUser($user),
+                ]);
+            }
+
+            // Get classes the user runs as main teacher (for scheduled-slot rendering only)
+            $classes = $teacher
+                ? $teacher->classes()->with(['course', 'timetable'])->get()
+                : collect();
 
             foreach ($classes as $class) {
                 if ($class->timetable && $class->timetable->weekly_schedule && isset($class->timetable->weekly_schedule[$dayName])) {
                     foreach ($class->timetable->weekly_schedule[$dayName] as $time) {
-                        // Check if session already exists
-                        $existingSession = $existingSessions->first(function ($session) use ($time, $class) {
+                        $hasExistingSession = $existingSessionsForDate->first(function ($session) use ($time, $class) {
                             return $session->session_time->format('H:i') === $time
                                 && $session->class_id === $class->id;
                         });
 
-                        if ($existingSession) {
-                            // Add existing session
-                            $upcomingDates->push([
-                                'type' => 'session',
-                                'session' => $existingSession,
-                                'class' => $existingSession->class,
-                                'date' => $date,
-                                'time' => $time,
-                                'display_time' => \Carbon\Carbon::parse($time)->format('g:i A'),
-                                'sort_key' => $date->format('Y-m-d').' '.$time,
-                            ]);
-                        } else {
-                            // Add scheduled slot
+                        if (! $hasExistingSession) {
                             $upcomingDates->push([
                                 'type' => 'scheduled_slot',
                                 'session' => null,
@@ -294,6 +305,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
                                 'time' => $time,
                                 'display_time' => \Carbon\Carbon::parse($time)->format('g:i A'),
                                 'sort_key' => $date->format('Y-m-d').' '.$time,
+                                'is_upsell_only' => false,
                             ]);
                         }
                     }
@@ -341,8 +353,8 @@ new #[Layout('components.layouts.teacher')] class extends Component
     {
         $session = ClassSession::findOrFail($sessionId);
 
-        // Verify this session belongs to the current teacher
-        if ($session->class->teacher_id !== auth()->user()->teacher->id) {
+        // Verify the current user has access (main teacher or assigned upsell teacher)
+        if (! $session->isAccessibleByUser(auth()->user())) {
             abort(403, 'Unauthorized access');
         }
 
@@ -357,8 +369,9 @@ new #[Layout('components.layouts.teacher')] class extends Component
         $class = \App\Models\ClassModel::findOrFail($classId);
         $teacher = auth()->user()->teacher;
 
-        // Verify teacher owns this class
-        if ($class->teacher_id !== $teacher->id) {
+        // Scheduled-slot start is only available to the main class teacher,
+        // since slot-from-timetable rendering requires class ownership.
+        if (! $teacher || $class->teacher_id !== $teacher->id) {
             abort(403, 'You are not authorized to manage this class.');
         }
 
@@ -579,6 +592,13 @@ x-effect="
                         {{ $nextSession['class']->title }} · {{ $nextSession['class']->activeStudents()->count() }} {{ Str::plural('student', $nextSession['class']->activeStudents()->count()) }}
                     </p>
 
+                    @if(($nextSession['is_upsell_only'] ?? false))
+                        <span class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                            <flux:icon name="megaphone" class="w-3 h-3" />
+                            Upsell role
+                        </span>
+                    @endif
+
                     @if(!$nextSession['is_scheduled_slot'] && $nextSession['session']->isOngoing())
                         <div class="mt-3 flex items-center gap-2.5 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/30 px-3 py-2"
                              x-data="{
@@ -794,6 +814,12 @@ x-effect="
                                     @else
                                         <span class="inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[11px] font-semibold">
                                             {{ ucfirst($item['status']) }}
+                                        </span>
+                                    @endif
+                                    @if(($item['is_upsell_only'] ?? false))
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                            <flux:icon name="megaphone" class="w-3 h-3" />
+                                            Upsell
                                         </span>
                                     @endif
                                 </div>

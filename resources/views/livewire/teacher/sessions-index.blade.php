@@ -33,7 +33,9 @@ new #[Layout('components.layouts.teacher')] class extends Component
     {
         $teacher = auth()->user()->teacher;
 
-        if (! $teacher) {
+        $user = auth()->user();
+
+        if (! $user) {
             return [
                 'sessions' => collect(),
                 'classes' => collect(),
@@ -42,13 +44,13 @@ new #[Layout('components.layouts.teacher')] class extends Component
         }
 
         // Get teacher's classes
-        $classes = $teacher->classes()->with('course')->get();
+        $classes = $teacher
+            ? $teacher->classes()->with('course')->get()
+            : collect();
 
-        // Build sessions query
+        // Build sessions query — include both main teacher and upsell teacher sessions
         $query = ClassSession::with(['class.course', 'attendances.student.user'])
-            ->whereHas('class', function ($q) use ($teacher) {
-                $q->where('teacher_id', $teacher->id);
-            });
+            ->accessibleByUser($user);
 
         // Apply date filter
         $today = now()->startOfDay();
@@ -101,9 +103,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
             ->paginate(10);
 
         // Calculate statistics (using separate query for accurate counts)
-        $statsQuery = ClassSession::whereHas('class', function ($q) use ($teacher) {
-            $q->where('teacher_id', $teacher->id);
-        });
+        $statsQuery = ClassSession::accessibleByUser($user);
 
         $statistics = [
             'total_sessions' => $statsQuery->count(),

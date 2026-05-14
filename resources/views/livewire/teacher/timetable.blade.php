@@ -274,10 +274,10 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
     private function getSessionsForCurrentView($teacher)
     {
+        $user = auth()->user();
+
         $query = ClassSession::with(['class.course', 'attendances.student.user', 'starter'])
-            ->whereHas('class', function ($q) use ($teacher) {
-                $q->where('teacher_id', $teacher->id);
-            });
+            ->accessibleByUser($user);
 
         // Apply class filter
         if ($this->classFilter !== 'all') {

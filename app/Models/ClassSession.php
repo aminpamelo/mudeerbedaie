@@ -672,6 +672,80 @@ class ClassSession extends Model
         return $query->whereDate('session_date', now()->toDateString());
     }
 
+    /**
+     * Restrict to sessions accessible by a given user — either as the main
+     * class teacher or as an assigned upsell teacher.
+     */
+    public function scopeAccessibleByUser($query, ?User $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $teacherId = $user->teacher?->id;
+
+        return $query->where(function ($q) use ($teacherId, $user) {
+            if ($teacherId) {
+                $q->whereHas('class', fn ($qq) => $qq->where('teacher_id', $teacherId));
+            }
+            $q->orWhereJsonContains('upsell_teacher_ids', $user->id);
+        });
+    }
+
+    /**
+     * Restrict to sessions where the user is only the upsell teacher
+     * (not the main class teacher).
+     */
+    public function scopeUpsellOnlyForUser($query, ?User $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $teacherId = $user->teacher?->id;
+
+        return $query->whereJsonContains('upsell_teacher_ids', $user->id)
+            ->when($teacherId, fn ($q) => $q->whereHas('class', fn ($qq) => $qq->where('teacher_id', '!=', $teacherId)));
+    }
+
+    /**
+     * Whether the given user is assigned to this session as an upsell teacher
+     * but is NOT the main class teacher. Used for badges/labels.
+     */
+    public function isUpsellOnlyForUser(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        $isUpsell = in_array($user->id, $this->upsell_teacher_ids ?? [], true);
+        if (! $isUpsell) {
+            return false;
+        }
+
+        $teacherId = $user->teacher?->id;
+
+        return ! $teacherId || $this->class?->teacher_id !== $teacherId;
+    }
+
+    /**
+     * Whether the given user has any role on this session
+     * (main teacher or upsell teacher).
+     */
+    public function isAccessibleByUser(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        $teacherId = $user->teacher?->id;
+        if ($teacherId && $this->class?->teacher_id === $teacherId) {
+            return true;
+        }
+
+        return in_array($user->id, $this->upsell_teacher_ids ?? [], true);
+    }
+
     public function scopePast($query)
     {
         return $query->where('session_date', '<', now()->toDateString());
