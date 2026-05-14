@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, X, AlertCircle, Calendar, Building2, Briefcase, Receipt, FileText, Tag, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Check, X, AlertCircle, Calendar, Building2, Briefcase, Receipt, FileText, Tag, ArrowRight, Paperclip, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import api from '../../lib/api';
@@ -49,6 +49,18 @@ function avatarColor(name) {
     return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
+function getReceiptKind(url) {
+    if (!url) return 'none';
+    try {
+        const path = new URL(url, window.location.origin).pathname.toLowerCase();
+        if (path.endsWith('.pdf')) return 'pdf';
+        if (/\.(jpe?g|png|webp|gif|bmp|svg|avif)$/.test(path)) return 'image';
+        return 'other';
+    } catch {
+        return 'other';
+    }
+}
+
 function fetchClaimsApprovals(status) {
     const params = status !== 'all' ? `?status=${status}` : '';
     return api.get(`/my-approvals/claims${params}`).then((r) => r.data);
@@ -77,7 +89,7 @@ function SkeletonCard() {
     );
 }
 
-function ClaimCard({ req, onApprove, onReject }) {
+function ClaimCard({ req, onApprove, onReject, onViewReceipt }) {
     const cfg = STATUS_CONFIG[req.status] ?? STATUS_CONFIG.draft;
     const name = req.employee?.full_name ?? 'Unknown';
     const hasApprovedAmount = req.approved_amount != null;
@@ -178,6 +190,18 @@ function ClaimCard({ req, onApprove, onReject }) {
                     status={req.status}
                 />
 
+                {/* Receipt */}
+                {req.receipt_url && (
+                    <button
+                        type="button"
+                        onClick={() => onViewReceipt(req)}
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800 active:scale-[0.99]"
+                    >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        View Receipt
+                    </button>
+                )}
+
                 {/* Actions */}
                 {req.status === 'pending' && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -211,6 +235,7 @@ export default function MyApprovalsClaims() {
     const [rejectDialog, setRejectDialog] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [actionError, setActionError] = useState('');
+    const [receiptDialog, setReceiptDialog] = useState(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['my-approvals-claims', tab],
@@ -321,6 +346,13 @@ export default function MyApprovalsClaims() {
                                         setRejectReason('');
                                         setActionError('');
                                     }}
+                                    onViewReceipt={(req) => {
+                                        setReceiptDialog({
+                                            url: req.receipt_url,
+                                            name: req.employee?.full_name,
+                                            type: req.claim_type?.name,
+                                        });
+                                    }}
                                 />
                             </div>
                         ))
@@ -418,6 +450,67 @@ export default function MyApprovalsClaims() {
                             className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40 transition active:scale-95"
                         >
                             {rejectMut.isPending ? 'Rejecting…' : 'Confirm Reject'}
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Receipt Viewer Dialog */}
+            <Dialog open={!!receiptDialog} onOpenChange={() => setReceiptDialog(null)}>
+                <DialogContent className="max-w-2xl rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-base">
+                            Receipt{receiptDialog?.type ? ` — ${receiptDialog.type}` : ''}
+                        </DialogTitle>
+                        {receiptDialog?.name && (
+                            <p className="text-sm text-zinc-500">From {receiptDialog.name}</p>
+                        )}
+                    </DialogHeader>
+                    {receiptDialog && (() => {
+                        const kind = getReceiptKind(receiptDialog.url);
+                        if (kind === 'image') {
+                            return (
+                                <div className="flex max-h-[65svh] items-center justify-center overflow-auto rounded-xl bg-zinc-100 p-2">
+                                    <img
+                                        src={receiptDialog.url}
+                                        alt="Receipt"
+                                        className="max-h-[60svh] w-auto max-w-full rounded-lg object-contain"
+                                    />
+                                </div>
+                            );
+                        }
+                        if (kind === 'pdf') {
+                            return (
+                                <iframe
+                                    src={receiptDialog.url}
+                                    title="Receipt"
+                                    className="h-[65svh] w-full rounded-xl border border-zinc-200 bg-zinc-50"
+                                />
+                            );
+                        }
+                        return (
+                            <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-zinc-50 px-4 py-10 text-center">
+                                <Paperclip className="h-6 w-6 text-zinc-400" />
+                                <p className="text-sm font-medium text-zinc-700">Preview not available</p>
+                                <p className="text-xs text-zinc-500">Open the file in a new tab to view it.</p>
+                            </div>
+                        );
+                    })()}
+                    <DialogFooter className="gap-2">
+                        <a
+                            href={receiptDialog?.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+                        >
+                            <ExternalLink className="h-4 w-4" />
+                            Open in new tab
+                        </a>
+                        <button
+                            onClick={() => setReceiptDialog(null)}
+                            className="flex-1 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
+                        >
+                            Close
                         </button>
                     </DialogFooter>
                 </DialogContent>
