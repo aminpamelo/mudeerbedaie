@@ -488,6 +488,25 @@ new #[Layout('components.layouts.teacher')] class extends Component
                 </div>
             </div>
 
+            {{-- Briefing: syllabus, upsell funnels to share, PIC --}}
+            @php
+                $briefing = $this->startBriefing;
+                $hasBriefingContent = $briefing && (
+                    $briefing['syllabus']->isNotEmpty()
+                    || $briefing['upsell_funnels']->isNotEmpty()
+                    || $briefing['pics']->isNotEmpty()
+                );
+            @endphp
+            @if($hasBriefingContent)
+                <div class="teacher-card p-5 sm:p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="teacher-display text-base font-bold text-slate-900 dark:text-white">Briefing</h3>
+                        <flux:icon name="sparkles" class="w-4 h-4 text-violet-500" />
+                    </div>
+                    @include('livewire.teacher._partials.start-session-briefing', ['briefing' => $briefing])
+                </div>
+            @endif
+
             {{-- Timeline --}}
             <div class="teacher-card p-5 sm:p-6">
                 <div class="flex items-center justify-between mb-4">
