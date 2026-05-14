@@ -141,6 +141,18 @@ new #[Layout('components.layouts.teacher')] class extends Component
         $this->closeStartConfirmation();
     }
 
+    public function getSelectedSessionBriefingProperty(): ?array
+    {
+        if (! $this->selectedSession) {
+            return null;
+        }
+
+        $session = $this->selectedSession;
+        $session->loadMissing(['class.course', 'class.pics', 'class.activeStudents']);
+
+        return TeacherStartBriefing::build($session, $session->class);
+    }
+
     public function getStartBriefingProperty(): ?array
     {
         if ($this->sessionToStartId) {
@@ -927,8 +939,19 @@ x-effect="
                         </div>
                     @endif
 
+                    {{-- Briefing: syllabus, upsell funnels to share, PIC contact, class context --}}
+                    @include('livewire.teacher._partials.start-session-briefing', ['briefing' => $this->selectedSessionBriefing])
+
                     {{-- Empty state --}}
-                    @if(!$selectedSession->teacher_notes && !$showNotesField && $selectedSession->attendances->count() === 0 && !$selectedSession->isOngoing())
+                    @php
+                        $briefing = $this->selectedSessionBriefing;
+                        $hasBriefingContent = $briefing && (
+                            $briefing['syllabus']->isNotEmpty()
+                            || $briefing['upsell_funnels']->isNotEmpty()
+                            || $briefing['pics']->isNotEmpty()
+                        );
+                    @endphp
+                    @if(!$selectedSession->teacher_notes && !$showNotesField && $selectedSession->attendances->count() === 0 && !$selectedSession->isOngoing() && !$hasBriefingContent)
                         <div class="text-center py-6">
                             <flux:icon name="sparkles" class="w-8 h-8 text-violet-400 mx-auto mb-2" />
                             <p class="text-sm text-slate-500 dark:text-zinc-400">No additional details for this session yet.</p>
