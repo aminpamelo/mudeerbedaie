@@ -98,8 +98,14 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
         if ($this->classToStartId && $this->timeToStart) {
             $class = ClassModel::with(['course', 'pics', 'activeStudents'])->find($this->classToStartId);
+            $when = Carbon::parse(today()->toDateString().' '.$this->timeToStart);
 
-            return TeacherStartBriefing::build(null, $class, Carbon::parse(today()->toDateString().' '.$this->timeToStart));
+            $session = ClassSession::where('class_id', $this->classToStartId)
+                ->whereDate('session_date', $when->toDateString())
+                ->whereTime('session_time', $when->format('H:i:s'))
+                ->first();
+
+            return TeacherStartBriefing::build($session, $class, $when);
         }
 
         return null;
