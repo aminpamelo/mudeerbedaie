@@ -241,3 +241,30 @@ test('claims approver can list claim requests for their department only', functi
     expect($ids)->toContain($ownClaim->id)
         ->not->toContain($otherClaim->id);
 });
+
+test('claims approver can reject with reason using rejected_reason field', function () {
+    ['user' => $user, 'employee' => $employee, 'dept' => $dept, 'subordinate' => $subordinate] = makeApproverEmployee();
+
+    DepartmentApprover::create([
+        'department_id' => $dept->id,
+        'approver_employee_id' => $employee->id,
+        'approval_type' => 'claims',
+    ]);
+
+    $claimType = ClaimType::factory()->create();
+    $claim = ClaimRequest::factory()->create([
+        'employee_id' => $subordinate->id,
+        'claim_type_id' => $claimType->id,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($user)
+        ->patchJson("/api/hr/my-approvals/claims/{$claim->id}/reject", [
+            'rejected_reason' => 'Receipt is missing for this claim.',
+        ])
+        ->assertSuccessful();
+
+    $fresh = $claim->fresh();
+    expect($fresh->status)->toBe('rejected');
+    expect($fresh->rejected_reason)->toBe('Receipt is missing for this claim.');
+});

@@ -840,11 +840,11 @@ class HrMyApprovalController extends Controller
         }
 
         $validated = $request->validate([
-            'rejection_reason' => ['required', 'string', 'min:5'],
+            'rejected_reason' => ['required', 'string', 'min:5'],
         ]);
 
         if (! $isIndividualApprover) {
-            $service->reject($claimRequest, $employee, $validated['rejection_reason']);
+            $service->reject($claimRequest, $employee, $validated['rejected_reason']);
         }
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
