@@ -23,8 +23,8 @@ class ExitPermissionSubmitted extends BaseHrNotification
     protected function body(): string
     {
         $name = $this->permission->employee->full_name;
-        $date = $this->permission->date->format('M j, Y');
-        $type = ucfirst($this->permission->type);
+        $date = $this->permission->exit_date->format('M j, Y');
+        $type = ucfirst($this->permission->errand_type);
 
         return "{$name} requested {$type} exit permission on {$date}.";
     }

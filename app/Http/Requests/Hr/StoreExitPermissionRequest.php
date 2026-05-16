@@ -17,7 +17,7 @@ class StoreExitPermissionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'exit_date' => ['required', 'date', 'after_or_equal:today'],
+            'exit_date' => ['required', 'date'],
             'exit_time' => ['required', 'date_format:H:i'],
             'return_time' => ['required', 'date_format:H:i', 'after:exit_time'],
             'errand_type' => ['required', 'in:company,personal'],
@@ -32,7 +32,6 @@ class StoreExitPermissionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'exit_date.after_or_equal' => 'Exit date must be today or in the future.',
             'return_time.after' => 'Return time must be after exit time.',
             'purpose.min' => 'Please provide more detail (at least 10 characters).',
         ];

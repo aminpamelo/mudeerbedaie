@@ -84,8 +84,8 @@ it('employee cannot submit with return_time before exit_time', function (): void
         ->assertUnprocessable();
 });
 
-it('employee cannot submit with exit_date in the past', function (): void {
-    $this->actingAs($this->employeeUser)
+it('employee can submit with exit_date in the past', function (): void {
+    $response = $this->actingAs($this->employeeUser)
         ->postJson('/api/hr/my/exit-permissions', [
             'exit_date' => now()->subDay()->toDateString(),
             'exit_time' => '14:00',
@@ -93,8 +93,10 @@ it('employee cannot submit with exit_date in the past', function (): void {
             'errand_type' => 'company',
             'purpose' => 'Company errand to government office.',
             'addressed_to' => 'Manager',
-        ])
-        ->assertUnprocessable();
+        ]);
+
+    $response->assertCreated();
+    expect(OfficeExitPermission::count())->toBe(1);
 });
 
 it('employee cannot submit with purpose too short', function (): void {

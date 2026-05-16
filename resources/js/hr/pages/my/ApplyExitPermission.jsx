@@ -14,8 +14,6 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 
-const TODAY = new Date().toISOString().split('T')[0];
-
 const ERRAND_OPTIONS = [
     { value: 'company', label: 'Urusan Syarikat (Company Business)' },
     { value: 'personal', label: 'Urusan Peribadi (Personal Business)' },
@@ -118,7 +116,6 @@ export default function ApplyExitPermission() {
                                 value={form.exit_date}
                                 onChange={(e) => setForm({ ...form, exit_date: e.target.value })}
                                 className="mt-1"
-                                min={TODAY}
                                 required
                             />
                             {fieldErrors.exit_date && (
