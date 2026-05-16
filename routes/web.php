@@ -868,7 +868,7 @@ Route::middleware(['auth', 'role:admin,employee'])->group(function () {
 // ============================================================================
 // CMS MODULE - React SPA (content management system)
 // ============================================================================
-Route::middleware(['auth', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'role:admin,employee'])->group(function () {
     Route::get('cms', fn () => view('cms.index'))->name('cms.dashboard');
     Route::get('cms/{any}', fn () => view('cms.index'))->where('any', '.*')->name('cms.catchall');
 });
