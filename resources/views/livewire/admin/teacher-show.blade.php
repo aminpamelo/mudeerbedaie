@@ -1,22 +1,72 @@
 <?php
 
+use App\Models\ClassSession;
 use App\Models\Teacher;
+use App\Services\Upsell\UpsellPaidOrdersQuery;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Teacher $teacher;
+
+    public string $upsellDateFrom = '';
+
+    public string $upsellDateTo = '';
 
     public function mount(Teacher $teacher): void
     {
         $this->teacher = $teacher->load(['user', 'courses.feeSettings', 'courses.enrollments']);
+        $this->upsellDateFrom = now()->subDays(90)->toDateString();
+        $this->upsellDateTo = now()->toDateString();
     }
 
     public function deleteTeacher(): void
     {
         $this->teacher->delete();
-        
+
         session()->flash('success', 'Teacher deleted successfully.');
         $this->redirect(route('teachers.index'));
+    }
+
+    public function getUpsellStatsProperty(): array
+    {
+        $default = [
+            'sessions_count' => 0,
+            'paid_orders' => 0,
+            'paid_revenue' => 0,
+            'commission_earned' => 0,
+            'top_products' => collect(),
+        ];
+
+        if (! $this->teacher->user_id) {
+            return $default;
+        }
+
+        $row = app(UpsellPaidOrdersQuery::class)
+            ->forDateRange($this->upsellDateFrom ?: null, $this->upsellDateTo ?: null)
+            ->byTeacher()
+            ->firstWhere('teacher_id', $this->teacher->user_id);
+
+        return $row ?? $default;
+    }
+
+    public function getUpsellSessionsProperty()
+    {
+        if (! $this->teacher->user_id) {
+            return collect();
+        }
+
+        return ClassSession::query()
+            ->whereJsonContains('upsell_teacher_ids', $this->teacher->user_id)
+            ->when($this->upsellDateFrom, fn ($q) => $q->whereDate('session_date', '>=', $this->upsellDateFrom))
+            ->when($this->upsellDateTo, fn ($q) => $q->whereDate('session_date', '<=', $this->upsellDateTo))
+            ->whereHas('funnelOrders', fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq->where('payment_status', 'paid')))
+            ->withCount(['funnelOrders as paid_orders_count' => fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq->where('payment_status', 'paid'))])
+            ->withSum(['funnelOrders as paid_revenue_sum' => fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq->where('payment_status', 'paid'))], 'funnel_revenue')
+            ->with(['class', 'class.course'])
+            ->orderByDesc('session_date')
+            ->limit(50)
+            ->get();
     }
 };
 ?>
@@ -194,6 +244,74 @@ new class extends Component {
                 <flux:text class="text-sm text-gray-500 dark:text-gray-400">This teacher hasn't been assigned to any courses yet.</flux:text>
             </div>
         @endif
+    </div>
+
+    <!-- Upsell Performance -->
+    <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                    <flux:heading size="lg">Upsell Performance</flux:heading>
+                    <flux:text class="mt-1">Paid orders only. Multi-teacher session revenue is split equally.</flux:text>
+                </div>
+                <div class="flex gap-2 items-end">
+                    <flux:input type="date" wire:model.live="upsellDateFrom" size="sm" label="From" />
+                    <flux:input type="date" wire:model.live="upsellDateTo" size="sm" label="To" />
+                </div>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="border rounded p-4 dark:border-zinc-700">
+                    <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Sessions with Upsell</div>
+                    <div class="text-2xl font-bold mt-1">{{ $this->upsellStats['sessions_count'] }}</div>
+                </div>
+                <div class="border rounded p-4 dark:border-zinc-700">
+                    <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Paid Orders</div>
+                    <div class="text-2xl font-bold mt-1">{{ $this->upsellStats['paid_orders'] }}</div>
+                </div>
+                <div class="border rounded p-4 dark:border-zinc-700">
+                    <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Paid Revenue</div>
+                    <div class="text-2xl font-bold mt-1">RM {{ number_format((float) $this->upsellStats['paid_revenue'], 2) }}</div>
+                </div>
+                <div class="border rounded p-4 dark:border-zinc-700">
+                    <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Commission Earned</div>
+                    <div class="text-2xl font-bold mt-1 text-amber-600">RM {{ number_format((float) $this->upsellStats['commission_earned'], 2) }}</div>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <flux:heading size="md" class="mb-2">Upsell Sessions ({{ $this->upsellSessions->count() }})</flux:heading>
+                @if($this->upsellSessions->isEmpty())
+                    <flux:text class="text-gray-500">No upsell sessions in selected period.</flux:text>
+                @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b dark:border-zinc-700">
+                                <th class="text-left py-2 px-3">Date</th>
+                                <th class="text-left py-2 px-3">Class</th>
+                                <th class="text-right py-2 px-3">Paid Orders</th>
+                                <th class="text-right py-2 px-3">Paid Revenue</th>
+                                <th class="text-right py-2 px-3">Commission Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($this->upsellSessions as $session)
+                            <tr wire:key="session-{{ $session->id }}" class="border-b dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/40">
+                                <td class="py-2 px-3">{{ $session->session_date?->format('Y-m-d') }}</td>
+                                <td class="py-2 px-3">{{ $session->class?->title ?? '—' }}</td>
+                                <td class="text-right py-2 px-3">{{ $session->paid_orders_count }}</td>
+                                <td class="text-right py-2 px-3">RM {{ number_format((float) ($session->paid_revenue_sum ?? 0), 2) }}</td>
+                                <td class="text-right py-2 px-3">{{ number_format((float) $session->upsell_teacher_commission_rate, 2) }}%</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
+            </div>
+        </div>
     </div>
 
     <!-- Danger Zone -->
