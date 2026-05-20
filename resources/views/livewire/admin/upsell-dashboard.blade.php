@@ -14,6 +14,7 @@ new class extends Component {
     public string $filterClassId = '';
     public string $filterFunnelId = '';
     public string $filterPicId = '';
+    public bool $bannerDismissed = false;
 
     public function mount(): void
     {
@@ -23,6 +24,18 @@ new class extends Component {
 
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo = now()->endOfMonth()->toDateString();
+        $this->bannerDismissed = (bool) cache()->get($this->bannerCacheKey());
+    }
+
+    public function dismissBanner(): void
+    {
+        cache()->put($this->bannerCacheKey(), true, now()->addYear());
+        $this->bannerDismissed = true;
+    }
+
+    private function bannerCacheKey(): string
+    {
+        return 'upsell_commission_banner_dismissed:'.auth()->id();
     }
 
     public function getOverallStatsProperty(): array
@@ -207,6 +220,19 @@ new class extends Component {
 }; ?>
 
 <div>
+    @if(! $bannerDismissed)
+        <flux:callout variant="warning" class="mb-6">
+            <flux:callout.heading>Commission calculation updated</flux:callout.heading>
+            <flux:callout.text>
+                Upsell commission now only counts orders with confirmed payment (paid status).
+                Historical totals have been recalculated to reflect this change.
+            </flux:callout.text>
+            <div class="mt-3">
+                <flux:button wire:click="dismissBanner" size="sm" variant="ghost">Got it</flux:button>
+            </div>
+        </flux:callout>
+    @endif
+
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Upsell Dashboard</flux:heading>
