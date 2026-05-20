@@ -35,7 +35,7 @@ new class extends Component
 
         $this->reset(['receipt', 'rejectionReason']);
 
-        session()->flash('success', 'Payment approved successfully.');
+        $this->dispatch('order-payment-updated', orderId: $this->order->id);
     }
 
     public function reject(): void
@@ -52,12 +52,12 @@ new class extends Component
 
         $this->reset(['receipt', 'rejectionReason']);
 
-        session()->flash('success', 'Payment rejected.');
+        $this->dispatch('order-payment-updated', orderId: $this->order->id);
     }
 }; ?>
 
 <div>
-    @if($order)
+    @if($order && $order->source === 'funnel' && $order->payment_method === 'cod')
         @if($order->payment_status === 'pending')
             @can('confirmPayment', $order)
                 <flux:card class="mb-6">
@@ -69,12 +69,6 @@ new class extends Component
                     <flux:text class="mb-4">
                         Review the COD payment for this funnel order. Upload the receipt to approve, or provide a reason to reject.
                     </flux:text>
-
-                    @if(session('success'))
-                        <div class="mb-4 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
-                            <flux:text class="text-sm text-green-700 dark:text-green-300">{{ session('success') }}</flux:text>
-                        </div>
-                    @endif
 
                     <div class="grid md:grid-cols-2 gap-6">
                         <div class="space-y-3">

@@ -614,6 +614,18 @@ Route::middleware(['auth', 'role:admin,employee,class_admin,sales'])->prefix('ad
 });
 
 // ============================================================================
+// PRODUCT ORDER READ ROUTES - Accessible by admin, employee, and accountant roles
+// Accountants need to navigate the orders index and view individual orders so they
+// can confirm funnel COD payments via the payment approval card.
+// ============================================================================
+Route::middleware(['auth', 'role:admin,employee,accountant'])->prefix('admin')->group(function () {
+    Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
+    Volt::route('product-orders/report', 'admin.orders.order-report')->name('admin.orders.report');
+    Volt::route('product-orders/{order}', 'admin.orders.order-show')->name('admin.orders.show');
+    Volt::route('product-orders/{order}/receipt', 'admin.orders.order-receipt')->name('admin.orders.receipt');
+});
+
+// ============================================================================
 // ADMIN-ONLY ROUTES - Accessible only by admin role
 // ============================================================================
 Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(function () {
@@ -679,13 +691,9 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('agent-orders/{order}/edit', 'admin.agent-orders.agent-orders-edit')->name('agent-orders.edit');
     Volt::route('agent-orders/{order}/receipt', 'admin.agent-orders.agent-orders-receipt')->name('agent-orders.receipt');
 
-    // Product Order Management routes
-    Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
+    // Product Order Management routes (mutations - admin/employee only)
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
-    Volt::route('product-orders/report', 'admin.orders.order-report')->name('admin.orders.report');
-    Volt::route('product-orders/{order}', 'admin.orders.order-show')->name('admin.orders.show');
     Volt::route('product-orders/{order}/edit', 'admin.orders.order-edit')->name('admin.orders.edit');
-    Volt::route('product-orders/{order}/receipt', 'admin.orders.order-receipt')->name('admin.orders.receipt');
 
     // Package Management routes
     Volt::route('packages', 'admin.packages.index')->name('packages.index');

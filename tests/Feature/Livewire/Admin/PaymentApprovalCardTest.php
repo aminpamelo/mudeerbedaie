@@ -105,3 +105,72 @@ it('does not show action card for orders that are already paid', function () {
         ->assertDontSee('Approve Payment')
         ->assertSee($this->accountant->name);
 });
+
+it('forbids approve from non-accountant role', function () {
+    $regular = User::factory()->create(['role' => 'student']);
+    $this->actingAs($regular);
+    $receipt = UploadedFile::fake()->create('r.pdf', 50, 'application/pdf');
+
+    Volt::test('admin.orders.payment-approval-card', ['order' => $this->cod_order])
+        ->set('receipt', $receipt)
+        ->call('approve')
+        ->assertForbidden();
+
+    expect($this->cod_order->fresh()->payment_status)->toBe('pending');
+});
+
+it('forbids reject from non-accountant role', function () {
+    $regular = User::factory()->create(['role' => 'student']);
+    $this->actingAs($regular);
+
+    Volt::test('admin.orders.payment-approval-card', ['order' => $this->cod_order])
+        ->set('rejectionReason', 'some reason')
+        ->call('reject')
+        ->assertForbidden();
+
+    expect($this->cod_order->fresh()->payment_status)->toBe('pending');
+});
+
+it('forbids approve for non-funnel orders', function () {
+    $platform_order = ProductOrder::factory()->create([
+        'source' => 'platform',
+        'payment_method' => 'cod',
+        'payment_status' => 'pending',
+    ]);
+    $this->actingAs($this->accountant);
+    $receipt = UploadedFile::fake()->create('r.pdf', 50, 'application/pdf');
+
+    Volt::test('admin.orders.payment-approval-card', ['order' => $platform_order])
+        ->set('receipt', $receipt)
+        ->call('approve')
+        ->assertForbidden();
+});
+
+it('forbids approve for already-paid orders', function () {
+    $paid = ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'payment_method' => 'cod',
+        'payment_status' => 'paid',
+    ]);
+    $this->actingAs($this->accountant);
+    $receipt = UploadedFile::fake()->create('r.pdf', 50, 'application/pdf');
+
+    Volt::test('admin.orders.payment-approval-card', ['order' => $paid])
+        ->set('receipt', $receipt)
+        ->call('approve')
+        ->assertForbidden();
+});
+
+it('allows accountants to view the order detail page (HTTP)', function () {
+    $accountant = User::factory()->create(['role' => 'accountant']);
+    $order = ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'payment_method' => 'cod',
+        'payment_status' => 'pending',
+    ]);
+
+    $this->actingAs($accountant)
+        ->get(route('admin.orders.show', $order))
+        ->assertOk()
+        ->assertSee('Approve Payment');
+});
