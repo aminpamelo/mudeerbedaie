@@ -845,6 +845,9 @@ new class extends Component
                 </div>
             </div>
 
+            <!-- Payment Approval (accountant-only, funnel COD orders) -->
+            <livewire:admin.orders.payment-approval-card :order="$order" wire:key="payment-approval-{{ $order->id }}" />
+
             <!-- Receipt Attachment -->
             @if($order->receipt_attachment)
                 <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
