@@ -12,7 +12,8 @@
                 currentRoute: '{{ request()->route()?->getName() }}',
                 sectionRoutes: {
                     'platform': ['dashboard'],
-                    'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*', 'admin.upsell-dashboard'],
+                    'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*', 'admin.upsell-dashboard', 'admin.upsell-commissions'],
+                    'accounting': ['admin.upsell-commissions', 'admin.orders.*'],
                     'subscription': ['orders.*', 'admin.payments*'],
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*', 'admin.funnel-email-templates*'],
@@ -140,6 +141,9 @@
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
                     <flux:navlist.item icon="gift" :href="route('admin.upsell-dashboard')" :current="request()->routeIs('admin.upsell-dashboard')" wire:navigate>{{ __('Upsell Dashboard') }}</flux:navlist.item>
+                    @if(auth()->user()->isAdmin())
+                        <flux:navlist.item icon="banknotes" :href="route('admin.upsell-commissions')" :current="request()->routeIs('admin.upsell-commissions')" wire:navigate>{{ __('Upsell Commission Payouts') }}</flux:navlist.item>
+                    @endif
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -473,6 +477,18 @@
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
                     <flux:navlist.item icon="tag" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
+                @if(auth()->user()->hasRole('accountant'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Accounting')"
+                    data-section='accounting' x-init="if (!isExpanded('accounting')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('accounting', $event)"
+                >
+                    <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.index') || request()->routeIs('admin.orders.show')" wire:navigate>{{ __('Product Orders') }}</flux:navlist.item>
+                    <flux:navlist.item icon="banknotes" :href="route('admin.upsell-commissions')" :current="request()->routeIs('admin.upsell-commissions')" wire:navigate>{{ __('Upsell Commission Payouts') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

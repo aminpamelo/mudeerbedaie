@@ -505,6 +505,8 @@ new class extends Component {
                         <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Paid Orders</th>
                         <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Paid Revenue</th>
                         <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission Earned</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Paid</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Pending</th>
                         <th class="text-left py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Top Products</th>
                     </tr>
                 </thead>
@@ -529,6 +531,8 @@ new class extends Component {
                             <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">{{ $row['paid_orders'] }}</td>
                             <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums whitespace-nowrap">RM {{ number_format($row['paid_revenue'], 2) }}</td>
                             <td class="py-2.5 px-3 text-right text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">RM {{ number_format($row['commission_earned'], 2) }}</td>
+                            <td class="py-2.5 px-3 text-right text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">RM {{ number_format($row['commission_paid'], 2) }}</td>
+                            <td class="py-2.5 px-3 text-right text-sm font-medium text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">RM {{ number_format($row['commission_pending'], 2) }}</td>
                             <td class="py-2.5 px-4 text-xs text-zinc-600 dark:text-zinc-400">
                                 @forelse($row['top_products']->take(3) as $product)
                                     <div class="truncate">{{ $product['product_name'] }} — RM {{ number_format($product['revenue'], 2) }}</div>

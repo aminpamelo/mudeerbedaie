@@ -698,6 +698,12 @@ new class extends Component
                         Receipt
                     </div>
                 </flux:button>
+                <flux:button variant="outline" size="sm" :href="route('admin.orders.receipt-pdf', $order)" target="_blank">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
+                        Download PDF
+                    </div>
+                </flux:button>
                 <flux:button variant="outline" size="sm" :href="route('admin.orders.edit', $order)" wire:navigate>
                     <div class="flex items-center justify-center">
                         <flux:icon name="pencil" class="w-4 h-4 mr-1" />

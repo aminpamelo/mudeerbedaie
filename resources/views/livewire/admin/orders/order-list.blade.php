@@ -1805,6 +1805,12 @@ new class extends Component
                                         <flux:icon name="eye" class="w-4 h-4" />
                                     </a>
 
+                                    <a href="{{ route('admin.orders.receipt-pdf', $order) }}" target="_blank"
+                                       title="Download receipt PDF"
+                                       class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors">
+                                        <flux:icon name="arrow-down-tray" class="w-4 h-4" />
+                                    </a>
+
                                     @if($order->canBeCancelled() || $order->status === 'delivered')
                                         <flux:dropdown>
                                             <flux:button variant="ghost" size="sm">
