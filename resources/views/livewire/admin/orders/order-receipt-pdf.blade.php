@@ -5,51 +5,57 @@
     <title>Invoice - {{ $order->order_number }}</title>
     <style>
         @php
-            function numberToWordsHelper($number) {
-                $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
-                $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+            if (! function_exists('numberToWordsHelper')) {
+                function numberToWordsHelper($number) {
+                    $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+                    $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
 
-                $integer = floor($number);
-                $decimal = round(($number - $integer) * 100);
+                    $integer = floor($number);
+                    $decimal = round(($number - $integer) * 100);
 
-                $words = '';
+                    $words = '';
 
-                if ($integer >= 1000) {
-                    $thousands = floor($integer / 1000);
-                    $words .= convertHundredsHelper($thousands, $ones, $tens) . ' THOUSAND ';
-                    $integer %= 1000;
+                    if ($integer >= 1000) {
+                        $thousands = floor($integer / 1000);
+                        $words .= convertHundredsHelper($thousands, $ones, $tens) . ' THOUSAND ';
+                        $integer %= 1000;
+                    }
+
+                    if ($integer >= 100) {
+                        $words .= convertHundredsHelper($integer, $ones, $tens);
+                    } elseif ($integer > 0) {
+                        $words .= convertTensHelper($integer, $ones, $tens);
+                    }
+
+                    $words = trim($words);
+
+                    if ($decimal > 0) {
+                        $words .= ' AND CENTS ' . convertTensHelper($decimal, $ones, $tens);
+                    }
+
+                    return 'RINGGIT MALAYSIA : ' . $words . ' ONLY';
                 }
-
-                if ($integer >= 100) {
-                    $words .= convertHundredsHelper($integer, $ones, $tens);
-                } elseif ($integer > 0) {
-                    $words .= convertTensHelper($integer, $ones, $tens);
-                }
-
-                $words = trim($words);
-
-                if ($decimal > 0) {
-                    $words .= ' AND CENTS ' . convertTensHelper($decimal, $ones, $tens);
-                }
-
-                return 'RINGGIT MALAYSIA : ' . $words . ' ONLY';
             }
 
-            function convertHundredsHelper($number, $ones, $tens) {
-                $result = '';
-                if ($number >= 100) {
-                    $result .= $ones[floor($number / 100)] . ' HUNDRED ';
-                    $number %= 100;
+            if (! function_exists('convertHundredsHelper')) {
+                function convertHundredsHelper($number, $ones, $tens) {
+                    $result = '';
+                    if ($number >= 100) {
+                        $result .= $ones[floor($number / 100)] . ' HUNDRED ';
+                        $number %= 100;
+                    }
+                    $result .= convertTensHelper($number, $ones, $tens);
+                    return trim($result);
                 }
-                $result .= convertTensHelper($number, $ones, $tens);
-                return trim($result);
             }
 
-            function convertTensHelper($number, $ones, $tens) {
-                if ($number < 20) {
-                    return $ones[$number];
+            if (! function_exists('convertTensHelper')) {
+                function convertTensHelper($number, $ones, $tens) {
+                    if ($number < 20) {
+                        return $ones[$number];
+                    }
+                    return $tens[floor($number / 10)] . ' ' . $ones[$number % 10];
                 }
-                return $tens[floor($number / 10)] . ' ' . $ones[$number % 10];
             }
 
             $date = $order->order_date ?? $order->created_at;
