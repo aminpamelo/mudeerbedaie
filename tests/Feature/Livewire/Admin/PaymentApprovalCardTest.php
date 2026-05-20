@@ -79,6 +79,18 @@ it('rejects the order with a valid reason', function () {
         ->payment_rejection_reason->toBe('No transfer received within 7 days');
 });
 
+it('hides the card for non-funnel pending COD orders', function () {
+    $platform_order = ProductOrder::factory()->create([
+        'source' => 'platform',
+        'payment_method' => 'cod',
+        'payment_status' => 'pending',
+    ]);
+    $this->actingAs($this->accountant);
+
+    Volt::test('admin.orders.payment-approval-card', ['order' => $platform_order])
+        ->assertDontSee('Approve Payment');
+});
+
 it('does not show action card for orders that are already paid', function () {
     $paid_order = ProductOrder::factory()->create([
         'source' => 'funnel',
