@@ -144,6 +144,28 @@ new class extends Component {
             ->get();
     }
 
+    public function getByTeacherProperty(): \Illuminate\Support\Collection
+    {
+        return app(\App\Services\Upsell\UpsellPaidOrdersQuery::class)
+            ->forDateRange($this->dateFrom ?: null, $this->dateTo ?: null)
+            ->forFunnelId($this->filterFunnelId ? (int) $this->filterFunnelId : null)
+            ->forPicId($this->filterPicId ? (int) $this->filterPicId : null)
+            ->byTeacher();
+    }
+
+    public function getTeacherIdMapProperty(): array
+    {
+        $userIds = $this->byTeacher->pluck('teacher_id')->all();
+
+        if (empty($userIds)) {
+            return [];
+        }
+
+        return \App\Models\Teacher::whereIn('user_id', $userIds)
+            ->pluck('id', 'user_id')
+            ->all();
+    }
+
     public function getPicBreakdownProperty(): \Illuminate\Support\Collection
     {
         $sessions = ClassSession::query()
@@ -440,5 +462,65 @@ new class extends Component {
                 </tbody>
             </table>
         </div>
+    </div>
+
+    {{-- Teacher Performance --}}
+    @php $teacherIdMap = $this->teacherIdMap; @endphp
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 mt-6">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Performance by Teacher</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Commission earned by each upsell teacher (paid orders only)</p>
+        </div>
+        @if($this->byTeacher->isEmpty())
+            <div class="py-8 text-center">
+                <p class="text-xs text-zinc-400">No teacher data in selected period</p>
+            </div>
+        @else
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                        <th class="text-left py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Teacher</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sessions</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Paid Orders</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Paid Revenue</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission Earned</th>
+                        <th class="text-left py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Top Products</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+                    @foreach($this->byTeacher as $row)
+                        <tr wire:key="teacher-{{ $row['teacher_id'] }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                            <td class="py-2.5 px-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold shrink-0">
+                                        {{ strtoupper(substr($row['teacher_name'] ?? '?', 0, 1)) }}
+                                    </span>
+                                    @if(isset($teacherIdMap[$row['teacher_id']]))
+                                        <a href="{{ route('teachers.show', $teacherIdMap[$row['teacher_id']]) }}" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" wire:navigate>
+                                            {{ $row['teacher_name'] ?? '—' }}
+                                        </a>
+                                    @else
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $row['teacher_name'] ?? '—' }}</span>
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">{{ $row['sessions_count'] }}</td>
+                            <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">{{ $row['paid_orders'] }}</td>
+                            <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums whitespace-nowrap">RM {{ number_format($row['paid_revenue'], 2) }}</td>
+                            <td class="py-2.5 px-3 text-right text-sm font-semibold text-amber-600 dark:text-amber-400 tabular-nums whitespace-nowrap">RM {{ number_format($row['commission_earned'], 2) }}</td>
+                            <td class="py-2.5 px-4 text-xs text-zinc-600 dark:text-zinc-400">
+                                @forelse($row['top_products']->take(3) as $product)
+                                    <div class="truncate">{{ $product['product_name'] }} — RM {{ number_format($product['revenue'], 2) }}</div>
+                                @empty
+                                    <span class="text-zinc-400">—</span>
+                                @endforelse
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
     </div>
 </div>
