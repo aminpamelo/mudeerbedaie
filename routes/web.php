@@ -628,6 +628,13 @@ Route::middleware(['auth', 'role:admin,employee,accountant'])->prefix('admin')->
 });
 
 // ============================================================================
+// UPSELL COMMISSION PAYOUTS - Accountant workflow (admin can access in emergencies)
+// ============================================================================
+Route::middleware(['auth', 'role:admin,accountant'])->prefix('admin')->group(function () {
+    Volt::route('upsell-commissions', 'admin.upsell-commission-payouts')->name('admin.upsell-commissions');
+});
+
+// ============================================================================
 // ADMIN-ONLY ROUTES - Accessible only by admin role
 // ============================================================================
 Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(function () {
