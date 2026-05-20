@@ -166,6 +166,26 @@ new class extends Component {
             ->all();
     }
 
+    public function getByProductProperty(): \Illuminate\Support\Collection
+    {
+        return app(\App\Services\Upsell\UpsellPaidOrdersQuery::class)
+            ->forDateRange($this->dateFrom ?: null, $this->dateTo ?: null)
+            ->forFunnelId($this->filterFunnelId ? (int) $this->filterFunnelId : null)
+            ->forPicId($this->filterPicId ? (int) $this->filterPicId : null)
+            ->byProduct();
+    }
+
+    public function lineTypeBadgeColor(string $type): string
+    {
+        return match ($type) {
+            'main' => 'blue',
+            'bump' => 'amber',
+            'upsell' => 'green',
+            'downsell' => 'zinc',
+            default => 'zinc',
+        };
+    }
+
     public function getPicBreakdownProperty(): \Illuminate\Support\Collection
     {
         $sessions = ClassSession::query()
@@ -516,6 +536,50 @@ new class extends Component {
                                     <span class="text-zinc-400">—</span>
                                 @endforelse
                             </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+    </div>
+
+    {{-- Product Performance --}}
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 mt-6">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Performance by Product</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Products sold through funnels (paid orders only, line-level)</p>
+        </div>
+        @if($this->byProduct->isEmpty())
+            <div class="py-8 text-center">
+                <p class="text-xs text-zinc-400">No product data in selected period</p>
+            </div>
+        @else
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                        <th class="text-left py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Product</th>
+                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Funnels</th>
+                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Units</th>
+                        <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+                    @foreach($this->byProduct as $row)
+                        <tr wire:key="product-{{ $row['product_id'] }}-{{ $row['line_type'] }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                            <td class="py-2.5 px-4">
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $row['product_name'] }}</p>
+                            </td>
+                            <td class="py-2.5 px-3">
+                                <flux:badge :color="$this->lineTypeBadgeColor($row['line_type'])" size="sm">
+                                    {{ ucfirst($row['line_type']) }}
+                                </flux:badge>
+                            </td>
+                            <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">{{ $row['funnel_ids']->count() }}</td>
+                            <td class="py-2.5 px-3 text-right text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">{{ $row['units'] }}</td>
+                            <td class="py-2.5 px-4 text-right text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">RM {{ number_format($row['revenue'], 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
