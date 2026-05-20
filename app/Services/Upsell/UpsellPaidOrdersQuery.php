@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Upsell;
 
 use App\Models\FunnelOrder;
+use App\Models\UpsellCommissionPayout;
+use App\Models\UpsellCommissionPayoutSession;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -107,6 +109,8 @@ class UpsellPaidOrdersQuery
      *     paid_orders: int,
      *     paid_revenue: float,
      *     commission_earned: float,
+     *     commission_paid: float,
+     *     commission_pending: float,
      *     top_products: SupportCollection<int, array{product_id: int|null, product_name: string, units: int, revenue: float}>,
      * }>
      */
@@ -180,9 +184,10 @@ class UpsellPaidOrdersQuery
         }
 
         $users = User::whereIn('id', array_keys($byTeacher))->get()->keyBy('id');
+        $paidByTeacher = $this->paidCommissionByTeacher(array_keys($byTeacher));
 
         return collect($byTeacher)
-            ->map(function (array $row) use ($users): array {
+            ->map(function (array $row) use ($users, $paidByTeacher): array {
                 $user = $users->get($row['teacher_id']);
 
                 $topProducts = collect($row['product_lines'])
@@ -190,18 +195,64 @@ class UpsellPaidOrdersQuery
                     ->take(5)
                     ->values();
 
+                $earned = round($row['commission_earned'], 2);
+                $paid = round((float) ($paidByTeacher[$row['teacher_id']] ?? 0), 2);
+                $pending = round(max(0.0, $earned - $paid), 2);
+
                 return [
                     'teacher_id' => $row['teacher_id'],
                     'teacher_name' => $user?->name,
                     'sessions_count' => count($row['session_ids']),
                     'paid_orders' => $row['paid_orders'],
                     'paid_revenue' => round($row['paid_revenue'], 2),
-                    'commission_earned' => round($row['commission_earned'], 2),
+                    'commission_earned' => $earned,
+                    'commission_paid' => $paid,
+                    'commission_pending' => $pending,
                     'top_products' => $topProducts,
                 ];
             })
             ->sortByDesc('commission_earned')
             ->values();
+    }
+
+    /**
+     * Sum of paid commission per teacher, scoped to the active date range.
+     *
+     * "Paid" here means: belongs to an UpsellCommissionPayout with
+     * status='paid', for sessions whose `session_date` falls in the same
+     * date range used by commission_earned. We deliberately filter on
+     * session_date (not payout.paid_at) so that "paid" is the subset of
+     * "earned" for the same reporting period.
+     *
+     * @param  array<int, int>  $teacherIds
+     * @return array<int, float>
+     */
+    private function paidCommissionByTeacher(array $teacherIds): array
+    {
+        if (empty($teacherIds)) {
+            return [];
+        }
+
+        $query = UpsellCommissionPayoutSession::query()
+            ->select('upsell_commission_payouts.teacher_user_id')
+            ->selectRaw('SUM(upsell_commission_payout_sessions.commission_amount) as paid_total')
+            ->join('upsell_commission_payouts', 'upsell_commission_payouts.id', '=', 'upsell_commission_payout_sessions.upsell_commission_payout_id')
+            ->join('class_sessions', 'class_sessions.id', '=', 'upsell_commission_payout_sessions.class_session_id')
+            ->where('upsell_commission_payouts.status', UpsellCommissionPayout::STATUS_PAID)
+            ->whereIn('upsell_commission_payouts.teacher_user_id', $teacherIds);
+
+        if ($this->from) {
+            $query->whereDate('class_sessions.session_date', '>=', $this->from);
+        }
+
+        if ($this->to) {
+            $query->whereDate('class_sessions.session_date', '<=', $this->to);
+        }
+
+        return $query->groupBy('upsell_commission_payouts.teacher_user_id')
+            ->pluck('paid_total', 'teacher_user_id')
+            ->map(fn ($v) => (float) $v)
+            ->all();
     }
 
     /**
