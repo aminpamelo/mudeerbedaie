@@ -8543,7 +8543,7 @@ new class extends Component
     </div>
 
     <!-- Upsell Session Detail Modal -->
-    <flux:modal name="upsell-detail" :show="$showUpsellDetailModal" wire:model="showUpsellDetailModal" class="md:w-3xl">
+    <flux:modal name="upsell-detail" :show="$showUpsellDetailModal" wire:model="showUpsellDetailModal" class="max-w-5xl">
         @if($this->upsellDetailSession)
             @php
                 $detail = $this->upsellDetailSession;
@@ -8733,7 +8733,26 @@ new class extends Component
                         @endif
                     </div>
                     @if($orders->isNotEmpty())
-                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                        @php
+                            $orderStatusBadge = [
+                                'pending' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+                                'confirmed' => 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+                                'processing' => 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400',
+                                'partially_shipped' => 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
+                                'shipped' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400',
+                                'delivered' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+                                'cancelled' => 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+                                'refunded' => 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+                                'returned' => 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+                            ];
+                            $paymentStatusBadge = [
+                                'paid' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+                                'pending' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+                                'failed' => 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+                                'refunded' => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400',
+                            ];
+                        @endphp
+                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr class="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
@@ -8741,19 +8760,25 @@ new class extends Component
                                         <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Funnel</th>
                                         <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Product</th>
                                         <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</th>
+                                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
+                                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Payment</th>
                                         <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
+                                        <th class="text-center py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                                     @foreach($orders as $order)
                                         @php
-                                            $productNames = $order->productOrder?->items
+                                            $po = $order->productOrder;
+                                            $productNames = $po?->items
                                                 ?->map(fn ($item) => $item->product_name.($item->variant_name ? ' - '.$item->variant_name : ''))
                                                 ?->filter()
                                                 ?->values() ?? collect();
+                                            $orderStatus = $po?->status;
+                                            $paymentStatus = $po?->payment_status;
                                         @endphp
-                                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                                            <td class="py-2 px-3 text-xs text-zinc-900 dark:text-zinc-100 tabular-nums align-top">#{{ $order->id }}</td>
+                                        <tr wire:key="upsell-order-{{ $order->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                            <td class="py-2 px-3 text-xs text-zinc-900 dark:text-zinc-100 tabular-nums align-top whitespace-nowrap">#{{ $order->id }}</td>
                                             <td class="py-2 px-3 text-xs text-zinc-600 dark:text-zinc-400 align-top">{{ $order->funnel?->name ?? '—' }}</td>
                                             <td class="py-2 px-3 text-xs text-zinc-600 dark:text-zinc-400 align-top">
                                                 @if($productNames->isNotEmpty())
@@ -8771,18 +8796,49 @@ new class extends Component
                                                     {{ ucfirst($order->order_type ?? 'main') }}
                                                 </span>
                                             </td>
-                                            <td class="py-2 px-3 text-right text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums align-top">
+                                            <td class="py-2 px-3 align-top whitespace-nowrap">
+                                                @if($orderStatus)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $orderStatusBadge[$orderStatus] ?? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400' }}">
+                                                        {{ ucfirst(str_replace('_', ' ', $orderStatus)) }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-xs text-zinc-400">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="py-2 px-3 align-top whitespace-nowrap">
+                                                @if($paymentStatus)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $paymentStatusBadge[$paymentStatus] ?? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400' }}">
+                                                        {{ ucfirst($paymentStatus) }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-xs text-zinc-400">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="py-2 px-3 text-right text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums align-top whitespace-nowrap">
                                                 RM {{ number_format($order->funnel_revenue, 2) }}
+                                            </td>
+                                            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
+                                                @if($po)
+                                                    <a href="{{ route('admin.orders.show', $po) }}"
+                                                       target="_blank"
+                                                       title="View order"
+                                                       class="inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 dark:hover:text-blue-400 transition-colors">
+                                                        <flux:icon name="eye" class="w-4 h-4" />
+                                                    </a>
+                                                @else
+                                                    <span class="text-xs text-zinc-400">—</span>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                                 <tfoot class="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
                                     <tr>
-                                        <td colspan="4" class="py-2 px-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Total</td>
-                                        <td class="py-2 px-3 text-right text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                        <td colspan="6" class="py-2 px-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Total</td>
+                                        <td class="py-2 px-3 text-right text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">
                                             RM {{ number_format($orders->sum('funnel_revenue'), 2) }}
                                         </td>
+                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
