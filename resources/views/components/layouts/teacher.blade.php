@@ -29,6 +29,7 @@
                     <flux:navlist.item icon="clock" :href="route('teacher.sessions.index')" :current="request()->routeIs('teacher.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
                     <flux:navlist.item icon="users" :href="route('teacher.students.index')" :current="request()->routeIs('teacher.students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar" :href="route('teacher.timetable')" :current="request()->routeIs('teacher.timetable')" wire:navigate>{{ __('Timetable') }}</flux:navlist.item>
+                    <flux:navlist.item icon="megaphone" :href="route('teacher.upsell')" :current="request()->routeIs('teacher.upsell')" wire:navigate>{{ __('Upsell') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 {{-- Decorative gradient promo card to anchor the teacher identity --}}

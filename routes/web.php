@@ -152,6 +152,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
 
     Volt::route('timetable', 'teacher.timetable')->name('teacher.timetable');
     Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
+
+    // Teacher self-view of upsell performance (own data only)
+    Volt::route('upsell', 'teacher.upsell')->name('teacher.upsell');
 });
 
 // Live Host Pocket (Inertia) — host-side mobile shell.

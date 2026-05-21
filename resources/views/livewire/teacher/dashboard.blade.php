@@ -2,6 +2,7 @@
 
 use App\Models\ClassModel;
 use App\Models\ClassSession;
+use App\Services\Upsell\UpsellPaidOrdersQuery;
 use App\Support\TeacherStartBriefing;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
@@ -249,6 +250,25 @@ new #[Layout('components.layouts.teacher')] class extends Component
             ->whereBetween('session_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
             ->where('status', 'completed')
             ->sum('allowance_amount');
+    }
+
+    // Monthly upsell summary for the current teacher (own data only)
+    public function getMonthlyUpsellProperty(): array
+    {
+        $row = app(UpsellPaidOrdersQuery::class)
+            ->forDateRange(now()->startOfMonth()->toDateString(), now()->toDateString())
+            ->byTeacher()
+            ->firstWhere('teacher_id', auth()->id());
+
+        return $row ?? [
+            'teacher_id' => auth()->id(),
+            'sessions_count' => 0,
+            'paid_orders' => 0,
+            'paid_revenue' => 0.0,
+            'commission_earned' => 0.0,
+            'commission_paid' => 0.0,
+            'commission_pending' => 0.0,
+        ];
     }
 
     // Upcoming sessions (next 7 days) including scheduled slots from timetables
@@ -953,6 +973,55 @@ x-effect="
                     </div>
                 </div>
             </div>
+
+            {{-- Upsell summary (this month) --}}
+            @php $upsell = $this->monthlyUpsell; @endphp
+            <a href="{{ route('teacher.upsell') }}" wire:navigate
+               class="block teacher-card p-5 sm:p-6 relative overflow-hidden group hover:-translate-y-px hover:shadow-lg transition-all">
+                <div class="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20 blur-2xl pointer-events-none"></div>
+                <div class="relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-500 p-1.5 text-white shadow-sm">
+                                <flux:icon name="megaphone" class="w-4 h-4" />
+                            </div>
+                            <h3 class="teacher-display text-base font-bold text-slate-900 dark:text-white">Upsell</h3>
+                        </div>
+                        <flux:icon name="arrow-right" class="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-violet-600 dark:group-hover:text-violet-300 group-hover:translate-x-0.5 transition" />
+                    </div>
+
+                    @if($upsell['paid_orders'] > 0 || $upsell['commission_earned'] > 0)
+                        <div class="text-xs font-semibold uppercase tracking-wider text-violet-700/80 dark:text-violet-300/90 mb-1">This Month Revenue</div>
+                        <div class="teacher-display teacher-num text-3xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 dark:from-violet-400 dark:to-fuchsia-300 bg-clip-text text-transparent">
+                            RM {{ number_format((float) $upsell['paid_revenue'], 2) }}
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-3">
+                            <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5">
+                                <div class="text-[11px] font-semibold uppercase tracking-wider text-amber-700/80 dark:text-amber-300/80">Commission</div>
+                                <div class="teacher-num text-lg font-bold text-amber-700 dark:text-amber-300 mt-0.5">
+                                    RM {{ number_format((float) $upsell['commission_earned'], 2) }}
+                                </div>
+                            </div>
+                            <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2.5">
+                                <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Pending</div>
+                                <div class="teacher-num text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                    RM {{ number_format((float) $upsell['commission_pending'], 2) }}
+                                </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="py-3">
+                            <p class="text-sm text-slate-500 dark:text-zinc-400">
+                                No upsell activity this month.
+                            </p>
+                            <p class="text-xs text-violet-600 dark:text-violet-400 mt-2 font-semibold">
+                                View history <span aria-hidden="true">→</span>
+                            </p>
+                        </div>
+                    @endif
+                </div>
+            </a>
 
             {{-- Recent Activity --}}
             <div class="teacher-card p-5 sm:p-6">
