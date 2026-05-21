@@ -65,6 +65,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('livehost.update', fn (User $actor, User $target) => (new LiveHostPolicy)->update($actor, $target));
         Gate::define('livehost.delete', fn (User $actor, User $target) => (new LiveHostPolicy)->delete($actor, $target));
 
+        Gate::define('manageUpsellCommissions', fn (User $user) => $user->hasRole('accountant') || $user->hasRole('admin'));
+
         Gate::policy(ProductOrder::class, ProductOrderPolicy::class);
 
         LiveSession::observe(LiveSessionVerifiedObserver::class);

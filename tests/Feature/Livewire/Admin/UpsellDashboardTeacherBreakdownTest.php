@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\ClassSession;
 use App\Models\FunnelOrder;
 use App\Models\ProductOrder;
+use App\Models\UpsellCommissionPayout;
 use App\Models\User;
 use Livewire\Volt\Volt;
 
@@ -81,4 +82,41 @@ it('shows empty state when no teacher data', function () {
 
     Volt::test('admin.upsell-dashboard')
         ->assertSee('No teacher data in selected period');
+});
+
+it('shows commission paid and pending columns', function () {
+    $admin = User::factory()->admin()->create();
+    $teacher = User::factory()->create(['name' => 'Paid Teacher']);
+
+    $session = ClassSession::factory()->create([
+        'session_date' => now()->startOfMonth()->addDays(2),
+        'upsell_funnel_ids' => [1],
+        'upsell_teacher_ids' => [$teacher->id],
+        'upsell_teacher_commission_rate' => 10,
+    ]);
+
+    $paid = ProductOrder::factory()->create(['payment_status' => 'paid']);
+    FunnelOrder::factory()->create([
+        'class_session_id' => $session->id,
+        'product_order_id' => $paid->id,
+        'funnel_revenue' => 1000,
+    ]);
+
+    $payout = UpsellCommissionPayout::factory()->paid()->create([
+        'teacher_user_id' => $teacher->id,
+    ]);
+    $payout->sessions()->create([
+        'class_session_id' => $session->id,
+        'paid_revenue' => 1000,
+        'commission_rate' => 10,
+        'commission_amount' => 60,
+    ]);
+
+    $this->actingAs($admin);
+
+    Volt::test('admin.upsell-dashboard')
+        ->assertSee('Paid Teacher')
+        ->assertSee('100.00')   // commission earned
+        ->assertSee('60.00')    // commission paid
+        ->assertSee('40.00');   // commission pending
 });

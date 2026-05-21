@@ -7,6 +7,7 @@ use App\Models\FunnelOrder;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
+use App\Models\UpsellCommissionPayout;
 use App\Models\User;
 use App\Services\Upsell\UpsellPaidOrdersQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -229,6 +230,98 @@ it('skips funnel orders whose session has no upsell teachers in byTeacher', func
     $rows = app(UpsellPaidOrdersQuery::class)->byTeacher();
 
     expect($rows)->toHaveCount(0);
+});
+
+it('includes commission_paid from paid payouts in byTeacher', function () {
+    $teacher = User::factory()->create();
+    $session = ClassSession::factory()->create([
+        'upsell_funnel_ids' => [1],
+        'upsell_teacher_ids' => [$teacher->id],
+        'upsell_teacher_commission_rate' => 10,
+        'session_date' => '2026-05-15',
+    ]);
+    $paid = ProductOrder::factory()->create(['payment_status' => 'paid']);
+    FunnelOrder::factory()->create([
+        'class_session_id' => $session->id,
+        'product_order_id' => $paid->id,
+        'funnel_revenue' => 1000,
+    ]);
+
+    $payout = UpsellCommissionPayout::factory()->paid()->create([
+        'teacher_user_id' => $teacher->id,
+    ]);
+    $payout->sessions()->create([
+        'class_session_id' => $session->id,
+        'paid_revenue' => 1000,
+        'commission_rate' => 10,
+        'commission_amount' => 100,
+    ]);
+
+    $rows = app(UpsellPaidOrdersQuery::class)
+        ->forDateRange('2026-05-01', '2026-05-31')
+        ->byTeacher();
+
+    expect($rows)->toHaveCount(1);
+    expect((float) $rows->first()['commission_earned'])->toBe(100.0);
+    expect((float) $rows->first()['commission_paid'])->toBe(100.0);
+    expect((float) $rows->first()['commission_pending'])->toBe(0.0);
+});
+
+it('shows pending commission when no payout exists in byTeacher', function () {
+    $teacher = User::factory()->create();
+    $session = ClassSession::factory()->create([
+        'upsell_funnel_ids' => [1],
+        'upsell_teacher_ids' => [$teacher->id],
+        'upsell_teacher_commission_rate' => 10,
+        'session_date' => '2026-05-15',
+    ]);
+    $paid = ProductOrder::factory()->create(['payment_status' => 'paid']);
+    FunnelOrder::factory()->create([
+        'class_session_id' => $session->id,
+        'product_order_id' => $paid->id,
+        'funnel_revenue' => 1000,
+    ]);
+
+    $rows = app(UpsellPaidOrdersQuery::class)
+        ->forDateRange('2026-05-01', '2026-05-31')
+        ->byTeacher();
+
+    expect((float) $rows->first()['commission_earned'])->toBe(100.0);
+    expect((float) $rows->first()['commission_paid'])->toBe(0.0);
+    expect((float) $rows->first()['commission_pending'])->toBe(100.0);
+});
+
+it('does not count draft or locked payouts as paid in byTeacher', function () {
+    $teacher = User::factory()->create();
+    $session = ClassSession::factory()->create([
+        'upsell_funnel_ids' => [1],
+        'upsell_teacher_ids' => [$teacher->id],
+        'upsell_teacher_commission_rate' => 10,
+        'session_date' => '2026-05-15',
+    ]);
+    $paid = ProductOrder::factory()->create(['payment_status' => 'paid']);
+    FunnelOrder::factory()->create([
+        'class_session_id' => $session->id,
+        'product_order_id' => $paid->id,
+        'funnel_revenue' => 1000,
+    ]);
+
+    $draftPayout = UpsellCommissionPayout::factory()->draft()->create([
+        'teacher_user_id' => $teacher->id,
+    ]);
+    $draftPayout->sessions()->create([
+        'class_session_id' => $session->id,
+        'paid_revenue' => 1000,
+        'commission_rate' => 10,
+        'commission_amount' => 100,
+    ]);
+
+    $rows = app(UpsellPaidOrdersQuery::class)
+        ->forDateRange('2026-05-01', '2026-05-31')
+        ->byTeacher();
+
+    expect((float) $rows->first()['commission_paid'])->toBe(0.0);
+    expect((float) $rows->first()['commission_pending'])->toBe(100.0);
 });
 
 it('groups by product with line type from funnel order', function () {

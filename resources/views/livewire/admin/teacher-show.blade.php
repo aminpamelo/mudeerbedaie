@@ -35,6 +35,8 @@ new class extends Component
             'paid_orders' => 0,
             'paid_revenue' => 0,
             'commission_earned' => 0,
+            'commission_paid' => 0,
+            'commission_pending' => 0,
             'top_products' => collect(),
         ];
 
@@ -261,7 +263,7 @@ new class extends Component
             </div>
         </div>
         <div class="p-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div class="border rounded p-4 dark:border-zinc-700">
                     <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Sessions with Upsell</div>
                     <div class="text-2xl font-bold mt-1">{{ $this->upsellStats['sessions_count'] }}</div>
@@ -277,6 +279,10 @@ new class extends Component
                 <div class="border rounded p-4 dark:border-zinc-700">
                     <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Commission Earned</div>
                     <div class="text-2xl font-bold mt-1 text-amber-600">RM {{ number_format((float) $this->upsellStats['commission_earned'], 2) }}</div>
+                </div>
+                <div class="border rounded p-4 dark:border-zinc-700">
+                    <div class="text-xs text-gray-600 dark:text-gray-400 uppercase">Commission Paid</div>
+                    <div class="text-2xl font-bold mt-1 text-emerald-600">RM {{ number_format((float) ($this->upsellStats['commission_paid'] ?? 0), 2) }}</div>
                 </div>
             </div>
 
