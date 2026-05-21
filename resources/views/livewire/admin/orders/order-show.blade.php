@@ -8,6 +8,7 @@ use App\Services\SettingsService;
 use App\Services\Shipping\ShippingManager;
 use App\Services\TikTok\OrderItemLinker;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 
 new class extends Component
@@ -53,6 +54,38 @@ new class extends Component
         }
 
         // Set order status to component property
+        $this->orderStatus = $this->order->status;
+    }
+
+    /**
+     * Refresh the order and derived payment status after the accountant
+     * approves or rejects a funnel COD payment (dispatched from the
+     * payment-approval-card child component).
+     */
+    #[On('order-payment-updated')]
+    public function refreshAfterPaymentUpdate(): void
+    {
+        $this->order = $this->order->fresh()->load([
+            'items.product',
+            'items.package',
+            'items.warehouse',
+            'user',
+            'payments',
+            'platform',
+            'platformAccount',
+            'notes.user',
+            'salesSource',
+        ]);
+
+        $latestPayment = $this->order->payments()->latest()->first();
+        if ($latestPayment) {
+            $this->paymentStatus = $latestPayment->status;
+        } elseif ($this->order->paid_time) {
+            $this->paymentStatus = 'completed';
+        } else {
+            $this->paymentStatus = 'pending';
+        }
+
         $this->orderStatus = $this->order->status;
     }
 
@@ -844,6 +877,9 @@ new class extends Component
                     </div>
                 </div>
             </div>
+
+            <!-- Payment Approval (accountant-only, funnel COD orders) -->
+            <livewire:admin.orders.payment-approval-card :order="$order" wire:key="payment-approval-{{ $order->id }}" />
 
             <!-- Receipt Attachment -->
             @if($order->receipt_attachment)

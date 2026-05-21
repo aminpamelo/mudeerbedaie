@@ -154,6 +154,10 @@ class ExportProductOrders implements ShouldQueue
             $query->where('status', $filters['activeTab']);
         }
 
+        if (! empty($filters['paymentStatusFilter']) && $filters['paymentStatusFilter'] !== 'all') {
+            $query->where('payment_status', $filters['paymentStatusFilter']);
+        }
+
         if (! empty($filters['sourceTab']) && $filters['sourceTab'] !== 'all') {
             match ($filters['sourceTab']) {
                 'platform' => $query->whereNotNull('platform_id'),

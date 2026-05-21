@@ -355,7 +355,7 @@ class BayarcashService
      */
     public function processSuccessfulPayment(ProductOrder|Order $order, array $callbackData): void
     {
-        $order->update([
+        $updates = [
             'status' => $order instanceof ProductOrder ? 'processing' : 'paid',
             'payment_method' => 'fpx',
             'bayarcash_transaction_id' => $callbackData['transaction_id'] ?? null,
@@ -363,7 +363,15 @@ class BayarcashService
             'bayarcash_response' => $callbackData,
             'paid_at' => now(),
             'paid_time' => now(),
-        ]);
+        ];
+
+        // ProductOrder tracks gateway settlement via payment_status; the legacy
+        // Order model does not have this column.
+        if ($order instanceof ProductOrder) {
+            $updates['payment_status'] = 'paid';
+        }
+
+        $order->update($updates);
 
         Log::info('Bayarcash payment successful', [
             'order_id' => $order->id,
@@ -379,10 +387,16 @@ class BayarcashService
      */
     public function processFailedPayment(ProductOrder|Order $order, array $callbackData): void
     {
-        $order->update([
+        $updates = [
             'status' => 'payment_failed',
             'bayarcash_response' => $callbackData,
-        ]);
+        ];
+
+        if ($order instanceof ProductOrder) {
+            $updates['payment_status'] = 'failed';
+        }
+
+        $order->update($updates);
 
         Log::warning('Bayarcash payment failed', [
             'order_id' => $order->id,

@@ -23,6 +23,10 @@ class ProductOrder extends Model
         'student_id',
         'guest_email',
         'status',
+        'payment_status',
+        'payment_confirmed_by_user_id',
+        'payment_confirmed_at',
+        'payment_rejection_reason',
         'order_type',
         'currency',
         'subtotal',
@@ -100,6 +104,7 @@ class ProductOrder extends Model
             'order_date' => 'datetime',
             'required_delivery_date' => 'date',
             'confirmed_at' => 'datetime',
+            'payment_confirmed_at' => 'datetime',
             'shipped_at' => 'datetime',
             'delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -544,6 +549,43 @@ class ProductOrder extends Model
     public function scopeVisibleInAdmin($query)
     {
         return $query->where('hidden_from_admin', false);
+    }
+
+    public function scopePaid($query)
+    {
+        return $query->where('payment_status', 'paid');
+    }
+
+    public function scopeAwaitingPayment($query)
+    {
+        return $query->where('payment_status', 'pending');
+    }
+
+    public function paymentConfirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'payment_confirmed_by_user_id');
+    }
+
+    public function markPaymentAsConfirmed(int $userId, string $receiptPath): void
+    {
+        $this->update([
+            'payment_status' => 'paid',
+            'payment_confirmed_by_user_id' => $userId,
+            'payment_confirmed_at' => now(),
+            'receipt_attachment' => $receiptPath,
+            'paid_time' => $this->paid_time ?? now(),
+            'status' => $this->status === 'pending' ? 'confirmed' : $this->status,
+        ]);
+    }
+
+    public function markPaymentAsRejected(int $userId, string $reason): void
+    {
+        $this->update([
+            'payment_status' => 'failed',
+            'payment_confirmed_by_user_id' => $userId,
+            'payment_confirmed_at' => now(),
+            'payment_rejection_reason' => $reason,
+        ]);
     }
 
     // Static methods

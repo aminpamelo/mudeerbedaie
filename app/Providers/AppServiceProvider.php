@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Listeners\BlockExampleEmails;
 use App\Models\ClassModel;
 use App\Models\LiveSession;
+use App\Models\ProductOrder;
 use App\Models\User;
 use App\Observers\LiveSessionVerifiedObserver;
 use App\Policies\LiveHostPolicy;
+use App\Policies\ProductOrderPolicy;
 use App\Services\Shipping\JntShippingService;
 use App\Services\Shipping\ShippingManager;
 use Illuminate\Mail\Events\MessageSending;
@@ -62,6 +64,8 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('livehost.update', fn (User $actor, User $target) => (new LiveHostPolicy)->update($actor, $target));
         Gate::define('livehost.delete', fn (User $actor, User $target) => (new LiveHostPolicy)->delete($actor, $target));
+
+        Gate::policy(ProductOrder::class, ProductOrderPolicy::class);
 
         LiveSession::observe(LiveSessionVerifiedObserver::class);
     }

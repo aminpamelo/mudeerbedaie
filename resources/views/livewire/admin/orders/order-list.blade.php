@@ -23,6 +23,8 @@ new class extends Component
 
     public string $productFilter = '';
 
+    public string $paymentStatusFilter = 'all';
+
     public string $dateFilter = '';
 
     public string $dateFrom = '';
@@ -137,6 +139,12 @@ new class extends Component
         $this->selectedOrderIds = [];
     }
 
+    public function updatingPaymentStatusFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
+    }
+
     public function setSortBy(string $field): void
     {
         if ($this->sortBy === $field) {
@@ -200,12 +208,15 @@ new class extends Component
             ->when($this->activeTab !== 'all', function ($query) {
                 $query->where('status', $this->activeTab);
             })
+            ->when($this->paymentStatusFilter !== 'all', function ($query) {
+                $query->where('payment_status', $this->paymentStatusFilter);
+            })
             ->when($this->sourceTab !== 'all', function ($query) {
                 match ($this->sourceTab) {
                     'platform' => $query->whereNotNull('platform_id'),
                     'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
                         $q->whereNotIn('source', ['funnel', 'pos'])
-                          ->orWhereNull('source');
+                            ->orWhereNull('source');
                     }),
                     'funnel' => $query->where('source', 'funnel'),
                     'pos' => $query->where('source', 'pos'),
@@ -269,6 +280,28 @@ new class extends Component
             'delivered' => 'green',
             'cancelled', 'refunded', 'returned' => 'red',
             default => 'gray'
+        };
+    }
+
+    public function getPaymentStatusColor(string $paymentStatus): string
+    {
+        return match ($paymentStatus) {
+            'paid' => 'green',
+            'pending' => 'yellow',
+            'failed' => 'red',
+            'refunded' => 'zinc',
+            default => 'zinc',
+        };
+    }
+
+    public function getPaymentStatusLabel(string $paymentStatus): string
+    {
+        return match ($paymentStatus) {
+            'paid' => 'Paid',
+            'pending' => 'Pending',
+            'failed' => 'Failed',
+            'refunded' => 'Refunded',
+            default => ucfirst($paymentStatus),
         };
     }
 
@@ -373,7 +406,7 @@ new class extends Component
                 'platform' => $query->whereNotNull('platform_id'),
                 'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
                     $q->whereNotIn('source', ['funnel', 'pos'])
-                      ->orWhereNull('source');
+                        ->orWhereNull('source');
                 }),
                 'funnel' => $query->where('source', 'funnel'),
                 'pos' => $query->where('source', 'pos'),
@@ -425,6 +458,7 @@ new class extends Component
                 'activeTab' => $this->activeTab,
                 'sourceTab' => $this->sourceTab,
                 'productFilter' => $this->productFilter,
+                'paymentStatusFilter' => $this->paymentStatusFilter,
                 'dateFilter' => $this->dateFilter,
                 'dateFrom' => $this->dateFrom,
                 'dateTo' => $this->dateTo,
@@ -499,21 +533,28 @@ new class extends Component
 
     // Class Assignment Modal
     public bool $showClassAssignModal = false;
+
     public ?int $classAssignOrderId = null;
+
     public string $classAssignSearch = '';
+
     public array $classAssignSelectedIds = [];
 
     // Bulk selection (page-scoped)
     public array $selectedOrderIds = [];
+
     public bool $classAssignBulkMode = false;
+
     public array $classAssignBulkOrderIds = [];
 
     // Bulk student creation confirmation (Step 2)
     public bool $bulkConfirmStudents = false;
+
     public array $bulkStudentPlans = []; // ['ready' => [...], 'creatable' => [...], 'skipped' => [...]]
 
     // Create student from modal
     public string $newStudentName = '';
+
     public string $newStudentPhone = '';
 
     public function openClassAssignModal(int $orderId): void
@@ -635,24 +676,26 @@ new class extends Component
             $existingUser = \App\Models\User::where('phone', $phone)->first();
             if ($existingUser) {
                 $this->addError('newStudentPhone', 'A user with this phone number already exists. Please use the matching student above to link them instead.');
+
                 return;
             }
 
             $existingStudent = \App\Models\Student::where('phone', $phone)->first();
             if ($existingStudent) {
                 $this->addError('newStudentPhone', 'A student with this phone number already exists. Please use the matching student above to link them instead.');
+
                 return;
             }
         }
 
         // Create new user
         $baseEmail = $phone
-            ? preg_replace('/[^0-9]/', '', $phone) . '@student.local'
-            : \Illuminate\Support\Str::slug($this->newStudentName) . '-' . \Illuminate\Support\Str::random(4) . '@student.local';
+            ? preg_replace('/[^0-9]/', '', $phone).'@student.local'
+            : \Illuminate\Support\Str::slug($this->newStudentName).'-'.\Illuminate\Support\Str::random(4).'@student.local';
 
         // Ensure unique email
         while (\App\Models\User::where('email', $baseEmail)->exists()) {
-            $baseEmail = \Illuminate\Support\Str::slug($this->newStudentName) . '-' . \Illuminate\Support\Str::random(6) . '@student.local';
+            $baseEmail = \Illuminate\Support\Str::slug($this->newStudentName).'-'.\Illuminate\Support\Str::random(6).'@student.local';
         }
 
         try {
@@ -745,7 +788,7 @@ new class extends Component
         if ($this->classAssignSearch) {
             $query->where(function ($q) {
                 $q->where('title', 'like', "%{$this->classAssignSearch}%")
-                  ->orWhereHas('course', fn ($cq) => $cq->where('name', 'like', "%{$this->classAssignSearch}%"));
+                    ->orWhereHas('course', fn ($cq) => $cq->where('name', 'like', "%{$this->classAssignSearch}%"));
             });
         }
 
@@ -1328,6 +1371,15 @@ new class extends Component
                             @endforeach
                         </flux:select>
                     </div>
+                    <div class="w-40">
+                        <flux:select wire:model.live="paymentStatusFilter" placeholder="All Payments">
+                            <option value="all">All Payments</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                        </flux:select>
+                    </div>
                     <div class="w-36">
                         <flux:select wire:model.live="dateFilter" placeholder="All Time">
                             <option value="">All Time</option>
@@ -1351,7 +1403,7 @@ new class extends Component
             </div>
 
             <!-- Active Filter Tags -->
-            @if($search || $sourceTab !== 'all' || $productFilter || $dateFilter || $dateFrom || $dateTo)
+            @if($search || $sourceTab !== 'all' || $productFilter || $paymentStatusFilter !== 'all' || $dateFilter || $dateFrom || $dateTo)
                 <div class="flex items-center gap-2 mt-3 flex-wrap">
                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">Filters:</flux:text>
                     @if($search)
@@ -1372,6 +1424,12 @@ new class extends Component
                             <button wire:click="$set('productFilter', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
+                    @if($paymentStatusFilter !== 'all')
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            Payment: {{ $this->getPaymentStatusLabel($paymentStatusFilter) }}
+                            <button wire:click="$set('paymentStatusFilter', 'all')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
+                    @endif
                     @if($dateFilter)
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                             {{ ucfirst($dateFilter) }}
@@ -1384,7 +1442,7 @@ new class extends Component
                             <button wire:click="$set('dateFrom', ''); $set('dateTo', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
-                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
+                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('paymentStatusFilter', 'all'); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
                         class="text-xs text-zinc-400 hover:text-red-500 transition-colors font-medium">
                         Clear all
                     </button>
@@ -1678,17 +1736,9 @@ new class extends Component
 
                             <!-- Payment Status -->
                             <td class="px-5 py-3.5 whitespace-nowrap">
-                                @if($order->isPaid())
-                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                        Paid
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                                        Unpaid
-                                    </span>
-                                @endif
+                                <flux:badge size="sm" color="{{ $this->getPaymentStatusColor($order->payment_status) }}">
+                                    {{ $this->getPaymentStatusLabel($order->payment_status) }}
+                                </flux:badge>
                             </td>
 
                             <!-- Notes -->
@@ -1818,8 +1868,8 @@ new class extends Component
                                     </div>
                                     <flux:text class="font-medium text-zinc-600 dark:text-zinc-400">No orders found</flux:text>
                                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 mt-1">Try adjusting your filters or search terms</flux:text>
-                                    @if($search || $activeTab !== 'all' || $dateFilter || $dateFrom || $dateTo || $sourceTab !== 'all' || $productFilter)
-                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', ''); $set('sourceTab', 'all'); $set('productFilter', '')" class="mt-3">
+                                    @if($search || $activeTab !== 'all' || $dateFilter || $dateFrom || $dateTo || $sourceTab !== 'all' || $productFilter || $paymentStatusFilter !== 'all')
+                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('paymentStatusFilter', 'all')" class="mt-3">
                                             Clear all filters
                                         </flux:button>
                                     @endif

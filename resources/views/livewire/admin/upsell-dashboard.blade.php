@@ -14,6 +14,7 @@ new class extends Component {
     public string $filterClassId = '';
     public string $filterFunnelId = '';
     public string $filterPicId = '';
+    public bool $bannerDismissed = false;
 
     public function mount(): void
     {
@@ -23,6 +24,18 @@ new class extends Component {
 
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo = now()->endOfMonth()->toDateString();
+        $this->bannerDismissed = (bool) cache()->get($this->bannerCacheKey());
+    }
+
+    public function dismissBanner(): void
+    {
+        cache()->put($this->bannerCacheKey(), true, now()->addYear());
+        $this->bannerDismissed = true;
+    }
+
+    private function bannerCacheKey(): string
+    {
+        return 'upsell_commission_banner_dismissed:'.auth()->id();
     }
 
     public function getOverallStatsProperty(): array
@@ -40,6 +53,7 @@ new class extends Component {
 
         $orders = FunnelOrder::whereNotNull('class_session_id')
             ->whereIn('class_session_id', $sessionIds)
+            ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
             ->get();
 
         $visitors = FunnelSession::whereNotNull('class_session_id')
@@ -95,7 +109,9 @@ new class extends Component {
                     ->when($this->dateTo, fn ($q) => $q->where('session_date', '<=', $this->dateTo))
                     ->pluck('id');
 
-                $orders = FunnelOrder::whereIn('class_session_id', $sessionIds)->get();
+                $orders = FunnelOrder::whereIn('class_session_id', $sessionIds)
+                    ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+                    ->get();
                 $visitors = FunnelSession::whereIn('class_session_id', $sessionIds)->count();
 
                 $class->upsell_orders = $orders->count();
@@ -117,10 +133,13 @@ new class extends Component {
             ->when($this->filterClassId, fn ($q) => $q->where('class_id', $this->filterClassId))
             ->pluck('id');
 
+        $paidOrderConstraint = fn ($q) => $q->whereIn('class_session_id', $sessionIds)
+            ->whereHas('productOrder', fn ($pq) => $pq->where('payment_status', 'paid'));
+
         return Funnel::query()
-            ->whereHas('orders', fn ($q) => $q->whereIn('class_session_id', $sessionIds))
-            ->withCount(['orders as upsell_orders' => fn ($q) => $q->whereIn('class_session_id', $sessionIds)])
-            ->withSum(['orders as upsell_revenue' => fn ($q) => $q->whereIn('class_session_id', $sessionIds)], 'funnel_revenue')
+            ->whereHas('orders', $paidOrderConstraint)
+            ->withCount(['orders as upsell_orders' => $paidOrderConstraint])
+            ->withSum(['orders as upsell_revenue' => $paidOrderConstraint], 'funnel_revenue')
             ->orderByDesc('upsell_revenue')
             ->get();
     }
@@ -153,7 +172,9 @@ new class extends Component {
         $users = User::whereIn('id', array_keys($picData))->get()->keyBy('id');
 
         return collect($picData)->map(function ($data) use ($users) {
-            $orders = FunnelOrder::whereIn('class_session_id', $data['session_ids'])->get();
+            $orders = FunnelOrder::whereIn('class_session_id', $data['session_ids'])
+                ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+                ->get();
 
             return (object) [
                 'user' => $users->get($data['user_id']),
@@ -199,6 +220,19 @@ new class extends Component {
 }; ?>
 
 <div>
+    @if(! $bannerDismissed)
+        <flux:callout variant="warning" class="mb-6">
+            <flux:callout.heading>Commission calculation updated</flux:callout.heading>
+            <flux:callout.text>
+                Upsell commission now only counts orders with confirmed payment (paid status).
+                Historical totals have been recalculated to reflect this change.
+            </flux:callout.text>
+            <div class="mt-3">
+                <flux:button wire:click="dismissBanner" size="sm" variant="ghost">Got it</flux:button>
+            </div>
+        </flux:callout>
+    @endif
+
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Upsell Dashboard</flux:heading>
