@@ -1,6 +1,9 @@
 <?php
 
+use App\Jobs\ProcessStudentImport;
+use App\Models\StudentImportProgress;
 use App\Services\StudentImportService;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
@@ -10,13 +13,17 @@ new class extends Component
 
     public $csvFile;
 
-    public $step = 1; // 1: Upload, 2: Preview, 3: Results
+    public $step = 1; // 1: Upload, 2: Preview, 3: Importing (progress), 4: Results
 
     public $previewData = [];
 
     public $importResults = [];
 
     public $isProcessing = false;
+
+    public ?int $importProgressId = null;
+
+    public ?array $progressSnapshot = null;
 
     protected $rules = [
         'csvFile' => 'required|file|mimes:csv,txt|max:2048',
@@ -31,7 +38,6 @@ new class extends Component
     public function uploadCsv(): void
     {
         try {
-            // Clear any previous session errors
             session()->forget('error');
 
             $this->validate();
@@ -46,21 +52,18 @@ new class extends Component
                 throw new \Exception('Invalid file upload.');
             }
 
-            // Get the temporary file path directly from Livewire
             $tempPath = $this->csvFile->getRealPath();
 
             if (! $tempPath || ! file_exists($tempPath)) {
                 throw new \Exception('Failed to access uploaded file');
             }
 
-            // Parse and validate CSV directly from temporary location
             $service = new StudentImportService;
             $service->parseCsv($tempPath);
             $this->previewData = $service->validateData();
 
             $this->step = 2;
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // Let validation errors be handled by Livewire
             throw $e;
         } catch (\Exception $e) {
             session()->flash('error', 'Error processing CSV: '.$e->getMessage());
@@ -69,39 +72,91 @@ new class extends Component
         }
     }
 
-    public function importData(): void
+    public function startImport(): void
     {
         try {
             $this->isProcessing = true;
 
-            // Get the temporary file path directly from Livewire
-            $tempPath = $this->csvFile->getRealPath();
-
-            if (! $tempPath || ! file_exists($tempPath)) {
-                throw new \Exception('Failed to access uploaded file');
+            if (! $this->csvFile || ! $this->csvFile->isValid()) {
+                throw new \Exception('Uploaded file is no longer available. Please re-upload the CSV.');
             }
 
-            $service = new StudentImportService;
-            $service->parseCsv($tempPath);
-            $service->validateData();
-            $this->importResults = $service->importValidData();
+            $storedPath = $this->csvFile->storeAs(
+                'student-imports',
+                'student-import-'.now()->format('Ymd_His').'-'.\Illuminate\Support\Str::random(8).'.csv',
+                'local'
+            );
 
+            if (! $storedPath) {
+                throw new \Exception('Failed to persist uploaded file for background processing.');
+            }
+
+            $progress = StudentImportProgress::create([
+                'user_id' => auth()->id(),
+                'class_id' => null,
+                'type' => 'general',
+                'file_path' => $storedPath,
+                'status' => 'pending',
+                'total_rows' => count($this->previewData),
+            ]);
+
+            ProcessStudentImport::dispatch($progress->id);
+
+            $this->importProgressId = $progress->id;
+            $this->progressSnapshot = $this->loadProgressSnapshot();
             $this->step = 3;
         } catch (\Exception $e) {
-            session()->flash('error', 'Error importing data: '.$e->getMessage());
+            session()->flash('error', 'Error starting import: '.$e->getMessage());
         } finally {
             $this->isProcessing = false;
         }
     }
 
+    public function refreshProgress(): void
+    {
+        if (! $this->importProgressId) {
+            return;
+        }
+
+        $this->progressSnapshot = $this->loadProgressSnapshot();
+
+        if ($this->progressSnapshot === null) {
+            return;
+        }
+
+        if (in_array($this->progressSnapshot['status'], ['completed', 'failed', 'cancelled'], true)) {
+            $this->importResults = $this->progressSnapshot['result'] ?? [
+                'imported' => $this->progressSnapshot['created_count'],
+                'updated' => $this->progressSnapshot['matched_count'],
+                'skipped' => $this->progressSnapshot['skipped_count'],
+                'errors' => [],
+                'total' => $this->progressSnapshot['processed_rows'],
+            ];
+            $this->step = 4;
+        }
+    }
+
+    public function cancelImport(): void
+    {
+        if (! $this->importProgressId) {
+            return;
+        }
+
+        $progress = StudentImportProgress::find($this->importProgressId);
+        if ($progress && in_array($progress->status, ['pending', 'processing'], true)) {
+            $progress->update(['status' => 'cancelled']);
+        }
+
+        $this->refreshProgress();
+    }
+
     public function resetImport(): void
     {
-        $this->reset(['csvFile', 'step', 'previewData', 'importResults', 'isProcessing']);
+        $this->reset(['csvFile', 'step', 'previewData', 'importResults', 'isProcessing', 'importProgressId', 'progressSnapshot']);
     }
 
     public function downloadSample(): void
     {
-        // Redirect to the sample download route
         $this->redirect(route('students.sample-csv'));
     }
 
@@ -118,6 +173,39 @@ new class extends Component
     public function getInvalidRowsCount(): int
     {
         return collect($this->previewData)->where('status', 'invalid')->count();
+    }
+
+    public function getProgressPercentage(): int
+    {
+        if (! $this->progressSnapshot || ($this->progressSnapshot['total_rows'] ?? 0) === 0) {
+            return 0;
+        }
+
+        return (int) round(($this->progressSnapshot['processed_rows'] / $this->progressSnapshot['total_rows']) * 100);
+    }
+
+    protected function loadProgressSnapshot(): ?array
+    {
+        $progress = StudentImportProgress::find($this->importProgressId);
+
+        if (! $progress) {
+            return null;
+        }
+
+        return [
+            'id' => $progress->id,
+            'status' => $progress->status,
+            'total_rows' => $progress->total_rows,
+            'processed_rows' => $progress->processed_rows,
+            'created_count' => $progress->created_count,
+            'matched_count' => $progress->matched_count,
+            'skipped_count' => $progress->skipped_count,
+            'error_count' => $progress->error_count,
+            'error_message' => $progress->error_message,
+            'result' => $progress->result,
+            'started_at' => optional($progress->started_at)->toDateTimeString(),
+            'completed_at' => optional($progress->completed_at)->toDateTimeString(),
+        ];
     }
 }; ?>
 
@@ -142,12 +230,16 @@ new class extends Component
             <div class="flex-1 mx-4 h-1 {{ $step >= 3 ? 'bg-blue-600' : 'bg-gray-300' }} rounded"></div>
             <div class="flex items-center">
                 <span class="flex items-center justify-center w-8 h-8 rounded-full {{ $step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600' }}">3</span>
-                <span class="ml-2 text-sm font-medium">Import Results</span>
+                <span class="ml-2 text-sm font-medium">Importing</span>
+            </div>
+            <div class="flex-1 mx-4 h-1 {{ $step >= 4 ? 'bg-blue-600' : 'bg-gray-300' }} rounded"></div>
+            <div class="flex items-center">
+                <span class="flex items-center justify-center w-8 h-8 rounded-full {{ $step >= 4 ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600' }}">4</span>
+                <span class="ml-2 text-sm font-medium">Results</span>
             </div>
         </div>
     </div>
 
-    <!-- Error Messages -->
     @if(session()->has('error'))
         <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <div class="flex">
@@ -164,7 +256,6 @@ new class extends Component
         <flux:card>
             <div class="p-6">
                 <div class="space-y-6">
-                    <!-- Guidelines -->
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <div class="flex">
                             <flux:icon name="information-circle" class="w-5 h-5 text-blue-400 mr-3 mt-0.5" />
@@ -179,19 +270,18 @@ new class extends Component
                                     <li>Default password will be set to 'password123' for new accounts</li>
                                     <li>Auto-generated email if not provided (student{phone}@example.com)</li>
                                     <li>Maximum file size: 2MB</li>
+                                    <li>Large imports run in the background &mdash; progress is shown live.</li>
                                 </ul>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Sample Download -->
                     <div class="text-center">
                         <flux:button wire:click="downloadSample" variant="outline" icon="document-text">
                             Download Sample CSV
                         </flux:button>
                     </div>
 
-                    <!-- File Upload -->
                     <form wire:submit.prevent="uploadCsv">
                         <div class="space-y-4">
                             <div>
@@ -223,7 +313,6 @@ new class extends Component
         <flux:card>
             <div class="p-6">
                 <div class="space-y-6">
-                    <!-- Summary Stats -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                             <div class="flex items-center">
@@ -256,7 +345,6 @@ new class extends Component
                         </div>
                     </div>
 
-                    <!-- Preview Table -->
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
                             <thead class="bg-gray-50 dark:bg-zinc-700/50">
@@ -272,7 +360,7 @@ new class extends Component
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                 @foreach($previewData as $row)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                                    <tr wire:key="preview-row-{{ $row['index'] }}" class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
                                         <td class="px-4 py-4 text-sm text-gray-900">{{ $row['data']['_row_number'] }}</td>
                                         <td class="px-4 py-4">
                                             <flux:badge :class="match($row['status']) {
@@ -310,14 +398,13 @@ new class extends Component
                         </table>
                     </div>
 
-                    <!-- Action Buttons -->
                     <div class="flex justify-between">
                         <flux:button wire:click="resetImport" variant="ghost">
                             Start Over
                         </flux:button>
-                        <flux:button wire:click="importData" variant="primary" :disabled="$isProcessing || ($this->getValidRowsCount() + $this->getWarningRowsCount()) === 0">
-                            <span wire:loading.remove wire:target="importData">Import {{ $this->getValidRowsCount() + $this->getWarningRowsCount() }} Records</span>
-                            <span wire:loading wire:target="importData">Importing...</span>
+                        <flux:button wire:click="startImport" variant="primary" :disabled="$isProcessing || ($this->getValidRowsCount() + $this->getWarningRowsCount()) === 0">
+                            <span wire:loading.remove wire:target="startImport">Queue Import ({{ $this->getValidRowsCount() + $this->getWarningRowsCount() }} Records)</span>
+                            <span wire:loading wire:target="startImport">Queuing...</span>
                         </flux:button>
                     </div>
                 </div>
@@ -325,16 +412,92 @@ new class extends Component
         </flux:card>
 
     @elseif($step === 3)
-        <!-- Step 3: Import Results -->
+        <!-- Step 3: Live Progress (polls every 2s while running) -->
+        <flux:card wire:poll.2s="refreshProgress">
+            <div class="p-6">
+                <div class="space-y-6">
+                    <div class="text-center">
+                        @if($progressSnapshot && $progressSnapshot['status'] === 'pending')
+                            <flux:icon name="clock" class="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                            <flux:heading size="lg">Waiting for queue worker&hellip;</flux:heading>
+                            <flux:text class="mt-2 text-sm text-gray-500">If this stays here, make sure the queue worker is running (`php artisan queue:work` or `composer run dev`).</flux:text>
+                        @elseif($progressSnapshot && $progressSnapshot['status'] === 'processing')
+                            <flux:icon name="arrow-path" class="w-16 h-16 text-blue-600 mx-auto mb-4 animate-spin" />
+                            <flux:heading size="lg">Importing students&hellip;</flux:heading>
+                            <flux:text class="mt-2">{{ $progressSnapshot['processed_rows'] }} of {{ $progressSnapshot['total_rows'] }} rows processed</flux:text>
+                        @else
+                            <flux:icon name="arrow-path" class="w-16 h-16 text-gray-500 mx-auto mb-4 animate-spin" />
+                            <flux:heading size="lg">Starting&hellip;</flux:heading>
+                        @endif
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm font-medium text-gray-700 mb-2">
+                            <span>Progress</span>
+                            <span>{{ $this->getProgressPercentage() }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div class="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                                 style="width: {{ $this->getProgressPercentage() }}%"></div>
+                        </div>
+                    </div>
+
+                    @if($progressSnapshot)
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                            <div class="bg-green-50 border border-green-200 rounded p-3">
+                                <p class="text-2xl font-bold text-green-900">{{ $progressSnapshot['created_count'] }}</p>
+                                <p class="text-xs text-green-700">New</p>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-200 rounded p-3">
+                                <p class="text-2xl font-bold text-blue-900">{{ $progressSnapshot['matched_count'] }}</p>
+                                <p class="text-xs text-blue-700">Updated</p>
+                            </div>
+                            <div class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                                <p class="text-2xl font-bold text-yellow-900">{{ $progressSnapshot['skipped_count'] }}</p>
+                                <p class="text-xs text-yellow-700">Skipped</p>
+                            </div>
+                            <div class="bg-red-50 border border-red-200 rounded p-3">
+                                <p class="text-2xl font-bold text-red-900">{{ $progressSnapshot['error_count'] }}</p>
+                                <p class="text-xs text-red-700">Errors</p>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="flex justify-center">
+                        <flux:button wire:click="cancelImport" variant="danger" size="sm">
+                            Cancel Import
+                        </flux:button>
+                    </div>
+
+                    <flux:text class="text-center text-xs text-gray-500">
+                        You can safely close this page &mdash; the import will continue in the background.
+                    </flux:text>
+                </div>
+            </div>
+        </flux:card>
+
+    @elseif($step === 4)
+        <!-- Step 4: Final Results -->
         <flux:card>
             <div class="p-6">
                 <div class="space-y-6">
                     <div class="text-center">
-                        <flux:icon name="check-circle" class="w-16 h-16 text-green-600 mx-auto mb-4" />
-                        <flux:heading size="lg">Import Complete</flux:heading>
+                        @if(($progressSnapshot['status'] ?? null) === 'failed')
+                            <flux:icon name="x-circle" class="w-16 h-16 text-red-600 mx-auto mb-4" />
+                            <flux:heading size="lg">Import Failed</flux:heading>
+                            @if(! empty($progressSnapshot['error_message']))
+                                <flux:text class="mt-2 text-red-700">{{ $progressSnapshot['error_message'] }}</flux:text>
+                            @endif
+                        @elseif(($progressSnapshot['status'] ?? null) === 'cancelled')
+                            <flux:icon name="no-symbol" class="w-16 h-16 text-yellow-600 mx-auto mb-4" />
+                            <flux:heading size="lg">Import Cancelled</flux:heading>
+                            <flux:text class="mt-2">Stopped after {{ $progressSnapshot['processed_rows'] }} of {{ $progressSnapshot['total_rows'] }} rows.</flux:text>
+                        @else
+                            <flux:icon name="check-circle" class="w-16 h-16 text-green-600 mx-auto mb-4" />
+                            <flux:heading size="lg">Import Complete</flux:heading>
+                        @endif
                     </div>
 
-                    <!-- Results Summary -->
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                             <p class="text-3xl font-bold text-green-900">{{ $importResults['imported'] ?? 0 }}</p>
@@ -363,9 +526,9 @@ new class extends Component
                                 <flux:icon name="exclamation-triangle" class="w-5 h-5 mr-2" />
                                 Import Errors:
                             </h4>
-                            <div class="space-y-3">
+                            <div class="space-y-3 max-h-96 overflow-y-auto">
                                 @foreach($importResults['errors'] as $error)
-                                    <div class="bg-white border border-red-300 rounded p-3">
+                                    <div wire:key="result-error-{{ $error['row'] }}" class="bg-white border border-red-300 rounded p-3">
                                         <p class="text-sm font-medium text-red-900 mb-1">Row {{ $error['row'] }}:</p>
                                         <p class="text-sm text-red-700 break-words">{{ $error['error'] }}</p>
                                     </div>

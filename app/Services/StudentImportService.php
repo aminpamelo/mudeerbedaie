@@ -17,6 +17,24 @@ class StudentImportService
 
     protected array $warnings = [];
 
+    /** @var array<string, true> */
+    protected array $existingPhones = [];
+
+    /** @var array<string, true> */
+    protected array $existingEmails = [];
+
+    /** @var array<string, true> */
+    protected array $existingIcNumbers = [];
+
+    /** @var array<string, int> CSV-internal duplicate map: value => last row number */
+    protected array $csvPhoneMap = [];
+
+    /** @var array<string, int> */
+    protected array $csvIcMap = [];
+
+    /** @var array<string, int> */
+    protected array $csvEmailMap = [];
+
     public function parseCsv(string $filePath): array
     {
         $this->csvData = [];
@@ -102,6 +120,9 @@ class StudentImportService
     {
         $this->validatedData = [];
 
+        $this->preloadExistingRecords();
+        $this->buildCsvDuplicateMaps();
+
         foreach ($this->csvData as $index => $row) {
             $validator = $this->validateRow($row);
 
@@ -114,7 +135,6 @@ class StudentImportService
                 $errors = $validator->errors()->all();
             }
 
-            // Check for potential duplicates in database
             $duplicateWarnings = $this->checkDuplicates($row);
             if (! empty($duplicateWarnings)) {
                 $warnings = array_merge($warnings, $duplicateWarnings);
@@ -123,8 +143,7 @@ class StudentImportService
                 }
             }
 
-            // Check for duplicates within CSV file
-            $csvDuplicates = $this->checkCsvDuplicates($row, $index);
+            $csvDuplicates = $this->checkCsvDuplicates($row);
             if (! empty($csvDuplicates)) {
                 $errors = array_merge($errors, $csvDuplicates);
                 $status = 'invalid';
@@ -140,6 +159,57 @@ class StudentImportService
         }
 
         return $this->validatedData;
+    }
+
+    /**
+     * Bulk-load existing student phones/ICs and user emails appearing in the CSV.
+     *
+     * Replaces three SELECTs per row with three windowed SELECTs total.
+     */
+    protected function preloadExistingRecords(): void
+    {
+        $phones = collect($this->csvData)->pluck('phone')->filter()->unique()->values()->all();
+        $emails = collect($this->csvData)->pluck('email')->filter()->unique()->values()->all();
+        $icNumbers = collect($this->csvData)->pluck('ic_number')->filter()->unique()->values()->all();
+
+        $this->existingPhones = $phones === []
+            ? []
+            : Student::whereIn('phone', $phones)->pluck('phone')->flip()->map(fn () => true)->all();
+
+        $this->existingEmails = $emails === []
+            ? []
+            : User::whereIn('email', $emails)->pluck('email')->flip()->map(fn () => true)->all();
+
+        $this->existingIcNumbers = $icNumbers === []
+            ? []
+            : Student::whereIn('ic_number', $icNumbers)->pluck('ic_number')->flip()->map(fn () => true)->all();
+    }
+
+    /**
+     * Build O(1)-lookup maps for in-CSV duplicate detection.
+     *
+     * Replaces the O(n^2) nested loop in checkCsvDuplicates.
+     * The LAST occurrence wins (matches original semantics), so we record the highest row number.
+     */
+    protected function buildCsvDuplicateMaps(): void
+    {
+        $this->csvPhoneMap = [];
+        $this->csvIcMap = [];
+        $this->csvEmailMap = [];
+
+        foreach ($this->csvData as $row) {
+            $rowNumber = $row['_row_number'] ?? 0;
+
+            if (! empty($row['phone'])) {
+                $this->csvPhoneMap[$row['phone']] = $rowNumber;
+            }
+            if (! empty($row['ic_number'])) {
+                $this->csvIcMap[$row['ic_number']] = $rowNumber;
+            }
+            if (! empty($row['email'])) {
+                $this->csvEmailMap[$row['email']] = $rowNumber;
+            }
+        }
     }
 
     protected function validateRow(array $row): \Illuminate\Validation\Validator
@@ -168,54 +238,43 @@ class StudentImportService
     {
         $warnings = [];
 
-        // Check for existing phone number (required field)
-        if (! empty($row['phone']) && Student::where('phone', $row['phone'])->exists()) {
+        if (! empty($row['phone']) && isset($this->existingPhones[$row['phone']])) {
             $warnings[] = 'Phone number already exists - will update existing record';
         }
 
-        // Check for existing email
-        if (! empty($row['email']) && User::where('email', $row['email'])->exists()) {
+        if (! empty($row['email']) && isset($this->existingEmails[$row['email']])) {
             $warnings[] = 'Email already exists - will update existing record';
         }
 
-        // Check for existing IC number
-        if (! empty($row['ic_number']) && Student::where('ic_number', $row['ic_number'])->exists()) {
+        if (! empty($row['ic_number']) && isset($this->existingIcNumbers[$row['ic_number']])) {
             $warnings[] = 'IC number already exists - will update existing record';
         }
 
         return $warnings;
     }
 
-    protected function checkCsvDuplicates(array $row, int $currentIndex): array
+    /**
+     * Flag this row as a duplicate only when a LATER row in the CSV holds the same key
+     * (preserves "last occurrence wins" semantics from the previous nested loop).
+     */
+    protected function checkCsvDuplicates(array $row): array
     {
         $errors = [];
+        $currentRowNumber = $row['_row_number'] ?? 0;
+        $foundDuplicate = false;
 
-        // Check for duplicates within the CSV file
-        // We check rows that come AFTER the current row, so the LAST occurrence wins
-        foreach ($this->csvData as $index => $csvRow) {
-            // Only check rows that come after current row
-            if ($index <= $currentIndex) {
-                continue;
-            }
+        if (! empty($row['phone']) && ($this->csvPhoneMap[$row['phone']] ?? 0) > $currentRowNumber) {
+            $errors[] = "Duplicate phone number '{$row['phone']}' - row {$this->csvPhoneMap[$row['phone']]} will be used instead";
+            $foundDuplicate = true;
+        }
 
-            $foundDuplicate = false;
+        if (! $foundDuplicate && ! empty($row['ic_number']) && ($this->csvIcMap[$row['ic_number']] ?? 0) > $currentRowNumber) {
+            $errors[] = "Duplicate IC number '{$row['ic_number']}' - row {$this->csvIcMap[$row['ic_number']]} will be used instead";
+            $foundDuplicate = true;
+        }
 
-            // Check for duplicate phone numbers (required field - most important)
-            if (! empty($row['phone']) && ! empty($csvRow['phone']) && $row['phone'] === $csvRow['phone']) {
-                $errors[] = "Duplicate phone number '{$row['phone']}' - row {$csvRow['_row_number']} will be used instead";
-                $foundDuplicate = true;
-            }
-
-            // Check for duplicate IC numbers (only if phone didn't match)
-            if (! $foundDuplicate && ! empty($row['ic_number']) && ! empty($csvRow['ic_number']) && $row['ic_number'] === $csvRow['ic_number']) {
-                $errors[] = "Duplicate IC number '{$row['ic_number']}' - row {$csvRow['_row_number']} will be used instead";
-                $foundDuplicate = true;
-            }
-
-            // Check for duplicate email addresses (only if phone and IC didn't match)
-            if (! $foundDuplicate && ! empty($row['email']) && ! empty($csvRow['email']) && $row['email'] === $csvRow['email']) {
-                $errors[] = "Duplicate email '{$row['email']}' - row {$csvRow['_row_number']} will be used instead";
-            }
+        if (! $foundDuplicate && ! empty($row['email']) && ($this->csvEmailMap[$row['email']] ?? 0) > $currentRowNumber) {
+            $errors[] = "Duplicate email '{$row['email']}' - row {$this->csvEmailMap[$row['email']]} will be used instead";
         }
 
         return $errors;
@@ -258,36 +317,51 @@ class StudentImportService
         return null;
     }
 
-    public function importValidData(): array
+    /**
+     * Import all valid+warning rows from the previously validated dataset.
+     *
+     * The optional $onProgress callback fires after every row with the running counts:
+     *   fn(int $processed, int $imported, int $updated, int $skipped, array $errors): ?bool
+     * Returning `false` from the callback aborts the loop (used by the queue job to honour cancellation).
+     */
+    public function importValidData(?callable $onProgress = null): array
     {
         $imported = 0;
         $updated = 0;
         $skipped = 0;
         $errors = [];
+        $processed = 0;
 
         foreach ($this->validatedData as $item) {
             if ($item['status'] === 'invalid') {
                 $skipped++;
+            } else {
+                try {
+                    $existingStudent = $this->findExistingStudent($item['data']);
 
-                continue;
+                    if ($existingStudent) {
+                        $this->updateStudent($existingStudent, $item['data']);
+                        $updated++;
+                    } else {
+                        $this->createStudent($item['data']);
+                        $imported++;
+                    }
+                } catch (\Exception $e) {
+                    $skipped++;
+                    $errors[] = [
+                        'row' => $item['data']['_row_number'],
+                        'error' => $this->formatErrorMessage($e->getMessage(), $item['data']),
+                    ];
+                }
             }
 
-            try {
-                $existingStudent = $this->findExistingStudent($item['data']);
+            $processed++;
 
-                if ($existingStudent) {
-                    $this->updateStudent($existingStudent, $item['data']);
-                    $updated++;
-                } else {
-                    $this->createStudent($item['data']);
-                    $imported++;
+            if ($onProgress !== null) {
+                $continue = $onProgress($processed, $imported, $updated, $skipped, $errors);
+                if ($continue === false) {
+                    break;
                 }
-            } catch (\Exception $e) {
-                $skipped++;
-                $errors[] = [
-                    'row' => $item['data']['_row_number'],
-                    'error' => $this->formatErrorMessage($e->getMessage(), $item['data']),
-                ];
             }
         }
 

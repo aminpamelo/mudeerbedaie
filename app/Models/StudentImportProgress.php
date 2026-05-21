@@ -12,6 +12,7 @@ class StudentImportProgress extends Model
     protected $fillable = [
         'class_id',
         'user_id',
+        'type',
         'file_path',
         'status',
         'total_rows',
