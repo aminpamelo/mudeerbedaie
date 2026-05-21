@@ -8762,6 +8762,7 @@ new class extends Component
                                         <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</th>
                                         <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
                                         <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Payment</th>
+                                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Method</th>
                                         <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
                                         <th class="text-center py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Action</th>
                                     </tr>
@@ -8814,6 +8815,13 @@ new class extends Component
                                                     <span class="text-xs text-zinc-400">—</span>
                                                 @endif
                                             </td>
+                                            <td class="py-2 px-3 align-top whitespace-nowrap text-xs text-zinc-600 dark:text-zinc-400">
+                                                @if($po?->payment_method)
+                                                    {{ $po->payment_method_label }}
+                                                @else
+                                                    <span class="text-zinc-400">—</span>
+                                                @endif
+                                            </td>
                                             <td class="py-2 px-3 text-right text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums align-top whitespace-nowrap">
                                                 RM {{ number_format($order->funnel_revenue, 2) }}
                                             </td>
@@ -8834,7 +8842,7 @@ new class extends Component
                                 </tbody>
                                 <tfoot class="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
                                     <tr>
-                                        <td colspan="6" class="py-2 px-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Total</td>
+                                        <td colspan="7" class="py-2 px-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Total</td>
                                         <td class="py-2 px-3 text-right text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">
                                             RM {{ number_format($orders->sum('funnel_revenue'), 2) }}
                                         </td>
