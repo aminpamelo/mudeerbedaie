@@ -26,6 +26,7 @@ class Task extends Model
         'status',
         'deadline',
         'completed_at',
+        'reminders_sent',
     ];
 
     /**
@@ -38,6 +39,7 @@ class Task extends Model
         return [
             'deadline' => 'date',
             'completed_at' => 'datetime',
+            'reminders_sent' => 'array',
         ];
     }
 

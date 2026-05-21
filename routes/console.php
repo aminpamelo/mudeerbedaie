@@ -77,6 +77,9 @@ Schedule::command('hr:check-probation-endings')->dailyAt('09:00');
 // HR Notifications - Expiring documents check (daily 9 AM)
 Schedule::command('hr:check-expiring-documents')->dailyAt('09:00');
 
+// HR Notifications - Task deadline reminders (daily 9 AM)
+Schedule::command('hr:check-task-deadlines')->dailyAt('09:00');
+
 // TikTok Shop analytics sync - daily at 4 AM
 Schedule::command('tiktok:sync-analytics')->dailyAt('04:00');
 

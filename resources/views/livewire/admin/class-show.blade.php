@@ -47,6 +47,17 @@ new class extends Component
         $this->loadOverviewData();
     }
 
+    public function hydrate(): void
+    {
+        // Livewire rehydrates Eloquent models by re-fetching from the database,
+        // which drops non-column attributes like the loadCount() result.
+        // Without this, the Students tab's `@if($class->active_students_count > 0)` check
+        // flips to NULL after any Livewire request and the enrolled table vanishes.
+        if ($this->class?->exists) {
+            $this->class->loadCount('activeStudents');
+        }
+    }
+
     /**
      * Eager-load the heavy Overview-only relations on demand.
      * Called from mount() and setActiveTab() so non-Overview tabs avoid
