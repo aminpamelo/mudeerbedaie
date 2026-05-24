@@ -29,8 +29,8 @@ new class extends Component
 
     public function mount()
     {
-        // Ensure user is admin
-        if (! auth()->user()->isAdmin()) {
+        $user = auth()->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isEmployee())) {
             abort(403, 'Access denied');
         }
 
