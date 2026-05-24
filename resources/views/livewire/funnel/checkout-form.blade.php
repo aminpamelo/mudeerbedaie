@@ -5,8 +5,10 @@ use App\Models\FunnelCart;
 use App\Models\FunnelOrder;
 use App\Models\FunnelSession;
 use App\Models\FunnelStep;
+use App\Models\ProductOrder;
 use App\Services\BayarcashService;
 use App\Services\SettingsService;
+use App\Services\StripeService;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 
@@ -579,21 +581,186 @@ new class extends Component
                 return;
             }
 
-            // For Stripe payments (credit_card, debit_card)
-            // Dispatch browser event for Stripe.js payment processing
-            $this->dispatch('funnel-order-created', [
-                'orderId' => $productOrder->id,
-                'orderNumber' => $productOrder->order_number,
-                'paymentMethod' => $this->paymentMethod,
-                'total' => $this->calculateTotal(),
-            ]);
+            // For Stripe payments (credit_card, debit_card) — create a PaymentIntent
+            // server-side and hand the client_secret to Stripe.js so it can charge
+            // the card. Charging completes in confirmStripePayment() below.
+            $this->processStripePayment($productOrder);
 
-            // For now, redirect to thank you (Stripe integration can be added later)
-            $this->redirectToNextStep($productOrder);
+            return;
 
         } catch (\Exception $e) {
             $this->addError('payment', $e->getMessage());
         } finally {
+            $this->isProcessing = false;
+        }
+    }
+
+    private function processStripePayment(ProductOrder $order): void
+    {
+        try {
+            $stripeService = app(StripeService::class);
+
+            if (! $stripeService->isConfigured()) {
+                throw new \RuntimeException('Stripe is not configured.');
+            }
+
+            $stripe = $stripeService->getStripe();
+
+            $paymentIntent = $stripe->paymentIntents->create([
+                'amount' => (int) round($order->total_amount * 100),
+                'currency' => strtolower($order->currency ?: 'MYR'),
+                'automatic_payment_methods' => ['enabled' => true],
+                'receipt_email' => $this->customerData['email'],
+                'description' => 'Funnel purchase: '.$this->funnel->name,
+                'metadata' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'funnel_id' => $this->funnel->id,
+                    'session_uuid' => $this->funnelSession?->uuid,
+                ],
+            ]);
+
+            $order->update([
+                'payment_provider' => 'stripe',
+                'metadata' => array_merge($order->metadata ?? [], [
+                    'stripe_payment_intent_id' => $paymentIntent->id,
+                ]),
+            ]);
+
+            $this->funnelSession?->trackEvent('checkout_initiated', [
+                'order_id' => $order->id,
+                'payment_method' => 'credit_card',
+                'provider' => 'stripe',
+                'payment_intent_id' => $paymentIntent->id,
+            ], $this->step);
+
+            // Hand control to Stripe.js with the client_secret. The JS confirms
+            // the card with Stripe, then calls confirmStripePayment() below.
+            // Keep isProcessing=true here so the form button stays disabled
+            // while the customer confirms the card in the Stripe modal.
+            $this->dispatch('funnel-stripe-charge', [
+                'orderId' => $order->id,
+                'orderNumber' => $order->order_number,
+                'clientSecret' => $paymentIntent->client_secret,
+                'publishableKey' => $stripeService->getPublishableKey(),
+                'paymentIntentId' => $paymentIntent->id,
+                'total' => $this->calculateTotal(),
+                'customerEmail' => $this->customerData['email'],
+                'customerName' => $this->customerData['name'],
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Stripe PaymentIntent creation failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->addError('payment', 'Failed to initialise card payment: '.$e->getMessage());
+            $this->isProcessing = false;
+        }
+    }
+
+    #[On('funnel-stripe-charge-failed')]
+    public function resetProcessingAfterStripeFailure(): void
+    {
+        // JS calls this when Stripe.js confirmCardPayment fails so the customer
+        // can re-enter card details and retry without refreshing.
+        $this->isProcessing = false;
+    }
+
+    public function confirmStripePayment(int $orderId, string $paymentIntentId): void
+    {
+        try {
+            $order = ProductOrder::find($orderId);
+
+            if (! $order) {
+                $this->addError('payment', 'Order not found.');
+                $this->isProcessing = false;
+
+                return;
+            }
+
+            // Re-verify with Stripe (don't trust the client) before marking paid.
+            $stripe = app(StripeService::class)->getStripe();
+            $paymentIntent = $stripe->paymentIntents->retrieve($paymentIntentId);
+
+            if ($paymentIntent->status !== 'succeeded') {
+                $this->addError('payment', 'Payment was not completed. Status: '.$paymentIntent->status);
+                $this->isProcessing = false;
+
+                return;
+            }
+
+            // Defence against payment_intent_id swap: it must match the one we
+            // stamped onto the order's metadata during processStripePayment.
+            $storedIntentId = $order->metadata['stripe_payment_intent_id'] ?? null;
+            if ($storedIntentId !== $paymentIntentId) {
+                \Illuminate\Support\Facades\Log::warning('Stripe payment_intent_id mismatch on confirm', [
+                    'order_id' => $order->id,
+                    'expected' => $storedIntentId,
+                    'received' => $paymentIntentId,
+                ]);
+                $this->addError('payment', 'Payment verification failed.');
+                $this->isProcessing = false;
+
+                return;
+            }
+
+            $order->update([
+                'status' => 'confirmed',
+                'payment_status' => 'paid',
+                'paid_time' => $order->paid_time ?? now(),
+            ]);
+
+            $this->funnelSession?->markAsConverted();
+            $this->funnelSession?->trackEvent('payment_completed', [
+                'order_id' => $order->id,
+                'amount' => $order->total_amount,
+                'payment_method' => 'credit_card',
+                'provider' => 'stripe',
+                'payment_intent_id' => $paymentIntentId,
+            ], $this->step);
+
+            // Mark cart as recovered
+            if ($this->cart) {
+                $this->cart->markAsRecovered($order);
+            }
+
+            // Update funnel analytics
+            $stepAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($this->funnel->id, $this->step->id);
+            $stepAnalytics->incrementConversions($this->calculateTotal());
+
+            $funnelAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($this->funnel->id);
+            $funnelAnalytics->incrementConversions($this->calculateTotal());
+
+            // Track Facebook Pixel Purchase event
+            app(\App\Services\Funnel\FacebookPixelService::class)->trackPurchase(
+                $this->funnel,
+                $order,
+                $this->funnelSession,
+                null,
+                request()->fullUrl()
+            );
+
+            // Affiliate commission
+            $funnelOrder = FunnelOrder::where('product_order_id', $order->id)->first();
+            if ($this->funnelSession && $funnelOrder) {
+                app(\App\Services\Funnel\AffiliateCommissionService::class)
+                    ->calculateCommission($funnelOrder, $this->funnelSession);
+            }
+
+            // Funnel automations
+            app(\App\Services\Funnel\FunnelAutomationService::class)
+                ->triggerPurchaseCompleted($order, $this->funnelSession);
+
+            $this->redirectToNextStep($order);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Stripe payment confirmation failed', [
+                'order_id' => $orderId,
+                'payment_intent_id' => $paymentIntentId,
+                'error' => $e->getMessage(),
+            ]);
+            $this->addError('payment', 'Failed to confirm payment: '.$e->getMessage());
             $this->isProcessing = false;
         }
     }
@@ -697,7 +864,7 @@ new class extends Component
     }
 }; ?>
 
-<div class="funnel-checkout">
+<div class="funnel-checkout" data-funnel-stripe-pk="{{ app(\App\Services\StripeService::class)->getPublishableKey() }}">
     {{-- Progress Steps --}}
     <div class="mb-8 px-4">
         <div class="flex items-center justify-center space-x-4">
@@ -1267,13 +1434,12 @@ new class extends Component
                     @endif
 
                     @if(in_array($paymentMethod, ['credit_card', 'debit_card']))
-                        <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
-                            <div class="flex items-center text-blue-800">
-                                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                                </svg>
-                                <span class="text-sm">Anda akan dialihkan ke gerbang pembayaran selamat untuk melengkapkan pembayaran anda.</span>
-                            </div>
+                        <div class="p-4 bg-white border border-gray-200 rounded-lg mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Maklumat Kad</label>
+                            {{-- Stripe Card Element mounts here. See <script> block at end of view. --}}
+                            <div id="stripe-card-element" class="p-3 bg-gray-50 border border-gray-300 rounded-md min-h-[44px]"></div>
+                            <div id="stripe-card-errors" role="alert" class="mt-2 text-sm text-red-600"></div>
+                            <p class="mt-2 text-xs text-gray-500">Pembayaran diproses dengan selamat oleh Stripe. Kami tidak menyimpan butiran kad anda.</p>
                         </div>
                     @elseif($paymentMethod === 'fpx')
                         <div class="p-4 bg-green-50 border border-green-200 rounded-lg mb-6">
@@ -1340,11 +1506,132 @@ new class extends Component
     @endif
 </div>
 
+<script src="https://js.stripe.com/v3/"></script>
 <script>
-    document.addEventListener('livewire:init', function () {
-        Livewire.on('funnel-order-created', (event) => {
-            console.log('Order created:', event);
-            // Here you can integrate with Stripe.js or other payment processors
+    (function () {
+        // Funnel-level Stripe.js handler. Lazy-initialised on first card-element mount
+        // (which happens when the customer picks "Credit/Debit Card") and reused for
+        // subsequent re-renders. The card element re-mounts when Livewire re-renders
+        // the payment step, so we re-attach defensively on every snapshot change.
+        let stripe = null;
+        let elements = null;
+        let cardElement = null;
+        let mountedPublishableKey = null;
+
+        function ensureStripe(publishableKey) {
+            if (!publishableKey || typeof Stripe === 'undefined') {
+                return null;
+            }
+            if (!stripe || mountedPublishableKey !== publishableKey) {
+                stripe = Stripe(publishableKey);
+                elements = stripe.elements();
+                mountedPublishableKey = publishableKey;
+                cardElement = null;
+            }
+            return stripe;
+        }
+
+        function mountCardElement(publishableKey) {
+            const container = document.getElementById('stripe-card-element');
+            if (!container) {
+                return;
+            }
+            if (!ensureStripe(publishableKey)) {
+                container.innerHTML = '<p class="text-sm text-red-600">Card payments are not configured.</p>';
+                return;
+            }
+            if (cardElement) {
+                try { cardElement.destroy(); } catch (e) { /* ignore */ }
+                cardElement = null;
+            }
+            cardElement = elements.create('card', {
+                style: {
+                    base: {
+                        fontSize: '16px',
+                        color: '#1f2937',
+                        '::placeholder': { color: '#9ca3af' },
+                    },
+                    invalid: { color: '#dc2626' },
+                },
+            });
+            cardElement.mount('#stripe-card-element');
+            cardElement.on('change', ({ error }) => {
+                const err = document.getElementById('stripe-card-errors');
+                if (err) {
+                    err.textContent = error ? error.message : '';
+                }
+            });
+        }
+
+        document.addEventListener('livewire:init', function () {
+            // The funnel exposes its Stripe publishable key via a data attribute on
+            // the wrapper. If credit_card is the default selected method at first
+            // render, mount immediately; otherwise wait for the user to pick it.
+            const wrapper = document.querySelector('[data-funnel-stripe-pk]');
+            const initialKey = wrapper ? wrapper.dataset.funnelStripePk : null;
+
+            // Mount when the card element appears in the DOM.
+            const observer = new MutationObserver(() => {
+                if (document.getElementById('stripe-card-element') && initialKey) {
+                    mountCardElement(initialKey);
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Initial mount if the element is already on the page.
+            if (document.getElementById('stripe-card-element') && initialKey) {
+                mountCardElement(initialKey);
+            }
+
+            Livewire.on('funnel-stripe-charge', async (event) => {
+                const payload = Array.isArray(event) ? event[0] : event;
+                const { clientSecret, publishableKey, orderId, paymentIntentId, customerEmail, customerName } = payload;
+
+                if (!ensureStripe(publishableKey)) {
+                    alert('Stripe is not configured on this site.');
+                    return;
+                }
+
+                if (!cardElement) {
+                    mountCardElement(publishableKey);
+                }
+
+                if (!cardElement) {
+                    document.getElementById('stripe-card-errors').textContent =
+                        'Card input is not available. Please refresh and try again.';
+                    return;
+                }
+
+                const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                    payment_method: {
+                        card: cardElement,
+                        billing_details: {
+                            email: customerEmail || undefined,
+                            name: customerName || undefined,
+                        },
+                    },
+                });
+
+                if (error) {
+                    document.getElementById('stripe-card-errors').textContent = error.message;
+                    // Re-enable the form. processStripePayment left isProcessing=true.
+                    Livewire.dispatch('funnel-stripe-charge-failed');
+                    return;
+                }
+
+                if (paymentIntent && paymentIntent.status === 'succeeded') {
+                    // Hand control back to the Livewire component to mark the order
+                    // paid + redirect to the next step. The server re-verifies the
+                    // payment_intent with Stripe before trusting this call.
+                    window.Livewire.find(
+                        document.querySelector('[wire\\:id]').getAttribute('wire:id')
+                    ).call('confirmStripePayment', orderId, paymentIntentId);
+                } else {
+                    document.getElementById('stripe-card-errors').textContent =
+                        'Payment did not complete. Status: ' + (paymentIntent ? paymentIntent.status : 'unknown');
+                    Livewire.dispatch('funnel-stripe-charge-failed');
+                }
+            });
         });
-    });
+    })();
 </script>

@@ -136,3 +136,55 @@ it('applies the backfill rules consistently when run against fresh rows', functi
         expect($actual)->toBe($row['expected'], "Row {$row['order_number']} with status={$row['status']} should be {$row['expected']}");
     }
 });
+
+it('flips payment_status to refunded when a paid order is marked as returned', function () {
+    $order = ProductOrder::factory()->create([
+        'payment_status' => 'paid',
+        'status' => 'delivered',
+    ]);
+
+    $order->markAsReturned();
+
+    expect($order->fresh())
+        ->status->toBe('returned')
+        ->payment_status->toBe('refunded');
+});
+
+it('leaves payment_status alone when a non-paid order is marked as returned', function () {
+    $order = ProductOrder::factory()->create([
+        'payment_status' => 'pending',
+        'status' => 'processing',
+    ]);
+
+    $order->markAsReturned();
+
+    expect($order->fresh())
+        ->status->toBe('returned')
+        ->payment_status->toBe('pending');
+});
+
+it('flips payment_status to refunded when a paid order is cancelled', function () {
+    $order = ProductOrder::factory()->create([
+        'payment_status' => 'paid',
+        'status' => 'confirmed',
+    ]);
+
+    $order->markAsCancelled('Customer requested');
+
+    expect($order->fresh())
+        ->status->toBe('cancelled')
+        ->payment_status->toBe('refunded');
+});
+
+it('leaves payment_status alone when a non-paid order is cancelled', function () {
+    $order = ProductOrder::factory()->create([
+        'payment_status' => 'pending',
+        'status' => 'pending',
+    ]);
+
+    $order->markAsCancelled();
+
+    expect($order->fresh())
+        ->status->toBe('cancelled')
+        ->payment_status->toBe('pending');
+});

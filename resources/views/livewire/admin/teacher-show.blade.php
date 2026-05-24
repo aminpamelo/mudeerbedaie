@@ -62,9 +62,15 @@ new class extends Component
             ->whereJsonContains('upsell_teacher_ids', $this->teacher->user_id)
             ->when($this->upsellDateFrom, fn ($q) => $q->whereDate('session_date', '>=', $this->upsellDateFrom))
             ->when($this->upsellDateTo, fn ($q) => $q->whereDate('session_date', '<=', $this->upsellDateTo))
-            ->whereHas('funnelOrders', fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq->where('payment_status', 'paid')))
-            ->withCount(['funnelOrders as paid_orders_count' => fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq->where('payment_status', 'paid'))])
-            ->withSum(['funnelOrders as paid_revenue_sum' => fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq->where('payment_status', 'paid'))], 'funnel_revenue')
+            ->whereHas('funnelOrders', fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES)))
+            ->withCount(['funnelOrders as paid_orders_count' => fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))])
+            ->withSum(['funnelOrders as paid_revenue_sum' => fn ($q) => $q->whereHas('productOrder', fn ($qq) => $qq
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))], 'funnel_revenue')
             ->with(['class', 'class.course'])
             ->orderByDesc('session_date')
             ->limit(50)

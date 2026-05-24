@@ -31,6 +31,9 @@ return [
     'google' => [
         'speech_api_key' => env('GOOGLE_SPEECH_API_KEY'),
         'gemini_api_key' => env('GOOGLE_GEMINI_API_KEY'),
+        'project_id' => env('GOOGLE_CLOUD_PROJECT_ID'),
+        'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS'),
+        'speech_bucket' => env('GOOGLE_CLOUD_SPEECH_BUCKET'),
     ],
 
     'slack' => [

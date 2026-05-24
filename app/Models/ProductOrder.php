@@ -266,19 +266,35 @@ class ProductOrder extends Model
 
     public function markAsReturned(): void
     {
-        $this->update([
-            'status' => 'returned',
-        ]);
+        $updates = ['status' => 'returned'];
+
+        // Flip payment_status so upsell commission, reports, and other
+        // payment-gated logic stop counting this order. Only adjust if
+        // it was previously 'paid' — we don't want to overwrite 'failed'
+        // or an existing 'refunded' value.
+        if ($this->payment_status === 'paid') {
+            $updates['payment_status'] = 'refunded';
+        }
+
+        $this->update($updates);
 
         $this->addSystemNote('Order marked as returned');
     }
 
     public function markAsCancelled(?string $reason = null): void
     {
-        $this->update([
+        $updates = [
             'status' => 'cancelled',
             'cancelled_at' => now(),
-        ]);
+        ];
+
+        // A paid order that's later cancelled should no longer count as
+        // confirmed revenue. Leave non-paid statuses alone.
+        if ($this->payment_status === 'paid') {
+            $updates['payment_status'] = 'refunded';
+        }
+
+        $this->update($updates);
 
         $message = 'Order cancelled';
         if ($reason) {

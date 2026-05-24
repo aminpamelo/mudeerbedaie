@@ -44,7 +44,9 @@ class CommissionPayoutService
             ->all();
 
         $orders = FunnelOrder::query()
-            ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+            ->whereHas('productOrder', fn ($q) => $q
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))
             ->whereHas('classSession', function ($q) use ($from, $to) {
                 $q->whereNotNull('upsell_funnel_ids')
                     ->whereDate('session_date', '>=', $from)
@@ -155,7 +157,9 @@ class CommissionPayoutService
 
                 $paidRevenueForSession = (float) FunnelOrder::query()
                     ->where('class_session_id', $session->id)
-                    ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+                    ->whereHas('productOrder', fn ($q) => $q
+                        ->where('payment_status', 'paid')
+                        ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))
                     ->sum('funnel_revenue');
 
                 if ($paidRevenueForSession <= 0) {

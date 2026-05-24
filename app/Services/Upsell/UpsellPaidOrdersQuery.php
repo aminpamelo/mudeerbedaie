@@ -24,9 +24,19 @@ use Illuminate\Support\Collection as SupportCollection;
  *  - Optional: session's `upsell_funnel_ids` contains the given funnel id.
  *  - Optional: session's `upsell_pic_user_ids` contains the given user id.
  *  - Linked `product_order.payment_status` is `paid`.
+ *  - Linked `product_order.status` is NOT `returned`, `cancelled`, or `refunded`
+ *    (defence in depth — payment_status is flipped by markAsReturned/
+ *    markAsCancelled, but legacy rows or out-of-band updates can leave
+ *    payment_status='paid' on a returned order).
  */
 class UpsellPaidOrdersQuery
 {
+    /**
+     * Order status values that disqualify a paid order from counting toward
+     * upsell revenue/commission.
+     */
+    public const EXCLUDED_ORDER_STATUSES = ['returned', 'cancelled', 'refunded'];
+
     private ?string $from = null;
 
     private ?string $to = null;
@@ -63,7 +73,9 @@ class UpsellPaidOrdersQuery
     public function baseQuery(): Builder
     {
         return FunnelOrder::query()
-            ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+            ->whereHas('productOrder', fn ($q) => $q
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', self::EXCLUDED_ORDER_STATUSES))
             ->whereHas('classSession', function ($q) {
                 $q->whereNotNull('upsell_funnel_ids');
 

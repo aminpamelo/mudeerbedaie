@@ -386,3 +386,47 @@ it('groups by product with line type from funnel order', function () {
     // Sorted by revenue descending
     expect($rows->first()['product_id'])->toBe($mainProduct->id);
 });
+
+it('excludes paid orders that have been returned, cancelled, or refunded', function () {
+    $session = ClassSession::factory()->create([
+        'session_date' => '2026-05-15',
+        'upsell_funnel_ids' => [1],
+        'upsell_teacher_ids' => [1],
+        'upsell_teacher_commission_rate' => 20,
+    ]);
+
+    // The "good" paid order — should count.
+    $goodOrder = ProductOrder::factory()->create([
+        'payment_status' => 'paid',
+        'status' => 'delivered',
+    ]);
+
+    // Three "dirty paid" orders: payment cleared but order is no longer fulfillable.
+    // These can exist on legacy rows where payment_status wasn't flipped, so the
+    // query must defensively exclude them by `status`.
+    $returnedOrder = ProductOrder::factory()->create([
+        'payment_status' => 'paid',
+        'status' => 'returned',
+    ]);
+    $cancelledOrder = ProductOrder::factory()->create([
+        'payment_status' => 'paid',
+        'status' => 'cancelled',
+    ]);
+    $refundedOrder = ProductOrder::factory()->create([
+        'payment_status' => 'paid',
+        'status' => 'refunded',
+    ]);
+
+    foreach ([$goodOrder, $returnedOrder, $cancelledOrder, $refundedOrder] as $order) {
+        FunnelOrder::factory()->create([
+            'class_session_id' => $session->id,
+            'product_order_id' => $order->id,
+            'funnel_revenue' => 100,
+        ]);
+    }
+
+    $rows = app(UpsellPaidOrdersQuery::class)->get();
+
+    expect($rows)->toHaveCount(1);
+    expect($rows->first()->product_order_id)->toBe($goodOrder->id);
+});

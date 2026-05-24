@@ -1745,6 +1745,7 @@ class StripeService
                 'customer.updated' => \App\Jobs\ProcessStripeCustomerUpdated::dispatch($webhookEvent, $getArrayData($event->data->object)),
                 'invoice.payment_succeeded' => \App\Jobs\ProcessStripeInvoicePaymentSucceeded::dispatch($webhookEvent, $getArrayData($event->data->object)),
                 'invoice.payment_failed' => \App\Jobs\ProcessStripeInvoicePaymentFailed::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'payment_intent.succeeded' => \App\Jobs\ProcessStripePaymentIntentSucceeded::dispatch($webhookEvent, $getArrayData($event->data->object)),
                 'customer.subscription.created' => \App\Jobs\ProcessStripeSubscriptionCreated::dispatch($webhookEvent, $getArrayData($event->data->object)),
                 'customer.subscription.updated' => \App\Jobs\ProcessStripeSubscriptionUpdated::dispatch($webhookEvent, $getArrayData($event->data->object)),
                 'customer.subscription.deleted' => \App\Jobs\ProcessStripeSubscriptionDeleted::dispatch($webhookEvent, $getArrayData($event->data->object)),

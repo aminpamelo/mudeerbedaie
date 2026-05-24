@@ -2,18 +2,25 @@
 
 use App\Models\ClassModel;
 use App\Models\ClassSession;
+use App\Models\Funnel;
 use App\Models\FunnelOrder;
 use App\Models\FunnelSession;
-use App\Models\Funnel;
 use App\Models\User;
+use App\Services\Upsell\UpsellPaidOrdersQuery;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public string $dateFrom = '';
+
     public string $dateTo = '';
+
     public string $filterClassId = '';
+
     public string $filterFunnelId = '';
+
     public string $filterPicId = '';
+
     public bool $bannerDismissed = false;
 
     public function mount(): void
@@ -53,7 +60,9 @@ new class extends Component {
 
         $orders = FunnelOrder::whereNotNull('class_session_id')
             ->whereIn('class_session_id', $sessionIds)
-            ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+            ->whereHas('productOrder', fn ($q) => $q
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))
             ->get();
 
         $visitors = FunnelSession::whereNotNull('class_session_id')
@@ -110,7 +119,9 @@ new class extends Component {
                     ->pluck('id');
 
                 $orders = FunnelOrder::whereIn('class_session_id', $sessionIds)
-                    ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+                    ->whereHas('productOrder', fn ($q) => $q
+                        ->where('payment_status', 'paid')
+                        ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))
                     ->get();
                 $visitors = FunnelSession::whereIn('class_session_id', $sessionIds)->count();
 
@@ -134,7 +145,9 @@ new class extends Component {
             ->pluck('id');
 
         $paidOrderConstraint = fn ($q) => $q->whereIn('class_session_id', $sessionIds)
-            ->whereHas('productOrder', fn ($pq) => $pq->where('payment_status', 'paid'));
+            ->whereHas('productOrder', fn ($pq) => $pq
+                ->where('payment_status', 'paid')
+                ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES));
 
         return Funnel::query()
             ->whereHas('orders', $paidOrderConstraint)
@@ -215,7 +228,9 @@ new class extends Component {
 
         return collect($picData)->map(function ($data) use ($users) {
             $orders = FunnelOrder::whereIn('class_session_id', $data['session_ids'])
-                ->whereHas('productOrder', fn ($q) => $q->where('payment_status', 'paid'))
+                ->whereHas('productOrder', fn ($q) => $q
+                    ->where('payment_status', 'paid')
+                    ->whereNotIn('status', UpsellPaidOrdersQuery::EXCLUDED_ORDER_STATUSES))
                 ->get();
 
             return (object) [

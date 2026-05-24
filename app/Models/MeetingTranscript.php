@@ -18,6 +18,11 @@ class MeetingTranscript extends Model
         'language',
         'status',
         'processed_at',
+        'operation_name',
+        'gcs_uri',
+        'error_message',
+        'poll_attempts',
+        'started_at',
     ];
 
     /**
@@ -29,6 +34,8 @@ class MeetingTranscript extends Model
     {
         return [
             'processed_at' => 'datetime',
+            'started_at' => 'datetime',
+            'poll_attempts' => 'integer',
         ];
     }
 
