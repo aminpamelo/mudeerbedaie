@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import StatusBadge from '../../components/StatusBadge';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -94,7 +95,13 @@ export default function MyEmploymentInfo() {
     const isContract = employee.employment_type === 'contract';
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={Briefcase}
+                accent="emerald"
+                title="Employment Info"
+            />
+
             {/* Employment Details */}
             <Card>
                 <CardHeader>

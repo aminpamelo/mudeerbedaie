@@ -11,6 +11,7 @@ import {
 import { fetchMyOnboarding } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { cn } from '../../lib/utils';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -68,10 +69,11 @@ export default function MyOnboarding() {
     if (!onboarding) {
         return (
             <div className="space-y-4">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">My Onboarding</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Your onboarding checklist and tasks</p>
-                </div>
+                <EmployeePageHeader
+                    icon={ListChecks}
+                    accent="sky"
+                    title="My Onboarding"
+                />
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                         <div className="rounded-full bg-slate-100 p-4 mb-4">
@@ -93,12 +95,12 @@ export default function MyOnboarding() {
     const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-900">My Onboarding</h1>
-                <p className="text-sm text-slate-500 mt-0.5">Your onboarding checklist and tasks</p>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={ListChecks}
+                accent="sky"
+                title="My Onboarding"
+            />
 
             {/* Progress Overview */}
             <Card>

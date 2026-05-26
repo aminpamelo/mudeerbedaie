@@ -137,17 +137,16 @@ export default function MyReviewDetail() {
     const kpiScores = review.kpi_scores ?? [];
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
             {/* Back + Header */}
             <div className="flex items-center gap-3">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 shrink-0"
+                <button
                     onClick={() => navigate(-1)}
+                    aria-label="Back"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
                     <ChevronLeft className="h-4 w-4" />
-                </Button>
+                </button>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                         <h1 className="text-lg font-bold text-slate-900">

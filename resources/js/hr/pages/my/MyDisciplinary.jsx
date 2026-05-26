@@ -14,6 +14,7 @@ import { fetchMyDisciplinary, respondToDisciplinary } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import PageHeader from '../../components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { StatCard } from '../../components/ui/stat-card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import {
@@ -104,34 +105,10 @@ export default function MyDisciplinary() {
     }
 
     const summaryCards = [
-        {
-            label: 'Total Records',
-            value: records.length,
-            icon: FileText,
-            color: 'text-slate-600',
-            bg: 'bg-slate-50',
-        },
-        {
-            label: 'Pending Response',
-            value: records.filter((r) => r.status === 'pending_response').length,
-            icon: Clock,
-            color: 'text-amber-600',
-            bg: 'bg-amber-50',
-        },
-        {
-            label: 'Responded',
-            value: records.filter((r) => r.status === 'responded').length,
-            icon: CheckCircle2,
-            color: 'text-green-600',
-            bg: 'bg-green-50',
-        },
-        {
-            label: 'Closed',
-            value: records.filter((r) => r.status === 'closed').length,
-            icon: XCircle,
-            color: 'text-slate-500',
-            bg: 'bg-slate-50',
-        },
+        { label: 'Total Records', value: records.length, icon: FileText, accent: 'slate' },
+        { label: 'Pending Response', value: records.filter((r) => r.status === 'pending_response').length, icon: Clock, accent: 'amber' },
+        { label: 'Responded', value: records.filter((r) => r.status === 'responded').length, icon: CheckCircle2, accent: 'emerald' },
+        { label: 'Closed', value: records.filter((r) => r.status === 'closed').length, icon: XCircle, accent: 'slate' },
     ];
 
     return (
@@ -144,22 +121,9 @@ export default function MyDisciplinary() {
             {/* Summary Cards */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {summaryCards.map((card) => (
-                    <Card key={card.label}>
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
-                                <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', card.bg)}>
-                                    <card.icon className={cn('h-5 w-5', card.color)} />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-slate-500">{card.label}</p>
-                                    <p className="text-lg font-bold text-slate-900">{card.value}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <StatCard key={card.label} label={card.label} value={card.value} icon={card.icon} accent={card.accent} />
                 ))}
             </div>
-
             {/* Records Table */}
             <Card>
                 <CardHeader>

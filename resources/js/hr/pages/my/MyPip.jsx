@@ -12,6 +12,7 @@ import { fetchMyPip } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { cn } from '../../lib/utils';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -76,10 +77,11 @@ export default function MyPip() {
     if (!pip) {
         return (
             <div className="space-y-4">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">My Improvement Plan</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Performance Improvement Plan (PIP)</p>
-                </div>
+                <EmployeePageHeader
+                    icon={TrendingUp}
+                    accent="slate"
+                    title="My Improvement Plan"
+                />
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                         <div className="rounded-full bg-emerald-50 p-4 mb-4">
@@ -111,12 +113,12 @@ export default function MyPip() {
     }
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-900">My Improvement Plan</h1>
-                <p className="text-sm text-slate-500 mt-0.5">Performance Improvement Plan (PIP)</p>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={TrendingUp}
+                accent="slate"
+                title="My Improvement Plan"
+            />
 
             {/* PIP Overview Card */}
             <Card>

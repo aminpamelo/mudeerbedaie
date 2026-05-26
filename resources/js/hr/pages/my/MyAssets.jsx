@@ -4,6 +4,7 @@ import { fetchMyAssets } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 const CONDITION_BADGE = {
     new: 'bg-emerald-50 text-emerald-600',
@@ -27,11 +28,13 @@ export default function MyAssets() {
     const assets = data?.data || [];
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-xl font-bold text-slate-900">My Assets</h1>
-                <p className="mt-0.5 text-sm text-slate-500">Assets currently assigned to you.</p>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={Package2}
+                accent="sky"
+                title="My Assets"
+                context={assets.length > 0 ? `${assets.length} item${assets.length === 1 ? '' : 's'}` : null}
+            />
 
             {isLoading ? (
                 <div className="flex justify-center py-16">

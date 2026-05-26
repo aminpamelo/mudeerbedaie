@@ -11,6 +11,7 @@ import { fetchMyProfile } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import StatusBadge from '../../components/StatusBadge';
+import { ProfileHero } from '../../components/ui/profile-hero';
 
 function getInitials(name) {
     if (!name) return '?';
@@ -81,37 +82,26 @@ export default function MyProfileOverview() {
     ];
 
     return (
-        <div className="space-y-4">
-            {/* Profile Header Card */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex flex-col items-center text-center">
-                        <div className="h-20 w-20 rounded-full bg-slate-900 text-white flex items-center justify-center text-2xl font-bold mb-3">
-                            {getInitials(employee.full_name)}
-                        </div>
-                        <h2 className="text-xl font-bold text-slate-900">
-                            {employee.full_name}
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-0.5">
-                            {employee.employee_id}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
-                            {employee.department?.name && (
-                                <span>{employee.department.name}</span>
-                            )}
-                            {employee.department?.name && employee.position?.title && (
-                                <span className="text-slate-300">|</span>
-                            )}
-                            {employee.position?.title && (
-                                <span>{employee.position.title}</span>
-                            )}
-                        </div>
-                        <div className="mt-3">
-                            <StatusBadge status={employee.status} />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+        <div className="space-y-4 pb-4">
+            <ProfileHero
+                name={employee.full_name}
+                subtitle={[employee.position?.title, employee.department?.name].filter(Boolean).join(' · ')}
+                photoUrl={employee.profile_photo_url}
+                chips={[
+                    employee.employee_id && { label: employee.employee_id, mono: true },
+                    employee.status && {
+                        label: employee.status === 'active' ? 'Active'
+                            : employee.status === 'probation' ? 'Probation'
+                            : employee.status?.replace('_', ' ')?.replace(/\b\w/g, (c) => c.toUpperCase()),
+                        accent: employee.status === 'active' ? 'emerald' :
+                                employee.status === 'probation' ? 'amber' :
+                                employee.status === 'on_leave' ? 'violet' : 'slate'
+                    },
+                    employee.join_date && {
+                        label: `Joined ${formatDate(employee.join_date)}`,
+                    },
+                ].filter(Boolean)}
+            />
 
             {/* Quick Info Grid */}
             <div className="grid grid-cols-2 gap-3">

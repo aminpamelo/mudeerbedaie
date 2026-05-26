@@ -15,6 +15,7 @@ import { getMyExitPermissions, cancelMyExitPermission, downloadExitPermissionPdf
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 // ---- Helpers ----
 function formatDate(dateStr) {
@@ -83,17 +84,20 @@ export default function MyExitPermissions() {
     });
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">My Exit Permissions</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Manage your office exit permission requests</p>
-                </div>
-                <Button size="sm" onClick={() => navigate('/my/exit-permissions/apply')}>
-                    <Plus className="h-4 w-4 mr-1" /> Apply for Exit Permission
-                </Button>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={DoorOpen}
+                accent="amber"
+                title="Exit Permissions"
+                action={
+                    <button
+                        onClick={() => navigate('/my/exit-permissions/apply')}
+                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-md shadow-pink-500/30 transition-all hover:shadow-lg"
+                    >
+                        <Plus className="h-3 w-3" /> Apply
+                    </button>
+                }
+            />
 
             {/* Requests List */}
             <Card>

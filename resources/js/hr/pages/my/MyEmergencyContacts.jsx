@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 const emptyContact = {
     name: '',
@@ -187,7 +188,14 @@ export default function MyEmergencyContacts() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={Users}
+                accent="rose"
+                title="Emergency Contacts"
+                context={`${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`}
+            />
+
             {/* Header with Add Button */}
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-slate-700">

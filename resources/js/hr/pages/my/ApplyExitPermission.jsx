@@ -75,15 +75,20 @@ export default function ApplyExitPermission() {
     }
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
+        <div className="space-y-4 pb-4">
             <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/my/exit-permissions')}>
+                <button
+                    onClick={() => navigate('/my/exit-permissions')}
+                    aria-label="Back"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
                     <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">Apply for Exit Permission</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Submit a new exit permission request</p>
+                </button>
+                <div className="flex-1">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
+                        Apply for Exit Permission
+                    </div>
+                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">New request</h1>
                 </div>
             </div>
 

@@ -23,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../../components/ui/select';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 const documentTypes = [
     { value: 'ic_copy', label: 'IC Copy' },
@@ -120,7 +121,14 @@ export default function MyDocuments() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={FileText}
+                accent="sky"
+                title="My Documents"
+                context={`${documents.length} document${documents.length !== 1 ? 's' : ''}`}
+            />
+
             {/* Header with Upload Button */}
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-slate-700">

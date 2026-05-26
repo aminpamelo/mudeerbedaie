@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -106,7 +107,13 @@ export default function MyPersonalInfo() {
     const isEditing = (section) => editingSection === section;
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={User}
+                accent="indigo"
+                title="Personal Info"
+            />
+
             {/* Contact Information */}
             <Card>
                 <CardHeader>

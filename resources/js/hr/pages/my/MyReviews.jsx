@@ -9,6 +9,7 @@ import {
 import { fetchMyReviews } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
@@ -48,12 +49,13 @@ export default function MyReviews() {
     const reviews = data?.data ?? [];
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div>
-                <h1 className="text-xl font-bold text-slate-900">My Performance Reviews</h1>
-                <p className="text-sm text-slate-500 mt-0.5">Track your review cycles and self-assessment progress</p>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={Star}
+                accent="indigo"
+                title="My Reviews"
+                context={reviews.length > 0 ? `${reviews.length} cycle${reviews.length === 1 ? '' : 's'}` : null}
+            />
 
             {/* Reviews List */}
             <Card>
