@@ -3,13 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
     CalendarOff,
-    Upload,
     Loader2,
     AlertCircle,
     CheckCircle2,
     AlertTriangle,
     ChevronLeft,
     Info,
+    Calendar,
+    FileText,
+    Paperclip,
+    ArrowRight,
+    Sparkles,
 } from 'lucide-react';
 import {
     fetchMyLeaveBalances,
@@ -18,10 +22,8 @@ import {
     fetchLeaveOverlaps,
 } from '../../lib/api';
 import { cn } from '../../lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import {
     Select,
@@ -31,7 +33,30 @@ import {
     SelectValue,
 } from '../../components/ui/select';
 
-// ========== MAIN COMPONENT ==========
+function FieldLabel({ icon: Icon, accent = 'indigo', required, children }) {
+    const colors = {
+        indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+        sky: { bg: 'bg-sky-50', text: 'text-sky-600' },
+        violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
+        rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
+        amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+    };
+    const c = colors[accent] || colors.indigo;
+    return (
+        <div className="mb-2 flex items-center gap-2">
+            {Icon && (
+                <div className={cn('flex h-6 w-6 items-center justify-center rounded-lg', c.bg)}>
+                    <Icon className={cn('h-3.5 w-3.5', c.text)} strokeWidth={2.25} />
+                </div>
+            )}
+            <span className="text-sm font-semibold text-slate-800">
+                {children}
+                {required && <span className="ml-0.5 text-rose-500">*</span>}
+            </span>
+        </div>
+    );
+}
+
 export default function ApplyLeave() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
@@ -56,7 +81,6 @@ export default function ApplyLeave() {
     });
     const balances = balancesData?.data ?? [];
 
-    // Calculate working days when dates change
     useEffect(() => {
         if (!form.start_date || !form.end_date) {
             setCalculatedDays(null);
@@ -72,7 +96,6 @@ export default function ApplyLeave() {
             .catch(() => setCalculatedDays(null));
     }, [form.start_date, form.end_date, form.is_half_day]);
 
-    // Fetch overlaps when dates change
     useEffect(() => {
         if (!form.start_date || !form.end_date) {
             setOverlaps([]);
@@ -89,6 +112,7 @@ export default function ApplyLeave() {
     const availableAfter = selectedBalance
         ? (parseFloat(selectedBalance.available_days) || 0) - (calculatedDays || 0)
         : null;
+    const insufficientBalance = availableAfter !== null && availableAfter < 0;
 
     const submitMut = useMutation({
         mutationFn: (formData) => applyForLeave(formData),
@@ -97,13 +121,12 @@ export default function ApplyLeave() {
             setError(null);
             queryClient.invalidateQueries({ queryKey: ['my-leave-requests'] });
             queryClient.invalidateQueries({ queryKey: ['my-leave-balances'] });
-            setTimeout(() => navigate('/my/leave'), 1500);
+            setTimeout(() => navigate('/my/leave'), 1800);
         },
         onError: (err) => {
             const data = err?.response?.data;
             if (data?.errors) {
-                const allErrors = Object.values(data.errors).flat();
-                setError(allErrors.join(' '));
+                setError(Object.values(data.errors).flat().join(' '));
             } else {
                 setError(data?.message || 'Failed to submit leave application');
             }
@@ -118,56 +141,103 @@ export default function ApplyLeave() {
         fd.append('start_date', form.start_date);
         fd.append('end_date', form.end_date);
         fd.append('is_half_day', form.is_half_day ? '1' : '0');
-        if (form.is_half_day) {
-            fd.append('half_day_period', form.half_day_period);
-        }
+        if (form.is_half_day) fd.append('half_day_period', form.half_day_period);
         fd.append('reason', form.reason);
-        if (form.attachment) {
-            fd.append('attachment', form.attachment);
-        }
+        if (form.attachment) fd.append('attachment', form.attachment);
         submitMut.mutate(fd);
     }
 
+    // ─── Success state ────────────────────────────────────────
     if (success) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-                <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-3" />
-                <h2 className="text-lg font-semibold text-slate-900">Leave Applied!</h2>
-                <p className="text-sm text-slate-500 mt-1">Your request has been submitted for approval.</p>
+                <div className="relative h-32 w-32">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 opacity-20 blur-2xl" />
+                    <div className="relative flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-emerald-50 ring-1 ring-emerald-200">
+                        <CheckCircle2 className="h-16 w-16 text-emerald-500" strokeWidth={1.75} />
+                    </div>
+                    <Sparkles className="absolute right-2 top-2 h-5 w-5 text-amber-400 hr-twinkle" />
+                    <Sparkles className="absolute left-2 bottom-2 h-4 w-4 text-pink-400 hr-twinkle-2" />
+                </div>
+                <h2 className="mt-6 text-xl font-bold text-slate-900">Leave applied!</h2>
+                <p className="mt-2 text-sm text-slate-600">Your request has been submitted for approval.</p>
+                <p className="mt-1 text-xs text-slate-400">Redirecting in a moment…</p>
             </div>
         );
     }
 
+    const formValid = form.leave_type_id && form.start_date && form.end_date && form.reason && !insufficientBalance;
+
     return (
-        <div className="space-y-4">
-            {/* Header */}
+        <div className="space-y-4 pb-4">
+            {/* Header with back */}
             <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/my/leave')}>
+                <button
+                    onClick={() => navigate('/my/leave')}
+                    aria-label="Back"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
                     <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">Apply for Leave</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Submit a new leave application</p>
+                </button>
+                <div className="flex-1">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-700 ring-1 ring-violet-100">
+                        <CalendarOff className="h-3 w-3" strokeWidth={2.5} />
+                        Apply for Leave
+                    </div>
+                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Time off request</h1>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Live balance preview chip */}
+            {selectedBalance && (
+                <div className="rounded-2xl border border-pink-100 bg-gradient-to-br from-rose-50 via-amber-50 to-indigo-50 p-3.5">
+                    <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                {selectedBalance.leave_type?.name || selectedBalance.type_name}
+                            </p>
+                            <div className="mt-1 flex items-baseline gap-2">
+                                <span className="text-2xl font-bold tabular-nums text-slate-900">
+                                    {parseFloat(selectedBalance.available_days) || 0}
+                                </span>
+                                <span className="text-xs font-semibold text-slate-500">days available</span>
+                            </div>
+                        </div>
+                        {calculatedDays !== null && (
+                            <div className="flex items-center gap-2 text-right">
+                                <ArrowRight className="h-4 w-4 text-slate-400" />
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">After</p>
+                                    <p className={cn(
+                                        'mt-1 text-2xl font-bold tabular-nums',
+                                        insufficientBalance ? 'text-rose-600' : 'text-emerald-600'
+                                    )}>
+                                        {availableAfter}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Leave Type */}
-                <Card>
+                <Card className="border-slate-200/80">
                     <CardContent className="pt-4">
-                        <Label className="text-xs font-medium">Leave Type *</Label>
+                        <FieldLabel icon={CalendarOff} accent="violet" required>Leave type</FieldLabel>
                         {loadingBalances ? (
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center gap-2">
                                 <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                                <span className="text-sm text-slate-500">Loading types...</span>
+                                <span className="text-sm text-slate-500">Loading types…</span>
                             </div>
                         ) : (
                             <Select
                                 value={form.leave_type_id}
                                 onValueChange={(v) => setForm({ ...form, leave_type_id: v })}
                             >
-                                <SelectTrigger className="mt-1">
-                                    <SelectValue placeholder="Select leave type" />
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Choose a leave type" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {balances.map((bal) => {
@@ -177,7 +247,7 @@ export default function ApplyLeave() {
                                                 key={bal.leave_type_id || bal.id}
                                                 value={String(bal.leave_type_id || bal.id)}
                                             >
-                                                {bal.leave_type?.name || bal.type_name} ({available} days remaining)
+                                                {bal.leave_type?.name || bal.type_name} · {available} days
                                             </SelectItem>
                                         );
                                     })}
@@ -188,27 +258,26 @@ export default function ApplyLeave() {
                 </Card>
 
                 {/* Date Range */}
-                <Card>
-                    <CardContent className="pt-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                <Card className="border-slate-200/80">
+                    <CardContent className="space-y-3 pt-4">
+                        <FieldLabel icon={Calendar} accent="sky" required>When</FieldLabel>
+                        <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <Label className="text-xs font-medium">Start Date *</Label>
+                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">From</label>
                                 <Input
                                     type="date"
                                     value={form.start_date}
                                     onChange={(e) => setForm({ ...form, start_date: e.target.value, end_date: form.end_date || e.target.value })}
-                                    className="mt-1"
                                     min={new Date().toISOString().split('T')[0]}
                                     required
                                 />
                             </div>
                             <div>
-                                <Label className="text-xs font-medium">End Date *</Label>
+                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">To</label>
                                 <Input
                                     type="date"
                                     value={form.end_date}
                                     onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                                    className="mt-1"
                                     min={form.start_date}
                                     required
                                 />
@@ -216,35 +285,37 @@ export default function ApplyLeave() {
                         </div>
 
                         {calculatedDays !== null && (
-                            <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 p-2.5">
-                                <Info className="h-4 w-4 text-blue-500 shrink-0" />
-                                <span className="text-sm text-blue-700">
-                                    {calculatedDays} working day{calculatedDays !== 1 ? 's' : ''}
+                            <div className="flex items-center gap-3 rounded-xl border border-sky-100 bg-sky-50 p-2.5">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100">
+                                    <Info className="h-3.5 w-3.5 text-sky-600" strokeWidth={2.25} />
+                                </div>
+                                <span className="text-xs font-semibold text-sky-800">
+                                    <span className="tabular-nums">{calculatedDays}</span> working day{calculatedDays !== 1 ? 's' : ''}
                                 </span>
                             </div>
                         )}
 
                         {/* Half Day Toggle */}
-                        <div className="space-y-2">
-                            <label className="flex items-center gap-2 text-sm">
+                        <div>
+                            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-indigo-200">
                                 <input
                                     type="checkbox"
                                     checked={form.is_half_day}
                                     onChange={(e) => setForm({ ...form, is_half_day: e.target.checked })}
-                                    className="rounded"
+                                    className="h-4 w-4 rounded text-indigo-600 focus:ring-2 focus:ring-indigo-500"
                                 />
-                                Half Day
+                                <span className="text-sm font-medium text-slate-700">Half day only</span>
                             </label>
                             {form.is_half_day && (
-                                <div className="flex gap-2 ml-6">
+                                <div className="mt-2 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
                                     <button
                                         type="button"
                                         onClick={() => setForm({ ...form, half_day_period: 'morning' })}
                                         className={cn(
-                                            'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                                            'rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all',
                                             form.half_day_period === 'morning'
-                                                ? 'bg-slate-900 text-white'
-                                                : 'bg-slate-100 text-slate-600'
+                                                ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-sm shadow-pink-500/30'
+                                                : 'text-slate-500 hover:text-slate-700'
                                         )}
                                     >
                                         Morning
@@ -253,10 +324,10 @@ export default function ApplyLeave() {
                                         type="button"
                                         onClick={() => setForm({ ...form, half_day_period: 'afternoon' })}
                                         className={cn(
-                                            'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                                            'rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all',
                                             form.half_day_period === 'afternoon'
-                                                ? 'bg-slate-900 text-white'
-                                                : 'bg-slate-100 text-slate-600'
+                                                ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 text-white shadow-sm shadow-rose-500/30'
+                                                : 'text-slate-500 hover:text-slate-700'
                                         )}
                                     >
                                         Afternoon
@@ -267,19 +338,21 @@ export default function ApplyLeave() {
                     </CardContent>
                 </Card>
 
-                {/* Overlap Warning */}
+                {/* Overlap warning */}
                 {overlaps.length > 0 && (
-                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3">
-                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                        <div>
-                            <p className="text-sm font-medium text-amber-800">Department Overlap</p>
-                            <p className="text-xs text-amber-700 mt-0.5">
-                                The following colleagues are also on leave during this period:
-                            </p>
-                            <ul className="text-xs text-amber-700 mt-1 space-y-0.5">
+                    <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50/40 p-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                            <AlertTriangle className="h-4 w-4 text-amber-600" strokeWidth={2.25} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-amber-800">Department overlap</p>
+                            <p className="mt-0.5 text-xs text-amber-700">Colleagues also off during this period:</p>
+                            <ul className="mt-1.5 space-y-0.5 text-xs text-amber-700">
                                 {overlaps.map((o, i) => (
-                                    <li key={i}>
-                                        {o.employee_name || o.name} ({o.leave_type || 'Leave'})
+                                    <li key={i} className="flex items-center gap-1.5">
+                                        <span className="h-1 w-1 rounded-full bg-amber-500" />
+                                        {o.employee_name || o.name}
+                                        <span className="text-amber-600/70">· {o.leave_type || 'Leave'}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -288,79 +361,89 @@ export default function ApplyLeave() {
                 )}
 
                 {/* Reason */}
-                <Card>
+                <Card className="border-slate-200/80">
                     <CardContent className="pt-4">
-                        <Label className="text-xs font-medium">Reason *</Label>
+                        <FieldLabel icon={FileText} accent="indigo" required>Reason</FieldLabel>
                         <Textarea
                             value={form.reason}
                             onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                            className="mt-1"
                             rows={3}
-                            placeholder="Enter leave reason..."
+                            placeholder="Briefly explain your leave reason…"
                             required
                         />
                     </CardContent>
                 </Card>
 
                 {/* Attachment */}
-                <Card>
+                <Card className="border-slate-200/80">
                     <CardContent className="pt-4">
-                        <Label className="text-xs font-medium">
+                        <FieldLabel
+                            icon={Paperclip}
+                            accent="amber"
+                            required={selectedBalance?.leave_type?.requires_attachment}
+                        >
                             Attachment
-                            {selectedBalance?.leave_type?.requires_attachment && (
-                                <span className="text-red-500 ml-0.5">*</span>
-                            )}
-                        </Label>
+                        </FieldLabel>
                         <Input
                             type="file"
-                            className="mt-1"
                             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                             onChange={(e) => setForm({ ...form, attachment: e.target.files[0] })}
                             required={selectedBalance?.leave_type?.requires_attachment}
                         />
-                        <p className="text-[11px] text-slate-400 mt-1">PDF, JPG, PNG, DOC. Max 10MB.</p>
+                        <p className="mt-1.5 text-[11px] text-slate-400">PDF, JPG, PNG, DOC · Max 10MB</p>
                     </CardContent>
                 </Card>
 
-                {/* Balance Preview */}
-                {selectedBalance && calculatedDays !== null && (
-                    <Card>
-                        <CardContent className="py-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-600">After this request:</span>
-                                <span className={cn(
-                                    'text-sm font-bold',
-                                    availableAfter < 0 ? 'text-red-600' : 'text-emerald-600'
-                                )}>
-                                    {availableAfter} days remaining
-                                </span>
-                            </div>
-                            {availableAfter < 0 && (
-                                <p className="text-xs text-red-500 mt-1">
-                                    Insufficient leave balance. This request exceeds your available days.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
+                {/* Insufficient balance warning */}
+                {insufficientBalance && (
+                    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                            <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                        </div>
+                        <p className="text-sm font-semibold text-rose-800">
+                            This request exceeds your available days.
+                        </p>
+                    </div>
                 )}
 
                 {/* Error */}
                 {error && (
-                    <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3">
-                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                        <p className="text-sm text-red-700">{error}</p>
+                    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                            <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                        </div>
+                        <p className="text-sm font-medium text-rose-800">{error}</p>
                     </div>
                 )}
 
-                {/* Submit */}
-                <Button
+                {/* Submit action pill */}
+                <button
                     type="submit"
-                    className="w-full"
-                    disabled={submitMut.isPending || !form.leave_type_id || !form.start_date || !form.end_date || !form.reason}
+                    disabled={submitMut.isPending || !formValid}
+                    className={cn(
+                        'group relative h-14 w-full overflow-hidden rounded-2xl text-white transition-all active:scale-[0.97]',
+                        'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                        !formValid || submitMut.isPending
+                            ? 'cursor-not-allowed bg-slate-300 shadow-md shadow-slate-300/40'
+                            : 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 shadow-xl shadow-pink-500/40 hover:shadow-2xl hover:shadow-pink-500/50 focus-visible:ring-pink-300'
+                    )}
                 >
-                    {submitMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Submit Leave Application
-                </Button>
+                    {formValid && !submitMut.isPending && (
+                        <>
+                            <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/25 to-transparent" aria-hidden />
+                            <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-1000 group-hover:translate-x-full" aria-hidden />
+                        </>
+                    )}
+                    {submitMut.isPending ? (
+                        <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                    ) : (
+                        <div className="relative flex items-center justify-center gap-2.5">
+                            <CalendarOff className="h-5 w-5 drop-shadow-sm" strokeWidth={2.5} />
+                            <span className="text-sm font-bold tracking-wider drop-shadow-sm">SUBMIT REQUEST</span>
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" strokeWidth={2.5} />
+                        </div>
+                    )}
+                </button>
             </form>
         </div>
     );

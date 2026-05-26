@@ -4,29 +4,24 @@ import { Link } from 'react-router-dom';
 import {
     CalendarOff,
     Plus,
-    CheckCircle2,
-    XCircle,
-    Hourglass,
-    Loader2,
     CalendarDays,
     Trash2,
     ChevronLeft,
     ChevronRight,
+    Palmtree,
+    ArrowRight,
 } from 'lucide-react';
 import { fetchMyLeaveBalances, fetchMyLeaveRequests, cancelMyLeave } from '../../lib/api';
 import { cn } from '../../lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
+import { Card, CardContent } from '../../components/ui/card';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
+import { BalanceRing } from '../../components/ui/balance-ring';
+import { StatusBadge } from '../../components/ui/status-badge';
+import { RecordCard, RecordList } from '../../components/ui/record-card';
 
 // ---- Helpers ----
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
 function formatDateShort(dateStr) {
-    if (!dateStr) return '-';
+    if (!dateStr) return '–';
     return new Date(dateStr).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
 }
 
@@ -44,14 +39,19 @@ function getMonthDates(year, month) {
     return days;
 }
 
-const STATUS_CONFIG = {
-    pending: { label: 'Pending', variant: 'secondary', color: 'text-amber-600' },
-    approved: { label: 'Approved', variant: 'default', color: 'text-emerald-600' },
-    rejected: { label: 'Rejected', variant: 'destructive', color: 'text-red-600' },
-    cancelled: { label: 'Cancelled', variant: 'outline', color: 'text-slate-500' },
-};
+// Map leave-type code/name to an accent color
+function leaveAccent(typeName) {
+    const t = (typeName || '').toLowerCase();
+    if (t.includes('annual')) return 'indigo';
+    if (t.includes('medical') || t.includes('sick')) return 'rose';
+    if (t.includes('maternity') || t.includes('paternity')) return 'pink';
+    if (t.includes('compassionate') || t.includes('bereavement')) return 'slate';
+    if (t.includes('marriage')) return 'amber';
+    if (t.includes('replacement') || t.includes('ot')) return 'sky';
+    if (t.includes('unpaid')) return 'slate';
+    return 'violet';
+}
 
-// ========== MAIN COMPONENT ==========
 export default function MyLeave() {
     const queryClient = useQueryClient();
     const [calDate, setCalDate] = useState(new Date());
@@ -78,7 +78,7 @@ export default function MyLeave() {
         },
     });
 
-    // Build set of leave dates for calendar highlight
+    // Build leave dates for calendar
     const leaveDates = new Set();
     requests.forEach((r) => {
         if (r.status === 'approved' || r.status === 'pending') {
@@ -90,111 +90,177 @@ export default function MyLeave() {
         }
     });
 
-    // OT replacement balance from balances
+    // Primary balance — pick "Annual" if exists, else first
+    const primaryBalance = balances.find((b) =>
+        (b.leave_type?.name || b.type_name || '').toLowerCase().includes('annual')
+    ) || balances[0];
+
     const otBalance = balances.find((b) => b.type_code === 'ot_replacement' || b.leave_type?.code === 'ot_replacement');
 
     const calendarDays = getMonthDates(calYear, calMonth);
     const calLabel = calDate.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
 
+    const pendingCount = requests.filter((r) => r.status === 'pending').length;
+    const approvedCount = requests.filter((r) => r.status === 'approved').length;
+
+    // Sort by start date descending
+    const sortedRequests = [...requests].sort((a, b) => {
+        return new Date(b.start_date) - new Date(a.start_date);
+    });
+
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">My Leave</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">View balances and manage requests</p>
-                </div>
-                <Link to="/my/leave/apply">
-                    <Button size="sm">
-                        <Plus className="h-4 w-4 mr-1" /> Apply Leave
-                    </Button>
-                </Link>
+        <div className="space-y-5 pb-4">
+            <EmployeePageHeader
+                icon={CalendarOff}
+                accent="violet"
+                title="My Leave"
+                context={`${requests.length} request${requests.length === 1 ? '' : 's'}`}
+                action={
+                    <Link
+                        to="/my/leave/apply"
+                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-md shadow-pink-500/30 transition-all hover:shadow-lg"
+                    >
+                        <Plus className="h-3 w-3" /> Apply
+                    </Link>
+                }
+            />
+
+            {/* Hero: Primary Leave Balance Ring */}
+            {primaryBalance && (() => {
+                const entitled = parseFloat(primaryBalance.entitled_days) || 0;
+                const carried = parseFloat(primaryBalance.carried_forward_days) || 0;
+                const used = parseFloat(primaryBalance.used_days) || 0;
+                const available = parseFloat(primaryBalance.available_days) || 0;
+                const total = entitled + carried;
+                const accent = leaveAccent(primaryBalance.leave_type?.name || primaryBalance.type_name);
+
+                return (
+                    <div className="relative py-2">
+                        <BalanceRing
+                            value={available}
+                            max={total}
+                            accent={accent}
+                            size={232}
+                            stroke={12}
+                        >
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                {primaryBalance.leave_type?.name || primaryBalance.type_name || 'Leave'}
+                            </div>
+                            <div className="mt-2 flex items-baseline tabular-nums leading-none">
+                                <span className="text-5xl font-bold tracking-tight text-slate-900">{available}</span>
+                                <span className="ml-1 text-base font-semibold text-slate-400">/ {total}</span>
+                            </div>
+                            <p className="mt-2 text-[11px] font-medium text-slate-500">
+                                days available
+                            </p>
+                            <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400">
+                                {used} used · {carried} carried
+                            </p>
+                        </BalanceRing>
+                    </div>
+                );
+            })()}
+
+            {/* Quick stats chips */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+                {pendingCount > 0 && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
+                        <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        </span>
+                        <span className="tabular-nums">{pendingCount}</span> pending
+                    </div>
+                )}
+                {approvedCount > 0 && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                        <span className="tabular-nums">{approvedCount}</span> approved
+                    </div>
+                )}
+                {otBalance && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-200">
+                        <span className="tabular-nums">{otBalance.available_days ?? otBalance.available ?? 0}</span> OT replacement
+                    </div>
+                )}
             </div>
 
-            {/* Balance Cards */}
-            {loadingBalances ? (
-                <div className="flex justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 gap-2">
-                    {balances.map((bal) => {
-                        const entitled = parseFloat(bal.entitled_days) || 0;
-                        const carried = parseFloat(bal.carried_forward_days) || 0;
-                        const used = parseFloat(bal.used_days) || 0;
-                        const available = parseFloat(bal.available_days) || 0;
-                        const total = entitled + carried;
-                        const usedPct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+            {/* All Balances grid */}
+            {!loadingBalances && balances.length > 1 && (
+                <div>
+                    <h3 className="mb-2 px-1 text-sm font-bold text-slate-900">All balances</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                        {balances.filter((b) => b !== primaryBalance).map((bal) => {
+                            const entitled = parseFloat(bal.entitled_days) || 0;
+                            const carried = parseFloat(bal.carried_forward_days) || 0;
+                            const used = parseFloat(bal.used_days) || 0;
+                            const available = parseFloat(bal.available_days) || 0;
+                            const total = entitled + carried;
+                            const usedPct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
+                            const accent = leaveAccent(bal.leave_type?.name || bal.type_name);
+                            const accentColors = {
+                                indigo: 'from-indigo-500 to-violet-500',
+                                rose: 'from-rose-500 to-pink-500',
+                                pink: 'from-pink-500 to-fuchsia-500',
+                                amber: 'from-amber-500 to-orange-500',
+                                violet: 'from-violet-500 to-fuchsia-500',
+                                sky: 'from-sky-500 to-blue-500',
+                                slate: 'from-slate-400 to-slate-500',
+                            };
 
-                        return (
-                            <Card key={bal.id || bal.leave_type_id}>
-                                <CardContent className="py-3.5 px-3.5">
-                                    <p className="text-xs font-medium text-slate-700 truncate">
-                                        {bal.leave_type?.name || bal.type_name || 'Leave'}
-                                    </p>
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                        <span className="text-xl font-bold text-slate-900">{available}</span>
-                                        <span className="text-xs text-slate-500">/ {total} days</span>
-                                    </div>
-                                    {/* Progress bar */}
-                                    <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                        <div
-                                            className={cn(
-                                                'h-full rounded-full transition-all',
-                                                usedPct > 80 ? 'bg-red-500' : usedPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'
-                                            )}
-                                            style={{ width: `${usedPct}%` }}
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">
-                                        Used: {used} | Carried: {carried}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* OT Replacement Balance */}
-            {otBalance && (
-                <Card>
-                    <CardContent className="py-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="rounded-lg bg-blue-50 p-1.5">
-                                    <CalendarOff className="h-4 w-4 text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-slate-900">OT Replacement</p>
-                                    <p className="text-xs text-slate-500">Available balance from overtime</p>
-                                </div>
-                            </div>
-                            <span className="text-lg font-bold text-blue-600">
-                                {otBalance.available ?? 0} days
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Mini Calendar */}
-            <Card>
-                <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                        <Button variant="ghost" size="sm" onClick={() => setCalDate(new Date(calYear, calMonth - 1, 1))}>
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <CardTitle className="text-sm">{calLabel}</CardTitle>
-                        <Button variant="ghost" size="sm" onClick={() => setCalDate(new Date(calYear, calMonth + 1, 1))}>
-                            <ChevronRight className="h-4 w-4" />
-                        </Button>
+                            return (
+                                <Card key={bal.id || bal.leave_type_id} className="border-slate-200/80">
+                                    <CardContent className="p-3">
+                                        <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                            {bal.leave_type?.name || bal.type_name || 'Leave'}
+                                        </p>
+                                        <div className="mt-1 flex items-baseline gap-1">
+                                            <span className="text-2xl font-bold tabular-nums text-slate-900">{available}</span>
+                                            <span className="text-xs font-semibold text-slate-400">/ {total}</span>
+                                        </div>
+                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                            <div
+                                                className={cn(
+                                                    'h-full rounded-full bg-gradient-to-r transition-all',
+                                                    accentColors[accent] || accentColors.violet
+                                                )}
+                                                style={{ width: `${usedPct}%` }}
+                                            />
+                                        </div>
+                                        <p className="mt-1 text-[10px] text-slate-400 tabular-nums">
+                                            {used} used · {carried} carried
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
                     </div>
-                </CardHeader>
-                <CardContent>
+                </div>
+            )}
+
+            {/* Calendar */}
+            <Card className="border-slate-200/80">
+                <CardContent className="pt-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <button
+                            onClick={() => setCalDate(new Date(calYear, calMonth - 1, 1))}
+                            aria-label="Previous month"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <h3 className="text-sm font-bold text-slate-900">{calLabel}</h3>
+                        <button
+                            onClick={() => setCalDate(new Date(calYear, calMonth + 1, 1))}
+                            aria-label="Next month"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    </div>
+
                     <div className="grid grid-cols-7 gap-1">
-                        {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
-                            <div key={d} className="text-center text-[10px] font-medium text-slate-400 pb-1">{d}</div>
+                        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                            <div key={i} className="pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">{d}</div>
                         ))}
                         {calendarDays.map((date, i) => {
                             const dateKey = date.toISOString().substring(0, 10);
@@ -206,86 +272,103 @@ export default function MyLeave() {
                                 <div
                                     key={i}
                                     className={cn(
-                                        'flex items-center justify-center rounded-md py-1 text-xs',
+                                        'relative flex aspect-square items-center justify-center rounded-xl text-xs transition-all',
                                         !isCurrentMonth && 'opacity-30',
-                                        isToday && 'ring-1 ring-slate-900',
-                                        isLeave && isCurrentMonth && 'bg-purple-100 text-purple-700 font-medium'
+                                        isToday && !isLeave && 'bg-gradient-to-br from-indigo-50 to-pink-50 ring-2 ring-pink-300',
+                                        isLeave && isCurrentMonth && 'bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-800 font-semibold ring-1 ring-violet-200',
+                                        isLeave && isToday && 'ring-2 ring-pink-400'
                                     )}
                                 >
-                                    {date.getDate()}
+                                    <span className={cn(
+                                        'tabular-nums',
+                                        isToday && !isLeave ? 'text-pink-700 font-bold' :
+                                        isLeave && isCurrentMonth ? 'text-violet-800' :
+                                        isCurrentMonth ? 'text-slate-700' :
+                                        'text-slate-400'
+                                    )}>
+                                        {date.getDate()}
+                                    </span>
                                 </div>
                             );
                         })}
                     </div>
+
+                    <div className="mt-4 flex flex-wrap gap-x-3 border-t border-slate-100 pt-3">
+                        <div className="flex items-center gap-1.5">
+                            <div className="h-2 w-2 rounded bg-gradient-to-br from-violet-400 to-fuchsia-500 ring-1 ring-white shadow-sm" />
+                            <span className="text-[10px] font-medium text-slate-500">Leave</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="h-2 w-2 rounded ring-2 ring-pink-400" />
+                            <span className="text-[10px] font-medium text-slate-500">Today</span>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
-            {/* Leave Requests */}
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">My Requests</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {loadingRequests ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                        </div>
-                    ) : requests.length === 0 ? (
-                        <div className="py-8 text-center">
-                            <CalendarDays className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                            <p className="text-sm text-slate-500">No leave requests yet</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {requests.map((req) => {
-                                const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
-                                const canCancel = req.status === 'pending' ||
-                                    (req.status === 'approved' && new Date(req.start_date) > new Date());
-
-                                return (
-                                    <div
-                                        key={req.id}
-                                        className="flex items-center justify-between rounded-lg border border-slate-100 p-3"
-                                    >
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium text-slate-900">
-                                                    {req.leave_type?.name || req.type_name || 'Leave'}
-                                                </p>
-                                                <Badge variant={cfg.variant} className="text-[10px]">
-                                                    {cfg.label}
-                                                </Badge>
-                                            </div>
-                                            <p className="text-xs text-slate-500 mt-0.5">
-                                                {formatDateShort(req.start_date)} - {formatDateShort(req.end_date)}
-                                                {req.total_days && ` (${req.total_days} day${req.total_days > 1 ? 's' : ''})`}
-                                            </p>
-                                            {req.reason && (
-                                                <p className="text-xs text-slate-400 mt-0.5 truncate">{req.reason}</p>
-                                            )}
-                                        </div>
-                                        {canCancel && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 shrink-0 ml-2"
-                                                onClick={() => {
-                                                    if (window.confirm('Cancel this leave request?')) {
-                                                        cancelMut.mutate(req.id);
-                                                    }
-                                                }}
-                                                disabled={cancelMut.isPending}
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+            {/* Requests */}
+            <div>
+                <div className="mb-2 flex items-center justify-between px-1">
+                    <h3 className="text-sm font-bold text-slate-900">My requests</h3>
+                    {requests.length > 0 && (
+                        <span className="text-[11px] font-semibold text-slate-500">
+                            <span className="tabular-nums text-slate-800">{requests.length}</span> total
+                        </span>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+                <RecordList
+                    items={sortedRequests}
+                    isLoading={loadingRequests}
+                    emptyIcon={Palmtree}
+                    emptyAccent="violet"
+                    emptyTitle="No leave requests yet"
+                    emptyDescription="Apply for time off when you need a break"
+                    emptyAction={
+                        <Link
+                            to="/my/leave/apply"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-pink-500/30"
+                        >
+                            <Plus className="h-3.5 w-3.5" /> Apply for leave
+                            <ArrowRight className="h-3 w-3" />
+                        </Link>
+                    }
+                    renderItem={(req) => {
+                        const canCancel = req.status === 'pending' ||
+                            (req.status === 'approved' && new Date(req.start_date) > new Date());
+                        const accent = leaveAccent(req.leave_type?.name || req.type_name);
+
+                        return (
+                            <RecordCard
+                                key={req.id}
+                                icon={Palmtree}
+                                accent={accent}
+                                title={req.leave_type?.name || req.type_name || 'Leave'}
+                                subtitle={`${formatDateShort(req.start_date)} – ${formatDateShort(req.end_date)}${req.total_days ? ` · ${req.total_days} day${req.total_days > 1 ? 's' : ''}` : ''}`}
+                                meta={req.reason}
+                                badge={<StatusBadge status={req.status} size="sm" />}
+                            >
+                                {canCancel && (
+                                    <div className="mt-2 flex justify-end">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm('Cancel this leave request?')) {
+                                                    cancelMut.mutate(req.id);
+                                                }
+                                            }}
+                                            disabled={cancelMut.isPending}
+                                            className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                            Cancel
+                                        </button>
+                                    </div>
+                                )}
+                            </RecordCard>
+                        );
+                    }}
+                />
+            </div>
         </div>
     );
 }
