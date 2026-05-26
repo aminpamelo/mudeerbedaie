@@ -107,7 +107,7 @@ export function RecordList({
     }
 
     return (
-        <div className={cn('space-y-2', className)}>
+        <div className={cn('hr-stagger space-y-2', className)}>
             {items.map((item, i) => renderItem(item, i))}
         </div>
     );

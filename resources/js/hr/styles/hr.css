@@ -115,6 +115,25 @@ body {
     animation: hr-twinkle 4.2s ease-in-out 2s infinite;
 }
 
+/* Entry stagger — apply hr-stagger to a parent and items reveal one-by-one */
+@keyframes hr-rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.hr-stagger > * {
+    opacity: 0;
+    animation: hr-rise 0.4s ease-out forwards;
+}
+.hr-stagger > *:nth-child(1)  { animation-delay: 0.00s; }
+.hr-stagger > *:nth-child(2)  { animation-delay: 0.04s; }
+.hr-stagger > *:nth-child(3)  { animation-delay: 0.08s; }
+.hr-stagger > *:nth-child(4)  { animation-delay: 0.12s; }
+.hr-stagger > *:nth-child(5)  { animation-delay: 0.16s; }
+.hr-stagger > *:nth-child(6)  { animation-delay: 0.20s; }
+.hr-stagger > *:nth-child(7)  { animation-delay: 0.24s; }
+.hr-stagger > *:nth-child(8)  { animation-delay: 0.28s; }
+.hr-stagger > *:nth-child(n+9) { animation-delay: 0.32s; }
+
 @media (prefers-reduced-motion: reduce) {
     .hr-breathe, .hr-float, .hr-float-delayed, .hr-shimmer,
     .hr-spin-slow, .hr-twinkle, .hr-twinkle-2, .hr-twinkle-3 {
@@ -123,5 +142,9 @@ body {
     .hr-shimmer {
         color: #0F172A;
         -webkit-text-fill-color: #0F172A;
+    }
+    .hr-stagger > * {
+        opacity: 1;
+        animation: none;
     }
 }

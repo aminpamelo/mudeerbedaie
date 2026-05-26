@@ -1,153 +1,159 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
+import { RouteFallback } from './components/RouteFallback';
 
-// Admin layout & pages
+// Layouts — kept eager so the shell renders instantly while routes lazy-load.
 import HrLayout from './layouts/HrLayout';
-import Dashboard from './pages/Dashboard';
-import EmployeeList from './pages/EmployeeList';
-import EmployeeCreate from './pages/EmployeeCreate';
-import EmployeeShow from './pages/EmployeeShow';
-import EmployeeEdit from './pages/EmployeeEdit';
-import Departments from './pages/Departments';
-import Positions from './pages/Positions';
-import OrgChart from './pages/OrgChart';
+import EmployeeAppLayout from './layouts/EmployeeAppLayout';
+
+// ─── Admin pages (lazy) ──────────────────────────────────────────────────────
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const EmployeeList = lazy(() => import('./pages/EmployeeList'));
+const EmployeeCreate = lazy(() => import('./pages/EmployeeCreate'));
+const EmployeeShow = lazy(() => import('./pages/EmployeeShow'));
+const EmployeeEdit = lazy(() => import('./pages/EmployeeEdit'));
+const Departments = lazy(() => import('./pages/Departments'));
+const Positions = lazy(() => import('./pages/Positions'));
+const OrgChart = lazy(() => import('./pages/OrgChart'));
 
 // Admin - Attendance
-import AttendanceDashboard from './pages/attendance/AttendanceDashboard';
-import AttendanceRecords from './pages/attendance/AttendanceRecords';
-import AttendanceMonthlyView from './pages/attendance/AttendanceMonthlyView';
-import WorkSchedules from './pages/attendance/WorkSchedules';
-import ScheduleAssignments from './pages/attendance/ScheduleAssignments';
-import OvertimeManagement from './pages/attendance/OvertimeManagement';
-import HolidayCalendar from './pages/attendance/HolidayCalendar';
-import AttendanceAnalytics from './pages/attendance/AttendanceAnalytics';
-import DepartmentApprovers from './pages/attendance/DepartmentApprovers';
-import AttendanceSettings from './pages/attendance/AttendanceSettings';
+const AttendanceDashboard = lazy(() => import('./pages/attendance/AttendanceDashboard'));
+const AttendanceRecords = lazy(() => import('./pages/attendance/AttendanceRecords'));
+const AttendanceMonthlyView = lazy(() => import('./pages/attendance/AttendanceMonthlyView'));
+const WorkSchedules = lazy(() => import('./pages/attendance/WorkSchedules'));
+const ScheduleAssignments = lazy(() => import('./pages/attendance/ScheduleAssignments'));
+const OvertimeManagement = lazy(() => import('./pages/attendance/OvertimeManagement'));
+const HolidayCalendar = lazy(() => import('./pages/attendance/HolidayCalendar'));
+const AttendanceAnalytics = lazy(() => import('./pages/attendance/AttendanceAnalytics'));
+const DepartmentApprovers = lazy(() => import('./pages/attendance/DepartmentApprovers'));
+const AttendanceSettings = lazy(() => import('./pages/attendance/AttendanceSettings'));
 
 // Admin - Leave
-import LeaveDashboard from './pages/leave/LeaveDashboard';
-import LeaveRequests from './pages/leave/LeaveRequests';
-import LeaveCalendar from './pages/leave/LeaveCalendar';
-import LeaveBalances from './pages/leave/LeaveBalances';
-import LeaveTypes from './pages/leave/LeaveTypes';
-import LeaveEntitlements from './pages/leave/LeaveEntitlements';
-import LeaveApprovers from './pages/leave/LeaveApprovers';
+const LeaveDashboard = lazy(() => import('./pages/leave/LeaveDashboard'));
+const LeaveRequests = lazy(() => import('./pages/leave/LeaveRequests'));
+const LeaveCalendar = lazy(() => import('./pages/leave/LeaveCalendar'));
+const LeaveBalances = lazy(() => import('./pages/leave/LeaveBalances'));
+const LeaveTypes = lazy(() => import('./pages/leave/LeaveTypes'));
+const LeaveEntitlements = lazy(() => import('./pages/leave/LeaveEntitlements'));
+const LeaveApprovers = lazy(() => import('./pages/leave/LeaveApprovers'));
 
 // Admin - Payroll
-import PayrollDashboard from './pages/payroll/PayrollDashboard';
-import PayrollRun from './pages/payroll/PayrollRun';
-import PayrollHistory from './pages/payroll/PayrollHistory';
-import SalaryComponents from './pages/payroll/SalaryComponents';
-import EmployeeSalaries from './pages/payroll/EmployeeSalaries';
-import TaxProfiles from './pages/payroll/TaxProfiles';
-import StatutoryRates from './pages/payroll/StatutoryRates';
-import PayrollReports from './pages/payroll/PayrollReports';
-import PayrollSettings from './pages/payroll/PayrollSettings';
-import EaForms from './pages/payroll/EaForms';
+const PayrollDashboard = lazy(() => import('./pages/payroll/PayrollDashboard'));
+const PayrollRun = lazy(() => import('./pages/payroll/PayrollRun'));
+const PayrollHistory = lazy(() => import('./pages/payroll/PayrollHistory'));
+const SalaryComponents = lazy(() => import('./pages/payroll/SalaryComponents'));
+const EmployeeSalaries = lazy(() => import('./pages/payroll/EmployeeSalaries'));
+const TaxProfiles = lazy(() => import('./pages/payroll/TaxProfiles'));
+const StatutoryRates = lazy(() => import('./pages/payroll/StatutoryRates'));
+const PayrollReports = lazy(() => import('./pages/payroll/PayrollReports'));
+const PayrollSettings = lazy(() => import('./pages/payroll/PayrollSettings'));
+const EaForms = lazy(() => import('./pages/payroll/EaForms'));
 
 // Admin - Claims
-import ClaimsDashboard from './pages/claims/ClaimsDashboard';
-import ClaimRequests from './pages/claims/ClaimRequests';
-import ClaimTypes from './pages/claims/ClaimTypes';
-import ClaimApprovers from './pages/claims/ClaimApprovers';
-import ClaimsReports from './pages/claims/ClaimsReports';
+const ClaimsDashboard = lazy(() => import('./pages/claims/ClaimsDashboard'));
+const ClaimRequests = lazy(() => import('./pages/claims/ClaimRequests'));
+const ClaimTypes = lazy(() => import('./pages/claims/ClaimTypes'));
+const ClaimApprovers = lazy(() => import('./pages/claims/ClaimApprovers'));
+const ClaimsReports = lazy(() => import('./pages/claims/ClaimsReports'));
 
 // Admin - Benefits
-import BenefitsManagement from './pages/benefits/BenefitsManagement';
-import BenefitTypes from './pages/benefits/BenefitTypes';
+const BenefitsManagement = lazy(() => import('./pages/benefits/BenefitsManagement'));
+const BenefitTypes = lazy(() => import('./pages/benefits/BenefitTypes'));
 
 // Admin - Assets
-import AssetDashboard from './pages/assets/AssetDashboard';
-import AssetList from './pages/assets/AssetList';
-import AssetCategories from './pages/assets/AssetCategories';
-import AssetAssignments from './pages/assets/AssetAssignments';
+const AssetDashboard = lazy(() => import('./pages/assets/AssetDashboard'));
+const AssetList = lazy(() => import('./pages/assets/AssetList'));
+const AssetCategories = lazy(() => import('./pages/assets/AssetCategories'));
+const AssetAssignments = lazy(() => import('./pages/assets/AssetAssignments'));
 
 // Admin - Recruitment & Onboarding
-import RecruitmentDashboard from './pages/recruitment/RecruitmentDashboard';
-import JobPostings from './pages/recruitment/JobPostings';
-import JobPostingDetail from './pages/recruitment/JobPostingDetail';
-import Applicants from './pages/recruitment/Applicants';
-import ApplicantDetail from './pages/recruitment/ApplicantDetail';
-import Interviews from './pages/recruitment/Interviews';
-import OnboardingDashboard from './pages/recruitment/OnboardingDashboard';
-import OnboardingTemplates from './pages/recruitment/OnboardingTemplates';
+const RecruitmentDashboard = lazy(() => import('./pages/recruitment/RecruitmentDashboard'));
+const JobPostings = lazy(() => import('./pages/recruitment/JobPostings'));
+const JobPostingDetail = lazy(() => import('./pages/recruitment/JobPostingDetail'));
+const Applicants = lazy(() => import('./pages/recruitment/Applicants'));
+const ApplicantDetail = lazy(() => import('./pages/recruitment/ApplicantDetail'));
+const Interviews = lazy(() => import('./pages/recruitment/Interviews'));
+const OnboardingDashboard = lazy(() => import('./pages/recruitment/OnboardingDashboard'));
+const OnboardingTemplates = lazy(() => import('./pages/recruitment/OnboardingTemplates'));
 
 // Admin - Performance Management
-import PerformanceDashboard from './pages/performance/PerformanceDashboard';
-import ReviewCycles from './pages/performance/ReviewCycles';
-import ReviewCycleDetail from './pages/performance/ReviewCycleDetail';
-import KpiTemplates from './pages/performance/KpiTemplates';
-import ReviewDetail from './pages/performance/ReviewDetail';
-import PipManagement from './pages/performance/PipManagement';
-import PipDetail from './pages/performance/PipDetail';
-import RatingScaleConfig from './pages/performance/RatingScaleConfig';
+const PerformanceDashboard = lazy(() => import('./pages/performance/PerformanceDashboard'));
+const ReviewCycles = lazy(() => import('./pages/performance/ReviewCycles'));
+const ReviewCycleDetail = lazy(() => import('./pages/performance/ReviewCycleDetail'));
+const KpiTemplates = lazy(() => import('./pages/performance/KpiTemplates'));
+const ReviewDetail = lazy(() => import('./pages/performance/ReviewDetail'));
+const PipManagement = lazy(() => import('./pages/performance/PipManagement'));
+const PipDetail = lazy(() => import('./pages/performance/PipDetail'));
+const RatingScaleConfig = lazy(() => import('./pages/performance/RatingScaleConfig'));
 
 // Admin - Meetings (MOM)
-import MeetingList from './pages/meetings/MeetingList';
-import MeetingCreate from './pages/meetings/MeetingCreate';
-import MeetingDetail from './pages/meetings/MeetingDetail';
-import MeetingEdit from './pages/meetings/MeetingEdit';
-import MeetingRecord from './pages/meetings/MeetingRecord';
-import MeetingSeriesList from './pages/meetings/MeetingSeriesList';
-import TaskDashboard from './pages/meetings/TaskDashboard';
+const MeetingList = lazy(() => import('./pages/meetings/MeetingList'));
+const MeetingCreate = lazy(() => import('./pages/meetings/MeetingCreate'));
+const MeetingDetail = lazy(() => import('./pages/meetings/MeetingDetail'));
+const MeetingEdit = lazy(() => import('./pages/meetings/MeetingEdit'));
+const MeetingRecord = lazy(() => import('./pages/meetings/MeetingRecord'));
+const MeetingSeriesList = lazy(() => import('./pages/meetings/MeetingSeriesList'));
+const TaskDashboard = lazy(() => import('./pages/meetings/TaskDashboard'));
 
 // Admin - Disciplinary & Offboarding
-import DisciplinaryDashboard from './pages/disciplinary/DisciplinaryDashboard';
-import DisciplinaryRecords from './pages/disciplinary/DisciplinaryRecords';
-import DisciplinaryDetail from './pages/disciplinary/DisciplinaryDetail';
-import CreateDisciplinaryAction from './pages/disciplinary/CreateDisciplinaryAction';
-import LetterTemplates from './pages/disciplinary/LetterTemplates';
-import ResignationRequests from './pages/offboarding/ResignationRequests';
-import ResignationDetail from './pages/offboarding/ResignationDetail';
-import ExitChecklists from './pages/offboarding/ExitChecklists';
-import ExitInterviews from './pages/offboarding/ExitInterviews';
-import FinalSettlements from './pages/offboarding/FinalSettlements';
-import SettlementDetail from './pages/offboarding/SettlementDetail';
+const DisciplinaryDashboard = lazy(() => import('./pages/disciplinary/DisciplinaryDashboard'));
+const DisciplinaryRecords = lazy(() => import('./pages/disciplinary/DisciplinaryRecords'));
+const DisciplinaryDetail = lazy(() => import('./pages/disciplinary/DisciplinaryDetail'));
+const CreateDisciplinaryAction = lazy(() => import('./pages/disciplinary/CreateDisciplinaryAction'));
+const LetterTemplates = lazy(() => import('./pages/disciplinary/LetterTemplates'));
+const ResignationRequests = lazy(() => import('./pages/offboarding/ResignationRequests'));
+const ResignationDetail = lazy(() => import('./pages/offboarding/ResignationDetail'));
+const ExitChecklists = lazy(() => import('./pages/offboarding/ExitChecklists'));
+const ExitInterviews = lazy(() => import('./pages/offboarding/ExitInterviews'));
+const FinalSettlements = lazy(() => import('./pages/offboarding/FinalSettlements'));
+const SettlementDetail = lazy(() => import('./pages/offboarding/SettlementDetail'));
 
 // Admin - Training & Development
-import TrainingDashboard from './pages/training/TrainingDashboard';
-import TrainingPrograms from './pages/training/TrainingPrograms';
-import TrainingDetail from './pages/training/TrainingDetail';
-import Certifications from './pages/training/Certifications';
-import EmployeeCertifications from './pages/training/EmployeeCertifications';
-import TrainingBudgets from './pages/training/TrainingBudgets';
-import TrainingReports from './pages/training/TrainingReports';
+const TrainingDashboard = lazy(() => import('./pages/training/TrainingDashboard'));
+const TrainingPrograms = lazy(() => import('./pages/training/TrainingPrograms'));
+const TrainingDetail = lazy(() => import('./pages/training/TrainingDetail'));
+const Certifications = lazy(() => import('./pages/training/Certifications'));
+const EmployeeCertifications = lazy(() => import('./pages/training/EmployeeCertifications'));
+const TrainingBudgets = lazy(() => import('./pages/training/TrainingBudgets'));
+const TrainingReports = lazy(() => import('./pages/training/TrainingReports'));
 
 // Admin - Settings
-import PwaSettings from './pages/settings/PwaSettings';
+const PwaSettings = lazy(() => import('./pages/settings/PwaSettings'));
 
-// Shared pages
-import ClockInOut from './pages/ClockInOut';
-import Notifications from './pages/Notifications';
+// Shared
+const ClockInOut = lazy(() => import('./pages/ClockInOut'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 
-// Employee self-service layout & pages
-import EmployeeAppLayout from './layouts/EmployeeAppLayout';
-import MyProfile from './pages/MyProfile';
-import MyAttendance from './pages/my/MyAttendance';
-import MyOvertime from './pages/my/MyOvertime';
-import MyLeave from './pages/my/MyLeave';
-import ApplyLeave from './pages/my/ApplyLeave';
-import MyPayslips from './pages/my/MyPayslips';
-import MyClaims from './pages/my/MyClaims';
-import MyAssets from './pages/my/MyAssets';
-import MyMeetings from './pages/my/MyMeetings';
-import MyTasks from './pages/my/MyTasks';
-import MyReviews from './pages/my/MyReviews';
-import MyReviewDetail from './pages/my/MyReviewDetail';
-import MyPip from './pages/my/MyPip';
-import MyOnboarding from './pages/my/MyOnboarding';
-import MyDisciplinary from './pages/my/MyDisciplinary';
-import MyResignation from './pages/my/MyResignation';
-import MyTraining from './pages/my/MyTraining';
-import MyApprovals from './pages/my/MyApprovals';
-import MyApprovalsOvertime from './pages/my/MyApprovalsOvertime';
-import MyApprovalsLeave from './pages/my/MyApprovalsLeave';
-import MyApprovalsClaims from './pages/my/MyApprovalsClaims';
-import ExitPermissions from './pages/exitpermissions/ExitPermissions';
-import ExitPermissionNotifiers from './pages/exitpermissions/ExitPermissionNotifiers';
-import MyExitPermissions from './pages/my/MyExitPermissions';
-import ApplyExitPermission from './pages/my/ApplyExitPermission';
-import MyApprovalsExitPermissions from './pages/my/MyApprovalsExitPermissions';
+// Employee self-service pages
+const MyProfile = lazy(() => import('./pages/MyProfile'));
+const MyAttendance = lazy(() => import('./pages/my/MyAttendance'));
+const MyOvertime = lazy(() => import('./pages/my/MyOvertime'));
+const MyLeave = lazy(() => import('./pages/my/MyLeave'));
+const ApplyLeave = lazy(() => import('./pages/my/ApplyLeave'));
+const MyPayslips = lazy(() => import('./pages/my/MyPayslips'));
+const MyClaims = lazy(() => import('./pages/my/MyClaims'));
+const MyAssets = lazy(() => import('./pages/my/MyAssets'));
+const MyMeetings = lazy(() => import('./pages/my/MyMeetings'));
+const MyTasks = lazy(() => import('./pages/my/MyTasks'));
+const MyReviews = lazy(() => import('./pages/my/MyReviews'));
+const MyReviewDetail = lazy(() => import('./pages/my/MyReviewDetail'));
+const MyPip = lazy(() => import('./pages/my/MyPip'));
+const MyOnboarding = lazy(() => import('./pages/my/MyOnboarding'));
+const MyDisciplinary = lazy(() => import('./pages/my/MyDisciplinary'));
+const MyResignation = lazy(() => import('./pages/my/MyResignation'));
+const MyTraining = lazy(() => import('./pages/my/MyTraining'));
+const MyApprovals = lazy(() => import('./pages/my/MyApprovals'));
+const MyApprovalsOvertime = lazy(() => import('./pages/my/MyApprovalsOvertime'));
+const MyApprovalsLeave = lazy(() => import('./pages/my/MyApprovalsLeave'));
+const MyApprovalsClaims = lazy(() => import('./pages/my/MyApprovalsClaims'));
+const ExitPermissions = lazy(() => import('./pages/exitpermissions/ExitPermissions'));
+const ExitPermissionNotifiers = lazy(() => import('./pages/exitpermissions/ExitPermissionNotifiers'));
+const MyExitPermissions = lazy(() => import('./pages/my/MyExitPermissions'));
+const ApplyExitPermission = lazy(() => import('./pages/my/ApplyExitPermission'));
+const MyApprovalsExitPermissions = lazy(() => import('./pages/my/MyApprovalsExitPermissions'));
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -330,12 +336,18 @@ export default function App() {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <BrowserRouter basename="/hr">
-                <Routes>
-                    {isAdmin ? AdminRoutes() : EmployeeRoutes()}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </BrowserRouter>
+            <ToastProvider>
+                <BrowserRouter basename="/hr">
+                    <ErrorBoundary>
+                        <Suspense fallback={<RouteFallback />}>
+                            <Routes>
+                                {isAdmin ? AdminRoutes() : EmployeeRoutes()}
+                                <Route path="*" element={<Navigate to="/" replace />} />
+                            </Routes>
+                        </Suspense>
+                    </ErrorBoundary>
+                </BrowserRouter>
+            </ToastProvider>
         </QueryClientProvider>
     );
 }
