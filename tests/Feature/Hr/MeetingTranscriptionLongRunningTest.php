@@ -9,14 +9,19 @@ use App\Models\MeetingRecording;
 use App\Models\MeetingTranscript;
 use App\Services\Hr\MeetingTranscriptionService;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 
 use function Pest\Laravel\mock;
 
-it('uploads to GCS and dispatches the polling job', function () {
-    Bus::fake();
+beforeEach(function () {
+    config()->set('services.assemblyai.api_key', 'test-key');
+    config()->set('services.assemblyai.base_url', 'https://api.assemblyai.com');
+    config()->set('services.assemblyai.speech_models', ['universal-3-pro', 'universal-2']);
+});
 
-    $meeting = Meeting::factory()->create();
-    $recording = MeetingRecording::create([
+function createRecording(Meeting $meeting): MeetingRecording
+{
+    return MeetingRecording::create([
         'meeting_id' => $meeting->id,
         'file_name' => 'sample.webm',
         'file_path' => 'meetings/recordings/1/sample.webm',
@@ -25,14 +30,22 @@ it('uploads to GCS and dispatches the polling job', function () {
         'source' => 'uploaded',
         'uploaded_by' => $meeting->organizer_id,
     ]);
+}
+
+it('starts an AssemblyAI transcript and dispatches the polling job', function () {
+    Bus::fake();
+
+    $meeting = Meeting::factory()->create();
+    $recording = createRecording($meeting);
 
     mock(MeetingTranscriptionService::class)
         ->shouldReceive('startTranscription')
         ->once()
         ->andReturnUsing(function ($_, MeetingTranscript $transcript) {
             $transcript->forceFill([
-                'operation_name' => 'projects/p/operations/abc',
-                'gcs_uri' => 'gs://bucket/file.webm',
+                'provider' => 'assemblyai',
+                'provider_reference' => 'ax-123',
+                'operation_name' => 'ax-123',
                 'started_at' => now(),
             ])->save();
         });
@@ -43,26 +56,19 @@ it('uploads to GCS and dispatches the polling job', function () {
     expect(MeetingTranscript::query()->where('recording_id', $recording->id)->exists())->toBeTrue();
 });
 
-it('re-dispatches the poll job when the operation is still running', function () {
+it('re-dispatches the poll job when AssemblyAI is still processing', function () {
     Bus::fake();
 
     $meeting = Meeting::factory()->create();
     $transcript = MeetingTranscript::create([
         'meeting_id' => $meeting->id,
-        'recording_id' => MeetingRecording::create([
-            'meeting_id' => $meeting->id,
-            'file_name' => 'sample.webm',
-            'file_path' => 'meetings/recordings/1/sample.webm',
-            'file_size' => 1024,
-            'file_type' => 'audio/webm',
-            'source' => 'uploaded',
-            'uploaded_by' => $meeting->organizer_id,
-        ])->id,
+        'recording_id' => createRecording($meeting)->id,
         'content' => '',
         'language' => 'en',
+        'provider' => 'assemblyai',
         'status' => 'processing',
-        'operation_name' => 'projects/p/operations/abc',
-        'gcs_uri' => 'gs://bucket/file.webm',
+        'operation_name' => 'ax-123',
+        'provider_reference' => 'ax-123',
     ]);
 
     mock(MeetingTranscriptionService::class)
@@ -81,20 +87,13 @@ it('stops polling and marks failed when max attempts is exceeded', function () {
     $meeting = Meeting::factory()->create();
     $transcript = MeetingTranscript::create([
         'meeting_id' => $meeting->id,
-        'recording_id' => MeetingRecording::create([
-            'meeting_id' => $meeting->id,
-            'file_name' => 'sample.webm',
-            'file_path' => 'meetings/recordings/1/sample.webm',
-            'file_size' => 1024,
-            'file_type' => 'audio/webm',
-            'source' => 'uploaded',
-            'uploaded_by' => $meeting->organizer_id,
-        ])->id,
+        'recording_id' => createRecording($meeting)->id,
         'content' => '',
         'language' => 'en',
+        'provider' => 'assemblyai',
         'status' => 'processing',
-        'operation_name' => 'projects/p/operations/abc',
-        'gcs_uri' => 'gs://bucket/file.webm',
+        'operation_name' => 'ax-123',
+        'provider_reference' => 'ax-123',
         'poll_attempts' => PollMeetingTranscription::MAX_POLL_ATTEMPTS,
     ]);
 
@@ -113,19 +112,12 @@ it('does nothing when transcript is already completed', function () {
     $meeting = Meeting::factory()->create();
     $transcript = MeetingTranscript::create([
         'meeting_id' => $meeting->id,
-        'recording_id' => MeetingRecording::create([
-            'meeting_id' => $meeting->id,
-            'file_name' => 'sample.webm',
-            'file_path' => 'meetings/recordings/1/sample.webm',
-            'file_size' => 1024,
-            'file_type' => 'audio/webm',
-            'source' => 'uploaded',
-            'uploaded_by' => $meeting->organizer_id,
-        ])->id,
+        'recording_id' => createRecording($meeting)->id,
         'content' => 'Done.',
         'language' => 'en',
+        'provider' => 'assemblyai',
         'status' => 'completed',
-        'operation_name' => 'projects/p/operations/abc',
+        'operation_name' => 'ax-123',
     ]);
 
     $serviceMock = mock(MeetingTranscriptionService::class);
@@ -134,4 +126,70 @@ it('does nothing when transcript is already completed', function () {
     (new PollMeetingTranscription($transcript))->handle(app(MeetingTranscriptionService::class));
 
     Bus::assertNotDispatched(PollMeetingTranscription::class);
+});
+
+it('saves a completed transcript with speaker labels when polling succeeds', function () {
+    Http::fake([
+        'https://api.assemblyai.com/v2/transcript/ax-123' => Http::response([
+            'id' => 'ax-123',
+            'status' => 'completed',
+            'language_code' => 'ms',
+            'text' => 'Hello dunia.',
+            'utterances' => [
+                ['speaker' => 'A', 'text' => 'Selamat pagi semua.'],
+                ['speaker' => 'B', 'text' => 'Pagi! Lets start the meeting.'],
+            ],
+        ]),
+    ]);
+
+    $meeting = Meeting::factory()->create();
+    $transcript = MeetingTranscript::create([
+        'meeting_id' => $meeting->id,
+        'recording_id' => createRecording($meeting)->id,
+        'content' => '',
+        'language' => 'en',
+        'provider' => 'assemblyai',
+        'status' => 'processing',
+        'operation_name' => 'ax-123',
+        'provider_reference' => 'ax-123',
+    ]);
+
+    $finished = app(MeetingTranscriptionService::class)->pollOperation($transcript);
+
+    expect($finished)->toBeTrue();
+
+    $transcript->refresh();
+    expect($transcript->status)->toBe('completed')
+        ->and($transcript->language)->toBe('ms')
+        ->and($transcript->content)->toContain('Speaker A: Selamat pagi semua.')
+        ->and($transcript->content)->toContain('Speaker B: Pagi! Lets start the meeting.');
+});
+
+it('marks transcript failed when AssemblyAI returns an error status', function () {
+    Http::fake([
+        'https://api.assemblyai.com/v2/transcript/ax-bad' => Http::response([
+            'id' => 'ax-bad',
+            'status' => 'error',
+            'error' => 'Audio file is corrupted.',
+        ]),
+    ]);
+
+    $meeting = Meeting::factory()->create();
+    $transcript = MeetingTranscript::create([
+        'meeting_id' => $meeting->id,
+        'recording_id' => createRecording($meeting)->id,
+        'content' => '',
+        'language' => 'en',
+        'provider' => 'assemblyai',
+        'status' => 'processing',
+        'operation_name' => 'ax-bad',
+        'provider_reference' => 'ax-bad',
+    ]);
+
+    $finished = app(MeetingTranscriptionService::class)->pollOperation($transcript);
+
+    expect($finished)->toBeTrue();
+    $transcript->refresh();
+    expect($transcript->status)->toBe('failed')
+        ->and($transcript->error_message)->toBe('Audio file is corrupted.');
 });

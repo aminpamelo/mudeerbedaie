@@ -175,6 +175,14 @@ Analyze this meeting transcript and return a JSON object with these fields:
    - "deadline_mentioned": Any deadline mentioned (as string), or null
    - "priority": "low", "medium", "high", or "urgent" based on context
 
+IMPORTANT LANGUAGE INSTRUCTIONS:
+- Detect the primary language of the transcript.
+- Write "summary" and "key_points" in the SAME language as the transcript.
+- If the transcript is in Bahasa Melayu, respond in Bahasa Melayu.
+- If the transcript mixes Bahasa Melayu and English (Bahasa Rojak), respond in Bahasa Melayu while keeping common English business terms as-is.
+- If the transcript is in English, respond in English.
+- For "action_items": "title" and "description" should also follow the same language. JSON keys and "priority" values stay in English.
+
 Return ONLY valid JSON, no markdown.
 
 TRANSCRIPT:
@@ -195,6 +203,14 @@ Analyze this meeting data and return a JSON object with these fields:
    - "assignee_name": Name of person who should be responsible (based on attendees/context), or null
    - "deadline_mentioned": Any suggested deadline, or null
    - "priority": "low", "medium", "high", or "urgent" based on context
+
+IMPORTANT LANGUAGE INSTRUCTIONS:
+- Detect the primary language of the meeting data (look at title, description, agenda items, decisions, task titles).
+- Write "summary" and "key_points" in the SAME language as the meeting content.
+- If the content is in Bahasa Melayu, respond in Bahasa Melayu.
+- If the content mixes Bahasa Melayu and English (Bahasa Rojak), respond in Bahasa Melayu while keeping common English business terms as-is.
+- If the content is in English, respond in English.
+- For "action_items": "title" and "description" should also follow the same language. JSON keys and "priority" values stay in English.
 
 Return ONLY valid JSON, no markdown.
 

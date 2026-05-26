@@ -86,7 +86,7 @@ import AiSummaryPanel from '../../components/meetings/AiSummaryPanel';
 // ─── Helpers ───
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', className: 'bg-zinc-100 text-zinc-700 border-zinc-200', dot: 'bg-zinc-400' },
+    draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400' },
     scheduled: { label: 'Scheduled', className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
     in_progress: { label: 'In Progress', className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500 animate-pulse' },
     completed: { label: 'Completed', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
@@ -94,14 +94,14 @@ const STATUS_CONFIG = {
 };
 
 const ATTENDANCE_CONFIG = {
-    invited: { label: 'Invited', className: 'bg-zinc-100 text-zinc-600', icon: null },
+    invited: { label: 'Invited', className: 'bg-slate-100 text-slate-600', icon: null },
     attended: { label: 'Attended', className: 'bg-emerald-100 text-emerald-700', icon: UserCheck },
     absent: { label: 'Absent', className: 'bg-red-100 text-red-700', icon: UserX },
     excused: { label: 'Excused', className: 'bg-amber-100 text-amber-700', icon: UserMinus },
 };
 
 const PRIORITY_CONFIG = {
-    low: { label: 'Low', className: 'bg-zinc-100 text-zinc-600' },
+    low: { label: 'Low', className: 'bg-slate-100 text-slate-600' },
     medium: { label: 'Medium', className: 'bg-blue-100 text-blue-700' },
     high: { label: 'High', className: 'bg-orange-100 text-orange-700' },
     urgent: { label: 'Urgent', className: 'bg-red-100 text-red-700' },
@@ -110,7 +110,7 @@ const PRIORITY_CONFIG = {
 const ROLE_CONFIG = {
     organizer: { label: 'Organizer', className: 'bg-indigo-100 text-indigo-700' },
     note_taker: { label: 'Note Taker', className: 'bg-violet-100 text-violet-700' },
-    attendee: { label: 'Attendee', className: 'bg-zinc-100 text-zinc-600' },
+    attendee: { label: 'Attendee', className: 'bg-slate-100 text-slate-600' },
 };
 
 function formatDate(dateString) {
@@ -191,6 +191,10 @@ export default function MeetingDetail() {
         queryFn: () => fetchTranscript(id),
         enabled: !!meetingData,
         retry: false,
+        refetchInterval: (query) => {
+            const t = query.state.data?.data || query.state.data;
+            return t?.status === 'processing' ? 5000 : false;
+        },
     });
 
     const { data: aiSummaryData } = useQuery({
@@ -248,8 +252,8 @@ export default function MeetingDetail() {
         return (
             <div className="flex h-[60vh] items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
-                    <p className="text-sm text-zinc-500">Loading meeting details...</p>
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                    <p className="text-sm text-slate-500">Loading meeting details...</p>
                 </div>
             </div>
         );
@@ -308,7 +312,7 @@ export default function MeetingDetail() {
             <div className="mb-6">
                 <button
                     onClick={() => navigate('/meetings')}
-                    className="group mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-900"
+                    className="group mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-slate-900"
                 >
                     <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
                     Back to Meetings
@@ -318,13 +322,13 @@ export default function MeetingDetail() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+                            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                                 {meeting.title}
                             </h1>
                             <StatusBadge status={meeting.status} />
                         </div>
                         {meeting.series && (
-                            <div className="flex items-center gap-1.5 text-sm text-zinc-500">
+                            <div className="flex items-center gap-1.5 text-sm text-slate-500">
                                 <FolderOpen className="h-3.5 w-3.5" />
                                 <span>Series: {meeting.series.name}</span>
                             </div>
@@ -364,36 +368,36 @@ export default function MeetingDetail() {
 
             {/* ─── Meeting Info Cards ─── */}
             <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center gap-2 text-zinc-400">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
                         <Calendar className="h-4 w-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">Date</span>
                     </div>
-                    <p className="mt-1.5 text-sm font-semibold text-zinc-900">{formatDate(meeting.meeting_date)}</p>
+                    <p className="mt-1.5 text-sm font-semibold text-slate-900">{formatDate(meeting.meeting_date)}</p>
                 </div>
-                <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center gap-2 text-zinc-400">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
                         <Clock className="h-4 w-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">Time</span>
                     </div>
-                    <p className="mt-1.5 text-sm font-semibold text-zinc-900">
+                    <p className="mt-1.5 text-sm font-semibold text-slate-900">
                         {formatTime(meeting.start_time)}
                         {meeting.end_time && ` - ${formatTime(meeting.end_time)}`}
                     </p>
                 </div>
-                <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center gap-2 text-zinc-400">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
                         <MapPin className="h-4 w-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">Location</span>
                     </div>
-                    <p className="mt-1.5 text-sm font-semibold text-zinc-900">{meeting.location || 'Not set'}</p>
+                    <p className="mt-1.5 text-sm font-semibold text-slate-900">{meeting.location || 'Not set'}</p>
                 </div>
-                <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center gap-2 text-zinc-400">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
                         <Users className="h-4 w-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">Attendees</span>
                     </div>
-                    <p className="mt-1.5 text-sm font-semibold text-zinc-900">
+                    <p className="mt-1.5 text-sm font-semibold text-slate-900">
                         {attendees.length} invited
                         {attendedCount > 0 && <span className="text-emerald-600"> ({attendedCount} attended)</span>}
                     </p>
@@ -402,39 +406,39 @@ export default function MeetingDetail() {
 
             {/* Description */}
             {meeting.description && (
-                <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-4">
-                    <p className="text-sm leading-relaxed text-zinc-600">{meeting.description}</p>
+                <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm leading-relaxed text-slate-600">{meeting.description}</p>
                 </div>
             )}
 
             {/* ─── Organizer & Note Taker ─── */}
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {meeting.organizer && (
-                    <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
                             {getInitials(meeting.organizer.full_name)}
                         </div>
                         <div>
-                            <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Organizer</p>
-                            <p className="text-sm font-semibold text-zinc-900">{meeting.organizer.full_name}</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Organizer</p>
+                            <p className="text-sm font-semibold text-slate-900">{meeting.organizer.full_name}</p>
                         </div>
                     </div>
                 )}
                 {meeting.note_taker && (
-                    <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
                             {getInitials(meeting.note_taker.full_name)}
                         </div>
                         <div>
-                            <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Note Taker</p>
-                            <p className="text-sm font-semibold text-zinc-900">{meeting.note_taker.full_name}</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Note Taker</p>
+                            <p className="text-sm font-semibold text-slate-900">{meeting.note_taker.full_name}</p>
                         </div>
                     </div>
                 )}
             </div>
 
             {/* ─── Tab Navigation ─── */}
-            <div className="mb-6 overflow-x-auto border-b border-zinc-200">
+            <div className="mb-6 overflow-x-auto border-b border-slate-200">
                 <nav className="flex gap-0.5">
                     {TABS.map((tab) => {
                         const count = getTabCount(tab.id);
@@ -445,20 +449,20 @@ export default function MeetingDetail() {
                                 onClick={() => handleTabChange(tab.id)}
                                 className={`group relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors
                                     ${isActive
-                                        ? 'text-zinc-900'
-                                        : 'text-zinc-500 hover:text-zinc-700'
+                                        ? 'text-slate-900'
+                                        : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
-                                <tab.icon className={`h-4 w-4 ${isActive ? 'text-zinc-700' : 'text-zinc-400 group-hover:text-zinc-500'}`} />
+                                <tab.icon className={`h-4 w-4 ${isActive ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500'}`} />
                                 {tab.label}
                                 {count !== null && count > 0 && (
                                     <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none
-                                        ${isActive ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                                        ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>
                                         {count}
                                     </span>
                                 )}
                                 {isActive && (
-                                    <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-zinc-900" />
+                                    <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-slate-900" />
                                 )}
                             </button>
                         );
@@ -473,45 +477,45 @@ export default function MeetingDetail() {
                     <div className="space-y-6">
                         {/* Quick Stats */}
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center">
-                                <p className="text-2xl font-bold text-zinc-900">{agendaItems.length}</p>
-                                <p className="text-xs text-zinc-500">Agenda Items</p>
+                            <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
+                                <p className="text-2xl font-bold text-slate-900">{agendaItems.length}</p>
+                                <p className="text-xs text-slate-500">Agenda Items</p>
                             </div>
-                            <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center">
-                                <p className="text-2xl font-bold text-zinc-900">{decisions.length}</p>
-                                <p className="text-xs text-zinc-500">Decisions</p>
+                            <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
+                                <p className="text-2xl font-bold text-slate-900">{decisions.length}</p>
+                                <p className="text-xs text-slate-500">Decisions</p>
                             </div>
-                            <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
                                 <p className="text-2xl font-bold text-emerald-600">{completedTasks}</p>
-                                <p className="text-xs text-zinc-500">Tasks Completed</p>
+                                <p className="text-xs text-slate-500">Tasks Completed</p>
                             </div>
-                            <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
                                 <p className="text-2xl font-bold text-amber-600">{pendingTasks}</p>
-                                <p className="text-xs text-zinc-500">Tasks Pending</p>
+                                <p className="text-xs text-slate-500">Tasks Pending</p>
                             </div>
                         </div>
 
                         {/* Agenda Preview */}
                         {agendaItems.length > 0 && (
-                            <div className="rounded-xl border border-zinc-200 bg-white">
-                                <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
-                                        <ListChecks className="h-4 w-4 text-zinc-400" />
+                            <div className="rounded-xl border border-slate-200 bg-white">
+                                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                        <ListChecks className="h-4 w-4 text-slate-400" />
                                         Agenda
                                     </h3>
                                     <button onClick={() => handleTabChange('agenda')} className="text-xs font-medium text-blue-600 hover:text-blue-700">
                                         View All
                                     </button>
                                 </div>
-                                <div className="divide-y divide-zinc-50 px-5">
+                                <div className="divide-y divide-slate-50 px-5">
                                     {agendaItems.slice(0, 5).map((item, index) => (
                                         <div key={item.id} className="flex items-start gap-3 py-3">
-                                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-bold text-zinc-500">
+                                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
                                                 {index + 1}
                                             </span>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">{item.title}</p>
-                                                {item.description && <p className="mt-0.5 text-xs text-zinc-500">{item.description}</p>}
+                                                <p className="text-sm font-medium text-slate-900">{item.title}</p>
+                                                {item.description && <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>}
                                             </div>
                                         </div>
                                     ))}
@@ -521,25 +525,25 @@ export default function MeetingDetail() {
 
                         {/* Recent Decisions Preview */}
                         {decisions.length > 0 && (
-                            <div className="rounded-xl border border-zinc-200 bg-white">
-                                <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
-                                        <Gavel className="h-4 w-4 text-zinc-400" />
+                            <div className="rounded-xl border border-slate-200 bg-white">
+                                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                        <Gavel className="h-4 w-4 text-slate-400" />
                                         Key Decisions
                                     </h3>
                                     <button onClick={() => handleTabChange('decisions')} className="text-xs font-medium text-blue-600 hover:text-blue-700">
                                         View All
                                     </button>
                                 </div>
-                                <div className="divide-y divide-zinc-50 px-5">
+                                <div className="divide-y divide-slate-50 px-5">
                                     {decisions.slice(0, 3).map((dec) => (
                                         <div key={dec.id} className="py-3">
                                             <div className="flex items-start gap-2">
                                                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">{dec.title}</p>
+                                                    <p className="text-sm font-medium text-slate-900">{dec.title}</p>
                                                     {dec.decided_by?.full_name && (
-                                                        <p className="mt-0.5 text-xs text-zinc-500">
+                                                        <p className="mt-0.5 text-xs text-slate-500">
                                                             by {dec.decided_by.full_name}
                                                         </p>
                                                     )}
@@ -553,34 +557,34 @@ export default function MeetingDetail() {
 
                         {/* Tasks Preview */}
                         {tasks.length > 0 && (
-                            <div className="rounded-xl border border-zinc-200 bg-white">
-                                <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
-                                        <CheckCircle2 className="h-4 w-4 text-zinc-400" />
+                            <div className="rounded-xl border border-slate-200 bg-white">
+                                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                                        <CheckCircle2 className="h-4 w-4 text-slate-400" />
                                         Action Items
                                     </h3>
                                     <button onClick={() => handleTabChange('tasks')} className="text-xs font-medium text-blue-600 hover:text-blue-700">
                                         View All
                                     </button>
                                 </div>
-                                <div className="divide-y divide-zinc-50 px-5">
+                                <div className="divide-y divide-slate-50 px-5">
                                     {tasks.slice(0, 5).map((task) => {
                                         const pConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
                                         const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed' && task.status !== 'cancelled';
                                         return (
                                             <div key={task.id} className="flex items-center justify-between py-3">
                                                 <div className="flex items-center gap-3">
-                                                    <span className={`inline-flex h-2 w-2 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in_progress' ? 'bg-blue-500' : 'bg-zinc-300'}`} />
+                                                    <span className={`inline-flex h-2 w-2 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in_progress' ? 'bg-blue-500' : 'bg-slate-300'}`} />
                                                     <div>
-                                                        <p className="text-sm font-medium text-zinc-900">{task.title}</p>
+                                                        <p className="text-sm font-medium text-slate-900">{task.title}</p>
                                                         <div className="mt-0.5 flex items-center gap-2">
-                                                            {task.assignee && <span className="text-xs text-zinc-500">{task.assignee.full_name}</span>}
+                                                            {task.assignee && <span className="text-xs text-slate-500">{task.assignee.full_name}</span>}
                                                             <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${pConfig.className}`}>{pConfig.label}</span>
                                                         </div>
                                                     </div>
                                                 </div>
                                                 {task.deadline && (
-                                                    <span className={`text-xs ${isOverdue ? 'font-medium text-red-600' : 'text-zinc-500'}`}>
+                                                    <span className={`text-xs ${isOverdue ? 'font-medium text-red-600' : 'text-slate-500'}`}>
                                                         {isOverdue && <AlertCircle className="mr-1 inline h-3 w-3" />}
                                                         {formatDate(task.deadline)}
                                                     </span>
@@ -596,18 +600,18 @@ export default function MeetingDetail() {
 
                 {/* Attendees Tab */}
                 {activeTab === 'attendees' && (
-                    <div className="rounded-xl border border-zinc-200 bg-white">
-                        <div className="border-b border-zinc-100 px-5 py-3">
-                            <h3 className="text-sm font-semibold text-zinc-900">
+                    <div className="rounded-xl border border-slate-200 bg-white">
+                        <div className="border-b border-slate-100 px-5 py-3">
+                            <h3 className="text-sm font-semibold text-slate-900">
                                 {attendees.length} Attendees
                                 {attendedCount > 0 && (
-                                    <span className="ml-2 text-xs font-normal text-zinc-500">
+                                    <span className="ml-2 text-xs font-normal text-slate-500">
                                         ({attendedCount} attended, {attendees.filter(a => a.attendance_status === 'absent').length} absent)
                                     </span>
                                 )}
                             </h3>
                         </div>
-                        <div className="divide-y divide-zinc-50">
+                        <div className="divide-y divide-slate-50">
                             {attendees.map((att) => {
                                 const employee = att.employee || att;
                                 const empId = att.employee_id || att.id;
@@ -617,9 +621,9 @@ export default function MeetingDetail() {
                                 const attConf = ATTENDANCE_CONFIG[attStatus] || ATTENDANCE_CONFIG.invited;
 
                                 return (
-                                    <div key={empId} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-zinc-50/50">
+                                    <div key={empId} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-slate-50/50">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-zinc-200 to-zinc-300 text-xs font-bold text-zinc-600">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-600">
                                                 {employee.profile_photo_url ? (
                                                     <img src={employee.profile_photo_url} alt={employee.full_name} className="h-10 w-10 rounded-full object-cover" />
                                                 ) : (
@@ -628,13 +632,13 @@ export default function MeetingDetail() {
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-medium text-zinc-900">{employee.full_name || employee.name}</p>
+                                                    <p className="text-sm font-medium text-slate-900">{employee.full_name || employee.name}</p>
                                                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${roleConf.className}`}>
                                                         {roleConf.label}
                                                     </span>
                                                 </div>
                                                 {employee.position?.title && (
-                                                    <p className="text-xs text-zinc-500">{employee.position.title}</p>
+                                                    <p className="text-xs text-slate-500">{employee.position.title}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -657,9 +661,9 @@ export default function MeetingDetail() {
                             })}
                             {attendees.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <Users className="h-10 w-10 text-zinc-300" />
-                                    <p className="mt-2 text-sm font-medium text-zinc-500">No attendees yet</p>
-                                    <p className="text-xs text-zinc-400">Edit the meeting to add attendees</p>
+                                    <Users className="h-10 w-10 text-slate-300" />
+                                    <p className="mt-2 text-sm font-medium text-slate-500">No attendees yet</p>
+                                    <p className="text-xs text-slate-400">Edit the meeting to add attendees</p>
                                 </div>
                             )}
                         </div>
@@ -668,17 +672,17 @@ export default function MeetingDetail() {
 
                 {/* Agenda Tab */}
                 {activeTab === 'agenda' && (
-                    <div className="rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                            <h3 className="text-sm font-semibold text-zinc-900">Agenda Items</h3>
+                    <div className="rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                            <h3 className="text-sm font-semibold text-slate-900">Agenda Items</h3>
                             <Button size="sm" variant="outline" onClick={() => { setAgendaAdding(true); setAgendaForm({ title: '', description: '' }); }}>
                                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                                 Add Item
                             </Button>
                         </div>
-                        <div className="divide-y divide-zinc-50">
+                        <div className="divide-y divide-slate-50">
                             {agendaItems.map((item, index) => (
-                                <div key={item.id} className="group px-5 py-3 transition-colors hover:bg-zinc-50/50">
+                                <div key={item.id} className="group px-5 py-3 transition-colors hover:bg-slate-50/50">
                                     {agendaEditingId === item.id ? (
                                         <div className="space-y-2">
                                             <Input value={agendaForm.title} onChange={(e) => setAgendaForm(f => ({ ...f, title: e.target.value }))} placeholder="Agenda item title" />
@@ -691,12 +695,12 @@ export default function MeetingDetail() {
                                     ) : (
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-start gap-3">
-                                                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">
+                                                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
                                                     {index + 1}
                                                 </span>
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">{item.title}</p>
-                                                    {item.description && <p className="mt-0.5 text-xs text-zinc-500">{item.description}</p>}
+                                                    <p className="text-sm font-medium text-slate-900">{item.title}</p>
+                                                    {item.description && <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -713,14 +717,14 @@ export default function MeetingDetail() {
                             ))}
                             {agendaItems.length === 0 && !agendaAdding && (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <ListChecks className="h-10 w-10 text-zinc-300" />
-                                    <p className="mt-2 text-sm font-medium text-zinc-500">No agenda items yet</p>
-                                    <p className="text-xs text-zinc-400">Add items to structure your meeting</p>
+                                    <ListChecks className="h-10 w-10 text-slate-300" />
+                                    <p className="mt-2 text-sm font-medium text-slate-500">No agenda items yet</p>
+                                    <p className="text-xs text-slate-400">Add items to structure your meeting</p>
                                 </div>
                             )}
                         </div>
                         {agendaAdding && (
-                            <div className="border-t border-zinc-100 px-5 py-4">
+                            <div className="border-t border-slate-100 px-5 py-4">
                                 <div className="space-y-2">
                                     <Input value={agendaForm.title} onChange={(e) => setAgendaForm(f => ({ ...f, title: e.target.value }))} placeholder="New agenda item title" autoFocus />
                                     <Textarea value={agendaForm.description} onChange={(e) => setAgendaForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" rows={2} />
@@ -736,17 +740,17 @@ export default function MeetingDetail() {
 
                 {/* Decisions Tab */}
                 {activeTab === 'decisions' && (
-                    <div className="rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                            <h3 className="text-sm font-semibold text-zinc-900">Decisions</h3>
+                    <div className="rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                            <h3 className="text-sm font-semibold text-slate-900">Decisions</h3>
                             <Button size="sm" variant="outline" onClick={() => { setDecisionAdding(true); setDecisionForm({ title: '', description: '', decided_by: '' }); }}>
                                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                                 Add Decision
                             </Button>
                         </div>
-                        <div className="divide-y divide-zinc-50">
+                        <div className="divide-y divide-slate-50">
                             {decisions.map((dec) => (
-                                <div key={dec.id} className="group px-5 py-4 transition-colors hover:bg-zinc-50/50">
+                                <div key={dec.id} className="group px-5 py-4 transition-colors hover:bg-slate-50/50">
                                     {decisionEditingId === dec.id ? (
                                         <div className="space-y-2">
                                             <Input value={decisionForm.title} onChange={(e) => setDecisionForm(f => ({ ...f, title: e.target.value }))} placeholder="Decision title" />
@@ -763,9 +767,9 @@ export default function MeetingDetail() {
                                                     <Gavel className="h-3.5 w-3.5 text-emerald-700" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">{dec.title}</p>
-                                                    {dec.description && <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{dec.description}</p>}
-                                                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-zinc-400">
+                                                    <p className="text-sm font-medium text-slate-900">{dec.title}</p>
+                                                    {dec.description && <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{dec.description}</p>}
+                                                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-400">
                                                         {(dec.decided_by?.full_name) && (
                                                             <span>by {dec.decided_by.full_name}</span>
                                                         )}
@@ -789,14 +793,14 @@ export default function MeetingDetail() {
                             ))}
                             {decisions.length === 0 && !decisionAdding && (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <Gavel className="h-10 w-10 text-zinc-300" />
-                                    <p className="mt-2 text-sm font-medium text-zinc-500">No decisions recorded</p>
-                                    <p className="text-xs text-zinc-400">Record important decisions made during the meeting</p>
+                                    <Gavel className="h-10 w-10 text-slate-300" />
+                                    <p className="mt-2 text-sm font-medium text-slate-500">No decisions recorded</p>
+                                    <p className="text-xs text-slate-400">Record important decisions made during the meeting</p>
                                 </div>
                             )}
                         </div>
                         {decisionAdding && (
-                            <div className="border-t border-zinc-100 px-5 py-4">
+                            <div className="border-t border-slate-100 px-5 py-4">
                                 <div className="space-y-2">
                                     <Input value={decisionForm.title} onChange={(e) => setDecisionForm(f => ({ ...f, title: e.target.value }))} placeholder="Decision title" autoFocus />
                                     <Textarea value={decisionForm.description} onChange={(e) => setDecisionForm(f => ({ ...f, description: e.target.value }))} placeholder="Details" rows={2} />
@@ -812,12 +816,12 @@ export default function MeetingDetail() {
 
                 {/* Tasks Tab */}
                 {activeTab === 'tasks' && (
-                    <div className="rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                            <h3 className="text-sm font-semibold text-zinc-900">
+                    <div className="rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                            <h3 className="text-sm font-semibold text-slate-900">
                                 Action Items
                                 {tasks.length > 0 && (
-                                    <span className="ml-2 text-xs font-normal text-zinc-500">
+                                    <span className="ml-2 text-xs font-normal text-slate-500">
                                         {completedTasks}/{tasks.length} completed
                                     </span>
                                 )}
@@ -837,12 +841,12 @@ export default function MeetingDetail() {
                 {activeTab === 'recordings' && (
                     <div className="space-y-4">
                         {/* Upload Section */}
-                        <div className="rounded-xl border border-zinc-200 bg-white">
-                            <div className="border-b border-zinc-100 px-5 py-3">
-                                <h3 className="text-sm font-semibold text-zinc-900">Upload Recording</h3>
+                        <div className="rounded-xl border border-slate-200 bg-white">
+                            <div className="border-b border-slate-100 px-5 py-3">
+                                <h3 className="text-sm font-semibold text-slate-900">Upload Recording</h3>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-4 py-2.5 text-sm text-zinc-600 transition-colors hover:border-zinc-400 hover:bg-zinc-50">
+                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50">
                                     <Upload className="h-4 w-4" />
                                     {recordFile ? recordFile.name : 'Choose file...'}
                                     <input type="file" accept="audio/*,video/*" onChange={(e) => setRecordFile(e.target.files?.[0] || null)} className="hidden" />
@@ -868,9 +872,9 @@ export default function MeetingDetail() {
 
                         {/* Recordings List */}
                         {recordings.length > 0 && (
-                            <div className="rounded-xl border border-zinc-200 bg-white">
-                                <div className="border-b border-zinc-100 px-5 py-3">
-                                    <h3 className="text-sm font-semibold text-zinc-900">Recordings ({recordings.length})</h3>
+                            <div className="rounded-xl border border-slate-200 bg-white">
+                                <div className="border-b border-slate-100 px-5 py-3">
+                                    <h3 className="text-sm font-semibold text-slate-900">Recordings ({recordings.length})</h3>
                                 </div>
                                 <div className="space-y-3 p-5">
                                     {recordings.map((rec) => (
@@ -888,15 +892,15 @@ export default function MeetingDetail() {
 
                         {/* Transcript */}
                         {transcript && (
-                            <div className="rounded-xl border border-zinc-200 bg-white p-5">
+                            <div className="rounded-xl border border-slate-200 bg-white p-5">
                                 <TranscriptViewer transcript={transcript} />
                             </div>
                         )}
 
                         {/* AI Analysis */}
-                        <div className="rounded-xl border border-zinc-200 bg-white">
-                            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                                <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+                        <div className="rounded-xl border border-slate-200 bg-white">
+                            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                                <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                                     <Sparkles className="h-4 w-4 text-violet-500" />
                                     AI Analysis
                                 </h3>
@@ -910,9 +914,9 @@ export default function MeetingDetail() {
                                     <AiSummaryPanel summary={aiSummary} onApproveTasks={(data) => approveTasksMut.mutate(data)} approving={approveTasksMut.isPending} />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <Sparkles className="h-10 w-10 text-zinc-300" />
-                                        <p className="mt-2 text-sm font-medium text-zinc-500">No AI analysis yet</p>
-                                        <p className="text-xs text-zinc-400">Upload a recording or transcript, then run AI analysis</p>
+                                        <Sparkles className="h-10 w-10 text-slate-300" />
+                                        <p className="mt-2 text-sm font-medium text-slate-500">No AI analysis yet</p>
+                                        <p className="text-xs text-slate-400">Upload a recording or transcript, then run AI analysis</p>
                                     </div>
                                 )}
                             </div>
@@ -922,19 +926,19 @@ export default function MeetingDetail() {
 
                 {/* Attachments Tab */}
                 {activeTab === 'attachments' && (
-                    <div className="rounded-xl border border-zinc-200 bg-white">
-                        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-                            <h3 className="text-sm font-semibold text-zinc-900">Files & Attachments</h3>
+                    <div className="rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+                            <h3 className="text-sm font-semibold text-slate-900">Files & Attachments</h3>
                         </div>
 
                         {/* Upload area */}
-                        <div className="border-b border-zinc-100 px-5 py-4">
-                            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 py-6 transition-colors hover:border-zinc-400 hover:bg-zinc-100">
-                                <Upload className="h-8 w-8 text-zinc-400" />
-                                <p className="mt-2 text-sm font-medium text-zinc-600">
+                        <div className="border-b border-slate-100 px-5 py-4">
+                            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 py-6 transition-colors hover:border-slate-400 hover:bg-slate-100">
+                                <Upload className="h-8 w-8 text-slate-400" />
+                                <p className="mt-2 text-sm font-medium text-slate-600">
                                     {attachFile ? attachFile.name : 'Click to upload a file'}
                                 </p>
-                                <p className="text-xs text-zinc-400">Documents, images, and other files</p>
+                                <p className="text-xs text-slate-400">Documents, images, and other files</p>
                                 <input type="file" onChange={(e) => setAttachFile(e.target.files?.[0] || null)} className="hidden" />
                             </label>
                             {attachFile && (
@@ -947,16 +951,16 @@ export default function MeetingDetail() {
                         </div>
 
                         {/* File list */}
-                        <div className="divide-y divide-zinc-50">
+                        <div className="divide-y divide-slate-50">
                             {attachments.map((att) => (
-                                <div key={att.id} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-zinc-50/50">
+                                <div key={att.id} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-slate-50/50">
                                     <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
-                                            <FileText className="h-5 w-5 text-zinc-500" />
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
+                                            <FileText className="h-5 w-5 text-slate-500" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-zinc-900">{att.original_name || att.file_name || 'File'}</p>
-                                            <p className="text-xs text-zinc-500">
+                                            <p className="text-sm font-medium text-slate-900">{att.original_name || att.file_name || 'File'}</p>
+                                            <p className="text-xs text-slate-500">
                                                 {att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : ''}
                                                 {att.uploader && ` · ${att.uploader.full_name || att.uploader.name}`}
                                             </p>
@@ -978,9 +982,9 @@ export default function MeetingDetail() {
                             ))}
                             {attachments.length === 0 && (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <Paperclip className="h-10 w-10 text-zinc-300" />
-                                    <p className="mt-2 text-sm font-medium text-zinc-500">No attachments yet</p>
-                                    <p className="text-xs text-zinc-400">Upload documents and files related to this meeting</p>
+                                    <Paperclip className="h-10 w-10 text-slate-300" />
+                                    <p className="mt-2 text-sm font-medium text-slate-500">No attachments yet</p>
+                                    <p className="text-xs text-slate-400">Upload documents and files related to this meeting</p>
                                 </div>
                             )}
                         </div>

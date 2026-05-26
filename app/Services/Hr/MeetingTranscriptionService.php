@@ -4,129 +4,90 @@ namespace App\Services\Hr;
 
 use App\Models\MeetingRecording;
 use App\Models\MeetingTranscript;
-use Google\Cloud\Speech\V1\RecognitionAudio;
-use Google\Cloud\Speech\V1\RecognitionConfig;
-use Google\Cloud\Speech\V1\RecognitionConfig\AudioEncoding;
-use Google\Cloud\Speech\V1\SpeechClient;
-use Google\Cloud\Storage\StorageClient;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class MeetingTranscriptionService
 {
     /**
-     * Upload the audio to GCS and start a long-running transcription operation.
+     * Upload the audio to AssemblyAI and queue a transcription job tuned for Malaysian meetings.
      */
     public function startTranscription(MeetingRecording $recording, MeetingTranscript $transcript): void
     {
-        $bucketName = $this->bucketName();
         $localPath = Storage::disk('public')->path($recording->file_path);
 
         if (! is_file($localPath)) {
             throw new RuntimeException("Recording file not found at {$localPath}");
         }
 
-        $objectName = sprintf(
-            'meeting-recordings/%d/%s-%s',
-            $recording->meeting_id,
-            Str::uuid(),
-            basename($recording->file_path)
-        );
+        $uploadUrl = $this->uploadAudio($localPath);
+        $transcriptId = $this->requestTranscript($uploadUrl);
 
-        $storage = $this->storageClient();
-        $storage->bucket($bucketName)->upload(
-            fopen($localPath, 'r'),
-            ['name' => $objectName]
-        );
-
-        $gcsUri = "gs://{$bucketName}/{$objectName}";
-
-        $speech = $this->speechClient();
-
-        try {
-            $config = (new RecognitionConfig)
-                ->setEncoding($this->encoding($recording->file_type))
-                ->setLanguageCode('en-US')
-                ->setAlternativeLanguageCodes(['ms-MY'])
-                ->setEnableAutomaticPunctuation(true)
-                ->setModel('latest_long');
-
-            $audio = (new RecognitionAudio)->setUri($gcsUri);
-
-            $operation = $speech->longRunningRecognize($config, $audio);
-
-            $transcript->forceFill([
-                'status' => 'processing',
-                'operation_name' => $operation->getName(),
-                'gcs_uri' => $gcsUri,
-                'started_at' => now(),
-                'poll_attempts' => 0,
-                'error_message' => null,
-            ])->save();
-        } finally {
-            $speech->close();
-        }
+        $transcript->forceFill([
+            'status' => 'processing',
+            'provider' => 'assemblyai',
+            'provider_reference' => $transcriptId,
+            'operation_name' => $transcriptId,
+            'started_at' => now(),
+            'poll_attempts' => 0,
+            'error_message' => null,
+        ])->save();
     }
 
     /**
-     * Poll the operation. Returns true when complete (success or failure), false if still running.
+     * Poll AssemblyAI for the transcript status.
+     * Returns true when finished (success or failure), false if still processing.
      */
     public function pollOperation(MeetingTranscript $transcript): bool
     {
-        if (! $transcript->operation_name) {
-            throw new RuntimeException('Transcript has no operation_name to poll.');
+        if (! $transcript->provider_reference) {
+            throw new RuntimeException('Transcript has no provider_reference to poll.');
         }
 
-        $speech = $this->speechClient();
+        $transcript->increment('poll_attempts');
 
-        try {
-            $operation = $speech->resumeOperation($transcript->operation_name, 'longRunningRecognize');
-            $operation->reload();
+        $response = $this->client()->get("/v2/transcript/{$transcript->provider_reference}");
 
-            $transcript->increment('poll_attempts');
-
-            if (! $operation->done()) {
-                return false;
-            }
-
-            if ($operation->operationFailed()) {
-                $error = $operation->getError();
-                $transcript->forceFill([
-                    'status' => 'failed',
-                    'error_message' => $error ? $error->getMessage() : 'Operation failed without error message.',
-                ])->save();
-                $this->cleanupGcs($transcript);
-
-                return true;
-            }
-
-            $response = $operation->getResult();
-            $lines = [];
-
-            foreach ($response->getResults() as $result) {
-                $alternatives = $result->getAlternatives();
-                if (count($alternatives) > 0) {
-                    $lines[] = $alternatives[0]->getTranscript();
-                }
-            }
-
+        if ($response->failed()) {
             $transcript->forceFill([
-                'content' => implode("\n", $lines),
-                'status' => 'completed',
-                'processed_at' => now(),
+                'status' => 'failed',
+                'error_message' => 'AssemblyAI poll failed: '.$response->status().' '.$response->body(),
             ])->save();
 
-            $this->cleanupGcs($transcript);
+            return true;
+        }
+
+        $status = $response->json('status');
+
+        if ($status === 'queued' || $status === 'processing') {
+            return false;
+        }
+
+        if ($status === 'error') {
+            $transcript->forceFill([
+                'status' => 'failed',
+                'error_message' => $response->json('error') ?? 'AssemblyAI returned error status.',
+            ])->save();
 
             return true;
-        } finally {
-            $speech->close();
         }
+
+        $content = $this->formatTranscript($response->json());
+
+        $transcript->forceFill([
+            'content' => $content,
+            'status' => 'completed',
+            'processed_at' => now(),
+            'language' => $response->json('language_code') ?? $transcript->language,
+        ])->save();
+
+        return true;
     }
 
     /**
-     * Mark a transcript as failed and clean up the GCS object.
+     * Mark a transcript as failed with a custom reason.
      */
     public function markFailed(MeetingTranscript $transcript, string $reason): void
     {
@@ -134,67 +95,105 @@ class MeetingTranscriptionService
             'status' => 'failed',
             'error_message' => $reason,
         ])->save();
+    }
 
-        $this->cleanupGcs($transcript);
+    private function uploadAudio(string $localPath): string
+    {
+        $response = Http::withHeaders([
+            'authorization' => $this->apiKey(),
+            'content-type' => 'application/octet-stream',
+        ])
+            ->withBody(file_get_contents($localPath), 'application/octet-stream')
+            ->timeout(300)
+            ->post($this->baseUrl().'/v2/upload');
+
+        if ($response->failed()) {
+            throw new RuntimeException('AssemblyAI upload failed: '.$response->status().' '.$response->body());
+        }
+
+        $url = $response->json('upload_url');
+
+        if (! $url) {
+            throw new RuntimeException('AssemblyAI upload did not return an upload_url.');
+        }
+
+        return $url;
+    }
+
+    private function requestTranscript(string $audioUrl): string
+    {
+        $response = $this->client()->post('/v2/transcript', [
+            'audio_url' => $audioUrl,
+            'speech_models' => config('services.assemblyai.speech_models'),
+            'language_detection' => true,
+            'language_detection_options' => [
+                'code_switching' => true,
+            ],
+            'speaker_labels' => true,
+            'auto_chapters' => false,
+            'punctuate' => true,
+            'format_text' => true,
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException('AssemblyAI transcript request failed: '.$response->status().' '.$response->body());
+        }
+
+        $id = $response->json('id');
+
+        if (! $id) {
+            throw new RuntimeException('AssemblyAI transcript request did not return an id.');
+        }
+
+        return $id;
     }
 
     /**
-     * Remove the audio object from GCS once we no longer need it.
+     * Build a human-readable transcript with speaker labels when available.
      */
-    public function cleanupGcs(MeetingTranscript $transcript): void
+    private function formatTranscript(array $payload): string
     {
-        if (! $transcript->gcs_uri) {
-            return;
+        $utterances = $payload['utterances'] ?? null;
+
+        if (is_array($utterances) && count($utterances) > 0) {
+            $lines = [];
+            foreach ($utterances as $utt) {
+                $speaker = $utt['speaker'] ?? '?';
+                $text = trim($utt['text'] ?? '');
+                if ($text !== '') {
+                    $lines[] = "Speaker {$speaker}: {$text}";
+                }
+            }
+
+            return implode("\n", $lines);
         }
 
-        $parts = explode('/', preg_replace('#^gs://#', '', $transcript->gcs_uri), 2);
-        if (count($parts) !== 2) {
-            return;
+        return (string) ($payload['text'] ?? '');
+    }
+
+    private function client(): PendingRequest
+    {
+        return Http::withHeaders([
+            'authorization' => $this->apiKey(),
+            'content-type' => 'application/json',
+        ])
+            ->baseUrl($this->baseUrl())
+            ->timeout(60);
+    }
+
+    private function apiKey(): string
+    {
+        $key = config('services.assemblyai.api_key');
+
+        if (! $key) {
+            throw new RuntimeException('ASSEMBLYAI_API_KEY is not configured.');
         }
 
-        [$bucket, $object] = $parts;
-
-        try {
-            $this->storageClient()->bucket($bucket)->object($object)->delete();
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        return $key;
     }
 
-    private function bucketName(): string
+    private function baseUrl(): string
     {
-        $bucket = config('services.google.speech_bucket');
-        if (! $bucket) {
-            throw new RuntimeException('GOOGLE_CLOUD_SPEECH_BUCKET is not configured.');
-        }
-
-        return $bucket;
-    }
-
-    private function storageClient(): StorageClient
-    {
-        return new StorageClient([
-            'projectId' => config('services.google.project_id'),
-            'keyFilePath' => config('services.google.credentials_path'),
-        ]);
-    }
-
-    private function speechClient(): SpeechClient
-    {
-        $credentials = config('services.google.credentials_path');
-
-        return new SpeechClient($credentials ? ['credentials' => $credentials] : []);
-    }
-
-    private function encoding(string $mimeType): int
-    {
-        return match (true) {
-            str_contains($mimeType, 'webm') => AudioEncoding::WEBM_OPUS,
-            str_contains($mimeType, 'ogg') => AudioEncoding::OGG_OPUS,
-            str_contains($mimeType, 'flac') => AudioEncoding::FLAC,
-            str_contains($mimeType, 'wav') => AudioEncoding::LINEAR16,
-            str_contains($mimeType, 'mp3') => AudioEncoding::MP3,
-            default => AudioEncoding::ENCODING_UNSPECIFIED,
-        };
+        return rtrim((string) config('services.assemblyai.base_url'), '/');
     }
 }

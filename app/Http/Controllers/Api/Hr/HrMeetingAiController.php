@@ -24,7 +24,7 @@ class HrMeetingAiController extends Controller
         $transcript = MeetingTranscript::create([
             'meeting_id' => $meeting->id,
             'recording_id' => $recording->id,
-            'content' => null,
+            'content' => '',
             'language' => 'en',
             'status' => 'processing',
         ]);

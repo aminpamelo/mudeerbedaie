@@ -29,11 +29,13 @@ return [
     ],
 
     'google' => [
-        'speech_api_key' => env('GOOGLE_SPEECH_API_KEY'),
         'gemini_api_key' => env('GOOGLE_GEMINI_API_KEY'),
-        'project_id' => env('GOOGLE_CLOUD_PROJECT_ID'),
-        'credentials_path' => env('GOOGLE_APPLICATION_CREDENTIALS'),
-        'speech_bucket' => env('GOOGLE_CLOUD_SPEECH_BUCKET'),
+    ],
+
+    'assemblyai' => [
+        'api_key' => env('ASSEMBLYAI_API_KEY'),
+        'base_url' => env('ASSEMBLYAI_BASE_URL', 'https://api.assemblyai.com'),
+        'speech_models' => ['universal-3-pro', 'universal-2'],
     ],
 
     'slack' => [
