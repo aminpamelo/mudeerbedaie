@@ -67,7 +67,7 @@ function ModuleCard({ module, pending, isAssigned, myTiers, tierBreakdown, onCli
         <button
             onClick={onClick}
             disabled={!isAssigned}
-            className={`group w-full text-left rounded-2xl bg-white border border-zinc-100 border-l-4 ${module.borderColor} shadow-sm transition-all ${
+            className={`group w-full text-left rounded-2xl bg-white border border-slate-100 border-l-4 ${module.borderColor} shadow-sm transition-all ${
                 isAssigned
                     ? 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-[0.98]'
                     : 'opacity-50 cursor-not-allowed'
@@ -79,11 +79,11 @@ function ModuleCard({ module, pending, isAssigned, myTiers, tierBreakdown, onCli
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-900">{module.label}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">{module.description}</p>
+                    <p className="text-sm font-semibold text-slate-900">{module.label}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{module.description}</p>
                     {isAssigned && hasTiers && hasBreakdown && (
                         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                            <span className="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600">
+                            <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
                                 You: Tier {myTiers.join(', ')}
                             </span>
                             {Object.entries(tierBreakdown).map(([tier, count]) => (
@@ -92,7 +92,7 @@ function ModuleCard({ module, pending, isAssigned, myTiers, tierBreakdown, onCli
                                     className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                                         count > 0
                                             ? 'bg-amber-50 text-amber-700'
-                                            : 'bg-zinc-50 text-zinc-400'
+                                            : 'bg-slate-50 text-slate-400'
                                     }`}
                                 >
                                     T{tier}: {count}
@@ -109,12 +109,12 @@ function ModuleCard({ module, pending, isAssigned, myTiers, tierBreakdown, onCli
                                 {pending}
                             </span>
                         ) : (
-                            <span className="text-xs text-zinc-400">All clear</span>
+                            <span className="text-xs text-slate-400">All clear</span>
                         )
                     ) : (
-                        <span className="text-xs text-zinc-400">Not assigned</span>
+                        <span className="text-xs text-slate-400">Not assigned</span>
                     )}
-                    <ChevronRight className={`h-4 w-4 text-zinc-300 transition-transform ${isAssigned ? 'group-hover:translate-x-0.5' : ''}`} />
+                    <ChevronRight className={`h-4 w-4 text-slate-300 transition-transform ${isAssigned ? 'group-hover:translate-x-0.5' : ''}`} />
                 </div>
             </div>
         </button>
@@ -123,14 +123,14 @@ function ModuleCard({ module, pending, isAssigned, myTiers, tierBreakdown, onCli
 
 function SkeletonCard() {
     return (
-        <div className="rounded-2xl bg-white border border-zinc-100 p-4 shadow-sm animate-pulse">
+        <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm animate-pulse">
             <div className="flex items-center gap-4">
-                <div className="h-11 w-11 rounded-2xl bg-zinc-100 shrink-0" />
+                <div className="h-11 w-11 rounded-2xl bg-slate-100 shrink-0" />
                 <div className="flex-1 space-y-2">
-                    <div className="h-4 w-24 rounded bg-zinc-100" />
-                    <div className="h-3 w-36 rounded bg-zinc-100" />
+                    <div className="h-4 w-24 rounded bg-slate-100" />
+                    <div className="h-3 w-36 rounded bg-slate-100" />
                 </div>
-                <div className="h-6 w-6 rounded-full bg-zinc-100" />
+                <div className="h-6 w-6 rounded-full bg-slate-100" />
             </div>
         </div>
     );
@@ -149,19 +149,19 @@ export default function MyApprovals() {
     }, 0);
 
     return (
-        <div className="flex flex-col min-h-full bg-zinc-50">
+        <div className="flex flex-col min-h-full bg-slate-50">
             {/* Header */}
-            <div className="bg-white border-b border-zinc-100 px-4 py-5 shadow-sm">
+            <div className="bg-white border-b border-slate-100 px-4 py-5 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900">
                         <ShieldCheck className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-base font-bold text-zinc-900">My Approvals</h1>
-                        <p className="text-xs text-zinc-400">Review requests from your team</p>
+                        <h1 className="text-base font-bold text-slate-900">My Approvals</h1>
+                        <p className="text-xs text-slate-400">Review requests from your team</p>
                     </div>
                     {!isLoading && totalPending > 0 && (
-                        <span className="ml-auto flex h-6 min-w-6 items-center justify-center rounded-full bg-zinc-900 px-2 text-xs font-bold text-white">
+                        <span className="ml-auto flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-2 text-xs font-bold text-white">
                             {totalPending}
                         </span>
                     )}

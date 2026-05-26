@@ -103,7 +103,7 @@ export default function MyDocuments() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -112,7 +112,7 @@ export default function MyDocuments() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-slate-600">
                     {error?.response?.data?.message || 'Failed to load documents'}
                 </p>
             </div>
@@ -123,7 +123,7 @@ export default function MyDocuments() {
         <div className="space-y-4">
             {/* Header with Upload Button */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-zinc-700">
+                <h3 className="text-sm font-medium text-slate-700">
                     {documents.length} document{documents.length !== 1 ? 's' : ''}
                 </h3>
                 {!showUploadForm && (
@@ -231,9 +231,9 @@ export default function MyDocuments() {
             {documents.length === 0 && !showUploadForm ? (
                 <Card>
                     <CardContent className="py-10 text-center">
-                        <FileText className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
-                        <p className="text-sm text-zinc-500">No documents uploaded yet</p>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <FileText className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                        <p className="text-sm text-slate-500">No documents uploaded yet</p>
+                        <p className="text-xs text-slate-400 mt-1">
                             Upload your personal documents for record keeping
                         </p>
                     </CardContent>
@@ -244,11 +244,11 @@ export default function MyDocuments() {
                         <CardContent className="pt-4 pb-4">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                                    <div className="rounded-lg bg-zinc-100 p-2 shrink-0">
-                                        <File className="h-4 w-4 text-zinc-600" />
+                                    <div className="rounded-lg bg-slate-100 p-2 shrink-0">
+                                        <File className="h-4 w-4 text-slate-600" />
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-medium text-zinc-900 truncate">
+                                        <p className="text-sm font-medium text-slate-900 truncate">
                                             {doc.title}
                                         </p>
                                         <div className="flex items-center gap-2 mt-1">
@@ -256,7 +256,7 @@ export default function MyDocuments() {
                                                 {getDocumentTypeLabel(doc.document_type)}
                                             </Badge>
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1.5 text-xs text-zinc-500">
+                                        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
                                             <span>{formatDate(doc.created_at)}</span>
                                             {doc.file_size && (
                                                 <span>{formatFileSize(doc.file_size)}</span>

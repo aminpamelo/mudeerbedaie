@@ -201,13 +201,13 @@ export default function ClaimTypes() {
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : types.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Tags className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No claim types configured</p>
-                            <p className="mt-1 text-xs text-zinc-400">Add your first claim type to get started.</p>
+                            <Tags className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No claim types configured</p>
+                            <p className="mt-1 text-xs text-slate-400">Add your first claim type to get started.</p>
                         </div>
                     ) : (
                         <Table>
@@ -236,14 +236,14 @@ export default function ClaimTypes() {
                                                 {type.name}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="font-mono text-sm text-zinc-500">{type.code}</TableCell>
+                                        <TableCell className="font-mono text-sm text-slate-500">{type.code}</TableCell>
                                         <TableCell>{formatCurrency(type.monthly_limit)}</TableCell>
                                         <TableCell>{formatCurrency(type.yearly_limit)}</TableCell>
                                         <TableCell>
                                             {type.requires_receipt ? (
                                                 <span className="text-xs font-medium text-emerald-600">Yes</span>
                                             ) : (
-                                                <span className="text-xs text-zinc-400">No</span>
+                                                <span className="text-xs text-slate-400">No</span>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -252,7 +252,7 @@ export default function ClaimTypes() {
                                                     Active
                                                 </span>
                                             ) : (
-                                                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">
+                                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
                                                     Inactive
                                                 </span>
                                             )}
@@ -292,23 +292,23 @@ export default function ClaimTypes() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Name *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Name *</label>
                                 <input
                                     type="text"
                                     value={form.name}
                                     onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 />
                                 {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name[0]}</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Code *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Code *</label>
                                 <input
                                     type="text"
                                     value={form.code}
                                     onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                     maxLength={20}
                                 />
@@ -316,17 +316,17 @@ export default function ClaimTypes() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 rows={2}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Monthly Limit (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Monthly Limit (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -334,11 +334,11 @@ export default function ClaimTypes() {
                                     value={form.monthly_limit}
                                     onChange={(e) => setForm((f) => ({ ...f, monthly_limit: e.target.value }))}
                                     placeholder="No limit"
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Yearly Limit (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Yearly Limit (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -346,12 +346,12 @@ export default function ClaimTypes() {
                                     value={form.yearly_limit}
                                     onChange={(e) => setForm((f) => ({ ...f, yearly_limit: e.target.value }))}
                                     placeholder="No limit"
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
                         <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={form.requires_receipt}
@@ -360,7 +360,7 @@ export default function ClaimTypes() {
                                 />
                                 Requires Receipt
                             </label>
-                            <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={form.is_active}
@@ -372,7 +372,7 @@ export default function ClaimTypes() {
                         </div>
 
                         {/* Mileage Toggle */}
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                             <label className="flex items-center gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -381,11 +381,11 @@ export default function ClaimTypes() {
                                     className="rounded"
                                 />
                                 <div>
-                                    <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-800">
+                                    <div className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                                         <Fuel className="h-4 w-4 text-blue-600" />
                                         Petrol / Mileage Claim
                                     </div>
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="text-xs text-slate-500">
                                         Employees enter distance (km) and vehicle type. Amount is auto-calculated.
                                     </p>
                                 </div>
@@ -396,7 +396,7 @@ export default function ClaimTypes() {
                         {form.is_mileage_type && editingType && (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
+                                    <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                                         <Car className="h-4 w-4" />
                                         Vehicle Rates (RM per km)
                                     </label>
@@ -407,16 +407,16 @@ export default function ClaimTypes() {
                                 </div>
 
                                 {localRates.length === 0 ? (
-                                    <p className="text-xs text-zinc-400 italic py-2">No vehicle rates yet. Add one above.</p>
+                                    <p className="text-xs text-slate-400 italic py-2">No vehicle rates yet. Add one above.</p>
                                 ) : (
-                                    <div className="rounded-lg border border-zinc-200 divide-y divide-zinc-100">
+                                    <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
                                         {localRates.map((rate) => (
                                             <div key={rate.id} className="flex items-center justify-between px-3 py-2">
                                                 <div>
-                                                    <span className="text-sm font-medium text-zinc-800">{rate.name}</span>
-                                                    <span className="ml-2 text-xs text-zinc-500">RM {parseFloat(rate.rate_per_km).toFixed(2)}/km</span>
+                                                    <span className="text-sm font-medium text-slate-800">{rate.name}</span>
+                                                    <span className="ml-2 text-xs text-slate-500">RM {parseFloat(rate.rate_per_km).toFixed(2)}/km</span>
                                                     {!rate.is_active && (
-                                                        <span className="ml-2 text-xs text-zinc-400">(inactive)</span>
+                                                        <span className="ml-2 text-xs text-slate-400">(inactive)</span>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-1">
@@ -447,17 +447,17 @@ export default function ClaimTypes() {
                                         </p>
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <label className="mb-1 block text-xs font-medium text-zinc-700">Vehicle Name *</label>
+                                                <label className="mb-1 block text-xs font-medium text-slate-700">Vehicle Name *</label>
                                                 <input
                                                     type="text"
                                                     placeholder="e.g. Car, Motorcycle"
                                                     value={rateForm.name}
                                                     onChange={(e) => setRateForm((r) => ({ ...r, name: e.target.value }))}
-                                                    className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                                                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="mb-1 block text-xs font-medium text-zinc-700">Rate (RM/km) *</label>
+                                                <label className="mb-1 block text-xs font-medium text-slate-700">Rate (RM/km) *</label>
                                                 <input
                                                     type="number"
                                                     step="0.01"
@@ -465,11 +465,11 @@ export default function ClaimTypes() {
                                                     placeholder="e.g. 0.60"
                                                     value={rateForm.rate_per_km}
                                                     onChange={(e) => setRateForm((r) => ({ ...r, rate_per_km: e.target.value }))}
-                                                    className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                                                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                                                 />
                                             </div>
                                         </div>
-                                        <label className="flex items-center gap-2 text-xs text-zinc-700 cursor-pointer">
+                                        <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={rateForm.is_active}
@@ -501,7 +501,7 @@ export default function ClaimTypes() {
                                 )}
 
                                 {form.is_mileage_type && !editingType && (
-                                    <p className="text-xs text-zinc-400 italic">Save the claim type first, then add vehicle rates.</p>
+                                    <p className="text-xs text-slate-400 italic">Save the claim type first, then add vehicle rates.</p>
                                 )}
                             </div>
                         )}

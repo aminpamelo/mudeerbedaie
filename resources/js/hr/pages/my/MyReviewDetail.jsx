@@ -19,7 +19,7 @@ function formatDate(dateStr) {
 }
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', className: 'bg-zinc-100 text-zinc-600' },
+    draft: { label: 'Draft', className: 'bg-slate-100 text-slate-600' },
     self_assessment: { label: 'Self Assessment', className: 'bg-blue-100 text-blue-700' },
     manager_review: { label: 'Manager Review', className: 'bg-amber-100 text-amber-700' },
     completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
@@ -46,30 +46,30 @@ function StarSelector({ value, onChange, disabled }) {
                         className={`h-6 w-6 transition-colors ${
                             star <= display
                                 ? 'fill-amber-400 text-amber-400'
-                                : 'text-zinc-200 hover:text-amber-300'
+                                : 'text-slate-200 hover:text-amber-300'
                         }`}
                     />
                 </button>
             ))}
             {value > 0 && (
-                <span className="ml-1 text-sm font-medium text-zinc-600">{value}/5</span>
+                <span className="ml-1 text-sm font-medium text-slate-600">{value}/5</span>
             )}
         </div>
     );
 }
 
 function RatingDisplay({ rating, max = 5 }) {
-    if (!rating) return <span className="text-sm text-zinc-400">Not rated</span>;
+    if (!rating) return <span className="text-sm text-slate-400">Not rated</span>;
     const value = parseFloat(rating);
     return (
         <div className="flex items-center gap-1">
             {Array.from({ length: max }).map((_, i) => (
                 <Star
                     key={i}
-                    className={`h-4 w-4 ${i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-zinc-200'}`}
+                    className={`h-4 w-4 ${i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`}
                 />
             ))}
-            <span className="ml-1 text-sm font-medium text-zinc-700">{value.toFixed(1)}</span>
+            <span className="ml-1 text-sm font-medium text-slate-700">{value.toFixed(1)}</span>
         </div>
     );
 }
@@ -117,7 +117,7 @@ export default function MyReviewDetail() {
     if (isLoading) {
         return (
             <div className="flex justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -125,13 +125,13 @@ export default function MyReviewDetail() {
     if (!review) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-                <ClipboardList className="h-10 w-10 text-zinc-300 mb-3" />
-                <p className="text-sm text-zinc-600">Review not found.</p>
+                <ClipboardList className="h-10 w-10 text-slate-300 mb-3" />
+                <p className="text-sm text-slate-600">Review not found.</p>
             </div>
         );
     }
 
-    const statusCfg = STATUS_CONFIG[review.status] || { label: review.status, className: 'bg-zinc-100 text-zinc-600' };
+    const statusCfg = STATUS_CONFIG[review.status] || { label: review.status, className: 'bg-slate-100 text-slate-600' };
     const isEditable = review.status === 'self_assessment' || review.status === 'draft';
     const isCompleted = review.status === 'completed';
     const kpiScores = review.kpi_scores ?? [];
@@ -150,14 +150,14 @@ export default function MyReviewDetail() {
                 </Button>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h1 className="text-lg font-bold text-zinc-900">
+                        <h1 className="text-lg font-bold text-slate-900">
                             {review.cycle?.name || 'Performance Review'}
                         </h1>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusCfg.className}`}>
                             {statusCfg.label}
                         </span>
                     </div>
-                    <p className="text-xs text-zinc-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                         {formatDate(review.cycle?.period_start)} – {formatDate(review.cycle?.period_end)}
                     </p>
                 </div>
@@ -167,25 +167,25 @@ export default function MyReviewDetail() {
             <Card>
                 <CardContent className="py-3.5 px-4 grid grid-cols-2 gap-3">
                     <div>
-                        <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">Reviewer</p>
-                        <p className="text-sm text-zinc-900 mt-0.5">{review.reviewer?.name || '-'}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Reviewer</p>
+                        <p className="text-sm text-slate-900 mt-0.5">{review.reviewer?.name || '-'}</p>
                     </div>
                     <div>
-                        <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">Review Type</p>
-                        <p className="text-sm text-zinc-900 mt-0.5 capitalize">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Review Type</p>
+                        <p className="text-sm text-slate-900 mt-0.5 capitalize">
                             {review.cycle?.review_type?.replace('_', ' ') || '-'}
                         </p>
                     </div>
                     {isCompleted && review.overall_rating && (
                         <div className="col-span-2">
-                            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-1">Overall Rating</p>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">Overall Rating</p>
                             <RatingDisplay rating={review.overall_rating} />
                         </div>
                     )}
                     {isCompleted && review.manager_comment && (
                         <div className="col-span-2">
-                            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-1">Manager Comments</p>
-                            <p className="text-sm text-zinc-700 bg-zinc-50 rounded-lg p-3">{review.manager_comment}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">Manager Comments</p>
+                            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3">{review.manager_comment}</p>
                         </div>
                     )}
                 </CardContent>
@@ -212,17 +212,17 @@ export default function MyReviewDetail() {
                             {kpiScores.map((ks) => {
                                 const kpiId = String(ks.kpi_id ?? ks.id);
                                 return (
-                                    <div key={kpiId} className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0">
+                                    <div key={kpiId} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {ks.kpi?.name || ks.name || 'KPI'}
                                                 </p>
                                                 {ks.kpi?.description && (
-                                                    <p className="text-xs text-zinc-400 mt-0.5">{ks.kpi.description}</p>
+                                                    <p className="text-xs text-slate-400 mt-0.5">{ks.kpi.description}</p>
                                                 )}
                                                 {ks.kpi?.weight && (
-                                                    <p className="text-[10px] text-zinc-400 mt-0.5">
+                                                    <p className="text-[10px] text-slate-400 mt-0.5">
                                                         Weight: {ks.kpi.weight}%
                                                     </p>
                                                 )}
@@ -238,14 +238,14 @@ export default function MyReviewDetail() {
                                         {isEditable && !submitted && (
                                             <div className="mt-3 space-y-2">
                                                 <div>
-                                                    <p className="text-xs text-zinc-500 mb-1">Your Score</p>
+                                                    <p className="text-xs text-slate-500 mb-1">Your Score</p>
                                                     <StarSelector
                                                         value={scores[kpiId] ?? ks.self_score ?? 0}
                                                         onChange={(val) => setScores((s) => ({ ...s, [kpiId]: val }))}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs text-zinc-500 mb-1">Your Comments</p>
+                                                    <p className="text-xs text-slate-500 mb-1">Your Comments</p>
                                                     <textarea
                                                         rows={2}
                                                         value={comments[kpiId] ?? ks.self_comment ?? ''}
@@ -253,7 +253,7 @@ export default function MyReviewDetail() {
                                                             setComments((c) => ({ ...c, [kpiId]: e.target.value }))
                                                         }
                                                         placeholder="Add comments for this KPI..."
-                                                        className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                                     />
                                                 </div>
                                             </div>
@@ -263,13 +263,13 @@ export default function MyReviewDetail() {
                                         {(isCompleted || submitted) && (
                                             <div className="mt-3 grid grid-cols-2 gap-3">
                                                 <div>
-                                                    <p className="text-[10px] uppercase text-zinc-400 mb-1">Self Score</p>
+                                                    <p className="text-[10px] uppercase text-slate-400 mb-1">Self Score</p>
                                                     <RatingDisplay rating={ks.self_score} />
                                                 </div>
                                                 {ks.self_comment && (
                                                     <div className="col-span-2">
-                                                        <p className="text-[10px] uppercase text-zinc-400 mb-1">Self Comment</p>
-                                                        <p className="text-xs text-zinc-600">{ks.self_comment}</p>
+                                                        <p className="text-[10px] uppercase text-slate-400 mb-1">Self Comment</p>
+                                                        <p className="text-xs text-slate-600">{ks.self_comment}</p>
                                                     </div>
                                                 )}
                                             </div>
@@ -285,7 +285,7 @@ export default function MyReviewDetail() {
                         <>
                             <Card>
                                 <CardContent className="py-3.5 px-4">
-                                    <label className="block text-sm font-medium text-zinc-700 mb-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
                                         Overall Comments
                                     </label>
                                     <textarea
@@ -293,7 +293,7 @@ export default function MyReviewDetail() {
                                         value={overallComment}
                                         onChange={(e) => setOverallComment(e.target.value)}
                                         placeholder="Share any overall thoughts or comments about your performance..."
-                                        className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     />
                                 </CardContent>
                             </Card>
@@ -323,8 +323,8 @@ export default function MyReviewDetail() {
             {kpiScores.length === 0 && (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                        <ClipboardList className="h-8 w-8 text-zinc-300 mb-2" />
-                        <p className="text-sm text-zinc-500">No KPIs assigned for this review.</p>
+                        <ClipboardList className="h-8 w-8 text-slate-300 mb-2" />
+                        <p className="text-sm text-slate-500">No KPIs assigned for this review.</p>
                     </CardContent>
                 </Card>
             )}

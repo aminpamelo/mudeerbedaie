@@ -119,11 +119,11 @@ export default function TrainingBudgets() {
             <Card className="mb-6">
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-zinc-700">Year</label>
+                        <label className="text-sm font-medium text-slate-700">Year</label>
                         <select
                             value={filterYear}
                             onChange={(e) => setFilterYear(parseInt(e.target.value))}
-                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                         >
                             {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
                                 <option key={y} value={y}>{y}</option>
@@ -137,13 +137,13 @@ export default function TrainingBudgets() {
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : budgets.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Wallet className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No training budgets for {filterYear}</p>
-                            <p className="mt-1 text-xs text-zinc-400">Add budget allocations for departments to start tracking.</p>
+                            <Wallet className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No training budgets for {filterYear}</p>
+                            <p className="mt-1 text-xs text-slate-400">Add budget allocations for departments to start tracking.</p>
                         </div>
                     ) : (
                         <Table>
@@ -173,7 +173,7 @@ export default function TrainingBudgets() {
                                             <TableCell>{formatCurrency(spent)}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-2 w-24 rounded-full bg-zinc-100">
+                                                    <div className="h-2 w-24 rounded-full bg-slate-100">
                                                         <div
                                                             className={cn('h-2 rounded-full transition-all', barColor)}
                                                             style={{ width: `${utilization}%` }}
@@ -211,11 +211,11 @@ export default function TrainingBudgets() {
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Department *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Department *</label>
                             <select
                                 value={form.department_id}
                                 onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 required
                                 disabled={!!editingBudget}
                             >
@@ -227,11 +227,11 @@ export default function TrainingBudgets() {
                             {errors.department_id && <p className="mt-1 text-xs text-red-600">{errors.department_id[0]}</p>}
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Year *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Year *</label>
                             <select
                                 value={form.year}
                                 onChange={(e) => setForm((f) => ({ ...f, year: parseInt(e.target.value) }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 required
                                 disabled={!!editingBudget}
                             >
@@ -241,14 +241,14 @@ export default function TrainingBudgets() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Allocated Amount (MYR) *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Allocated Amount (MYR) *</label>
                             <input
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 value={form.allocated_amount}
                                 onChange={(e) => setForm((f) => ({ ...f, allocated_amount: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 required
                             />
                             {errors.allocated_amount && <p className="mt-1 text-xs text-red-600">{errors.allocated_amount[0]}</p>}

@@ -28,9 +28,9 @@ function formatDate(dateStr) {
 
 function InfoRow({ label, value }) {
     return (
-        <div className="flex justify-between py-2 border-b border-zinc-100 last:border-0">
-            <span className="text-sm text-zinc-500">{label}</span>
-            <span className="text-sm font-medium text-zinc-900 text-right">{value || '-'}</span>
+        <div className="flex justify-between py-2 border-b border-slate-100 last:border-0">
+            <span className="text-sm text-slate-500">{label}</span>
+            <span className="text-sm font-medium text-slate-900 text-right">{value || '-'}</span>
         </div>
     );
 }
@@ -63,7 +63,7 @@ export default function MyPersonalInfo() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -72,7 +72,7 @@ export default function MyPersonalInfo() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-slate-600">
                     {error?.response?.data?.message || 'Failed to load profile'}
                 </p>
             </div>
@@ -112,7 +112,7 @@ export default function MyPersonalInfo() {
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-zinc-500" />
+                            <Phone className="h-4 w-4 text-slate-500" />
                             Contact
                         </CardTitle>
                         {!isEditing('contact') && (
@@ -180,7 +180,7 @@ export default function MyPersonalInfo() {
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-zinc-500" />
+                            <MapPin className="h-4 w-4 text-slate-500" />
                             Address
                         </CardTitle>
                         {!isEditing('address') && (
@@ -287,7 +287,7 @@ export default function MyPersonalInfo() {
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <User className="h-4 w-4 text-zinc-500" />
+                            <User className="h-4 w-4 text-slate-500" />
                             Personal Details
                         </CardTitle>
                         {!isEditing('personal') && (

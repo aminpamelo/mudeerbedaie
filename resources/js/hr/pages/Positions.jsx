@@ -127,9 +127,9 @@ function ExpandedEmployees({ position }) {
     const employees = positionEmployees?.data || [];
 
     return (
-        <div className="px-6 py-4 bg-zinc-50/50">
+        <div className="px-6 py-4 bg-slate-50/50">
             <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-zinc-700">
+                <h4 className="text-sm font-medium text-slate-700">
                     Assigned Employees ({employees.length})
                 </h4>
                 <Button
@@ -144,10 +144,10 @@ function ExpandedEmployees({ position }) {
 
             {isLoading ? (
                 <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                 </div>
             ) : employees.length === 0 ? (
-                <p className="text-sm text-zinc-400 py-3">
+                <p className="text-sm text-slate-400 py-3">
                     No employees assigned to this position yet.
                 </p>
             ) : (
@@ -155,7 +155,7 @@ function ExpandedEmployees({ position }) {
                     {employees.map((emp) => (
                         <div
                             key={emp.id}
-                            className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-2"
+                            className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
                         >
                             <div className="flex items-center gap-3">
                                 {emp.profile_photo_url || emp.profile_photo ? (
@@ -165,20 +165,20 @@ function ExpandedEmployees({ position }) {
                                         className="h-8 w-8 rounded-full object-cover"
                                     />
                                 ) : (
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-medium text-zinc-600">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-600">
                                         {emp.full_name?.charAt(0)?.toUpperCase() || '?'}
                                     </div>
                                 )}
                                 <div>
-                                    <p className="text-sm font-medium text-zinc-900">
+                                    <p className="text-sm font-medium text-slate-900">
                                         {emp.full_name}
                                     </p>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs text-zinc-500">
+                                        <span className="text-xs text-slate-500">
                                             {emp.employee_id}
                                         </span>
                                         {emp.department?.name && (
-                                            <span className="text-xs text-zinc-400">
+                                            <span className="text-xs text-slate-400">
                                                 {emp.department.name}
                                             </span>
                                         )}
@@ -193,7 +193,7 @@ function ExpandedEmployees({ position }) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-zinc-400 hover:text-red-600 hover:bg-red-50"
+                                className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
                                 onClick={() => setRemoveTarget(emp)}
                                 title="Remove from position"
                             >
@@ -217,7 +217,7 @@ function ExpandedEmployees({ position }) {
 
                     <div className="space-y-3">
                         <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                             <Input
                                 value={employeeSearch}
                                 onChange={(e) => setEmployeeSearch(e.target.value)}
@@ -226,9 +226,9 @@ function ExpandedEmployees({ position }) {
                             />
                         </div>
 
-                        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200">
+                        <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
                             {filteredAvailableEmployees.length === 0 ? (
-                                <p className="px-3 py-6 text-center text-sm text-zinc-400">
+                                <p className="px-3 py-6 text-center text-sm text-slate-400">
                                     {employeeSearch
                                         ? 'No matching employees found.'
                                         : 'All employees are already assigned.'}
@@ -237,13 +237,13 @@ function ExpandedEmployees({ position }) {
                                 filteredAvailableEmployees.map((emp) => (
                                     <label
                                         key={emp.id}
-                                        className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-zinc-50 border-b border-zinc-100 last:border-b-0"
+                                        className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
                                     >
                                         <input
                                             type="checkbox"
                                             checked={selectedEmployeeIds.includes(emp.id)}
                                             onChange={() => toggleEmployee(emp.id)}
-                                            className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500"
+                                            className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                                         />
                                         <div className="flex items-center gap-2 min-w-0">
                                             {emp.profile_photo_url || emp.profile_photo ? (
@@ -253,15 +253,15 @@ function ExpandedEmployees({ position }) {
                                                     className="h-7 w-7 rounded-full object-cover shrink-0"
                                                 />
                                             ) : (
-                                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 shrink-0">
+                                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-600 shrink-0">
                                                     {emp.full_name?.charAt(0)?.toUpperCase() || '?'}
                                                 </div>
                                             )}
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-zinc-900 truncate">
+                                                <p className="text-sm font-medium text-slate-900 truncate">
                                                     {emp.full_name}
                                                 </p>
-                                                <p className="text-xs text-zinc-500 truncate">
+                                                <p className="text-xs text-slate-500 truncate">
                                                     {emp.employee_id}
                                                     {emp.department?.name && ` - ${emp.department.name}`}
                                                 </p>
@@ -273,7 +273,7 @@ function ExpandedEmployees({ position }) {
                         </div>
 
                         {selectedEmployeeIds.length > 0 && (
-                            <p className="text-xs text-zinc-500">
+                            <p className="text-xs text-slate-500">
                                 {selectedEmployeeIds.length} employee(s) selected
                             </p>
                         )}
@@ -530,15 +530,15 @@ export default function Positions() {
                 </Select>
             </div>
 
-            <div className="rounded-xl border border-zinc-200 bg-white">
+            <div className="rounded-xl border border-slate-200 bg-white">
                 {isLoading ? (
                     <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                     </div>
                 ) : filteredPositions.length === 0 ? (
                     <div className="py-12 text-center">
-                        <Briefcase className="mx-auto h-10 w-10 text-zinc-300" />
-                        <p className="mt-2 text-sm text-zinc-500">
+                        <Briefcase className="mx-auto h-10 w-10 text-slate-300" />
+                        <p className="mt-2 text-sm text-slate-500">
                             {search || departmentFilter
                                 ? 'No positions match your filters.'
                                 : 'No positions yet. Create your first position.'}
@@ -561,14 +561,14 @@ export default function Positions() {
                                 <>
                                     <TableRow
                                         key={`group-${group.name}`}
-                                        className="bg-zinc-50/80 hover:bg-zinc-50/80"
+                                        className="bg-slate-50/80 hover:bg-slate-50/80"
                                     >
                                         <TableCell
                                             colSpan={6}
                                             className="py-2"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                                                     {group.name}
                                                 </span>
                                                 <Badge variant="secondary" className="text-[10px]">
@@ -584,14 +584,14 @@ export default function Positions() {
                                         <>
                                             <TableRow
                                                 key={pos.id}
-                                                className={`cursor-pointer ${expandedPositionId === pos.id ? 'bg-zinc-50' : ''}`}
+                                                className={`cursor-pointer ${expandedPositionId === pos.id ? 'bg-slate-50' : ''}`}
                                                 onClick={() => toggleExpand(pos.id)}
                                             >
                                                 <TableCell className="w-8 pr-0">
                                                     {expandedPositionId === pos.id ? (
-                                                        <ChevronDown className="h-4 w-4 text-zinc-400" />
+                                                        <ChevronDown className="h-4 w-4 text-slate-400" />
                                                     ) : (
-                                                        <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                                        <ChevronRight className="h-4 w-4 text-slate-400" />
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="font-medium">
@@ -599,7 +599,7 @@ export default function Positions() {
                                                 </TableCell>
                                                 <TableCell>
                                                     {pos.department?.name || (
-                                                        <span className="text-zinc-400">--</span>
+                                                        <span className="text-slate-400">--</span>
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
@@ -609,7 +609,7 @@ export default function Positions() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-1.5">
-                                                        <Users className="h-3.5 w-3.5 text-zinc-400" />
+                                                        <Users className="h-3.5 w-3.5 text-slate-400" />
                                                         {pos.employees_count ?? 0}
                                                     </div>
                                                 </TableCell>

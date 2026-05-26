@@ -22,7 +22,7 @@ const STATUS_CONFIG = {
     pending: { label: 'Pending', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', badgeClass: 'border-amber-300 bg-amber-50 text-amber-700' },
     approved: { label: 'Approved', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', badgeClass: 'border-green-300 bg-green-50 text-green-700' },
     rejected: { label: 'Rejected', icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', badgeClass: 'border-red-300 bg-red-50 text-red-700' },
-    completed: { label: 'Completed', icon: CheckCircle2, color: 'text-zinc-600', bg: 'bg-zinc-50', badgeClass: 'border-zinc-300 bg-zinc-50 text-zinc-600' },
+    completed: { label: 'Completed', icon: CheckCircle2, color: 'text-slate-600', bg: 'bg-slate-50', badgeClass: 'border-slate-300 bg-slate-50 text-slate-600' },
 };
 
 const PROGRESSION_STEPS = ['pending', 'approved', 'completed'];
@@ -54,7 +54,7 @@ function StatusProgressBar({ status }) {
                                     'flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors',
                                     isActive
                                         ? 'border-green-500 bg-green-500 text-white'
-                                        : 'border-zinc-300 bg-white text-zinc-400'
+                                        : 'border-slate-300 bg-white text-slate-400'
                                 )}
                             >
                                 {isActive ? (
@@ -66,7 +66,7 @@ function StatusProgressBar({ status }) {
                             <span
                                 className={cn(
                                     'mt-1 text-[10px] font-medium capitalize',
-                                    isCurrent ? 'text-green-700' : 'text-zinc-400'
+                                    isCurrent ? 'text-green-700' : 'text-slate-400'
                                 )}
                             >
                                 {step}
@@ -78,7 +78,7 @@ function StatusProgressBar({ status }) {
                                     'mb-4 h-0.5 w-12 sm:w-16',
                                     !isRejected && index < currentIndex
                                         ? 'bg-green-500'
-                                        : 'bg-zinc-200'
+                                        : 'bg-slate-200'
                                 )}
                             />
                         )}
@@ -126,7 +126,7 @@ export default function MyResignation() {
                     <CardContent className="p-6">
                         <div className="space-y-4">
                             {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="h-5 w-full animate-pulse rounded bg-zinc-200" />
+                                <div key={i} className="h-5 w-full animate-pulse rounded bg-slate-200" />
                             ))}
                         </div>
                     </CardContent>
@@ -186,51 +186,51 @@ export default function MyResignation() {
 
                         {/* Details Grid */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="rounded-lg border border-zinc-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <CalendarDays className="h-4 w-4 text-zinc-400" />
-                                    <p className="text-xs font-medium text-zinc-500">Submitted Date</p>
+                                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                                    <p className="text-xs font-medium text-slate-500">Submitted Date</p>
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-sm font-semibold text-slate-900">
                                     {formatDate(resignation.submitted_at || resignation.created_at)}
                                 </p>
                             </div>
 
-                            <div className="rounded-lg border border-zinc-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <Clock className="h-4 w-4 text-zinc-400" />
-                                    <p className="text-xs font-medium text-zinc-500">Notice Period</p>
+                                    <Clock className="h-4 w-4 text-slate-400" />
+                                    <p className="text-xs font-medium text-slate-500">Notice Period</p>
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-sm font-semibold text-slate-900">
                                     {resignation.notice_period || '-'}
                                 </p>
                             </div>
 
-                            <div className="rounded-lg border border-zinc-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <CalendarDays className="h-4 w-4 text-zinc-400" />
-                                    <p className="text-xs font-medium text-zinc-500">Last Working Date</p>
+                                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                                    <p className="text-xs font-medium text-slate-500">Last Working Date</p>
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-sm font-semibold text-slate-900">
                                     {formatDate(resignation.last_working_date)}
                                 </p>
                             </div>
 
-                            <div className="rounded-lg border border-zinc-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <UserCheck className="h-4 w-4 text-zinc-400" />
-                                    <p className="text-xs font-medium text-zinc-500">Approved By</p>
+                                    <UserCheck className="h-4 w-4 text-slate-400" />
+                                    <p className="text-xs font-medium text-slate-500">Approved By</p>
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-sm font-semibold text-slate-900">
                                     {resignation.approved_by_name || '-'}
                                 </p>
                             </div>
                         </div>
 
                         {/* Reason */}
-                        <div className="rounded-lg bg-zinc-50 p-4">
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">Reason for Resignation</p>
-                            <p className="text-sm text-zinc-700">{resignation.reason}</p>
+                        <div className="rounded-lg bg-slate-50 p-4">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Reason for Resignation</p>
+                            <p className="text-sm text-slate-700">{resignation.reason}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -270,7 +270,7 @@ export default function MyResignation() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">
                             Reason for Resignation
                         </label>
                         <textarea
@@ -278,7 +278,7 @@ export default function MyResignation() {
                             onChange={(e) => setReason(e.target.value)}
                             placeholder="Please provide the reason for your resignation..."
                             rows={6}
-                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                         />
                     </div>
 

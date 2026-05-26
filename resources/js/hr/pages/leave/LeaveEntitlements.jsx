@@ -71,10 +71,10 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -84,9 +84,9 @@ function SkeletonTable() {
 function EmptyState() {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-            <BookOpen className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">No entitlement rules yet</h3>
-            <p className="mt-1 text-sm text-zinc-500">Add entitlement rules to define how leave is allocated.</p>
+            <BookOpen className="mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">No entitlement rules yet</h3>
+            <p className="mt-1 text-sm text-slate-500">Add entitlement rules to define how leave is allocated.</p>
         </div>
     );
 }
@@ -255,19 +255,19 @@ export default function LeaveEntitlements() {
                                 <CardContent className="p-0">
                                     <div
                                         onClick={() => toggleType(typeId)}
-                                        className="flex w-full cursor-pointer items-center justify-between p-4 text-left hover:bg-zinc-50"
+                                        className="flex w-full cursor-pointer items-center justify-between p-4 text-left hover:bg-slate-50"
                                     >
                                         <div className="flex items-center gap-3">
                                             {isExpanded ? (
-                                                <ChevronDown className="h-4 w-4 text-zinc-400" />
+                                                <ChevronDown className="h-4 w-4 text-slate-400" />
                                             ) : (
-                                                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                                <ChevronRight className="h-4 w-4 text-slate-400" />
                                             )}
                                             <div
                                                 className="h-3 w-3 rounded-full"
                                                 style={{ backgroundColor: group.leaveType.color || '#e5e7eb' }}
                                             />
-                                            <span className="font-semibold text-zinc-900">{group.leaveType.name}</span>
+                                            <span className="font-semibold text-slate-900">{group.leaveType.name}</span>
                                             <Badge variant="secondary">{group.rules.length} rule{group.rules.length !== 1 ? 's' : ''}</Badge>
                                         </div>
                                         <Button
@@ -283,7 +283,7 @@ export default function LeaveEntitlements() {
                                         </Button>
                                     </div>
                                     {isExpanded && (
-                                        <div className="border-t border-zinc-100 px-4 pb-4">
+                                        <div className="border-t border-slate-100 px-4 pb-4">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -303,7 +303,7 @@ export default function LeaveEntitlements() {
                                                                     {EMPLOYMENT_TYPES.find((t) => t.value === rule.employment_type)?.label || rule.employment_type}
                                                                 </Badge>
                                                             </TableCell>
-                                                            <TableCell className="text-sm text-zinc-600">
+                                                            <TableCell className="text-sm text-slate-600">
                                                                 {rule.min_service_months ?? 0}
                                                                 {rule.max_service_months ? ` - ${rule.max_service_months}` : '+'} months
                                                             </TableCell>
@@ -313,7 +313,7 @@ export default function LeaveEntitlements() {
                                                                     {rule.is_prorated ? 'Yes' : 'No'}
                                                                 </Badge>
                                                             </TableCell>
-                                                            <TableCell className="text-sm text-zinc-600">
+                                                            <TableCell className="text-sm text-slate-600">
                                                                 {rule.carry_forward_max ?? 0} days
                                                             </TableCell>
                                                             <TableCell className="text-right">
@@ -356,7 +356,7 @@ export default function LeaveEntitlements() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Leave Type</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Leave Type</label>
                             <Select
                                 value={form.leave_type_id}
                                 onValueChange={(v) => setForm({ ...form, leave_type_id: v })}
@@ -372,7 +372,7 @@ export default function LeaveEntitlements() {
                             </Select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Employment Type</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Employment Type</label>
                             <Select
                                 value={form.employment_type}
                                 onValueChange={(v) => setForm({ ...form, employment_type: v })}
@@ -389,7 +389,7 @@ export default function LeaveEntitlements() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Min Service (months)</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Min Service (months)</label>
                                 <Input
                                     type="number"
                                     min="0"
@@ -398,7 +398,7 @@ export default function LeaveEntitlements() {
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Max Service (months)</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Max Service (months)</label>
                                 <Input
                                     type="number"
                                     min="0"
@@ -410,7 +410,7 @@ export default function LeaveEntitlements() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Days Per Year</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Days Per Year</label>
                                 <Input
                                     type="number"
                                     min="0"
@@ -420,7 +420,7 @@ export default function LeaveEntitlements() {
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Carry Forward Days</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Carry Forward Days</label>
                                 <Input
                                     type="number"
                                     min="0"

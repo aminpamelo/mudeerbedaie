@@ -191,7 +191,7 @@ export default function FinalSettlements() {
                             className="w-64"
                         />
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Status</label>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="w-36">
                                     <SelectValue />
@@ -212,14 +212,14 @@ export default function FinalSettlements() {
             {/* Table */}
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
             ) : settlements.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16">
-                        <Wallet className="mb-3 h-10 w-10 text-zinc-300" />
-                        <p className="text-sm font-medium text-zinc-500">No final settlements found</p>
-                        <p className="text-xs text-zinc-400">Calculate a settlement for a departing employee.</p>
+                        <Wallet className="mb-3 h-10 w-10 text-slate-300" />
+                        <p className="text-sm font-medium text-slate-500">No final settlements found</p>
+                        <p className="text-xs text-slate-400">Calculate a settlement for a departing employee.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -241,10 +241,10 @@ export default function FinalSettlements() {
                                     <TableRow key={settlement.id}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {settlement.employee?.full_name || '-'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-slate-500">
                                                     {settlement.employee?.employee_id || ''}
                                                 </p>
                                             </div>
@@ -329,11 +329,11 @@ export default function FinalSettlements() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee</label>
                             <select
                                 value={selectedEmployeeId}
                                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="">Select employee...</option>
                                 {employees.map((emp) => (
@@ -344,12 +344,12 @@ export default function FinalSettlements() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Final Last Working Date</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Final Last Working Date</label>
                             <input
                                 type="date"
                                 value={finalLastDate}
                                 onChange={(e) => setFinalLastDate(e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             />
                         </div>
                         {calculateMutation.isError && (

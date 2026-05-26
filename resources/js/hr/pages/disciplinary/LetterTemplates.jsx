@@ -211,13 +211,13 @@ export default function LetterTemplates() {
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : templates.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <FileText className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No letter templates</p>
-                            <p className="text-xs text-zinc-400">Create your first template to get started</p>
+                            <FileText className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No letter templates</p>
+                            <p className="text-xs text-slate-400">Create your first template to get started</p>
                             <Button className="mt-4" size="sm" onClick={openCreate}>
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 Create Template
@@ -236,10 +236,10 @@ export default function LetterTemplates() {
                             <TableBody>
                                 {templates.map((template) => (
                                     <TableRow key={template.id}>
-                                        <TableCell className="font-medium text-zinc-900">
+                                        <TableCell className="font-medium text-slate-900">
                                             {template.name}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {TYPE_LABELS[template.type] || template.type}
                                         </TableCell>
                                         <TableCell>
@@ -334,7 +334,7 @@ export default function LetterTemplates() {
                             {errors.content && (
                                 <p className="mt-1 text-xs text-red-500">{errors.content[0]}</p>
                             )}
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 Available placeholders: {'{{employee_name}}'}, {'{{employee_id}}'}, {'{{department}}'}, {'{{position}}'}, {'{{incident_date}}'}, {'{{reason}}'}, {'{{response_deadline}}'}, {'{{company_name}}'}
                             </p>
                         </div>

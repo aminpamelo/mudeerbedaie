@@ -32,7 +32,7 @@ const STATUS_CONFIG = {
     pending: { label: 'Pending', variant: 'secondary', icon: Hourglass, color: 'text-amber-600' },
     approved: { label: 'Approved', variant: 'default', icon: CheckCircle2, color: 'text-emerald-600' },
     rejected: { label: 'Rejected', variant: 'destructive', icon: XCircle, color: 'text-red-600' },
-    cancelled: { label: 'Cancelled', variant: 'outline', icon: XCircle, color: 'text-zinc-500' },
+    cancelled: { label: 'Cancelled', variant: 'outline', icon: XCircle, color: 'text-slate-500' },
 };
 
 const ERRAND_CONFIG = {
@@ -87,8 +87,8 @@ export default function MyExitPermissions() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-bold text-zinc-900">My Exit Permissions</h1>
-                    <p className="text-sm text-zinc-500 mt-0.5">Manage your office exit permission requests</p>
+                    <h1 className="text-xl font-bold text-slate-900">My Exit Permissions</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Manage your office exit permission requests</p>
                 </div>
                 <Button size="sm" onClick={() => navigate('/my/exit-permissions/apply')}>
                     <Plus className="h-4 w-4 mr-1" /> Apply for Exit Permission
@@ -103,12 +103,12 @@ export default function MyExitPermissions() {
                 <CardContent>
                     {isLoading ? (
                         <div className="flex justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : permissions.length === 0 ? (
                         <div className="py-8 text-center">
-                            <DoorOpen className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
-                            <p className="text-sm text-zinc-500">
+                            <DoorOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-sm text-slate-500">
                                 No exit permission requests yet. Apply for one when you need to leave during work hours.
                             </p>
                         </div>
@@ -120,11 +120,11 @@ export default function MyExitPermissions() {
                                 return (
                                     <div
                                         key={permission.id}
-                                        className="flex items-start justify-between rounded-lg border border-zinc-100 p-3"
+                                        className="flex items-start justify-between rounded-lg border border-slate-100 p-3"
                                     >
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {permission.permission_number}
                                                 </p>
                                                 <Badge variant={statusCfg.variant} className="text-[10px]">
@@ -138,11 +138,11 @@ export default function MyExitPermissions() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-zinc-500 mt-0.5">
+                                            <p className="text-xs text-slate-500 mt-0.5">
                                                 {formatDate(permission.exit_date)} · {formatTime(permission.exit_time)} → {formatTime(permission.return_time)}
                                             </p>
                                             {permission.purpose && (
-                                                <p className="text-xs text-zinc-500 mt-0.5 truncate">
+                                                <p className="text-xs text-slate-500 mt-0.5 truncate">
                                                     {permission.purpose}
                                                 </p>
                                             )}

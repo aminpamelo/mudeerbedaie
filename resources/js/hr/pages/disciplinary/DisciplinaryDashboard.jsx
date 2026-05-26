@@ -17,6 +17,7 @@ import {
 import PageHeader from '../../components/PageHeader';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
+import { StatCard as V2StatCard } from '../../components/ui/stat-card';
 import { Badge } from '../../components/ui/badge';
 import {
     Table,
@@ -29,11 +30,11 @@ import {
 import { cn } from '../../lib/utils';
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    draft: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-700' },
     issued: { label: 'Issued', bg: 'bg-blue-100', text: 'text-blue-700' },
     pending_response: { label: 'Pending Response', bg: 'bg-amber-100', text: 'text-amber-700' },
     responded: { label: 'Responded', bg: 'bg-purple-100', text: 'text-purple-700' },
-    closed: { label: 'Closed', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    closed: { label: 'Closed', bg: 'bg-slate-100', text: 'text-slate-700' },
 };
 
 const TYPE_LABELS = {
@@ -45,7 +46,7 @@ const TYPE_LABELS = {
 };
 
 function StatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -62,22 +63,13 @@ function formatDate(dateStr) {
     });
 }
 
-function SummaryCard({ title, value, icon: Icon, iconColor, iconBg }) {
-    return (
-        <Card>
-            <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', iconBg)}>
-                        <Icon className={cn('h-5 w-5', iconColor)} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-zinc-500">{title}</p>
-                        <p className="text-lg font-bold text-zinc-900">{value}</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
+// Backwards-compat wrapper to v2 colorful StatCard.
+function SummaryCard({ title, value, icon, iconColor }) {
+    const match = iconColor?.match(/text-(\w+)-/);
+    const colorName = match ? match[1] : 'indigo';
+    const accentMap = { blue: 'sky', purple: 'violet', red: 'rose', green: 'emerald' };
+    const accent = accentMap[colorName] || colorName;
+    return <V2StatCard label={title} value={value} icon={icon} accent={accent} />;
 }
 
 export default function DisciplinaryDashboard() {
@@ -97,7 +89,7 @@ export default function DisciplinaryDashboard() {
     if (dashboardLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -153,12 +145,12 @@ export default function DisciplinaryDashboard() {
             {stats.by_type && Object.keys(stats.by_type).length > 0 && (
                 <Card className="mb-6">
                     <CardContent className="p-5">
-                        <h3 className="mb-3 text-sm font-semibold text-zinc-900">Cases by Type</h3>
+                        <h3 className="mb-3 text-sm font-semibold text-slate-900">Cases by Type</h3>
                         <div className="flex flex-wrap gap-3">
                             {Object.entries(stats.by_type).map(([type, count]) => (
-                                <div key={type} className="flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2">
-                                    <span className="text-sm text-zinc-600">{TYPE_LABELS[type] || type}</span>
-                                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-bold text-zinc-700">{count}</span>
+                                <div key={type} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                                    <span className="text-sm text-slate-600">{TYPE_LABELS[type] || type}</span>
+                                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700">{count}</span>
                                 </div>
                             ))}
                         </div>
@@ -170,7 +162,7 @@ export default function DisciplinaryDashboard() {
             <Card>
                 <CardContent className="p-6">
                     <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-base font-semibold text-zinc-900">Recent Cases</h3>
+                        <h3 className="text-base font-semibold text-slate-900">Recent Cases</h3>
                         <Link to="/disciplinary/records">
                             <Button variant="outline" size="sm">View All</Button>
                         </Link>
@@ -178,13 +170,13 @@ export default function DisciplinaryDashboard() {
 
                     {recentLoading ? (
                         <div className="flex justify-center py-12">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : recentCases.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <AlertTriangle className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No disciplinary cases found</p>
-                            <p className="text-xs text-zinc-400">Create a new disciplinary action to get started</p>
+                            <AlertTriangle className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No disciplinary cases found</p>
+                            <p className="text-xs text-slate-400">Create a new disciplinary action to get started</p>
                         </div>
                     ) : (
                         <Table>
@@ -201,15 +193,15 @@ export default function DisciplinaryDashboard() {
                             <TableBody>
                                 {recentCases.map((action) => (
                                     <TableRow key={action.id}>
-                                        <TableCell className="font-medium text-zinc-900">
+                                        <TableCell className="font-medium text-slate-900">
                                             {action.reference_number || '-'}
                                         </TableCell>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {action.employee?.full_name || '-'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-slate-500">
                                                     {action.employee?.employee_id || ''}
                                                 </p>
                                             </div>
@@ -220,7 +212,7 @@ export default function DisciplinaryDashboard() {
                                         <TableCell>
                                             <StatusBadge status={action.status} />
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {formatDate(action.incident_date)}
                                         </TableCell>
                                         <TableCell className="text-right">

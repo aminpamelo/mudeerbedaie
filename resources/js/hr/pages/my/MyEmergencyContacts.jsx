@@ -89,7 +89,7 @@ function ContactForm({ contact, onSave, onCancel, isPending, error }) {
                         id="contact-primary"
                         checked={formData.is_primary}
                         onChange={(e) => updateField('is_primary', e.target.checked)}
-                        className="rounded border-zinc-300"
+                        className="rounded border-slate-300"
                     />
                     <Label htmlFor="contact-primary" className="text-sm font-normal">
                         Primary emergency contact
@@ -170,7 +170,7 @@ export default function MyEmergencyContacts() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -179,7 +179,7 @@ export default function MyEmergencyContacts() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-slate-600">
                     {error?.response?.data?.message || 'Failed to load emergency contacts'}
                 </p>
             </div>
@@ -190,7 +190,7 @@ export default function MyEmergencyContacts() {
         <div className="space-y-4">
             {/* Header with Add Button */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-zinc-700">
+                <h3 className="text-sm font-medium text-slate-700">
                     {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
                 </h3>
                 {!showAddForm && (
@@ -226,9 +226,9 @@ export default function MyEmergencyContacts() {
             {contacts.length === 0 && !showAddForm ? (
                 <Card>
                     <CardContent className="py-10 text-center">
-                        <Users className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
-                        <p className="text-sm text-zinc-500">No emergency contacts added yet</p>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                        <p className="text-sm text-slate-500">No emergency contacts added yet</p>
+                        <p className="text-xs text-slate-400 mt-1">
                             Add at least one emergency contact for safety purposes
                         </p>
                     </CardContent>
@@ -261,7 +261,7 @@ export default function MyEmergencyContacts() {
                                 <div className="flex items-start justify-between">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                            <p className="text-sm font-medium text-zinc-900">
+                                            <p className="text-sm font-medium text-slate-900">
                                                 {contact.name}
                                             </p>
                                             {contact.is_primary && (
@@ -270,18 +270,18 @@ export default function MyEmergencyContacts() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <p className="text-xs text-zinc-500 mt-0.5">
+                                        <p className="text-xs text-slate-500 mt-0.5">
                                             {contact.relationship}
                                         </p>
                                         <div className="mt-2 space-y-1">
                                             {contact.phone && (
-                                                <div className="flex items-center gap-1.5 text-xs text-zinc-600">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
                                                     <Phone className="h-3 w-3" />
                                                     <span>{contact.phone}</span>
                                                 </div>
                                             )}
                                             {contact.email && (
-                                                <div className="flex items-center gap-1.5 text-xs text-zinc-600">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
                                                     <Mail className="h-3 w-3" />
                                                     <span>{contact.email}</span>
                                                 </div>

@@ -36,7 +36,7 @@ const STATUS_CONFIG = {
     pending: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-700' },
     approved: { label: 'Approved', bg: 'bg-emerald-100', text: 'text-emerald-700' },
     rejected: { label: 'Rejected', bg: 'bg-red-100', text: 'text-red-700' },
-    completed: { label: 'Completed', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    completed: { label: 'Completed', bg: 'bg-slate-100', text: 'text-slate-700' },
 };
 
 function formatDate(dateString) {
@@ -60,7 +60,7 @@ function formatDateTime(dateString) {
 }
 
 function StatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -116,7 +116,7 @@ export default function ResignationDetail() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -124,7 +124,7 @@ export default function ResignationDetail() {
     if (!resignation) {
         return (
             <div className="flex flex-col items-center justify-center py-24">
-                <p className="text-sm text-zinc-500">Resignation request not found.</p>
+                <p className="text-sm text-slate-500">Resignation request not found.</p>
                 <Link to="/offboarding/resignations" className="mt-3">
                     <Button variant="outline" size="sm">Back to Resignations</Button>
                 </Link>
@@ -147,12 +147,12 @@ export default function ResignationDetail() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-semibold text-zinc-900">
+                            <h1 className="text-xl font-semibold text-slate-900">
                                 Resignation - {resignation.employee?.full_name || 'Unknown'}
                             </h1>
                             <StatusBadge status={resignation.status} />
                         </div>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             Submitted on {formatDate(resignation.submitted_date)}
                         </p>
                     </div>
@@ -202,33 +202,33 @@ export default function ResignationDetail() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
-                            <User className="h-4 w-4 text-zinc-500" />
+                            <User className="h-4 w-4 text-slate-500" />
                             Employee Information
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <dl className="space-y-3">
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Name</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Name</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {resignation.employee?.full_name || '-'}
                                 </dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Employee ID</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Employee ID</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {resignation.employee?.employee_id || '-'}
                                 </dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Department</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Department</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {resignation.employee?.department?.name || '-'}
                                 </dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Position</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Position</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {resignation.employee?.position?.name || '-'}
                                 </dd>
                             </div>
@@ -240,32 +240,32 @@ export default function ResignationDetail() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
-                            <FileText className="h-4 w-4 text-zinc-500" />
+                            <FileText className="h-4 w-4 text-slate-500" />
                             Resignation Details
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <dl className="space-y-3">
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Submitted Date</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Submitted Date</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {formatDate(resignation.submitted_date)}
                                 </dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Notice Period</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Notice Period</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {resignation.notice_period ? `${resignation.notice_period} days` : '-'}
                                 </dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Last Working Date</dt>
-                                <dd className="text-sm font-medium text-zinc-900">
+                                <dt className="text-sm text-slate-500">Last Working Date</dt>
+                                <dd className="text-sm font-medium text-slate-900">
                                     {formatDate(resignation.last_working_date)}
                                 </dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-sm text-zinc-500">Status</dt>
+                                <dt className="text-sm text-slate-500">Status</dt>
                                 <dd><StatusBadge status={resignation.status} /></dd>
                             </div>
                         </dl>
@@ -279,7 +279,7 @@ export default function ResignationDetail() {
                     <CardTitle className="text-base">Reason for Resignation</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-zinc-700 whitespace-pre-wrap">
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">
                         {resignation.reason || 'No reason provided.'}
                     </p>
                 </CardContent>
@@ -297,48 +297,48 @@ export default function ResignationDetail() {
                         <dl className="space-y-3">
                             {resignation.approved_by_name && (
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Approved By</dt>
-                                    <dd className="text-sm font-medium text-zinc-900">
+                                    <dt className="text-sm text-slate-500">Approved By</dt>
+                                    <dd className="text-sm font-medium text-slate-900">
                                         {resignation.approved_by_name}
                                     </dd>
                                 </div>
                             )}
                             {resignation.approved_at && (
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Approved At</dt>
-                                    <dd className="text-sm font-medium text-zinc-900">
+                                    <dt className="text-sm text-slate-500">Approved At</dt>
+                                    <dd className="text-sm font-medium text-slate-900">
                                         {formatDateTime(resignation.approved_at)}
                                     </dd>
                                 </div>
                             )}
                             {resignation.approval_notes && (
                                 <div>
-                                    <dt className="mb-1 text-sm text-zinc-500">Notes</dt>
-                                    <dd className="text-sm text-zinc-700 whitespace-pre-wrap">
+                                    <dt className="mb-1 text-sm text-slate-500">Notes</dt>
+                                    <dd className="text-sm text-slate-700 whitespace-pre-wrap">
                                         {resignation.approval_notes}
                                     </dd>
                                 </div>
                             )}
                             {resignation.rejected_by_name && (
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Rejected By</dt>
-                                    <dd className="text-sm font-medium text-zinc-900">
+                                    <dt className="text-sm text-slate-500">Rejected By</dt>
+                                    <dd className="text-sm font-medium text-slate-900">
                                         {resignation.rejected_by_name}
                                     </dd>
                                 </div>
                             )}
                             {resignation.rejected_at && (
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Rejected At</dt>
-                                    <dd className="text-sm font-medium text-zinc-900">
+                                    <dt className="text-sm text-slate-500">Rejected At</dt>
+                                    <dd className="text-sm font-medium text-slate-900">
                                         {formatDateTime(resignation.rejected_at)}
                                     </dd>
                                 </div>
                             )}
                             {resignation.rejection_reason && (
                                 <div>
-                                    <dt className="mb-1 text-sm text-zinc-500">Rejection Reason</dt>
-                                    <dd className="text-sm text-zinc-700 whitespace-pre-wrap">
+                                    <dt className="mb-1 text-sm text-slate-500">Rejection Reason</dt>
+                                    <dd className="text-sm text-slate-700 whitespace-pre-wrap">
                                         {resignation.rejection_reason}
                                     </dd>
                                 </div>
@@ -353,22 +353,22 @@ export default function ResignationDetail() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
-                            <ClipboardList className="h-4 w-4 text-zinc-500" />
+                            <ClipboardList className="h-4 w-4 text-slate-500" />
                             Exit Checklist
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-zinc-900">
+                                <p className="text-sm font-medium text-slate-900">
                                     Status: {resignation.exit_checklist.status || '-'}
                                 </p>
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-xs text-slate-500">
                                     {resignation.exit_checklist.completed_items ?? 0} / {resignation.exit_checklist.total_items ?? 0} items completed
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className="h-2 w-32 overflow-hidden rounded-full bg-zinc-100">
+                                <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
                                     <div
                                         className="h-full rounded-full bg-emerald-500 transition-all"
                                         style={{
@@ -397,12 +397,12 @@ export default function ResignationDetail() {
                         </DialogDescription>
                     </DialogHeader>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Notes (Optional)</label>
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">Notes (Optional)</label>
                         <textarea
                             value={approveNotes}
                             onChange={(e) => setApproveNotes(e.target.value)}
                             rows={3}
-                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             placeholder="Add approval notes..."
                         />
                     </div>
@@ -431,12 +431,12 @@ export default function ResignationDetail() {
                         </DialogDescription>
                     </DialogHeader>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Rejection Reason</label>
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">Rejection Reason</label>
                         <textarea
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
                             rows={3}
-                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             placeholder="Reason for rejection..."
                         />
                     </div>

@@ -27,8 +27,8 @@ const GOAL_STATUS_CONFIG = {
     pending: {
         label: 'Pending',
         icon: Circle,
-        className: 'text-zinc-400',
-        badgeClass: 'bg-zinc-100 text-zinc-600',
+        className: 'text-slate-400',
+        badgeClass: 'bg-slate-100 text-slate-600',
     },
     in_progress: {
         label: 'In Progress',
@@ -68,7 +68,7 @@ export default function MyPip() {
     if (isLoading) {
         return (
             <div className="flex justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -77,16 +77,16 @@ export default function MyPip() {
         return (
             <div className="space-y-4">
                 <div>
-                    <h1 className="text-xl font-bold text-zinc-900">My Improvement Plan</h1>
-                    <p className="text-sm text-zinc-500 mt-0.5">Performance Improvement Plan (PIP)</p>
+                    <h1 className="text-xl font-bold text-slate-900">My Improvement Plan</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Performance Improvement Plan (PIP)</p>
                 </div>
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                         <div className="rounded-full bg-emerald-50 p-4 mb-4">
                             <CheckCircle2 className="h-8 w-8 text-emerald-500" />
                         </div>
-                        <p className="text-sm font-medium text-zinc-700">No active improvement plan</p>
-                        <p className="mt-1 text-xs text-zinc-400">
+                        <p className="text-sm font-medium text-slate-700">No active improvement plan</p>
+                        <p className="mt-1 text-xs text-slate-400">
                             You currently have no active Performance Improvement Plan.
                         </p>
                     </CardContent>
@@ -99,7 +99,7 @@ export default function MyPip() {
     const totalGoals = goals.length;
     const completedGoals = goals.filter((g) => g.status === 'completed').length;
     const progressPct = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
-    const pipStatusCfg = PIP_STATUS_CONFIG[pip.status] || { label: pip.status, className: 'bg-zinc-100 text-zinc-600' };
+    const pipStatusCfg = PIP_STATUS_CONFIG[pip.status] || { label: pip.status, className: 'bg-slate-100 text-slate-600' };
 
     const startDate = pip.start_date ? new Date(pip.start_date) : null;
     const endDate = pip.end_date ? new Date(pip.end_date) : null;
@@ -114,8 +114,8 @@ export default function MyPip() {
         <div className="space-y-4">
             {/* Header */}
             <div>
-                <h1 className="text-xl font-bold text-zinc-900">My Improvement Plan</h1>
-                <p className="text-sm text-zinc-500 mt-0.5">Performance Improvement Plan (PIP)</p>
+                <h1 className="text-xl font-bold text-slate-900">My Improvement Plan</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Performance Improvement Plan (PIP)</p>
             </div>
 
             {/* PIP Overview Card */}
@@ -128,7 +128,7 @@ export default function MyPip() {
                                 <div className="rounded-lg bg-amber-50 p-1.5 shrink-0">
                                     <TrendingUp className="h-4 w-4 text-amber-600" />
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-sm font-semibold text-slate-900">
                                     {pip.title || 'Performance Improvement Plan'}
                                 </p>
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pipStatusCfg.className}`}>
@@ -140,26 +140,26 @@ export default function MyPip() {
 
                     {/* Reason */}
                     {pip.reason && (
-                        <div className="rounded-lg bg-zinc-50 p-3">
-                            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-1">Reason</p>
-                            <p className="text-sm text-zinc-700">{pip.reason}</p>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">Reason</p>
+                            <p className="text-sm text-slate-700">{pip.reason}</p>
                         </div>
                     )}
 
                     {/* Period */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">Start Date</p>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Start Date</p>
                             <div className="flex items-center gap-1.5 mt-1">
-                                <CalendarDays className="h-3.5 w-3.5 text-zinc-400" />
-                                <p className="text-sm text-zinc-900">{formatDate(pip.start_date)}</p>
+                                <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                                <p className="text-sm text-slate-900">{formatDate(pip.start_date)}</p>
                             </div>
                         </div>
                         <div>
-                            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">End Date</p>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">End Date</p>
                             <div className="flex items-center gap-1.5 mt-1">
-                                <CalendarDays className="h-3.5 w-3.5 text-zinc-400" />
-                                <p className="text-sm text-zinc-900">{formatDate(pip.end_date)}</p>
+                                <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                                <p className="text-sm text-slate-900">{formatDate(pip.end_date)}</p>
                             </div>
                         </div>
                     </div>
@@ -184,10 +184,10 @@ export default function MyPip() {
                     {totalGoals > 0 && (
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <p className="text-xs font-medium text-zinc-700">Goal Progress</p>
-                                <p className="text-xs text-zinc-500">{completedGoals}/{totalGoals} completed</p>
+                                <p className="text-xs font-medium text-slate-700">Goal Progress</p>
+                                <p className="text-xs text-slate-500">{completedGoals}/{totalGoals} completed</p>
                             </div>
-                            <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                                 <div
                                     className={cn(
                                         'h-full rounded-full transition-all',
@@ -197,7 +197,7 @@ export default function MyPip() {
                                     style={{ width: `${progressPct}%` }}
                                 />
                             </div>
-                            <p className="text-xs text-zinc-400 mt-1">{progressPct}% complete</p>
+                            <p className="text-xs text-slate-400 mt-1">{progressPct}% complete</p>
                         </div>
                     )}
                 </CardContent>
@@ -218,12 +218,12 @@ export default function MyPip() {
                             return (
                                 <div
                                     key={goal.id ?? index}
-                                    className="flex items-start gap-3 rounded-lg border border-zinc-100 p-3"
+                                    className="flex items-start gap-3 rounded-lg border border-slate-100 p-3"
                                 >
                                     <GoalIcon className={cn('mt-0.5 h-4 w-4 shrink-0', goalCfg.className)} />
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-sm font-medium text-zinc-900">{goal.title || goal.description}</p>
+                                            <p className="text-sm font-medium text-slate-900">{goal.title || goal.description}</p>
                                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${goalCfg.badgeClass}`}>
                                                 {goalCfg.label}
                                             </span>
@@ -234,21 +234,21 @@ export default function MyPip() {
                                             )}
                                         </div>
                                         {goal.description && goal.title && (
-                                            <p className="text-xs text-zinc-500 mt-0.5">{goal.description}</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">{goal.description}</p>
                                         )}
                                         {goal.target_date && (
                                             <div className="flex items-center gap-1 mt-1">
-                                                <CalendarDays className="h-3 w-3 text-zinc-400" />
+                                                <CalendarDays className="h-3 w-3 text-slate-400" />
                                                 <p className={cn(
                                                     'text-xs',
-                                                    overdue ? 'text-red-500 font-medium' : 'text-zinc-400'
+                                                    overdue ? 'text-red-500 font-medium' : 'text-slate-400'
                                                 )}>
                                                     Target: {formatDate(goal.target_date)}
                                                 </p>
                                             </div>
                                         )}
                                         {goal.notes && (
-                                            <p className="text-xs text-zinc-400 mt-1 italic">{goal.notes}</p>
+                                            <p className="text-xs text-slate-400 mt-1 italic">{goal.notes}</p>
                                         )}
                                     </div>
                                 </div>
@@ -265,7 +265,7 @@ export default function MyPip() {
                         <CardTitle className="text-sm">Manager Notes</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-zinc-700">{pip.manager_notes}</p>
+                        <p className="text-sm text-slate-700">{pip.manager_notes}</p>
                     </CardContent>
                 </Card>
             )}

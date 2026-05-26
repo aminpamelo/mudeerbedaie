@@ -46,7 +46,7 @@ const CYCLE_TYPES = [
 ];
 
 const STATUS_BADGE = {
-    draft: 'bg-zinc-100 text-zinc-600',
+    draft: 'bg-slate-100 text-slate-600',
     active: 'bg-emerald-100 text-emerald-700',
     completed: 'bg-blue-100 text-blue-700',
     cancelled: 'bg-red-100 text-red-700',
@@ -66,12 +66,12 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
-                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -162,13 +162,13 @@ export default function ReviewCycles() {
                 ) : isError ? (
                     <CardContent className="flex flex-col items-center justify-center py-16">
                         <AlertTriangle className="mb-3 h-10 w-10 text-red-300" />
-                        <p className="text-sm font-medium text-zinc-600">Failed to load review cycles.</p>
+                        <p className="text-sm font-medium text-slate-600">Failed to load review cycles.</p>
                     </CardContent>
                 ) : cycles.length === 0 ? (
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <RefreshCw className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No review cycles yet</h3>
-                        <p className="mt-1 text-sm text-zinc-500">Create your first performance review cycle to get started.</p>
+                        <RefreshCw className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No review cycles yet</h3>
+                        <p className="mt-1 text-sm text-slate-500">Create your first performance review cycle to get started.</p>
                         <Button className="mt-4" onClick={handleOpenCreate}>
                             <Plus className="mr-1.5 h-4 w-4" />
                             New Cycle
@@ -190,24 +190,24 @@ export default function ReviewCycles() {
                         <TableBody>
                             {cycles.map((cycle) => (
                                 <TableRow key={cycle.id}>
-                                    <TableCell className="font-medium text-zinc-900">
+                                    <TableCell className="font-medium text-slate-900">
                                         {cycle.name}
                                     </TableCell>
-                                    <TableCell className="capitalize text-zinc-600">
+                                    <TableCell className="capitalize text-slate-600">
                                         {cycle.type?.replace('_', ' ') || '-'}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-500">
+                                    <TableCell className="text-sm text-slate-500">
                                         {formatDate(cycle.period_start)} — {formatDate(cycle.period_end)}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-500">
+                                    <TableCell className="text-sm text-slate-500">
                                         {formatDate(cycle.review_deadline)}
                                     </TableCell>
                                     <TableCell>
-                                        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', STATUS_BADGE[cycle.status] || 'bg-zinc-100 text-zinc-600')}>
+                                        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', STATUS_BADGE[cycle.status] || 'bg-slate-100 text-slate-600')}>
                                             {cycle.status || '-'}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-zinc-600">
+                                    <TableCell className="text-slate-600">
                                         {cycle.reviews_count ?? '-'}
                                     </TableCell>
                                     <TableCell>
@@ -268,21 +268,21 @@ export default function ReviewCycles() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Cycle Name *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Cycle Name *</label>
                             <input
                                 type="text"
                                 value={form.name}
                                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                                 placeholder="e.g. Annual Review 2026"
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Type</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
                             <select
                                 value={form.type}
                                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 {CYCLE_TYPES.map((t) => (
                                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -291,41 +291,41 @@ export default function ReviewCycles() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Period Start</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Period Start</label>
                                 <input
                                     type="date"
                                     value={form.period_start}
                                     onChange={(e) => setForm((f) => ({ ...f, period_start: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Period End</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Period End</label>
                                 <input
                                     type="date"
                                     value={form.period_end}
                                     onChange={(e) => setForm((f) => ({ ...f, period_end: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Review Deadline</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Review Deadline</label>
                             <input
                                 type="date"
                                 value={form.review_deadline}
                                 onChange={(e) => setForm((f) => ({ ...f, review_deadline: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                                 placeholder="Optional description..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <DialogFooter>

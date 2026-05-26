@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
     approved: { color: 'text-emerald-700 bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500', border: 'border-l-emerald-400' },
     rejected: { color: 'text-red-700 bg-red-50 border-red-200',         dot: 'bg-red-500',    border: 'border-l-red-400' },
     paid:     { color: 'text-blue-700 bg-blue-50 border-blue-200',      dot: 'bg-blue-500',   border: 'border-l-blue-400' },
-    draft:    { color: 'text-zinc-600 bg-zinc-100 border-zinc-200',     dot: 'bg-zinc-400',   border: 'border-l-zinc-300' },
+    draft:    { color: 'text-slate-600 bg-slate-100 border-slate-200',     dot: 'bg-slate-400',   border: 'border-l-slate-300' },
 };
 
 const AVATAR_COLORS = [
@@ -68,22 +68,22 @@ function fetchClaimsApprovals(status) {
 
 function SkeletonCard() {
     return (
-        <div className="rounded-2xl bg-white border border-zinc-100 p-4 shadow-sm animate-pulse">
+        <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm animate-pulse">
             <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-zinc-100 shrink-0" />
+                <div className="h-10 w-10 rounded-full bg-slate-100 shrink-0" />
                 <div className="flex-1 space-y-2">
-                    <div className="h-4 w-36 rounded bg-zinc-100" />
-                    <div className="h-3 w-24 rounded bg-zinc-100" />
+                    <div className="h-4 w-36 rounded bg-slate-100" />
+                    <div className="h-3 w-24 rounded bg-slate-100" />
                 </div>
-                <div className="h-5 w-16 rounded-full bg-zinc-100" />
+                <div className="h-5 w-16 rounded-full bg-slate-100" />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="h-8 rounded-xl bg-zinc-50" />
-                <div className="h-8 rounded-xl bg-zinc-50" />
+                <div className="h-8 rounded-xl bg-slate-50" />
+                <div className="h-8 rounded-xl bg-slate-50" />
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
-                <div className="h-10 rounded-xl bg-zinc-50" />
-                <div className="h-10 rounded-xl bg-zinc-50" />
+                <div className="h-10 rounded-xl bg-slate-50" />
+                <div className="h-10 rounded-xl bg-slate-50" />
             </div>
         </div>
     );
@@ -97,7 +97,7 @@ function ClaimCard({ req, onApprove, onReject, onViewReceipt }) {
 
     return (
         <div
-            className={`rounded-2xl bg-white border border-zinc-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
+            className={`rounded-2xl bg-white border border-slate-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
             style={{ animation: 'fadeSlideUp 0.3s ease both' }}
         >
             <div className="p-4">
@@ -108,17 +108,17 @@ function ClaimCard({ req, onApprove, onReject, onViewReceipt }) {
                             {getInitials(name)}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-zinc-900 truncate">{name}</p>
+                            <p className="text-sm font-semibold text-slate-900 truncate">{name}</p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 {req.employee?.department?.name && (
-                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                    <span className="flex items-center gap-0.5 text-xs text-slate-400">
                                         <Building2 className="h-3 w-3" />
                                         {req.employee.department.name}
                                     </span>
                                 )}
                                 {req.employee?.position?.title && (
-                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
-                                        <span className="text-zinc-300">·</span>
+                                    <span className="flex items-center gap-0.5 text-xs text-slate-400">
+                                        <span className="text-slate-300">·</span>
                                         <Briefcase className="h-3 w-3" />
                                         {req.employee.position.title}
                                     </span>
@@ -133,16 +133,16 @@ function ClaimCard({ req, onApprove, onReject, onViewReceipt }) {
                 </div>
 
                 {/* Amount — hero element */}
-                <div className="mt-3 rounded-xl bg-zinc-50 px-3 py-2.5 flex items-center justify-between">
+                <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">Requested</p>
-                        <p className="text-base font-bold text-zinc-900">{formatRM(req.amount)}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Requested</p>
+                        <p className="text-base font-bold text-slate-900">{formatRM(req.amount)}</p>
                     </div>
                     {hasApprovedAmount && (
                         <>
                             <ArrowRight className={`h-4 w-4 shrink-0 ${amountDiffers ? 'text-amber-500' : 'text-emerald-400'}`} />
                             <div className="text-right">
-                                <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium">Approved</p>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Approved</p>
                                 <p className={`text-base font-bold ${amountDiffers ? 'text-amber-600' : 'text-emerald-600'}`}>
                                     {formatRM(req.approved_amount)}
                                 </p>
@@ -153,23 +153,23 @@ function ClaimCard({ req, onApprove, onReject, onViewReceipt }) {
 
                 {/* Info chips */}
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <Calendar className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                        <span className="text-xs text-zinc-700 font-medium">{formatDate(req.claim_date)}</span>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-700 font-medium">{formatDate(req.claim_date)}</span>
                     </div>
                     {req.claim_type?.name && (
-                        <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                            <Tag className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                            <span className="text-xs text-zinc-700 font-medium truncate">{req.claim_type.name}</span>
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <Tag className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="text-xs text-slate-700 font-medium truncate">{req.claim_type.name}</span>
                         </div>
                     )}
                 </div>
 
                 {/* Description */}
                 {req.description && (
-                    <div className="mt-2 flex items-start gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-zinc-500 line-clamp-2">{req.description}</p>
+                    <div className="mt-2 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-slate-500 line-clamp-2">{req.description}</p>
                     </div>
                 )}
 
@@ -195,7 +195,7 @@ function ClaimCard({ req, onApprove, onReject, onViewReceipt }) {
                     <button
                         type="button"
                         onClick={() => onViewReceipt(req)}
-                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-800 active:scale-[0.99]"
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800 active:scale-[0.99]"
                     >
                         <Paperclip className="h-3.5 w-3.5" />
                         View Receipt
@@ -279,19 +279,19 @@ export default function MyApprovalsClaims() {
                 }
             `}</style>
 
-            <div className="flex flex-col h-full bg-zinc-50">
+            <div className="flex flex-col h-full bg-slate-50">
                 {/* Sticky header */}
-                <div className="sticky top-0 z-10 bg-white border-b border-zinc-100 px-4 pt-4 pb-0 shadow-sm">
+                <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-4 pt-4 pb-0 shadow-sm">
                     <div className="flex items-center gap-3 mb-4">
                         <button
                             onClick={() => navigate('/my/approvals')}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800"
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
                         >
                             <ArrowLeft className="h-4 w-4" />
                         </button>
                         <div>
-                            <h1 className="text-base font-bold text-zinc-900">Claims Approvals</h1>
-                            <p className="text-xs text-zinc-400">
+                            <h1 className="text-base font-bold text-slate-900">Claims Approvals</h1>
+                            <p className="text-xs text-slate-400">
                                 {requests.length} {tab === 'all' ? 'total' : tab} claim{requests.length !== 1 ? 's' : ''}
                             </p>
                         </div>
@@ -305,8 +305,8 @@ export default function MyApprovalsClaims() {
                                 onClick={() => setTab(t.key)}
                                 className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                                     tab === t.key
-                                        ? 'border-zinc-900 text-zinc-900'
-                                        : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                                        ? 'border-slate-900 text-slate-900'
+                                        : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}
                             >
                                 {t.label}
@@ -325,11 +325,11 @@ export default function MyApprovalsClaims() {
                         </>
                     ) : requests.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
-                                <Receipt className="h-6 w-6 text-zinc-400" />
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 mb-3">
+                                <Receipt className="h-6 w-6 text-slate-400" />
                             </div>
-                            <p className="text-sm font-semibold text-zinc-700">No {tab === 'all' ? '' : tab} claims</p>
-                            <p className="text-xs text-zinc-400 mt-1">Nothing to review right now</p>
+                            <p className="text-sm font-semibold text-slate-700">No {tab === 'all' ? '' : tab} claims</p>
+                            <p className="text-xs text-slate-400 mt-1">Nothing to review right now</p>
                         </div>
                     ) : (
                         requests.map((req, i) => (
@@ -366,22 +366,22 @@ export default function MyApprovalsClaims() {
                     <DialogHeader>
                         <DialogTitle className="text-base">Approve Claim</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-zinc-500">
-                        Approving claim from <span className="font-semibold text-zinc-800">{approveDialog?.name}</span>.
+                    <p className="text-sm text-slate-500">
+                        Approving claim from <span className="font-semibold text-slate-800">{approveDialog?.name}</span>.
                     </p>
-                    <div className="rounded-xl bg-zinc-50 px-3 py-2.5 flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Requested amount</span>
-                        <span className="text-sm font-bold text-zinc-800">{formatRM(approveDialog?.amount)}</span>
+                    <div className="rounded-xl bg-slate-50 px-3 py-2.5 flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Requested amount</span>
+                        <span className="text-sm font-bold text-slate-800">{formatRM(approveDialog?.amount)}</span>
                     </div>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Approved Amount (RM)</label>
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">Approved Amount (RM)</label>
                         <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-400">RM</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">RM</span>
                             <input
                                 type="number"
                                 step="0.01"
                                 min="0.01"
-                                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-3 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
                                 value={approvedAmount}
                                 onChange={(e) => setApprovedAmount(e.target.value)}
                             />
@@ -401,7 +401,7 @@ export default function MyApprovalsClaims() {
                     <DialogFooter className="gap-2">
                         <button
                             onClick={() => setApproveDialog(null)}
-                            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition"
+                            className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                         >
                             Cancel
                         </button>
@@ -422,11 +422,11 @@ export default function MyApprovalsClaims() {
                     <DialogHeader>
                         <DialogTitle className="text-base">Reject Claim</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-zinc-500">
-                        Rejecting claim from <span className="font-semibold text-zinc-800">{rejectDialog?.name}</span>. Please provide a reason.
+                    <p className="text-sm text-slate-500">
+                        Rejecting claim from <span className="font-semibold text-slate-800">{rejectDialog?.name}</span>. Please provide a reason.
                     </p>
                     <textarea
-                        className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent resize-none transition"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none transition"
                         rows={3}
                         placeholder="Reason for rejection (min 5 characters)…"
                         value={rejectReason}
@@ -440,7 +440,7 @@ export default function MyApprovalsClaims() {
                     <DialogFooter className="gap-2">
                         <button
                             onClick={() => setRejectDialog(null)}
-                            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition"
+                            className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                         >
                             Cancel
                         </button>
@@ -463,14 +463,14 @@ export default function MyApprovalsClaims() {
                             Receipt{receiptDialog?.type ? ` — ${receiptDialog.type}` : ''}
                         </DialogTitle>
                         {receiptDialog?.name && (
-                            <p className="text-sm text-zinc-500">From {receiptDialog.name}</p>
+                            <p className="text-sm text-slate-500">From {receiptDialog.name}</p>
                         )}
                     </DialogHeader>
                     {receiptDialog && (() => {
                         const kind = getReceiptKind(receiptDialog.url);
                         if (kind === 'image') {
                             return (
-                                <div className="flex max-h-[65svh] items-center justify-center overflow-auto rounded-xl bg-zinc-100 p-2">
+                                <div className="flex max-h-[65svh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-2">
                                     <img
                                         src={receiptDialog.url}
                                         alt="Receipt"
@@ -484,15 +484,15 @@ export default function MyApprovalsClaims() {
                                 <iframe
                                     src={receiptDialog.url}
                                     title="Receipt"
-                                    className="h-[65svh] w-full rounded-xl border border-zinc-200 bg-zinc-50"
+                                    className="h-[65svh] w-full rounded-xl border border-slate-200 bg-slate-50"
                                 />
                             );
                         }
                         return (
-                            <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-zinc-50 px-4 py-10 text-center">
-                                <Paperclip className="h-6 w-6 text-zinc-400" />
-                                <p className="text-sm font-medium text-zinc-700">Preview not available</p>
-                                <p className="text-xs text-zinc-500">Open the file in a new tab to view it.</p>
+                            <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-slate-50 px-4 py-10 text-center">
+                                <Paperclip className="h-6 w-6 text-slate-400" />
+                                <p className="text-sm font-medium text-slate-700">Preview not available</p>
+                                <p className="text-xs text-slate-500">Open the file in a new tab to view it.</p>
                             </div>
                         );
                     })()}
@@ -501,14 +501,14 @@ export default function MyApprovalsClaims() {
                             href={receiptDialog?.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                         >
                             <ExternalLink className="h-4 w-4" />
                             Open in new tab
                         </a>
                         <button
                             onClick={() => setReceiptDialog(null)}
-                            className="flex-1 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
+                            className="flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
                         >
                             Close
                         </button>

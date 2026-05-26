@@ -221,7 +221,7 @@ export default function Departments() {
                     className="w-full sm:max-w-xs"
                 />
 
-                <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1">
+                <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
                     <Button
                         variant={viewMode === 'table' ? 'secondary' : 'ghost'}
                         size="sm"
@@ -242,15 +242,15 @@ export default function Departments() {
             </div>
 
             {viewMode === 'table' ? (
-                <div className="rounded-xl border border-zinc-200 bg-white">
+                <div className="rounded-xl border border-slate-200 bg-white">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-12">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : filteredDepartments.length === 0 ? (
                         <div className="py-12 text-center">
-                            <Building2 className="mx-auto h-10 w-10 text-zinc-300" />
-                            <p className="mt-2 text-sm text-zinc-500">
+                            <Building2 className="mx-auto h-10 w-10 text-slate-300" />
+                            <p className="mt-2 text-sm text-slate-500">
                                 {search ? 'No departments match your search.' : 'No departments yet. Create your first department.'}
                             </p>
                         </div>
@@ -276,13 +276,13 @@ export default function Departments() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1.5">
-                                                <Users className="h-3.5 w-3.5 text-zinc-400" />
+                                                <Users className="h-3.5 w-3.5 text-slate-400" />
                                                 {dept.employees_count ?? 0}
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             {dept.parent?.name || (
-                                                <span className="text-zinc-400">--</span>
+                                                <span className="text-slate-400">--</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -313,15 +313,15 @@ export default function Departments() {
                     )}
                 </div>
             ) : (
-                <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                     {isTreeLoading ? (
                         <div className="flex items-center justify-center py-12">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : !tree?.data || tree.data.length === 0 ? (
                         <div className="py-12 text-center">
-                            <Network className="mx-auto h-10 w-10 text-zinc-300" />
-                            <p className="mt-2 text-sm text-zinc-500">
+                            <Network className="mx-auto h-10 w-10 text-slate-300" />
+                            <p className="mt-2 text-sm text-slate-500">
                                 No department hierarchy found.
                             </p>
                         </div>
@@ -498,17 +498,17 @@ function TreeNode({ node, depth, onEdit, onDelete }) {
         <div>
             <div
                 className={cn(
-                    'group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-zinc-50',
-                    depth > 0 && 'ml-6 border-l-2 border-zinc-200'
+                    'group flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50',
+                    depth > 0 && 'ml-6 border-l-2 border-slate-200'
                 )}
             >
                 <button
                     type="button"
                     onClick={() => setExpanded(!expanded)}
                     className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-400',
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400',
                         hasChildren
-                            ? 'hover:bg-zinc-200 hover:text-zinc-600'
+                            ? 'hover:bg-slate-200 hover:text-slate-600'
                             : 'invisible'
                     )}
                 >
@@ -519,11 +519,11 @@ function TreeNode({ node, depth, onEdit, onDelete }) {
                     )}
                 </button>
 
-                <Building2 className="h-4 w-4 shrink-0 text-zinc-400" />
+                <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
 
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900">
+                        <span className="text-sm font-medium text-slate-900">
                             {node.name}
                         </span>
                         <Badge variant="secondary" className="text-[10px]">
@@ -532,7 +532,7 @@ function TreeNode({ node, depth, onEdit, onDelete }) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
                     <Users className="h-3.5 w-3.5" />
                     {node.employees_count ?? 0}
                 </div>

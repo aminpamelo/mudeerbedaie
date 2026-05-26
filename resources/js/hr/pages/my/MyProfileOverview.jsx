@@ -41,7 +41,7 @@ export default function MyProfileOverview() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -50,7 +50,7 @@ export default function MyProfileOverview() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-slate-600">
                     {error?.response?.data?.message || 'Failed to load profile'}
                 </p>
             </div>
@@ -86,21 +86,21 @@ export default function MyProfileOverview() {
             <Card>
                 <CardContent className="pt-6">
                     <div className="flex flex-col items-center text-center">
-                        <div className="h-20 w-20 rounded-full bg-zinc-900 text-white flex items-center justify-center text-2xl font-bold mb-3">
+                        <div className="h-20 w-20 rounded-full bg-slate-900 text-white flex items-center justify-center text-2xl font-bold mb-3">
                             {getInitials(employee.full_name)}
                         </div>
-                        <h2 className="text-xl font-bold text-zinc-900">
+                        <h2 className="text-xl font-bold text-slate-900">
                             {employee.full_name}
                         </h2>
-                        <p className="text-sm text-zinc-500 mt-0.5">
+                        <p className="text-sm text-slate-500 mt-0.5">
                             {employee.employee_id}
                         </p>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-zinc-600">
+                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
                             {employee.department?.name && (
                                 <span>{employee.department.name}</span>
                             )}
                             {employee.department?.name && employee.position?.title && (
-                                <span className="text-zinc-300">|</span>
+                                <span className="text-slate-300">|</span>
                             )}
                             {employee.position?.title && (
                                 <span>{employee.position.title}</span>
@@ -119,12 +119,12 @@ export default function MyProfileOverview() {
                     <Card key={item.label}>
                         <CardContent className="pt-4 pb-4">
                             <div className="flex items-start gap-3">
-                                <div className="rounded-lg bg-zinc-100 p-2 shrink-0">
-                                    <item.icon className="h-4 w-4 text-zinc-600" />
+                                <div className="rounded-lg bg-slate-100 p-2 shrink-0">
+                                    <item.icon className="h-4 w-4 text-slate-600" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs text-zinc-500">{item.label}</p>
-                                    <p className="text-sm font-medium text-zinc-900 truncate">
+                                    <p className="text-xs text-slate-500">{item.label}</p>
+                                    <p className="text-sm font-medium text-slate-900 truncate">
                                         {item.value}
                                     </p>
                                 </div>
@@ -149,11 +149,11 @@ export default function MyProfileOverview() {
                                       ? 'bg-amber-500'
                                       : employee.status === 'on_leave'
                                         ? 'bg-blue-500'
-                                        : 'bg-zinc-400'
+                                        : 'bg-slate-400'
                             }`}
                         />
                         <div>
-                            <p className="text-sm font-medium text-zinc-900">
+                            <p className="text-sm font-medium text-slate-900">
                                 {employee.status === 'active'
                                     ? 'Active Employee'
                                     : employee.status === 'probation'
@@ -163,12 +163,12 @@ export default function MyProfileOverview() {
                                         : employee.status?.replace('_', ' ')?.replace(/\b\w/g, (c) => c.toUpperCase()) || '-'}
                             </p>
                             {employee.status === 'probation' && employee.probation_end_date && (
-                                <p className="text-xs text-zinc-500 mt-0.5">
+                                <p className="text-xs text-slate-500 mt-0.5">
                                     Probation ends {formatDate(employee.probation_end_date)}
                                 </p>
                             )}
                             {employee.join_date && (
-                                <p className="text-xs text-zinc-500 mt-0.5">
+                                <p className="text-xs text-slate-500 mt-0.5">
                                     Joined {formatDate(employee.join_date)}
                                 </p>
                             )}

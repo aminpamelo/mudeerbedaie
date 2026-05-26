@@ -203,13 +203,13 @@ export default function BenefitsManagement() {
 
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : benefits.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Shield className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No benefits assigned</p>
-                            <p className="mt-1 text-xs text-zinc-400">Assign benefits to employees to get started.</p>
+                            <Shield className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No benefits assigned</p>
+                            <p className="mt-1 text-xs text-slate-400">Assign benefits to employees to get started.</p>
                         </div>
                     ) : (
                         <>
@@ -236,20 +236,20 @@ export default function BenefitsManagement() {
                                                     {benefit.benefit_type?.name || '-'}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-500">
+                                            <TableCell className="text-sm text-slate-500">
                                                 {benefit.provider || '-'}
                                             </TableCell>
                                             <TableCell>
                                                 {formatCurrency(benefit.coverage_amount)}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-500">
+                                            <TableCell className="text-sm text-slate-500">
                                                 {formatDate(benefit.start_date)}
                                             </TableCell>
                                             <TableCell>
                                                 {benefit.is_active ? (
                                                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Active</span>
                                                 ) : (
-                                                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">Inactive</span>
+                                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -273,7 +273,7 @@ export default function BenefitsManagement() {
                             </Table>
 
                             {meta.last_page > 1 && (
-                                <div className="mt-4 flex items-center justify-between text-sm text-zinc-500">
+                                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
                                     <span>Showing {meta.from}–{meta.to} of {meta.total}</span>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
@@ -303,7 +303,7 @@ export default function BenefitsManagement() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee *</label>
                                 <Select value={form.employee_id} onValueChange={(v) => setForm((f) => ({ ...f, employee_id: v }))}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select..." />
@@ -319,7 +319,7 @@ export default function BenefitsManagement() {
                                 {errors.employee_id && <p className="mt-1 text-xs text-red-600">{errors.employee_id[0]}</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Benefit Type *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Benefit Type *</label>
                                 <Select value={form.benefit_type_id} onValueChange={(v) => setForm((f) => ({ ...f, benefit_type_id: v }))}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select..." />
@@ -335,81 +335,81 @@ export default function BenefitsManagement() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Provider</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Provider</label>
                                 <input
                                     type="text"
                                     value={form.provider}
                                     onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Policy Number</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Policy Number</label>
                                 <input
                                     type="text"
                                     value={form.policy_number}
                                     onChange={(e) => setForm((f) => ({ ...f, policy_number: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Coverage (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Coverage (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={form.coverage_amount}
                                     onChange={(e) => setForm((f) => ({ ...f, coverage_amount: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employer (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Employer (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={form.employer_contribution}
                                     onChange={(e) => setForm((f) => ({ ...f, employer_contribution: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={form.employee_contribution}
                                     onChange={(e) => setForm((f) => ({ ...f, employee_contribution: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Start Date *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Start Date *</label>
                                 <input
                                     type="date"
                                     value={form.start_date}
                                     onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">End Date</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">End Date</label>
                                 <input
                                     type="date"
                                     value={form.end_date}
                                     onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
-                        <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={form.is_active}

@@ -76,14 +76,14 @@ export default function MeetingSeriesList() {
 
             {isLoading ? (
                 <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                 </div>
             ) : seriesList.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <ListOrdered className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No series yet</h3>
-                        <p className="mt-1 text-sm text-zinc-500">Create a series to organize recurring meetings.</p>
+                        <ListOrdered className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No series yet</h3>
+                        <p className="mt-1 text-sm text-slate-500">Create a series to organize recurring meetings.</p>
                         <Button className="mt-4" onClick={() => setShowCreate(true)}>
                             <Plus className="mr-1.5 h-4 w-4" />
                             Create Series
@@ -100,9 +100,9 @@ export default function MeetingSeriesList() {
                                     onClick={() => setExpanded(expanded === series.id ? null : series.id)}
                                 >
                                     <div>
-                                        <h3 className="font-semibold text-zinc-900">{series.name}</h3>
+                                        <h3 className="font-semibold text-slate-900">{series.name}</h3>
                                         {series.description && (
-                                            <p className="mt-0.5 text-sm text-zinc-500">{series.description}</p>
+                                            <p className="mt-0.5 text-sm text-slate-500">{series.description}</p>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -110,27 +110,27 @@ export default function MeetingSeriesList() {
                                             {series.meetings_count ?? 0} meetings
                                         </Badge>
                                         {expanded === series.id ? (
-                                            <ChevronRight className="h-4 w-4 rotate-90 text-zinc-400 transition-transform" />
+                                            <ChevronRight className="h-4 w-4 rotate-90 text-slate-400 transition-transform" />
                                         ) : (
-                                            <ChevronRight className="h-4 w-4 text-zinc-400" />
+                                            <ChevronRight className="h-4 w-4 text-slate-400" />
                                         )}
                                     </div>
                                 </button>
 
                                 {expanded === series.id && expandedSeries && (
-                                    <div className="mt-4 space-y-2 border-t border-zinc-100 pt-4">
+                                    <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
                                         {(expandedSeries.meetings || []).length === 0 ? (
-                                            <p className="text-sm text-zinc-500">No meetings in this series.</p>
+                                            <p className="text-sm text-slate-500">No meetings in this series.</p>
                                         ) : (
                                             (expandedSeries.meetings || []).map((m) => (
                                                 <Link
                                                     key={m.id}
                                                     to={`/meetings/${m.id}`}
-                                                    className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-zinc-50"
+                                                    className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-50"
                                                 >
                                                     <div>
-                                                        <p className="text-sm font-medium text-zinc-900">{m.title}</p>
-                                                        <p className="text-xs text-zinc-500">{m.date}</p>
+                                                        <p className="text-sm font-medium text-slate-900">{m.title}</p>
+                                                        <p className="text-xs text-slate-500">{m.date}</p>
                                                     </div>
                                                     <Badge variant="secondary">{m.status}</Badge>
                                                 </Link>

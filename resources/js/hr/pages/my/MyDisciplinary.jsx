@@ -37,7 +37,7 @@ const STATUS_CONFIG = {
     issued: { label: 'Issued', variant: 'outline', className: 'border-blue-300 bg-blue-50 text-blue-700' },
     pending_response: { label: 'Pending Response', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700' },
     responded: { label: 'Responded', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700' },
-    closed: { label: 'Closed', variant: 'outline', className: 'border-zinc-300 bg-zinc-50 text-zinc-600' },
+    closed: { label: 'Closed', variant: 'outline', className: 'border-slate-300 bg-slate-50 text-slate-600' },
 };
 
 const TYPE_LABELS = {
@@ -108,8 +108,8 @@ export default function MyDisciplinary() {
             label: 'Total Records',
             value: records.length,
             icon: FileText,
-            color: 'text-zinc-600',
-            bg: 'bg-zinc-50',
+            color: 'text-slate-600',
+            bg: 'bg-slate-50',
         },
         {
             label: 'Pending Response',
@@ -129,8 +129,8 @@ export default function MyDisciplinary() {
             label: 'Closed',
             value: records.filter((r) => r.status === 'closed').length,
             icon: XCircle,
-            color: 'text-zinc-500',
-            bg: 'bg-zinc-50',
+            color: 'text-slate-500',
+            bg: 'bg-slate-50',
         },
     ];
 
@@ -151,8 +151,8 @@ export default function MyDisciplinary() {
                                     <card.icon className={cn('h-5 w-5', card.color)} />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-medium text-zinc-500">{card.label}</p>
-                                    <p className="text-lg font-bold text-zinc-900">{card.value}</p>
+                                    <p className="text-xs font-medium text-slate-500">{card.label}</p>
+                                    <p className="text-lg font-bold text-slate-900">{card.value}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -171,20 +171,20 @@ export default function MyDisciplinary() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 4 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-28 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : records.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <ShieldAlert className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No disciplinary records</p>
-                            <p className="text-xs text-zinc-400">You have a clean record</p>
+                            <ShieldAlert className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No disciplinary records</p>
+                            <p className="text-xs text-slate-400">You have a clean record</p>
                         </div>
                     ) : (
                         <Table>
@@ -227,7 +227,7 @@ export default function MyDisciplinary() {
                                                     Respond
                                                 </Button>
                                             ) : (
-                                                <span className="text-xs text-zinc-400">-</span>
+                                                <span className="text-xs text-slate-400">-</span>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -274,7 +274,7 @@ export default function MyDisciplinary() {
 
                             {/* Response Input */}
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                     Your Response
                                 </label>
                                 <textarea
@@ -282,9 +282,9 @@ export default function MyDisciplinary() {
                                     onChange={(e) => setResponseText(e.target.value)}
                                     placeholder="Provide your written response to this notice..."
                                     rows={5}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
-                                <p className="mt-1 text-xs text-zinc-400">
+                                <p className="mt-1 text-xs text-slate-400">
                                     Please provide a detailed response. This will be reviewed by HR.
                                 </p>
                             </div>

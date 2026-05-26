@@ -63,7 +63,7 @@ function SkeletonCalendar() {
     return (
         <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: 35 }).map((_, i) => (
-                <div key={i} className="h-28 animate-pulse rounded-lg bg-zinc-100" />
+                <div key={i} className="h-28 animate-pulse rounded-lg bg-slate-100" />
             ))}
         </div>
     );
@@ -75,16 +75,16 @@ function StatCard({ icon: Icon, label, value, color = 'zinc' }) {
         amber: 'bg-amber-50 text-amber-600',
         emerald: 'bg-emerald-50 text-emerald-600',
         rose: 'bg-rose-50 text-rose-600',
-        zinc: 'bg-zinc-50 text-zinc-600',
+        zinc: 'bg-slate-50 text-slate-600',
     };
     return (
-        <div className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-white px-4 py-3">
+        <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
             <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', colors[color])}>
                 <Icon className="h-4.5 w-4.5" />
             </div>
             <div>
-                <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">{label}</p>
-                <p className="text-lg font-bold text-zinc-900 leading-tight">{value}</p>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+                <p className="text-lg font-bold text-slate-900 leading-tight">{value}</p>
             </div>
         </div>
     );
@@ -116,8 +116,8 @@ function LeaveTypeLegend({ leaves }) {
                         className="inline-block h-2.5 w-2.5 rounded-full"
                         style={{ backgroundColor: type.color || '#94a3b8' }}
                     />
-                    <span className="text-xs text-zinc-500">{type.name}</span>
-                    <span className="text-[10px] font-medium text-zinc-400">({type.count})</span>
+                    <span className="text-xs text-slate-500">{type.name}</span>
+                    <span className="text-[10px] font-medium text-slate-400">({type.count})</span>
                 </div>
             ))}
         </div>
@@ -307,7 +307,7 @@ export default function LeaveCalendar() {
                                 <Button variant="outline" size="sm" onClick={prevMonth}>
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <h2 className="min-w-[180px] text-center text-lg font-bold text-zinc-900">
+                                <h2 className="min-w-[180px] text-center text-lg font-bold text-slate-900">
                                     {MONTH_NAMES[month]} {year}
                                 </h2>
                                 <Button variant="outline" size="sm" onClick={nextMonth}>
@@ -346,7 +346,7 @@ export default function LeaveCalendar() {
                                         key={day}
                                         className={cn(
                                             'py-2.5 text-center text-xs font-semibold uppercase tracking-wider',
-                                            i === 0 || i === 6 ? 'text-zinc-300' : 'text-zinc-400'
+                                            i === 0 || i === 6 ? 'text-slate-300' : 'text-slate-400'
                                         )}
                                     >
                                         {day}
@@ -356,7 +356,7 @@ export default function LeaveCalendar() {
                                 {/* Day Cells */}
                                 {days.map((day, i) => {
                                     if (day === null) {
-                                        return <div key={`empty-${i}`} className="h-28 rounded-lg bg-zinc-50/30" />;
+                                        return <div key={`empty-${i}`} className="h-28 rounded-lg bg-slate-50/30" />;
                                     }
 
                                     const key = formatDateKey(year, month, day);
@@ -375,9 +375,9 @@ export default function LeaveCalendar() {
                                                 isToday
                                                     ? 'border-blue-300 bg-blue-50/40 ring-1 ring-blue-200'
                                                     : isWeekend
-                                                        ? 'border-zinc-100 bg-zinc-50/40'
-                                                        : 'border-zinc-100 bg-white',
-                                                hasLeaves && 'cursor-pointer hover:border-zinc-300 hover:shadow-sm'
+                                                        ? 'border-slate-100 bg-slate-50/40'
+                                                        : 'border-slate-100 bg-white',
+                                                hasLeaves && 'cursor-pointer hover:border-slate-300 hover:shadow-sm'
                                             )}
                                         >
                                             {/* Day Number */}
@@ -388,14 +388,14 @@ export default function LeaveCalendar() {
                                                         isToday
                                                             ? 'bg-blue-600 text-white'
                                                             : isWeekend
-                                                                ? 'text-zinc-300'
-                                                                : 'text-zinc-500'
+                                                                ? 'text-slate-300'
+                                                                : 'text-slate-500'
                                                     )}
                                                 >
                                                     {day}
                                                 </span>
                                                 {hasLeaves && (
-                                                    <span className="text-[10px] font-medium text-zinc-400">
+                                                    <span className="text-[10px] font-medium text-slate-400">
                                                         {dayLeaves.length}
                                                     </span>
                                                 )}
@@ -429,11 +429,11 @@ export default function LeaveCalendar() {
                                                             <TooltipContent side="top" className="max-w-xs">
                                                                 <div className="space-y-0.5">
                                                                     <p className="font-semibold">{leave.employee?.full_name}</p>
-                                                                    <p className="text-zinc-300">
+                                                                    <p className="text-slate-300">
                                                                         {leave.employee?.department?.name}
                                                                         {leave.employee?.position && ` · ${leave.employee.position}`}
                                                                     </p>
-                                                                    <p className="text-zinc-300">
+                                                                    <p className="text-slate-300">
                                                                         {leave.leave_type?.name} · {leave.total_days} day(s)
                                                                         {leave.is_half_day && ` (${leave.half_day_period})`}
                                                                     </p>
@@ -443,7 +443,7 @@ export default function LeaveCalendar() {
                                                     );
                                                 })}
                                                 {dayLeaves.length > 3 && (
-                                                    <div className="px-1 text-[10px] font-medium text-zinc-400">
+                                                    <div className="px-1 text-[10px] font-medium text-slate-400">
                                                         +{dayLeaves.length - 3} more
                                                     </div>
                                                 )}
@@ -463,12 +463,12 @@ export default function LeaveCalendar() {
                             className="fixed inset-0 bg-black/25 backdrop-blur-[2px] transition-opacity"
                             onClick={() => setSelectedDay(null)}
                         />
-                        <div className="relative ml-auto flex w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-2xl">
+                        <div className="relative ml-auto flex w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl">
                             {/* Panel Header */}
-                            <div className="border-b border-zinc-100 bg-zinc-50/80 px-5 py-4">
+                            <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-base font-bold text-zinc-900">
+                                        <h3 className="text-base font-bold text-slate-900">
                                             {new Date(selectedDay.date + 'T00:00:00').toLocaleDateString('en-MY', {
                                                 weekday: 'long',
                                                 day: 'numeric',
@@ -476,7 +476,7 @@ export default function LeaveCalendar() {
                                                 year: 'numeric',
                                             })}
                                         </h3>
-                                        <p className="mt-0.5 text-sm text-zinc-500">
+                                        <p className="mt-0.5 text-sm text-slate-500">
                                             {selectedDay.leaves.length} leave{selectedDay.leaves.length !== 1 ? 's' : ''} on this day
                                         </p>
                                     </div>
@@ -484,7 +484,7 @@ export default function LeaveCalendar() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => setSelectedDay(null)}
-                                        className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-600"
+                                        className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600"
                                     >
                                         <X className="h-4 w-4" />
                                     </Button>
@@ -504,11 +504,11 @@ export default function LeaveCalendar() {
                                             {deptEntries.map(([dept, count]) => (
                                                 <span
                                                     key={dept}
-                                                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-zinc-600 border border-zinc-200"
+                                                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-slate-600 border border-slate-200"
                                                 >
-                                                    <Building2 className="h-3 w-3 text-zinc-400" />
+                                                    <Building2 className="h-3 w-3 text-slate-400" />
                                                     {dept}
-                                                    <span className="text-zinc-400">({count})</span>
+                                                    <span className="text-slate-400">({count})</span>
                                                 </span>
                                             ))}
                                         </div>
@@ -524,7 +524,7 @@ export default function LeaveCalendar() {
                                         return (
                                             <div
                                                 key={`${leave.id}-${i}`}
-                                                className="overflow-hidden rounded-xl border border-zinc-200 bg-white transition-shadow hover:shadow-sm"
+                                                className="overflow-hidden rounded-xl border border-slate-200 bg-white transition-shadow hover:shadow-sm"
                                             >
                                                 {/* Color bar at top */}
                                                 <div className="h-1" style={{ backgroundColor: color }} />
@@ -539,15 +539,15 @@ export default function LeaveCalendar() {
                                                                     alt={leave.employee?.full_name}
                                                                 />
                                                             )}
-                                                            <AvatarFallback className="text-xs font-semibold bg-zinc-100 text-zinc-600">
+                                                            <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-600">
                                                                 {leave.employee?.initials || '??'}
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="font-semibold text-sm text-zinc-900 truncate">
+                                                            <p className="font-semibold text-sm text-slate-900 truncate">
                                                                 {leave.employee?.full_name}
                                                             </p>
-                                                            <p className="text-xs text-zinc-500 truncate">
+                                                            <p className="text-xs text-slate-500 truncate">
                                                                 {leave.employee?.employee_id}
                                                                 {leave.employee?.position && ` · ${leave.employee.position}`}
                                                             </p>
@@ -566,21 +566,21 @@ export default function LeaveCalendar() {
 
                                                     {/* Detail Grid */}
                                                     <div className="mt-3 grid grid-cols-2 gap-2">
-                                                        <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-2.5 py-1.5">
-                                                            <Building2 className="h-3.5 w-3.5 text-zinc-400" />
-                                                            <span className="text-xs text-zinc-600 truncate">
+                                                        <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                                                            <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                                                            <span className="text-xs text-slate-600 truncate">
                                                                 {leave.employee?.department?.name || '-'}
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-2.5 py-1.5">
-                                                            <Clock className="h-3.5 w-3.5 text-zinc-400" />
-                                                            <span className="text-xs text-zinc-600">
+                                                        <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                                                            <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                                            <span className="text-xs text-slate-600">
                                                                 {leave.total_days} day{leave.total_days !== '1.0' && leave.total_days !== 1 ? 's' : ''}
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-2.5 py-1.5">
-                                                            <Calendar className="h-3.5 w-3.5 text-zinc-400" />
-                                                            <span className="text-xs text-zinc-600">
+                                                        <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                                                            <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                                            <span className="text-xs text-slate-600">
                                                                 {new Date(leave.start_date + 'T00:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
                                                                 {leave.start_date !== leave.end_date && (
                                                                     <> – {new Date(leave.end_date + 'T00:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}</>
@@ -588,12 +588,12 @@ export default function LeaveCalendar() {
                                                             </span>
                                                         </div>
                                                         {leave.is_half_day && (
-                                                            <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-2.5 py-1.5">
+                                                            <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5">
                                                                 {leave.half_day_period === 'morning'
                                                                     ? <Sun className="h-3.5 w-3.5 text-amber-500" />
                                                                     : <Moon className="h-3.5 w-3.5 text-indigo-500" />
                                                                 }
-                                                                <span className="text-xs text-zinc-600 capitalize">
+                                                                <span className="text-xs text-slate-600 capitalize">
                                                                     {leave.half_day_period} half
                                                                 </span>
                                                             </div>
@@ -609,11 +609,11 @@ export default function LeaveCalendar() {
 
                                                     {/* Reason */}
                                                     {leave.reason && (
-                                                        <div className="mt-3 rounded-lg bg-zinc-50 p-2.5">
-                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                                                        <div className="mt-3 rounded-lg bg-slate-50 p-2.5">
+                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
                                                                 Reason
                                                             </p>
-                                                            <p className="text-xs text-zinc-600 leading-relaxed">
+                                                            <p className="text-xs text-slate-600 leading-relaxed">
                                                                 {leave.reason}
                                                             </p>
                                                         </div>

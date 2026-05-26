@@ -32,10 +32,10 @@ function SkeletonCards() {
                 <Card key={i}>
                     <CardContent className="p-6">
                         <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 animate-pulse rounded-lg bg-zinc-200" />
+                            <div className="h-12 w-12 animate-pulse rounded-lg bg-slate-200" />
                             <div className="flex-1 space-y-2">
-                                <div className="h-3 w-24 animate-pulse rounded bg-zinc-200" />
-                                <div className="h-6 w-12 animate-pulse rounded bg-zinc-200" />
+                                <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                                <div className="h-6 w-12 animate-pulse rounded bg-slate-200" />
                             </div>
                         </div>
                     </CardContent>
@@ -93,11 +93,11 @@ export default function TrainingReports() {
             <Card>
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-zinc-700">Year</label>
+                        <label className="text-sm font-medium text-slate-700">Year</label>
                         <select
                             value={filterYear}
                             onChange={(e) => setFilterYear(parseInt(e.target.value))}
-                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                         >
                             {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map((y) => (
                                 <option key={y} value={y}>{y}</option>
@@ -122,8 +122,8 @@ export default function TrainingReports() {
                                             <Icon className={cn('h-6 w-6', card.color)} />
                                         </div>
                                         <div>
-                                            <p className="text-sm text-zinc-500">{card.label}</p>
-                                            <p className="text-2xl font-bold text-zinc-900">{card.value}</p>
+                                            <p className="text-sm text-slate-500">{card.label}</p>
+                                            <p className="text-2xl font-bold text-slate-900">{card.value}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -136,22 +136,22 @@ export default function TrainingReports() {
             {/* Department Breakdown */}
             <Card>
                 <CardContent className="p-6">
-                    <h3 className="mb-4 text-lg font-semibold text-zinc-900">Training by Department</h3>
+                    <h3 className="mb-4 text-lg font-semibold text-slate-900">Training by Department</h3>
                     {isLoading ? (
                         <div className="space-y-3">
                             {Array.from({ length: 5 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : departments.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <BarChart3 className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No training data for {filterYear}</p>
+                            <BarChart3 className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No training data for {filterYear}</p>
                         </div>
                     ) : (
                         <Table>
@@ -188,7 +188,7 @@ export default function TrainingReports() {
                                                         {rate}%
                                                     </span>
                                                 ) : (
-                                                    <span className="text-sm text-zinc-400">-</span>
+                                                    <span className="text-sm text-slate-400">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="font-medium">

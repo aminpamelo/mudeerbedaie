@@ -98,7 +98,7 @@ export default function StatutoryRates() {
             />
 
             {/* Tabs */}
-            <div className="border-b border-zinc-200">
+            <div className="border-b border-slate-200">
                 <nav className="flex gap-4">
                     {TABS.map((tab) => (
                         <button
@@ -106,8 +106,8 @@ export default function StatutoryRates() {
                             onClick={() => setActiveTab(tab.key)}
                             className={`pb-3 text-sm font-medium transition-colors ${
                                 activeTab === tab.key
-                                    ? 'border-b-2 border-zinc-900 text-zinc-900'
-                                    : 'text-zinc-500 hover:text-zinc-700'
+                                    ? 'border-b-2 border-slate-900 text-slate-900'
+                                    : 'text-slate-500 hover:text-slate-700'
                             }`}
                         >
                             {tab.label}
@@ -131,17 +131,17 @@ export default function StatutoryRates() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 6 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : rates.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <ShieldCheck className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No statutory rates configured</p>
+                            <ShieldCheck className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No statutory rates configured</p>
                         </div>
                     ) : (
                         <Table>
@@ -160,7 +160,7 @@ export default function StatutoryRates() {
                             <TableBody>
                                 {rates.map((rate) => (
                                     <TableRow key={rate.id}>
-                                        <TableCell className="text-sm text-zinc-700">
+                                        <TableCell className="text-sm text-slate-700">
                                             {TYPE_LABELS[rate.type] || rate.type}
                                         </TableCell>
                                         <TableCell>{formatCurrency(rate.min_salary)}</TableCell>
@@ -169,8 +169,8 @@ export default function StatutoryRates() {
                                             {rate.rate_percentage ? `${rate.rate_percentage}%` : '-'}
                                         </TableCell>
                                         <TableCell>{formatCurrency(rate.fixed_amount)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-500">{formatDate(rate.effective_from)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">{formatDate(rate.effective_from)}</TableCell>
+                                        <TableCell className="text-sm text-slate-500">
                                             {rate.effective_to ? formatDate(rate.effective_to) : 'Current'}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -198,26 +198,26 @@ export default function StatutoryRates() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Rate Percentage (%)</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Rate Percentage (%)</label>
                             <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={editForm.rate_percentage}
                                 onChange={(e) => setEditForm((p) => ({ ...p, rate_percentage: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. 11.00"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Fixed Amount (RM) — if applicable</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Fixed Amount (RM) — if applicable</label>
                             <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={editForm.fixed_amount}
                                 onChange={(e) => setEditForm((p) => ({ ...p, fixed_amount: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="0.00"
                             />
                         </div>

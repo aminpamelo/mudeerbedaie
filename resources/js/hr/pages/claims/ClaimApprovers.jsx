@@ -112,13 +112,13 @@ export default function ClaimApprovers() {
 
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : approvers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <UserCheck className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No claim approvers assigned</p>
-                            <p className="mt-1 text-xs text-zinc-400">Assign approvers to manage claim approvals.</p>
+                            <UserCheck className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No claim approvers assigned</p>
+                            <p className="mt-1 text-xs text-slate-400">Assign approvers to manage claim approvals.</p>
                         </div>
                     ) : (
                         <Table>
@@ -138,13 +138,13 @@ export default function ClaimApprovers() {
                                         <TableCell className="font-medium">
                                             {item.employee?.full_name || '-'}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {item.employee?.department?.name || '-'}
                                         </TableCell>
                                         <TableCell className="font-medium">
                                             {item.approver?.full_name || '-'}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {item.approver?.department?.name || '-'}
                                         </TableCell>
                                         <TableCell>
@@ -153,7 +153,7 @@ export default function ClaimApprovers() {
                                                     Active
                                                 </span>
                                             ) : (
-                                                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">
+                                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
                                                     Inactive
                                                 </span>
                                             )}
@@ -187,7 +187,7 @@ export default function ClaimApprovers() {
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee *</label>
                             <Select value={form.employee_id} onValueChange={(v) => setForm((f) => ({ ...f, employee_id: v }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select employee..." />
@@ -203,7 +203,7 @@ export default function ClaimApprovers() {
                             {errors.employee_id && <p className="mt-1 text-xs text-red-600">{errors.employee_id[0]}</p>}
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Approver *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Approver *</label>
                             <Select value={form.approver_id} onValueChange={(v) => setForm((f) => ({ ...f, approver_id: v }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select approver..." />

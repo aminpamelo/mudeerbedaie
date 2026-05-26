@@ -150,10 +150,10 @@ function StepIndicator({ currentStep, completedSteps }) {
                                     className={cn(
                                         'flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors',
                                         isActive
-                                            ? 'border-zinc-900 bg-zinc-900 text-white'
+                                            ? 'border-slate-900 bg-slate-900 text-white'
                                             : isCompleted
                                               ? 'border-emerald-500 bg-emerald-500 text-white'
-                                              : 'border-zinc-300 bg-white text-zinc-400'
+                                              : 'border-slate-300 bg-white text-slate-400'
                                     )}
                                 >
                                     {isCompleted && !isActive ? (
@@ -166,10 +166,10 @@ function StepIndicator({ currentStep, completedSteps }) {
                                     className={cn(
                                         'mt-2 text-xs font-medium',
                                         isActive
-                                            ? 'text-zinc-900'
+                                            ? 'text-slate-900'
                                             : isCompleted
                                               ? 'text-emerald-600'
-                                              : 'text-zinc-400'
+                                              : 'text-slate-400'
                                     )}
                                 >
                                     {step.label}
@@ -181,7 +181,7 @@ function StepIndicator({ currentStep, completedSteps }) {
                                         'mx-2 hidden h-0.5 w-16 sm:block lg:w-24',
                                         isCompleted
                                             ? 'bg-emerald-500'
-                                            : 'bg-zinc-200'
+                                            : 'bg-slate-200'
                                     )}
                                 />
                             )}
@@ -211,26 +211,26 @@ function FileInput({ label, required, file, onChange, onRemove, error }) {
                 {label} {required && <span className="text-red-500">*</span>}
             </Label>
             {file ? (
-                <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
-                    <FileText className="h-5 w-5 shrink-0 text-zinc-500" />
+                <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <FileText className="h-5 w-5 shrink-0 text-slate-500" />
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-zinc-900">
+                        <p className="truncate text-sm font-medium text-slate-900">
                             {file.name}
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-slate-500">
                             {formatFileSize(file.size)}
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={onRemove}
-                        className="shrink-0 rounded-md p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600"
+                        className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
                     >
                         <X className="h-4 w-4" />
                     </button>
                 </div>
             ) : (
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 px-4 py-4 text-sm text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-50">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 px-4 py-4 text-sm text-slate-500 transition-colors hover:border-slate-400 hover:bg-slate-50">
                     <Upload className="h-4 w-4" />
                     Choose file
                     <input
@@ -518,12 +518,12 @@ export default function EmployeeCreate() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                         {/* Link Existing User */}
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-700">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
                                 <Link2 className="h-4 w-4" />
                                 Link Existing User Account
                             </div>
-                            <p className="mb-3 text-xs text-zinc-500">
+                            <p className="mb-3 text-xs text-slate-500">
                                 Optionally link this employee to an existing user account. Name, email, and phone will be auto-filled.
                             </p>
                             {linkedUser ? (
@@ -533,8 +533,8 @@ export default function EmployeeCreate() {
                                             {linkedUser.name?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-zinc-900">{linkedUser.name}</p>
-                                            <p className="text-xs text-zinc-500">{linkedUser.email}</p>
+                                            <p className="text-sm font-medium text-slate-900">{linkedUser.name}</p>
+                                            <p className="text-xs text-slate-500">{linkedUser.email}</p>
                                         </div>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={handleUnlinkUser}>
@@ -550,27 +550,27 @@ export default function EmployeeCreate() {
                                         placeholder="Search by name or email..."
                                     />
                                     {userSearch.length >= 2 && unlinkedUsers.length > 0 && (
-                                        <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
+                                        <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
                                             {unlinkedUsers.map((user) => (
                                                 <button
                                                     key={user.id}
                                                     type="button"
                                                     onClick={() => handleLinkUser(user)}
-                                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-zinc-50"
+                                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50"
                                                 >
-                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
                                                         {user.name?.charAt(0)?.toUpperCase() || 'U'}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-zinc-900">{user.name}</p>
-                                                        <p className="text-xs text-zinc-500">{user.email}</p>
+                                                        <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                                                        <p className="text-xs text-slate-500">{user.email}</p>
                                                     </div>
                                                 </button>
                                             ))}
                                         </div>
                                     )}
                                     {userSearch.length >= 2 && unlinkedUsers.length === 0 && (
-                                        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-center text-sm text-zinc-500 shadow-lg">
+                                        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-500 shadow-lg">
                                             No unlinked users found
                                         </div>
                                     )}
@@ -853,7 +853,7 @@ export default function EmployeeCreate() {
                                     onChange={(e) => setProbationEndDate(e.target.value)}
                                 />
                                 {joinDate && (
-                                    <p className="mt-1 text-xs text-zinc-500">
+                                    <p className="mt-1 text-xs text-slate-500">
                                         Auto-suggested: 3 months from join date
                                     </p>
                                 )}
@@ -952,7 +952,7 @@ export default function EmployeeCreate() {
                         <CardTitle>Documents Upload</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             Accepted formats: PDF, JPG, PNG (max 5MB each)
                         </p>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -986,50 +986,50 @@ export default function EmployeeCreate() {
                         <CardContent>
                             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                                 <div>
-                                    <dt className="text-zinc-500">Full Name</dt>
-                                    <dd className="font-medium text-zinc-900">{fullName}</dd>
+                                    <dt className="text-slate-500">Full Name</dt>
+                                    <dd className="font-medium text-slate-900">{fullName}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">IC Number</dt>
-                                    <dd className="font-medium text-zinc-900">{icNumber}</dd>
+                                    <dt className="text-slate-500">IC Number</dt>
+                                    <dd className="font-medium text-slate-900">{icNumber}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Date of Birth</dt>
-                                    <dd className="font-medium text-zinc-900">{dateOfBirth}</dd>
+                                    <dt className="text-slate-500">Date of Birth</dt>
+                                    <dd className="font-medium text-slate-900">{dateOfBirth}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Gender</dt>
-                                    <dd className="font-medium capitalize text-zinc-900">{gender}</dd>
+                                    <dt className="text-slate-500">Gender</dt>
+                                    <dd className="font-medium capitalize text-slate-900">{gender}</dd>
                                 </div>
                                 {religion && (
                                     <div>
-                                        <dt className="text-zinc-500">Religion</dt>
-                                        <dd className="font-medium capitalize text-zinc-900">{religion}</dd>
+                                        <dt className="text-slate-500">Religion</dt>
+                                        <dd className="font-medium capitalize text-slate-900">{religion}</dd>
                                     </div>
                                 )}
                                 {race && (
                                     <div>
-                                        <dt className="text-zinc-500">Race</dt>
-                                        <dd className="font-medium capitalize text-zinc-900">{race}</dd>
+                                        <dt className="text-slate-500">Race</dt>
+                                        <dd className="font-medium capitalize text-slate-900">{race}</dd>
                                     </div>
                                 )}
                                 {maritalStatus && (
                                     <div>
-                                        <dt className="text-zinc-500">Marital Status</dt>
-                                        <dd className="font-medium capitalize text-zinc-900">{maritalStatus}</dd>
+                                        <dt className="text-slate-500">Marital Status</dt>
+                                        <dd className="font-medium capitalize text-slate-900">{maritalStatus}</dd>
                                     </div>
                                 )}
                                 <div>
-                                    <dt className="text-zinc-500">Phone</dt>
-                                    <dd className="font-medium text-zinc-900">{phone}</dd>
+                                    <dt className="text-slate-500">Phone</dt>
+                                    <dd className="font-medium text-slate-900">{phone}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Email</dt>
-                                    <dd className="font-medium text-zinc-900">{personalEmail}</dd>
+                                    <dt className="text-slate-500">Email</dt>
+                                    <dd className="font-medium text-slate-900">{personalEmail}</dd>
                                 </div>
                                 <div className="sm:col-span-2 lg:col-span-3">
-                                    <dt className="text-zinc-500">Address</dt>
-                                    <dd className="font-medium text-zinc-900">
+                                    <dt className="text-slate-500">Address</dt>
+                                    <dd className="font-medium text-slate-900">
                                         {addressLine1}
                                         {addressLine2 && `, ${addressLine2}`}
                                         , {city}, {postcode}, {state}
@@ -1050,43 +1050,43 @@ export default function EmployeeCreate() {
                         <CardContent>
                             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                                 <div>
-                                    <dt className="text-zinc-500">Department</dt>
-                                    <dd className="font-medium text-zinc-900">
+                                    <dt className="text-slate-500">Department</dt>
+                                    <dd className="font-medium text-slate-900">
                                         {departments.find((d) => String(d.id) === departmentId)?.name || '-'}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Position</dt>
-                                    <dd className="font-medium text-zinc-900">
+                                    <dt className="text-slate-500">Position</dt>
+                                    <dd className="font-medium text-slate-900">
                                         {positions.find((p) => String(p.id) === positionId)?.name || '-'}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Employment Type</dt>
-                                    <dd className="font-medium capitalize text-zinc-900">
+                                    <dt className="text-slate-500">Employment Type</dt>
+                                    <dd className="font-medium capitalize text-slate-900">
                                         {employmentType.replace('_', ' ')}
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Join Date</dt>
-                                    <dd className="font-medium text-zinc-900">{joinDate}</dd>
+                                    <dt className="text-slate-500">Join Date</dt>
+                                    <dd className="font-medium text-slate-900">{joinDate}</dd>
                                 </div>
                                 {probationEndDate && (
                                     <div>
-                                        <dt className="text-zinc-500">Probation End Date</dt>
-                                        <dd className="font-medium text-zinc-900">{probationEndDate}</dd>
+                                        <dt className="text-slate-500">Probation End Date</dt>
+                                        <dd className="font-medium text-slate-900">{probationEndDate}</dd>
                                     </div>
                                 )}
                                 {showContractEndDate && contractEndDate && (
                                     <div>
-                                        <dt className="text-zinc-500">Contract End Date</dt>
-                                        <dd className="font-medium text-zinc-900">{contractEndDate}</dd>
+                                        <dt className="text-slate-500">Contract End Date</dt>
+                                        <dd className="font-medium text-slate-900">{contractEndDate}</dd>
                                     </div>
                                 )}
                                 {notes && (
                                     <div className="sm:col-span-2 lg:col-span-3">
-                                        <dt className="text-zinc-500">Notes</dt>
-                                        <dd className="font-medium text-zinc-900">{notes}</dd>
+                                        <dt className="text-slate-500">Notes</dt>
+                                        <dd className="font-medium text-slate-900">{notes}</dd>
                                     </div>
                                 )}
                             </dl>
@@ -1104,29 +1104,29 @@ export default function EmployeeCreate() {
                         <CardContent>
                             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                                 <div>
-                                    <dt className="text-zinc-500">Bank Name</dt>
-                                    <dd className="font-medium text-zinc-900">{bankName}</dd>
+                                    <dt className="text-slate-500">Bank Name</dt>
+                                    <dd className="font-medium text-slate-900">{bankName}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-zinc-500">Account Number</dt>
-                                    <dd className="font-medium text-zinc-900">{bankAccountNumber}</dd>
+                                    <dt className="text-slate-500">Account Number</dt>
+                                    <dd className="font-medium text-slate-900">{bankAccountNumber}</dd>
                                 </div>
                                 {epfNumber && (
                                     <div>
-                                        <dt className="text-zinc-500">EPF Number</dt>
-                                        <dd className="font-medium text-zinc-900">{epfNumber}</dd>
+                                        <dt className="text-slate-500">EPF Number</dt>
+                                        <dd className="font-medium text-slate-900">{epfNumber}</dd>
                                     </div>
                                 )}
                                 {socsoNumber && (
                                     <div>
-                                        <dt className="text-zinc-500">SOCSO Number</dt>
-                                        <dd className="font-medium text-zinc-900">{socsoNumber}</dd>
+                                        <dt className="text-slate-500">SOCSO Number</dt>
+                                        <dd className="font-medium text-slate-900">{socsoNumber}</dd>
                                     </div>
                                 )}
                                 {taxReferenceNumber && (
                                     <div>
-                                        <dt className="text-zinc-500">Tax Reference</dt>
-                                        <dd className="font-medium text-zinc-900">{taxReferenceNumber}</dd>
+                                        <dt className="text-slate-500">Tax Reference</dt>
+                                        <dd className="font-medium text-slate-900">{taxReferenceNumber}</dd>
                                     </div>
                                 )}
                             </dl>
@@ -1151,19 +1151,19 @@ export default function EmployeeCreate() {
                                         {documents[doc.key] ? (
                                             <Check className="h-4 w-4 text-emerald-500" />
                                         ) : (
-                                            <X className="h-4 w-4 text-zinc-300" />
+                                            <X className="h-4 w-4 text-slate-300" />
                                         )}
                                         <span
                                             className={
                                                 documents[doc.key]
-                                                    ? 'text-zinc-900'
-                                                    : 'text-zinc-400'
+                                                    ? 'text-slate-900'
+                                                    : 'text-slate-400'
                                             }
                                         >
                                             {doc.label}
                                         </span>
                                         {documents[doc.key] && (
-                                            <span className="text-xs text-zinc-500">
+                                            <span className="text-xs text-slate-500">
                                                 ({formatFileSize(documents[doc.key].size)})
                                             </span>
                                         )}

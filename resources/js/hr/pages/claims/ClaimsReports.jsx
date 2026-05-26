@@ -108,7 +108,7 @@ export default function ClaimsReports() {
                 <CardContent className="p-4">
                     <div className="flex flex-wrap items-end gap-4">
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Year</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Year</label>
                             <Select value={year} onValueChange={setYear}>
                                 <SelectTrigger className="w-28">
                                     <SelectValue />
@@ -121,7 +121,7 @@ export default function ClaimsReports() {
                             </Select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Month</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Month</label>
                             <Select value={month} onValueChange={setMonth}>
                                 <SelectTrigger className="w-36">
                                     <SelectValue />
@@ -134,7 +134,7 @@ export default function ClaimsReports() {
                             </Select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Employee</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Employee</label>
                             <Select value={employeeId} onValueChange={setEmployeeId}>
                                 <SelectTrigger className="w-48">
                                     <SelectValue placeholder="All Employees" />
@@ -150,7 +150,7 @@ export default function ClaimsReports() {
                             </Select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Claim Type</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Claim Type</label>
                             <Select value={claimTypeId} onValueChange={setClaimTypeId}>
                                 <SelectTrigger className="w-44">
                                     <SelectValue placeholder="All Types" />
@@ -182,7 +182,7 @@ export default function ClaimsReports() {
 
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -190,19 +190,19 @@ export default function ClaimsReports() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <Card>
                             <CardContent className="p-5">
-                                <p className="text-sm text-zinc-500">Total Claims</p>
-                                <p className="mt-1 text-2xl font-bold text-zinc-900">{totals.count ?? 0}</p>
+                                <p className="text-sm text-slate-500">Total Claims</p>
+                                <p className="mt-1 text-2xl font-bold text-slate-900">{totals.count ?? 0}</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="p-5">
-                                <p className="text-sm text-zinc-500">Total Amount</p>
-                                <p className="mt-1 text-2xl font-bold text-zinc-900">{formatCurrency(totals.amount)}</p>
+                                <p className="text-sm text-slate-500">Total Amount</p>
+                                <p className="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totals.amount)}</p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="p-5">
-                                <p className="text-sm text-zinc-500">Approved Amount</p>
+                                <p className="text-sm text-slate-500">Approved Amount</p>
                                 <p className="mt-1 text-2xl font-bold text-emerald-700">{formatCurrency(totals.approved_amount)}</p>
                             </CardContent>
                         </Card>
@@ -211,9 +211,9 @@ export default function ClaimsReports() {
                     {/* By Type */}
                     <Card>
                         <CardContent className="p-6">
-                            <h3 className="mb-4 text-base font-semibold text-zinc-900">By Claim Type</h3>
+                            <h3 className="mb-4 text-base font-semibold text-slate-900">By Claim Type</h3>
                             {summaryByType.length === 0 ? (
-                                <div className="flex items-center justify-center py-8 text-sm text-zinc-400">
+                                <div className="flex items-center justify-center py-8 text-sm text-slate-400">
                                     No data for selected period
                                 </div>
                             ) : (
@@ -246,9 +246,9 @@ export default function ClaimsReports() {
                     {/* By Employee */}
                     <Card>
                         <CardContent className="p-6">
-                            <h3 className="mb-4 text-base font-semibold text-zinc-900">By Employee</h3>
+                            <h3 className="mb-4 text-base font-semibold text-slate-900">By Employee</h3>
                             {summaryByEmployee.length === 0 ? (
-                                <div className="flex items-center justify-center py-8 text-sm text-zinc-400">
+                                <div className="flex items-center justify-center py-8 text-sm text-slate-400">
                                     No data for selected period
                                 </div>
                             ) : (
@@ -266,7 +266,7 @@ export default function ClaimsReports() {
                                         {summaryByEmployee.map((row, i) => (
                                             <TableRow key={i}>
                                                 <TableCell className="font-medium">{row.employee_name}</TableCell>
-                                                <TableCell className="text-sm text-zinc-500">{row.department}</TableCell>
+                                                <TableCell className="text-sm text-slate-500">{row.department}</TableCell>
                                                 <TableCell>{row.count}</TableCell>
                                                 <TableCell>{formatCurrency(row.total_amount)}</TableCell>
                                                 <TableCell className="text-emerald-700">{formatCurrency(row.approved_amount)}</TableCell>

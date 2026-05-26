@@ -4,6 +4,7 @@ import { fetchAssets, fetchAssetAssignments, fetchAssetCategories } from '../../
 import { cn } from '../../lib/utils';
 import PageHeader from '../../components/PageHeader';
 import { Card, CardContent } from '../../components/ui/card';
+import { StatCard } from '../../components/ui/stat-card';
 import {
     Table,
     TableHeader,
@@ -17,7 +18,7 @@ const STATUS_BADGE = {
     available: 'bg-emerald-100 text-emerald-700',
     assigned: 'bg-blue-100 text-blue-700',
     under_maintenance: 'bg-amber-100 text-amber-700',
-    disposed: 'bg-zinc-100 text-zinc-500',
+    disposed: 'bg-slate-100 text-slate-500',
 };
 
 function formatDate(dateStr) {
@@ -64,10 +65,10 @@ export default function AssetDashboard() {
     })).filter((c) => c.count > 0);
 
     const STAT_CARDS = [
-        { label: 'Total Assets', value: totalAssets, icon: Package, color: 'text-zinc-700', bg: 'bg-zinc-50' },
-        { label: 'Available', value: availableCount, icon: Package, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { label: 'Assigned', value: assignedCount, icon: Package2, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Under Maintenance', value: maintenanceCount, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { label: 'Total Assets', value: totalAssets, icon: Package, accent: 'indigo' },
+        { label: 'Available', value: availableCount, icon: Package, accent: 'emerald' },
+        { label: 'Assigned', value: assignedCount, icon: Package2, accent: 'sky' },
+        { label: 'Under Maintenance', value: maintenanceCount, icon: Wrench, accent: 'amber' },
     ];
 
     return (
@@ -83,31 +84,16 @@ export default function AssetDashboard() {
                     {Array.from({ length: 4 }).map((_, i) => (
                         <Card key={i}>
                             <CardContent className="p-6">
-                                <div className="h-16 animate-pulse rounded bg-zinc-100" />
+                                <div className="h-16 animate-pulse rounded bg-slate-100" />
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {STAT_CARDS.map((card) => {
-                        const Icon = card.icon;
-                        return (
-                            <Card key={card.label}>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn('flex h-12 w-12 items-center justify-center rounded-lg', card.bg)}>
-                                            <Icon className={cn('h-6 w-6', card.color)} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-zinc-500">{card.label}</p>
-                                            <p className="text-2xl font-bold text-zinc-900">{card.value}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
+                    {STAT_CARDS.map((card) => (
+                        <StatCard key={card.label} label={card.label} value={card.value} icon={card.icon} accent={card.accent} />
+                    ))}
                 </div>
             )}
 
@@ -115,32 +101,32 @@ export default function AssetDashboard() {
                 {/* Total Value */}
                 <Card>
                     <CardContent className="p-6">
-                        <p className="text-sm text-zinc-500">Total Asset Value</p>
-                        <p className="mt-1 text-3xl font-bold text-zinc-900">{formatCurrency(totalValue)}</p>
-                        <p className="mt-1 text-xs text-zinc-400">Based on purchase prices</p>
+                        <p className="text-sm text-slate-500">Total Asset Value</p>
+                        <p className="mt-1 text-3xl font-bold text-slate-900">{formatCurrency(totalValue)}</p>
+                        <p className="mt-1 text-xs text-slate-400">Based on purchase prices</p>
                     </CardContent>
                 </Card>
 
                 {/* By Category */}
                 <Card className="lg:col-span-2">
                     <CardContent className="p-6">
-                        <h3 className="mb-4 text-base font-semibold text-zinc-900">Assets by Category</h3>
+                        <h3 className="mb-4 text-base font-semibold text-slate-900">Assets by Category</h3>
                         {byCategory.length === 0 ? (
-                            <p className="text-sm text-zinc-400">No assets recorded.</p>
+                            <p className="text-sm text-slate-400">No assets recorded.</p>
                         ) : (
                             <div className="space-y-3">
                                 {byCategory.map((cat) => (
                                     <div key={cat.name} className="flex items-center gap-3">
-                                        <div className="w-32 truncate text-sm font-medium text-zinc-700">{cat.name}</div>
+                                        <div className="w-32 truncate text-sm font-medium text-slate-700">{cat.name}</div>
                                         <div className="flex-1">
-                                            <div className="h-2 rounded-full bg-zinc-100">
+                                            <div className="h-2 rounded-full bg-slate-100">
                                                 <div
                                                     className="h-2 rounded-full bg-blue-500 transition-all"
                                                     style={{ width: `${totalAssets > 0 ? (cat.count / totalAssets) * 100 : 0}%` }}
                                                 />
                                             </div>
                                         </div>
-                                        <div className="w-16 text-right text-sm text-zinc-500">
+                                        <div className="w-16 text-right text-sm text-slate-500">
                                             {cat.count} ({cat.available} avail.)
                                         </div>
                                     </div>
@@ -154,13 +140,13 @@ export default function AssetDashboard() {
             {/* Recent Active Assignments */}
             <Card className="mt-6">
                 <CardContent className="p-6">
-                    <h3 className="mb-4 text-base font-semibold text-zinc-900">Current Assignments</h3>
+                    <h3 className="mb-4 text-base font-semibold text-slate-900">Current Assignments</h3>
                     {assignmentsLoading ? (
                         <div className="flex justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : activeAssignments.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-zinc-400">No active assignments.</p>
+                        <p className="py-8 text-center text-sm text-slate-400">No active assignments.</p>
                     ) : (
                         <Table>
                             <TableHeader>
@@ -176,7 +162,7 @@ export default function AssetDashboard() {
                                     <TableRow key={a.id}>
                                         <TableCell>
                                             <p className="font-mono text-sm font-medium">{a.asset?.asset_tag}</p>
-                                            <p className="text-xs text-zinc-400">{a.asset?.name}</p>
+                                            <p className="text-xs text-slate-400">{a.asset?.name}</p>
                                         </TableCell>
                                         <TableCell className="font-medium">{a.employee?.full_name || '-'}</TableCell>
                                         <TableCell className="text-sm">{formatDate(a.assigned_date)}</TableCell>

@@ -96,10 +96,10 @@ function SkeletonTable() {
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-28 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -207,14 +207,14 @@ export default function OvertimeManagement() {
                 description="Review and manage overtime requests"
             />
 
-            <div className="flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50 w-fit">
+            <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 w-fit">
                 <button
                     onClick={() => setMainView('overtime')}
                     className={cn(
                         'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
                         mainView === 'overtime'
-                            ? 'bg-white text-zinc-900 shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                     )}
                 >
                     OT Requests
@@ -224,8 +224,8 @@ export default function OvertimeManagement() {
                     className={cn(
                         'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
                         mainView === 'claims'
-                            ? 'bg-white text-zinc-900 shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                     )}
                 >
                     OT Claims
@@ -249,9 +249,9 @@ export default function OvertimeManagement() {
                             <SkeletonTable />
                         ) : claims.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <Clock className="mb-3 h-10 w-10 text-zinc-300" />
-                                <p className="text-sm font-medium text-zinc-500">No claims found</p>
-                                <p className="text-xs text-zinc-400">No overtime claims have been submitted</p>
+                                <Clock className="mb-3 h-10 w-10 text-slate-300" />
+                                <p className="text-sm font-medium text-slate-500">No claims found</p>
+                                <p className="text-xs text-slate-400">No overtime claims have been submitted</p>
                             </div>
                         ) : (
                             <Table>
@@ -270,21 +270,21 @@ export default function OvertimeManagement() {
                                         <TableRow key={claim.id}>
                                             <TableCell>
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">
+                                                    <p className="text-sm font-medium text-slate-900">
                                                         {claim.employee?.full_name || 'Unknown'}
                                                     </p>
-                                                    <p className="text-xs text-zinc-500">
+                                                    <p className="text-xs text-slate-500">
                                                         {claim.employee?.department?.name || ''}
                                                     </p>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-900">
+                                            <TableCell className="text-sm text-slate-900">
                                                 {formatDate(claim.claim_date)}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {claim.start_time ? claim.start_time.slice(0, 5) : '-'}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {formatDuration(claim.duration_minutes)}
                                             </TableCell>
                                             <TableCell>
@@ -342,9 +342,9 @@ export default function OvertimeManagement() {
                                 <SkeletonTable />
                             ) : requests.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                                    <Clock className="mb-3 h-10 w-10 text-zinc-300" />
-                                    <p className="text-sm font-medium text-zinc-500">No overtime requests</p>
-                                    <p className="text-xs text-zinc-400">
+                                    <Clock className="mb-3 h-10 w-10 text-slate-300" />
+                                    <p className="text-sm font-medium text-slate-500">No overtime requests</p>
+                                    <p className="text-xs text-slate-400">
                                         {activeTab === 'all'
                                             ? 'No overtime requests have been submitted'
                                             : `No ${activeTab} overtime requests`}
@@ -368,25 +368,25 @@ export default function OvertimeManagement() {
                                             <TableRow key={request.id}>
                                                 <TableCell>
                                                     <div>
-                                                        <p className="text-sm font-medium text-zinc-900">
+                                                        <p className="text-sm font-medium text-slate-900">
                                                             {request.employee?.full_name || 'Unknown'}
                                                         </p>
-                                                        <p className="text-xs text-zinc-500">
+                                                        <p className="text-xs text-slate-500">
                                                             {request.employee?.department?.name || ''}
                                                         </p>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-900">
+                                                <TableCell className="text-sm text-slate-900">
                                                     {formatDate(request.requested_date)}
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-600">
+                                                <TableCell className="text-sm text-slate-600">
                                                     {formatHours(request.planned_hours)}
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-600">
+                                                <TableCell className="text-sm text-slate-600">
                                                     {formatHours(request.actual_hours)}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <p className="max-w-[200px] truncate text-sm text-zinc-600">
+                                                    <p className="max-w-[200px] truncate text-sm text-slate-600">
                                                         {request.reason || '-'}
                                                     </p>
                                                 </TableCell>
@@ -399,7 +399,7 @@ export default function OvertimeManagement() {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => setViewTarget(request)}
-                                                            className="text-zinc-500 hover:text-zinc-700"
+                                                            className="text-slate-500 hover:text-slate-700"
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
@@ -458,12 +458,12 @@ export default function OvertimeManagement() {
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Employee</p>
-                                <p className="mt-0.5 text-sm font-medium text-zinc-900">{viewTarget?.employee?.full_name || '-'}</p>
-                                <p className="text-xs text-zinc-500">{viewTarget?.employee?.department?.name || ''}</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Employee</p>
+                                <p className="mt-0.5 text-sm font-medium text-slate-900">{viewTarget?.employee?.full_name || '-'}</p>
+                                <p className="text-xs text-slate-500">{viewTarget?.employee?.department?.name || ''}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Status</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Status</p>
                                 <div className="mt-0.5">
                                     <OTStatusBadge status={viewTarget?.status} />
                                 </div>
@@ -471,31 +471,31 @@ export default function OvertimeManagement() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Date</p>
-                                <p className="mt-0.5 text-sm text-zinc-900">{formatDate(viewTarget?.requested_date)}</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Date</p>
+                                <p className="mt-0.5 text-sm text-slate-900">{formatDate(viewTarget?.requested_date)}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Start Time</p>
-                                <p className="mt-0.5 text-sm text-zinc-900">{viewTarget?.start_time ? viewTarget.start_time.slice(0, 5) : '-'}</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Start Time</p>
+                                <p className="mt-0.5 text-sm text-slate-900">{viewTarget?.start_time ? viewTarget.start_time.slice(0, 5) : '-'}</p>
                             </div>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Planned</p>
-                                <p className="mt-0.5 text-sm text-zinc-900">{formatHours(viewTarget?.planned_hours)}</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Planned</p>
+                                <p className="mt-0.5 text-sm text-slate-900">{formatHours(viewTarget?.planned_hours)}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Actual</p>
-                                <p className="mt-0.5 text-sm text-zinc-900">{formatHours(viewTarget?.actual_hours)}</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Actual</p>
+                                <p className="mt-0.5 text-sm text-slate-900">{formatHours(viewTarget?.actual_hours)}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Replacement</p>
-                                <p className="mt-0.5 text-sm text-zinc-900">{viewTarget?.replacement_hours ? formatHours(viewTarget.replacement_hours) : '-'}</p>
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Replacement</p>
+                                <p className="mt-0.5 text-sm text-slate-900">{viewTarget?.replacement_hours ? formatHours(viewTarget.replacement_hours) : '-'}</p>
                             </div>
                         </div>
                         <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Reason</p>
-                            <p className="mt-0.5 text-sm text-zinc-700">{viewTarget?.reason || '-'}</p>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Reason</p>
+                            <p className="mt-0.5 text-sm text-slate-700">{viewTarget?.reason || '-'}</p>
                         </div>
                         {viewTarget?.rejection_reason && (
                             <div className="rounded-md border border-red-100 bg-red-50 p-3">
@@ -615,7 +615,7 @@ export default function OvertimeManagement() {
                     <div className="space-y-4">
                         <div>
                             <Label>Planned Hours</Label>
-                            <p className="text-sm text-zinc-600">{formatHours(completeTarget?.planned_hours)}</p>
+                            <p className="text-sm text-slate-600">{formatHours(completeTarget?.planned_hours)}</p>
                         </div>
                         <div>
                             <Label>Actual Hours Worked</Label>

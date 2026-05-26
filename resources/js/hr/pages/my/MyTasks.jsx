@@ -72,8 +72,8 @@ export default function MyTasks() {
     return (
         <div>
             <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">My Tasks</h1>
-                <p className="mt-1 text-sm text-zinc-500">Action items assigned to you from meetings.</p>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
+                <p className="mt-1 text-sm text-slate-500">Action items assigned to you from meetings.</p>
             </div>
 
             <Tabs value={tab} onValueChange={setTab}>
@@ -86,14 +86,14 @@ export default function MyTasks() {
 
             {isLoading ? (
                 <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                 </div>
             ) : tasks.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <ListTodo className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No tasks</h3>
-                        <p className="mt-1 text-sm text-zinc-500">You have no {tab} tasks.</p>
+                        <ListTodo className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No tasks</h3>
+                        <p className="mt-1 text-sm text-slate-500">You have no {tab} tasks.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -111,18 +111,18 @@ export default function MyTasks() {
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
                                                 <button onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
-                                                    <ChevronDown className={cn('h-4 w-4 text-zinc-400 transition-transform', isExpanded && 'rotate-180')} />
+                                                    <ChevronDown className={cn('h-4 w-4 text-slate-400 transition-transform', isExpanded && 'rotate-180')} />
                                                 </button>
-                                                <h3 className="font-semibold text-zinc-900">{task.title}</h3>
+                                                <h3 className="font-semibold text-slate-900">{task.title}</h3>
                                             </div>
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <Badge variant={pConfig.variant} className={pConfig.className}>{pConfig.label}</Badge>
-                                                <span className={cn('text-sm', isOverdue ? 'text-red-600 font-medium' : 'text-zinc-500')}>
+                                                <span className={cn('text-sm', isOverdue ? 'text-red-600 font-medium' : 'text-slate-500')}>
                                                     {isOverdue && <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />}
                                                     Due: {formatDate(task.deadline)}
                                                 </span>
                                                 {task.meeting && (
-                                                    <span className="text-sm text-zinc-400">
+                                                    <span className="text-sm text-slate-400">
                                                         from {task.meeting.title}
                                                     </span>
                                                 )}
@@ -144,17 +144,17 @@ export default function MyTasks() {
                                     </div>
 
                                     {isExpanded && (
-                                        <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
+                                        <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
                                             {task.description && (
-                                                <p className="text-sm text-zinc-600">{task.description}</p>
+                                                <p className="text-sm text-slate-600">{task.description}</p>
                                             )}
                                             {task.subtasks?.length > 0 && (
                                                 <div>
-                                                    <p className="text-xs font-medium uppercase text-zinc-500">Subtasks</p>
+                                                    <p className="text-xs font-medium uppercase text-slate-500">Subtasks</p>
                                                     <ul className="mt-1 space-y-1">
                                                         {task.subtasks.map((st) => (
                                                             <li key={st.id} className="flex items-center gap-2 text-sm">
-                                                                <span className={cn('h-2 w-2 rounded-full', st.status === 'completed' ? 'bg-emerald-500' : 'bg-zinc-300')} />
+                                                                <span className={cn('h-2 w-2 rounded-full', st.status === 'completed' ? 'bg-emerald-500' : 'bg-slate-300')} />
                                                                 {st.title}
                                                             </li>
                                                         ))}
@@ -163,14 +163,14 @@ export default function MyTasks() {
                                             )}
                                             {task.comments?.length > 0 && (
                                                 <div>
-                                                    <p className="text-xs font-medium uppercase text-zinc-500">Comments</p>
+                                                    <p className="text-xs font-medium uppercase text-slate-500">Comments</p>
                                                     <div className="mt-1 space-y-2">
                                                         {task.comments.map((c) => (
-                                                            <div key={c.id} className="rounded bg-zinc-50 px-3 py-2">
-                                                                <p className="text-xs font-medium text-zinc-700">
+                                                            <div key={c.id} className="rounded bg-slate-50 px-3 py-2">
+                                                                <p className="text-xs font-medium text-slate-700">
                                                                     {c.user?.name || c.author?.full_name || 'Unknown'}
                                                                 </p>
-                                                                <p className="text-sm text-zinc-600">{c.body || c.content}</p>
+                                                                <p className="text-sm text-slate-600">{c.body || c.content}</p>
                                                             </div>
                                                         ))}
                                                     </div>

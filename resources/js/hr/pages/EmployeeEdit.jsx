@@ -364,7 +364,7 @@ export default function EmployeeEdit() {
     if (isLoading || !formReady) {
         return (
             <div className="flex items-center justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900" />
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-900" />
             </div>
         );
     }
@@ -372,8 +372,8 @@ export default function EmployeeEdit() {
     if (!emp.id) {
         return (
             <div className="py-20 text-center">
-                <p className="text-zinc-500">Employee not found.</p>
-                <Link to="/employees" className="mt-4 inline-block text-sm text-zinc-900 underline">
+                <p className="text-slate-500">Employee not found.</p>
+                <Link to="/employees" className="mt-4 inline-block text-sm text-slate-900 underline">
                     Back to Employees
                 </Link>
             </div>
@@ -385,7 +385,7 @@ export default function EmployeeEdit() {
             {/* Back link */}
             <Link
                 to={`/employees/${id}`}
-                className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Employee Profile
@@ -393,10 +393,10 @@ export default function EmployeeEdit() {
 
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                     Edit Employee: {fullName}
                 </h1>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-slate-500">
                     Update employee information. Changes to department, position, employment type, or status will be tracked.
                 </p>
             </div>
@@ -409,7 +409,7 @@ export default function EmployeeEdit() {
             )}
 
             {/* Tabs */}
-            <div className="border-b border-zinc-200">
+            <div className="border-b border-slate-200">
                 <nav className="-mb-px flex gap-4" aria-label="Tabs">
                     {TABS.map((tab) => {
                         const tabErrorCount = Object.keys(errors).filter(
@@ -423,8 +423,8 @@ export default function EmployeeEdit() {
                                 className={cn(
                                     'relative whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors',
                                     activeTab === tab.id
-                                        ? 'border-zinc-900 text-zinc-900'
-                                        : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
+                                        ? 'border-slate-900 text-slate-900'
+                                        : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
                                 )}
                             >
                                 {tab.label}
@@ -581,8 +581,8 @@ export default function EmployeeEdit() {
                             </div>
 
                             {/* Address */}
-                            <div className="border-t border-zinc-200 pt-6">
-                                <h4 className="mb-4 text-sm font-medium text-zinc-900">Address</h4>
+                            <div className="border-t border-slate-200 pt-6">
+                                <h4 className="mb-4 text-sm font-medium text-slate-900">Address</h4>
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                     <div className="sm:col-span-2">
                                         <FormField
@@ -754,7 +754,7 @@ export default function EmployeeEdit() {
                                         label="Employment Type"
                                         error={errors.employment_type}
                                     >
-                                        <div className="flex flex-wrap gap-2 rounded-lg border border-zinc-200 bg-white p-3">
+                                        <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3">
                                             {EMPLOYMENT_TYPES.map((t) => {
                                                 const checked = Array.isArray(form.employment_type) && form.employment_type.includes(t.value);
                                                 return (
@@ -763,8 +763,8 @@ export default function EmployeeEdit() {
                                                         className={cn(
                                                             'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors select-none',
                                                             checked
-                                                                ? 'border-zinc-900 bg-zinc-900 text-white'
-                                                                : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
+                                                                ? 'border-slate-900 bg-slate-900 text-white'
+                                                                : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400'
                                                         )}
                                                     >
                                                         <input
@@ -829,7 +829,7 @@ export default function EmployeeEdit() {
                             <div>
                                 <FormField label="Notes" error={errors.notes}>
                                     <textarea
-                                        className="flex min-h-[100px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                                        className="flex min-h-[100px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                                         value={form.notes}
                                         onChange={(e) => setField('notes', e.target.value)}
                                         placeholder="Any additional notes..."

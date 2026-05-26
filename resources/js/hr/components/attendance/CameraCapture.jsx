@@ -121,7 +121,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
         <div className="flex flex-col items-center gap-4">
             <div
                 className={cn(
-                    'relative h-48 w-48 overflow-hidden rounded-full border-4 border-zinc-200 bg-zinc-100',
+                    'relative h-48 w-48 overflow-hidden rounded-full border-4 border-slate-200 bg-slate-100',
                     disabled && 'opacity-50'
                 )}
             >
@@ -141,7 +141,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
                     />
                 ) : (
                     <div className="flex h-full w-full items-center justify-center">
-                        <Camera className="h-12 w-12 text-zinc-400" />
+                        <Camera className="h-12 w-12 text-slate-400" />
                     </div>
                 )}
             </div>
@@ -150,7 +150,7 @@ export default function CameraCapture({ onCapture, disabled = false }) {
 
             {cameraError ? (
                 <div className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-zinc-500">Camera access denied</p>
+                    <p className="text-sm text-slate-500">Camera access denied</p>
                     <input
                         ref={fileInputRef}
                         type="file"

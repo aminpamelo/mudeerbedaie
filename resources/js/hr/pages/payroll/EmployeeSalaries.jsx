@@ -63,18 +63,18 @@ function EmployeeRow({ employee, onEdit }) {
 
     return (
         <>
-            <TableRow className="cursor-pointer hover:bg-zinc-50" onClick={() => setExpanded(!expanded)}>
+            <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpanded(!expanded)}>
                 <TableCell>
                     <div className="flex items-center gap-2">
-                        {expanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
+                        {expanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                         <div>
-                            <p className="font-medium text-zinc-900">{employee.full_name}</p>
-                            <p className="text-xs text-zinc-500">{employee.employee_id}</p>
+                            <p className="font-medium text-slate-900">{employee.full_name}</p>
+                            <p className="text-xs text-slate-500">{employee.employee_id}</p>
                         </div>
                     </div>
                 </TableCell>
-                <TableCell className="text-sm text-zinc-600">{employee.department?.name || '-'}</TableCell>
-                <TableCell className="text-sm text-zinc-600">{employee.position?.title || '-'}</TableCell>
+                <TableCell className="text-sm text-slate-600">{employee.department?.name || '-'}</TableCell>
+                <TableCell className="text-sm text-slate-600">{employee.position?.title || '-'}</TableCell>
                 <TableCell className="font-medium">{formatCurrency(totalSalary)}</TableCell>
                 <TableCell className="text-right">
                     <Button
@@ -88,12 +88,12 @@ function EmployeeRow({ employee, onEdit }) {
             </TableRow>
             {expanded && (
                 <TableRow>
-                    <TableCell colSpan={5} className="bg-zinc-50 p-0">
+                    <TableCell colSpan={5} className="bg-slate-50 p-0">
                         <div className="px-8 py-3">
-                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">Salary Components</p>
+                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Salary Components</p>
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-left text-xs text-zinc-500">
+                                    <tr className="text-left text-xs text-slate-500">
                                         <th className="pb-1 font-medium">Component</th>
                                         <th className="pb-1 font-medium">Amount</th>
                                         <th className="pb-1 font-medium">Effective From</th>
@@ -103,15 +103,15 @@ function EmployeeRow({ employee, onEdit }) {
                                 <tbody>
                                     {(employee.salaries || []).map((sal) => (
                                         <tr key={sal.id}>
-                                            <td className="py-0.5 text-zinc-700">{sal.salary_component?.name || '-'}</td>
+                                            <td className="py-0.5 text-slate-700">{sal.salary_component?.name || '-'}</td>
                                             <td className="py-0.5 font-medium">{formatCurrency(sal.amount)}</td>
-                                            <td className="py-0.5 text-zinc-500">{formatDate(sal.effective_from)}</td>
-                                            <td className="py-0.5 text-zinc-500">{sal.effective_to ? formatDate(sal.effective_to) : 'Current'}</td>
+                                            <td className="py-0.5 text-slate-500">{formatDate(sal.effective_from)}</td>
+                                            <td className="py-0.5 text-slate-500">{sal.effective_to ? formatDate(sal.effective_to) : 'Current'}</td>
                                         </tr>
                                     ))}
                                     {(!employee.salaries || employee.salaries.length === 0) && (
                                         <tr>
-                                            <td colSpan={4} className="py-2 text-zinc-400">No salary records</td>
+                                            <td colSpan={4} className="py-2 text-slate-400">No salary records</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -187,7 +187,7 @@ export default function EmployeeSalaries() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search by name or employee ID..."
-                        className="w-full max-w-sm rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                        className="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                     />
                 </CardContent>
             </Card>
@@ -203,17 +203,17 @@ export default function EmployeeSalaries() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 5 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-28 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : employees.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Users className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No employees found</p>
+                            <Users className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No employees found</p>
                         </div>
                     ) : (
                         <Table>
@@ -247,11 +247,11 @@ export default function EmployeeSalaries() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Component</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Component</label>
                             <select
                                 value={salaryForm.salary_component_id}
                                 onChange={(e) => setSalaryForm((p) => ({ ...p, salary_component_id: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="">Select component...</option>
                                 {components.map((c) => (
@@ -260,34 +260,34 @@ export default function EmployeeSalaries() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Amount (RM)</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Amount (RM)</label>
                             <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={salaryForm.amount}
                                 onChange={(e) => setSalaryForm((p) => ({ ...p, amount: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="0.00"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Effective From</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Effective From</label>
                                 <input
                                     type="date"
                                     value={salaryForm.effective_from}
                                     onChange={(e) => setSalaryForm((p) => ({ ...p, effective_from: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Effective To (optional)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Effective To (optional)</label>
                                 <input
                                     type="date"
                                     value={salaryForm.effective_to}
                                     onChange={(e) => setSalaryForm((p) => ({ ...p, effective_to: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -329,29 +329,29 @@ export default function EmployeeSalaries() {
                     {revisionsLoading ? (
                         <div className="space-y-2">
                             {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="h-4 w-full animate-pulse rounded bg-zinc-200" />
+                                <div key={i} className="h-4 w-full animate-pulse rounded bg-slate-200" />
                             ))}
                         </div>
                     ) : revisions.length === 0 ? (
-                        <p className="text-center text-sm text-zinc-400 py-4">No revisions recorded.</p>
+                        <p className="text-center text-sm text-slate-400 py-4">No revisions recorded.</p>
                     ) : (
                         <div className="max-h-80 overflow-y-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-left text-xs text-zinc-500">
+                                    <tr className="text-left text-xs text-slate-500">
                                         <th className="pb-2 font-medium">Component</th>
                                         <th className="pb-2 font-medium">Old</th>
                                         <th className="pb-2 font-medium">New</th>
                                         <th className="pb-2 font-medium">Date</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-zinc-100">
+                                <tbody className="divide-y divide-slate-100">
                                     {revisions.map((rev) => (
                                         <tr key={rev.id}>
                                             <td className="py-2">{rev.salary_component?.name || '-'}</td>
                                             <td className="py-2 text-red-600">{formatCurrency(rev.old_amount)}</td>
                                             <td className="py-2 text-emerald-600">{formatCurrency(rev.new_amount)}</td>
-                                            <td className="py-2 text-zinc-500">{formatDate(rev.effective_date)}</td>
+                                            <td className="py-2 text-slate-500">{formatDate(rev.effective_date)}</td>
                                         </tr>
                                     ))}
                                 </tbody>

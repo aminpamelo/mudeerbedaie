@@ -56,12 +56,12 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -71,11 +71,11 @@ function SkeletonTable() {
 function EmptyState({ hasFilters, onClearFilters }) {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Wallet className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">
+            <Wallet className="mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">
                 {hasFilters ? 'No balances found' : 'No leave balances yet'}
             </h3>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-slate-500">
                 {hasFilters
                     ? 'Try adjusting your filters.'
                     : 'Initialize year balances to get started.'}
@@ -307,7 +307,7 @@ export default function LeaveBalances() {
                                         {balances.map((employee) => (
                                             <TableRow key={employee.id}>
                                                 <TableCell className="font-medium">{employee.full_name}</TableCell>
-                                                <TableCell className="text-sm text-zinc-500">
+                                                <TableCell className="text-sm text-slate-500">
                                                     {employee.department?.name || '-'}
                                                 </TableCell>
                                                 {leaveTypes.map((lt) => {
@@ -321,11 +321,11 @@ export default function LeaveBalances() {
                                                         <TableCell key={lt.id} className="text-center">
                                                             <span className={cn(
                                                                 'text-sm font-medium',
-                                                                remaining <= 0 ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-zinc-900'
+                                                                remaining <= 0 ? 'text-red-600' : remaining <= 3 ? 'text-amber-600' : 'text-slate-900'
                                                             )}>
                                                                 {used}
                                                             </span>
-                                                            <span className="text-xs text-zinc-400">/{total}</span>
+                                                            <span className="text-xs text-slate-400">/{total}</span>
                                                         </TableCell>
                                                     );
                                                 })}
@@ -354,7 +354,7 @@ export default function LeaveBalances() {
 
                             {lastPage > 1 && (
                                 <div className="mt-4 flex items-center justify-between">
-                                    <p className="text-sm text-zinc-500">
+                                    <p className="text-sm text-slate-500">
                                         Page {page} of {lastPage} ({pagination.total || 0} total)
                                     </p>
                                     <div className="flex gap-1">
@@ -382,15 +382,15 @@ export default function LeaveBalances() {
                     </DialogHeader>
                     {detailDialog.loading ? (
                         <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : detailDialog.data ? (
                         <div className="space-y-3">
                             {(detailDialog.data.balances || []).map((balance) => (
-                                <div key={balance.leave_type_id} className="flex items-center justify-between rounded-lg border border-zinc-200 p-3">
+                                <div key={balance.leave_type_id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
                                     <div>
-                                        <p className="text-sm font-medium text-zinc-900">{balance.leave_type_name || balance.leave_type?.name}</p>
-                                        <p className="text-xs text-zinc-400">
+                                        <p className="text-sm font-medium text-slate-900">{balance.leave_type_name || balance.leave_type?.name}</p>
+                                        <p className="text-xs text-slate-400">
                                             Carry forward: {balance.carry_forward ?? 0}
                                         </p>
                                     </div>
@@ -401,20 +401,20 @@ export default function LeaveBalances() {
                                             )}>
                                                 {balance.entitled - balance.used}
                                             </span>
-                                            <span className="text-zinc-400"> remaining</span>
+                                            <span className="text-slate-400"> remaining</span>
                                         </p>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-xs text-slate-500">
                                             {balance.used} used / {balance.entitled} entitled
                                         </p>
                                     </div>
                                 </div>
                             ))}
                             {(!detailDialog.data.balances || detailDialog.data.balances.length === 0) && (
-                                <p className="py-4 text-center text-sm text-zinc-400">No balance records found.</p>
+                                <p className="py-4 text-center text-sm text-slate-400">No balance records found.</p>
                             )}
                         </div>
                     ) : (
-                        <p className="py-4 text-center text-sm text-zinc-400">Unable to load balance details.</p>
+                        <p className="py-4 text-center text-sm text-slate-400">Unable to load balance details.</p>
                     )}
                 </DialogContent>
             </Dialog>
@@ -429,7 +429,7 @@ export default function LeaveBalances() {
                     </DialogHeader>
                     <div className="space-y-3">
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Year</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Year</label>
                             <Select value={initYear} onValueChange={setInitYear}>
                                 <SelectTrigger>
                                     <SelectValue />
@@ -462,7 +462,7 @@ export default function LeaveBalances() {
                     </DialogHeader>
                     <div className="space-y-3">
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Leave Type</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Leave Type</label>
                             <Select
                                 value={adjustForm.leave_type_id}
                                 onValueChange={(v) => setAdjustForm({ ...adjustForm, leave_type_id: v })}
@@ -479,7 +479,7 @@ export default function LeaveBalances() {
                         </div>
                         <div className="flex gap-3">
                             <div className="flex-1">
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Type</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
                                 <Select
                                     value={adjustForm.type}
                                     onValueChange={(v) => setAdjustForm({ ...adjustForm, type: v })}
@@ -494,7 +494,7 @@ export default function LeaveBalances() {
                                 </Select>
                             </div>
                             <div className="flex-1">
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Days</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Days</label>
                                 <Input
                                     type="number"
                                     min="0.5"
@@ -506,12 +506,12 @@ export default function LeaveBalances() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Reason</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Reason</label>
                             <textarea
                                 value={adjustForm.reason}
                                 onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
                                 placeholder="Reason for adjustment..."
-                                className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 rows={2}
                             />
                         </div>

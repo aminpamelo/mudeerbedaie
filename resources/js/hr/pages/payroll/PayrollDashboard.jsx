@@ -44,6 +44,7 @@ import {
 } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { StatCard as V2StatCard } from '../../components/ui/stat-card';
 import {
     Dialog,
     DialogContent,
@@ -70,7 +71,7 @@ const MONTHS = [
 const STATUTORY_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444'];
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    draft: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-700' },
     calculating: { label: 'Calculating', bg: 'bg-blue-100', text: 'text-blue-700' },
     pending_review: { label: 'Pending Review', bg: 'bg-amber-100', text: 'text-amber-700' },
     approved: { label: 'Approved', bg: 'bg-emerald-100', text: 'text-emerald-700' },
@@ -87,23 +88,13 @@ function formatDate(dateStr) {
     return new Date(dateStr).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function StatCard({ title, value, icon: Icon, iconColor, iconBg, subtitle }) {
-    return (
-        <Card className="transition-shadow hover:shadow-md">
-            <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-zinc-500">{title}</p>
-                        <p className="text-2xl font-bold tracking-tight text-zinc-900">{value}</p>
-                        {subtitle && <p className="text-xs text-zinc-400">{subtitle}</p>}
-                    </div>
-                    <div className={cn('flex h-12 w-12 items-center justify-center rounded-lg', iconBg)}>
-                        <Icon className={cn('h-6 w-6', iconColor)} />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
+// Backwards-compat wrapper mapping the old API to the v2 colorful StatCard.
+function StatCard({ title, value, icon, iconColor, subtitle }) {
+    const match = iconColor?.match(/text-(\w+)-/);
+    const colorName = match ? match[1] : 'indigo';
+    const accentMap = { blue: 'sky', purple: 'violet', red: 'rose', green: 'emerald' };
+    const accent = accentMap[colorName] || colorName;
+    return <V2StatCard label={title} value={value} sub={subtitle} icon={icon} accent={accent} />;
 }
 
 function SkeletonCard() {
@@ -112,10 +103,10 @@ function SkeletonCard() {
             <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                     <div className="space-y-3">
-                        <div className="h-3 w-24 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-8 w-32 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                        <div className="h-8 w-32 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-12 w-12 animate-pulse rounded-lg bg-zinc-200" />
+                    <div className="h-12 w-12 animate-pulse rounded-lg bg-slate-200" />
                 </div>
             </CardContent>
         </Card>
@@ -123,7 +114,7 @@ function SkeletonCard() {
 }
 
 function PayrollStatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -134,10 +125,10 @@ function PayrollStatusBadge({ status }) {
 function CustomTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg">
-            <p className="text-sm font-medium text-zinc-900">{label}</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">{label}</p>
             {payload.map((entry) => (
-                <p key={entry.name} className="text-sm text-zinc-500">
+                <p key={entry.name} className="text-sm text-slate-500">
                     {entry.name}: {formatCurrency(entry.value)}
                 </p>
             ))}
@@ -251,7 +242,7 @@ export default function PayrollDashboard() {
                 {trendLoading ? (
                     <Card className="lg:col-span-2">
                         <CardContent className="p-6">
-                            <div className="h-[280px] animate-pulse rounded bg-zinc-100" />
+                            <div className="h-[280px] animate-pulse rounded bg-slate-100" />
                         </CardContent>
                     </Card>
                 ) : (
@@ -262,7 +253,7 @@ export default function PayrollDashboard() {
                         </CardHeader>
                         <CardContent>
                             {trend.length === 0 ? (
-                                <div className="flex h-[280px] items-center justify-center text-sm text-zinc-400">
+                                <div className="flex h-[280px] items-center justify-center text-sm text-slate-400">
                                     No trend data available
                                 </div>
                             ) : (
@@ -290,7 +281,7 @@ export default function PayrollDashboard() {
                     </CardHeader>
                     <CardContent>
                         {statutory.length === 0 ? (
-                            <div className="flex h-[280px] items-center justify-center text-sm text-zinc-400">
+                            <div className="flex h-[280px] items-center justify-center text-sm text-slate-400">
                                 No statutory data available
                             </div>
                         ) : (
@@ -336,18 +327,18 @@ export default function PayrollDashboard() {
                         <div className="space-y-3">
                             {Array.from({ length: 4 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-3">
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-6 w-20 animate-pulse rounded-full bg-zinc-200" />
+                                    <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : runs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <DollarSign className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No payroll runs yet</p>
-                            <p className="text-xs text-zinc-400">Create a new payroll run to get started</p>
+                            <DollarSign className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No payroll runs yet</p>
+                            <p className="text-xs text-slate-400">Create a new payroll run to get started</p>
                         </div>
                     ) : (
                         <Table>
@@ -399,11 +390,11 @@ export default function PayrollDashboard() {
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Month</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Month</label>
                             <select
                                 value={newRun.month}
                                 onChange={(e) => setNewRun((p) => ({ ...p, month: parseInt(e.target.value) }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 {MONTHS.map((m, i) => (
                                     <option key={i} value={i + 1}>{m}</option>
@@ -411,11 +402,11 @@ export default function PayrollDashboard() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Year</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Year</label>
                             <select
                                 value={newRun.year}
                                 onChange={(e) => setNewRun((p) => ({ ...p, year: parseInt(e.target.value) }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
                                     <option key={y} value={y}>{y}</option>

@@ -64,7 +64,7 @@ const TYPE_OPTIONS = [
 ];
 
 const STATUS_BADGE = {
-    draft: 'bg-zinc-100 text-zinc-600',
+    draft: 'bg-slate-100 text-slate-600',
     published: 'bg-emerald-100 text-emerald-700',
     closed: 'bg-red-100 text-red-700',
 };
@@ -84,11 +84,11 @@ function SkeletonTable() {
         <div className="space-y-3 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-2">
-                    <div className="h-4 w-48 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -258,9 +258,9 @@ export default function JobPostings() {
             ) : postings.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Briefcase className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No job postings found</h3>
-                        <p className="mt-1 text-sm text-zinc-500">Create your first job posting to start recruiting.</p>
+                        <Briefcase className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No job postings found</h3>
+                        <p className="mt-1 text-sm text-slate-500">Create your first job posting to start recruiting.</p>
                         <Button className="mt-4" onClick={openCreate}>
                             <Plus className="mr-1.5 h-4 w-4" />
                             New Posting
@@ -295,7 +295,7 @@ export default function JobPostings() {
                                         <span
                                             className={cn(
                                                 'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                STATUS_BADGE[posting.status] || 'bg-zinc-100 text-zinc-600'
+                                                STATUS_BADGE[posting.status] || 'bg-slate-100 text-slate-600'
                                             )}
                                         >
                                             {posting.status}
@@ -427,7 +427,7 @@ export default function JobPostings() {
                                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                                     rows={3}
                                     placeholder="Job description..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
 
@@ -439,7 +439,7 @@ export default function JobPostings() {
                                     onChange={(e) => setForm((f) => ({ ...f, requirements: e.target.value }))}
                                     rows={3}
                                     placeholder="Candidate requirements..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
@@ -463,7 +463,7 @@ export default function JobPostings() {
                     <DialogHeader>
                         <DialogTitle>Delete Job Posting</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-zinc-600">
+                    <p className="text-sm text-slate-600">
                         Are you sure you want to delete <span className="font-medium">{deleteTarget?.title}</span>?
                         This action cannot be undone.
                     </p>

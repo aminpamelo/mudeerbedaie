@@ -19,7 +19,7 @@ const STATUS_CONFIG = {
     approved:  { color: 'text-emerald-700 bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500', border: 'border-l-emerald-400' },
     rejected:  { color: 'text-red-700 bg-red-50 border-red-200',        dot: 'bg-red-500',    border: 'border-l-red-400' },
     completed: { color: 'text-blue-700 bg-blue-50 border-blue-200',     dot: 'bg-blue-500',   border: 'border-l-blue-400' },
-    cancelled: { color: 'text-zinc-600 bg-zinc-100 border-zinc-200',    dot: 'bg-zinc-400',   border: 'border-l-zinc-300' },
+    cancelled: { color: 'text-slate-600 bg-slate-100 border-slate-200',    dot: 'bg-slate-400',   border: 'border-l-slate-300' },
 };
 
 function formatDate(dateStr) {
@@ -59,18 +59,18 @@ function fetchOvertimeApprovals(status) {
 
 function SkeletonCard() {
     return (
-        <div className="rounded-2xl bg-white border border-zinc-100 p-4 shadow-sm animate-pulse">
+        <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm animate-pulse">
             <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-zinc-100 shrink-0" />
+                <div className="h-10 w-10 rounded-full bg-slate-100 shrink-0" />
                 <div className="flex-1 space-y-2">
-                    <div className="h-4 w-36 rounded bg-zinc-100" />
-                    <div className="h-3 w-24 rounded bg-zinc-100" />
+                    <div className="h-4 w-36 rounded bg-slate-100" />
+                    <div className="h-3 w-24 rounded bg-slate-100" />
                 </div>
-                <div className="h-5 w-16 rounded-full bg-zinc-100" />
+                <div className="h-5 w-16 rounded-full bg-slate-100" />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="h-8 rounded-lg bg-zinc-50" />
-                <div className="h-8 rounded-lg bg-zinc-50" />
+                <div className="h-8 rounded-lg bg-slate-50" />
+                <div className="h-8 rounded-lg bg-slate-50" />
             </div>
         </div>
     );
@@ -82,7 +82,7 @@ function OTCard({ req, onApprove, onReject }) {
 
     return (
         <div
-            className={`rounded-2xl bg-white border border-zinc-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
+            className={`rounded-2xl bg-white border border-slate-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
             style={{ animation: 'fadeSlideUp 0.3s ease both' }}
         >
             <div className="p-4">
@@ -93,17 +93,17 @@ function OTCard({ req, onApprove, onReject }) {
                             {getInitials(name)}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-zinc-900 truncate">{name}</p>
+                            <p className="text-sm font-semibold text-slate-900 truncate">{name}</p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 {req.employee?.department?.name && (
-                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                    <span className="flex items-center gap-0.5 text-xs text-slate-400">
                                         <Building2 className="h-3 w-3" />
                                         {req.employee.department.name}
                                     </span>
                                 )}
                                 {req.employee?.position?.title && (
-                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
-                                        <span className="text-zinc-300">·</span>
+                                    <span className="flex items-center gap-0.5 text-xs text-slate-400">
+                                        <span className="text-slate-300">·</span>
                                         <Briefcase className="h-3 w-3" />
                                         {req.employee.position.title}
                                     </span>
@@ -119,18 +119,18 @@ function OTCard({ req, onApprove, onReject }) {
 
                 {/* Info grid */}
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <Calendar className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                        <span className="text-xs text-zinc-700 font-medium">{formatDate(req.requested_date)}</span>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-700 font-medium">{formatDate(req.requested_date)}</span>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <Timer className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                        <span className="text-xs text-zinc-700 font-medium">{req.estimated_hours}h estimated</span>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <Timer className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-700 font-medium">{req.estimated_hours}h estimated</span>
                     </div>
                     {req.start_time && (
-                        <div className="col-span-2 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                            <Clock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                            <span className="text-xs text-zinc-700 font-medium">
+                        <div className="col-span-2 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="text-xs text-slate-700 font-medium">
                                 {formatTime(req.start_time)} – {formatTime(req.end_time)}
                             </span>
                         </div>
@@ -139,9 +139,9 @@ function OTCard({ req, onApprove, onReject }) {
 
                 {/* Reason */}
                 {req.reason && (
-                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-zinc-500 line-clamp-2">{req.reason}</p>
+                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-slate-500 line-clamp-2">{req.reason}</p>
                     </div>
                 )}
 
@@ -201,7 +201,7 @@ function ClaimCard({ claim, onApprove, onReject }) {
 
     return (
         <div
-            className={`rounded-2xl bg-white border border-zinc-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
+            className={`rounded-2xl bg-white border border-slate-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
             style={{ animation: 'fadeSlideUp 0.3s ease both' }}
         >
             <div className="p-4">
@@ -212,17 +212,17 @@ function ClaimCard({ claim, onApprove, onReject }) {
                             {getInitials(name)}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-zinc-900 truncate">{name}</p>
+                            <p className="text-sm font-semibold text-slate-900 truncate">{name}</p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 {claim.employee?.department?.name && (
-                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                    <span className="flex items-center gap-0.5 text-xs text-slate-400">
                                         <Building2 className="h-3 w-3" />
                                         {claim.employee.department.name}
                                     </span>
                                 )}
                                 {claim.employee?.position?.title && (
-                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
-                                        <span className="text-zinc-300">·</span>
+                                    <span className="flex items-center gap-0.5 text-xs text-slate-400">
+                                        <span className="text-slate-300">·</span>
                                         <Briefcase className="h-3 w-3" />
                                         {claim.employee.position.title}
                                     </span>
@@ -238,27 +238,27 @@ function ClaimCard({ claim, onApprove, onReject }) {
 
                 {/* Info grid */}
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <Calendar className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                        <span className="text-xs text-zinc-700 font-medium">{formatDate(claim.claim_date)}</span>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-700 font-medium">{formatDate(claim.claim_date)}</span>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <Timer className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                        <span className="text-xs text-zinc-700 font-medium">{formatClaimDuration(claim.duration_minutes)}</span>
+                    <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <Timer className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs text-slate-700 font-medium">{formatClaimDuration(claim.duration_minutes)}</span>
                     </div>
                     {claim.start_time && (
-                        <div className="col-span-2 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                            <Clock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                            <span className="text-xs text-zinc-700 font-medium">From {formatTime(claim.start_time)}</span>
+                        <div className="col-span-2 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="text-xs text-slate-700 font-medium">From {formatTime(claim.start_time)}</span>
                         </div>
                     )}
                 </div>
 
                 {/* Notes */}
                 {claim.notes && (
-                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-zinc-50 px-3 py-2">
-                        <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-zinc-500 line-clamp-2">{claim.notes}</p>
+                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-slate-500 line-clamp-2">{claim.notes}</p>
                     </div>
                 )}
 
@@ -382,28 +382,28 @@ export default function MyApprovalsOvertime() {
                 }
             `}</style>
 
-            <div className="flex flex-col h-full bg-zinc-50">
+            <div className="flex flex-col h-full bg-slate-50">
                 {/* Header */}
-                <div className="sticky top-0 z-10 bg-white border-b border-zinc-100 px-4 pt-4 pb-0 shadow-sm">
+                <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-4 pt-4 pb-0 shadow-sm">
                     <div className="flex items-center gap-3 mb-4">
                         <button
                             onClick={() => navigate('/my/approvals')}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800"
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
                         >
                             <ArrowLeft className="h-4 w-4" />
                         </button>
                         <div>
-                            <h1 className="text-base font-bold text-zinc-900">Overtime Approvals</h1>
-                            <p className="text-xs text-zinc-400">{requests.length} {tab === 'all' ? 'total' : tab} request{requests.length !== 1 ? 's' : ''}</p>
+                            <h1 className="text-base font-bold text-slate-900">Overtime Approvals</h1>
+                            <p className="text-xs text-slate-400">{requests.length} {tab === 'all' ? 'total' : tab} request{requests.length !== 1 ? 's' : ''}</p>
                         </div>
                     </div>
 
                     {/* Type switcher */}
-                    <div className="flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50 w-fit mb-3">
+                    <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 w-fit mb-3">
                         <button
                             onClick={() => setType('requests')}
                             className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                                type === 'requests' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'
+                                type === 'requests' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                             }`}
                         >
                             OT Requests
@@ -411,7 +411,7 @@ export default function MyApprovalsOvertime() {
                         <button
                             onClick={() => setType('claims')}
                             className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                                type === 'claims' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'
+                                type === 'claims' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                             }`}
                         >
                             OT Claims
@@ -426,8 +426,8 @@ export default function MyApprovalsOvertime() {
                                 onClick={() => setTab(t.key)}
                                 className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                                     tab === t.key
-                                        ? 'border-zinc-900 text-zinc-900'
-                                        : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                                        ? 'border-slate-900 text-slate-900'
+                                        : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}
                             >
                                 {t.label}
@@ -450,16 +450,16 @@ export default function MyApprovalsOvertime() {
                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 mb-3">
                                     <AlertCircle className="h-6 w-6 text-red-400" />
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-700">Failed to load requests</p>
-                                <p className="text-xs text-zinc-400 mt-1">{error?.response?.data?.message || error?.message || 'Something went wrong'}</p>
+                                <p className="text-sm font-semibold text-slate-700">Failed to load requests</p>
+                                <p className="text-xs text-slate-400 mt-1">{error?.response?.data?.message || error?.message || 'Something went wrong'}</p>
                             </div>
                         ) : requests.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
-                                    <Timer className="h-6 w-6 text-zinc-400" />
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 mb-3">
+                                    <Timer className="h-6 w-6 text-slate-400" />
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-700">No {tab === 'all' ? '' : tab} requests</p>
-                                <p className="text-xs text-zinc-400 mt-1">Nothing to review right now</p>
+                                <p className="text-sm font-semibold text-slate-700">No {tab === 'all' ? '' : tab} requests</p>
+                                <p className="text-xs text-slate-400 mt-1">Nothing to review right now</p>
                             </div>
                         ) : (
                             requests.map((req, i) => (
@@ -488,16 +488,16 @@ export default function MyApprovalsOvertime() {
                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 mb-3">
                                     <AlertCircle className="h-6 w-6 text-red-400" />
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-700">Failed to load claims</p>
-                                <p className="text-xs text-zinc-400 mt-1">{claimsError?.response?.data?.message || claimsError?.message || 'Something went wrong'}</p>
+                                <p className="text-sm font-semibold text-slate-700">Failed to load claims</p>
+                                <p className="text-xs text-slate-400 mt-1">{claimsError?.response?.data?.message || claimsError?.message || 'Something went wrong'}</p>
                             </div>
                         ) : (claimsData?.data ?? []).length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
-                                    <Timer className="h-6 w-6 text-zinc-400" />
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 mb-3">
+                                    <Timer className="h-6 w-6 text-slate-400" />
                                 </div>
-                                <p className="text-sm font-semibold text-zinc-700">No {tab === 'all' ? '' : tab} claims</p>
-                                <p className="text-xs text-zinc-400 mt-1">Nothing to review right now</p>
+                                <p className="text-sm font-semibold text-slate-700">No {tab === 'all' ? '' : tab} claims</p>
+                                <p className="text-xs text-slate-400 mt-1">Nothing to review right now</p>
                             </div>
                         ) : (
                             (claimsData?.data ?? []).map((claim, i) => (
@@ -525,18 +525,18 @@ export default function MyApprovalsOvertime() {
                         <DialogTitle className="text-base">Approve Overtime Request</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-3">
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             You're about to approve the overtime request from{' '}
-                            <span className="font-semibold text-zinc-800">{approveDialog?.name}</span>.
+                            <span className="font-semibold text-slate-800">{approveDialog?.name}</span>.
                         </p>
                         <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
-                                <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-0.5">Date</p>
-                                <p className="text-sm font-semibold text-zinc-800">{formatDate(approveDialog?.date)}</p>
+                            <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                                <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-0.5">Date</p>
+                                <p className="text-sm font-semibold text-slate-800">{formatDate(approveDialog?.date)}</p>
                             </div>
-                            <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
-                                <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-0.5">Duration</p>
-                                <p className="text-sm font-semibold text-zinc-800">
+                            <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                                <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-0.5">Duration</p>
+                                <p className="text-sm font-semibold text-slate-800">
                                     {approveDialog?.duration ? `${approveDialog.duration}min` : `${approveDialog?.hours}h estimated`}
                                 </p>
                             </div>
@@ -545,7 +545,7 @@ export default function MyApprovalsOvertime() {
                     <DialogFooter className="gap-2">
                         <button
                             onClick={() => setApproveDialog(null)}
-                            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition"
+                            className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                         >
                             Cancel
                         </button>
@@ -572,11 +572,11 @@ export default function MyApprovalsOvertime() {
                     <DialogHeader>
                         <DialogTitle className="text-base">Reject Overtime Request</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-zinc-500">
-                        Rejecting request from <span className="font-semibold text-zinc-800">{rejectDialog?.name}</span>. Please provide a reason.
+                    <p className="text-sm text-slate-500">
+                        Rejecting request from <span className="font-semibold text-slate-800">{rejectDialog?.name}</span>. Please provide a reason.
                     </p>
                     <textarea
-                        className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent resize-none transition"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-none transition"
                         rows={3}
                         placeholder="Reason for rejection (min 5 characters)…"
                         value={rejectReason}
@@ -590,7 +590,7 @@ export default function MyApprovalsOvertime() {
                     <DialogFooter className="gap-2">
                         <button
                             onClick={() => setRejectDialog(null)}
-                            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition"
+                            className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
                         >
                             Cancel
                         </button>

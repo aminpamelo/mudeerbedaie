@@ -1,15 +1,8 @@
-export default function PageHeader({ title, description, action }) {
-    return (
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-                    {title}
-                </h1>
-                {description && (
-                    <p className="mt-1 text-sm text-zinc-500">{description}</p>
-                )}
-            </div>
-            {action && <div className="shrink-0">{action}</div>}
-        </div>
-    );
+// Backwards-compat default export — forwards to the v2 PageHeader.
+// Maps singular `action` prop to v2's `actions`. New code should
+// `import { PageHeader } from './ui/page-header'` for breadcrumb/eyebrow support.
+import { PageHeader as PageHeaderV2 } from './ui/page-header';
+
+export default function PageHeader({ title, description, action, ...rest }) {
+    return <PageHeaderV2 title={title} description={description} actions={action} {...rest} />;
 }

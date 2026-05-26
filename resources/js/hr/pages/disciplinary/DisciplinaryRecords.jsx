@@ -48,11 +48,11 @@ import {
 import { cn } from '../../lib/utils';
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    draft: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-700' },
     issued: { label: 'Issued', bg: 'bg-blue-100', text: 'text-blue-700' },
     pending_response: { label: 'Pending Response', bg: 'bg-amber-100', text: 'text-amber-700' },
     responded: { label: 'Responded', bg: 'bg-purple-100', text: 'text-purple-700' },
-    closed: { label: 'Closed', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    closed: { label: 'Closed', bg: 'bg-slate-100', text: 'text-slate-700' },
 };
 
 const TYPE_OPTIONS = [
@@ -82,7 +82,7 @@ const TYPE_LABELS = {
 };
 
 function StatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -197,9 +197,9 @@ export default function DisciplinaryRecords() {
                 <CardContent className="p-4">
                     <div className="flex flex-wrap items-end gap-4">
                         <div className="flex-1">
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Search</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Search</label>
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                 <Input
                                     placeholder="Search by employee name..."
                                     value={search}
@@ -212,7 +212,7 @@ export default function DisciplinaryRecords() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Type</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Type</label>
                             <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
                                 <SelectTrigger className="w-44">
                                     <SelectValue />
@@ -225,7 +225,7 @@ export default function DisciplinaryRecords() {
                             </Select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Status</label>
                             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
                                 <SelectTrigger className="w-44">
                                     <SelectValue />
@@ -246,13 +246,13 @@ export default function DisciplinaryRecords() {
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : actions.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <AlertTriangle className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No disciplinary records found</p>
-                            <p className="text-xs text-zinc-400">Try adjusting your filters or create a new action</p>
+                            <AlertTriangle className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No disciplinary records found</p>
+                            <p className="text-xs text-slate-400">Try adjusting your filters or create a new action</p>
                         </div>
                     ) : (
                         <>
@@ -271,15 +271,15 @@ export default function DisciplinaryRecords() {
                                 <TableBody>
                                     {actions.map((action) => (
                                         <TableRow key={action.id}>
-                                            <TableCell className="font-medium text-zinc-900">
+                                            <TableCell className="font-medium text-slate-900">
                                                 {action.reference_number || '-'}
                                             </TableCell>
                                             <TableCell>
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">
+                                                    <p className="text-sm font-medium text-slate-900">
                                                         {action.employee?.full_name || '-'}
                                                     </p>
-                                                    <p className="text-xs text-zinc-500">
+                                                    <p className="text-xs text-slate-500">
                                                         {action.employee?.department?.name || ''}
                                                     </p>
                                                 </div>
@@ -290,10 +290,10 @@ export default function DisciplinaryRecords() {
                                             <TableCell>
                                                 <StatusBadge status={action.status} />
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {formatDate(action.incident_date)}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {action.issued_by?.full_name || '-'}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -320,7 +320,7 @@ export default function DisciplinaryRecords() {
                                                             title="Close"
                                                             onClick={() => setConfirmDialog({ open: true, action: 'close', id: action.id })}
                                                         >
-                                                            <XCircle className="h-4 w-4 text-zinc-500" />
+                                                            <XCircle className="h-4 w-4 text-slate-500" />
                                                         </Button>
                                                     )}
                                                     <Button
@@ -345,8 +345,8 @@ export default function DisciplinaryRecords() {
 
                             {/* Pagination */}
                             {meta.last_page > 1 && (
-                                <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3">
-                                    <p className="text-sm text-zinc-500">
+                                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+                                    <p className="text-sm text-slate-500">
                                         Showing {meta.from || 0} to {meta.to || 0} of {meta.total || 0} records
                                     </p>
                                     <div className="flex items-center gap-2">
@@ -358,7 +358,7 @@ export default function DisciplinaryRecords() {
                                         >
                                             <ChevronLeft className="h-4 w-4" />
                                         </Button>
-                                        <span className="text-sm text-zinc-600">
+                                        <span className="text-sm text-slate-600">
                                             Page {meta.current_page} of {meta.last_page}
                                         </span>
                                         <Button

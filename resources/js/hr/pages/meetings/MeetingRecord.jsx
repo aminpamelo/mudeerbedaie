@@ -162,7 +162,7 @@ export default function MeetingRecord() {
                                         </span>
                                     </div>
                                 )}
-                                <p className="font-mono text-4xl font-bold text-zinc-900">
+                                <p className="font-mono text-4xl font-bold text-slate-900">
                                     {formatTimer(elapsed)}
                                 </p>
                             </div>

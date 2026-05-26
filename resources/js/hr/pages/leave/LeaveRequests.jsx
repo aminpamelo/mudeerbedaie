@@ -80,13 +80,13 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-36 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-12 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-36 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-12 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
-                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -96,11 +96,11 @@ function SkeletonTable() {
 function EmptyState({ hasFilters, onClearFilters }) {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-            <FileText className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">
+            <FileText className="mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">
                 {hasFilters ? 'No leave requests found' : 'No leave requests yet'}
             </h3>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-slate-500">
                 {hasFilters
                     ? 'Try adjusting your filters to find what you are looking for.'
                     : 'Leave requests from employees will appear here.'}
@@ -316,14 +316,14 @@ export default function LeaveRequests() {
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => { setStartDate(e.target.value); resetPage(); }}
-                                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
-                            <span className="text-zinc-400">to</span>
+                            <span className="text-slate-400">to</span>
                             <input
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => { setEndDate(e.target.value); resetPage(); }}
-                                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         {hasFilters && (
@@ -361,7 +361,7 @@ export default function LeaveRequests() {
                                             return (
                                                 <TableRow
                                                     key={request.id}
-                                                    className="cursor-pointer hover:bg-zinc-50"
+                                                    className="cursor-pointer hover:bg-slate-50"
                                                     onClick={() => handleViewRequest(request)}
                                                 >
                                                     <TableCell className="font-medium">
@@ -381,14 +381,14 @@ export default function LeaveRequests() {
                                                             {request.leave_type?.name || '-'}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-sm text-zinc-500">
+                                                    <TableCell className="text-sm text-slate-500">
                                                         {formatDate(request.start_date)} - {formatDate(request.end_date)}
                                                     </TableCell>
                                                     <TableCell>{request.total_days ?? '-'}</TableCell>
                                                     <TableCell>{request.half_day ? request.half_day_period || 'Yes' : '-'}</TableCell>
                                                     <TableCell>
                                                         {request.attachment_url ? (
-                                                            <Paperclip className="h-4 w-4 text-zinc-400" />
+                                                            <Paperclip className="h-4 w-4 text-slate-400" />
                                                         ) : (
                                                             '-'
                                                         )}
@@ -396,7 +396,7 @@ export default function LeaveRequests() {
                                                     <TableCell>
                                                         <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-sm text-zinc-500">
+                                                    <TableCell className="text-sm text-slate-500">
                                                         {request.approved_by?.full_name || '-'}
                                                     </TableCell>
                                                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -437,7 +437,7 @@ export default function LeaveRequests() {
 
                             {lastPage > 1 && (
                                 <div className="mt-4 flex items-center justify-between">
-                                    <p className="text-sm text-zinc-500">
+                                    <p className="text-sm text-slate-500">
                                         Page {page} of {lastPage} ({pagination.total || 0} total)
                                     </p>
                                     <div className="flex gap-1">
@@ -473,25 +473,25 @@ export default function LeaveRequests() {
                     </DialogHeader>
                     {detailLoading ? (
                         <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : selectedRequest ? (
                         <div className="space-y-3 text-sm">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <span className="text-zinc-500">Employee</span>
+                                    <span className="text-slate-500">Employee</span>
                                     <p className="font-medium">{selectedRequest.employee?.full_name}</p>
                                 </div>
                                 <div>
-                                    <span className="text-zinc-500">Department</span>
+                                    <span className="text-slate-500">Department</span>
                                     <p className="font-medium">{selectedRequest.employee?.department?.name || '-'}</p>
                                 </div>
                                 <div>
-                                    <span className="text-zinc-500">Leave Type</span>
+                                    <span className="text-slate-500">Leave Type</span>
                                     <p className="font-medium">{selectedRequest.leave_type?.name}</p>
                                 </div>
                                 <div>
-                                    <span className="text-zinc-500">Status</span>
+                                    <span className="text-slate-500">Status</span>
                                     <div className="mt-0.5">
                                         <Badge variant={STATUS_BADGE[selectedRequest.status]?.variant || 'secondary'}>
                                             {STATUS_BADGE[selectedRequest.status]?.label || selectedRequest.status}
@@ -499,43 +499,43 @@ export default function LeaveRequests() {
                                     </div>
                                 </div>
                                 <div>
-                                    <span className="text-zinc-500">Period</span>
+                                    <span className="text-slate-500">Period</span>
                                     <p className="font-medium">
                                         {formatDate(selectedRequest.start_date)} - {formatDate(selectedRequest.end_date)}
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-zinc-500">Total Days</span>
+                                    <span className="text-slate-500">Total Days</span>
                                     <p className="font-medium">{selectedRequest.total_days}</p>
                                 </div>
                                 {selectedRequest.half_day && (
                                     <div>
-                                        <span className="text-zinc-500">Half Day</span>
+                                        <span className="text-slate-500">Half Day</span>
                                         <p className="font-medium">{selectedRequest.half_day_period || 'Yes'}</p>
                                     </div>
                                 )}
                                 {selectedRequest.approved_by && (
                                     <div>
-                                        <span className="text-zinc-500">Approved By</span>
+                                        <span className="text-slate-500">Approved By</span>
                                         <p className="font-medium">{selectedRequest.approved_by.full_name}</p>
                                     </div>
                                 )}
                             </div>
                             {selectedRequest.reason && (
                                 <div>
-                                    <span className="text-zinc-500">Reason</span>
-                                    <p className="mt-1 rounded-lg bg-zinc-50 p-3 text-zinc-700">{selectedRequest.reason}</p>
+                                    <span className="text-slate-500">Reason</span>
+                                    <p className="mt-1 rounded-lg bg-slate-50 p-3 text-slate-700">{selectedRequest.reason}</p>
                                 </div>
                             )}
                             {selectedRequest.rejection_reason && (
                                 <div>
-                                    <span className="text-zinc-500">Rejection Reason</span>
+                                    <span className="text-slate-500">Rejection Reason</span>
                                     <p className="mt-1 rounded-lg bg-red-50 p-3 text-red-700">{selectedRequest.rejection_reason}</p>
                                 </div>
                             )}
                             {selectedRequest.attachment_url && (
                                 <div>
-                                    <span className="text-zinc-500">Attachment</span>
+                                    <span className="text-slate-500">Attachment</span>
                                     <a
                                         href={selectedRequest.attachment_url}
                                         target="_blank"
@@ -566,9 +566,9 @@ export default function LeaveRequests() {
                     </DialogHeader>
                     {actionDialog.request && (
                         <div className="space-y-3">
-                            <div className="rounded-lg bg-zinc-50 p-3 text-sm">
+                            <div className="rounded-lg bg-slate-50 p-3 text-sm">
                                 <p className="font-medium">{actionDialog.request.employee?.full_name}</p>
-                                <p className="text-zinc-500">
+                                <p className="text-slate-500">
                                     {actionDialog.request.leave_type?.name} &middot;{' '}
                                     {formatDate(actionDialog.request.start_date)} - {formatDate(actionDialog.request.end_date)}
                                     {' '}&middot; {actionDialog.request.total_days} day(s)
@@ -579,7 +579,7 @@ export default function LeaveRequests() {
                                     value={rejectReason}
                                     onChange={(e) => setRejectReason(e.target.value)}
                                     placeholder="Reason for rejection..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     rows={3}
                                 />
                             )}

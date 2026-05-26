@@ -53,14 +53,14 @@ const STATUS_BADGE_CLASS = {
     planned: 'bg-blue-100 text-blue-700',
     ongoing: 'bg-amber-100 text-amber-700',
     completed: 'bg-emerald-100 text-emerald-700',
-    cancelled: 'bg-zinc-100 text-zinc-500',
+    cancelled: 'bg-slate-100 text-slate-500',
 };
 
 const ENROLLMENT_STATUS_BADGE = {
     enrolled: 'bg-blue-100 text-blue-700',
     attended: 'bg-emerald-100 text-emerald-700',
     absent: 'bg-red-100 text-red-700',
-    cancelled: 'bg-zinc-100 text-zinc-500',
+    cancelled: 'bg-slate-100 text-slate-500',
 };
 
 const EMPTY_COST_FORM = {
@@ -95,8 +95,8 @@ function formatCurrency(amount) {
 function SkeletonDetail() {
     return (
         <div className="space-y-6">
-            <div className="h-32 animate-pulse rounded-lg bg-zinc-200" />
-            <div className="h-48 animate-pulse rounded-lg bg-zinc-200" />
+            <div className="h-32 animate-pulse rounded-lg bg-slate-200" />
+            <div className="h-48 animate-pulse rounded-lg bg-slate-200" />
         </div>
     );
 }
@@ -242,8 +242,8 @@ export default function TrainingDetail() {
                 <Card>
                     <CardContent className="p-6">
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <GraduationCap className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">Program not found</p>
+                            <GraduationCap className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">Program not found</p>
                             <Button variant="outline" className="mt-4" onClick={() => navigate('/hr/training/programs')}>
                                 <ArrowLeft className="mr-1.5 h-4 w-4" />
                                 Back to Programs
@@ -277,8 +277,8 @@ export default function TrainingDetail() {
                                 <Building2 className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-zinc-500">Type / Category</p>
-                                <p className="text-sm font-medium capitalize text-zinc-900">
+                                <p className="text-xs text-slate-500">Type / Category</p>
+                                <p className="text-sm font-medium capitalize text-slate-900">
                                     {program.type} / {(program.category || '').replace('_', ' ')}
                                 </p>
                             </div>
@@ -288,8 +288,8 @@ export default function TrainingDetail() {
                                 <Calendar className="h-5 w-5 text-purple-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-zinc-500">Date Range</p>
-                                <p className="text-sm font-medium text-zinc-900">
+                                <p className="text-xs text-slate-500">Date Range</p>
+                                <p className="text-sm font-medium text-slate-900">
                                     {formatDate(program.start_date)} - {formatDate(program.end_date)}
                                 </p>
                             </div>
@@ -299,8 +299,8 @@ export default function TrainingDetail() {
                                 <Users className="h-5 w-5 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-zinc-500">Participants</p>
-                                <p className="text-sm font-medium text-zinc-900">
+                                <p className="text-xs text-slate-500">Participants</p>
+                                <p className="text-sm font-medium text-slate-900">
                                     {enrollments.length}
                                     {program.max_participants ? ` / ${program.max_participants}` : ''}
                                 </p>
@@ -311,30 +311,30 @@ export default function TrainingDetail() {
                                 <DollarSign className="h-5 w-5 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-zinc-500">Total Cost</p>
-                                <p className="text-sm font-medium text-zinc-900">{formatCurrency(totalCost)}</p>
+                                <p className="text-xs text-slate-500">Total Cost</p>
+                                <p className="text-sm font-medium text-slate-900">{formatCurrency(totalCost)}</p>
                             </div>
                         </div>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                         <span className={cn(
                             'rounded-full px-2.5 py-0.5 text-xs font-medium capitalize',
-                            STATUS_BADGE_CLASS[program.status] || 'bg-zinc-100 text-zinc-600'
+                            STATUS_BADGE_CLASS[program.status] || 'bg-slate-100 text-slate-600'
                         )}>
                             {program.status}
                         </span>
                         {program.provider && (
-                            <span className="text-sm text-zinc-500">Provider: {program.provider}</span>
+                            <span className="text-sm text-slate-500">Provider: {program.provider}</span>
                         )}
                         {program.location && (
-                            <span className="flex items-center gap-1 text-sm text-zinc-500">
+                            <span className="flex items-center gap-1 text-sm text-slate-500">
                                 <MapPin className="h-3.5 w-3.5" />
                                 {program.location}
                             </span>
                         )}
                     </div>
                     {program.description && (
-                        <p className="mt-3 text-sm text-zinc-600">{program.description}</p>
+                        <p className="mt-3 text-sm text-slate-600">{program.description}</p>
                     )}
                     {(program.status === 'planned' || program.status === 'ongoing') && (
                         <div className="mt-4">
@@ -352,7 +352,7 @@ export default function TrainingDetail() {
                 <Card>
                     <CardContent className="p-6">
                         <div className="mb-4 flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-zinc-900">Enrollments</h3>
+                            <h3 className="text-lg font-semibold text-slate-900">Enrollments</h3>
                             {program.status !== 'completed' && program.status !== 'cancelled' && (
                                 <Button size="sm" onClick={() => { setSelectedEmployees([]); setEnrollOpen(true); }}>
                                     <UserPlus className="mr-1.5 h-4 w-4" />
@@ -362,8 +362,8 @@ export default function TrainingDetail() {
                         </div>
                         {enrollments.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <Users className="mb-2 h-8 w-8 text-zinc-300" />
-                                <p className="text-sm text-zinc-500">No employees enrolled yet.</p>
+                                <Users className="mb-2 h-8 w-8 text-slate-300" />
+                                <p className="text-sm text-slate-500">No employees enrolled yet.</p>
                             </div>
                         ) : (
                             <Table>
@@ -383,7 +383,7 @@ export default function TrainingDetail() {
                                             <TableCell>
                                                 <span className={cn(
                                                     'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                    ENROLLMENT_STATUS_BADGE[enrollment.status] || 'bg-zinc-100 text-zinc-600'
+                                                    ENROLLMENT_STATUS_BADGE[enrollment.status] || 'bg-slate-100 text-slate-600'
                                                 )}>
                                                     {enrollment.status}
                                                 </span>
@@ -434,7 +434,7 @@ export default function TrainingDetail() {
                 <Card>
                     <CardContent className="p-6">
                         <div className="mb-4 flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-zinc-900">Costs</h3>
+                            <h3 className="text-lg font-semibold text-slate-900">Costs</h3>
                             <Button size="sm" onClick={() => { setCostForm(EMPTY_COST_FORM); setCostErrors({}); setCostFormOpen(true); }}>
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 Add Cost
@@ -442,12 +442,12 @@ export default function TrainingDetail() {
                         </div>
                         {costsLoading ? (
                             <div className="flex justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                             </div>
                         ) : costs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <DollarSign className="mb-2 h-8 w-8 text-zinc-300" />
-                                <p className="text-sm text-zinc-500">No costs recorded yet.</p>
+                                <DollarSign className="mb-2 h-8 w-8 text-slate-300" />
+                                <p className="text-sm text-slate-500">No costs recorded yet.</p>
                             </div>
                         ) : (
                             <>
@@ -484,8 +484,8 @@ export default function TrainingDetail() {
                                         ))}
                                     </TableBody>
                                 </Table>
-                                <div className="mt-3 flex justify-end border-t border-zinc-100 pt-3">
-                                    <p className="text-sm font-semibold text-zinc-900">
+                                <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+                                    <p className="text-sm font-semibold text-slate-900">
                                         Total: {formatCurrency(totalCost)}
                                     </p>
                                 </div>
@@ -505,16 +505,16 @@ export default function TrainingDetail() {
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleEnroll} className="space-y-4">
-                        <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 p-2">
+                        <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
                             {availableEmployees.length === 0 ? (
-                                <p className="py-4 text-center text-sm text-zinc-400">
+                                <p className="py-4 text-center text-sm text-slate-400">
                                     No available employees to enroll.
                                 </p>
                             ) : (
                                 availableEmployees.map((emp) => (
                                     <label
                                         key={emp.id}
-                                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50"
+                                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50"
                                     >
                                         <input
                                             type="checkbox"
@@ -522,14 +522,14 @@ export default function TrainingDetail() {
                                             onChange={() => handleToggleEmployee(emp.id)}
                                             className="rounded"
                                         />
-                                        <span className="text-zinc-700">{emp.full_name}</span>
-                                        <span className="text-xs text-zinc-400">{emp.employee_id}</span>
+                                        <span className="text-slate-700">{emp.full_name}</span>
+                                        <span className="text-xs text-slate-400">{emp.employee_id}</span>
                                     </label>
                                 ))
                             )}
                         </div>
                         {selectedEmployees.length > 0 && (
-                            <p className="text-xs text-zinc-500">
+                            <p className="text-xs text-slate-500">
                                 {selectedEmployees.length} employee(s) selected
                             </p>
                         )}
@@ -555,23 +555,23 @@ export default function TrainingDetail() {
                     </DialogHeader>
                     <form onSubmit={handleAddCost} className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Description *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Description *</label>
                             <input
                                 type="text"
                                 value={costForm.description}
                                 onChange={(e) => setCostForm((f) => ({ ...f, description: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 required
                             />
                             {costErrors.description && <p className="mt-1 text-xs text-red-600">{costErrors.description[0]}</p>}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Type *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Type *</label>
                                 <select
                                     value={costForm.cost_type}
                                     onChange={(e) => setCostForm((f) => ({ ...f, cost_type: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 >
                                     {COST_TYPE_OPTIONS.map((opt) => (
@@ -580,14 +580,14 @@ export default function TrainingDetail() {
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Amount (MYR) *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Amount (MYR) *</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={costForm.amount}
                                     onChange={(e) => setCostForm((f) => ({ ...f, amount: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 />
                                 {costErrors.amount && <p className="mt-1 text-xs text-red-600">{costErrors.amount[0]}</p>}

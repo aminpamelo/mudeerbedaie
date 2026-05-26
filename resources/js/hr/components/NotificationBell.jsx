@@ -104,7 +104,7 @@ export default function NotificationBell() {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors"
+                className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
             >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
@@ -115,10 +115,10 @@ export default function NotificationBell() {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg sm:w-96">
+                <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:w-96">
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-                        <h3 className="text-sm font-semibold text-zinc-900">Notifications</h3>
+                    <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (
                                 <button
@@ -131,7 +131,7 @@ export default function NotificationBell() {
                             )}
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="text-zinc-400 hover:text-zinc-600"
+                                className="text-slate-400 hover:text-slate-600"
                             >
                                 <X className="h-4 w-4" />
                             </button>
@@ -145,7 +145,7 @@ export default function NotificationBell() {
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                             </div>
                         ) : notifications.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-zinc-500">
+                            <div className="py-8 text-center text-sm text-slate-500">
                                 No notifications yet
                             </div>
                         ) : (
@@ -153,7 +153,7 @@ export default function NotificationBell() {
                                 <button
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
-                                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 ${
+                                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${
                                         !notification.read_at ? 'bg-blue-50/50' : ''
                                     }`}
                                 >
@@ -167,13 +167,13 @@ export default function NotificationBell() {
                                     </div>
 
                                     <div className="min-w-0 flex-1">
-                                        <p className={`text-sm ${!notification.read_at ? 'font-semibold text-zinc-900' : 'font-medium text-zinc-700'}`}>
+                                        <p className={`text-sm ${!notification.read_at ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
                                             {notification.data?.title || 'Notification'}
                                         </p>
-                                        <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500">
+                                        <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
                                             {notification.data?.body || ''}
                                         </p>
-                                        <p className="mt-1 text-xs text-zinc-400">
+                                        <p className="mt-1 text-xs text-slate-400">
                                             {timeAgo(notification.created_at)}
                                         </p>
                                     </div>
@@ -183,13 +183,13 @@ export default function NotificationBell() {
                     </div>
 
                     {/* View All Footer */}
-                    <div className="border-t border-zinc-200">
+                    <div className="border-t border-slate-200">
                         <button
                             onClick={() => {
                                 setIsOpen(false);
                                 navigate('/notifications');
                             }}
-                            className="flex w-full items-center justify-center py-2.5 text-xs font-medium text-blue-600 transition-colors hover:bg-zinc-50 hover:text-blue-700"
+                            className="flex w-full items-center justify-center py-2.5 text-xs font-medium text-blue-600 transition-colors hover:bg-slate-50 hover:text-blue-700"
                         >
                             View all notifications
                         </button>

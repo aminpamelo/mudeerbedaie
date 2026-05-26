@@ -198,12 +198,12 @@ export default function AssetAssignments() {
 
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : assignments.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Package2 className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No assignments found</p>
+                            <Package2 className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No assignments found</p>
                         </div>
                     ) : (
                         <>
@@ -224,7 +224,7 @@ export default function AssetAssignments() {
                                         <TableRow key={assignment.id}>
                                             <TableCell>
                                                 <p className="font-mono text-sm font-medium">{assignment.asset?.asset_tag}</p>
-                                                <p className="text-xs text-zinc-400">{assignment.asset?.name}</p>
+                                                <p className="text-xs text-slate-400">{assignment.asset?.name}</p>
                                             </TableCell>
                                             <TableCell className="font-medium">
                                                 {assignment.employee?.full_name || '-'}
@@ -233,7 +233,7 @@ export default function AssetAssignments() {
                                             <TableCell className="text-sm">{formatDate(assignment.expected_return_date)}</TableCell>
                                             <TableCell className="text-sm">{formatDate(assignment.returned_date)}</TableCell>
                                             <TableCell>
-                                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[assignment.status] || 'bg-zinc-100 text-zinc-600')}>
+                                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[assignment.status] || 'bg-slate-100 text-slate-600')}>
                                                     {assignment.status}
                                                 </span>
                                             </TableCell>
@@ -261,7 +261,7 @@ export default function AssetAssignments() {
                             </Table>
 
                             {meta.last_page > 1 && (
-                                <div className="mt-4 flex items-center justify-between text-sm text-zinc-500">
+                                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
                                     <span>Showing {meta.from}–{meta.to} of {meta.total}</span>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
@@ -293,7 +293,7 @@ export default function AssetAssignments() {
                             </div>
                         )}
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Asset *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Asset *</label>
                             <Select value={assignForm.asset_id} onValueChange={(v) => setAssignForm((f) => ({ ...f, asset_id: v }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select available asset..." />
@@ -309,7 +309,7 @@ export default function AssetAssignments() {
                             {errors.asset_id && <p className="mt-1 text-xs text-red-600">{errors.asset_id[0]}</p>}
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee *</label>
                             <Select value={assignForm.employee_id} onValueChange={(v) => setAssignForm((f) => ({ ...f, employee_id: v }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select employee..." />
@@ -325,7 +325,7 @@ export default function AssetAssignments() {
                             {errors.employee_id && <p className="mt-1 text-xs text-red-600">{errors.employee_id[0]}</p>}
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Assigned By *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Assigned By *</label>
                             <Select value={assignForm.assigned_by} onValueChange={(v) => setAssignForm((f) => ({ ...f, assigned_by: v }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select assigner..." />
@@ -341,22 +341,22 @@ export default function AssetAssignments() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Assigned Date *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Assigned Date *</label>
                                 <input
                                     type="date"
                                     value={assignForm.assigned_date}
                                     onChange={(e) => setAssignForm((f) => ({ ...f, assigned_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Expected Return</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Expected Return</label>
                                 <input
                                     type="date"
                                     value={assignForm.expected_return_date}
                                     onChange={(e) => setAssignForm((f) => ({ ...f, expected_return_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -384,17 +384,17 @@ export default function AssetAssignments() {
                     <form onSubmit={handleReturn} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Return Date *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Return Date *</label>
                                 <input
                                     type="date"
                                     value={returnForm.returned_date}
                                     onChange={(e) => setReturnForm((f) => ({ ...f, returned_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Condition *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Condition *</label>
                                 <Select value={returnForm.returned_condition} onValueChange={(v) => setReturnForm((f) => ({ ...f, returned_condition: v }))}>
                                     <SelectTrigger>
                                         <SelectValue />
@@ -408,11 +408,11 @@ export default function AssetAssignments() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Return Notes</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Return Notes</label>
                             <textarea
                                 value={returnForm.return_notes}
                                 onChange={(e) => setReturnForm((f) => ({ ...f, return_notes: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 rows={2}
                             />
                         </div>

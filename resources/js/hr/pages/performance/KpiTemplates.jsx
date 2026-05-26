@@ -45,7 +45,7 @@ const CATEGORY_BADGE = {
     leadership: 'bg-purple-100 text-purple-700',
     teamwork: 'bg-pink-100 text-pink-700',
     communication: 'bg-cyan-100 text-cyan-700',
-    other: 'bg-zinc-100 text-zinc-600',
+    other: 'bg-slate-100 text-slate-600',
 };
 
 const CATEGORIES = [
@@ -67,12 +67,12 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-12 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-12 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-20 animate-pulse rounded-full bg-zinc-200" />
-                    <div className="h-8 w-16 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -208,7 +208,7 @@ export default function KpiTemplates() {
                         <select
                             value={departmentFilter}
                             onChange={(e) => setDepartmentFilter(e.target.value)}
-                            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                         >
                             <option value="all">All Departments</option>
                             {departments.map((d) => (
@@ -218,7 +218,7 @@ export default function KpiTemplates() {
                         <select
                             value={positionFilter}
                             onChange={(e) => setPositionFilter(e.target.value)}
-                            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                         >
                             <option value="all">All Positions</option>
                             {positions.map((p) => (
@@ -228,7 +228,7 @@ export default function KpiTemplates() {
                         <select
                             value={categoryFilter}
                             onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                         >
                             <option value="all">All Categories</option>
                             {CATEGORIES.map((c) => (
@@ -259,13 +259,13 @@ export default function KpiTemplates() {
                 ) : isError ? (
                     <CardContent className="flex flex-col items-center justify-center py-16">
                         <AlertTriangle className="mb-3 h-10 w-10 text-red-300" />
-                        <p className="text-sm font-medium text-zinc-600">Failed to load KPI templates.</p>
+                        <p className="text-sm font-medium text-slate-600">Failed to load KPI templates.</p>
                     </CardContent>
                 ) : kpis.length === 0 ? (
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Target className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No KPI templates found</h3>
-                        <p className="mt-1 text-sm text-zinc-500">Create templates to use in performance reviews.</p>
+                        <Target className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No KPI templates found</h3>
+                        <p className="mt-1 text-sm text-slate-500">Create templates to use in performance reviews.</p>
                         <Button className="mt-4" onClick={handleOpenCreate}>
                             <Plus className="mr-1.5 h-4 w-4" />
                             New KPI Template
@@ -287,24 +287,24 @@ export default function KpiTemplates() {
                         <TableBody>
                             {kpis.map((kpi) => (
                                 <TableRow key={kpi.id}>
-                                    <TableCell className="font-medium text-zinc-900">
+                                    <TableCell className="font-medium text-slate-900">
                                         {kpi.title}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-600">
+                                    <TableCell className="text-sm text-slate-600">
                                         {kpi.target || '-'}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-600">
+                                    <TableCell className="text-sm text-slate-600">
                                         {kpi.weight != null ? `${kpi.weight}%` : '-'}
                                     </TableCell>
                                     <TableCell>
-                                        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', CATEGORY_BADGE[kpi.category] || 'bg-zinc-100 text-zinc-600')}>
+                                        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', CATEGORY_BADGE[kpi.category] || 'bg-slate-100 text-slate-600')}>
                                             {kpi.category || '-'}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-600">
+                                    <TableCell className="text-sm text-slate-600">
                                         {kpi.position?.name || '-'}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-600">
+                                    <TableCell className="text-sm text-slate-600">
                                         {kpi.department?.name || '-'}
                                     </TableCell>
                                     <TableCell>
@@ -340,28 +340,28 @@ export default function KpiTemplates() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Title *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Title *</label>
                             <input
                                 type="text"
                                 value={form.title}
                                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                                 placeholder="e.g. Monthly Sales Target"
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Target</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Target</label>
                             <input
                                 type="text"
                                 value={form.target}
                                 onChange={(e) => setForm((f) => ({ ...f, target: e.target.value }))}
                                 placeholder="e.g. RM 50,000 per month"
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Weight (%)</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Weight (%)</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -369,15 +369,15 @@ export default function KpiTemplates() {
                                     value={form.weight}
                                     onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))}
                                     placeholder="e.g. 20"
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Category</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Category</label>
                                 <select
                                     value={form.category}
                                     onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 >
                                     {CATEGORIES.map((c) => (
                                         <option key={c} value={c} className="capitalize">
@@ -389,11 +389,11 @@ export default function KpiTemplates() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Department</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Department</label>
                                 <select
                                     value={form.department_id}
                                     onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 >
                                     <option value="">All Departments</option>
                                     {departments.map((d) => (
@@ -402,11 +402,11 @@ export default function KpiTemplates() {
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Position</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Position</label>
                                 <select
                                     value={form.position_id}
                                     onChange={(e) => setForm((f) => ({ ...f, position_id: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 >
                                     <option value="">All Positions</option>
                                     {positions.map((p) => (
@@ -416,13 +416,13 @@ export default function KpiTemplates() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                                 placeholder="Optional description..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <DialogFooter>
@@ -444,7 +444,7 @@ export default function KpiTemplates() {
                     <DialogHeader>
                         <DialogTitle>Delete KPI Template</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-zinc-600">
+                    <p className="text-sm text-slate-600">
                         Are you sure you want to delete <span className="font-medium">{deleteConfirm?.title}</span>? This action cannot be undone.
                     </p>
                     <DialogFooter>

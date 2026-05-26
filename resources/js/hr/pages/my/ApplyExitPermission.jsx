@@ -68,8 +68,8 @@ export default function ApplyExitPermission() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-3" />
-                <h2 className="text-lg font-semibold text-zinc-900">Request Submitted!</h2>
-                <p className="text-sm text-zinc-500 mt-1">Your exit permission request has been submitted for approval.</p>
+                <h2 className="text-lg font-semibold text-slate-900">Request Submitted!</h2>
+                <p className="text-sm text-slate-500 mt-1">Your exit permission request has been submitted for approval.</p>
             </div>
         );
     }
@@ -82,8 +82,8 @@ export default function ApplyExitPermission() {
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h1 className="text-xl font-bold text-zinc-900">Apply for Exit Permission</h1>
-                    <p className="text-sm text-zinc-500 mt-0.5">Submit a new exit permission request</p>
+                    <h1 className="text-xl font-bold text-slate-900">Apply for Exit Permission</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Submit a new exit permission request</p>
                 </div>
             </div>
 
@@ -167,7 +167,7 @@ export default function ApplyExitPermission() {
                                         checked={form.errand_type === option.value}
                                         onChange={(e) => setForm({ ...form, errand_type: e.target.value })}
                                         required
-                                        className="accent-zinc-800"
+                                        className="accent-slate-800"
                                     />
                                     {option.label}
                                 </label>

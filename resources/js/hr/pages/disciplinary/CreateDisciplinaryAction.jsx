@@ -151,10 +151,10 @@ export default function CreateDisciplinaryAction() {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                         New Disciplinary Action
                     </h1>
-                    <p className="mt-1 text-sm text-zinc-500">
+                    <p className="mt-1 text-sm text-slate-500">
                         Create a new disciplinary action as a draft.
                     </p>
                 </div>
@@ -256,7 +256,7 @@ export default function CreateDisciplinaryAction() {
                                         <Label htmlFor="response_required" className="cursor-pointer">
                                             Response Required
                                         </Label>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-xs text-slate-500">
                                             Employee must respond to this disciplinary action by the deadline
                                         </p>
                                     </div>
@@ -298,7 +298,7 @@ export default function CreateDisciplinaryAction() {
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <p className="mt-1 text-xs text-zinc-400">
+                                        <p className="mt-1 text-xs text-slate-400">
                                             Optionally link this action to a previous disciplinary case for this employee
                                         </p>
                                     </div>
@@ -334,14 +334,14 @@ export default function CreateDisciplinaryAction() {
                             <CardContent>
                                 {!form.employee_id ? (
                                     <div className="flex flex-col items-center justify-center py-6 text-center">
-                                        <p className="text-xs text-zinc-400">
+                                        <p className="text-xs text-slate-400">
                                             Select an employee to view their disciplinary history
                                         </p>
                                     </div>
                                 ) : previousActions.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-6 text-center">
-                                        <p className="text-sm font-medium text-zinc-500">No previous actions</p>
-                                        <p className="text-xs text-zinc-400">
+                                        <p className="text-sm font-medium text-slate-500">No previous actions</p>
+                                        <p className="text-xs text-slate-400">
                                             This employee has no prior disciplinary records
                                         </p>
                                     </div>
@@ -350,23 +350,23 @@ export default function CreateDisciplinaryAction() {
                                         {previousActions.map((pa) => (
                                             <div
                                                 key={pa.id}
-                                                className="rounded-lg border border-zinc-200 p-3"
+                                                className="rounded-lg border border-slate-200 p-3"
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-medium text-zinc-900">
+                                                    <span className="text-xs font-medium text-slate-900">
                                                         {pa.reference_number}
                                                     </span>
                                                     <span className={cn(
                                                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
-                                                        pa.status === 'closed' ? 'bg-zinc-100 text-zinc-700' : 'bg-amber-100 text-amber-700'
+                                                        pa.status === 'closed' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-700'
                                                     )}>
                                                         {pa.status}
                                                     </span>
                                                 </div>
-                                                <p className="mt-1 text-xs text-zinc-600">
+                                                <p className="mt-1 text-xs text-slate-600">
                                                     {TYPE_LABELS[pa.type] || pa.type}
                                                 </p>
-                                                <p className="text-xs text-zinc-400">
+                                                <p className="text-xs text-slate-400">
                                                     {formatDate(pa.incident_date)}
                                                 </p>
                                             </div>

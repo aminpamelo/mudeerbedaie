@@ -58,9 +58,9 @@ function formatDate(dateStr) {
 
 function InfoRow({ label, value }) {
     return (
-        <div className="flex justify-between py-2.5 border-b border-zinc-100 last:border-0">
-            <span className="text-sm text-zinc-500">{label}</span>
-            <span className="text-sm font-medium text-zinc-900 text-right">{value || '-'}</span>
+        <div className="flex justify-between py-2.5 border-b border-slate-100 last:border-0">
+            <span className="text-sm text-slate-500">{label}</span>
+            <span className="text-sm font-medium text-slate-900 text-right">{value || '-'}</span>
         </div>
     );
 }
@@ -105,7 +105,7 @@ export default function MyProfile() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -114,7 +114,7 @@ export default function MyProfile() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-slate-600">
                     {error?.response?.data?.message || 'Failed to load profile'}
                 </p>
             </div>
@@ -127,15 +127,15 @@ export default function MyProfile() {
             <Card>
                 <CardContent className="pt-6">
                     <div className="flex flex-col items-center text-center">
-                        <div className="h-20 w-20 rounded-full bg-zinc-900 text-white flex items-center justify-center text-2xl font-bold mb-3">
+                        <div className="h-20 w-20 rounded-full bg-slate-900 text-white flex items-center justify-center text-2xl font-bold mb-3">
                             {getInitials(employee.full_name)}
                         </div>
-                        <h2 className="text-xl font-bold text-zinc-900">{employee.full_name}</h2>
-                        <p className="text-sm text-zinc-500 mt-0.5">{employee.employee_id}</p>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-zinc-600">
+                        <h2 className="text-xl font-bold text-slate-900">{employee.full_name}</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">{employee.employee_id}</p>
+                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
                             {employee.department?.name && <span>{employee.department.name}</span>}
                             {employee.department?.name && employee.position?.title && (
-                                <span className="text-zinc-300">|</span>
+                                <span className="text-slate-300">|</span>
                             )}
                             {employee.position?.title && <span>{employee.position.title}</span>}
                         </div>
@@ -148,7 +148,7 @@ export default function MyProfile() {
 
             {/* Scrollable Tabs */}
             <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
-                <div className="flex gap-1 min-w-max bg-zinc-100 rounded-xl p-1">
+                <div className="flex gap-1 min-w-max bg-slate-100 rounded-xl p-1">
                     {TABS.map((tab) => (
                         <button
                             key={tab.id}
@@ -156,8 +156,8 @@ export default function MyProfile() {
                             className={cn(
                                 'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all whitespace-nowrap',
                                 activeTab === tab.id
-                                    ? 'bg-white text-zinc-900 shadow-sm'
-                                    : 'text-zinc-500 hover:text-zinc-700'
+                                    ? 'bg-white text-slate-900 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
                             )}
                         >
                             <tab.icon className="h-3.5 w-3.5" />
@@ -195,12 +195,12 @@ function OverviewTab({ employee }) {
                     <Card key={item.label}>
                         <CardContent className="py-3.5 px-3.5">
                             <div className="flex items-start gap-2.5">
-                                <div className="rounded-lg bg-zinc-100 p-2 shrink-0">
-                                    <item.icon className="h-4 w-4 text-zinc-600" />
+                                <div className="rounded-lg bg-slate-100 p-2 shrink-0">
+                                    <item.icon className="h-4 w-4 text-slate-600" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[11px] text-zinc-500">{item.label}</p>
-                                    <p className="text-sm font-medium text-zinc-900 truncate">{item.value}</p>
+                                    <p className="text-[11px] text-slate-500">{item.label}</p>
+                                    <p className="text-sm font-medium text-slate-900 truncate">{item.value}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -215,17 +215,17 @@ function OverviewTab({ employee }) {
                         <div className={cn('h-3 w-3 rounded-full shrink-0',
                             employee.status === 'active' ? 'bg-emerald-500' :
                             employee.status === 'probation' ? 'bg-amber-500' :
-                            employee.status === 'on_leave' ? 'bg-blue-500' : 'bg-zinc-400'
+                            employee.status === 'on_leave' ? 'bg-blue-500' : 'bg-slate-400'
                         )} />
                         <div>
-                            <p className="text-sm font-medium text-zinc-900">
+                            <p className="text-sm font-medium text-slate-900">
                                 {employee.status === 'active' ? 'Active Employee' :
                                  employee.status === 'probation' ? 'Probation Period' :
                                  employee.status === 'on_leave' ? 'Currently On Leave' :
                                  employee.status?.replace('_', ' ')?.replace(/\b\w/g, (c) => c.toUpperCase()) || '-'}
                             </p>
                             {employee.join_date && (
-                                <p className="text-xs text-zinc-500 mt-0.5">Joined {formatDate(employee.join_date)}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">Joined {formatDate(employee.join_date)}</p>
                             )}
                         </div>
                     </div>
@@ -295,7 +295,7 @@ function PersonalTab({ employee }) {
                 <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-sm flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-zinc-400" /> Contact
+                            <Phone className="h-4 w-4 text-slate-400" /> Contact
                         </CardTitle>
                         {!isEditing('contact') && (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
@@ -324,7 +324,7 @@ function PersonalTab({ employee }) {
                 <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-sm flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-zinc-400" /> Address
+                            <MapPin className="h-4 w-4 text-slate-400" /> Address
                         </CardTitle>
                         {!isEditing('address') && (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
@@ -364,7 +364,7 @@ function PersonalTab({ employee }) {
                 <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-sm flex items-center gap-2">
-                            <User className="h-4 w-4 text-zinc-400" /> Personal Details
+                            <User className="h-4 w-4 text-slate-400" /> Personal Details
                         </CardTitle>
                         {!isEditing('personal') && (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
@@ -417,17 +417,17 @@ function EmploymentTab({ employee }) {
             <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-zinc-400" /> Employment Details
+                        <Briefcase className="h-4 w-4 text-slate-400" /> Employment Details
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex justify-between py-2.5 border-b border-zinc-100">
-                        <span className="text-sm text-zinc-500">Employment Type</span>
+                    <div className="flex justify-between py-2.5 border-b border-slate-100">
+                        <span className="text-sm text-slate-500">Employment Type</span>
                         <Badge variant="secondary">{employee.employment_type_label || '-'}</Badge>
                     </div>
                     <InfoRow label="Join Date" value={formatDate(employee.join_date)} />
                     <div className="flex justify-between py-2.5">
-                        <span className="text-sm text-zinc-500">Status</span>
+                        <span className="text-sm text-slate-500">Status</span>
                         <StatusBadge status={employee.status} />
                     </div>
                 </CardContent>
@@ -457,7 +457,7 @@ function EmploymentTab({ employee }) {
             <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-zinc-400" /> Bank Information
+                        <CreditCard className="h-4 w-4 text-slate-400" /> Bank Information
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -470,7 +470,7 @@ function EmploymentTab({ employee }) {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-zinc-400" /> Contract Details
+                            <FileText className="h-4 w-4 text-slate-400" /> Contract Details
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -530,7 +530,7 @@ function EmergencyTab() {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-zinc-700">Emergency Contacts</h3>
+                <h3 className="text-sm font-medium text-slate-700">Emergency Contacts</h3>
                 {!showForm && (
                     <Button size="sm" variant="outline" onClick={() => { resetForm(); setShowForm(true); }}>
                         <Plus className="h-3.5 w-3.5 mr-1" /> Add
@@ -565,9 +565,9 @@ function EmergencyTab() {
             )}
 
             {isLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
             ) : contacts.length === 0 ? (
-                <Card><CardContent className="py-8 text-center"><Users className="h-8 w-8 text-zinc-300 mx-auto mb-2" /><p className="text-sm text-zinc-500">No emergency contacts added yet</p></CardContent></Card>
+                <Card><CardContent className="py-8 text-center"><Users className="h-8 w-8 text-slate-300 mx-auto mb-2" /><p className="text-sm text-slate-500">No emergency contacts added yet</p></CardContent></Card>
             ) : (
                 contacts.map((c) => (
                     <Card key={c.id}>
@@ -575,13 +575,13 @@ function EmergencyTab() {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <p className="text-sm font-medium text-zinc-900">{c.name}</p>
+                                        <p className="text-sm font-medium text-slate-900">{c.name}</p>
                                         {c.is_primary && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Primary</Badge>}
                                     </div>
-                                    <p className="text-xs text-zinc-500 mt-0.5">{c.relationship}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{c.relationship}</p>
                                     <div className="flex items-center gap-3 mt-1.5">
-                                        <span className="flex items-center gap-1 text-xs text-zinc-600"><Phone className="h-3 w-3" />{c.phone}</span>
-                                        {c.email && <span className="flex items-center gap-1 text-xs text-zinc-600"><Mail className="h-3 w-3" />{c.email}</span>}
+                                        <span className="flex items-center gap-1 text-xs text-slate-600"><Phone className="h-3 w-3" />{c.phone}</span>
+                                        {c.email && <span className="flex items-center gap-1 text-xs text-slate-600"><Mail className="h-3 w-3" />{c.email}</span>}
                                     </div>
                                 </div>
                                 <div className="flex gap-1">
@@ -635,7 +635,7 @@ function DocumentsTab() {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-zinc-700">My Documents</h3>
+                <h3 className="text-sm font-medium text-slate-700">My Documents</h3>
                 {!showUpload && (
                     <Button size="sm" variant="outline" onClick={() => setShowUpload(true)}>
                         <Upload className="h-3.5 w-3.5 mr-1" /> Upload
@@ -661,7 +661,7 @@ function DocumentsTab() {
                                 <Label className="text-xs">File *</Label>
                                 <Input type="file" className="mt-1" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                     onChange={(e) => setUploadData({ ...uploadData, file: e.target.files[0] })} required />
-                                <p className="text-[11px] text-zinc-400 mt-1">Max 10MB. PDF, JPG, PNG, DOC.</p>
+                                <p className="text-[11px] text-slate-400 mt-1">Max 10MB. PDF, JPG, PNG, DOC.</p>
                             </div>
                             {uploadMut.isError && <p className="text-xs text-red-600">{uploadMut.error?.response?.data?.message || 'Upload failed'}</p>}
                             <div className="flex gap-2">
@@ -677,26 +677,26 @@ function DocumentsTab() {
             )}
 
             {isLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
             ) : documents.length === 0 ? (
-                <Card><CardContent className="py-8 text-center"><FileText className="h-8 w-8 text-zinc-300 mx-auto mb-2" /><p className="text-sm text-zinc-500">No documents uploaded yet</p></CardContent></Card>
+                <Card><CardContent className="py-8 text-center"><FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" /><p className="text-sm text-slate-500">No documents uploaded yet</p></CardContent></Card>
             ) : (
                 documents.map((doc) => (
                     <Card key={doc.id}>
                         <CardContent className="py-3.5">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <div className="rounded-lg bg-zinc-100 p-2 shrink-0"><FileText className="h-4 w-4 text-zinc-600" /></div>
+                                    <div className="rounded-lg bg-slate-100 p-2 shrink-0"><FileText className="h-4 w-4 text-slate-600" /></div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-medium text-zinc-900 truncate">{doc.title}</p>
-                                        <p className="text-[11px] text-zinc-500">
+                                        <p className="text-sm font-medium text-slate-900 truncate">{doc.title}</p>
+                                        <p className="text-[11px] text-slate-500">
                                             {doc.document_type?.replace('_', ' ')} {doc.file_size ? `· ${formatFileSize(doc.file_size)}` : ''} · {formatDate(doc.uploaded_at || doc.created_at)}
                                         </p>
                                     </div>
                                 </div>
                                 {doc.download_url && (
                                     <a href={doc.download_url} target="_blank" rel="noopener noreferrer"
-                                        className="shrink-0 rounded-lg p-2 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+                                        className="shrink-0 rounded-lg p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                                         <Download className="h-4 w-4" />
                                     </a>
                                 )}

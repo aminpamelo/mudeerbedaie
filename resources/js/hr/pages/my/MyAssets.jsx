@@ -29,20 +29,20 @@ export default function MyAssets() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-xl font-bold text-zinc-900">My Assets</h1>
-                <p className="mt-0.5 text-sm text-zinc-500">Assets currently assigned to you.</p>
+                <h1 className="text-xl font-bold text-slate-900">My Assets</h1>
+                <p className="mt-0.5 text-sm text-slate-500">Assets currently assigned to you.</p>
             </div>
 
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
             ) : assets.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Package2 className="mb-3 h-10 w-10 text-zinc-300" />
-                        <p className="text-sm font-medium text-zinc-600">No assets assigned</p>
-                        <p className="mt-1 text-xs text-zinc-400">You have no assets currently assigned to you.</p>
+                        <Package2 className="mb-3 h-10 w-10 text-slate-300" />
+                        <p className="text-sm font-medium text-slate-600">No assets assigned</p>
+                        <p className="mt-1 text-xs text-slate-400">You have no assets currently assigned to you.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -54,56 +54,56 @@ export default function MyAssets() {
                                 <CardContent className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-mono text-xs font-medium text-zinc-400">
+                                            <p className="font-mono text-xs font-medium text-slate-400">
                                                 {asset.asset_tag}
                                             </p>
-                                            <p className="mt-0.5 text-sm font-semibold text-zinc-900 truncate">
+                                            <p className="mt-0.5 text-sm font-semibold text-slate-900 truncate">
                                                 {asset.name}
                                             </p>
                                             {(asset.brand || asset.model) && (
-                                                <p className="text-xs text-zinc-500 mt-0.5">
+                                                <p className="text-xs text-slate-500 mt-0.5">
                                                     {[asset.brand, asset.model].filter(Boolean).join(' ')}
                                                 </p>
                                             )}
                                         </div>
                                         {asset.condition && (
-                                            <span className={cn('ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize', CONDITION_BADGE[asset.condition] || 'bg-zinc-100 text-zinc-600')}>
+                                            <span className={cn('ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize', CONDITION_BADGE[asset.condition] || 'bg-slate-100 text-slate-600')}>
                                                 {asset.condition}
                                             </span>
                                         )}
                                     </div>
 
-                                    <div className="mt-4 space-y-1.5 text-xs text-zinc-500">
+                                    <div className="mt-4 space-y-1.5 text-xs text-slate-500">
                                         <div className="flex items-center justify-between">
                                             <span>Category</span>
-                                            <span className="font-medium text-zinc-700">{asset.asset_category?.name || '-'}</span>
+                                            <span className="font-medium text-slate-700">{asset.asset_category?.name || '-'}</span>
                                         </div>
                                         {asset.serial_number && (
                                             <div className="flex items-center justify-between">
                                                 <span>Serial No.</span>
-                                                <span className="font-mono font-medium text-zinc-700">{asset.serial_number}</span>
+                                                <span className="font-mono font-medium text-slate-700">{asset.serial_number}</span>
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
                                             <span>Assigned</span>
-                                            <span className="font-medium text-zinc-700">{formatDate(assignment.assigned_date)}</span>
+                                            <span className="font-medium text-slate-700">{formatDate(assignment.assigned_date)}</span>
                                         </div>
                                         {assignment.expected_return_date && (
                                             <div className="flex items-center justify-between">
                                                 <span>Expected Return</span>
-                                                <span className="font-medium text-zinc-700">{formatDate(assignment.expected_return_date)}</span>
+                                                <span className="font-medium text-slate-700">{formatDate(assignment.expected_return_date)}</span>
                                             </div>
                                         )}
                                         {asset.warranty_expiry && (
                                             <div className="flex items-center justify-between">
                                                 <span>Warranty Expiry</span>
-                                                <span className="font-medium text-zinc-700">{formatDate(asset.warranty_expiry)}</span>
+                                                <span className="font-medium text-slate-700">{formatDate(asset.warranty_expiry)}</span>
                                             </div>
                                         )}
                                     </div>
 
                                     {assignment.notes && (
-                                        <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                                        <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
                                             {assignment.notes}
                                         </p>
                                     )}

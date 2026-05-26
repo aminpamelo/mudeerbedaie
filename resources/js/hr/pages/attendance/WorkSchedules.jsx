@@ -84,11 +84,11 @@ function SkeletonTable() {
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-28 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -250,9 +250,9 @@ export default function WorkSchedules() {
                         <SkeletonTable />
                     ) : schedules.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Clock className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No schedules configured</p>
-                            <p className="mb-4 text-xs text-zinc-400">Create your first work schedule to get started</p>
+                            <Clock className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No schedules configured</p>
+                            <p className="mb-4 text-xs text-slate-400">Create your first work schedule to get started</p>
                             <Button onClick={openCreate} size="sm">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Create Schedule
@@ -277,20 +277,20 @@ export default function WorkSchedules() {
                                 {schedules.map((schedule) => (
                                     <TableRow key={schedule.id}>
                                         <TableCell>
-                                            <p className="text-sm font-medium text-zinc-900">{schedule.name}</p>
+                                            <p className="text-sm font-medium text-slate-900">{schedule.name}</p>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">
                                                 {SCHEDULE_TYPES.find((t) => t.value === schedule.type)?.label || schedule.type}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {formatWorkingHours(schedule.start_time, schedule.end_time)}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {schedule.break_duration_minutes ?? schedule.break_duration ?? 0} min
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {schedule.grace_period_minutes ?? schedule.grace_period ?? 0} min
                                         </TableCell>
                                         <TableCell>
@@ -302,7 +302,7 @@ export default function WorkSchedules() {
                                                             'inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-medium',
                                                             (schedule.working_days?.includes(day.key) || schedule.working_days?.includes(day.num))
                                                                 ? 'bg-blue-100 text-blue-700'
-                                                                : 'bg-zinc-100 text-zinc-400'
+                                                                : 'bg-slate-100 text-slate-400'
                                                         )}
                                                     >
                                                         {day.label.charAt(0)}
@@ -310,9 +310,9 @@ export default function WorkSchedules() {
                                                 ))}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             <div className="flex items-center gap-1">
-                                                <Users className="h-3.5 w-3.5 text-zinc-400" />
+                                                <Users className="h-3.5 w-3.5 text-slate-400" />
                                                 {schedule.employee_schedules_count ?? 0}
                                             </div>
                                         </TableCell>
@@ -327,7 +327,7 @@ export default function WorkSchedules() {
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => handleSetDefault(schedule)}
-                                                    className="text-xs text-zinc-500 hover:text-zinc-700"
+                                                    className="text-xs text-slate-500 hover:text-slate-700"
                                                 >
                                                     Set Default
                                                 </Button>
@@ -470,7 +470,7 @@ export default function WorkSchedules() {
                                             'flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors',
                                             form.working_days.includes(day.key)
                                                 ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                                : 'border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50'
+                                                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
                                         )}
                                     >
                                         {day.label}

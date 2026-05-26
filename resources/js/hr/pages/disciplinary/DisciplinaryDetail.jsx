@@ -50,11 +50,11 @@ import {
 import { cn } from '../../lib/utils';
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    draft: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-700' },
     issued: { label: 'Issued', bg: 'bg-blue-100', text: 'text-blue-700' },
     pending_response: { label: 'Pending Response', bg: 'bg-amber-100', text: 'text-amber-700' },
     responded: { label: 'Responded', bg: 'bg-purple-100', text: 'text-purple-700' },
-    closed: { label: 'Closed', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    closed: { label: 'Closed', bg: 'bg-slate-100', text: 'text-slate-700' },
 };
 
 const TYPE_LABELS = {
@@ -82,7 +82,7 @@ const PENALTY_OPTIONS = [
 ];
 
 function StatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -249,7 +249,7 @@ export default function DisciplinaryDetail() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -257,7 +257,7 @@ export default function DisciplinaryDetail() {
     if (!action) {
         return (
             <div className="flex flex-col items-center justify-center py-24">
-                <p className="text-sm text-zinc-500">Disciplinary action not found.</p>
+                <p className="text-sm text-slate-500">Disciplinary action not found.</p>
                 <Link to="/disciplinary/records" className="mt-3">
                     <Button variant="outline" size="sm">Back to Records</Button>
                 </Link>
@@ -280,12 +280,12 @@ export default function DisciplinaryDetail() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-semibold text-zinc-900">
+                            <h1 className="text-xl font-semibold text-slate-900">
                                 {action.reference_number || 'Disciplinary Action'}
                             </h1>
                             <StatusBadge status={action.status} />
                         </div>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             {TYPE_LABELS[action.type] || action.type} &middot; Created {formatDate(action.created_at)}
                         </p>
                     </div>
@@ -350,40 +350,40 @@ export default function DisciplinaryDetail() {
                         <CardContent>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex items-start gap-3">
-                                    <User className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                    <User className="mt-0.5 h-4 w-4 text-slate-400" />
                                     <div>
-                                        <p className="text-xs text-zinc-500">Employee</p>
-                                        <p className="text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Employee</p>
+                                        <p className="text-sm font-medium text-slate-900">
                                             {action.employee?.full_name || '-'}
                                         </p>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-xs text-slate-500">
                                             {action.employee?.employee_id || ''}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
-                                    <Users className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                    <Users className="mt-0.5 h-4 w-4 text-slate-400" />
                                     <div>
-                                        <p className="text-xs text-zinc-500">Department</p>
-                                        <p className="text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Department</p>
+                                        <p className="text-sm font-medium text-slate-900">
                                             {action.employee?.department?.name || '-'}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
-                                    <FileText className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                    <FileText className="mt-0.5 h-4 w-4 text-slate-400" />
                                     <div>
-                                        <p className="text-xs text-zinc-500">Position</p>
-                                        <p className="text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Position</p>
+                                        <p className="text-sm font-medium text-slate-900">
                                             {action.employee?.position?.name || '-'}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
-                                    <Calendar className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                    <Calendar className="mt-0.5 h-4 w-4 text-slate-400" />
                                     <div>
-                                        <p className="text-xs text-zinc-500">Incident Date</p>
-                                        <p className="text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Incident Date</p>
+                                        <p className="text-sm font-medium text-slate-900">
                                             {formatDate(action.incident_date)}
                                         </p>
                                     </div>
@@ -400,8 +400,8 @@ export default function DisciplinaryDetail() {
                         <CardContent>
                             <div className="space-y-4">
                                 <div>
-                                    <p className="mb-1 text-xs font-medium text-zinc-500">Reason</p>
-                                    <p className="whitespace-pre-wrap text-sm text-zinc-700">
+                                    <p className="mb-1 text-xs font-medium text-slate-500">Reason</p>
+                                    <p className="whitespace-pre-wrap text-sm text-slate-700">
                                         {action.reason || 'No reason provided.'}
                                     </p>
                                 </div>
@@ -415,12 +415,12 @@ export default function DisciplinaryDetail() {
                                 )}
                                 {action.employee_response && (
                                     <div>
-                                        <p className="mb-1 text-xs font-medium text-zinc-500">Employee Response</p>
-                                        <div className="rounded-lg bg-zinc-50 p-3">
-                                            <p className="whitespace-pre-wrap text-sm text-zinc-700">
+                                        <p className="mb-1 text-xs font-medium text-slate-500">Employee Response</p>
+                                        <div className="rounded-lg bg-slate-50 p-3">
+                                            <p className="whitespace-pre-wrap text-sm text-slate-700">
                                                 {action.employee_response}
                                             </p>
-                                            <p className="mt-2 text-xs text-zinc-400">
+                                            <p className="mt-2 text-xs text-slate-400">
                                                 Responded on {formatDateTime(action.responded_at)}
                                             </p>
                                         </div>
@@ -428,7 +428,7 @@ export default function DisciplinaryDetail() {
                                 )}
                                 {action.linked_action && (
                                     <div>
-                                        <p className="mb-1 text-xs font-medium text-zinc-500">Previous Action</p>
+                                        <p className="mb-1 text-xs font-medium text-slate-500">Previous Action</p>
                                         <Link
                                             to={`/disciplinary/actions/${action.linked_action.id}`}
                                             className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
@@ -463,19 +463,19 @@ export default function DisciplinaryDetail() {
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="flex items-start gap-3">
-                                            <Calendar className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                            <Calendar className="mt-0.5 h-4 w-4 text-slate-400" />
                                             <div>
-                                                <p className="text-xs text-zinc-500">Date & Time</p>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-xs text-slate-500">Date & Time</p>
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {formatDate(inquiry.scheduled_date)} at {inquiry.scheduled_time || '-'}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
-                                            <MapPin className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                            <MapPin className="mt-0.5 h-4 w-4 text-slate-400" />
                                             <div>
-                                                <p className="text-xs text-zinc-500">Location</p>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-xs text-slate-500">Location</p>
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {inquiry.location || '-'}
                                                 </p>
                                             </div>
@@ -483,12 +483,12 @@ export default function DisciplinaryDetail() {
                                     </div>
                                     {inquiry.panel_members && inquiry.panel_members.length > 0 && (
                                         <div>
-                                            <p className="mb-2 text-xs font-medium text-zinc-500">Panel Members</p>
+                                            <p className="mb-2 text-xs font-medium text-slate-500">Panel Members</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {inquiry.panel_members.map((member, i) => (
                                                     <span
                                                         key={i}
-                                                        className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700"
+                                                        className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
                                                     >
                                                         {member}
                                                     </span>
@@ -497,26 +497,26 @@ export default function DisciplinaryDetail() {
                                         </div>
                                     )}
                                     {inquiry.decision && (
-                                        <div className="rounded-lg border border-zinc-200 p-4">
-                                            <p className="mb-2 text-xs font-semibold text-zinc-900">Inquiry Result</p>
+                                        <div className="rounded-lg border border-slate-200 p-4">
+                                            <p className="mb-2 text-xs font-semibold text-slate-900">Inquiry Result</p>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
-                                                    <p className="text-xs text-zinc-500">Decision</p>
-                                                    <p className="text-sm font-medium capitalize text-zinc-900">
+                                                    <p className="text-xs text-slate-500">Decision</p>
+                                                    <p className="text-sm font-medium capitalize text-slate-900">
                                                         {inquiry.decision?.replace(/_/g, ' ') || '-'}
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs text-zinc-500">Penalty</p>
-                                                    <p className="text-sm font-medium capitalize text-zinc-900">
+                                                    <p className="text-xs text-slate-500">Penalty</p>
+                                                    <p className="text-sm font-medium capitalize text-slate-900">
                                                         {inquiry.penalty?.replace(/_/g, ' ') || 'None'}
                                                     </p>
                                                 </div>
                                             </div>
                                             {inquiry.findings && (
                                                 <div className="mt-3">
-                                                    <p className="text-xs text-zinc-500">Findings</p>
-                                                    <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">
+                                                    <p className="text-xs text-slate-500">Findings</p>
+                                                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
                                                         {inquiry.findings}
                                                     </p>
                                                 </div>
@@ -538,29 +538,29 @@ export default function DisciplinaryDetail() {
                         <CardContent>
                             {timeline.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-6 text-center">
-                                    <Clock className="mb-2 h-8 w-8 text-zinc-300" />
-                                    <p className="text-xs text-zinc-400">No timeline events yet</p>
+                                    <Clock className="mb-2 h-8 w-8 text-slate-300" />
+                                    <p className="text-xs text-slate-400">No timeline events yet</p>
                                 </div>
                             ) : (
                                 <div className="relative space-y-0">
                                     {timeline.map((event, index) => (
                                         <div key={index} className="relative pb-6 pl-6 last:pb-0">
                                             {index < timeline.length - 1 && (
-                                                <div className="absolute bottom-0 left-[9px] top-4 w-px bg-zinc-200" />
+                                                <div className="absolute bottom-0 left-[9px] top-4 w-px bg-slate-200" />
                                             )}
-                                            <div className="absolute left-0 top-1 h-[18px] w-[18px] rounded-full border-2 border-zinc-300 bg-white" />
+                                            <div className="absolute left-0 top-1 h-[18px] w-[18px] rounded-full border-2 border-slate-300 bg-white" />
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {event.title || event.action}
                                                 </p>
                                                 {event.description && (
-                                                    <p className="mt-0.5 text-xs text-zinc-500">{event.description}</p>
+                                                    <p className="mt-0.5 text-xs text-slate-500">{event.description}</p>
                                                 )}
-                                                <p className="mt-1 text-xs text-zinc-400">
+                                                <p className="mt-1 text-xs text-slate-400">
                                                     {formatDateTime(event.created_at || event.date)}
                                                 </p>
                                                 {event.user && (
-                                                    <p className="text-xs text-zinc-400">by {event.user}</p>
+                                                    <p className="text-xs text-slate-400">by {event.user}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -578,29 +578,29 @@ export default function DisciplinaryDetail() {
                         <CardContent>
                             <div className="space-y-3">
                                 <div>
-                                    <p className="text-xs text-zinc-500">Issued By</p>
-                                    <p className="text-sm font-medium text-zinc-900">
+                                    <p className="text-xs text-slate-500">Issued By</p>
+                                    <p className="text-sm font-medium text-slate-900">
                                         {action.issued_by?.full_name || '-'}
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-zinc-500">Issued Date</p>
-                                    <p className="text-sm font-medium text-zinc-900">
+                                    <p className="text-xs text-slate-500">Issued Date</p>
+                                    <p className="text-sm font-medium text-slate-900">
                                         {formatDate(action.issued_at)}
                                     </p>
                                 </div>
                                 {action.closed_at && (
                                     <div>
-                                        <p className="text-xs text-zinc-500">Closed Date</p>
-                                        <p className="text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Closed Date</p>
+                                        <p className="text-sm font-medium text-slate-900">
                                             {formatDate(action.closed_at)}
                                         </p>
                                     </div>
                                 )}
                                 {action.closed_by && (
                                     <div>
-                                        <p className="text-xs text-zinc-500">Closed By</p>
-                                        <p className="text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Closed By</p>
+                                        <p className="text-sm font-medium text-slate-900">
                                             {action.closed_by?.full_name || '-'}
                                         </p>
                                     </div>
@@ -678,7 +678,7 @@ export default function DisciplinaryDetail() {
                                 onChange={(e) => setInquiryForm((p) => ({ ...p, panel_members: e.target.value }))}
                                 rows={3}
                             />
-                            <p className="mt-1 text-xs text-zinc-400">Separate multiple names with commas</p>
+                            <p className="mt-1 text-xs text-slate-400">Separate multiple names with commas</p>
                         </div>
                     </div>
                     <DialogFooter>

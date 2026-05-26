@@ -27,7 +27,7 @@ const TASK_STATUS_CONFIG = {
         label: 'Pending',
         icon: Circle,
         rowClass: '',
-        iconClass: 'text-zinc-300',
+        iconClass: 'text-slate-300',
     },
     in_progress: {
         label: 'In Progress',
@@ -45,7 +45,7 @@ const TASK_STATUS_CONFIG = {
         label: 'Skipped',
         icon: Circle,
         rowClass: '',
-        iconClass: 'text-zinc-200',
+        iconClass: 'text-slate-200',
     },
 };
 
@@ -60,7 +60,7 @@ export default function MyOnboarding() {
     if (isLoading) {
         return (
             <div className="flex justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -69,16 +69,16 @@ export default function MyOnboarding() {
         return (
             <div className="space-y-4">
                 <div>
-                    <h1 className="text-xl font-bold text-zinc-900">My Onboarding</h1>
-                    <p className="text-sm text-zinc-500 mt-0.5">Your onboarding checklist and tasks</p>
+                    <h1 className="text-xl font-bold text-slate-900">My Onboarding</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Your onboarding checklist and tasks</p>
                 </div>
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="rounded-full bg-zinc-100 p-4 mb-4">
-                            <ListChecks className="h-8 w-8 text-zinc-400" />
+                        <div className="rounded-full bg-slate-100 p-4 mb-4">
+                            <ListChecks className="h-8 w-8 text-slate-400" />
                         </div>
-                        <p className="text-sm font-medium text-zinc-600">No onboarding checklist</p>
-                        <p className="mt-1 text-xs text-zinc-400">
+                        <p className="text-sm font-medium text-slate-600">No onboarding checklist</p>
+                        <p className="mt-1 text-xs text-slate-400">
                             Your onboarding tasks will appear here when assigned.
                         </p>
                     </CardContent>
@@ -96,8 +96,8 @@ export default function MyOnboarding() {
         <div className="space-y-4">
             {/* Header */}
             <div>
-                <h1 className="text-xl font-bold text-zinc-900">My Onboarding</h1>
-                <p className="text-sm text-zinc-500 mt-0.5">Your onboarding checklist and tasks</p>
+                <h1 className="text-xl font-bold text-slate-900">My Onboarding</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Your onboarding checklist and tasks</p>
             </div>
 
             {/* Progress Overview */}
@@ -114,13 +114,13 @@ export default function MyOnboarding() {
                             }
                         </div>
                         <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-zinc-900">
+                            <p className="text-sm font-semibold text-slate-900">
                                 {onboarding.template?.name || 'Onboarding Checklist'}
                             </p>
                             {progressPct === 100 ? (
                                 <p className="text-xs text-emerald-600 font-medium">All tasks completed!</p>
                             ) : (
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-xs text-slate-500">
                                     {completedTasks} of {totalTasks} tasks completed
                                 </p>
                             )}
@@ -129,7 +129,7 @@ export default function MyOnboarding() {
                             <span className={cn(
                                 'text-2xl font-bold',
                                 progressPct === 100 ? 'text-emerald-600' :
-                                progressPct >= 50 ? 'text-blue-600' : 'text-zinc-700'
+                                progressPct >= 50 ? 'text-blue-600' : 'text-slate-700'
                             )}>
                                 {progressPct}%
                             </span>
@@ -137,7 +137,7 @@ export default function MyOnboarding() {
                     </div>
 
                     {/* Progress bar */}
-                    <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">
+                    <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
                         <div
                             className={cn(
                                 'h-full rounded-full transition-all duration-500',
@@ -150,9 +150,9 @@ export default function MyOnboarding() {
 
                     {/* Stats row */}
                     <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-lg bg-zinc-50 py-2">
-                            <p className="text-lg font-bold text-zinc-900">{totalTasks}</p>
-                            <p className="text-[10px] text-zinc-400">Total</p>
+                        <div className="rounded-lg bg-slate-50 py-2">
+                            <p className="text-lg font-bold text-slate-900">{totalTasks}</p>
+                            <p className="text-[10px] text-slate-400">Total</p>
                         </div>
                         <div className="rounded-lg bg-emerald-50 py-2">
                             <p className="text-lg font-bold text-emerald-700">{completedTasks}</p>
@@ -182,7 +182,7 @@ export default function MyOnboarding() {
                                 <div
                                     key={task.id ?? index}
                                     className={cn(
-                                        'flex items-start gap-3 rounded-lg border border-zinc-100 p-3 transition-colors',
+                                        'flex items-start gap-3 rounded-lg border border-slate-100 p-3 transition-colors',
                                         cfg.rowClass
                                     )}
                                 >
@@ -190,20 +190,20 @@ export default function MyOnboarding() {
                                     <div className="min-w-0 flex-1">
                                         <p className={cn(
                                             'text-sm font-medium',
-                                            task.status === 'completed' ? 'text-zinc-500 line-through' : 'text-zinc-900'
+                                            task.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-900'
                                         )}>
                                             {task.title}
                                         </p>
                                         {task.description && (
-                                            <p className="text-xs text-zinc-400 mt-0.5">{task.description}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">{task.description}</p>
                                         )}
                                         <div className="mt-1.5 flex flex-wrap items-center gap-3">
                                             {task.due_date && (
                                                 <div className="flex items-center gap-1">
-                                                    <CalendarDays className="h-3 w-3 text-zinc-400" />
+                                                    <CalendarDays className="h-3 w-3 text-slate-400" />
                                                     <span className={cn(
                                                         'text-xs',
-                                                        overdue ? 'text-red-500 font-medium' : 'text-zinc-400'
+                                                        overdue ? 'text-red-500 font-medium' : 'text-slate-400'
                                                     )}>
                                                         Due: {formatDate(task.due_date)}
                                                         {overdue && ' (Overdue)'}
@@ -212,8 +212,8 @@ export default function MyOnboarding() {
                                             )}
                                             {(task.assigned_to_name || task.assigned_to?.name) && (
                                                 <div className="flex items-center gap-1">
-                                                    <User className="h-3 w-3 text-zinc-400" />
-                                                    <span className="text-xs text-zinc-400">
+                                                    <User className="h-3 w-3 text-slate-400" />
+                                                    <span className="text-xs text-slate-400">
                                                         {task.assigned_to_name || task.assigned_to?.name}
                                                     </span>
                                                 </div>
@@ -230,7 +230,7 @@ export default function MyOnboarding() {
                                                 ? 'bg-blue-100 text-blue-700'
                                                 : overdue
                                                 ? 'bg-red-100 text-red-600'
-                                                : 'bg-zinc-100 text-zinc-600'
+                                                : 'bg-slate-100 text-slate-600'
                                         )}>
                                             {overdue && task.status !== 'completed' ? 'Overdue' : cfg.label}
                                         </span>

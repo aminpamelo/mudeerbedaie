@@ -54,7 +54,7 @@ const STATUS_CONFIG = {
     approved: { label: 'Approved', variant: 'default', icon: CheckCircle2, color: 'text-emerald-600' },
     rejected: { label: 'Rejected', variant: 'destructive', icon: XCircle, color: 'text-red-600' },
     completed: { label: 'Completed', variant: 'outline', icon: CheckCircle2, color: 'text-blue-600' },
-    cancelled: { label: 'Cancelled', variant: 'outline', icon: XCircle, color: 'text-zinc-500' },
+    cancelled: { label: 'Cancelled', variant: 'outline', icon: XCircle, color: 'text-slate-500' },
 };
 
 const DURATION_PRESETS = [30, 60, 90, 120, 180, 240];
@@ -189,8 +189,8 @@ export default function MyOvertime() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-bold text-zinc-900">My Overtime</h1>
-                    <p className="text-sm text-zinc-500 mt-0.5">Manage your overtime requests</p>
+                    <h1 className="text-xl font-bold text-slate-900">My Overtime</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Manage your overtime requests</p>
                 </div>
                 {activeTab === 'requests' ? (
                     <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
@@ -204,14 +204,14 @@ export default function MyOvertime() {
             </div>
 
             {/* Tab switcher */}
-            <div className="flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50 w-fit">
+            <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 w-fit">
                 <button
                     onClick={() => setActiveTab('requests')}
                     className={cn(
                         'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
                         activeTab === 'requests'
-                            ? 'bg-white text-zinc-900 shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                     )}
                 >
                     OT Requests
@@ -221,8 +221,8 @@ export default function MyOvertime() {
                     className={cn(
                         'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
                         activeTab === 'claims'
-                            ? 'bg-white text-zinc-900 shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                     )}
                 >
                     My Claims
@@ -234,19 +234,19 @@ export default function MyOvertime() {
                 <Card>
                     <CardContent className="py-3 text-center">
                         <p className="text-lg font-bold text-emerald-600">{formatDecimalHours(balance.total_earned)}</p>
-                        <p className="text-[10px] text-zinc-500">Earned</p>
+                        <p className="text-[10px] text-slate-500">Earned</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="py-3 text-center">
                         <p className="text-lg font-bold text-amber-600">{formatDecimalHours(balance.total_used)}</p>
-                        <p className="text-[10px] text-zinc-500">Used</p>
+                        <p className="text-[10px] text-slate-500">Used</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="py-3 text-center">
                         <p className="text-lg font-bold text-blue-600">{formatDecimalHours(balance.available)}</p>
-                        <p className="text-[10px] text-zinc-500">Available</p>
+                        <p className="text-[10px] text-slate-500">Available</p>
                     </CardContent>
                 </Card>
             </div>
@@ -261,12 +261,12 @@ export default function MyOvertime() {
                     <CardContent>
                         {isLoading ? (
                             <div className="flex justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                             </div>
                         ) : requests.length === 0 ? (
                             <div className="py-8 text-center">
-                                <Timer className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
-                                <p className="text-sm text-zinc-500">No overtime requests yet</p>
+                                <Timer className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                                <p className="text-sm text-slate-500">No overtime requests yet</p>
                             </div>
                         ) : (
                             <div className="space-y-2">
@@ -275,18 +275,18 @@ export default function MyOvertime() {
                                     return (
                                         <div
                                             key={req.id}
-                                            className="flex items-center justify-between rounded-lg border border-zinc-100 p-3"
+                                            className="flex items-center justify-between rounded-lg border border-slate-100 p-3"
                                         >
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-medium text-zinc-900">
+                                                    <p className="text-sm font-medium text-slate-900">
                                                         {formatDate(req.requested_date)}
                                                     </p>
                                                     <Badge variant={cfg.variant} className="text-[10px]">
                                                         {cfg.label}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-xs text-zinc-500 mt-0.5">
+                                                <p className="text-xs text-slate-500 mt-0.5">
                                                     {formatTime(req.start_time)}
                                                     {calcDurationMins(req.start_time, req.end_time) && (
                                                         <span> • {formatDuration(calcDurationMins(req.start_time, req.end_time))}</span>
@@ -296,7 +296,7 @@ export default function MyOvertime() {
                                                     )}
                                                 </p>
                                                 {req.reason && (
-                                                    <p className="text-xs text-zinc-500 mt-0.5 truncate">{req.reason}</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5 truncate">{req.reason}</p>
                                                 )}
                                             </div>
                                             {req.status === 'pending' && (
@@ -329,12 +329,12 @@ export default function MyOvertime() {
                     <CardContent>
                         {claimsLoading ? (
                             <div className="flex justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                             </div>
                         ) : claims.length === 0 ? (
                             <div className="py-8 text-center">
-                                <Clock className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
-                                <p className="text-sm text-zinc-500">No claim requests yet</p>
+                                <Clock className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                                <p className="text-sm text-slate-500">No claim requests yet</p>
                             </div>
                         ) : (
                             <div className="space-y-2">
@@ -343,22 +343,22 @@ export default function MyOvertime() {
                                     return (
                                         <div
                                             key={claim.id}
-                                            className="flex items-center justify-between rounded-lg border border-zinc-100 p-3"
+                                            className="flex items-center justify-between rounded-lg border border-slate-100 p-3"
                                         >
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-medium text-zinc-900">
+                                                    <p className="text-sm font-medium text-slate-900">
                                                         {formatDate(claim.claim_date)}
                                                     </p>
                                                     <Badge variant={cfg.variant} className="text-[10px]">
                                                         {cfg.label}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-xs text-zinc-500 mt-0.5">
+                                                <p className="text-xs text-slate-500 mt-0.5">
                                                     {formatTime(claim.start_time)} • {formatDuration(claim.duration_minutes)}
                                                 </p>
                                                 {claim.notes && (
-                                                    <p className="text-xs text-zinc-500 mt-0.5 truncate">{claim.notes}</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5 truncate">{claim.notes}</p>
                                                 )}
                                                 {claim.rejection_reason && (
                                                     <p className="text-xs text-red-500 mt-0.5">{claim.rejection_reason}</p>
@@ -430,8 +430,8 @@ export default function MyOvertime() {
                                             className={cn(
                                                 'px-2.5 py-1 rounded text-xs font-medium border transition-colors',
                                                 form.duration_minutes === String(mins)
-                                                    ? 'bg-zinc-900 text-white border-zinc-900'
-                                                    : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                                                    ? 'bg-slate-900 text-white border-slate-900'
+                                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
                                             )}
                                         >
                                             {formatDuration(mins)}
@@ -454,7 +454,7 @@ export default function MyOvertime() {
                                         placeholder="0"
                                         className="w-20"
                                     />
-                                    <span className="text-xs text-zinc-400 shrink-0">hr</span>
+                                    <span className="text-xs text-slate-400 shrink-0">hr</span>
                                     <Input
                                         type="number"
                                         min="0"
@@ -470,14 +470,14 @@ export default function MyOvertime() {
                                         placeholder="0"
                                         className="w-20"
                                     />
-                                    <span className="text-xs text-zinc-400 shrink-0">min</span>
+                                    <span className="text-xs text-slate-400 shrink-0">min</span>
                                 </div>
                                 {form.start_time && form.duration_minutes && (() => {
                                     const [sh, sm] = form.start_time.split(':').map(Number);
                                     const crossesMidnight = (sh * 60 + sm) + parseInt(form.duration_minutes) >= 24 * 60;
                                     return (
-                                        <p className="text-xs text-zinc-500">
-                                            Ends at <span className="font-medium text-zinc-700">{calcEndTime(form.start_time, form.duration_minutes)}</span>
+                                        <p className="text-xs text-slate-500">
+                                            Ends at <span className="font-medium text-slate-700">{calcEndTime(form.start_time, form.duration_minutes)}</span>
                                             {crossesMidnight && <span className="ml-1 text-amber-600">(next day)</span>}
                                         </p>
                                     );
@@ -565,8 +565,8 @@ export default function MyOvertime() {
                                             className={cn(
                                                 'px-2.5 py-1 rounded text-xs font-medium border transition-colors',
                                                 claimForm.duration_minutes === String(mins)
-                                                    ? 'bg-zinc-900 text-white border-zinc-900'
-                                                    : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                                                    ? 'bg-slate-900 text-white border-slate-900'
+                                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
                                             )}
                                         >
                                             {formatDuration(mins)}
@@ -589,7 +589,7 @@ export default function MyOvertime() {
                                         placeholder="0"
                                         className="w-20"
                                     />
-                                    <span className="text-xs text-zinc-400 shrink-0">hr</span>
+                                    <span className="text-xs text-slate-400 shrink-0">hr</span>
                                     <Input
                                         type="number"
                                         min="0"
@@ -605,7 +605,7 @@ export default function MyOvertime() {
                                         placeholder="0"
                                         className="w-20"
                                     />
-                                    <span className="text-xs text-zinc-400 shrink-0">min</span>
+                                    <span className="text-xs text-slate-400 shrink-0">min</span>
                                 </div>
                             </div>
                         </div>

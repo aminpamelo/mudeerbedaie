@@ -26,14 +26,14 @@ const DEFAULT_SCALES = [
 
 function SkeletonRows() {
     return (
-        <div className="divide-y divide-zinc-100">
+        <div className="divide-y divide-slate-100">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-6 py-4">
-                    <div className="h-8 w-8 animate-pulse rounded-full bg-zinc-200" />
-                    <div className="h-4 w-28 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-10 flex-1 animate-pulse rounded-lg bg-zinc-200" />
-                    <div className="h-10 w-32 animate-pulse rounded-lg bg-zinc-200" />
-                    <div className="h-8 w-12 animate-pulse rounded-lg bg-zinc-200" />
+                    <div className="h-8 w-8 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+                    <div className="h-10 flex-1 animate-pulse rounded-lg bg-slate-200" />
+                    <div className="h-10 w-32 animate-pulse rounded-lg bg-slate-200" />
+                    <div className="h-8 w-12 animate-pulse rounded-lg bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -127,12 +127,12 @@ export default function RatingScaleConfig() {
                 ) : isError ? (
                     <CardContent className="flex flex-col items-center justify-center py-16">
                         <AlertTriangle className="mb-3 h-10 w-10 text-red-300" />
-                        <p className="text-sm font-medium text-zinc-600">Failed to load rating scales.</p>
+                        <p className="text-sm font-medium text-slate-600">Failed to load rating scales.</p>
                     </CardContent>
                 ) : (
                     <>
-                        <div className="border-b border-zinc-200 px-6 py-3">
-                            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-zinc-500">
+                        <div className="border-b border-slate-200 px-6 py-3">
+                            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-slate-500">
                                 <div className="col-span-1">Score</div>
                                 <div className="col-span-2">Label</div>
                                 <div className="col-span-6">Description</div>
@@ -140,13 +140,13 @@ export default function RatingScaleConfig() {
                                 <div className="col-span-1">Preview</div>
                             </div>
                         </div>
-                        <div className="divide-y divide-zinc-100">
+                        <div className="divide-y divide-slate-100">
                             {scales.map((scale, i) => (
                                 <div key={scale.score} className="grid grid-cols-12 items-center gap-4 px-6 py-4">
                                     <div className="col-span-1">
                                         <div className="flex items-center gap-1">
                                             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                                            <span className="font-bold text-zinc-900">{scale.score}</span>
+                                            <span className="font-bold text-slate-900">{scale.score}</span>
                                         </div>
                                     </div>
                                     <div className="col-span-2">
@@ -155,7 +155,7 @@ export default function RatingScaleConfig() {
                                             value={scale.label}
                                             onChange={(e) => updateScale(i, 'label', e.target.value)}
                                             placeholder="Label"
-                                            className="w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                            className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                         />
                                     </div>
                                     <div className="col-span-6">
@@ -164,7 +164,7 @@ export default function RatingScaleConfig() {
                                             value={scale.description}
                                             onChange={(e) => updateScale(i, 'description', e.target.value)}
                                             placeholder="Description of this rating level..."
-                                            className="w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                            className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                         />
                                     </div>
                                     <div className="col-span-2 flex items-center gap-2">
@@ -172,9 +172,9 @@ export default function RatingScaleConfig() {
                                             type="color"
                                             value={scale.color}
                                             onChange={(e) => updateScale(i, 'color', e.target.value)}
-                                            className="h-9 w-14 cursor-pointer rounded-lg border border-zinc-300 p-0.5"
+                                            className="h-9 w-14 cursor-pointer rounded-lg border border-slate-300 p-0.5"
                                         />
-                                        <span className="font-mono text-xs text-zinc-500">{scale.color}</span>
+                                        <span className="font-mono text-xs text-slate-500">{scale.color}</span>
                                     </div>
                                     <div className="col-span-1">
                                         <span
@@ -187,9 +187,9 @@ export default function RatingScaleConfig() {
                                 </div>
                             ))}
                         </div>
-                        <div className="border-t border-zinc-100 px-6 py-4">
+                        <div className="border-t border-slate-100 px-6 py-4">
                             <div className="flex items-center justify-between">
-                                <p className="text-sm text-zinc-500">
+                                <p className="text-sm text-slate-500">
                                     {isDirty ? (
                                         <span className="text-amber-600">You have unsaved changes.</span>
                                     ) : (
@@ -216,7 +216,7 @@ export default function RatingScaleConfig() {
             {/* Preview Section */}
             <Card className="mt-6">
                 <CardContent className="p-6">
-                    <h3 className="mb-4 text-lg font-semibold text-zinc-900">Preview</h3>
+                    <h3 className="mb-4 text-lg font-semibold text-slate-900">Preview</h3>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
                         {scales.map((scale) => (
                             <div
@@ -232,8 +232,8 @@ export default function RatingScaleConfig() {
                                         {scale.score}
                                     </span>
                                 </div>
-                                <p className="mt-2 text-sm font-semibold text-zinc-900">{scale.label || `Score ${scale.score}`}</p>
-                                <p className="mt-1 text-xs text-zinc-500 line-clamp-2">{scale.description}</p>
+                                <p className="mt-2 text-sm font-semibold text-slate-900">{scale.label || `Score ${scale.score}`}</p>
+                                <p className="mt-1 text-xs text-slate-500 line-clamp-2">{scale.description}</p>
                             </div>
                         ))}
                     </div>

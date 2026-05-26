@@ -37,7 +37,7 @@ export default function AttendanceGauge({ rate = 0, label = 'Attendance' }) {
                 >
                     {Math.round(rate)}%
                 </span>
-                <span className="text-xs text-zinc-500">{label}</span>
+                <span className="text-xs text-slate-500">{label}</span>
             </div>
         </div>
     );

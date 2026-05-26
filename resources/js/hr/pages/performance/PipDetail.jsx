@@ -34,7 +34,7 @@ import {
 const GOAL_STATUS_OPTIONS = ['pending', 'in_progress', 'completed', 'missed'];
 
 const GOAL_STATUS_BADGE = {
-    pending: 'bg-zinc-100 text-zinc-600',
+    pending: 'bg-slate-100 text-slate-600',
     in_progress: 'bg-blue-100 text-blue-700',
     completed: 'bg-emerald-100 text-emerald-700',
     missed: 'bg-red-100 text-red-700',
@@ -59,8 +59,8 @@ function formatDate(dateString) {
 function SkeletonDetail() {
     return (
         <div className="space-y-6">
-            <div className="h-32 animate-pulse rounded-lg bg-zinc-200" />
-            <div className="h-64 animate-pulse rounded-lg bg-zinc-200" />
+            <div className="h-32 animate-pulse rounded-lg bg-slate-200" />
+            <div className="h-64 animate-pulse rounded-lg bg-slate-200" />
         </div>
     );
 }
@@ -154,7 +154,7 @@ export default function PipDetail() {
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16">
                         <AlertTriangle className="mb-3 h-10 w-10 text-red-300" />
-                        <p className="text-sm font-medium text-zinc-600">Failed to load PIP details.</p>
+                        <p className="text-sm font-medium text-slate-600">Failed to load PIP details.</p>
                         <Button variant="outline" className="mt-4" onClick={() => navigate('/performance/pips')}>
                             Back to PIPs
                         </Button>
@@ -214,43 +214,43 @@ export default function PipDetail() {
                         <CardContent className="p-6">
                             <div className="flex flex-col gap-6 sm:flex-row">
                                 <div className="flex items-center gap-4">
-                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-lg font-bold text-zinc-600">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-600">
                                         {pip?.employee?.full_name?.charAt(0) || '?'}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-zinc-900">{pip?.employee?.full_name || '-'}</p>
-                                        <p className="text-sm text-zinc-500">
+                                        <p className="font-semibold text-slate-900">{pip?.employee?.full_name || '-'}</p>
+                                        <p className="text-sm text-slate-500">
                                             {pip?.employee?.department?.name || '-'} · {pip?.employee?.position?.name || '-'}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-6 sm:ml-auto">
                                     <div>
-                                        <p className="text-xs text-zinc-500">Status</p>
-                                        <span className={cn('mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', PIP_STATUS_BADGE[pip?.status] || 'bg-zinc-100 text-zinc-600')}>
+                                        <p className="text-xs text-slate-500">Status</p>
+                                        <span className={cn('mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', PIP_STATUS_BADGE[pip?.status] || 'bg-slate-100 text-slate-600')}>
                                             {pip?.status || '-'}
                                         </span>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-zinc-500">Start Date</p>
-                                        <p className="mt-1 text-sm font-medium text-zinc-900">{formatDate(pip?.start_date)}</p>
+                                        <p className="text-xs text-slate-500">Start Date</p>
+                                        <p className="mt-1 text-sm font-medium text-slate-900">{formatDate(pip?.start_date)}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-zinc-500">End Date</p>
-                                        <p className="mt-1 text-sm font-medium text-zinc-900">{formatDate(pip?.end_date)}</p>
+                                        <p className="text-xs text-slate-500">End Date</p>
+                                        <p className="mt-1 text-sm font-medium text-slate-900">{formatDate(pip?.end_date)}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-zinc-500">Goals</p>
-                                        <p className="mt-1 text-sm font-medium text-zinc-900">
+                                        <p className="text-xs text-slate-500">Goals</p>
+                                        <p className="mt-1 text-sm font-medium text-slate-900">
                                             {goals.filter((g) => g.status === 'completed').length}/{goals.length} completed
                                         </p>
                                     </div>
                                 </div>
                             </div>
                             {pip?.reason && (
-                                <div className="mt-4 rounded-lg bg-zinc-50 p-4">
-                                    <p className="text-xs font-medium text-zinc-500">Reason</p>
-                                    <p className="mt-1 text-sm text-zinc-700">{pip.reason}</p>
+                                <div className="mt-4 rounded-lg bg-slate-50 p-4">
+                                    <p className="text-xs font-medium text-slate-500">Reason</p>
+                                    <p className="mt-1 text-sm text-slate-700">{pip.reason}</p>
                                 </div>
                             )}
                         </CardContent>
@@ -259,38 +259,38 @@ export default function PipDetail() {
                     {/* Goals List */}
                     <Card>
                         <CardContent className="p-6">
-                            <h3 className="mb-4 text-lg font-semibold text-zinc-900">Improvement Goals</h3>
+                            <h3 className="mb-4 text-lg font-semibold text-slate-900">Improvement Goals</h3>
 
                             {goals.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                                    <CalendarDays className="mb-3 h-10 w-10 text-zinc-300" />
-                                    <p className="text-sm text-zinc-500">No goals added yet.</p>
+                                    <CalendarDays className="mb-3 h-10 w-10 text-slate-300" />
+                                    <p className="text-sm text-slate-500">No goals added yet.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {goals.map((goal) => (
-                                        <div key={goal.id} className="rounded-lg border border-zinc-200 p-4">
+                                        <div key={goal.id} className="rounded-lg border border-slate-200 p-4">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2">
-                                                        <p className="font-medium text-zinc-900">{goal.title}</p>
-                                                        <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', GOAL_STATUS_BADGE[goal.status] || 'bg-zinc-100 text-zinc-600')}>
+                                                        <p className="font-medium text-slate-900">{goal.title}</p>
+                                                        <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', GOAL_STATUS_BADGE[goal.status] || 'bg-slate-100 text-slate-600')}>
                                                             {goal.status?.replace('_', ' ') || 'pending'}
                                                         </span>
                                                     </div>
                                                     {goal.description && (
-                                                        <p className="mt-1 text-sm text-zinc-600">{goal.description}</p>
+                                                        <p className="mt-1 text-sm text-slate-600">{goal.description}</p>
                                                     )}
                                                     {goal.target_date && (
-                                                        <p className="mt-1.5 flex items-center gap-1 text-xs text-zinc-400">
+                                                        <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
                                                             <Clock className="h-3.5 w-3.5" />
                                                             Target: {formatDate(goal.target_date)}
                                                         </p>
                                                     )}
                                                     {goal.check_in_notes && (
-                                                        <div className="mt-2 rounded-md bg-zinc-50 px-3 py-2">
-                                                            <p className="text-xs font-medium text-zinc-500">Check-in Notes</p>
-                                                            <p className="mt-0.5 text-sm text-zinc-600">{goal.check_in_notes}</p>
+                                                        <div className="mt-2 rounded-md bg-slate-50 px-3 py-2">
+                                                            <p className="text-xs font-medium text-slate-500">Check-in Notes</p>
+                                                            <p className="mt-0.5 text-sm text-slate-600">{goal.check_in_notes}</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -324,32 +324,32 @@ export default function PipDetail() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Title *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Title *</label>
                             <input
                                 type="text"
                                 value={goalForm.title}
                                 onChange={(e) => setGoalForm((f) => ({ ...f, title: e.target.value }))}
                                 placeholder="e.g. Improve punctuality to 95%"
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={goalForm.description}
                                 onChange={(e) => setGoalForm((f) => ({ ...f, description: e.target.value }))}
                                 placeholder="Describe the goal in detail..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Target Date</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Target Date</label>
                             <input
                                 type="date"
                                 value={goalForm.target_date}
                                 onChange={(e) => setGoalForm((f) => ({ ...f, target_date: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <DialogFooter>
@@ -376,15 +376,15 @@ export default function PipDetail() {
                             {formError && (
                                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                             )}
-                            <div className="rounded-lg bg-zinc-50 p-3">
-                                <p className="text-sm font-medium text-zinc-900">{updateGoalDialog.title}</p>
+                            <div className="rounded-lg bg-slate-50 p-3">
+                                <p className="text-sm font-medium text-slate-900">{updateGoalDialog.title}</p>
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Status</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
                                 <select
                                     value={updateGoalForm.status}
                                     onChange={(e) => setUpdateGoalForm((f) => ({ ...f, status: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 >
                                     {GOAL_STATUS_OPTIONS.map((s) => (
                                         <option key={s} value={s} className="capitalize">
@@ -394,13 +394,13 @@ export default function PipDetail() {
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Check-in Notes</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Check-in Notes</label>
                                 <textarea
                                     value={updateGoalForm.check_in_notes}
                                     onChange={(e) => setUpdateGoalForm((f) => ({ ...f, check_in_notes: e.target.value }))}
                                     placeholder="Notes from check-in or progress update..."
                                     rows={3}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <DialogFooter>
@@ -431,22 +431,22 @@ export default function PipDetail() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">New End Date *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">New End Date *</label>
                             <input
                                 type="date"
                                 value={extendForm.new_end_date}
                                 onChange={(e) => setExtendForm((f) => ({ ...f, new_end_date: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Reason for Extension</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Reason for Extension</label>
                             <textarea
                                 value={extendForm.extension_reason}
                                 onChange={(e) => setExtendForm((f) => ({ ...f, extension_reason: e.target.value }))}
                                 placeholder="Explain why the PIP duration needs to be extended..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <DialogFooter>
@@ -476,11 +476,11 @@ export default function PipDetail() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Outcome</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Outcome</label>
                             <select
                                 value={completeForm.outcome}
                                 onChange={(e) => setCompleteForm((f) => ({ ...f, outcome: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 <option value="improved">Employee Improved</option>
                                 <option value="not_improved">Did Not Improve</option>
@@ -488,13 +488,13 @@ export default function PipDetail() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Completion Notes</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Completion Notes</label>
                             <textarea
                                 value={completeForm.notes}
                                 onChange={(e) => setCompleteForm((f) => ({ ...f, notes: e.target.value }))}
                                 placeholder="Summary of the PIP outcome..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <DialogFooter>

@@ -44,8 +44,8 @@ export default function MyMeetings() {
     return (
         <div>
             <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900">My Meetings</h1>
-                <p className="mt-1 text-sm text-zinc-500">View meetings you are invited to or organizing.</p>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Meetings</h1>
+                <p className="mt-1 text-sm text-slate-500">View meetings you are invited to or organizing.</p>
             </div>
 
             <Tabs value={tab} onValueChange={setTab}>
@@ -58,14 +58,14 @@ export default function MyMeetings() {
 
             {isLoading ? (
                 <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                 </div>
             ) : meetings.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <CalendarDays className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No meetings</h3>
-                        <p className="mt-1 text-sm text-zinc-500">You have no {tab} meetings.</p>
+                        <CalendarDays className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No meetings</h3>
+                        <p className="mt-1 text-sm text-slate-500">You have no {tab} meetings.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -77,8 +77,8 @@ export default function MyMeetings() {
                                 <CardContent className="p-4">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                            <h3 className="font-semibold text-zinc-900">{meeting.title}</h3>
-                                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+                                            <h3 className="font-semibold text-slate-900">{meeting.title}</h3>
+                                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
                                                 <span className="flex items-center gap-1">
                                                     <CalendarDays className="h-3.5 w-3.5" />
                                                     {formatDate(meeting.date)}

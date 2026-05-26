@@ -55,7 +55,7 @@ const TYPE_OPTIONS = [
 const STATUS_BADGE = {
     scheduled: 'bg-blue-100 text-blue-700',
     completed: 'bg-emerald-100 text-emerald-700',
-    cancelled: 'bg-zinc-100 text-zinc-600',
+    cancelled: 'bg-slate-100 text-slate-600',
     no_show: 'bg-red-100 text-red-700',
 };
 
@@ -93,7 +93,7 @@ function StarRating({ rating }) {
                     key={i}
                     className={cn(
                         'h-3.5 w-3.5',
-                        i < value ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'
+                        i < value ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
                     )}
                 />
             ))}
@@ -106,11 +106,11 @@ function SkeletonTable() {
         <div className="space-y-3 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-2">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -208,7 +208,7 @@ export default function Interviews() {
                                 onChange={(e) => setDateFrom(e.target.value)}
                                 className="w-full lg:w-36"
                             />
-                            <span className="text-sm text-zinc-400">to</span>
+                            <span className="text-sm text-slate-400">to</span>
                             <Input
                                 type="date"
                                 value={dateTo}
@@ -228,9 +228,9 @@ export default function Interviews() {
             ) : interviews.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Calendar className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No interviews found</h3>
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <Calendar className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No interviews found</h3>
+                        <p className="mt-1 text-sm text-slate-500">
                             Schedule an interview with a candidate to get started.
                         </p>
                         <Button className="mt-4" onClick={() => setScheduleDialogOpen(true)}>
@@ -262,7 +262,7 @@ export default function Interviews() {
                                     <TableCell>
                                         {interview.interviewer?.full_name || '-'}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-500">
+                                    <TableCell className="text-sm text-slate-500">
                                         {formatDateTime(interview.scheduled_at)}
                                     </TableCell>
                                     <TableCell className="capitalize text-sm">
@@ -272,7 +272,7 @@ export default function Interviews() {
                                         <span
                                             className={cn(
                                                 'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                STATUS_BADGE[interview.status] || 'bg-zinc-100 text-zinc-600'
+                                                STATUS_BADGE[interview.status] || 'bg-slate-100 text-slate-600'
                                             )}
                                         >
                                             {interview.status?.replace('_', ' ') || '-'}
@@ -282,7 +282,7 @@ export default function Interviews() {
                                         {interview.rating ? (
                                             <StarRating rating={interview.rating} />
                                         ) : (
-                                            <span className="text-xs text-zinc-400">—</span>
+                                            <span className="text-xs text-slate-400">—</span>
                                         )}
                                     </TableCell>
                                     <TableCell>
@@ -373,7 +373,7 @@ export default function Interviews() {
                                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                                     rows={3}
                                     placeholder="Interview notes or instructions..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
@@ -399,9 +399,9 @@ export default function Interviews() {
                     </DialogHeader>
                     {feedbackDialog.interview && (
                         <form onSubmit={handleFeedbackSubmit}>
-                            <div className="mb-3 rounded-lg bg-zinc-50 p-3 text-sm">
+                            <div className="mb-3 rounded-lg bg-slate-50 p-3 text-sm">
                                 <p className="font-medium">{feedbackDialog.interview.applicant?.name}</p>
-                                <p className="text-zinc-500">{formatDateTime(feedbackDialog.interview.scheduled_at)}</p>
+                                <p className="text-slate-500">{formatDateTime(feedbackDialog.interview.scheduled_at)}</p>
                             </div>
 
                             <div className="space-y-4 py-2">
@@ -444,7 +444,7 @@ export default function Interviews() {
                                         onChange={(e) => setFeedback((f) => ({ ...f, feedback: e.target.value }))}
                                         rows={4}
                                         placeholder="Detailed feedback about the candidate..."
-                                        className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                         required
                                     />
                                 </div>

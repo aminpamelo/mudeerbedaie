@@ -59,7 +59,7 @@ const STATUS_BADGE = {
     available: 'bg-emerald-100 text-emerald-700',
     assigned: 'bg-blue-100 text-blue-700',
     under_maintenance: 'bg-amber-100 text-amber-700',
-    disposed: 'bg-zinc-100 text-zinc-500',
+    disposed: 'bg-slate-100 text-slate-500',
 };
 
 const CONDITION_BADGE = {
@@ -68,7 +68,7 @@ const CONDITION_BADGE = {
     fair: 'bg-amber-50 text-amber-600',
     poor: 'bg-orange-50 text-orange-600',
     damaged: 'bg-red-50 text-red-600',
-    disposed: 'bg-zinc-50 text-zinc-500',
+    disposed: 'bg-slate-50 text-slate-500',
 };
 
 const EMPTY_FORM = {
@@ -246,13 +246,13 @@ export default function AssetList() {
 
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : assets.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Package className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No assets found</p>
-                            <p className="mt-1 text-xs text-zinc-400">Add your first asset to get started.</p>
+                            <Package className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No assets found</p>
+                            <p className="mt-1 text-xs text-slate-400">Add your first asset to get started.</p>
                         </div>
                     ) : (
                         <>
@@ -277,7 +277,7 @@ export default function AssetList() {
                                             <TableCell>
                                                 <p className="font-medium">{asset.name}</p>
                                                 {(asset.brand || asset.model) && (
-                                                    <p className="text-xs text-zinc-400">
+                                                    <p className="text-xs text-slate-400">
                                                         {[asset.brand, asset.model].filter(Boolean).join(' ')}
                                                     </p>
                                                 )}
@@ -288,12 +288,12 @@ export default function AssetList() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', CONDITION_BADGE[asset.condition] || 'bg-zinc-100 text-zinc-600')}>
+                                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium capitalize', CONDITION_BADGE[asset.condition] || 'bg-slate-100 text-slate-600')}>
                                                     {asset.condition}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[asset.status] || 'bg-zinc-100 text-zinc-600')}>
+                                                <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[asset.status] || 'bg-slate-100 text-slate-600')}>
                                                     {STATUSES.find((s) => s.value === asset.status)?.label || asset.status}
                                                 </span>
                                             </TableCell>
@@ -326,7 +326,7 @@ export default function AssetList() {
                             </Table>
 
                             {meta.last_page > 1 && (
-                                <div className="mt-4 flex items-center justify-between text-sm text-zinc-500">
+                                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
                                     <span>Showing {meta.from}–{meta.to} of {meta.total}</span>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
@@ -353,10 +353,10 @@ export default function AssetList() {
                     </DialogHeader>
                     {historyLoading ? (
                         <div className="flex justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : assignmentHistory.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-zinc-400">No assignment history.</p>
+                        <p className="py-8 text-center text-sm text-slate-400">No assignment history.</p>
                     ) : (
                         <Table>
                             <TableHeader>
@@ -400,18 +400,18 @@ export default function AssetList() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Asset Tag *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Asset Tag *</label>
                                 <input
                                     type="text"
                                     value={form.asset_tag}
                                     onChange={(e) => setForm((f) => ({ ...f, asset_tag: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none"
                                     required
                                 />
                                 {errors.asset_tag && <p className="mt-1 text-xs text-red-600">{errors.asset_tag[0]}</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Category *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Category *</label>
                                 <Select value={form.asset_category_id} onValueChange={(v) => setForm((f) => ({ ...f, asset_category_id: v }))}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select..." />
@@ -425,47 +425,47 @@ export default function AssetList() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Name *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Name *</label>
                             <input
                                 type="text"
                                 value={form.name}
                                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 required
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Brand</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Brand</label>
                                 <input
                                     type="text"
                                     value={form.brand}
                                     onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Model</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Model</label>
                                 <input
                                     type="text"
                                     value={form.model}
                                     onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Serial Number</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Serial Number</label>
                                 <input
                                     type="text"
                                     value={form.serial_number}
                                     onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Condition</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Condition</label>
                                 <Select value={form.condition} onValueChange={(v) => setForm((f) => ({ ...f, condition: v }))}>
                                     <SelectTrigger>
                                         <SelectValue />
@@ -480,32 +480,32 @@ export default function AssetList() {
                         </div>
                         <div className="grid grid-cols-3 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Purchase Date</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Purchase Date</label>
                                 <input
                                     type="date"
                                     value={form.purchase_date}
                                     onChange={(e) => setForm((f) => ({ ...f, purchase_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Price (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Price (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={form.purchase_price}
                                     onChange={(e) => setForm((f) => ({ ...f, purchase_price: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Warranty Expiry</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Warranty Expiry</label>
                                 <input
                                     type="date"
                                     value={form.warranty_expiry}
                                     onChange={(e) => setForm((f) => ({ ...f, warranty_expiry: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                         </div>

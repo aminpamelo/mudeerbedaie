@@ -113,13 +113,13 @@ function StarRating({ value, onChange, readonly = false }) {
                             'h-5 w-5',
                             (hoverValue || value) >= star
                                 ? 'fill-amber-400 text-amber-400'
-                                : 'fill-zinc-200 text-zinc-200'
+                                : 'fill-slate-200 text-slate-200'
                         )}
                     />
                 </button>
             ))}
             {value > 0 && (
-                <span className="ml-1 text-xs text-zinc-500">{value}/5</span>
+                <span className="ml-1 text-xs text-slate-500">{value}/5</span>
             )}
         </div>
     );
@@ -214,8 +214,8 @@ export default function MyTraining() {
                                     <card.icon className={cn('h-5 w-5', card.color)} />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-medium text-zinc-500">{card.label}</p>
-                                    <p className="text-lg font-bold text-zinc-900">{card.value}</p>
+                                    <p className="text-xs font-medium text-slate-500">{card.label}</p>
+                                    <p className="text-lg font-bold text-slate-900">{card.value}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -227,7 +227,7 @@ export default function MyTraining() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <GraduationCap className="h-5 w-5 text-zinc-400" />
+                        <GraduationCap className="h-5 w-5 text-slate-400" />
                         <div>
                             <CardTitle>My Trainings</CardTitle>
                             <CardDescription>{trainings.length} program(s)</CardDescription>
@@ -239,19 +239,19 @@ export default function MyTraining() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 3 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-8 w-24 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-8 w-24 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : trainings.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <GraduationCap className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No training programs</p>
-                            <p className="text-xs text-zinc-400">You have not been enrolled in any training yet</p>
+                            <GraduationCap className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No training programs</p>
+                            <p className="text-xs text-slate-400">You have not been enrolled in any training yet</p>
                         </div>
                     ) : (
                         <Table>
@@ -275,11 +275,11 @@ export default function MyTraining() {
                                         <TableRow key={training.enrollment_id || training.id}>
                                             <TableCell>
                                                 <div>
-                                                    <p className="font-medium text-zinc-900">
+                                                    <p className="font-medium text-slate-900">
                                                         {training.program_title || training.title}
                                                     </p>
                                                     {training.provider && (
-                                                        <p className="text-xs text-zinc-400">{training.provider}</p>
+                                                        <p className="text-xs text-slate-400">{training.provider}</p>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -287,7 +287,7 @@ export default function MyTraining() {
                                                 <div className="text-sm">
                                                     {formatDate(training.start_date || training.date)}
                                                     {training.end_date && training.end_date !== training.start_date && (
-                                                        <span className="text-zinc-400">
+                                                        <span className="text-slate-400">
                                                             {' - '}{formatDate(training.end_date)}
                                                         </span>
                                                     )}
@@ -300,7 +300,7 @@ export default function MyTraining() {
                                                 {training.rating ? (
                                                     <StarRating value={training.rating} onChange={() => {}} readonly />
                                                 ) : (
-                                                    <span className="text-xs text-zinc-400">-</span>
+                                                    <span className="text-xs text-slate-400">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -314,7 +314,7 @@ export default function MyTraining() {
                                                         Give Feedback
                                                     </Button>
                                                 ) : (
-                                                    <span className="text-xs text-zinc-400">-</span>
+                                                    <span className="text-xs text-slate-400">-</span>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -330,7 +330,7 @@ export default function MyTraining() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <Award className="h-5 w-5 text-zinc-400" />
+                        <Award className="h-5 w-5 text-slate-400" />
                         <div>
                             <CardTitle>My Certifications</CardTitle>
                             <CardDescription>{certifications.length} certification(s)</CardDescription>
@@ -342,19 +342,19 @@ export default function MyTraining() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 3 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-28 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : certifications.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Award className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No certifications</p>
-                            <p className="text-xs text-zinc-400">Your certifications will appear here</p>
+                            <Award className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No certifications</p>
+                            <p className="text-xs text-slate-400">Your certifications will appear here</p>
                         </div>
                     ) : (
                         <Table>
@@ -387,7 +387,7 @@ export default function MyTraining() {
                                                     {certStatus === 'expired' && (
                                                         <XCircle className="h-4 w-4 text-red-500 shrink-0" />
                                                     )}
-                                                    <span className="font-medium text-zinc-900">
+                                                    <span className="font-medium text-slate-900">
                                                         {cert.certification_name || cert.name}
                                                     </span>
                                                 </div>
@@ -435,18 +435,18 @@ export default function MyTraining() {
                     <div className="space-y-4">
                         {/* Rating */}
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-zinc-700">
+                            <label className="mb-2 block text-sm font-medium text-slate-700">
                                 Rating
                             </label>
                             <StarRating value={rating} onChange={setRating} />
                             {rating === 0 && (
-                                <p className="mt-1 text-xs text-zinc-400">Please select a rating</p>
+                                <p className="mt-1 text-xs text-slate-400">Please select a rating</p>
                             )}
                         </div>
 
                         {/* Feedback Text */}
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Feedback
                             </label>
                             <textarea
@@ -454,7 +454,7 @@ export default function MyTraining() {
                                 onChange={(e) => setFeedbackText(e.target.value)}
                                 placeholder="Share your thoughts on the training program..."
                                 rows={4}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                     </div>

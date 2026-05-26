@@ -249,10 +249,10 @@ function NavItem({ item, isActive, mobile, toggleSidebar }) {
             onClick={mobile ? toggleSidebar : undefined}
             className={({ isActive: active }) =>
                 cn(
-                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
                     active
-                        ? 'bg-zinc-900 text-white'
-                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 )
             }
         >
@@ -263,8 +263,9 @@ function NavItem({ item, isActive, mobile, toggleSidebar }) {
                             'h-5 w-5 shrink-0',
                             active
                                 ? 'text-white'
-                                : 'text-zinc-400 group-hover:text-zinc-600'
+                                : 'text-slate-400 group-hover:text-slate-600'
                         )}
+                        strokeWidth={active ? 2.5 : 2}
                     />
                     {item.name}
                 </>
@@ -284,23 +285,23 @@ function NavGroup({ item, expanded, onToggle, mobile, toggleSidebar, pathname })
                 className={cn(
                     'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                     isActive
-                        ? 'bg-zinc-100 text-zinc-900'
-                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 )}
             >
                 <Icon
                     className={cn(
                         'h-5 w-5 shrink-0',
                         isActive
-                            ? 'text-zinc-700'
-                            : 'text-zinc-400 group-hover:text-zinc-600'
+                            ? 'text-slate-700'
+                            : 'text-slate-400 group-hover:text-slate-600'
                     )}
                 />
                 {item.name}
                 {expanded ? (
-                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-zinc-400" />
+                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-400" />
                 ) : (
-                    <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-zinc-400" />
+                    <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-slate-400" />
                 )}
             </button>
             {expanded && (
@@ -314,10 +315,10 @@ function NavGroup({ item, expanded, onToggle, mobile, toggleSidebar, pathname })
                                 onClick={mobile ? toggleSidebar : undefined}
                                 className={({ isActive: active }) =>
                                     cn(
-                                        'group flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                        'group relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
                                         active
-                                            ? 'bg-zinc-900 text-white'
-                                            : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                                            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-500/30'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                                     )
                                 }
                             >
@@ -328,8 +329,9 @@ function NavGroup({ item, expanded, onToggle, mobile, toggleSidebar, pathname })
                                                 'h-4 w-4 shrink-0',
                                                 active
                                                     ? 'text-white'
-                                                    : 'text-zinc-400 group-hover:text-zinc-500'
+                                                    : 'text-slate-400 group-hover:text-slate-500'
                                             )}
+                                            strokeWidth={active ? 2.5 : 2}
                                         />
                                         {child.name}
                                     </>
@@ -367,24 +369,24 @@ function Sidebar({ mobile = false }) {
     return (
         <aside
             className={cn(
-                'flex h-full flex-col border-r border-zinc-200 bg-white',
+                'flex h-full flex-col border-r border-slate-200 bg-white',
                 mobile ? 'w-full' : 'w-[260px]'
             )}
         >
             {/* Brand */}
-            <div className="flex h-16 items-center justify-between border-b border-zinc-200 px-5">
+            <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
                 <Link to="/" className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white text-sm font-bold">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-sm font-bold shadow-sm shadow-indigo-200">
                         HR
                     </div>
-                    <span className="text-base font-semibold text-zinc-900">
+                    <span className="text-base font-semibold text-slate-900">
                         HR Module
                     </span>
                 </Link>
                 {mobile && (
                     <button
                         onClick={toggleSidebar}
-                        className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                        className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                     >
                         <X className="h-5 w-5" />
                     </button>
@@ -420,25 +422,25 @@ function Sidebar({ mobile = false }) {
             </nav>
 
             {/* Bottom section */}
-            <div className="border-t border-zinc-200 p-3">
+            <div className="border-t border-slate-200 p-3">
                 <a
                     href={config.dashboardUrl || '/dashboard'}
                     onClick={(e) => { e.preventDefault(); window.location.href = config.dashboardUrl || '/dashboard'; }}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 >
                     <ArrowLeft className="h-4 w-4" />
                     Back to Main App
                 </a>
 
                 <div className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
                         {user.name?.charAt(0)?.toUpperCase() || 'U'}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-zinc-900">
+                        <p className="truncate text-sm font-medium text-slate-900">
                             {user.name}
                         </p>
-                        <p className="truncate text-xs text-zinc-500">
+                        <p className="truncate text-xs text-slate-500">
                             {user.role}
                         </p>
                     </div>
@@ -452,7 +454,7 @@ export default function HrLayout() {
     const { sidebarOpen, toggleSidebar } = useHrStore();
 
     return (
-        <div className="flex h-screen overflow-hidden bg-zinc-50">
+        <div className="flex h-screen overflow-hidden bg-slate-50">
             {/* Desktop sidebar */}
             <div className="hidden lg:flex lg:shrink-0">
                 <Sidebar />
@@ -474,24 +476,24 @@ export default function HrLayout() {
             {/* Main content */}
             <div className="flex flex-1 flex-col overflow-hidden">
                 {/* Desktop top bar */}
-                <div className="hidden h-14 items-center justify-end border-b border-zinc-200 bg-white px-6 lg:flex">
+                <div className="hidden h-14 items-center justify-end border-b border-slate-200 bg-white px-6 lg:flex">
                     <NotificationBell />
                 </div>
 
                 {/* Mobile header */}
-                <header className="flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4 lg:hidden">
+                <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={toggleSidebar}
-                            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                            className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                         >
                             <Menu className="h-5 w-5" />
                         </button>
                         <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-900 text-white text-xs font-bold">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-xs font-bold">
                                 HR
                             </div>
-                            <span className="text-sm font-semibold text-zinc-900">
+                            <span className="text-sm font-semibold text-slate-900">
                                 HR Module
                             </span>
                         </div>

@@ -78,7 +78,7 @@ const STATUS_BADGE_CLASS = {
     planned: 'bg-blue-100 text-blue-700',
     ongoing: 'bg-amber-100 text-amber-700',
     completed: 'bg-emerald-100 text-emerald-700',
-    cancelled: 'bg-zinc-100 text-zinc-500',
+    cancelled: 'bg-slate-100 text-slate-500',
 };
 
 const CATEGORY_BADGE_CLASS = {
@@ -86,7 +86,7 @@ const CATEGORY_BADGE_CLASS = {
     technical: 'bg-blue-100 text-blue-700',
     soft_skill: 'bg-purple-100 text-purple-700',
     compliance: 'bg-amber-100 text-amber-700',
-    other: 'bg-zinc-100 text-zinc-600',
+    other: 'bg-slate-100 text-slate-600',
 };
 
 function formatDate(dateString) {
@@ -219,19 +219,19 @@ export default function TrainingPrograms() {
                 <CardContent className="p-4">
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="relative flex-1 min-w-[200px]">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Search programs..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 py-1.5 pl-9 pr-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 py-1.5 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <select
                             value={filterType}
                             onChange={(e) => setFilterType(e.target.value)}
-                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                         >
                             <option value="">All Types</option>
                             {TYPE_OPTIONS.map((opt) => (
@@ -241,7 +241,7 @@ export default function TrainingPrograms() {
                         <select
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value)}
-                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                         >
                             <option value="">All Categories</option>
                             {CATEGORY_OPTIONS.map((opt) => (
@@ -251,7 +251,7 @@ export default function TrainingPrograms() {
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                         >
                             {STATUS_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -266,13 +266,13 @@ export default function TrainingPrograms() {
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : programs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <GraduationCap className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No training programs found</p>
-                            <p className="mt-1 text-xs text-zinc-400">Create a new program to get started.</p>
+                            <GraduationCap className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No training programs found</p>
+                            <p className="mt-1 text-xs text-slate-400">Create a new program to get started.</p>
                         </div>
                     ) : (
                         <Table>
@@ -299,12 +299,12 @@ export default function TrainingPrograms() {
                                         <TableCell>
                                             <span className={cn(
                                                 'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                CATEGORY_BADGE_CLASS[program.category] || 'bg-zinc-100 text-zinc-600'
+                                                CATEGORY_BADGE_CLASS[program.category] || 'bg-slate-100 text-slate-600'
                                             )}>
                                                 {(program.category || '').replace('_', ' ')}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {formatDate(program.start_date)} - {formatDate(program.end_date)}
                                         </TableCell>
                                         <TableCell className="text-sm">
@@ -314,7 +314,7 @@ export default function TrainingPrograms() {
                                         <TableCell>
                                             <span className={cn(
                                                 'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                STATUS_BADGE_CLASS[program.status] || 'bg-zinc-100 text-zinc-600'
+                                                STATUS_BADGE_CLASS[program.status] || 'bg-slate-100 text-slate-600'
                                             )}>
                                                 {program.status}
                                             </span>
@@ -378,32 +378,32 @@ export default function TrainingPrograms() {
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Title *</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Title *</label>
                             <input
                                 type="text"
                                 value={form.title}
                                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 required
                             />
                             {errors.title && <p className="mt-1 text-xs text-red-600">{errors.title[0]}</p>}
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 rows={3}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Type *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Type *</label>
                                 <select
                                     value={form.type}
                                     onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 >
                                     {TYPE_OPTIONS.map((opt) => (
@@ -412,11 +412,11 @@ export default function TrainingPrograms() {
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Category *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Category *</label>
                                 <select
                                     value={form.category}
                                     onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 >
                                     {CATEGORY_OPTIONS.map((opt) => (
@@ -427,43 +427,43 @@ export default function TrainingPrograms() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Provider</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Provider</label>
                                 <input
                                     type="text"
                                     value={form.provider}
                                     onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Location</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Location</label>
                                 <input
                                     type="text"
                                     value={form.location}
                                     onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Start Date *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Start Date *</label>
                                 <input
                                     type="date"
                                     value={form.start_date}
                                     onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 />
                                 {errors.start_date && <p className="mt-1 text-xs text-red-600">{errors.start_date[0]}</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">End Date *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">End Date *</label>
                                 <input
                                     type="date"
                                     value={form.end_date}
                                     onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 />
                                 {errors.end_date && <p className="mt-1 text-xs text-red-600">{errors.end_date[0]}</p>}
@@ -471,18 +471,18 @@ export default function TrainingPrograms() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Max Participants</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Max Participants</label>
                                 <input
                                     type="number"
                                     min="1"
                                     value={form.max_participants}
                                     onChange={(e) => setForm((f) => ({ ...f, max_participants: e.target.value }))}
                                     placeholder="Unlimited"
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Estimated Cost (MYR)</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Estimated Cost (MYR)</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -490,7 +490,7 @@ export default function TrainingPrograms() {
                                     value={form.estimated_cost}
                                     onChange={(e) => setForm((f) => ({ ...f, estimated_cost: e.target.value }))}
                                     placeholder="0.00"
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>

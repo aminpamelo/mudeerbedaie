@@ -52,14 +52,14 @@ export default function AttendeeList({ meetingId, attendees, noteTakerId, organi
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-zinc-400" />
+                    <Users className="h-5 w-5 text-slate-400" />
                     Attendees
                     <Badge variant="secondary">{attendees.length}</Badge>
                 </CardTitle>
             </CardHeader>
             <CardContent>
                 {attendees.length === 0 ? (
-                    <p className="text-sm text-zinc-500">No attendees added.</p>
+                    <p className="text-sm text-slate-500">No attendees added.</p>
                 ) : (
                     <div className="space-y-2">
                         {attendees.map((att) => {
@@ -73,10 +73,10 @@ export default function AttendeeList({ meetingId, attendees, noteTakerId, organi
                             return (
                                 <div
                                     key={empId}
-                                    className="flex items-center justify-between rounded-lg border border-zinc-100 px-3 py-2"
+                                    className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
                                             {employee.profile_photo_url ? (
                                                 <img
                                                     src={employee.profile_photo_url}
@@ -88,10 +88,10 @@ export default function AttendeeList({ meetingId, attendees, noteTakerId, organi
                                             )}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-zinc-900">
+                                            <p className="text-sm font-medium text-slate-900">
                                                 {employee.full_name || employee.name}
                                             </p>
-                                            <p className="text-xs text-zinc-500">
+                                            <p className="text-xs text-slate-500">
                                                 {employee.department?.name || ''}
                                             </p>
                                         </div>

@@ -92,7 +92,7 @@ export default function MeetingEdit() {
     if (isLoading || !form) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -278,17 +278,17 @@ export default function MeetingEdit() {
                             {employees.map((emp) => (
                                 <label
                                     key={emp.id}
-                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50"
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50"
                                 >
                                     <input
                                         type="checkbox"
                                         checked={form.attendee_ids.includes(String(emp.id))}
                                         onChange={() => toggleAttendee(emp.id)}
-                                        className="h-4 w-4 rounded border-zinc-300"
+                                        className="h-4 w-4 rounded border-slate-300"
                                     />
                                     <div>
-                                        <p className="text-sm font-medium text-zinc-900">{emp.full_name}</p>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-sm font-medium text-slate-900">{emp.full_name}</p>
+                                        <p className="text-xs text-slate-500">
                                             {emp.department?.name || ''}
                                         </p>
                                     </div>
@@ -309,16 +309,16 @@ export default function MeetingEdit() {
                     </CardHeader>
                     <CardContent>
                         {form.agenda_items.length === 0 ? (
-                            <p className="text-sm text-zinc-500">No agenda items.</p>
+                            <p className="text-sm text-slate-500">No agenda items.</p>
                         ) : (
                             <div className="space-y-3">
                                 {form.agenda_items.map((item, index) => (
                                     <div
                                         key={index}
-                                        className="flex items-start gap-3 rounded-lg border border-zinc-200 p-3"
+                                        className="flex items-start gap-3 rounded-lg border border-slate-200 p-3"
                                     >
                                         <div className="flex items-center pt-2.5">
-                                            <GripVertical className="h-4 w-4 text-zinc-400" />
+                                            <GripVertical className="h-4 w-4 text-slate-400" />
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <Input

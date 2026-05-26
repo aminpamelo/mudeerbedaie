@@ -67,16 +67,16 @@ function ProgressBar({ completed, total }) {
     const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
     return (
         <div className="flex items-center gap-2">
-            <div className="h-2 w-24 overflow-hidden rounded-full bg-zinc-100">
+            <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
                 <div
                     className={cn(
                         'h-full rounded-full transition-all',
-                        percent === 100 ? 'bg-emerald-500' : percent > 0 ? 'bg-blue-500' : 'bg-zinc-300'
+                        percent === 100 ? 'bg-emerald-500' : percent > 0 ? 'bg-blue-500' : 'bg-slate-300'
                     )}
                     style={{ width: `${percent}%` }}
                 />
             </div>
-            <span className="text-xs text-zinc-500">{percent}%</span>
+            <span className="text-xs text-slate-500">{percent}%</span>
         </div>
     );
 }
@@ -167,7 +167,7 @@ export default function ExitChecklists() {
                             className="w-64"
                         />
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Status</label>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="w-36">
                                     <SelectValue />
@@ -188,14 +188,14 @@ export default function ExitChecklists() {
             {/* Table */}
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
             ) : checklists.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16">
-                        <ClipboardList className="mb-3 h-10 w-10 text-zinc-300" />
-                        <p className="text-sm font-medium text-zinc-500">No exit checklists found</p>
-                        <p className="text-xs text-zinc-400">Checklists are created when a resignation is approved.</p>
+                        <ClipboardList className="mb-3 h-10 w-10 text-slate-300" />
+                        <p className="text-sm font-medium text-slate-500">No exit checklists found</p>
+                        <p className="text-xs text-slate-400">Checklists are created when a resignation is approved.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -219,10 +219,10 @@ export default function ExitChecklists() {
                                         <TableRow key={checklist.id}>
                                             <TableCell>
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">
+                                                    <p className="text-sm font-medium text-slate-900">
                                                         {checklist.employee?.full_name || '-'}
                                                     </p>
-                                                    <p className="text-xs text-zinc-500">
+                                                    <p className="text-xs text-slate-500">
                                                         {checklist.employee?.employee_id || ''}
                                                     </p>
                                                 </div>
@@ -231,7 +231,7 @@ export default function ExitChecklists() {
                                             <TableCell>
                                                 <div>
                                                     <ProgressBar completed={completed} total={total} />
-                                                    <span className="text-xs text-zinc-500">
+                                                    <span className="text-xs text-slate-500">
                                                         {completed}/{total} items
                                                     </span>
                                                 </div>
@@ -271,17 +271,17 @@ export default function ExitChecklists() {
 
                     {detailLoading ? (
                         <div className="flex justify-center py-12">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : checklist ? (
                         <div className="space-y-6">
                             {/* Summary */}
-                            <div className="flex items-center justify-between rounded-lg bg-zinc-50 p-4">
+                            <div className="flex items-center justify-between rounded-lg bg-slate-50 p-4">
                                 <div>
-                                    <p className="text-sm font-medium text-zinc-900">
+                                    <p className="text-sm font-medium text-slate-900">
                                         {checklist.completed_items ?? 0} of {checklist.total_items ?? 0} completed
                                     </p>
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="text-xs text-slate-500">
                                         {getStatusBadge(checklist.status)}
                                     </p>
                                 </div>
@@ -293,13 +293,13 @@ export default function ExitChecklists() {
 
                             {/* Items Grouped by Category */}
                             {Object.keys(groupedItems).length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-8 text-sm text-zinc-400">
+                                <div className="flex flex-col items-center justify-center py-8 text-sm text-slate-400">
                                     No checklist items found.
                                 </div>
                             ) : (
                                 Object.entries(groupedItems).map(([category, items]) => (
                                     <div key={category}>
-                                        <h4 className="mb-3 text-sm font-semibold text-zinc-900">{formatCategory(category)}</h4>
+                                        <h4 className="mb-3 text-sm font-semibold text-slate-900">{formatCategory(category)}</h4>
                                         <div className="space-y-2">
                                             {items.map((item) => (
                                                 <div
@@ -308,7 +308,7 @@ export default function ExitChecklists() {
                                                         'flex items-start gap-3 rounded-lg border p-3 transition-colors',
                                                         item.is_completed
                                                             ? 'border-emerald-200 bg-emerald-50/50'
-                                                            : 'border-zinc-200 bg-white'
+                                                            : 'border-slate-200 bg-white'
                                                     )}
                                                 >
                                                     <button
@@ -320,28 +320,28 @@ export default function ExitChecklists() {
                                                         {item.is_completed ? (
                                                             <CheckSquare className="h-5 w-5 text-emerald-600" />
                                                         ) : (
-                                                            <Square className="h-5 w-5 text-zinc-400 hover:text-zinc-600" />
+                                                            <Square className="h-5 w-5 text-slate-400 hover:text-slate-600" />
                                                         )}
                                                     </button>
                                                     <div className="flex-1">
                                                         <p className={cn(
                                                             'text-sm font-medium',
-                                                            item.is_completed ? 'text-zinc-500 line-through' : 'text-zinc-900'
+                                                            item.is_completed ? 'text-slate-500 line-through' : 'text-slate-900'
                                                         )}>
                                                             {item.name || item.title}
                                                         </p>
                                                         {item.description && (
-                                                            <p className="mt-0.5 text-xs text-zinc-500">
+                                                            <p className="mt-0.5 text-xs text-slate-500">
                                                                 {item.description}
                                                             </p>
                                                         )}
                                                         {item.assigned_to && (
-                                                            <p className="mt-1 text-xs text-zinc-400">
+                                                            <p className="mt-1 text-xs text-slate-400">
                                                                 Assigned to: {item.assigned_to}
                                                             </p>
                                                         )}
                                                         {item.completed_at && (
-                                                            <p className="mt-1 text-xs text-zinc-400">
+                                                            <p className="mt-1 text-xs text-slate-400">
                                                                 Completed: {formatDate(item.completed_at)}
                                                             </p>
                                                         )}
@@ -354,7 +354,7 @@ export default function ExitChecklists() {
                             )}
                         </div>
                     ) : (
-                        <div className="flex justify-center py-8 text-sm text-zinc-400">
+                        <div className="flex justify-center py-8 text-sm text-slate-400">
                             Checklist not found.
                         </div>
                     )}

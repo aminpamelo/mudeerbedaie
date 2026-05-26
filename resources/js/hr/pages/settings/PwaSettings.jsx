@@ -117,7 +117,7 @@ export default function PwaSettings() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -151,46 +151,46 @@ export default function PwaSettings() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 App Name
                             </label>
                             <input
                                 type="text"
                                 value={form.pwa_app_name}
                                 onChange={(e) => handleChange('pwa_app_name', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. Mudeer HR"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Short Name
                             </label>
                             <input
                                 type="text"
                                 value={form.pwa_short_name}
                                 onChange={(e) => handleChange('pwa_short_name', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. HR"
                             />
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 Displayed on home screen
                             </p>
                         </div>
                         <div className="sm:col-span-2">
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Description
                             </label>
                             <textarea
                                 value={form.pwa_description}
                                 onChange={(e) => handleChange('pwa_description', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 rows={2}
                                 placeholder="Brief description of the app..."
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Theme Color
                             </label>
                             <div className="flex gap-2">
@@ -198,22 +198,22 @@ export default function PwaSettings() {
                                     type="color"
                                     value={form.pwa_theme_color}
                                     onChange={(e) => handleChange('pwa_theme_color', e.target.value)}
-                                    className="h-10 w-14 cursor-pointer rounded-lg border border-zinc-300"
+                                    className="h-10 w-14 cursor-pointer rounded-lg border border-slate-300"
                                 />
                                 <input
                                     type="text"
                                     value={form.pwa_theme_color}
                                     onChange={(e) => handleChange('pwa_theme_color', e.target.value)}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                     placeholder="#1e40af"
                                 />
                             </div>
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 Browser chrome color
                             </p>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Background Color
                             </label>
                             <div className="flex gap-2">
@@ -221,22 +221,22 @@ export default function PwaSettings() {
                                     type="color"
                                     value={form.pwa_background_color}
                                     onChange={(e) => handleChange('pwa_background_color', e.target.value)}
-                                    className="h-10 w-14 cursor-pointer rounded-lg border border-zinc-300"
+                                    className="h-10 w-14 cursor-pointer rounded-lg border border-slate-300"
                                 />
                                 <input
                                     type="text"
                                     value={form.pwa_background_color}
                                     onChange={(e) => handleChange('pwa_background_color', e.target.value)}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                     placeholder="#ffffff"
                                 />
                             </div>
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 Splash screen background
                             </p>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 App Icon (192x192)
                             </label>
                             <div className="flex items-center gap-4">
@@ -244,10 +244,10 @@ export default function PwaSettings() {
                                     <img
                                         src={form.pwa_icon_192_preview || form.pwa_icon_192_url}
                                         alt="Icon 192"
-                                        className="h-16 w-16 rounded-lg border border-zinc-200 object-cover"
+                                        className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
                                     />
                                 )}
-                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50">
+                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                                     <Upload className="h-4 w-4" />
                                     Choose File
                                     <input
@@ -264,12 +264,12 @@ export default function PwaSettings() {
                                     />
                                 </label>
                             </div>
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 PNG or SVG, recommended 192x192px
                             </p>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 App Icon (512x512)
                             </label>
                             <div className="flex items-center gap-4">
@@ -277,10 +277,10 @@ export default function PwaSettings() {
                                     <img
                                         src={form.pwa_icon_512_preview || form.pwa_icon_512_url}
                                         alt="Icon 512"
-                                        className="h-16 w-16 rounded-lg border border-zinc-200 object-cover"
+                                        className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
                                     />
                                 )}
-                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50">
+                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                                     <Upload className="h-4 w-4" />
                                     Choose File
                                     <input
@@ -297,7 +297,7 @@ export default function PwaSettings() {
                                     />
                                 </label>
                             </div>
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 PNG or SVG, recommended 512x512px
                             </p>
                         </div>
@@ -314,13 +314,13 @@ export default function PwaSettings() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Display Mode
                             </label>
                             <select
                                 value={form.pwa_display}
                                 onChange={(e) => handleChange('pwa_display', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="standalone">Standalone</option>
                                 <option value="fullscreen">Fullscreen</option>
@@ -329,13 +329,13 @@ export default function PwaSettings() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Orientation
                             </label>
                             <select
                                 value={form.pwa_orientation}
                                 onChange={(e) => handleChange('pwa_orientation', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="any">Any</option>
                                 <option value="portrait-primary">Portrait</option>
@@ -343,26 +343,26 @@ export default function PwaSettings() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Start URL
                             </label>
                             <input
                                 type="text"
                                 value={form.pwa_start_url}
                                 onChange={(e) => handleChange('pwa_start_url', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="/hr/clock"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Scope
                             </label>
                             <input
                                 type="text"
                                 value={form.pwa_scope}
                                 onChange={(e) => handleChange('pwa_scope', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="/hr"
                             />
                         </div>
@@ -383,9 +383,9 @@ export default function PwaSettings() {
                                 type="checkbox"
                                 checked={form.pwa_push_enabled}
                                 onChange={(e) => handleChange('pwa_push_enabled', e.target.checked)}
-                                className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500"
+                                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                             />
-                            <span className="text-sm font-medium text-zinc-700">Enable Push Notifications</span>
+                            <span className="text-sm font-medium text-slate-700">Enable Push Notifications</span>
                         </label>
 
                         {form.pwa_push_enabled && (
@@ -393,39 +393,39 @@ export default function PwaSettings() {
                                 {form.pwa_vapid_configured ? (
                                     <>
                                         <div>
-                                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                                 VAPID Public Key
                                             </label>
                                             <input
                                                 type="text"
                                                 value={form.pwa_vapid_public}
                                                 readOnly
-                                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
+                                                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                                             />
                                         </div>
                                         <div>
-                                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                                 VAPID Private Key
                                             </label>
                                             <input
                                                 type="password"
                                                 value={form.pwa_vapid_private}
                                                 readOnly
-                                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
+                                                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                                             />
                                         </div>
                                         <div>
-                                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                                 VAPID Subject
                                             </label>
                                             <input
                                                 type="text"
                                                 value={form.pwa_vapid_subject}
                                                 readOnly
-                                                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
+                                                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                                             />
                                         </div>
-                                        <p className="text-xs text-zinc-400">
+                                        <p className="text-xs text-slate-400">
                                             VAPID keys are configured via environment variables (.env). To change them, update VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT in your .env file.
                                         </p>
                                     </>

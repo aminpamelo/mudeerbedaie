@@ -60,7 +60,7 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
     });
 
     if (tasks.length === 0) {
-        return <p className="text-sm text-zinc-500">No tasks yet. Add one using the button above.</p>;
+        return <p className="text-sm text-slate-500">No tasks yet. Add one using the button above.</p>;
     }
 
     return (
@@ -71,20 +71,20 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
                 const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed' && task.status !== 'cancelled';
 
                 return (
-                    <div key={task.id} className="rounded-lg border border-zinc-200">
+                    <div key={task.id} className="rounded-lg border border-slate-200">
                         <div className="flex items-center justify-between px-3 py-2">
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
-                                    <ChevronDown className={cn('h-4 w-4 text-zinc-400 transition-transform', isExpanded && 'rotate-180')} />
+                                    <ChevronDown className={cn('h-4 w-4 text-slate-400 transition-transform', isExpanded && 'rotate-180')} />
                                 </button>
-                                <p className="text-sm font-medium text-zinc-900">{task.title}</p>
+                                <p className="text-sm font-medium text-slate-900">{task.title}</p>
                                 <Badge variant={pConfig.variant} className={pConfig.className}>{pConfig.label}</Badge>
                                 {task.assignee && (
-                                    <span className="text-xs text-zinc-500">{task.assignee.full_name}</span>
+                                    <span className="text-xs text-slate-500">{task.assignee.full_name}</span>
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className={cn('text-xs', isOverdue ? 'text-red-600 font-medium' : 'text-zinc-500')}>
+                                <span className={cn('text-xs', isOverdue ? 'text-red-600 font-medium' : 'text-slate-500')}>
                                     {formatDate(task.deadline)}
                                 </span>
                                 <Select
@@ -105,15 +105,15 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
                         </div>
 
                         {isExpanded && (
-                            <div className="space-y-3 border-t border-zinc-100 px-3 py-3">
+                            <div className="space-y-3 border-t border-slate-100 px-3 py-3">
                                 {task.description && (
-                                    <p className="text-sm text-zinc-600">{task.description}</p>
+                                    <p className="text-sm text-slate-600">{task.description}</p>
                                 )}
 
                                 {/* Subtasks */}
                                 <div>
                                     <div className="flex items-center justify-between">
-                                        <p className="text-xs font-medium uppercase text-zinc-500">Subtasks</p>
+                                        <p className="text-xs font-medium uppercase text-slate-500">Subtasks</p>
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -127,7 +127,7 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
                                         <ul className="mt-1 space-y-1">
                                             {task.subtasks.map((st) => (
                                                 <li key={st.id} className="flex items-center gap-2 text-sm">
-                                                    <span className={cn('h-2 w-2 rounded-full', st.status === 'completed' ? 'bg-emerald-500' : 'bg-zinc-300')} />
+                                                    <span className={cn('h-2 w-2 rounded-full', st.status === 'completed' ? 'bg-emerald-500' : 'bg-slate-300')} />
                                                     {st.title}
                                                 </li>
                                             ))}
@@ -157,15 +157,15 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
 
                                 {/* Comments */}
                                 <div>
-                                    <p className="text-xs font-medium uppercase text-zinc-500">Comments</p>
+                                    <p className="text-xs font-medium uppercase text-slate-500">Comments</p>
                                     {task.comments?.length > 0 && (
                                         <div className="mt-1 space-y-2">
                                             {task.comments.map((c) => (
-                                                <div key={c.id} className="rounded bg-zinc-50 px-3 py-2">
-                                                    <p className="text-xs font-medium text-zinc-700">
+                                                <div key={c.id} className="rounded bg-slate-50 px-3 py-2">
+                                                    <p className="text-xs font-medium text-slate-700">
                                                         {c.user?.name || c.author?.full_name || 'Unknown'}
                                                     </p>
-                                                    <p className="text-sm text-zinc-600">{c.body || c.content}</p>
+                                                    <p className="text-sm text-slate-600">{c.body || c.content}</p>
                                                 </div>
                                             ))}
                                         </div>

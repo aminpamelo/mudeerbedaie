@@ -85,7 +85,7 @@ const STATUS_COLORS = {
 };
 
 function AttendanceStatusBadge({ status }) {
-    const config = STATUS_COLORS[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-800' };
+    const config = STATUS_COLORS[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-800' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -159,13 +159,13 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-48 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-32 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -310,7 +310,7 @@ export default function AttendanceRecords() {
                             />
                         </div>
                         <div>
-                            <Label className="mb-1 block text-xs text-zinc-500">From</Label>
+                            <Label className="mb-1 block text-xs text-slate-500">From</Label>
                             <Input
                                 type="date"
                                 value={dateFrom}
@@ -319,7 +319,7 @@ export default function AttendanceRecords() {
                             />
                         </div>
                         <div>
-                            <Label className="mb-1 block text-xs text-zinc-500">To</Label>
+                            <Label className="mb-1 block text-xs text-slate-500">To</Label>
                             <Input
                                 type="date"
                                 value={dateTo}
@@ -372,9 +372,9 @@ export default function AttendanceRecords() {
                         <SkeletonTable />
                     ) : records.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Clock className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No attendance records found</p>
-                            <p className="text-xs text-zinc-400">Try adjusting your filters</p>
+                            <Clock className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No attendance records found</p>
+                            <p className="text-xs text-slate-400">Try adjusting your filters</p>
                         </div>
                     ) : (
                         <>
@@ -395,30 +395,30 @@ export default function AttendanceRecords() {
                                 </TableHeader>
                                 <TableBody>
                                     {records.map((record) => (
-                                        <TableRow key={record.id} className="cursor-pointer hover:bg-zinc-50" onClick={() => setDetailRecord(record)}>
-                                            <TableCell className="text-sm text-zinc-900">
+                                        <TableRow key={record.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setDetailRecord(record)}>
+                                            <TableCell className="text-sm text-slate-900">
                                                 {formatDate(record.date)}
                                             </TableCell>
                                             <TableCell>
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-900">
+                                                    <p className="text-sm font-medium text-slate-900">
                                                         {record.employee?.full_name || 'Unknown'}
                                                     </p>
-                                                    <p className="text-xs text-zinc-500">
+                                                    <p className="text-xs text-slate-500">
                                                         {record.employee?.employee_id || ''}
                                                     </p>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {record.employee?.department?.name || '-'}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-900">
+                                            <TableCell className="text-sm text-slate-900">
                                                 {formatTime(record.clock_in)}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-900">
+                                            <TableCell className="text-sm text-slate-900">
                                                 {formatTime(record.clock_out)}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {record.clock_in && !record.clock_out
                                                     ? <LiveTimer clockIn={record.clock_in} />
                                                     : formatHours(record.total_work_minutes)
@@ -433,14 +433,14 @@ export default function AttendanceRecords() {
                                                 ) : record.clock_in ? (
                                                     <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">On Time</span>
                                                 ) : (
-                                                    <span className="text-zinc-400">-</span>
+                                                    <span className="text-slate-400">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {record.early_leave_minutes > 0 ? (
                                                     <span className="font-medium text-orange-600">{formatHours(record.early_leave_minutes)}</span>
                                                 ) : (
-                                                    <span className="text-zinc-400">-</span>
+                                                    <span className="text-slate-400">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
@@ -460,8 +460,8 @@ export default function AttendanceRecords() {
 
                             {/* Pagination */}
                             {pagination.last_page > 1 && (
-                                <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3">
-                                    <p className="text-sm text-zinc-500">
+                                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+                                    <p className="text-sm text-slate-500">
                                         Showing {pagination.from}-{pagination.to} of {pagination.total}
                                     </p>
                                     <div className="flex items-center gap-2">
@@ -473,7 +473,7 @@ export default function AttendanceRecords() {
                                         >
                                             <ChevronLeft className="h-4 w-4" />
                                         </Button>
-                                        <span className="text-sm text-zinc-600">
+                                        <span className="text-sm text-slate-600">
                                             Page {page} of {pagination.last_page}
                                         </span>
                                         <Button
@@ -506,32 +506,32 @@ export default function AttendanceRecords() {
                             {/* Clock In / Clock Out with photos */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500">Clock In</p>
-                                    <p className="text-sm text-zinc-900">{formatTime(detailRecord.clock_in)}</p>
+                                    <p className="text-xs font-medium text-slate-500">Clock In</p>
+                                    <p className="text-sm text-slate-900">{formatTime(detailRecord.clock_in)}</p>
                                     {detailRecord.clock_in_photo_url ? (
                                         <img
                                             src={detailRecord.clock_in_photo_url}
                                             alt="Clock in selfie"
-                                            className="h-28 w-full rounded-lg border border-zinc-200 object-cover"
+                                            className="h-28 w-full rounded-lg border border-slate-200 object-cover"
                                         />
                                     ) : (
-                                        <div className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50">
-                                            <Camera className="h-5 w-5 text-zinc-300" />
+                                        <div className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
+                                            <Camera className="h-5 w-5 text-slate-300" />
                                         </div>
                                     )}
                                 </div>
                                 <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500">Clock Out</p>
-                                    <p className="text-sm text-zinc-900">{formatTime(detailRecord.clock_out)}</p>
+                                    <p className="text-xs font-medium text-slate-500">Clock Out</p>
+                                    <p className="text-sm text-slate-900">{formatTime(detailRecord.clock_out)}</p>
                                     {detailRecord.clock_out_photo_url ? (
                                         <img
                                             src={detailRecord.clock_out_photo_url}
                                             alt="Clock out selfie"
-                                            className="h-28 w-full rounded-lg border border-zinc-200 object-cover"
+                                            className="h-28 w-full rounded-lg border border-slate-200 object-cover"
                                         />
                                     ) : (
-                                        <div className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50">
-                                            <Camera className="h-5 w-5 text-zinc-300" />
+                                        <div className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
+                                            <Camera className="h-5 w-5 text-slate-300" />
                                         </div>
                                     )}
                                 </div>
@@ -539,35 +539,35 @@ export default function AttendanceRecords() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-xs font-medium text-zinc-500">Status</p>
+                                    <p className="text-xs font-medium text-slate-500">Status</p>
                                     <AttendanceStatusBadge status={detailRecord.status} />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-medium text-zinc-500">Total Hours</p>
+                                    <p className="text-xs font-medium text-slate-500">Total Hours</p>
                                     {detailRecord.clock_in && !detailRecord.clock_out
                                         ? <LiveTimer clockIn={detailRecord.clock_in} />
-                                        : <p className="text-sm text-zinc-900">{formatHours(detailRecord.total_work_minutes)}</p>
+                                        : <p className="text-sm text-slate-900">{formatHours(detailRecord.total_work_minutes)}</p>
                                     }
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-xs font-medium text-zinc-500">Late</p>
+                                    <p className="text-xs font-medium text-slate-500">Late</p>
                                     {detailRecord.late_minutes > 0 ? (
                                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">+{formatHours(detailRecord.late_minutes)}</span>
                                     ) : detailRecord.clock_in ? (
                                         <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">On Time</span>
                                     ) : (
-                                        <p className="text-sm text-zinc-900">-</p>
+                                        <p className="text-sm text-slate-900">-</p>
                                     )}
                                 </div>
                                 <div>
-                                    <p className="text-xs font-medium text-zinc-500">Early Leave</p>
+                                    <p className="text-xs font-medium text-slate-500">Early Leave</p>
                                     {detailRecord.early_leave_minutes > 0 ? (
                                         <span className="text-sm font-medium text-orange-600">{formatHours(detailRecord.early_leave_minutes)}</span>
                                     ) : (
-                                        <p className="text-sm text-zinc-900">-</p>
+                                        <p className="text-sm text-slate-900">-</p>
                                     )}
                                 </div>
                             </div>
@@ -577,7 +577,7 @@ export default function AttendanceRecords() {
                                 <div className="space-y-2">
                                     {/* Map Preview for GPS location */}
                                     {detailRecord.clock_in_latitude && detailRecord.clock_in_longitude && (
-                                        <div className="overflow-hidden rounded-lg border border-zinc-200">
+                                        <div className="overflow-hidden rounded-lg border border-slate-200">
                                             <a
                                                 href={`https://www.google.com/maps?q=${detailRecord.clock_in_latitude},${detailRecord.clock_in_longitude}`}
                                                 target="_blank"
@@ -587,7 +587,7 @@ export default function AttendanceRecords() {
                                                 <img
                                                     src={`https://maps.googleapis.com/maps/api/staticmap?center=${detailRecord.clock_in_latitude},${detailRecord.clock_in_longitude}&zoom=15&size=480x160&scale=2&markers=color:red%7C${detailRecord.clock_in_latitude},${detailRecord.clock_in_longitude}&key=${window.hrConfig?.googleMapsKey || ''}`}
                                                     alt="Clock-in location"
-                                                    className="w-full h-32 object-cover bg-zinc-100"
+                                                    className="w-full h-32 object-cover bg-slate-100"
                                                     onError={(e) => {
                                                         // Fallback: hide image and show coordinate box instead
                                                         e.target.style.display = 'none';
@@ -605,20 +605,20 @@ export default function AttendanceRecords() {
                                                 </div>
                                                 {/* Hover overlay */}
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur-sm">
+                                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm backdrop-blur-sm">
                                                         <ExternalLink className="h-3 w-3" />
                                                         Open in Google Maps
                                                     </span>
                                                 </div>
                                             </a>
-                                            <div className="flex items-center justify-between bg-zinc-50 px-3 py-2">
+                                            <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
                                                 <div className="flex items-center gap-1.5">
                                                     <MapPin className="h-3.5 w-3.5 text-blue-500" />
-                                                    <span className="text-xs font-medium text-zinc-600">
+                                                    <span className="text-xs font-medium text-slate-600">
                                                         {detailRecord.status === 'wfh' ? 'WFH Location' : 'Clock-in Location'}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] font-mono text-zinc-400">
+                                                <span className="text-[10px] font-mono text-slate-400">
                                                     {Number(detailRecord.clock_in_latitude).toFixed(5)}, {Number(detailRecord.clock_in_longitude).toFixed(5)}
                                                 </span>
                                             </div>
@@ -627,8 +627,8 @@ export default function AttendanceRecords() {
 
                                     {/* IP Address */}
                                     {detailRecord.clock_in_ip && (
-                                        <div className="flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-                                            <Wifi className="h-3.5 w-3.5 text-zinc-400" />
+                                        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                                            <Wifi className="h-3.5 w-3.5 text-slate-400" />
                                             <span className="text-xs">IP: <span className="font-mono">{detailRecord.clock_in_ip}</span></span>
                                         </div>
                                     )}
@@ -638,13 +638,13 @@ export default function AttendanceRecords() {
                             {/* OT Claim */}
                             {detailRecord.ot_claim && (
                                 <div className="space-y-1.5">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">OT Claim</p>
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">OT Claim</p>
                                     <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-center gap-2">
                                                 <Timer className="h-4 w-4 text-blue-500" />
                                                 <div>
-                                                    <p className="text-sm font-medium text-zinc-800">
+                                                    <p className="text-sm font-medium text-slate-800">
                                                         {(() => {
                                                             const mins = detailRecord.ot_claim.duration_minutes;
                                                             const h = Math.floor(mins / 60);
@@ -653,7 +653,7 @@ export default function AttendanceRecords() {
                                                         })()}
                                                     </p>
                                                     {detailRecord.ot_claim.start_time && (
-                                                        <p className="text-xs text-zinc-500">
+                                                        <p className="text-xs text-slate-500">
                                                             Starting at {detailRecord.ot_claim.start_time.slice(0, 5)}
                                                         </p>
                                                     )}
@@ -664,13 +664,13 @@ export default function AttendanceRecords() {
                                                 detailRecord.ot_claim.status === 'approved' && 'bg-emerald-100 text-emerald-700',
                                                 detailRecord.ot_claim.status === 'pending' && 'bg-amber-100 text-amber-700',
                                                 detailRecord.ot_claim.status === 'rejected' && 'bg-red-100 text-red-700',
-                                                detailRecord.ot_claim.status === 'cancelled' && 'bg-zinc-100 text-zinc-500',
+                                                detailRecord.ot_claim.status === 'cancelled' && 'bg-slate-100 text-slate-500',
                                             )}>
                                                 {detailRecord.ot_claim.status.charAt(0).toUpperCase() + detailRecord.ot_claim.status.slice(1)}
                                             </span>
                                         </div>
                                         {detailRecord.ot_claim.notes && (
-                                            <p className="mt-2 text-xs text-zinc-500 border-t border-blue-100 pt-2">{detailRecord.ot_claim.notes}</p>
+                                            <p className="mt-2 text-xs text-slate-500 border-t border-blue-100 pt-2">{detailRecord.ot_claim.notes}</p>
                                         )}
                                     </div>
                                 </div>
@@ -679,7 +679,7 @@ export default function AttendanceRecords() {
                             {/* Exit Permissions */}
                             {detailRecord.exit_permissions?.length > 0 && (
                                 <div className="space-y-1.5">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                                         Exit Permission{detailRecord.exit_permissions.length > 1 ? 's' : ''}
                                     </p>
                                     <div className="space-y-2">
@@ -689,10 +689,10 @@ export default function AttendanceRecords() {
                                                     <div className="flex items-center gap-2">
                                                         <DoorOpen className="h-4 w-4 text-violet-500" />
                                                         <div>
-                                                            <p className="text-sm font-medium text-zinc-800">
+                                                            <p className="text-sm font-medium text-slate-800">
                                                                 {perm.exit_time?.slice(0, 5)} — {perm.return_time?.slice(0, 5)}
                                                             </p>
-                                                            <p className="text-xs text-zinc-500">
+                                                            <p className="text-xs text-slate-500">
                                                                 <span className={cn(
                                                                     'inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium mr-1',
                                                                     perm.errand_type === 'company' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700',
@@ -708,13 +708,13 @@ export default function AttendanceRecords() {
                                                         perm.status === 'approved' && 'bg-emerald-100 text-emerald-700',
                                                         perm.status === 'pending' && 'bg-amber-100 text-amber-700',
                                                         perm.status === 'rejected' && 'bg-red-100 text-red-700',
-                                                        perm.status === 'cancelled' && 'bg-zinc-100 text-zinc-500',
+                                                        perm.status === 'cancelled' && 'bg-slate-100 text-slate-500',
                                                     )}>
                                                         {perm.status.charAt(0).toUpperCase() + perm.status.slice(1)}
                                                     </span>
                                                 </div>
                                                 {perm.purpose && (
-                                                    <p className="mt-2 text-xs text-zinc-500 border-t border-violet-100 pt-2">{perm.purpose}</p>
+                                                    <p className="mt-2 text-xs text-slate-500 border-t border-violet-100 pt-2">{perm.purpose}</p>
                                                 )}
                                             </div>
                                         ))}
@@ -724,10 +724,10 @@ export default function AttendanceRecords() {
 
                             {detailRecord.remarks && (
                                 <div className="flex items-start gap-2">
-                                    <MessageSquare className="mt-0.5 h-4 w-4 text-zinc-400" />
+                                    <MessageSquare className="mt-0.5 h-4 w-4 text-slate-400" />
                                     <div>
-                                        <p className="text-xs font-medium text-zinc-500">Remarks</p>
-                                        <p className="text-sm text-zinc-700">{detailRecord.remarks}</p>
+                                        <p className="text-xs font-medium text-slate-500">Remarks</p>
+                                        <p className="text-sm text-slate-700">{detailRecord.remarks}</p>
                                     </div>
                                 </div>
                             )}

@@ -69,11 +69,11 @@ export default function DecisionLog({ meetingId, decisions, onUpdate }) {
             </CardHeader>
             <CardContent>
                 {decisions.length === 0 && !adding ? (
-                    <p className="text-sm text-zinc-500">No decisions recorded yet.</p>
+                    <p className="text-sm text-slate-500">No decisions recorded yet.</p>
                 ) : (
                     <div className="space-y-3">
                         {decisions.map((dec) => (
-                            <div key={dec.id} className="rounded-lg border border-zinc-200 p-3">
+                            <div key={dec.id} className="rounded-lg border border-slate-200 p-3">
                                 {editingId === dec.id ? (
                                     <div className="space-y-2">
                                         <Input
@@ -105,11 +105,11 @@ export default function DecisionLog({ meetingId, decisions, onUpdate }) {
                                 ) : (
                                     <div className="flex items-start justify-between">
                                         <div>
-                                            <p className="text-sm font-medium text-zinc-900">{dec.title}</p>
+                                            <p className="text-sm font-medium text-slate-900">{dec.title}</p>
                                             {dec.description && (
-                                                <p className="mt-0.5 text-sm text-zinc-500">{dec.description}</p>
+                                                <p className="mt-0.5 text-sm text-slate-500">{dec.description}</p>
                                             )}
-                                            <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+                                            <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                                                 {dec.decided_by_employee?.full_name && (
                                                     <span>Decided by {dec.decided_by_employee.full_name}</span>
                                                 )}
@@ -132,7 +132,7 @@ export default function DecisionLog({ meetingId, decisions, onUpdate }) {
                 )}
 
                 {adding && (
-                    <div className="mt-4 space-y-2 rounded-lg border border-zinc-200 p-3">
+                    <div className="mt-4 space-y-2 rounded-lg border border-slate-200 p-3">
                         <Input
                             value={form.title}
                             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}

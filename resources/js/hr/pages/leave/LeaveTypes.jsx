@@ -51,11 +51,11 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-12 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-12 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -65,9 +65,9 @@ function SkeletonTable() {
 function EmptyState() {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Tag className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">No leave types yet</h3>
-            <p className="mt-1 text-sm text-zinc-500">Create your first leave type to get started.</p>
+            <Tag className="mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">No leave types yet</h3>
+            <p className="mt-1 text-sm text-slate-500">Create your first leave type to get started.</p>
         </div>
     );
 }
@@ -241,10 +241,10 @@ export default function LeaveTypes() {
                                                     {lt.is_paid ? 'Paid' : 'Unpaid'}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-500">
+                                            <TableCell className="text-sm text-slate-500">
                                                 {lt.is_attachment_required ? 'Required' : '-'}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-500">
+                                            <TableCell className="text-sm text-slate-500">
                                                 {lt.gender_restriction ? (
                                                     <Badge variant="outline">{lt.gender_restriction}</Badge>
                                                 ) : 'All'}
@@ -265,20 +265,20 @@ export default function LeaveTypes() {
                                                     {lt.is_active ? (
                                                         <ToggleRight className="h-6 w-6 text-emerald-600" />
                                                     ) : (
-                                                        <ToggleLeft className="h-6 w-6 text-zinc-400" />
+                                                        <ToggleLeft className="h-6 w-6 text-slate-400" />
                                                     )}
                                                 </button>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <div
-                                                        className="h-5 w-5 rounded-full border border-zinc-200"
+                                                        className="h-5 w-5 rounded-full border border-slate-200"
                                                         style={{ backgroundColor: lt.color || '#e5e7eb' }}
                                                     />
-                                                    <span className="text-xs text-zinc-400">{lt.color || '-'}</span>
+                                                    <span className="text-xs text-slate-400">{lt.color || '-'}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-500">{lt.sort_order ?? '-'}</TableCell>
+                                            <TableCell className="text-sm text-slate-500">{lt.sort_order ?? '-'}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <Button variant="ghost" size="sm" onClick={() => openEditDialog(lt)}>
@@ -330,7 +330,7 @@ export default function LeaveTypes() {
                         )}
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Name</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Name</label>
                                 <Input
                                     value={form.name}
                                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -339,7 +339,7 @@ export default function LeaveTypes() {
                                 {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name[0]}</p>}
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Code</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Code</label>
                                 <Input
                                     value={form.code}
                                     onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -350,13 +350,13 @@ export default function LeaveTypes() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Color</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Color</label>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="color"
                                         value={form.color}
                                         onChange={(e) => setForm({ ...form, color: e.target.value })}
-                                        className="h-9 w-9 cursor-pointer rounded border border-zinc-300"
+                                        className="h-9 w-9 cursor-pointer rounded border border-slate-300"
                                     />
                                     <Input
                                         value={form.color}
@@ -367,7 +367,7 @@ export default function LeaveTypes() {
                                 </div>
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Sort Order</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Sort Order</label>
                                 <Input
                                     type="number"
                                     value={form.sort_order}
@@ -376,7 +376,7 @@ export default function LeaveTypes() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Gender Specific</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Gender Specific</label>
                             <div className="flex gap-4">
                                 {['', 'male', 'female'].map((g) => (
                                     <label key={g} className="flex items-center gap-1.5 text-sm">
@@ -385,7 +385,7 @@ export default function LeaveTypes() {
                                             name="gender"
                                             checked={form.gender_restriction === g}
                                             onChange={() => setForm({ ...form, gender_restriction: g })}
-                                            className="text-zinc-900"
+                                            className="text-slate-900"
                                         />
                                         {g === '' ? 'All' : g.charAt(0).toUpperCase() + g.slice(1)}
                                     </label>
@@ -416,12 +416,12 @@ export default function LeaveTypes() {
                             </label>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                                 placeholder="Optional description..."
-                                className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 rows={2}
                             />
                         </div>

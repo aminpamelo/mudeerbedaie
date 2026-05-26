@@ -60,9 +60,9 @@ function SkeletonCards() {
             {Array.from({ length: 3 }).map((_, i) => (
                 <Card key={i}>
                     <CardContent className="p-6 space-y-3">
-                        <div className="h-5 w-40 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+                        <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-32 animate-pulse rounded bg-slate-200" />
                     </CardContent>
                 </Card>
             ))}
@@ -195,9 +195,9 @@ export default function OnboardingTemplates() {
             ) : templates.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <ClipboardList className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No onboarding templates yet</h3>
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <ClipboardList className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No onboarding templates yet</h3>
+                        <p className="mt-1 text-sm text-slate-500">
                             Create a template to define the tasks new hires need to complete.
                         </p>
                         <Button className="mt-4" onClick={openCreate}>
@@ -213,11 +213,11 @@ export default function OnboardingTemplates() {
                             <CardContent className="flex flex-1 flex-col p-6">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="truncate text-base font-semibold text-zinc-900">
+                                        <h3 className="truncate text-base font-semibold text-slate-900">
                                             {template.name}
                                         </h3>
                                         {template.department && (
-                                            <p className="mt-0.5 text-sm text-zinc-500">{template.department.name}</p>
+                                            <p className="mt-0.5 text-sm text-slate-500">{template.department.name}</p>
                                         )}
                                     </div>
                                     <div className="ml-2 flex items-center gap-1 shrink-0">
@@ -241,22 +241,22 @@ export default function OnboardingTemplates() {
                                 </div>
 
                                 {template.description && (
-                                    <p className="mt-2 line-clamp-2 text-sm text-zinc-500">{template.description}</p>
+                                    <p className="mt-2 line-clamp-2 text-sm text-slate-500">{template.description}</p>
                                 )}
 
                                 <div className="mt-4 flex-1">
-                                    <p className="mb-2 text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                                    <p className="mb-2 text-xs font-medium text-slate-500 uppercase tracking-wide">
                                         Tasks ({template.items?.length || 0})
                                     </p>
                                     {template.items?.slice(0, 4).map((item, i) => (
                                         <div key={i} className="mb-1.5 flex items-center gap-2 text-sm">
-                                            <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" />
-                                            <span className="flex-1 truncate text-zinc-700">{item.title}</span>
-                                            <span className="shrink-0 text-xs text-zinc-400">Day {item.due_days}</span>
+                                            <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+                                            <span className="flex-1 truncate text-slate-700">{item.title}</span>
+                                            <span className="shrink-0 text-xs text-slate-400">Day {item.due_days}</span>
                                         </div>
                                     ))}
                                     {(template.items?.length || 0) > 4 && (
-                                        <p className="mt-1 text-xs text-zinc-400">
+                                        <p className="mt-1 text-xs text-slate-400">
                                             +{template.items.length - 4} more tasks
                                         </p>
                                     )}
@@ -318,7 +318,7 @@ export default function OnboardingTemplates() {
                                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                                     rows={2}
                                     placeholder="Brief description of this template..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
 
@@ -338,17 +338,17 @@ export default function OnboardingTemplates() {
                                 </div>
 
                                 {form.items.length === 0 ? (
-                                    <div className="rounded-lg border border-dashed border-zinc-300 py-6 text-center">
-                                        <p className="text-sm text-zinc-400">No items yet. Add your first checklist item.</p>
+                                    <div className="rounded-lg border border-dashed border-slate-300 py-6 text-center">
+                                        <p className="text-sm text-slate-400">No items yet. Add your first checklist item.</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
                                         {form.items.map((item, index) => (
                                             <div
                                                 key={index}
-                                                className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3"
+                                                className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
                                             >
-                                                <GripVertical className="mt-2 h-4 w-4 shrink-0 text-zinc-400" />
+                                                <GripVertical className="mt-2 h-4 w-4 shrink-0 text-slate-400" />
 
                                                 <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
                                                     <Input
@@ -383,14 +383,14 @@ export default function OnboardingTemplates() {
                                                             onChange={(e) => updateItem(index, 'due_days', e.target.value)}
                                                             className="w-20"
                                                         />
-                                                        <span className="shrink-0 text-xs text-zinc-500">days</span>
+                                                        <span className="shrink-0 text-xs text-slate-500">days</span>
                                                     </div>
                                                 </div>
 
                                                 <button
                                                     type="button"
                                                     onClick={() => removeItem(index)}
-                                                    className="mt-2 shrink-0 text-zinc-400 hover:text-red-500 transition-colors"
+                                                    className="mt-2 shrink-0 text-slate-400 hover:text-red-500 transition-colors"
                                                 >
                                                     <X className="h-4 w-4" />
                                                 </button>
@@ -420,7 +420,7 @@ export default function OnboardingTemplates() {
                     <DialogHeader>
                         <DialogTitle>Delete Template</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-zinc-600">
+                    <p className="text-sm text-slate-600">
                         Are you sure you want to delete{' '}
                         <span className="font-medium">{deleteTarget?.name}</span>? This action cannot be undone.
                     </p>

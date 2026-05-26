@@ -1,14 +1,5 @@
-import { Badge } from './ui/badge';
+// Backwards-compat default export — forwards to the v2 StatusBadge with
+// semantic color mapping. New code should `import { StatusBadge } from './ui/status-badge'`.
+import { StatusBadge } from './ui/status-badge';
 
-const statusConfig = {
-    active: { label: 'Active', variant: 'success' },
-    probation: { label: 'Probation', variant: 'warning' },
-    resigned: { label: 'Resigned', variant: 'secondary' },
-    terminated: { label: 'Terminated', variant: 'destructive' },
-    on_leave: { label: 'On Leave', variant: 'outline' },
-};
-
-export default function StatusBadge({ status }) {
-    const config = statusConfig[status] || { label: status, variant: 'secondary' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-}
+export default StatusBadge;

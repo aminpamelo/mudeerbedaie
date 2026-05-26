@@ -74,7 +74,7 @@ function StarRating({ rating, size = 'sm' }) {
                     key={star}
                     className={cn(
                         starSize,
-                        star <= rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'
+                        star <= rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
                     )}
                 />
             ))}
@@ -100,7 +100,7 @@ function InteractiveStarRating({ value, onChange }) {
                             'h-6 w-6 transition-colors',
                             star <= (hovered || value)
                                 ? 'fill-amber-400 text-amber-400'
-                                : 'text-zinc-300 hover:text-zinc-400'
+                                : 'text-slate-300 hover:text-slate-400'
                         )}
                     />
                 </button>
@@ -207,8 +207,8 @@ export default function ExitInterviews() {
                                 <Users className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-zinc-500">Total Interviews</p>
-                                <p className="text-lg font-bold text-zinc-900">{totalInterviews}</p>
+                                <p className="text-xs font-medium text-slate-500">Total Interviews</p>
+                                <p className="text-lg font-bold text-slate-900">{totalInterviews}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -220,9 +220,9 @@ export default function ExitInterviews() {
                                 <Star className="h-5 w-5 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-zinc-500">Avg Satisfaction</p>
+                                <p className="text-xs font-medium text-slate-500">Avg Satisfaction</p>
                                 <div className="flex items-center gap-2">
-                                    <p className="text-lg font-bold text-zinc-900">
+                                    <p className="text-lg font-bold text-slate-900">
                                         {Number(avgSatisfaction).toFixed(1)}
                                     </p>
                                     <StarRating rating={Math.round(avgSatisfaction)} />
@@ -238,8 +238,8 @@ export default function ExitInterviews() {
                                 <ThumbsUp className="h-5 w-5 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-zinc-500">Recommendation Rate</p>
-                                <p className="text-lg font-bold text-zinc-900">{Number(recommendRate).toFixed(0)}%</p>
+                                <p className="text-xs font-medium text-slate-500">Recommendation Rate</p>
+                                <p className="text-lg font-bold text-slate-900">{Number(recommendRate).toFixed(0)}%</p>
                             </div>
                         </div>
                     </CardContent>
@@ -251,8 +251,8 @@ export default function ExitInterviews() {
                                 <TrendingUp className="h-5 w-5 text-purple-600" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-zinc-500">Top Reason</p>
-                                <p className="text-lg font-bold text-zinc-900">
+                                <p className="text-xs font-medium text-slate-500">Top Reason</p>
+                                <p className="text-lg font-bold text-slate-900">
                                     {reasonBreakdown.length > 0
                                         ? REASON_LABELS[reasonBreakdown[0].reason] || reasonBreakdown[0].reason
                                         : '-'}
@@ -268,7 +268,7 @@ export default function ExitInterviews() {
                 <Card className="mb-6">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
-                            <BarChart3 className="h-4 w-4 text-zinc-500" />
+                            <BarChart3 className="h-4 w-4 text-slate-500" />
                             Reason Breakdown
                         </CardTitle>
                     </CardHeader>
@@ -279,11 +279,11 @@ export default function ExitInterviews() {
                                 const widthPercent = Math.round((item.count / maxCount) * 100);
                                 return (
                                     <div key={index} className="flex items-center gap-3">
-                                        <div className="w-40 shrink-0 text-sm text-zinc-700">
+                                        <div className="w-40 shrink-0 text-sm text-slate-700">
                                             {REASON_LABELS[item.reason] || item.reason}
                                         </div>
                                         <div className="flex-1">
-                                            <div className="h-6 overflow-hidden rounded bg-zinc-100">
+                                            <div className="h-6 overflow-hidden rounded bg-slate-100">
                                                 <div
                                                     className="flex h-full items-center rounded bg-blue-500 px-2 text-xs font-medium text-white transition-all"
                                                     style={{ width: `${widthPercent}%`, minWidth: '2rem' }}
@@ -315,14 +315,14 @@ export default function ExitInterviews() {
             {/* Table */}
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
             ) : interviews.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16">
-                        <MessageSquare className="mb-3 h-10 w-10 text-zinc-300" />
-                        <p className="text-sm font-medium text-zinc-500">No exit interviews found</p>
-                        <p className="text-xs text-zinc-400">Create a new exit interview to get started.</p>
+                        <MessageSquare className="mb-3 h-10 w-10 text-slate-300" />
+                        <p className="text-sm font-medium text-slate-500">No exit interviews found</p>
+                        <p className="text-xs text-slate-400">Create a new exit interview to get started.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -344,10 +344,10 @@ export default function ExitInterviews() {
                                     <TableRow key={interview.id}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {interview.employee?.full_name || '-'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-slate-500">
                                                     {interview.employee?.employee_id || ''}
                                                 </p>
                                             </div>
@@ -402,11 +402,11 @@ export default function ExitInterviews() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee</label>
                             <select
                                 value={form.employee_id}
                                 onChange={(e) => setForm((p) => ({ ...p, employee_id: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="">Select employee...</option>
                                 {employees.map((emp) => (
@@ -417,20 +417,20 @@ export default function ExitInterviews() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Interview Date</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Interview Date</label>
                             <input
                                 type="date"
                                 value={form.interview_date}
                                 onChange={(e) => setForm((p) => ({ ...p, interview_date: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Reason for Leaving</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Reason for Leaving</label>
                             <select
                                 value={form.reason_for_leaving}
                                 onChange={(e) => setForm((p) => ({ ...p, reason_for_leaving: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="">Select reason...</option>
                                 {REASON_OPTIONS.map((opt) => (
@@ -441,7 +441,7 @@ export default function ExitInterviews() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Overall Satisfaction</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Overall Satisfaction</label>
                             <InteractiveStarRating
                                 value={form.overall_satisfaction}
                                 onChange={(val) => setForm((p) => ({ ...p, overall_satisfaction: val }))}
@@ -453,19 +453,19 @@ export default function ExitInterviews() {
                                 id="would_recommend"
                                 checked={form.would_recommend}
                                 onChange={(e) => setForm((p) => ({ ...p, would_recommend: e.target.checked }))}
-                                className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500"
+                                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                             />
-                            <label htmlFor="would_recommend" className="text-sm font-medium text-zinc-700">
+                            <label htmlFor="would_recommend" className="text-sm font-medium text-slate-700">
                                 Would recommend this company to others
                             </label>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Feedback</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Feedback</label>
                             <textarea
                                 value={form.feedback}
                                 onChange={(e) => setForm((p) => ({ ...p, feedback: e.target.value }))}
                                 rows={4}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="Additional feedback from the employee..."
                             />
                         </div>
@@ -499,25 +499,25 @@ export default function ExitInterviews() {
 
                     {detailLoading ? (
                         <div className="flex justify-center py-12">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : interviewDetail ? (
                         <div className="space-y-4">
                             <dl className="space-y-3">
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Employee</dt>
-                                    <dd className="text-sm font-medium text-zinc-900">
+                                    <dt className="text-sm text-slate-500">Employee</dt>
+                                    <dd className="text-sm font-medium text-slate-900">
                                         {interviewDetail.employee?.full_name || '-'}
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Interview Date</dt>
-                                    <dd className="text-sm font-medium text-zinc-900">
+                                    <dt className="text-sm text-slate-500">Interview Date</dt>
+                                    <dd className="text-sm font-medium text-slate-900">
                                         {formatDate(interviewDetail.interview_date)}
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Reason for Leaving</dt>
+                                    <dt className="text-sm text-slate-500">Reason for Leaving</dt>
                                     <dd>
                                         <Badge variant="outline">
                                             {REASON_LABELS[interviewDetail.reason_for_leaving] || interviewDetail.reason_for_leaving}
@@ -525,13 +525,13 @@ export default function ExitInterviews() {
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Overall Satisfaction</dt>
+                                    <dt className="text-sm text-slate-500">Overall Satisfaction</dt>
                                     <dd>
                                         <StarRating rating={interviewDetail.overall_satisfaction} />
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-sm text-zinc-500">Would Recommend</dt>
+                                    <dt className="text-sm text-slate-500">Would Recommend</dt>
                                     <dd>
                                         {interviewDetail.would_recommend ? (
                                             <div className="flex items-center gap-1 text-emerald-600">
@@ -549,15 +549,15 @@ export default function ExitInterviews() {
                             </dl>
                             {interviewDetail.feedback && (
                                 <div>
-                                    <h4 className="mb-1 text-sm font-medium text-zinc-700">Feedback</h4>
-                                    <p className="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700 whitespace-pre-wrap">
+                                    <h4 className="mb-1 text-sm font-medium text-slate-700">Feedback</h4>
+                                    <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700 whitespace-pre-wrap">
                                         {interviewDetail.feedback}
                                     </p>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className="flex justify-center py-8 text-sm text-zinc-400">
+                        <div className="flex justify-center py-8 text-sm text-slate-400">
                             Interview not found.
                         </div>
                     )}

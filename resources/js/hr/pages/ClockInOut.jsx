@@ -17,11 +17,17 @@ import {
     Loader2,
     AlertCircle,
     ChevronRight,
+    ArrowRight,
+    CalendarRange,
+    Sparkles,
+    Coffee,
+    Palmtree,
 } from 'lucide-react';
 import { clockIn, clockOut, fetchMyTodayAttendance, fetchMyAttendanceSummary, fetchOfficeLocation } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { EmptyState } from '../components/ui/empty-state';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 // ---- Helpers ----
@@ -60,17 +66,17 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_COLORS = {
-    present: 'bg-teal-500',
-    late: 'bg-amber-500',
-    absent: 'bg-rose-500',
-    wfh: 'bg-indigo-500',
-    on_leave: 'bg-violet-500',
-    leave: 'bg-violet-500',
-    half_day: 'bg-orange-500',
-    early_leave: 'bg-fuchsia-500',
-    holiday: 'bg-slate-300',
-    off_day: 'bg-slate-300',
-    none: 'bg-slate-200',
+    present: 'bg-gradient-to-t from-emerald-500 to-emerald-400',
+    late: 'bg-gradient-to-t from-amber-500 to-amber-400',
+    absent: 'bg-gradient-to-t from-rose-500 to-rose-400',
+    wfh: 'bg-gradient-to-t from-indigo-500 to-indigo-400',
+    on_leave: 'bg-gradient-to-t from-violet-500 to-violet-400',
+    leave: 'bg-gradient-to-t from-violet-500 to-violet-400',
+    half_day: 'bg-gradient-to-t from-orange-500 to-orange-400',
+    early_leave: 'bg-gradient-to-t from-fuchsia-500 to-fuchsia-400',
+    holiday: 'bg-slate-200',
+    off_day: 'bg-slate-200',
+    none: 'bg-slate-100',
 };
 
 // ---- Live Clock ----
@@ -109,7 +115,357 @@ function formatElapsedParts(seconds) {
     };
 }
 
-// ---- Live Elapsed Timer Component ----
+// ─────────────────────────────────────────────────────────────
+// FRESH DESIGN — Progress Ring centerpiece
+// ─────────────────────────────────────────────────────────────
+
+function parseScheduleMinutes(start, end) {
+    if (!start || !end) return 540; // default 9h
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    return Math.max(60, (eh * 60 + em) - (sh * 60 + sm));
+}
+
+function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, scheduleStart, scheduleEnd }) {
+    const elapsedSec = useLiveElapsed(state === 'working' ? clockInTime : null);
+    const size = 264;
+    const stroke = 14;
+    const radius = (size - stroke) / 2;
+    const circumference = 2 * Math.PI * radius;
+
+    const scheduledMin = parseScheduleMinutes(scheduleStart, scheduleEnd);
+    let progress = 0;
+    if (state === 'working') {
+        progress = Math.min(elapsedSec / (scheduledMin * 60), 1);
+    } else if (state === 'complete') {
+        progress = 1;
+    }
+    const offset = circumference * (1 - progress);
+
+    // Ring colors per state
+    const ringId = `ring-${state}`;
+    const ringStops = state === 'complete'
+        ? [['0%', '#10B981'], ['100%', '#34D399']]
+        : state === 'on_leave'
+        ? [['0%', '#8B5CF6'], ['100%', '#A78BFA']]
+        : state === 'off_day'
+        ? [['0%', '#CBD5E1'], ['100%', '#94A3B8']]
+        : state === 'working'
+        ? [['0%', '#6366F1'], ['50%', '#EC4899'], ['100%', '#FB923C']]
+        : [['0%', '#C7D2FE'], ['100%', '#FBCFE8']]; // ready (idle, soft)
+
+    // Inner content
+    let timeNode;
+    let subLabel;
+    if (state === 'working') {
+        const { hours, minutes, seconds } = formatElapsedParts(elapsedSec);
+        timeNode = (
+            <div className="flex items-baseline tabular-nums leading-none">
+                <span className="text-[44px] font-bold text-slate-900 tracking-tight">{hours}</span>
+                <span className="mx-0.5 text-2xl font-bold text-slate-400">:</span>
+                <span className="text-[44px] font-bold text-slate-900 tracking-tight">{minutes}</span>
+                <span className="mx-0.5 text-2xl font-bold text-slate-400">:</span>
+                <span className="text-2xl font-semibold text-slate-500 tracking-tight">{seconds}</span>
+            </div>
+        );
+        subLabel = `Started at ${formatTime(clockInTime)}`;
+    } else if (state === 'complete') {
+        timeNode = (
+            <div className="text-[44px] font-bold tabular-nums leading-none tracking-tight text-emerald-700">
+                {totalWorkMinutes != null ? formatDuration(totalWorkMinutes) : '–'}
+            </div>
+        );
+        subLabel = 'Great work today!';
+    } else if (state === 'on_leave') {
+        timeNode = (
+            <div className="flex items-center gap-2 text-2xl font-bold text-violet-700">
+                <Palmtree className="h-7 w-7" />
+                On Leave
+            </div>
+        );
+        subLabel = 'Enjoy your day off';
+    } else if (state === 'off_day') {
+        timeNode = (
+            <div className="flex items-center gap-2 text-2xl font-bold text-slate-600">
+                <Coffee className="h-7 w-7" />
+                Off Day
+            </div>
+        );
+        subLabel = 'Rest and recharge';
+    } else {
+        // ready — show current time in 12-hour format
+        const h12 = currentTime.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const [time, ampm] = h12.split(' ');
+        timeNode = (
+            <div className="flex items-baseline tabular-nums leading-none">
+                <span className="hr-shimmer text-[52px] font-bold tracking-tight">{time}</span>
+                <span className="ml-1.5 text-lg font-bold text-slate-500">{ampm?.toLowerCase()}</span>
+            </div>
+        );
+        subLabel = 'Ready when you are';
+    }
+
+    const stateLabel =
+        state === 'working' ? 'WORKING' :
+        state === 'complete' ? 'COMPLETED' :
+        state === 'on_leave' ? 'ON LEAVE' :
+        state === 'off_day' ? 'OFF DAY' :
+        'READY';
+
+    const stateLabelColor =
+        state === 'working' ? 'text-pink-600' :
+        state === 'complete' ? 'text-emerald-600' :
+        state === 'on_leave' ? 'text-violet-600' :
+        state === 'off_day' ? 'text-slate-500' :
+        'text-indigo-600';
+
+    return (
+        <div className="relative mx-auto" style={{ width: size, height: size }}>
+            {/* Outer ambient glow */}
+            <div className={cn(
+                'absolute inset-0 rounded-full blur-3xl opacity-50',
+                state === 'working' ? 'bg-gradient-to-br from-indigo-300 via-pink-300 to-orange-200' :
+                state === 'complete' ? 'bg-emerald-200' :
+                state === 'on_leave' ? 'bg-violet-200' :
+                state === 'off_day' ? 'bg-slate-200' :
+                'bg-gradient-to-br from-rose-200 via-violet-200 to-indigo-200'
+            )} aria-hidden />
+
+            {/* Rotating conic halo — only when ready/working (subtle life) */}
+            {(state === 'ready' || state === 'working') && (
+                <div
+                    className="absolute -inset-4 rounded-full opacity-30 blur-2xl hr-halo hr-spin-slow"
+                    aria-hidden
+                />
+            )}
+
+            {/* Ambient sparkles around the ring (only ready state for delight) */}
+            {state === 'ready' && (
+                <>
+                    <span className="absolute right-2 top-6 h-1.5 w-1.5 rounded-full bg-pink-400 hr-twinkle" aria-hidden />
+                    <span className="absolute left-3 top-1/3 h-1 w-1 rounded-full bg-indigo-400 hr-twinkle-2" aria-hidden />
+                    <span className="absolute right-6 bottom-8 h-1 w-1 rounded-full bg-orange-400 hr-twinkle-3" aria-hidden />
+                    <span className="absolute left-8 bottom-4 h-1.5 w-1.5 rounded-full bg-violet-400 hr-twinkle-2" aria-hidden />
+                </>
+            )}
+
+            {/* Outer ring */}
+            <svg width={size} height={size} className="relative -rotate-90">
+                <defs>
+                    <linearGradient id={ringId} x1="0%" y1="0%" x2="100%" y2="100%">
+                        {ringStops.map(([offsetVal, color]) => (
+                            <stop key={offsetVal} offset={offsetVal} stopColor={color} />
+                        ))}
+                    </linearGradient>
+                </defs>
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke="#F1F5F9"
+                    strokeWidth={stroke}
+                />
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke={`url(#${ringId})`}
+                    strokeWidth={stroke}
+                    strokeDasharray={circumference}
+                    strokeDashoffset={state === 'ready' ? circumference : offset}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+                />
+            </svg>
+
+            {/* Inner content */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
+                {/* State pill at top */}
+                <div className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-sm ring-1 ring-slate-200',
+                    stateLabelColor
+                )}>
+                    <span className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        state === 'working' ? 'bg-pink-500 animate-pulse' :
+                        state === 'complete' ? 'bg-emerald-500' :
+                        state === 'on_leave' ? 'bg-violet-500' :
+                        state === 'off_day' ? 'bg-slate-400' :
+                        'bg-indigo-500'
+                    )} />
+                    {stateLabel}
+                </div>
+
+                {/* Main display */}
+                <div className="mt-3">
+                    {timeNode}
+                </div>
+
+                {/* Sublabel */}
+                <p className="mt-2 text-[11px] font-medium text-slate-500">
+                    {subLabel}
+                </p>
+
+                {/* Progress percentage when working */}
+                {state === 'working' && (
+                    <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400">
+                        {Math.round(progress * 100)}% of workday
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ActionPill({ type, isPending, onClick, disabled, hint }) {
+    const isClockIn = type === 'in';
+    const isDisabled = isPending || disabled;
+    return (
+        <div className="space-y-2">
+            <button
+                onClick={onClick}
+                disabled={isDisabled}
+                className={cn(
+                    'group relative h-14 w-full overflow-hidden rounded-2xl text-white transition-all active:scale-[0.97] active:duration-75',
+                    'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                    isDisabled
+                        ? 'cursor-not-allowed bg-slate-300 shadow-md shadow-slate-300/40'
+                        : isClockIn
+                            ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 shadow-xl shadow-pink-500/40 hover:shadow-2xl hover:shadow-pink-500/50 focus-visible:ring-pink-300'
+                            : 'bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 shadow-xl shadow-rose-500/40 hover:shadow-2xl hover:shadow-rose-500/50 focus-visible:ring-rose-300'
+                )}
+            >
+                {/* Top inner highlight — gives a 3D bevel feel */}
+                {!isDisabled && (
+                    <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/25 to-transparent" aria-hidden />
+                )}
+                {/* Shimmer sweep overlay (slow ambient) */}
+                {!isDisabled && (
+                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-1000 group-hover:translate-x-full" aria-hidden />
+                )}
+
+                {isPending ? (
+                    <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                ) : (
+                    <div className="relative flex items-center justify-center gap-2.5">
+                        <Clock className="h-5 w-5 drop-shadow-sm" strokeWidth={2.5} />
+                        <span className="text-sm font-bold tracking-wider drop-shadow-sm">
+                            {isClockIn ? 'CLOCK IN' : 'CLOCK OUT'}
+                        </span>
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" strokeWidth={2.5} />
+                    </div>
+                )}
+            </button>
+            {disabled && hint && (
+                <p className="text-center text-[11px] font-medium text-slate-500">{hint}</p>
+            )}
+        </div>
+    );
+}
+
+function CompactCamera({ onCapture, isCapturing, isCompleted }) {
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const [hasCamera, setHasCamera] = useState(true);
+    const [cameraReady, setCameraReady] = useState(false);
+
+    useEffect(() => {
+        if (isCompleted) return;
+        let cancelled = false;
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 320, height: 240 },
+                });
+                if (cancelled) {
+                    stream.getTracks().forEach((t) => t.stop());
+                    return;
+                }
+                streamRef.current = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    setCameraReady(true);
+                }
+            } catch {
+                setHasCamera(false);
+            }
+        }
+        startCamera();
+        return () => {
+            cancelled = true;
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+        };
+    }, [isCompleted]);
+
+    const capture = useCallback(() => {
+        if (!videoRef.current || !cameraReady) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth || 320;
+        canvas.height = videoRef.current.videoHeight || 240;
+        canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+        return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7));
+    }, [cameraReady]);
+
+    useEffect(() => {
+        if (onCapture) onCapture(capture);
+    }, [capture, onCapture]);
+
+    if (isCompleted) return null;
+
+    if (!hasCamera) {
+        return (
+            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+                    <Camera className="h-4 w-4 text-slate-400" strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-600">No camera available</p>
+                    <p className="text-[11px] text-slate-400">Photo verification optional</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 to-pink-50/60 p-2.5">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-900 ring-2 ring-white shadow-md">
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="h-full w-full object-cover"
+                />
+                {!cameraReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    </div>
+                )}
+                {isCapturing && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                        <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                    </div>
+                )}
+                {/* Tiny LIVE dot */}
+                {cameraReady && !isCapturing && (
+                    <span className="absolute right-1 top-1 flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    </span>
+                )}
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-700">Photo verification</p>
+                <p className="text-[11px] text-slate-500">Auto-captured when you clock in</p>
+            </div>
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-500" />
+        </div>
+    );
+}
+
+// ---- Live Elapsed Timer Component (legacy — kept for compat) ----
 function LiveElapsedTimer({ clockInTime }) {
     const elapsed = useLiveElapsed(clockInTime);
     const { hours, minutes, seconds, totalMinutes } = formatElapsedParts(elapsed);
@@ -302,61 +658,114 @@ function CameraPreview({ onCapture, isCapturing }) {
 
     if (!hasCamera) {
         return (
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-100 p-6 text-center">
-                <Camera className="h-8 w-8 text-slate-400 mb-2" />
-                <p className="text-xs text-slate-500">Camera not available</p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 py-2">
+                <EmptyState
+                    icon={Camera}
+                    accent="slate"
+                    title="Camera not available"
+                    description="Photo verification is optional for this clock-in"
+                />
             </div>
         );
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-slate-900">
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="h-48 w-full object-cover"
-            />
-            {!cameraReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                    <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+        <div className="relative rounded-[20px] bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 p-[2px] shadow-lg shadow-indigo-500/20">
+            <div className="relative overflow-hidden rounded-[18px] bg-slate-900">
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="h-52 w-full object-cover"
+                />
+                {!cameraReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                        <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                    </div>
+                )}
+                {isCapturing && (
+                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-7 w-7 animate-spin text-indigo-600" />
+                            <p className="text-xs font-semibold text-slate-700">Capturing…</p>
+                        </div>
+                    </div>
+                )}
+                {/* Subtle vignette */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+                {/* LIVE pill — pulsing red dot */}
+                <div className="pointer-events-none absolute bottom-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold tracking-wider text-white backdrop-blur-md ring-1 ring-white/20">
+                    <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+                    </span>
+                    LIVE
                 </div>
-            )}
-            {isCapturing && (
-                <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm">
-                    <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
+                {/* Camera icon badge — top right */}
+                <div className="pointer-events-none absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-md ring-1 ring-white/20">
+                    <Camera className="h-3 w-3" strokeWidth={2.25} />
+                    Front
                 </div>
-            )}
+            </div>
         </div>
     );
 }
 
 // ---- Clock Button ----
-function ClockButton({ type, isPending, onClick, disabled }) {
+function ClockButton({ type, isPending, onClick, disabled, hint }) {
     const isClockIn = type === 'in';
+    const isDisabled = isPending || disabled;
     return (
-        <button
-            onClick={onClick}
-            disabled={isPending || disabled}
-            className={cn(
-                'relative h-28 w-28 rounded-full shadow-lg transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed',
-                isClockIn
-                    ? 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-teal-500/30 hover:shadow-teal-500/40 hover:shadow-xl'
-                    : 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-rose-500/30 hover:shadow-rose-500/40 hover:shadow-xl'
+        <div className="flex flex-col items-center gap-3">
+            <div className="relative">
+                {/* Breathing pulse ring — only when ready (not disabled, not pending) */}
+                {!isDisabled && (
+                    <>
+                        <span className={cn(
+                            'absolute inset-0 rounded-full blur-xl hr-breathe',
+                            isClockIn ? 'bg-pink-500/40' : 'bg-orange-500/40'
+                        )} aria-hidden />
+                        <span className={cn(
+                            'absolute inset-0 rounded-full hr-breathe',
+                            isClockIn ? 'bg-violet-300/30' : 'bg-rose-300/30'
+                        )} aria-hidden />
+                    </>
+                )}
+                <button
+                    onClick={onClick}
+                    disabled={isDisabled}
+                    className={cn(
+                        'relative h-32 w-32 rounded-full shadow-xl transition-all active:scale-95',
+                        'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-4 focus-visible:ring-offset-white',
+                        isDisabled
+                            ? 'cursor-not-allowed bg-gradient-to-br from-slate-300 via-slate-400 to-slate-300 text-white/90 shadow-slate-400/30'
+                            : isClockIn
+                                ? 'bg-gradient-to-br from-indigo-500 via-pink-500 to-orange-400 text-white shadow-pink-500/50 hover:shadow-2xl hover:shadow-pink-500/60 focus-visible:ring-pink-300'
+                                : 'bg-gradient-to-br from-orange-500 via-rose-500 to-fuchsia-500 text-white shadow-rose-500/50 hover:shadow-2xl hover:shadow-rose-500/60 focus-visible:ring-rose-300'
+                    )}
+                >
+                    {/* Inner subtle ring */}
+                    <span className="absolute inset-2 rounded-full ring-1 ring-white/30 pointer-events-none" aria-hidden />
+                    {isPending ? (
+                        <Loader2 className="h-9 w-9 animate-spin mx-auto" />
+                    ) : (
+                        <div className="flex flex-col items-center gap-1.5">
+                            <Clock className="h-7 w-7" strokeWidth={2.25} />
+                            <span className="text-sm font-bold tracking-wider">
+                                {isClockIn ? 'CLOCK IN' : 'CLOCK OUT'}
+                            </span>
+                        </div>
+                    )}
+                </button>
+            </div>
+            {/* Hint text below the button when disabled */}
+            {disabled && hint && (
+                <p className="max-w-[200px] text-center text-[11px] font-medium text-slate-500">
+                    {hint}
+                </p>
             )}
-        >
-            {isPending ? (
-                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-            ) : (
-                <div className="flex flex-col items-center gap-1">
-                    <Clock className="h-7 w-7" />
-                    <span className="text-sm font-semibold">
-                        {isClockIn ? 'Clock In' : 'Clock Out'}
-                    </span>
-                </div>
-            )}
-        </button>
+        </div>
     );
 }
 
@@ -368,21 +777,27 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
 
     if (geoLoading) {
         return (
-            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-3">
-                <Loader2 className="h-4 w-4 animate-spin text-slate-500 shrink-0" />
-                <p className="text-sm text-slate-600">Getting your location...</p>
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                </div>
+                <p className="text-sm font-medium text-slate-600">Getting your location…</p>
             </div>
         );
     }
 
     if (geoError) {
         return (
-            <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
-                <MapPinOff className="h-4 w-4 text-rose-500 shrink-0" />
-                <p className="text-sm text-rose-700">{geoError}</p>
-                {isWfh && (
-                    <p className="text-xs text-rose-600 mt-1">Location is required for WFH clock-in. Please enable GPS in your browser settings.</p>
-                )}
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                    <MapPinOff className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-rose-800">{geoError}</p>
+                    {isWfh && (
+                        <p className="mt-0.5 text-xs text-rose-600">Required for WFH clock-in. Enable GPS in browser settings.</p>
+                    )}
+                </div>
             </div>
         );
     }
@@ -390,12 +805,14 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
     // WFH location status
     if (isWfh && location) {
         return (
-            <div className="flex items-center gap-2 rounded-xl border p-3 bg-indigo-50 border-indigo-200/80">
-                <MapPin className="h-4 w-4 shrink-0 text-indigo-500" />
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-indigo-700">Location captured</p>
+            <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50/40 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
+                    <MapPin className="h-4 w-4 text-indigo-600" strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-indigo-800">Location captured</p>
                     <p className="text-xs text-indigo-600">
-                        Your WFH location will be recorded when you clock in
+                        WFH location recorded on clock-in
                     </p>
                 </div>
                 <CheckCircle2 className="h-4 w-4 text-indigo-500 shrink-0" />
@@ -413,39 +830,37 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
         const isInRange = distance <= officeConfig.radius_meters;
 
         return (
-            <div
-                className={cn(
-                    'flex items-center gap-2 rounded-xl border p-3',
-                    isInRange
-                        ? 'bg-teal-50 border-teal-200/80'
-                        : 'bg-amber-50 border-amber-200/80'
-                )}
-            >
-                <MapPin
-                    className={cn(
-                        'h-4 w-4 shrink-0',
-                        isInRange ? 'text-teal-500' : 'text-amber-500'
-                    )}
-                />
-                <div className="flex-1 min-w-0">
-                    <p
-                        className={cn(
-                            'text-sm font-medium',
-                            isInRange ? 'text-teal-700' : 'text-amber-700'
-                        )}
-                    >
-                        {isInRange ? 'You are at the office' : 'You are not at the office'}
+            <div className={cn(
+                'flex items-center gap-3 rounded-2xl border p-3',
+                isInRange
+                    ? 'bg-gradient-to-r from-emerald-50 to-emerald-50/40 border-emerald-200'
+                    : 'bg-gradient-to-r from-amber-50 to-orange-50/40 border-amber-200'
+            )}>
+                <div className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                    isInRange ? 'bg-emerald-100' : 'bg-amber-100'
+                )}>
+                    <MapPin className={cn(
+                        'h-4 w-4',
+                        isInRange ? 'text-emerald-600' : 'text-amber-600'
+                    )} strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className={cn(
+                        'text-sm font-semibold',
+                        isInRange ? 'text-emerald-800' : 'text-amber-800'
+                    )}>
+                        {isInRange ? 'You\'re at the office' : 'You\'re not at the office'}
                     </p>
-                    <p
-                        className={cn(
-                            'text-xs',
-                            isInRange ? 'text-teal-600' : 'text-amber-600'
-                        )}
-                    >
+                    <p className={cn(
+                        'text-xs',
+                        isInRange ? 'text-emerald-600' : 'text-amber-700'
+                    )}>
                         {Math.round(distance)}m away
-                        {!isInRange && ` (must be within ${officeConfig.radius_meters}m)`}
+                        {!isInRange && ` · must be within ${officeConfig.radius_meters}m`}
                     </p>
                 </div>
+                {isInRange && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
             </div>
         );
     }
@@ -457,20 +872,24 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
 function ClockOutLocationStatus({ location, geoError, geoLoading }) {
     if (geoLoading) {
         return (
-            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-3">
-                <Loader2 className="h-4 w-4 animate-spin text-slate-500 shrink-0" />
-                <p className="text-sm text-slate-600">Getting your location for clock-out...</p>
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                </div>
+                <p className="text-sm font-medium text-slate-600">Getting location for clock-out…</p>
             </div>
         );
     }
 
     if (geoError) {
         return (
-            <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
-                <MapPinOff className="h-4 w-4 text-rose-500 shrink-0" />
-                <div>
-                    <p className="text-sm text-rose-700">{geoError}</p>
-                    <p className="text-xs text-rose-600 mt-1">GPS location is required to clock out. Please enable location services.</p>
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                    <MapPinOff className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-rose-800">{geoError}</p>
+                    <p className="mt-0.5 text-xs text-rose-600">GPS is required to clock out. Enable location services.</p>
                 </div>
             </div>
         );
@@ -478,15 +897,15 @@ function ClockOutLocationStatus({ location, geoError, geoLoading }) {
 
     if (location) {
         return (
-            <div className="flex items-center gap-2 rounded-xl border p-3 bg-blue-50 border-blue-200/80">
-                <MapPin className="h-4 w-4 shrink-0 text-blue-500" />
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-blue-700">Location captured for clock-out</p>
-                    <p className="text-xs text-blue-600">
-                        Your current location will be recorded when you clock out
-                    </p>
+            <div className="flex items-center gap-3 rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50 to-sky-50/40 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100">
+                    <MapPin className="h-4 w-4 text-sky-600" strokeWidth={2.25} />
                 </div>
-                <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-sky-800">Location captured</p>
+                    <p className="text-xs text-sky-600">Will be recorded on clock out</p>
+                </div>
+                <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0" />
             </div>
         );
     }
@@ -529,6 +948,8 @@ export default function ClockInOut() {
         queryFn: () => fetchMyAttendanceSummary({ period: 'week' }),
     });
     const weekSummary = summaryData?.data?.days ?? [];
+    const PRESENT_STATUSES = ['present', 'late', 'wfh', 'early_leave', 'half_day'];
+    const weekDaysIn = weekSummary.filter((d) => PRESENT_STATUSES.includes(d?.status)).length;
 
     const isClockedIn = today?.clock_in && !today?.clock_out;
     const isCompleted = today?.clock_in && today?.clock_out;
@@ -639,80 +1060,135 @@ export default function ClockInOut() {
     const liveElapsedSeconds = useLiveElapsed(isClockedIn ? today?.clock_in : null);
     const liveElapsedMinutes = Math.floor(liveElapsedSeconds / 60);
 
+    // Derive ring state
+    const ringState =
+        isCompleted ? 'complete' :
+        isClockedIn ? 'working' :
+        today?.is_on_leave ? 'on_leave' :
+        today?.is_working_day === false ? 'off_day' :
+        'ready';
+
+    const greetingDate = now.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long' });
+
     return (
-        <div className="space-y-4 max-w-md mx-auto">
-            {/* Greeting */}
-            <div className="text-center pt-2">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                    <GreetingIcon className="h-5 w-5 text-amber-500" />
-                    <h1 className="text-lg font-semibold text-slate-800">
-                        {greeting.text}, {user.name?.split(' ')[0]}
-                    </h1>
+        <div className="space-y-5 max-w-md mx-auto pb-2">
+            {/* ─── Top row: greeting chip + date ─────────────────── */}
+            <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm ring-1 ring-rose-100">
+                    <GreetingIcon className="h-3.5 w-3.5 text-amber-500" />
+                    {greeting.text}, {user.name?.split(' ')[0]}
                 </div>
-                <p className="text-3xl font-bold text-slate-900 tabular-nums tracking-tight">
-                    {now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </p>
-                <p className="text-sm text-slate-500 mt-0.5">
-                    {now.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
+                <span className="text-[11px] font-semibold text-slate-500">{greetingDate}</span>
             </div>
 
-            {/* Status Indicator */}
-            <Card className="border-slate-200/80">
-                <CardContent className="py-3">
-                    <div className="flex items-center justify-center gap-2">
-                        <div className={cn(
-                            'h-2.5 w-2.5 rounded-full',
-                            isCompleted ? 'bg-teal-500' : isClockedIn ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'
-                        )} />
-                        <span className="text-sm font-medium text-slate-600">
-                            {loadingToday ? 'Loading...' :
-                             isCompleted ? 'Completed for today' :
-                             isClockedIn ? `Clocked in at ${formatTime(today.clock_in)}` :
-                             'Not clocked in'}
-                        </span>
+            {/* ─── Hero: Progress Ring ───────────────────────────── */}
+            <div className="relative py-3">
+                <ProgressRing
+                    state={ringState}
+                    currentTime={now}
+                    clockInTime={today?.clock_in}
+                    totalWorkMinutes={today?.total_work_minutes}
+                    scheduleStart={today?.schedule_start}
+                    scheduleEnd={today?.schedule_end}
+                />
+            </div>
+
+            {/* ─── Quick info chips below ring ─────────────────────── */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+                {today?.schedule_start && today?.schedule_end && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
+                        <Clock className="h-3 w-3 text-sky-500" strokeWidth={2.5} />
+                        <span className="tabular-nums">{today.schedule_start} – {today.schedule_end}</span>
                     </div>
-                </CardContent>
-            </Card>
+                )}
+                {weekDaysIn > 0 && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
+                        <Sparkles className="h-3 w-3 text-amber-500" strokeWidth={2.5} />
+                        <span className="tabular-nums">{weekDaysIn}</span>
+                        <span className="text-slate-500">day{weekDaysIn !== 1 ? 's' : ''} this week</span>
+                    </div>
+                )}
+                {ringState === 'working' && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-50 to-orange-50 px-3 py-1.5 text-[11px] font-semibold text-pink-700 ring-1 ring-pink-200">
+                        <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pink-400 opacity-75" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-pink-500" />
+                        </span>
+                        Live session
+                    </div>
+                )}
+            </div>
 
-            {/* Live Elapsed Timer — visible only when actively clocked in */}
-            {isClockedIn && (
-                <LiveElapsedTimer clockInTime={today?.clock_in} />
-            )}
-
-            {/* Camera Preview */}
-            <CameraPreview onCapture={(fn) => { captureRef.current = fn; }} isCapturing={isPending} />
-
-            {/* WFH Toggle */}
-            {!isClockedIn && !isCompleted && (
-                <div className="flex items-center justify-center gap-3">
-                    <button
-                        onClick={() => setIsWfh(false)}
-                        className={cn(
-                            'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all',
-                            !isWfh
-                                ? 'bg-slate-800 text-white shadow-sm'
-                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        )}
-                    >
-                        <Building2 className="h-4 w-4" /> Office
-                    </button>
-                    <button
-                        onClick={() => setIsWfh(true)}
-                        className={cn(
-                            'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all',
-                            isWfh
-                                ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-sm shadow-indigo-500/20'
-                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        )}
-                    >
-                        <Home className="h-4 w-4" /> WFH
-                    </button>
+            {/* ─── Office / WFH segmented toggle (only when not clocked in) ───── */}
+            {!isClockedIn && !isCompleted && ringState === 'ready' && (
+                <div className="flex items-center justify-center">
+                    <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                        <button
+                            onClick={() => setIsWfh(false)}
+                            aria-pressed={!isWfh}
+                            className={cn(
+                                'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                                !isWfh
+                                    ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
+                                    : 'text-slate-500 hover:text-slate-700'
+                            )}
+                        >
+                            <Building2 className="h-3.5 w-3.5" strokeWidth={2.5} /> Office
+                        </button>
+                        <button
+                            onClick={() => setIsWfh(true)}
+                            aria-pressed={isWfh}
+                            className={cn(
+                                'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                                isWfh
+                                    ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
+                                    : 'text-slate-500 hover:text-slate-700'
+                            )}
+                        >
+                            <Home className="h-3.5 w-3.5" strokeWidth={2.5} /> WFH
+                        </button>
+                    </div>
                 </div>
             )}
 
-            {/* Location Status — before clock-in */}
-            {!isClockedIn && !isCompleted && (
+            {/* ─── Primary action ─────────────────────────────────── */}
+            {ringState === 'ready' && (
+                <ActionPill
+                    type="in"
+                    isPending={clockInMut.isPending}
+                    onClick={() => setShowConfirm('in')}
+                    disabled={isLocationBlocked}
+                    hint={isLocationBlocked ? (isWfh ? 'Enable GPS for WFH clock-in' : 'You must be at the office to clock in') : null}
+                />
+            )}
+            {ringState === 'working' && (
+                <ActionPill
+                    type="out"
+                    isPending={clockOutMut.isPending}
+                    onClick={async () => {
+                        pendingPhotoRef.current = null;
+                        try {
+                            if (captureRef.current) {
+                                pendingPhotoRef.current = await captureRef.current();
+                            }
+                        } catch { /* ignore */ }
+                        setShowConfirm('out');
+                    }}
+                    disabled={isClockOutLocationBlocked}
+                    hint={isClockOutLocationBlocked ? 'Enable location to clock out' : null}
+                />
+            )}
+            {(ringState === 'on_leave' || ringState === 'off_day') && (
+                <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-4">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-semibold text-slate-700">
+                        {ringState === 'on_leave' ? 'No clock-in today — enjoy!' : 'It\'s your day off — relax!'}
+                    </span>
+                </div>
+            )}
+
+            {/* ─── Location status (compact) ───────────────────────── */}
+            {!isClockedIn && !isCompleted && ringState === 'ready' && (
                 <LocationStatus
                     location={geoLocation}
                     geoError={geoError}
@@ -721,9 +1197,7 @@ export default function ClockInOut() {
                     isWfh={isWfh}
                 />
             )}
-
-            {/* Location Status — during clock-out (both office and WFH) */}
-            {isClockedIn && (
+            {ringState === 'working' && (
                 <ClockOutLocationStatus
                     location={geoLocation}
                     geoError={geoError}
@@ -731,152 +1205,118 @@ export default function ClockInOut() {
                 />
             )}
 
-            {/* Clock Button */}
-            <div className="flex justify-center py-2">
-                {isCompleted ? (
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="h-28 w-28 rounded-full bg-teal-50 flex items-center justify-center">
-                            <CheckCircle2 className="h-12 w-12 text-teal-500" />
-                        </div>
-                        <p className="text-sm text-slate-500">You're done for today</p>
-                    </div>
-                ) : isClockedIn ? (
-                    <ClockButton
-                        type="out"
-                        isPending={clockOutMut.isPending}
-                        onClick={async () => {
-                            pendingPhotoRef.current = null;
-                            try {
-                                if (captureRef.current) {
-                                    pendingPhotoRef.current = await captureRef.current();
-                                }
-                            } catch { /* ignore */ }
-                            setShowConfirm('out');
-                        }}
-                        disabled={isClockOutLocationBlocked}
-                    />
-                ) : (
-                    <ClockButton
-                        type="in"
-                        isPending={clockInMut.isPending}
-                        onClick={() => setShowConfirm('in')}
-                        disabled={isLocationBlocked}
-                    />
-                )}
-            </div>
+            {/* ─── Camera (compact strip) ──────────────────────────── */}
+            {(ringState === 'ready' || ringState === 'working') && (
+                <CompactCamera
+                    onCapture={(fn) => { captureRef.current = fn; }}
+                    isCapturing={isPending}
+                    isCompleted={isCompleted}
+                />
+            )}
 
-            {/* Alerts */}
+            {/* ─── Alerts ──────────────────────────────────────────── */}
             {error && (
-                <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
-                    <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
-                    <p className="text-sm text-rose-700">{error}</p>
+                <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 shadow-sm">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+                        <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                    </div>
+                    <p className="text-sm font-medium text-rose-800">{error}</p>
                 </div>
             )}
             {success && (
-                <div className="flex items-center gap-2 rounded-xl bg-teal-50 border border-teal-200/80 p-3">
-                    <CheckCircle2 className="h-4 w-4 text-teal-500 shrink-0" />
-                    <p className="text-sm text-teal-700">{success}</p>
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-50/40 p-3 shadow-sm">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" strokeWidth={2.25} />
+                    </div>
+                    <p className="text-sm font-semibold text-emerald-800">{success}</p>
                 </div>
             )}
 
-            {/* Today's Record */}
+            {/* ─── Today's record (compact 3-up tiles) ─────────────── */}
             {today && (
-                <Card className="border-slate-200/80">
-                    <CardContent className="py-4">
-                        <h3 className="text-sm font-medium text-slate-600 mb-3">Today's Record</h3>
-                        <div className="grid grid-cols-3 gap-3 text-center">
-                            <div>
-                                <p className="text-xs text-slate-500">Clock In</p>
-                                <p className="text-sm font-semibold text-slate-800">{formatTime(today.clock_in)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Clock Out</p>
-                                <p className="text-sm font-semibold text-slate-800">{formatTime(today.clock_out)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Total Hours</p>
-                                <p className={cn(
-                                    'text-sm font-semibold tabular-nums',
-                                    isClockedIn ? 'text-amber-700' : 'text-slate-800'
-                                )}>
-                                    {today.total_work_minutes
-                                        ? formatDuration(today.total_work_minutes)
-                                        : isClockedIn
-                                            ? formatDuration(liveElapsedMinutes)
-                                            : '--:--'}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-3 text-center">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-700">In</p>
+                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900">{formatTime(today.clock_in)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-rose-50/30 p-3 text-center">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-rose-700">Out</p>
+                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900">{formatTime(today.clock_out)}</p>
+                    </div>
+                    <div className={cn(
+                        'rounded-2xl border p-3 text-center',
+                        isClockedIn
+                            ? 'bg-gradient-to-br from-amber-50 to-orange-50/30 border-amber-100'
+                            : 'bg-gradient-to-br from-indigo-50 to-pink-50/30 border-indigo-100'
+                    )}>
+                        <p className={cn(
+                            'text-[9px] font-bold uppercase tracking-widest',
+                            isClockedIn ? 'text-amber-700' : 'text-indigo-700'
+                        )}>Total</p>
+                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900">
+                            {today.total_work_minutes
+                                ? formatDuration(today.total_work_minutes)
+                                : isClockedIn
+                                    ? formatDuration(liveElapsedMinutes)
+                                    : '--:--'}
+                        </p>
+                    </div>
+                </div>
             )}
 
-            {/* Schedule Display */}
-            <Card className="border-slate-200/80">
-                <CardContent className="py-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-slate-400" />
-                            <span className="text-sm text-slate-500">Your schedule</span>
-                        </div>
-                        <span className="text-sm font-medium text-slate-800">
-                            {today?.schedule_start && today?.schedule_end
-                                ? `${today.schedule_start} - ${today.schedule_end}`
-                                : '-'}
-                        </span>
-                    </div>
-                    {today?.is_on_leave && (
-                        <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2">
-                            <div className="h-2 w-2 rounded-full bg-violet-500" />
-                            <span className="text-xs font-medium text-violet-700">You are on leave today</span>
-                        </div>
-                    )}
-                    {today?.is_working_day === false && !today?.is_on_leave && (
-                        <div className="mt-2 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                            <div className="h-2 w-2 rounded-full bg-slate-400" />
-                            <span className="text-xs font-medium text-slate-600">Today is your off day</span>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
 
             {/* Week Summary Strip */}
             <Card className="border-slate-200/80">
                 <CardContent className="py-4">
-                    <h3 className="text-sm font-medium text-slate-600 mb-3">This Week</h3>
-                    <div className="flex justify-between">
+                    <div className="mb-4 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50">
+                                <CalendarRange className="h-3.5 w-3.5 text-violet-600" strokeWidth={2.25} />
+                            </div>
+                            This Week
+                        </h3>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                            <span className="tabular-nums text-slate-800">{weekDaysIn}</span> / 5 days
+                        </span>
+                    </div>
+                    {/* Mini bar chart — height encodes scheduled work, color encodes status */}
+                    <div className="flex h-20 items-end justify-between gap-1.5">
                         {weekSummary.map((dayData, i) => {
                             const status = dayData?.status || 'none';
+                            const isOffDay = dayData?.is_working_day === false;
+                            const isPresent = PRESENT_STATUSES.includes(status);
+                            const isToday = i === ((new Date().getDay() + 6) % 7); // 0=Mon..6=Sun
+                            // Height: full for present-y days, 30% for absent/leave, 15% for off day
+                            const height = isOffDay
+                                ? 15
+                                : isPresent
+                                    ? 100
+                                    : status === 'on_leave' || status === 'leave'
+                                        ? 55
+                                        : status === 'absent'
+                                            ? 30
+                                            : 8;
                             return (
-                                <div key={i} className="flex flex-col items-center gap-1.5">
+                                <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+                                    <div className="flex h-full w-full flex-col justify-end">
+                                        <div
+                                            className={cn(
+                                                'w-full rounded-md transition-all',
+                                                isToday && 'ring-2 ring-offset-1 ring-pink-300',
+                                                DAY_COLORS[status] || 'bg-slate-100'
+                                            )}
+                                            style={{ height: `${height}%` }}
+                                        />
+                                    </div>
                                     <span className={cn(
-                                        'text-[10px] font-medium',
-                                        dayData?.is_working_day === false ? 'text-slate-300' : 'text-slate-500'
-                                    )}>{DAY_LABELS[i]}</span>
-                                    <div className={cn(
-                                        'h-3 w-3 rounded-full',
-                                        DAY_COLORS[status] || DAY_COLORS.none
-                                    )} />
+                                        'text-[10px] font-bold uppercase tracking-wider',
+                                        isToday ? 'text-pink-600' : isOffDay ? 'text-slate-300' : 'text-slate-500'
+                                    )}>
+                                        {DAY_LABELS[i]}
+                                    </span>
                                 </div>
                             );
                         })}
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-                        {[
-                            { label: 'Present', color: 'bg-teal-500' },
-                            { label: 'Late', color: 'bg-amber-500' },
-                            { label: 'Early Leave', color: 'bg-fuchsia-500' },
-                            { label: 'Half Day', color: 'bg-orange-500' },
-                            { label: 'Absent', color: 'bg-rose-500' },
-                            { label: 'WFH', color: 'bg-indigo-500' },
-                            { label: 'On Leave', color: 'bg-violet-500' },
-                            { label: 'Off Day', color: 'bg-slate-300' },
-                        ].map((item) => (
-                            <div key={item.label} className="flex items-center gap-1">
-                                <div className={cn('h-2 w-2 rounded-full', item.color)} />
-                                <span className="text-[10px] text-slate-500">{item.label}</span>
-                            </div>
-                        ))}
                     </div>
                 </CardContent>
             </Card>

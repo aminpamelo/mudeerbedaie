@@ -34,7 +34,7 @@ import {
 const STATUS_STEPS = ['draft', 'calculated', 'approved', 'paid'];
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    draft: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-700' },
     calculated: { label: 'Calculated', bg: 'bg-amber-100', text: 'text-amber-700' },
     approved: { label: 'Approved', bg: 'bg-emerald-100', text: 'text-emerald-700' },
     paid: { label: 'Paid', bg: 'bg-blue-100', text: 'text-blue-700' },
@@ -55,7 +55,7 @@ function formatDate(dateString) {
 }
 
 function StatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -74,12 +74,12 @@ function StatusWorkflow({ currentStatus }) {
                 return (
                     <div key={step} className="flex items-center gap-2">
                         {index > 0 && (
-                            <div className={cn('h-0.5 w-8', isActive ? 'bg-emerald-400' : 'bg-zinc-200')} />
+                            <div className={cn('h-0.5 w-8', isActive ? 'bg-emerald-400' : 'bg-slate-200')} />
                         )}
                         <div
                             className={cn(
                                 'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                                isCurrent ? cn(config.bg, config.text) : isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-50 text-zinc-400'
+                                isCurrent ? cn(config.bg, config.text) : isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-400'
                             )}
                         >
                             {isActive && index < currentIndex && (
@@ -103,8 +103,8 @@ function SummaryCard({ title, value, icon: Icon, iconColor, iconBg }) {
                         <Icon className={cn('h-5 w-5', iconColor)} />
                     </div>
                     <div>
-                        <p className="text-xs font-medium text-zinc-500">{title}</p>
-                        <p className="text-lg font-bold text-zinc-900">{value}</p>
+                        <p className="text-xs font-medium text-slate-500">{title}</p>
+                        <p className="text-lg font-bold text-slate-900">{value}</p>
                     </div>
                 </div>
             </CardContent>
@@ -176,7 +176,7 @@ export default function SettlementDetail() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -184,7 +184,7 @@ export default function SettlementDetail() {
     if (!settlement) {
         return (
             <div className="flex flex-col items-center justify-center py-24">
-                <p className="text-sm text-zinc-500">Settlement not found.</p>
+                <p className="text-sm text-slate-500">Settlement not found.</p>
                 <Link to="/offboarding/settlements" className="mt-3">
                     <Button variant="outline" size="sm">Back to Settlements</Button>
                 </Link>
@@ -223,12 +223,12 @@ export default function SettlementDetail() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-semibold text-zinc-900">
+                            <h1 className="text-xl font-semibold text-slate-900">
                                 Final Settlement - {settlement.employee?.full_name || 'Unknown'}
                             </h1>
                             <StatusBadge status={settlement.status} />
                         </div>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             {settlement.employee?.employee_id || ''} &middot; Created {formatDate(settlement.created_at)}
                         </p>
                     </div>
@@ -330,15 +330,15 @@ export default function SettlementDetail() {
                         <div className="space-y-3">
                             {earnings.map((item, index) => (
                                 <div key={index} className="flex items-center justify-between">
-                                    <span className="text-sm text-zinc-600">{item.label}</span>
-                                    <span className="text-sm font-medium text-zinc-900">
+                                    <span className="text-sm text-slate-600">{item.label}</span>
+                                    <span className="text-sm font-medium text-slate-900">
                                         {formatCurrency(item.amount)}
                                     </span>
                                 </div>
                             ))}
-                            <div className="border-t border-zinc-200 pt-3">
+                            <div className="border-t border-slate-200 pt-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-zinc-900">Total Gross</span>
+                                    <span className="text-sm font-semibold text-slate-900">Total Gross</span>
                                     <span className="text-sm font-bold text-emerald-600">
                                         {formatCurrency(grossAmount)}
                                     </span>
@@ -360,15 +360,15 @@ export default function SettlementDetail() {
                         <div className="space-y-3">
                             {deductions.map((item, index) => (
                                 <div key={index} className="flex items-center justify-between">
-                                    <span className="text-sm text-zinc-600">{item.label}</span>
+                                    <span className="text-sm text-slate-600">{item.label}</span>
                                     <span className="text-sm font-medium text-red-600">
                                         {formatCurrency(item.amount)}
                                     </span>
                                 </div>
                             ))}
-                            <div className="border-t border-zinc-200 pt-3">
+                            <div className="border-t border-slate-200 pt-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-zinc-900">Total Deductions</span>
+                                    <span className="text-sm font-semibold text-slate-900">Total Deductions</span>
                                     <span className="text-sm font-bold text-red-600">
                                         {formatCurrency(totalDeductions)}
                                     </span>
@@ -409,38 +409,38 @@ export default function SettlementDetail() {
                 <CardContent>
                     <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <dt className="text-sm text-zinc-500">Full Name</dt>
-                            <dd className="text-sm font-medium text-zinc-900">
+                            <dt className="text-sm text-slate-500">Full Name</dt>
+                            <dd className="text-sm font-medium text-slate-900">
                                 {settlement.employee?.full_name || '-'}
                             </dd>
                         </div>
                         <div>
-                            <dt className="text-sm text-zinc-500">Employee ID</dt>
-                            <dd className="text-sm font-medium text-zinc-900">
+                            <dt className="text-sm text-slate-500">Employee ID</dt>
+                            <dd className="text-sm font-medium text-slate-900">
                                 {settlement.employee?.employee_id || '-'}
                             </dd>
                         </div>
                         <div>
-                            <dt className="text-sm text-zinc-500">Department</dt>
-                            <dd className="text-sm font-medium text-zinc-900">
+                            <dt className="text-sm text-slate-500">Department</dt>
+                            <dd className="text-sm font-medium text-slate-900">
                                 {settlement.employee?.department?.name || '-'}
                             </dd>
                         </div>
                         <div>
-                            <dt className="text-sm text-zinc-500">Position</dt>
-                            <dd className="text-sm font-medium text-zinc-900">
+                            <dt className="text-sm text-slate-500">Position</dt>
+                            <dd className="text-sm font-medium text-slate-900">
                                 {settlement.employee?.position?.name || '-'}
                             </dd>
                         </div>
                         <div>
-                            <dt className="text-sm text-zinc-500">Last Working Date</dt>
-                            <dd className="text-sm font-medium text-zinc-900">
+                            <dt className="text-sm text-slate-500">Last Working Date</dt>
+                            <dd className="text-sm font-medium text-slate-900">
                                 {formatDate(settlement.last_working_date)}
                             </dd>
                         </div>
                         <div>
-                            <dt className="text-sm text-zinc-500">Settlement Date</dt>
-                            <dd className="text-sm font-medium text-zinc-900">
+                            <dt className="text-sm text-slate-500">Settlement Date</dt>
+                            <dd className="text-sm font-medium text-slate-900">
                                 {formatDate(settlement.settlement_date)}
                             </dd>
                         </div>
@@ -455,7 +455,7 @@ export default function SettlementDetail() {
                         <CardTitle className="text-base">Notes</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-zinc-700 whitespace-pre-wrap">{settlement.notes}</p>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{settlement.notes}</p>
                     </CardContent>
                 </Card>
             )}

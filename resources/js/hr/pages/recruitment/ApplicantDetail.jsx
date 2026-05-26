@@ -46,7 +46,7 @@ import {
 const STAGES = ['applied', 'screening', 'interview', 'assessment', 'offer'];
 
 const STAGE_BADGE = {
-    applied: 'bg-zinc-100 text-zinc-600',
+    applied: 'bg-slate-100 text-slate-600',
     screening: 'bg-blue-100 text-blue-700',
     interview: 'bg-amber-100 text-amber-700',
     assessment: 'bg-purple-100 text-purple-700',
@@ -86,11 +86,11 @@ function StarRating({ rating }) {
                     key={i}
                     className={cn(
                         'h-4 w-4',
-                        i < value ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'
+                        i < value ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
                     )}
                 />
             ))}
-            {rating && <span className="ml-1 text-sm text-zinc-500">({rating})</span>}
+            {rating && <span className="ml-1 text-sm text-slate-500">({rating})</span>}
         </div>
     );
 }
@@ -98,8 +98,8 @@ function StarRating({ rating }) {
 function SkeletonDetail() {
     return (
         <div className="space-y-6">
-            <div className="h-40 animate-pulse rounded-lg bg-zinc-200" />
-            <div className="h-64 animate-pulse rounded-lg bg-zinc-200" />
+            <div className="h-40 animate-pulse rounded-lg bg-slate-200" />
+            <div className="h-64 animate-pulse rounded-lg bg-slate-200" />
         </div>
     );
 }
@@ -228,17 +228,17 @@ export default function ApplicantDetail() {
                                             disabled={stageMutation.isPending || (!isNext && !isActive)}
                                             className={cn(
                                                 'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                                                isActive && 'bg-zinc-900 text-white',
+                                                isActive && 'bg-slate-900 text-white',
                                                 isPast && 'bg-emerald-100 text-emerald-700',
-                                                isNext && 'cursor-pointer bg-zinc-100 text-zinc-600 hover:bg-zinc-200',
-                                                !isActive && !isPast && !isNext && 'cursor-default bg-zinc-50 text-zinc-400'
+                                                isNext && 'cursor-pointer bg-slate-100 text-slate-600 hover:bg-slate-200',
+                                                !isActive && !isPast && !isNext && 'cursor-default bg-slate-50 text-slate-400'
                                             )}
                                         >
                                             {isPast && <CheckCircle className="h-3 w-3" />}
                                             <span className="capitalize">{stage}</span>
                                         </button>
                                         {i < STAGES.length - 1 && (
-                                            <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300" />
+                                            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
                                         )}
                                     </div>
                                 );
@@ -260,7 +260,7 @@ export default function ApplicantDetail() {
             )}
 
             {/* Tabs */}
-            <div className="mb-6 border-b border-zinc-200">
+            <div className="mb-6 border-b border-slate-200">
                 <div className="flex gap-1">
                     {TABS.map((tab) => (
                         <button
@@ -270,13 +270,13 @@ export default function ApplicantDetail() {
                             className={cn(
                                 'px-4 py-2 text-sm font-medium capitalize transition-colors',
                                 activeTab === tab
-                                    ? 'border-b-2 border-zinc-900 text-zinc-900'
-                                    : 'text-zinc-500 hover:text-zinc-700'
+                                    ? 'border-b-2 border-slate-900 text-slate-900'
+                                    : 'text-slate-500 hover:text-slate-700'
                             )}
                         >
                             {tab}
                             {tab === 'interviews' && interviews.length > 0 && (
-                                <span className="ml-1.5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600">
+                                <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                                     {interviews.length}
                                 </span>
                             )}
@@ -292,38 +292,38 @@ export default function ApplicantDetail() {
                         {/* Personal Info */}
                         <Card>
                             <CardContent className="p-6">
-                                <h3 className="mb-4 text-base font-semibold text-zinc-900">Personal Information</h3>
+                                <h3 className="mb-4 text-base font-semibold text-slate-900">Personal Information</h3>
                                 <dl className="grid grid-cols-2 gap-4 text-sm">
                                     <div className="flex items-center gap-2">
-                                        <Mail className="h-4 w-4 text-zinc-400" />
+                                        <Mail className="h-4 w-4 text-slate-400" />
                                         <div>
-                                            <dt className="text-zinc-500">Email</dt>
-                                            <dd className="font-medium text-zinc-900">{applicant.email || '-'}</dd>
+                                            <dt className="text-slate-500">Email</dt>
+                                            <dd className="font-medium text-slate-900">{applicant.email || '-'}</dd>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Phone className="h-4 w-4 text-zinc-400" />
+                                        <Phone className="h-4 w-4 text-slate-400" />
                                         <div>
-                                            <dt className="text-zinc-500">Phone</dt>
-                                            <dd className="font-medium text-zinc-900">{applicant.phone || '-'}</dd>
+                                            <dt className="text-slate-500">Phone</dt>
+                                            <dd className="font-medium text-slate-900">{applicant.phone || '-'}</dd>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Globe className="h-4 w-4 text-zinc-400" />
+                                        <Globe className="h-4 w-4 text-slate-400" />
                                         <div>
-                                            <dt className="text-zinc-500">Source</dt>
-                                            <dd className="font-medium capitalize text-zinc-900">{applicant.source || '-'}</dd>
+                                            <dt className="text-slate-500">Source</dt>
+                                            <dd className="font-medium capitalize text-slate-900">{applicant.source || '-'}</dd>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-zinc-400" />
+                                        <Calendar className="h-4 w-4 text-slate-400" />
                                         <div>
-                                            <dt className="text-zinc-500">Applied</dt>
-                                            <dd className="font-medium text-zinc-900">{formatDate(applicant.applied_at)}</dd>
+                                            <dt className="text-slate-500">Applied</dt>
+                                            <dd className="font-medium text-slate-900">{formatDate(applicant.applied_at)}</dd>
                                         </div>
                                     </div>
                                     <div className="col-span-2">
-                                        <dt className="mb-1 text-zinc-500">Rating</dt>
+                                        <dt className="mb-1 text-slate-500">Rating</dt>
                                         <dd><StarRating rating={applicant.rating} /></dd>
                                     </div>
                                 </dl>
@@ -333,8 +333,8 @@ export default function ApplicantDetail() {
                         {applicant.notes && (
                             <Card>
                                 <CardContent className="p-6">
-                                    <h3 className="mb-3 text-base font-semibold text-zinc-900">Notes</h3>
-                                    <p className="whitespace-pre-line text-sm text-zinc-600">{applicant.notes}</p>
+                                    <h3 className="mb-3 text-base font-semibold text-slate-900">Notes</h3>
+                                    <p className="whitespace-pre-line text-sm text-slate-600">{applicant.notes}</p>
                                 </CardContent>
                             </Card>
                         )}
@@ -343,28 +343,28 @@ export default function ApplicantDetail() {
                     {/* Stage History */}
                     <Card>
                         <CardContent className="p-6">
-                            <h3 className="mb-4 text-base font-semibold text-zinc-900">Stage History</h3>
+                            <h3 className="mb-4 text-base font-semibold text-slate-900">Stage History</h3>
                             {stageHistory.length === 0 ? (
-                                <p className="text-xs text-zinc-400">No stage history recorded.</p>
+                                <p className="text-xs text-slate-400">No stage history recorded.</p>
                             ) : (
                                 <div className="space-y-4">
                                     {stageHistory.map((entry, i) => (
                                         <div key={i} className="flex gap-3">
                                             <div className="mt-1 flex flex-col items-center">
-                                                <div className="h-2.5 w-2.5 rounded-full bg-zinc-400" />
+                                                <div className="h-2.5 w-2.5 rounded-full bg-slate-400" />
                                                 {i < stageHistory.length - 1 && (
-                                                    <div className="mt-1 h-full w-px bg-zinc-200" />
+                                                    <div className="mt-1 h-full w-px bg-slate-200" />
                                                 )}
                                             </div>
                                             <div className="pb-4">
-                                                <p className="text-sm font-medium capitalize text-zinc-900">
+                                                <p className="text-sm font-medium capitalize text-slate-900">
                                                     {entry.stage}
                                                 </p>
-                                                <p className="text-xs text-zinc-400">
+                                                <p className="text-xs text-slate-400">
                                                     {formatDateTime(entry.created_at)}
                                                 </p>
                                                 {entry.notes && (
-                                                    <p className="mt-1 text-xs text-zinc-500">{entry.notes}</p>
+                                                    <p className="mt-1 text-xs text-slate-500">{entry.notes}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -379,11 +379,11 @@ export default function ApplicantDetail() {
             {activeTab === 'interviews' && (
                 <Card>
                     <CardContent className="p-6">
-                        <h3 className="mb-4 text-base font-semibold text-zinc-900">Interviews</h3>
+                        <h3 className="mb-4 text-base font-semibold text-slate-900">Interviews</h3>
                         {interviews.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-center">
-                                <Calendar className="mb-3 h-10 w-10 text-zinc-300" />
-                                <p className="text-sm text-zinc-500">No interviews scheduled yet.</p>
+                                <Calendar className="mb-3 h-10 w-10 text-slate-300" />
+                                <p className="text-sm text-slate-500">No interviews scheduled yet.</p>
                             </div>
                         ) : (
                             <Table>
@@ -405,11 +405,11 @@ export default function ApplicantDetail() {
                                             <TableCell className="capitalize text-sm">
                                                 {interview.type || '-'}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-500">
+                                            <TableCell className="text-sm text-slate-500">
                                                 {formatDateTime(interview.scheduled_at)}
                                             </TableCell>
                                             <TableCell>
-                                                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs capitalize text-zinc-600">
+                                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">
                                                     {interview.status || '-'}
                                                 </span>
                                             </TableCell>
@@ -417,7 +417,7 @@ export default function ApplicantDetail() {
                                                 {interview.rating ? (
                                                     <StarRating rating={interview.rating} />
                                                 ) : (
-                                                    <span className="text-xs text-zinc-400">—</span>
+                                                    <span className="text-xs text-slate-400">—</span>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -432,19 +432,19 @@ export default function ApplicantDetail() {
             {activeTab === 'offer' && (
                 <Card>
                     <CardContent className="p-6">
-                        <h3 className="mb-4 text-base font-semibold text-zinc-900">Offer Letter</h3>
+                        <h3 className="mb-4 text-base font-semibold text-slate-900">Offer Letter</h3>
                         {applicant.offer ? (
                             <dl className="space-y-3 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-zinc-500">Position</span>
+                                    <span className="text-slate-500">Position</span>
                                     <span className="font-medium">{applicant.offer.position || '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-zinc-500">Department</span>
+                                    <span className="text-slate-500">Department</span>
                                     <span className="font-medium">{applicant.offer.department || '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-zinc-500">Salary</span>
+                                    <span className="text-slate-500">Salary</span>
                                     <span className="font-medium">
                                         {applicant.offer.salary
                                             ? new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(applicant.offer.salary)
@@ -452,13 +452,13 @@ export default function ApplicantDetail() {
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-zinc-500">Join Date</span>
+                                    <span className="text-slate-500">Join Date</span>
                                     <span className="font-medium">{formatDate(applicant.offer.join_date)}</span>
                                 </div>
                             </dl>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-10 text-center">
-                                <p className="text-sm text-zinc-500">No offer letter generated yet.</p>
+                                <p className="text-sm text-slate-500">No offer letter generated yet.</p>
                                 {applicant.stage === 'offer' && (
                                     <Button
                                         className="mt-4"

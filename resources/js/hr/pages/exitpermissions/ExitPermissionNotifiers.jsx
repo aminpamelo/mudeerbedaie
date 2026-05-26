@@ -55,11 +55,11 @@ function SkeletonTable() {
         <div className="space-y-3 p-4">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -156,9 +156,9 @@ export default function ExitPermissionNotifiers() {
                         <SkeletonTable />
                     ) : notifiers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Bell className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No notifiers configured</p>
-                            <p className="mb-4 text-xs text-zinc-400">
+                            <Bell className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No notifiers configured</p>
+                            <p className="mb-4 text-xs text-slate-400">
                                 Add employees who should be notified when exit permissions are submitted
                             </p>
                             <Button onClick={openCreate} size="sm">
@@ -180,20 +180,20 @@ export default function ExitPermissionNotifiers() {
                                 {notifiers.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell>
-                                            <p className="text-sm font-medium text-zinc-900">
+                                            <p className="text-sm font-medium text-slate-900">
                                                 {item.employee?.full_name ?? item.employee?.name}
                                             </p>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <Building2 className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-700">
+                                                <Building2 className="h-4 w-4 text-slate-400" />
+                                                <span className="text-sm text-slate-700">
                                                     {item.employee?.department?.name ?? '—'}
                                                 </span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-sm text-zinc-600">
+                                            <span className="text-sm text-slate-600">
                                                 {item.employee?.position?.name ?? '—'}
                                             </span>
                                         </TableCell>

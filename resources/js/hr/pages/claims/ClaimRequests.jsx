@@ -74,7 +74,7 @@ const STATUS_OPTIONS = [
 ];
 
 const STATUS_BADGE = {
-    draft: { className: 'bg-zinc-100 text-zinc-600', label: 'Draft' },
+    draft: { className: 'bg-slate-100 text-slate-600', label: 'Draft' },
     pending: { className: 'bg-amber-100 text-amber-700', label: 'Pending' },
     approved: { className: 'bg-emerald-100 text-emerald-700', label: 'Approved' },
     rejected: { className: 'bg-red-100 text-red-700', label: 'Rejected' },
@@ -100,11 +100,11 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-8 w-16 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -454,9 +454,9 @@ export default function ClaimRequests() {
                     </div>
 
                     {filtersOpen && (
-                        <div className="mb-4 flex flex-wrap gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                        <div className="mb-4 flex flex-wrap gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <div className="w-40">
-                                <label className="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+                                <label className="mb-1 block text-xs font-medium text-slate-600">Status</label>
                                 <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
                                     <SelectTrigger>
                                         <SelectValue />
@@ -471,7 +471,7 @@ export default function ClaimRequests() {
                                 </Select>
                             </div>
                             <div className="w-48">
-                                <label className="mb-1 block text-xs font-medium text-zinc-600">Claim Type</label>
+                                <label className="mb-1 block text-xs font-medium text-slate-600">Claim Type</label>
                                 <Select value={claimTypeId} onValueChange={(v) => { setClaimTypeId(v); setPage(1); }}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="All Types" />
@@ -493,9 +493,9 @@ export default function ClaimRequests() {
                         <SkeletonTable />
                     ) : requests.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <FileText className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No claim requests found</p>
-                            <p className="mt-1 text-xs text-zinc-400">Try adjusting your search or filters.</p>
+                            <FileText className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No claim requests found</p>
+                            <p className="mt-1 text-xs text-slate-400">Try adjusting your search or filters.</p>
                         </div>
                     ) : groupByEmployee ? (
                         <div className="space-y-4">
@@ -504,26 +504,26 @@ export default function ClaimRequests() {
                                 const deptName = group.employee?.department?.name;
                                 const initials = empName.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
                                 return (
-                                    <div key={group.employee_id} className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 bg-zinc-50/70 px-4 py-3">
+                                    <div key={group.employee_id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
                                                     {initials}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-zinc-900">{empName}</p>
-                                                    <p className="text-xs text-zinc-500">
+                                                    <p className="text-sm font-semibold text-slate-900">{empName}</p>
+                                                    <p className="text-xs text-slate-500">
                                                         {deptName ? `${deptName} · ` : ''}{group.claims.length} claim{group.claims.length !== 1 ? 's' : ''}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className="text-right">
-                                                    <p className="text-[10px] uppercase tracking-wide text-zinc-400">Pay-out</p>
+                                                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Pay-out</p>
                                                     <p className="text-base font-bold text-emerald-700">
                                                         {formatCurrency(group.approvedTotal)}
                                                     </p>
-                                                    <p className="text-[10px] text-zinc-400">
+                                                    <p className="text-[10px] text-slate-400">
                                                         {group.approvedCount} approved
                                                     </p>
                                                 </div>
@@ -560,7 +560,7 @@ export default function ClaimRequests() {
                                             </TableHeader>
                                             <TableBody>
                                                 {group.claims.map((request) => {
-                                                    const badge = STATUS_BADGE[request.status] || { className: 'bg-zinc-100 text-zinc-600', label: request.status };
+                                                    const badge = STATUS_BADGE[request.status] || { className: 'bg-slate-100 text-slate-600', label: request.status };
                                                     return (
                                                         <TableRow key={request.id}>
                                                             <TableCell className="font-mono text-sm">{request.claim_number}</TableCell>
@@ -575,7 +575,7 @@ export default function ClaimRequests() {
                                                             <TableCell className="font-medium">
                                                                 {formatCurrency(request.status === 'approved' && request.approved_amount ? request.approved_amount : request.amount)}
                                                             </TableCell>
-                                                            <TableCell className="text-sm text-zinc-500">{formatDate(request.claim_date)}</TableCell>
+                                                            <TableCell className="text-sm text-slate-500">{formatDate(request.claim_date)}</TableCell>
                                                             <TableCell>
                                                                 {request.receipt_url ? (
                                                                     <a
@@ -589,7 +589,7 @@ export default function ClaimRequests() {
                                                                         View
                                                                     </a>
                                                                 ) : (
-                                                                    <span className="text-xs text-zinc-400">-</span>
+                                                                    <span className="text-xs text-slate-400">-</span>
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
@@ -628,7 +628,7 @@ export default function ClaimRequests() {
                                 );
                             })}
                             {meta.total > requests.length && (
-                                <p className="text-center text-xs text-zinc-400">
+                                <p className="text-center text-xs text-slate-400">
                                     Showing {requests.length} of {meta.total} claims. Narrow filters to group all matching claims.
                                 </p>
                             )}
@@ -650,7 +650,7 @@ export default function ClaimRequests() {
                                 </TableHeader>
                                 <TableBody>
                                     {requests.map((request) => {
-                                        const badge = STATUS_BADGE[request.status] || { className: 'bg-zinc-100 text-zinc-600', label: request.status };
+                                        const badge = STATUS_BADGE[request.status] || { className: 'bg-slate-100 text-slate-600', label: request.status };
                                         return (
                                             <TableRow key={request.id}>
                                                 <TableCell className="font-mono text-sm">
@@ -670,7 +670,7 @@ export default function ClaimRequests() {
                                                 <TableCell className="font-medium">
                                                     {formatCurrency(request.amount)}
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-500">
+                                                <TableCell className="text-sm text-slate-500">
                                                     {formatDate(request.claim_date)}
                                                 </TableCell>
                                                 <TableCell>
@@ -686,7 +686,7 @@ export default function ClaimRequests() {
                                                             View
                                                         </a>
                                                     ) : (
-                                                        <span className="text-xs text-zinc-400">-</span>
+                                                        <span className="text-xs text-slate-400">-</span>
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
@@ -743,7 +743,7 @@ export default function ClaimRequests() {
 
                             {/* Pagination */}
                             {meta.last_page > 1 && (
-                                <div className="mt-4 flex items-center justify-between text-sm text-zinc-500">
+                                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
                                     <span>
                                         Showing {meta.from}–{meta.to} of {meta.total} results
                                     </span>
@@ -786,42 +786,42 @@ export default function ClaimRequests() {
                     </DialogHeader>
                     {detailLoading ? (
                         <div className="flex justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : selectedRequest && (
                         <div className="space-y-4 text-sm">
                             {/* Header info */}
-                            <div className="grid grid-cols-2 gap-3 rounded-lg bg-zinc-50 p-3">
+                            <div className="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3">
                                 <div>
-                                    <p className="text-xs text-zinc-500">Claim No.</p>
-                                    <p className="font-mono font-medium text-zinc-900">{selectedRequest.claim_number}</p>
+                                    <p className="text-xs text-slate-500">Claim No.</p>
+                                    <p className="font-mono font-medium text-slate-900">{selectedRequest.claim_number}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-zinc-500">Status</p>
+                                    <p className="text-xs text-slate-500">Status</p>
                                     <span className={cn(
                                         'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
-                                        STATUS_BADGE[selectedRequest.status]?.className || 'bg-zinc-100 text-zinc-600'
+                                        STATUS_BADGE[selectedRequest.status]?.className || 'bg-slate-100 text-slate-600'
                                     )}>
                                         {STATUS_BADGE[selectedRequest.status]?.label || selectedRequest.status}
                                     </span>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-zinc-500">Employee</p>
-                                    <p className="font-medium text-zinc-900">{selectedRequest.employee?.full_name || '-'}</p>
+                                    <p className="text-xs text-slate-500">Employee</p>
+                                    <p className="font-medium text-slate-900">{selectedRequest.employee?.full_name || '-'}</p>
                                     {selectedRequest.employee?.department?.name && (
-                                        <p className="text-xs text-zinc-400">{selectedRequest.employee.department.name}</p>
+                                        <p className="text-xs text-slate-400">{selectedRequest.employee.department.name}</p>
                                     )}
                                 </div>
                                 <div>
-                                    <p className="text-xs text-zinc-500">Claim Date</p>
-                                    <p className="font-medium text-zinc-900">{formatDate(selectedRequest.claim_date)}</p>
+                                    <p className="text-xs text-slate-500">Claim Date</p>
+                                    <p className="font-medium text-slate-900">{formatDate(selectedRequest.claim_date)}</p>
                                 </div>
                             </div>
 
                             {/* Claim type + amounts */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-500">Claim Type</span>
+                                    <span className="text-slate-500">Claim Type</span>
                                     <span className="inline-flex items-center gap-1.5 font-medium">
                                         {selectedRequest.claim_type?.is_mileage_type && (
                                             <Car className="h-3.5 w-3.5 text-blue-500" />
@@ -830,12 +830,12 @@ export default function ClaimRequests() {
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-500">Claimed Amount</span>
-                                    <span className="font-semibold text-zinc-900">{formatCurrency(selectedRequest.amount)}</span>
+                                    <span className="text-slate-500">Claimed Amount</span>
+                                    <span className="font-semibold text-slate-900">{formatCurrency(selectedRequest.amount)}</span>
                                 </div>
                                 {selectedRequest.approved_amount && (
                                     <div className="flex items-center justify-between">
-                                        <span className="text-zinc-500">Approved Amount</span>
+                                        <span className="text-slate-500">Approved Amount</span>
                                         <span className="font-semibold text-emerald-700">{formatCurrency(selectedRequest.approved_amount)}</span>
                                     </div>
                                 )}
@@ -850,28 +850,28 @@ export default function ClaimRequests() {
                                     </div>
                                     {selectedRequest.vehicle_rate && (
                                         <div className="flex items-center justify-between">
-                                            <span className="text-zinc-500">Vehicle Type</span>
+                                            <span className="text-slate-500">Vehicle Type</span>
                                             <span className="font-medium">
                                                 {selectedRequest.vehicle_rate.name}
-                                                <span className="ml-1.5 text-xs text-zinc-400">
+                                                <span className="ml-1.5 text-xs text-slate-400">
                                                     RM {parseFloat(selectedRequest.vehicle_rate.rate_per_km).toFixed(2)}/km
                                                 </span>
                                             </span>
                                         </div>
                                     )}
                                     <div className="flex items-center justify-between">
-                                        <span className="text-zinc-500">Distance</span>
+                                        <span className="text-slate-500">Distance</span>
                                         <span className="font-medium">{selectedRequest.distance_km} km</span>
                                     </div>
                                     {selectedRequest.origin && (
                                         <div className="flex items-start justify-between gap-4">
-                                            <span className="text-zinc-500 shrink-0">Route</span>
+                                            <span className="text-slate-500 shrink-0">Route</span>
                                             <span className="font-medium text-right">
                                                 <span className="inline-flex items-center gap-1">
                                                     <MapPin className="h-3 w-3 text-green-500" />
                                                     {selectedRequest.origin}
                                                 </span>
-                                                <span className="mx-1.5 text-zinc-400">→</span>
+                                                <span className="mx-1.5 text-slate-400">→</span>
                                                 <span className="inline-flex items-center gap-1">
                                                     <MapPin className="h-3 w-3 text-red-500" />
                                                     {selectedRequest.destination}
@@ -881,7 +881,7 @@ export default function ClaimRequests() {
                                     )}
                                     {selectedRequest.trip_purpose && (
                                         <div className="flex items-start justify-between gap-4">
-                                            <span className="text-zinc-500 shrink-0">Purpose</span>
+                                            <span className="text-slate-500 shrink-0">Purpose</span>
                                             <span className="font-medium text-right">{selectedRequest.trip_purpose}</span>
                                         </div>
                                     )}
@@ -891,14 +891,14 @@ export default function ClaimRequests() {
                             {/* Description */}
                             {selectedRequest.description && (
                                 <div>
-                                    <p className="mb-1 text-zinc-500">Description</p>
-                                    <p className="rounded-lg bg-zinc-50 p-3 text-zinc-700">{selectedRequest.description}</p>
+                                    <p className="mb-1 text-slate-500">Description</p>
+                                    <p className="rounded-lg bg-slate-50 p-3 text-slate-700">{selectedRequest.description}</p>
                                 </div>
                             )}
 
                             {/* Receipt */}
                             <div className="flex items-center justify-between">
-                                <span className="text-zinc-500">Receipt / Attachment</span>
+                                <span className="text-slate-500">Receipt / Attachment</span>
                                 {selectedRequest.receipt_url ? (
                                     <a
                                         href={selectedRequest.receipt_url}
@@ -910,28 +910,28 @@ export default function ClaimRequests() {
                                         View Document
                                     </a>
                                 ) : (
-                                    <span className="text-zinc-400">No attachment</span>
+                                    <span className="text-slate-400">No attachment</span>
                                 )}
                             </div>
 
                             {/* Paid reference */}
                             {selectedRequest.paid_reference && (
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-500">Payment Reference</span>
-                                    <span className="font-mono font-medium text-zinc-900">{selectedRequest.paid_reference}</span>
+                                    <span className="text-slate-500">Payment Reference</span>
+                                    <span className="font-mono font-medium text-slate-900">{selectedRequest.paid_reference}</span>
                                 </div>
                             )}
                             {selectedRequest.paid_at && (
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-500">Paid At</span>
-                                    <span className="font-medium text-zinc-900">{formatDate(selectedRequest.paid_at)}</span>
+                                    <span className="text-slate-500">Paid At</span>
+                                    <span className="font-medium text-slate-900">{formatDate(selectedRequest.paid_at)}</span>
                                 </div>
                             )}
 
                             {/* Rejection reason */}
                             {selectedRequest.rejected_reason && (
                                 <div>
-                                    <p className="mb-1 text-zinc-500">Rejection Reason</p>
+                                    <p className="mb-1 text-slate-500">Rejection Reason</p>
                                     <p className="rounded-lg bg-red-50 p-3 text-red-700">{selectedRequest.rejected_reason}</p>
                                 </div>
                             )}
@@ -952,7 +952,7 @@ export default function ClaimRequests() {
                     <form onSubmit={submitCreateForm} className="space-y-4">
                         {/* Employee */}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Employee <span className="text-red-500">*</span>
                             </label>
                             <Select
@@ -967,7 +967,7 @@ export default function ClaimRequests() {
                                         <SelectItem key={emp.id} value={String(emp.id)}>
                                             {emp.full_name}
                                             {emp.department?.name && (
-                                                <span className="ml-2 text-xs text-zinc-400">
+                                                <span className="ml-2 text-xs text-slate-400">
                                                     · {emp.department.name}
                                                 </span>
                                             )}
@@ -982,7 +982,7 @@ export default function ClaimRequests() {
 
                         {/* Claim Type */}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Claim Type <span className="text-red-500">*</span>
                             </label>
                             <Select
@@ -1016,7 +1016,7 @@ export default function ClaimRequests() {
                                     Mileage Details
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                    <label className="mb-1 block text-xs font-medium text-slate-600">
                                         Vehicle Type <span className="text-red-500">*</span>
                                     </label>
                                     <Select
@@ -1039,7 +1039,7 @@ export default function ClaimRequests() {
                                     )}
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                    <label className="mb-1 block text-xs font-medium text-slate-600">
                                         Distance (km) <span className="text-red-500">*</span>
                                     </label>
                                     <input
@@ -1049,7 +1049,7 @@ export default function ClaimRequests() {
                                         value={createForm.distance_km}
                                         onChange={(e) => updateCreateForm('distance_km', e.target.value)}
                                         placeholder="e.g. 12.5"
-                                        className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     />
                                     {createErrors.distance_km && (
                                         <p className="mt-1 text-xs text-red-600">{createErrors.distance_km[0]}</p>
@@ -1057,7 +1057,7 @@ export default function ClaimRequests() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                        <label className="mb-1 block text-xs font-medium text-slate-600">
                                             Origin <span className="text-red-500">*</span>
                                         </label>
                                         <input
@@ -1065,14 +1065,14 @@ export default function ClaimRequests() {
                                             value={createForm.origin}
                                             onChange={(e) => updateCreateForm('origin', e.target.value)}
                                             placeholder="From"
-                                            className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                         />
                                         {createErrors.origin && (
                                             <p className="mt-1 text-xs text-red-600">{createErrors.origin[0]}</p>
                                         )}
                                     </div>
                                     <div>
-                                        <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                        <label className="mb-1 block text-xs font-medium text-slate-600">
                                             Destination <span className="text-red-500">*</span>
                                         </label>
                                         <input
@@ -1080,7 +1080,7 @@ export default function ClaimRequests() {
                                             value={createForm.destination}
                                             onChange={(e) => updateCreateForm('destination', e.target.value)}
                                             placeholder="To"
-                                            className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                         />
                                         {createErrors.destination && (
                                             <p className="mt-1 text-xs text-red-600">{createErrors.destination[0]}</p>
@@ -1088,7 +1088,7 @@ export default function ClaimRequests() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-xs font-medium text-zinc-600">
+                                    <label className="mb-1 block text-xs font-medium text-slate-600">
                                         Trip Purpose <span className="text-red-500">*</span>
                                     </label>
                                     <input
@@ -1096,7 +1096,7 @@ export default function ClaimRequests() {
                                         value={createForm.trip_purpose}
                                         onChange={(e) => updateCreateForm('trip_purpose', e.target.value)}
                                         placeholder="e.g. Client meeting"
-                                        className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     />
                                     {createErrors.trip_purpose && (
                                         <p className="mt-1 text-xs text-red-600">{createErrors.trip_purpose[0]}</p>
@@ -1104,7 +1104,7 @@ export default function ClaimRequests() {
                                 </div>
                                 {calculatedAmount && (
                                     <div className="flex items-center justify-between rounded bg-white px-3 py-2 text-sm">
-                                        <span className="text-zinc-500">Calculated amount</span>
+                                        <span className="text-slate-500">Calculated amount</span>
                                         <span className="font-semibold text-emerald-700">
                                             {formatCurrency(calculatedAmount)}
                                         </span>
@@ -1116,7 +1116,7 @@ export default function ClaimRequests() {
                         {/* Amount (non-mileage) */}
                         {selectedClaimType && !isMileageType && (
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                <label className="mb-1 block text-sm font-medium text-slate-700">
                                     Amount (MYR) <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -1126,7 +1126,7 @@ export default function ClaimRequests() {
                                     value={createForm.amount}
                                     onChange={(e) => updateCreateForm('amount', e.target.value)}
                                     placeholder="e.g. 50.00"
-                                    className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                                 {createErrors.amount && (
                                     <p className="mt-1 text-xs text-red-600">{createErrors.amount[0]}</p>
@@ -1136,14 +1136,14 @@ export default function ClaimRequests() {
 
                         {/* Date */}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Claim Date <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="date"
                                 value={createForm.claim_date}
                                 onChange={(e) => updateCreateForm('claim_date', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                             {createErrors.claim_date && (
                                 <p className="mt-1 text-xs text-red-600">{createErrors.claim_date[0]}</p>
@@ -1152,7 +1152,7 @@ export default function ClaimRequests() {
 
                         {/* Description */}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Description <span className="text-red-500">*</span>
                             </label>
                             <textarea
@@ -1160,7 +1160,7 @@ export default function ClaimRequests() {
                                 onChange={(e) => updateCreateForm('description', e.target.value)}
                                 placeholder="Describe the claim..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                             {createErrors.description && (
                                 <p className="mt-1 text-xs text-red-600">{createErrors.description[0]}</p>
@@ -1169,10 +1169,10 @@ export default function ClaimRequests() {
 
                         {/* Receipt */}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Receipt (optional)
                             </label>
-                            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-3 py-3 text-sm text-zinc-600 hover:border-zinc-400">
+                            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-600 hover:border-slate-400">
                                 <Upload className="h-4 w-4" />
                                 {createForm.receipt ? createForm.receipt.name : 'Click to upload PDF / JPG / PNG (max 5 MB)'}
                                 <input
@@ -1237,9 +1237,9 @@ export default function ClaimRequests() {
                     </DialogHeader>
                     {actionDialog.request && (
                         <div className="space-y-3">
-                            <div className="rounded-lg bg-zinc-50 p-3 text-sm">
+                            <div className="rounded-lg bg-slate-50 p-3 text-sm">
                                 <p className="font-medium">{actionDialog.request.employee?.full_name}</p>
-                                <p className="text-zinc-500">
+                                <p className="text-slate-500">
                                     {actionDialog.request.claim_type?.name} &middot;{' '}
                                     {formatCurrency(actionDialog.request.amount)} &middot;{' '}
                                     {actionDialog.request.claim_number}
@@ -1247,7 +1247,7 @@ export default function ClaimRequests() {
                             </div>
                             {actionDialog.type === 'approve' && (
                                 <div>
-                                    <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                    <label className="mb-1 block text-sm font-medium text-slate-700">
                                         Approved Amount (MYR) *
                                     </label>
                                     <input
@@ -1257,7 +1257,7 @@ export default function ClaimRequests() {
                                         value={approvedAmount}
                                         onChange={(e) => setApprovedAmount(e.target.value)}
                                         placeholder="Enter approved amount..."
-                                        className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                        className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     />
                                 </div>
                             )}
@@ -1266,7 +1266,7 @@ export default function ClaimRequests() {
                                     value={rejectReason}
                                     onChange={(e) => setRejectReason(e.target.value)}
                                     placeholder="Reason for rejection..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     rows={3}
                                 />
                             )}
@@ -1276,7 +1276,7 @@ export default function ClaimRequests() {
                                     value={payReference}
                                     onChange={(e) => setPayReference(e.target.value)}
                                     placeholder="Payment reference number..."
-                                    className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             )}
                         </div>
@@ -1317,8 +1317,8 @@ export default function ClaimRequests() {
                     {payAllDialog && (
                         <div className="space-y-3">
                             <div className="rounded-lg bg-emerald-50/60 p-3 text-sm">
-                                <p className="font-medium text-zinc-900">{payAllDialog.name}</p>
-                                <p className="text-zinc-600">
+                                <p className="font-medium text-slate-900">{payAllDialog.name}</p>
+                                <p className="text-slate-600">
                                     <span className="font-semibold text-emerald-700">{payAllDialog.count}</span>{' '}
                                     approved claim{payAllDialog.count !== 1 ? 's' : ''} &middot;{' '}
                                     Total{' '}
@@ -1326,7 +1326,7 @@ export default function ClaimRequests() {
                                 </p>
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                <label className="mb-1 block text-sm font-medium text-slate-700">
                                     Payment Reference (optional)
                                 </label>
                                 <input
@@ -1334,9 +1334,9 @@ export default function ClaimRequests() {
                                     value={payAllReference}
                                     onChange={(e) => setPayAllReference(e.target.value)}
                                     placeholder="e.g. BNK-20260514-001"
-                                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                                 />
-                                <p className="mt-1 text-xs text-zinc-500">
+                                <p className="mt-1 text-xs text-slate-500">
                                     The same reference will be saved on every claim in this transfer.
                                 </p>
                             </div>

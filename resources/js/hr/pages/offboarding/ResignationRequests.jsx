@@ -181,7 +181,7 @@ export default function ResignationRequests() {
                             className="w-64"
                         />
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-600">Status</label>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">Status</label>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="w-36">
                                     <SelectValue />
@@ -202,14 +202,14 @@ export default function ResignationRequests() {
             {/* Table */}
             {isLoading ? (
                 <div className="flex justify-center py-16">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                 </div>
             ) : resignations.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16">
-                        <FileText className="mb-3 h-10 w-10 text-zinc-300" />
-                        <p className="text-sm font-medium text-zinc-500">No resignation requests found</p>
-                        <p className="text-xs text-zinc-400">Create a new resignation request to get started.</p>
+                        <FileText className="mb-3 h-10 w-10 text-slate-300" />
+                        <p className="text-sm font-medium text-slate-500">No resignation requests found</p>
+                        <p className="text-xs text-slate-400">Create a new resignation request to get started.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -232,10 +232,10 @@ export default function ResignationRequests() {
                                     <TableRow key={resignation.id}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {resignation.employee?.full_name || '-'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-slate-500">
                                                     {resignation.employee?.employee_id || ''}
                                                 </p>
                                             </div>
@@ -243,7 +243,7 @@ export default function ResignationRequests() {
                                         <TableCell className="text-sm">
                                             {formatDate(resignation.submitted_date)}
                                         </TableCell>
-                                        <TableCell className="max-w-[200px] text-sm text-zinc-600">
+                                        <TableCell className="max-w-[200px] text-sm text-slate-600">
                                             <p className="truncate">{resignation.reason || '-'}</p>
                                         </TableCell>
                                         <TableCell className="text-sm">
@@ -305,11 +305,11 @@ export default function ResignationRequests() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Employee</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee</label>
                             <select
                                 value={form.employee_id}
                                 onChange={(e) => setForm((p) => ({ ...p, employee_id: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="">Select employee...</option>
                                 {employees.map((emp) => (
@@ -320,21 +320,21 @@ export default function ResignationRequests() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Submitted Date</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Submitted Date</label>
                             <input
                                 type="date"
                                 value={form.submitted_date}
                                 onChange={(e) => setForm((p) => ({ ...p, submitted_date: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Reason</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Reason</label>
                             <textarea
                                 value={form.reason}
                                 onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="Reason for resignation..."
                             />
                         </div>
@@ -362,12 +362,12 @@ export default function ResignationRequests() {
                         <DialogDescription>Approve this resignation request. You may add optional notes.</DialogDescription>
                     </DialogHeader>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Notes (Optional)</label>
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">Notes (Optional)</label>
                         <textarea
                             value={approveNotes}
                             onChange={(e) => setApproveNotes(e.target.value)}
                             rows={3}
-                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             placeholder="Add approval notes..."
                         />
                     </div>
@@ -391,12 +391,12 @@ export default function ResignationRequests() {
                         <DialogDescription>Provide a reason for rejecting this resignation request.</DialogDescription>
                     </DialogHeader>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Rejection Reason</label>
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700">Rejection Reason</label>
                         <textarea
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
                             rows={3}
-                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             placeholder="Reason for rejection..."
                         />
                     </div>

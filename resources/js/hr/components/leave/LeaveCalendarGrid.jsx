@@ -36,7 +36,7 @@ export default function LeaveCalendarGrid({
                 {WEEKDAY_LABELS.map((label) => (
                     <div
                         key={label}
-                        className="py-2 text-center text-xs font-medium text-zinc-500"
+                        className="py-2 text-center text-xs font-medium text-slate-500"
                     >
                         {label}
                     </div>
@@ -56,7 +56,7 @@ export default function LeaveCalendarGrid({
                             type="button"
                             onClick={() => onDayClick?.(day)}
                             className={cn(
-                                'flex min-h-[48px] flex-col items-center gap-0.5 rounded-lg p-1 text-sm transition-colors hover:bg-zinc-50',
+                                'flex min-h-[48px] flex-col items-center gap-0.5 rounded-lg p-1 text-sm transition-colors hover:bg-slate-50',
                                 isToday && 'bg-blue-50 font-bold text-blue-600'
                             )}
                         >
@@ -75,7 +75,7 @@ export default function LeaveCalendarGrid({
                                         />
                                     ))}
                                     {dayLeaves.length > 3 && (
-                                        <span className="text-[8px] text-zinc-400">
+                                        <span className="text-[8px] text-slate-400">
                                             +{dayLeaves.length - 3}
                                         </span>
                                     )}

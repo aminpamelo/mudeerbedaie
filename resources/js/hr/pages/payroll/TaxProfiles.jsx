@@ -108,7 +108,7 @@ export default function TaxProfiles() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search by name or employee ID..."
-                        className="w-full max-w-sm rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                        className="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                     />
                 </CardContent>
             </Card>
@@ -124,17 +124,17 @@ export default function TaxProfiles() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 6 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-6 w-24 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-6 w-24 animate-pulse rounded bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : employees.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <FileText className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No employees found</p>
+                            <FileText className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No employees found</p>
                         </div>
                     ) : (
                         <Table>
@@ -156,28 +156,28 @@ export default function TaxProfiles() {
                                         <TableRow key={emp.id}>
                                             <TableCell>
                                                 <div>
-                                                    <p className="font-medium text-zinc-900">{emp.full_name}</p>
-                                                    <p className="text-xs text-zinc-500">{emp.employee_id}</p>
+                                                    <p className="font-medium text-slate-900">{emp.full_name}</p>
+                                                    <p className="text-xs text-slate-500">{emp.employee_id}</p>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
-                                                {profile.tax_number || <span className="text-zinc-400">Not set</span>}
+                                            <TableCell className="text-sm text-slate-600">
+                                                {profile.tax_number || <span className="text-slate-400">Not set</span>}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {MARITAL_STATUS_LABELS[profile.marital_status] || 'Single'}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {profile.num_children || 0}
                                                 {profile.num_children_studying > 0 && (
-                                                    <span className="ml-1 text-xs text-zinc-400">({profile.num_children_studying} studying)</span>
+                                                    <span className="ml-1 text-xs text-slate-400">({profile.num_children_studying} studying)</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {profile.disabled_individual ? 'Self' : ''}
                                                 {profile.disabled_individual && profile.disabled_spouse ? ' + ' : ''}
                                                 {profile.disabled_spouse ? 'Spouse' : ''}
                                                 {!profile.disabled_individual && !profile.disabled_spouse ? (
-                                                    <span className="text-zinc-400">None</span>
+                                                    <span className="text-slate-400">None</span>
                                                 ) : null}
                                             </TableCell>
                                             <TableCell>
@@ -216,21 +216,21 @@ export default function TaxProfiles() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Tax Number (IC/Passport)</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Tax Number (IC/Passport)</label>
                             <input
                                 type="text"
                                 value={form.tax_number}
                                 onChange={(e) => setForm((p) => ({ ...p, tax_number: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. 900101-01-1234"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Marital Status</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Marital Status</label>
                             <select
                                 value={form.marital_status}
                                 onChange={(e) => setForm((p) => ({ ...p, marital_status: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 {Object.entries(MARITAL_STATUS_LABELS).map(([key, label]) => (
                                     <option key={key} value={key}>{label}</option>
@@ -239,29 +239,29 @@ export default function TaxProfiles() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Number of Children</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Number of Children</label>
                                 <input
                                     type="number"
                                     min="0"
                                     value={form.num_children}
                                     onChange={(e) => setForm((p) => ({ ...p, num_children: parseInt(e.target.value) || 0 }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Children Studying</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Children Studying</label>
                                 <input
                                     type="number"
                                     min="0"
                                     value={form.num_children_studying}
                                     onChange={(e) => setForm((p) => ({ ...p, num_children_studying: parseInt(e.target.value) || 0 }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 />
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <p className="text-sm font-medium text-zinc-700">Disability Status</p>
-                            <label className="flex items-center gap-2 text-sm text-zinc-700">
+                            <p className="text-sm font-medium text-slate-700">Disability Status</p>
+                            <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
                                     type="checkbox"
                                     checked={form.disabled_individual}
@@ -270,7 +270,7 @@ export default function TaxProfiles() {
                                 />
                                 Disabled Individual
                             </label>
-                            <label className="flex items-center gap-2 text-sm text-zinc-700">
+                            <label className="flex items-center gap-2 text-sm text-slate-700">
                                 <input
                                     type="checkbox"
                                     checked={form.disabled_spouse}
@@ -280,8 +280,8 @@ export default function TaxProfiles() {
                                 Disabled Spouse
                             </label>
                         </div>
-                        <div className="rounded-lg border border-zinc-200 p-3">
-                            <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+                        <div className="rounded-lg border border-slate-200 p-3">
+                            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                                 <input
                                     type="checkbox"
                                     checked={form.is_pcb_manual}
@@ -292,14 +292,14 @@ export default function TaxProfiles() {
                             </label>
                             {form.is_pcb_manual && (
                                 <div className="mt-3">
-                                    <label className="mb-1.5 block text-sm font-medium text-zinc-700">Manual PCB Amount (RM/month)</label>
+                                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Manual PCB Amount (RM/month)</label>
                                     <input
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         value={form.manual_pcb_amount}
                                         onChange={(e) => setForm((p) => ({ ...p, manual_pcb_amount: e.target.value }))}
-                                        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                         placeholder="0.00"
                                     />
                                 </div>

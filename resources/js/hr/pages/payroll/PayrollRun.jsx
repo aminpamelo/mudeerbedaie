@@ -68,7 +68,7 @@ const MONTHS = [
 const STATUS_STEPS = ['draft', 'review', 'approved', 'finalized'];
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
+    draft: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-700' },
     review: { label: 'Pending Review', bg: 'bg-amber-100', text: 'text-amber-700' },
     approved: { label: 'Approved', bg: 'bg-emerald-100', text: 'text-emerald-700' },
     finalized: { label: 'Finalized', bg: 'bg-purple-100', text: 'text-purple-700' },
@@ -80,7 +80,7 @@ function formatCurrency(amount) {
 }
 
 function PayrollStatusBadge({ status }) {
-    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const config = STATUS_CONFIG[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -97,8 +97,8 @@ function SummaryCard({ title, value, icon: Icon, iconColor, iconBg }) {
                         <Icon className={cn('h-5 w-5', iconColor)} />
                     </div>
                     <div>
-                        <p className="text-xs font-medium text-zinc-500">{title}</p>
-                        <p className="text-lg font-bold text-zinc-900">{value}</p>
+                        <p className="text-xs font-medium text-slate-500">{title}</p>
+                        <p className="text-lg font-bold text-slate-900">{value}</p>
                     </div>
                 </div>
             </CardContent>
@@ -313,7 +313,7 @@ export default function PayrollRun() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -321,7 +321,7 @@ export default function PayrollRun() {
     if (!run) {
         return (
             <div className="flex flex-col items-center justify-center py-24">
-                <p className="text-sm text-zinc-500">Payroll run not found.</p>
+                <p className="text-sm text-slate-500">Payroll run not found.</p>
                 <Link to="/payroll" className="mt-3">
                     <Button variant="outline" size="sm">Back to Dashboard</Button>
                 </Link>
@@ -342,12 +342,12 @@ export default function PayrollRun() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-semibold text-zinc-900">
+                            <h1 className="text-xl font-semibold text-slate-900">
                                 {MONTHS[run.month - 1]} {run.year} Payroll
                             </h1>
                             <PayrollStatusBadge status={run.status} />
                         </div>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             {run.employee_count ?? 0} employees &middot; Created by {run.prepared_by_name || 'System'}
                         </p>
                     </div>
@@ -455,9 +455,9 @@ export default function PayrollRun() {
                 <CardContent>
                     {payslips.length === 0 && employeeSummaries.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Users className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No payroll data yet</p>
-                            <p className="text-xs text-zinc-400">Click "Calculate" to generate payroll</p>
+                            <Users className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No payroll data yet</p>
+                            <p className="text-xs text-slate-400">Click "Calculate" to generate payroll</p>
                         </div>
                     ) : payslips.length > 0 ? (
                         <Table>
@@ -477,16 +477,16 @@ export default function PayrollRun() {
                                     <TableRow key={payslip.id}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {payslip.employee?.full_name || '-'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">{payslip.employee?.employee_id || ''}</p>
+                                                <p className="text-xs text-slate-500">{payslip.employee?.employee_id || ''}</p>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-sm font-medium">{formatCurrency(payslip.gross_salary)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.epf_employee)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.socso_employee)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.pcb_amount)}</TableCell>
+                                        <TableCell className="text-sm text-slate-600">{formatCurrency(payslip.epf_employee)}</TableCell>
+                                        <TableCell className="text-sm text-slate-600">{formatCurrency(payslip.socso_employee)}</TableCell>
+                                        <TableCell className="text-sm text-slate-600">{formatCurrency(payslip.pcb_amount)}</TableCell>
                                         <TableCell className="text-sm font-semibold text-emerald-600">{formatCurrency(payslip.net_salary)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button
@@ -524,16 +524,16 @@ export default function PayrollRun() {
                                     <TableRow key={emp.employee_id}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {emp.employee?.full_name || '-'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">{emp.employee?.employee_id || ''}</p>
+                                                <p className="text-xs text-slate-500">{emp.employee?.employee_id || ''}</p>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-sm font-medium">{formatCurrency(emp.gross)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(emp.epf_employee)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(emp.socso_employee)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(emp.pcb)}</TableCell>
+                                        <TableCell className="text-sm text-slate-600">{formatCurrency(emp.epf_employee)}</TableCell>
+                                        <TableCell className="text-sm text-slate-600">{formatCurrency(emp.socso_employee)}</TableCell>
+                                        <TableCell className="text-sm text-slate-600">{formatCurrency(emp.pcb)}</TableCell>
                                         <TableCell className="text-sm font-semibold text-emerald-600">{formatCurrency(emp.net)}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
@@ -575,22 +575,22 @@ export default function PayrollRun() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Type</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Type</label>
                             <select
                                 value={adHocForm.type}
                                 onChange={(e) => setAdHocForm((p) => ({ ...p, type: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="earning">Earning</option>
                                 <option value="deduction">Deduction</option>
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Salary Component</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Salary Component</label>
                             <select
                                 value={adHocForm.component_id}
                                 onChange={(e) => setAdHocForm((p) => ({ ...p, component_id: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="">Select component...</option>
                                 {components
@@ -601,14 +601,14 @@ export default function PayrollRun() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Amount (RM)</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Amount (RM)</label>
                             <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={adHocForm.amount}
                                 onChange={(e) => setAdHocForm((p) => ({ ...p, amount: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="0.00"
                             />
                         </div>

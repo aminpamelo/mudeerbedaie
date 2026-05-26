@@ -31,7 +31,7 @@ import {
 } from '../../components/ui/dialog';
 
 const REVIEW_STATUS_BADGE = {
-    pending: 'bg-zinc-100 text-zinc-600',
+    pending: 'bg-slate-100 text-slate-600',
     self_review: 'bg-amber-100 text-amber-700',
     manager_review: 'bg-blue-100 text-blue-700',
     completed: 'bg-emerald-100 text-emerald-700',
@@ -67,7 +67,7 @@ function StarRating({ value, onChange, readOnly }) {
                             'h-5 w-5',
                             (hovered || value) >= star
                                 ? 'fill-amber-400 text-amber-400'
-                                : 'text-zinc-300'
+                                : 'text-slate-300'
                         )}
                     />
                 </button>
@@ -79,8 +79,8 @@ function StarRating({ value, onChange, readOnly }) {
 function SkeletonDetail() {
     return (
         <div className="space-y-6">
-            <div className="h-32 animate-pulse rounded-lg bg-zinc-200" />
-            <div className="h-64 animate-pulse rounded-lg bg-zinc-200" />
+            <div className="h-32 animate-pulse rounded-lg bg-slate-200" />
+            <div className="h-64 animate-pulse rounded-lg bg-slate-200" />
         </div>
     );
 }
@@ -169,7 +169,7 @@ export default function ReviewDetail() {
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16">
                         <AlertTriangle className="mb-3 h-10 w-10 text-red-300" />
-                        <p className="text-sm font-medium text-zinc-600">Failed to load review details.</p>
+                        <p className="text-sm font-medium text-slate-600">Failed to load review details.</p>
                         <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
                             Go Back
                         </Button>
@@ -223,35 +223,35 @@ export default function ReviewDetail() {
                         <CardContent className="p-6">
                             <div className="flex flex-col gap-6 sm:flex-row">
                                 <div className="flex items-center gap-4">
-                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 text-lg font-bold text-zinc-600">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-600">
                                         {review?.employee?.full_name?.charAt(0) || '?'}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-zinc-900">{review?.employee?.full_name || '-'}</p>
-                                        <p className="text-sm text-zinc-500">{review?.employee?.department?.name || '-'} · {review?.employee?.position?.name || '-'}</p>
+                                        <p className="font-semibold text-slate-900">{review?.employee?.full_name || '-'}</p>
+                                        <p className="text-sm text-slate-500">{review?.employee?.department?.name || '-'} · {review?.employee?.position?.name || '-'}</p>
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-6 sm:ml-auto">
                                     <div>
-                                        <p className="text-xs text-zinc-500">Status</p>
-                                        <span className={cn('mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', REVIEW_STATUS_BADGE[review?.status] || 'bg-zinc-100 text-zinc-600')}>
+                                        <p className="text-xs text-slate-500">Status</p>
+                                        <span className={cn('mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', REVIEW_STATUS_BADGE[review?.status] || 'bg-slate-100 text-slate-600')}>
                                             {review?.status?.replace('_', ' ') || '-'}
                                         </span>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-zinc-500">Reviewer</p>
-                                        <p className="mt-1 text-sm font-medium text-zinc-900">{review?.reviewer?.full_name || '-'}</p>
+                                        <p className="text-xs text-slate-500">Reviewer</p>
+                                        <p className="mt-1 text-sm font-medium text-slate-900">{review?.reviewer?.full_name || '-'}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-zinc-500">Cycle</p>
-                                        <p className="mt-1 text-sm font-medium text-zinc-900">{review?.cycle?.name || '-'}</p>
+                                        <p className="text-xs text-slate-500">Cycle</p>
+                                        <p className="mt-1 text-sm font-medium text-slate-900">{review?.cycle?.name || '-'}</p>
                                     </div>
                                     {review?.overall_rating && (
                                         <div>
-                                            <p className="text-xs text-zinc-500">Overall Rating</p>
+                                            <p className="text-xs text-slate-500">Overall Rating</p>
                                             <div className="mt-1 flex items-center gap-1">
                                                 <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                                                <span className="text-sm font-bold text-zinc-900">{review.overall_rating}</span>
+                                                <span className="text-sm font-bold text-slate-900">{review.overall_rating}</span>
                                             </div>
                                         </div>
                                     )}
@@ -264,7 +264,7 @@ export default function ReviewDetail() {
                     <Card>
                         <CardContent className="p-6">
                             <div className="mb-4 flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-zinc-900">KPI Scores</h3>
+                                <h3 className="text-lg font-semibold text-slate-900">KPI Scores</h3>
                                 <Button variant="outline" size="sm" onClick={() => { setFormError(''); setAddKpiDialog(true); }}>
                                     <Plus className="mr-1.5 h-4 w-4" />
                                     Add KPI
@@ -273,40 +273,40 @@ export default function ReviewDetail() {
 
                             {kpis.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                                    <BarChart2 className="mb-3 h-10 w-10 text-zinc-300" />
-                                    <p className="text-sm text-zinc-500">No KPIs added yet.</p>
+                                    <BarChart2 className="mb-3 h-10 w-10 text-slate-300" />
+                                    <p className="text-sm text-slate-500">No KPIs added yet.</p>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
-                                            <tr className="border-b border-zinc-200">
-                                                <th className="pb-2 text-left font-medium text-zinc-500">KPI</th>
-                                                <th className="pb-2 text-left font-medium text-zinc-500">Target</th>
-                                                <th className="pb-2 text-left font-medium text-zinc-500">Weight</th>
-                                                <th className="pb-2 text-center font-medium text-zinc-500">Self Score</th>
-                                                <th className="pb-2 text-center font-medium text-zinc-500">Manager Score</th>
+                                            <tr className="border-b border-slate-200">
+                                                <th className="pb-2 text-left font-medium text-slate-500">KPI</th>
+                                                <th className="pb-2 text-left font-medium text-slate-500">Target</th>
+                                                <th className="pb-2 text-left font-medium text-slate-500">Weight</th>
+                                                <th className="pb-2 text-center font-medium text-slate-500">Self Score</th>
+                                                <th className="pb-2 text-center font-medium text-slate-500">Manager Score</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-zinc-100">
+                                        <tbody className="divide-y divide-slate-100">
                                             {kpis.map((kpi) => (
                                                 <tr key={kpi.id}>
-                                                    <td className="py-3 font-medium text-zinc-900">{kpi.title}</td>
-                                                    <td className="py-3 text-zinc-600">{kpi.target || '-'}</td>
-                                                    <td className="py-3 text-zinc-600">{kpi.weight != null ? `${kpi.weight}%` : '-'}</td>
+                                                    <td className="py-3 font-medium text-slate-900">{kpi.title}</td>
+                                                    <td className="py-3 text-slate-600">{kpi.target || '-'}</td>
+                                                    <td className="py-3 text-slate-600">{kpi.weight != null ? `${kpi.weight}%` : '-'}</td>
                                                     <td className="py-3 text-center">
                                                         {kpi.self_score != null ? (
                                                             <span className="inline-flex items-center justify-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                                                                 {kpi.self_score}
                                                             </span>
-                                                        ) : <span className="text-zinc-300">—</span>}
+                                                        ) : <span className="text-slate-300">—</span>}
                                                     </td>
                                                     <td className="py-3 text-center">
                                                         {kpi.manager_score != null ? (
                                                             <span className="inline-flex items-center justify-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                                                                 {kpi.manager_score}
                                                             </span>
-                                                        ) : <span className="text-zinc-300">—</span>}
+                                                        ) : <span className="text-slate-300">—</span>}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -323,16 +323,16 @@ export default function ReviewDetail() {
                             {review?.self_comments && (
                                 <Card>
                                     <CardContent className="p-6">
-                                        <h3 className="mb-3 font-semibold text-zinc-900">Self Assessment Comments</h3>
-                                        <p className="text-sm text-zinc-600">{review.self_comments}</p>
+                                        <h3 className="mb-3 font-semibold text-slate-900">Self Assessment Comments</h3>
+                                        <p className="text-sm text-slate-600">{review.self_comments}</p>
                                     </CardContent>
                                 </Card>
                             )}
                             {review?.manager_comments && (
                                 <Card>
                                     <CardContent className="p-6">
-                                        <h3 className="mb-3 font-semibold text-zinc-900">Manager Comments</h3>
-                                        <p className="text-sm text-zinc-600">{review.manager_comments}</p>
+                                        <h3 className="mb-3 font-semibold text-slate-900">Manager Comments</h3>
+                                        <p className="text-sm text-slate-600">{review.manager_comments}</p>
                                     </CardContent>
                                 </Card>
                             )}
@@ -352,20 +352,20 @@ export default function ReviewDetail() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-zinc-700">Overall Rating *</label>
+                            <label className="mb-2 block text-sm font-medium text-slate-700">Overall Rating *</label>
                             <StarRating
                                 value={managerForm.overall_rating}
                                 onChange={(v) => setManagerForm((f) => ({ ...f, overall_rating: v }))}
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Manager Comments</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Manager Comments</label>
                             <textarea
                                 value={managerForm.manager_comments}
                                 onChange={(e) => setManagerForm((f) => ({ ...f, manager_comments: e.target.value }))}
                                 placeholder="Provide feedback and comments..."
                                 rows={4}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <DialogFooter>
@@ -392,28 +392,28 @@ export default function ReviewDetail() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Title *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Title *</label>
                             <input
                                 type="text"
                                 value={kpiForm.title}
                                 onChange={(e) => setKpiForm((f) => ({ ...f, title: e.target.value }))}
                                 placeholder="e.g. Monthly Sales Target"
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Target</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Target</label>
                             <input
                                 type="text"
                                 value={kpiForm.target}
                                 onChange={(e) => setKpiForm((f) => ({ ...f, target: e.target.value }))}
                                 placeholder="e.g. RM 50,000"
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Weight (%)</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Weight (%)</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -421,15 +421,15 @@ export default function ReviewDetail() {
                                     value={kpiForm.weight}
                                     onChange={(e) => setKpiForm((f) => ({ ...f, weight: e.target.value }))}
                                     placeholder="e.g. 20"
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Category</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Category</label>
                                 <select
                                     value={kpiForm.category}
                                     onChange={(e) => setKpiForm((f) => ({ ...f, category: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 >
                                     {['productivity', 'quality', 'attendance', 'leadership', 'teamwork', 'communication', 'other'].map((c) => (
                                         <option key={c} value={c} className="capitalize">

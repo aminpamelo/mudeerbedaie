@@ -64,13 +64,13 @@ function SkeletonTable() {
         <div className="space-y-3 p-4">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-3">
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-28 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -192,9 +192,9 @@ export default function ExitPermissions() {
                         <SkeletonTable />
                     ) : records.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <DoorOpen className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No exit permission requests</p>
-                            <p className="text-xs text-zinc-400">
+                            <DoorOpen className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No exit permission requests</p>
+                            <p className="text-xs text-slate-400">
                                 {tab === 'all'
                                     ? 'No requests have been submitted yet'
                                     : `No ${tab} requests found`}
@@ -217,30 +217,30 @@ export default function ExitPermissions() {
                                 {records.map((record) => (
                                     <TableRow key={record.id}>
                                         <TableCell>
-                                            <span className="font-mono text-sm text-zinc-600">
+                                            <span className="font-mono text-sm text-slate-600">
                                                 {record.permission_number ?? `EP-${record.id}`}
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <p className="text-sm font-medium text-zinc-900">
+                                            <p className="text-sm font-medium text-slate-900">
                                                 {record.employee?.full_name}
                                             </p>
-                                            <p className="text-xs text-zinc-400">
+                                            <p className="text-xs text-slate-400">
                                                 {record.employee?.department?.name}
                                             </p>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-sm text-zinc-700">{formatDate(record.exit_date)}</span>
+                                            <span className="text-sm text-slate-700">{formatDate(record.exit_date)}</span>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-sm text-zinc-700">
+                                            <span className="text-sm text-slate-700">
                                                 {record.exit_time} &rarr; {record.return_time}
                                             </span>
                                         </TableCell>
                                         <TableCell>
                                             <span
                                                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                                    ERRAND_TYPE_COLORS[record.errand_type] ?? 'bg-zinc-100 text-zinc-600'
+                                                    ERRAND_TYPE_COLORS[record.errand_type] ?? 'bg-slate-100 text-slate-600'
                                                 }`}
                                             >
                                                 {ERRAND_TYPE_LABELS[record.errand_type] ?? record.errand_type}
@@ -249,7 +249,7 @@ export default function ExitPermissions() {
                                         <TableCell>
                                             <span
                                                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                                                    STATUS_COLORS[record.status] ?? 'bg-zinc-100 text-zinc-600'
+                                                    STATUS_COLORS[record.status] ?? 'bg-slate-100 text-slate-600'
                                                 }`}
                                             >
                                                 {record.status}
@@ -283,7 +283,7 @@ export default function ExitPermissions() {
                                                         onClick={() => handleDownloadPdf(record)}
                                                         disabled={downloadingId === record.id}
                                                         title="Download PDF"
-                                                        className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+                                                        className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                                                     >
                                                         {downloadingId === record.id
                                                             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

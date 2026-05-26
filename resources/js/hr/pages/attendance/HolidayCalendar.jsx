@@ -98,11 +98,11 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -132,7 +132,7 @@ function CalendarGrid({ year, month, holidays }) {
 
     const cells = [];
     for (let i = 0; i < startDayOfWeek; i++) {
-        cells.push(<div key={`empty-${i}`} className="h-24 border border-zinc-100 bg-zinc-50/50" />);
+        cells.push(<div key={`empty-${i}`} className="h-24 border border-slate-100 bg-slate-50/50" />);
     }
     for (let day = 1; day <= daysInMonth; day++) {
         const dayHolidays = holidayMap[day] || [];
@@ -145,14 +145,14 @@ function CalendarGrid({ year, month, holidays }) {
             <div
                 key={day}
                 className={cn(
-                    'h-24 border border-zinc-100 p-1',
+                    'h-24 border border-slate-100 p-1',
                     dayHolidays.length > 0 && 'bg-red-50',
                     isToday && 'ring-2 ring-inset ring-blue-400'
                 )}
             >
                 <div className={cn(
                     'mb-0.5 text-xs font-medium',
-                    isToday ? 'text-blue-600' : 'text-zinc-600'
+                    isToday ? 'text-blue-600' : 'text-slate-600'
                 )}>
                     {day}
                 </div>
@@ -173,7 +173,7 @@ function CalendarGrid({ year, month, holidays }) {
         <div>
             <div className="grid grid-cols-7 gap-0">
                 {DAYS_LABELS.map((label) => (
-                    <div key={label} className="border border-zinc-100 bg-zinc-50 py-2 text-center text-xs font-medium text-zinc-500">
+                    <div key={label} className="border border-slate-100 bg-slate-50 py-2 text-center text-xs font-medium text-slate-500">
                         {label}
                     </div>
                 ))}
@@ -379,7 +379,7 @@ export default function HolidayCalendar() {
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
-                            <div className="h-[500px] animate-pulse rounded bg-zinc-100" />
+                            <div className="h-[500px] animate-pulse rounded bg-slate-100" />
                         ) : (
                             <CalendarGrid
                                 year={selectedYear}
@@ -399,9 +399,9 @@ export default function HolidayCalendar() {
                             <SkeletonTable />
                         ) : holidays.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <Calendar className="mb-3 h-10 w-10 text-zinc-300" />
-                                <p className="text-sm font-medium text-zinc-500">No holidays for {selectedYear}</p>
-                                <p className="mb-4 text-xs text-zinc-400">Add holidays or import Malaysian public holidays</p>
+                                <Calendar className="mb-3 h-10 w-10 text-slate-300" />
+                                <p className="text-sm font-medium text-slate-500">No holidays for {selectedYear}</p>
+                                <p className="mb-4 text-xs text-slate-400">Add holidays or import Malaysian public holidays</p>
                                 <div className="flex gap-2">
                                     <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
                                         <Upload className="mr-2 h-4 w-4" />
@@ -428,11 +428,11 @@ export default function HolidayCalendar() {
                                 <TableBody>
                                     {holidays.map((holiday) => (
                                         <TableRow key={holiday.id}>
-                                            <TableCell className="text-sm text-zinc-900">
+                                            <TableCell className="text-sm text-slate-900">
                                                 {formatDate(holiday.date)}
                                             </TableCell>
                                             <TableCell>
-                                                <p className="text-sm font-medium text-zinc-900">{holiday.name}</p>
+                                                <p className="text-sm font-medium text-slate-900">{holiday.name}</p>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="secondary">
@@ -454,10 +454,10 @@ export default function HolidayCalendar() {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-sm text-zinc-400">All</span>
+                                                    <span className="text-sm text-slate-400">All</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-sm text-zinc-600">
+                                            <TableCell className="text-sm text-slate-600">
                                                 {holiday.is_recurring ? 'Yes' : 'No'}
                                             </TableCell>
                                             <TableCell>
@@ -530,14 +530,14 @@ export default function HolidayCalendar() {
                         </div>
                         <div>
                             <Label className="mb-2 block">Applicable States (leave empty for all)</Label>
-                            <div className="grid max-h-40 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-zinc-200 p-2">
+                            <div className="grid max-h-40 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
                                 {MALAYSIAN_STATES.map((state) => (
-                                    <label key={state} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-zinc-50">
+                                    <label key={state} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-slate-50">
                                         <Checkbox
                                             checked={form.states.includes(state)}
                                             onCheckedChange={() => toggleState(state)}
                                         />
-                                        <span className="text-xs text-zinc-700">{state}</span>
+                                        <span className="text-xs text-slate-700">{state}</span>
                                     </label>
                                 ))}
                             </div>

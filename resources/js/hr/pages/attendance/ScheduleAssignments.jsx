@@ -73,11 +73,11 @@ function SkeletonTable() {
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-28 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -345,7 +345,7 @@ export default function ScheduleAssignments() {
                         <button
                             type="button"
                             onClick={() => setStatusFilter('all')}
-                            className="text-xs text-zinc-400 hover:text-zinc-600"
+                            className="text-xs text-slate-400 hover:text-slate-600"
                         >
                             Show all
                         </button>
@@ -359,13 +359,13 @@ export default function ScheduleAssignments() {
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Search */}
                         <div className="relative min-w-48 flex-1">
-                            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Search name, ID, department..."
                                 value={tableSearch}
                                 onChange={(e) => setTableSearch(e.target.value)}
-                                className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-300"
+                                className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
                             />
                         </div>
 
@@ -420,9 +420,9 @@ export default function ScheduleAssignments() {
                         <SkeletonTable />
                     ) : filteredRows.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Users className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No employees found</p>
-                            <p className="text-xs text-zinc-400">Try adjusting your filters</p>
+                            <Users className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No employees found</p>
+                            <p className="text-xs text-slate-400">Try adjusting your filters</p>
                         </div>
                     ) : (
                         <Table>
@@ -441,11 +441,11 @@ export default function ScheduleAssignments() {
                                     <TableRow key={row.id} className={!row.assignment ? 'bg-amber-50/40' : ''}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">{row.full_name}</p>
-                                                <p className="text-xs text-zinc-500">{row.employee_id}</p>
+                                                <p className="text-sm font-medium text-slate-900">{row.full_name}</p>
+                                                <p className="text-xs text-slate-500">{row.employee_id}</p>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {row.department?.name || '-'}
                                         </TableCell>
                                         <TableCell>
@@ -460,12 +460,12 @@ export default function ScheduleAssignments() {
                                                 </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {row.assignment?.custom_start_time && row.assignment?.custom_end_time
                                                 ? `${row.assignment.custom_start_time.slice(0, 5)} - ${row.assignment.custom_end_time.slice(0, 5)}`
                                                 : '-'}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {row.assignment ? formatDate(row.assignment.effective_from) : '-'}
                                         </TableCell>
                                         <TableCell>
@@ -489,7 +489,7 @@ export default function ScheduleAssignments() {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => openQuickAssign(row)}
-                                                        className="h-7 gap-1 text-xs font-medium text-zinc-700"
+                                                        className="h-7 gap-1 text-xs font-medium text-slate-700"
                                                     >
                                                         <Plus className="h-3.5 w-3.5" />
                                                         Assign
@@ -652,7 +652,7 @@ export default function ScheduleAssignments() {
                                 <Label>
                                     Select Employees
                                     {bulkForm.employee_ids.length > 0 && (
-                                        <span className="ml-2 inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                                        <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                                             {bulkForm.employee_ids.length} selected
                                         </span>
                                     )}
@@ -661,7 +661,7 @@ export default function ScheduleAssignments() {
                                     <button
                                         type="button"
                                         onClick={toggleAllEmployees}
-                                        className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+                                        className="text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
                                     >
                                         {filteredBulkEmployees.every((e) => bulkForm.employee_ids.includes(e.id))
                                             ? 'Deselect All'
@@ -672,19 +672,19 @@ export default function ScheduleAssignments() {
 
                             {/* Search */}
                             <div className="relative mb-2">
-                                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                                 <input
                                     type="text"
                                     placeholder="Search employees or departments..."
                                     value={bulkSearch}
                                     onChange={(e) => setBulkSearch(e.target.value)}
-                                    className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-300"
+                                    className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
                                 />
                             </div>
 
-                            <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200">
+                            <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
                                 {filteredBulkEmployees.length === 0 ? (
-                                    <p className="py-6 text-center text-sm text-zinc-400">No employees found</p>
+                                    <p className="py-6 text-center text-sm text-slate-400">No employees found</p>
                                 ) : (
                                     deptNames.map((dept) => {
                                         const deptEmps = employeesByDept[dept];
@@ -693,11 +693,11 @@ export default function ScheduleAssignments() {
                                         return (
                                             <div key={dept}>
                                                 {/* Department header */}
-                                                <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-3 py-2">
+                                                <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => toggleDeptCollapse(dept)}
-                                                        className="flex items-center gap-1 text-zinc-500 hover:text-zinc-700 transition-colors"
+                                                        className="flex items-center gap-1 text-slate-500 hover:text-slate-700 transition-colors"
                                                     >
                                                         {isCollapsed
                                                             ? <ChevronRight className="h-3.5 w-3.5" />
@@ -716,10 +716,10 @@ export default function ScheduleAssignments() {
                                                         onClick={() => toggleDeptCollapse(dept)}
                                                         className="flex flex-1 items-center justify-between"
                                                     >
-                                                        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                                                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                                                             {dept}
                                                         </span>
-                                                        <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs text-zinc-500">
+                                                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-500">
                                                             {deptEmps.filter((e) => bulkForm.employee_ids.includes(e.id)).length}/{deptEmps.length}
                                                         </span>
                                                     </button>
@@ -729,16 +729,16 @@ export default function ScheduleAssignments() {
                                                 {!isCollapsed && deptEmps.map((emp) => (
                                                     <label
                                                         key={emp.id}
-                                                        className="flex cursor-pointer items-center gap-2.5 border-b border-zinc-50 px-4 py-2 last:border-0 hover:bg-zinc-50 transition-colors"
+                                                        className="flex cursor-pointer items-center gap-2.5 border-b border-slate-50 px-4 py-2 last:border-0 hover:bg-slate-50 transition-colors"
                                                     >
                                                         <Checkbox
                                                             checked={bulkForm.employee_ids.includes(emp.id)}
                                                             onCheckedChange={() => toggleBulkEmployee(emp.id)}
                                                         />
                                                         <div className="flex flex-1 items-center justify-between">
-                                                            <span className="text-sm text-zinc-900">{emp.full_name}</span>
+                                                            <span className="text-sm text-slate-900">{emp.full_name}</span>
                                                             {emp.position?.name && (
-                                                                <span className="text-xs text-zinc-400">{emp.position?.name}</span>
+                                                                <span className="text-xs text-slate-400">{emp.position?.name}</span>
                                                             )}
                                                         </div>
                                                     </label>

@@ -69,7 +69,7 @@ export default function PayrollSettings() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -103,7 +103,7 @@ export default function PayrollSettings() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Unpaid Leave Divisor
                             </label>
                             <input
@@ -112,14 +112,14 @@ export default function PayrollSettings() {
                                 max="31"
                                 value={form.unpaid_leave_divisor}
                                 onChange={(e) => handleChange('unpaid_leave_divisor', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             />
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 Daily rate = Basic Salary / Divisor. Typically 26 (working days) or 22.
                             </p>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Pay Day
                             </label>
                             <input
@@ -128,9 +128,9 @@ export default function PayrollSettings() {
                                 max="31"
                                 value={form.pay_day}
                                 onChange={(e) => handleChange('pay_day', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             />
-                            <p className="mt-1 text-xs text-zinc-400">
+                            <p className="mt-1 text-xs text-slate-400">
                                 Day of month when salaries are disbursed.
                             </p>
                         </div>
@@ -147,21 +147,21 @@ export default function PayrollSettings() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div className="sm:col-span-2">
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Company Name</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Company Name</label>
                             <input
                                 type="text"
                                 value={form.company_name}
                                 onChange={(e) => handleChange('company_name', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. Syarikat ABC Sdn Bhd"
                             />
                         </div>
                         <div className="sm:col-span-2">
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Company Address</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Company Address</label>
                             <textarea
                                 value={form.company_address}
                                 onChange={(e) => handleChange('company_address', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 rows={3}
                                 placeholder="Full company address..."
                             />
@@ -179,32 +179,32 @@ export default function PayrollSettings() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">EPF Employer Number</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">EPF Employer Number</label>
                             <input
                                 type="text"
                                 value={form.company_epf_number}
                                 onChange={(e) => handleChange('company_epf_number', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. 12345678"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">SOCSO Employer Number</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">SOCSO Employer Number</label>
                             <input
                                 type="text"
                                 value={form.company_socso_number}
                                 onChange={(e) => handleChange('company_socso_number', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. 12345678"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Tax Employer Number (E Number)</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Tax Employer Number (E Number)</label>
                             <input
                                 type="text"
                                 value={form.company_tax_number}
                                 onChange={(e) => handleChange('company_tax_number', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. E12345678"
                             />
                         </div>
@@ -221,22 +221,22 @@ export default function PayrollSettings() {
                 <CardContent>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Bank Name</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Bank Name</label>
                             <input
                                 type="text"
                                 value={form.bank_name}
                                 onChange={(e) => handleChange('bank_name', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. Maybank"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Account Number</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Account Number</label>
                             <input
                                 type="text"
                                 value={form.bank_account}
                                 onChange={(e) => handleChange('bank_account', e.target.value)}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. 1234567890"
                             />
                         </div>

@@ -59,8 +59,8 @@ function CustomTooltip({ active, payload, label }) {
         return null;
     }
     return (
-        <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg">
-            <p className="text-sm font-medium text-zinc-900">{label}</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">{label}</p>
             {payload.map((entry) => (
                 <p key={entry.name} className="text-sm" style={{ color: entry.color }}>
                     {entry.name}: {entry.value}{typeof entry.value === 'number' && entry.value <= 100 ? '%' : ''}
@@ -74,11 +74,11 @@ function SkeletonChart() {
     return (
         <Card>
             <CardHeader>
-                <div className="h-5 w-40 animate-pulse rounded bg-zinc-200" />
-                <div className="h-3 w-56 animate-pulse rounded bg-zinc-200" />
+                <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+                <div className="h-3 w-56 animate-pulse rounded bg-slate-200" />
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] animate-pulse rounded bg-zinc-100" />
+                <div className="h-[300px] animate-pulse rounded bg-slate-100" />
             </CardContent>
         </Card>
     );
@@ -88,16 +88,16 @@ function SkeletonTable() {
     return (
         <Card>
             <CardHeader>
-                <div className="h-5 w-40 animate-pulse rounded bg-zinc-200" />
+                <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
             </CardHeader>
             <CardContent>
                 <div className="space-y-3">
                     {Array.from({ length: 5 }).map((_, i) => (
                         <div key={i} className="flex items-center gap-4">
-                            <div className="h-4 w-8 animate-pulse rounded bg-zinc-200" />
-                            <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                            <div className="h-4 w-8 animate-pulse rounded bg-slate-200" />
+                            <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                             <div className="flex-1" />
-                            <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
+                            <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
                         </div>
                     ))}
                 </div>
@@ -167,7 +167,7 @@ export default function AttendanceAnalytics() {
                 <CardContent className="p-4">
                     <div className="flex flex-wrap items-end gap-3">
                         <div>
-                            <Label className="mb-1 block text-xs text-zinc-500">From</Label>
+                            <Label className="mb-1 block text-xs text-slate-500">From</Label>
                             <Input
                                 type="date"
                                 value={dateFrom}
@@ -176,7 +176,7 @@ export default function AttendanceAnalytics() {
                             />
                         </div>
                         <div>
-                            <Label className="mb-1 block text-xs text-zinc-500">To</Label>
+                            <Label className="mb-1 block text-xs text-slate-500">To</Label>
                             <Input
                                 type="date"
                                 value={dateTo}
@@ -217,7 +217,7 @@ export default function AttendanceAnalytics() {
                     </CardHeader>
                     <CardContent>
                         {departments.length === 0 ? (
-                            <div className="flex h-[300px] items-center justify-center text-sm text-zinc-400">
+                            <div className="flex h-[300px] items-center justify-center text-sm text-slate-400">
                                 No department data available
                             </div>
                         ) : (
@@ -253,7 +253,7 @@ export default function AttendanceAnalytics() {
                     </CardHeader>
                     <CardContent>
                         {trends.length === 0 ? (
-                            <div className="flex h-[300px] items-center justify-center text-sm text-zinc-400">
+                            <div className="flex h-[300px] items-center justify-center text-sm text-slate-400">
                                 No trend data available
                             </div>
                         ) : (
@@ -290,8 +290,8 @@ export default function AttendanceAnalytics() {
                         <CardContent>
                             {topLateEmployees.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    <Clock className="mb-2 h-8 w-8 text-zinc-300" />
-                                    <p className="text-sm text-zinc-400">No late records found</p>
+                                    <Clock className="mb-2 h-8 w-8 text-slate-300" />
+                                    <p className="text-sm text-slate-400">No late records found</p>
                                 </div>
                             ) : (
                                 <Table>
@@ -307,19 +307,19 @@ export default function AttendanceAnalytics() {
                                     <TableBody>
                                         {topLateEmployees.map((emp, idx) => (
                                             <TableRow key={emp.employee_id}>
-                                                <TableCell className="text-sm font-medium text-zinc-500">
+                                                <TableCell className="text-sm font-medium text-slate-500">
                                                     {idx + 1}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <p className="text-sm font-medium text-zinc-900">{emp.full_name}</p>
+                                                    <p className="text-sm font-medium text-slate-900">{emp.full_name}</p>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-600">
+                                                <TableCell className="text-sm text-slate-600">
                                                     {emp.department || '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="font-medium text-amber-600">{emp.late_count}</span>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-600">
+                                                <TableCell className="text-sm text-slate-600">
                                                     {emp.total_late_minutes} min
                                                 </TableCell>
                                             </TableRow>
@@ -346,8 +346,8 @@ export default function AttendanceAnalytics() {
                         <CardContent>
                             {punctualityRanking.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    <Award className="mb-2 h-8 w-8 text-zinc-300" />
-                                    <p className="text-sm text-zinc-400">No data available</p>
+                                    <Award className="mb-2 h-8 w-8 text-slate-300" />
+                                    <p className="text-sm text-slate-400">No data available</p>
                                 </div>
                             ) : (
                                 <Table>
@@ -367,19 +367,19 @@ export default function AttendanceAnalytics() {
                                                         <span className={cn(
                                                             'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold',
                                                             idx === 0 && 'bg-yellow-100 text-yellow-700',
-                                                            idx === 1 && 'bg-zinc-200 text-zinc-700',
+                                                            idx === 1 && 'bg-slate-200 text-slate-700',
                                                             idx === 2 && 'bg-orange-100 text-orange-700'
                                                         )}>
                                                             {idx + 1}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-sm text-zinc-500">{idx + 1}</span>
+                                                        <span className="text-sm text-slate-500">{idx + 1}</span>
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <p className="text-sm font-medium text-zinc-900">{emp.full_name}</p>
+                                                    <p className="text-sm font-medium text-slate-900">{emp.full_name}</p>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-600">
+                                                <TableCell className="text-sm text-slate-600">
                                                     {emp.department || '-'}
                                                 </TableCell>
                                                 <TableCell>
@@ -415,7 +415,7 @@ export default function AttendanceAnalytics() {
                     </CardHeader>
                     <CardContent>
                         {overtimeStats.length === 0 ? (
-                            <div className="flex h-[250px] items-center justify-center text-sm text-zinc-400">
+                            <div className="flex h-[250px] items-center justify-center text-sm text-slate-400">
                                 No overtime data available
                             </div>
                         ) : (

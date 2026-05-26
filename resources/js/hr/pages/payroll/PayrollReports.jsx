@@ -127,10 +127,10 @@ export default function PayrollReports() {
                 <div className="space-y-3 p-6">
                     {Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="flex items-center gap-4 py-2">
-                            <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                            <div className="h-4 w-28 animate-pulse rounded bg-zinc-200" />
+                            <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                            <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
                             <div className="flex-1" />
-                            <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                            <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                         </div>
                     ))}
                 </div>
@@ -140,8 +140,8 @@ export default function PayrollReports() {
         if (reportData.length === 0) {
             return (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <BarChart3 className="mb-3 h-10 w-10 text-zinc-300" />
-                    <p className="text-sm font-medium text-zinc-500">No data available for the selected period</p>
+                    <BarChart3 className="mb-3 h-10 w-10 text-slate-300" />
+                    <p className="text-sm font-medium text-slate-500">No data available for the selected period</p>
                 </div>
             );
         }
@@ -165,7 +165,7 @@ export default function PayrollReports() {
                         {reportData.map((row, i) => (
                             <TableRow key={i}>
                                 <TableCell className="font-medium">{row.employee_name}</TableCell>
-                                <TableCell className="text-sm text-zinc-600">{row.department}</TableCell>
+                                <TableCell className="text-sm text-slate-600">{row.department}</TableCell>
                                 <TableCell>{formatCurrency(row.gross_pay)}</TableCell>
                                 <TableCell>{formatCurrency(row.epf_employee)}</TableCell>
                                 <TableCell>{formatCurrency(row.socso_employee)}</TableCell>
@@ -227,7 +227,7 @@ export default function PayrollReports() {
                         {reportData.map((row, i) => (
                             <TableRow key={i}>
                                 <TableCell className="font-medium">{row.employee_name}</TableCell>
-                                <TableCell className="text-sm text-zinc-600">{row.bank_name || '-'}</TableCell>
+                                <TableCell className="text-sm text-slate-600">{row.bank_name || '-'}</TableCell>
                                 <TableCell className="font-mono text-sm">{row.account_number || '-'}</TableCell>
                                 <TableCell className="font-medium text-emerald-600">{formatCurrency(row.net_pay)}</TableCell>
                             </TableRow>
@@ -283,7 +283,7 @@ export default function PayrollReports() {
                         <select
                             value={filterYear}
                             onChange={(e) => setFilterYear(parseInt(e.target.value))}
-                            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                         >
                             {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
                                 <option key={y} value={y}>{y}</option>
@@ -293,7 +293,7 @@ export default function PayrollReports() {
                             <select
                                 value={filterMonth}
                                 onChange={(e) => setFilterMonth(parseInt(e.target.value))}
-                                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 {MONTHS.map((m, i) => (
                                     <option key={i} value={i + 1}>{m}</option>
@@ -313,7 +313,7 @@ export default function PayrollReports() {
             </Card>
 
             {/* Report Tabs */}
-            <div className="border-b border-zinc-200">
+            <div className="border-b border-slate-200">
                 <nav className="flex gap-4">
                     {REPORT_TABS.map((tab) => (
                         <button
@@ -321,8 +321,8 @@ export default function PayrollReports() {
                             onClick={() => setActiveTab(tab.key)}
                             className={`pb-3 text-sm font-medium transition-colors ${
                                 activeTab === tab.key
-                                    ? 'border-b-2 border-zinc-900 text-zinc-900'
-                                    : 'text-zinc-500 hover:text-zinc-700'
+                                    ? 'border-b-2 border-slate-900 text-slate-900'
+                                    : 'text-slate-500 hover:text-slate-700'
                             }`}
                         >
                             {tab.label}

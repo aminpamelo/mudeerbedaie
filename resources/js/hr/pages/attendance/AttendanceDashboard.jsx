@@ -43,6 +43,7 @@ import {
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import PageHeader from '../../components/PageHeader';
+import { StatCard as V2StatCard } from '../../components/ui/stat-card';
 import { cn } from '../../lib/utils';
 import {
     fetchAnalyticsOverview,
@@ -72,7 +73,7 @@ const STATUS_COLORS = {
 };
 
 function AttendanceStatusBadge({ status }) {
-    const config = STATUS_COLORS[status] || { label: status, bg: 'bg-zinc-100', text: 'text-zinc-800' };
+    const config = STATUS_COLORS[status] || { label: status, bg: 'bg-slate-100', text: 'text-slate-800' };
     return (
         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', config.bg, config.text)}>
             {config.label}
@@ -86,10 +87,10 @@ function SkeletonCard() {
             <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                     <div className="space-y-3">
-                        <div className="h-3 w-24 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-8 w-16 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                        <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-12 w-12 animate-pulse rounded-lg bg-zinc-200" />
+                    <div className="h-12 w-12 animate-pulse rounded-lg bg-slate-200" />
                 </div>
             </CardContent>
         </Card>
@@ -100,33 +101,24 @@ function SkeletonChart() {
     return (
         <Card>
             <CardHeader>
-                <div className="h-5 w-40 animate-pulse rounded bg-zinc-200" />
-                <div className="h-3 w-56 animate-pulse rounded bg-zinc-200" />
+                <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+                <div className="h-3 w-56 animate-pulse rounded bg-slate-200" />
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] animate-pulse rounded bg-zinc-100" />
+                <div className="h-[300px] animate-pulse rounded bg-slate-100" />
             </CardContent>
         </Card>
     );
 }
 
-function StatCard({ title, value, icon: Icon, iconColor, iconBg, subtitle }) {
-    return (
-        <Card className="transition-shadow hover:shadow-md">
-            <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-zinc-500">{title}</p>
-                        <p className="text-3xl font-bold tracking-tight text-zinc-900">{value}</p>
-                        {subtitle && <p className="text-xs text-zinc-400">{subtitle}</p>}
-                    </div>
-                    <div className={cn('flex h-12 w-12 items-center justify-center rounded-lg', iconBg)}>
-                        <Icon className={cn('h-6 w-6', iconColor)} />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
+// Backwards-compat wrapper mapping the old API to the v2 colorful StatCard.
+function StatCard({ title, value, icon, iconColor, subtitle }) {
+    // Derive accent from iconColor like "text-emerald-600" → "emerald"
+    const match = iconColor?.match(/text-(\w+)-/);
+    const colorName = match ? match[1] : 'indigo';
+    const accentMap = { blue: 'sky', purple: 'violet', red: 'rose', green: 'emerald' };
+    const accent = accentMap[colorName] || colorName;
+    return <V2StatCard label={title} value={value} sub={subtitle} icon={icon} accent={accent} />;
 }
 
 function CustomTooltip({ active, payload, label }) {
@@ -134,10 +126,10 @@ function CustomTooltip({ active, payload, label }) {
         return null;
     }
     return (
-        <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg">
-            <p className="text-sm font-medium text-zinc-900">{label}</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg">
+            <p className="text-sm font-medium text-slate-900">{label}</p>
             {payload.map((entry) => (
-                <p key={entry.name} className="text-sm text-zinc-500">
+                <p key={entry.name} className="text-sm text-slate-500">
                     {entry.name}: {entry.value}
                 </p>
             ))}
@@ -283,10 +275,10 @@ export default function AttendanceDashboard() {
                                         />
                                     </RadialBarChart>
                                 </ResponsiveContainer>
-                                <p className="-mt-16 text-4xl font-bold text-zinc-900">
+                                <p className="-mt-16 text-4xl font-bold text-slate-900">
                                     {attendanceRate}%
                                 </p>
-                                <p className="mt-1 text-sm text-zinc-500">
+                                <p className="mt-1 text-sm text-slate-500">
                                     {attendanceRate >= 90 ? 'Excellent' : attendanceRate >= 75 ? 'Good' : 'Needs Improvement'}
                                 </p>
                             </div>
@@ -308,7 +300,7 @@ export default function AttendanceDashboard() {
                         </CardHeader>
                         <CardContent>
                             {trendData.length === 0 ? (
-                                <div className="flex h-[250px] items-center justify-center text-sm text-zinc-400">
+                                <div className="flex h-[250px] items-center justify-center text-sm text-slate-400">
                                     No trend data available
                                 </div>
                             ) : (
@@ -342,7 +334,7 @@ export default function AttendanceDashboard() {
                     </CardHeader>
                     <CardContent>
                         {deptChartData.length === 0 ? (
-                            <div className="flex h-[300px] items-center justify-center text-sm text-zinc-400">
+                            <div className="flex h-[300px] items-center justify-center text-sm text-slate-400">
                                 No department data available
                             </div>
                         ) : (
@@ -381,19 +373,19 @@ export default function AttendanceDashboard() {
                         <div className="space-y-3">
                             {Array.from({ length: 5 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                                    <div className="h-9 w-9 animate-pulse rounded-full bg-zinc-200" />
+                                    <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200" />
                                     <div className="flex-1 space-y-2">
-                                        <div className="h-4 w-48 animate-pulse rounded bg-zinc-200" />
-                                        <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />
+                                        <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+                                        <div className="h-3 w-32 animate-pulse rounded bg-slate-200" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : todayRecords.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <UserCheck className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No attendance records yet</p>
-                            <p className="text-xs text-zinc-400">Records will appear as employees clock in</p>
+                            <UserCheck className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No attendance records yet</p>
+                            <p className="text-xs text-slate-400">Records will appear as employees clock in</p>
                         </div>
                     ) : (
                         <Table>
@@ -413,21 +405,21 @@ export default function AttendanceDashboard() {
                                     <TableRow key={record.id}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
+                                                <p className="text-sm font-medium text-slate-900">
                                                     {record.employee?.full_name || 'Unknown'}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-slate-500">
                                                     {record.employee?.employee_id || ''}
                                                 </p>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {record.employee?.department?.name || '-'}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-900">
+                                        <TableCell className="text-sm text-slate-900">
                                             {formatTime(record.clock_in)}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-900">
+                                        <TableCell className="text-sm text-slate-900">
                                             {formatTime(record.clock_out)}
                                         </TableCell>
                                         <TableCell>
@@ -446,10 +438,10 @@ export default function AttendanceDashboard() {
                                                     View Map
                                                 </a>
                                             ) : (
-                                                <span className="text-xs text-zinc-400">-</span>
+                                                <span className="text-xs text-slate-400">-</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {record.late_minutes > 0 ? (
                                                 <span className="font-medium text-amber-600">{record.late_minutes}</span>
                                             ) : (

@@ -285,22 +285,22 @@ export default function MeetingCreate() {
                     <CardContent>
                         <div className="max-h-60 space-y-1 overflow-y-auto">
                             {employees.length === 0 && (
-                                <p className="text-sm text-zinc-500">No employees found.</p>
+                                <p className="text-sm text-slate-500">No employees found.</p>
                             )}
                             {employees.map((emp) => (
                                 <label
                                     key={emp.id}
-                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50"
+                                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50"
                                 >
                                     <input
                                         type="checkbox"
                                         checked={form.attendee_ids.includes(String(emp.id))}
                                         onChange={() => toggleAttendee(emp.id)}
-                                        className="h-4 w-4 rounded border-zinc-300"
+                                        className="h-4 w-4 rounded border-slate-300"
                                     />
                                     <div>
-                                        <p className="text-sm font-medium text-zinc-900">{emp.full_name}</p>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-sm font-medium text-slate-900">{emp.full_name}</p>
+                                        <p className="text-xs text-slate-500">
                                             {emp.department?.name || ''} {emp.position?.title ? `- ${emp.position.title}` : ''}
                                         </p>
                                     </div>
@@ -308,7 +308,7 @@ export default function MeetingCreate() {
                             ))}
                         </div>
                         {form.attendee_ids.length > 0 && (
-                            <p className="mt-2 text-xs text-zinc-500">
+                            <p className="mt-2 text-xs text-slate-500">
                                 {form.attendee_ids.length} attendee{form.attendee_ids.length !== 1 ? 's' : ''} selected
                             </p>
                         )}
@@ -326,16 +326,16 @@ export default function MeetingCreate() {
                     </CardHeader>
                     <CardContent>
                         {form.agenda_items.length === 0 ? (
-                            <p className="text-sm text-zinc-500">No agenda items added yet.</p>
+                            <p className="text-sm text-slate-500">No agenda items added yet.</p>
                         ) : (
                             <div className="space-y-3">
                                 {form.agenda_items.map((item, index) => (
                                     <div
                                         key={index}
-                                        className="flex items-start gap-3 rounded-lg border border-zinc-200 p-3"
+                                        className="flex items-start gap-3 rounded-lg border border-slate-200 p-3"
                                     >
                                         <div className="flex items-center pt-2.5">
-                                            <GripVertical className="h-4 w-4 text-zinc-400" />
+                                            <GripVertical className="h-4 w-4 text-slate-400" />
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <Input

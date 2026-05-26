@@ -56,12 +56,12 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                     <div className="flex flex-1 gap-2">
-                        <div className="h-6 w-20 animate-pulse rounded-full bg-zinc-200" />
-                        <div className="h-6 w-24 animate-pulse rounded-full bg-zinc-200" />
+                        <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200" />
+                        <div className="h-6 w-24 animate-pulse rounded-full bg-slate-200" />
                     </div>
-                    <div className="h-8 w-20 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -71,9 +71,9 @@ function SkeletonTable() {
 function EmptyState() {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-            <ShieldCheck className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">No leave approvers configured</h3>
-            <p className="mt-1 text-sm text-zinc-500">
+            <ShieldCheck className="mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">No leave approvers configured</h3>
+            <p className="mt-1 text-sm text-slate-500">
                 Set up leave approvers per department to enable the approval workflow.
             </p>
         </div>
@@ -82,7 +82,7 @@ function EmptyState() {
 
 function TieredApproverBadges({ approversByTier }) {
     if (!approversByTier || Object.keys(approversByTier).length === 0) {
-        return <span className="text-sm text-zinc-400">Not assigned</span>;
+        return <span className="text-sm text-slate-400">Not assigned</span>;
     }
 
     const sortedTiers = Object.entries(approversByTier).sort(([a], [b]) => Number(a) - Number(b));
@@ -91,7 +91,7 @@ function TieredApproverBadges({ approversByTier }) {
         <div className="space-y-1">
             {sortedTiers.map(([tier, approvers]) => (
                 <div key={tier} className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-zinc-400 uppercase shrink-0">T{tier}</span>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase shrink-0">T{tier}</span>
                     <div className="flex flex-wrap gap-1">
                         {(approvers || []).map((approver) => (
                             <Badge key={approver.id} variant="secondary" className="text-xs">
@@ -116,11 +116,11 @@ function TierBlock({ tierData, tierIndex, totalTiers, employees, onToggle, onRem
     });
 
     return (
-        <div className="rounded-lg border border-zinc-200">
-            <div className="flex items-center justify-between bg-zinc-50 px-3 py-1.5 rounded-t-lg border-b border-zinc-200">
-                <span className="text-xs font-semibold text-zinc-600">
+        <div className="rounded-lg border border-slate-200">
+            <div className="flex items-center justify-between bg-slate-50 px-3 py-1.5 rounded-t-lg border-b border-slate-200">
+                <span className="text-xs font-semibold text-slate-600">
                     Tier {tierData.tier}
-                    <span className="ml-1.5 text-zinc-400 font-normal">
+                    <span className="ml-1.5 text-slate-400 font-normal">
                         ({tierData.employee_ids.length} approver{tierData.employee_ids.length !== 1 ? 's' : ''})
                     </span>
                 </span>
@@ -136,8 +136,8 @@ function TierBlock({ tierData, tierIndex, totalTiers, employees, onToggle, onRem
                     </Button>
                 )}
             </div>
-            <div className="relative border-b border-zinc-100 px-2 py-1.5">
-                <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+            <div className="relative border-b border-slate-100 px-2 py-1.5">
+                <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -147,19 +147,19 @@ function TierBlock({ tierData, tierIndex, totalTiers, employees, onToggle, onRem
             </div>
             <div className="max-h-28 space-y-1 overflow-y-auto p-2">
                 {filtered.length === 0 ? (
-                    <p className="py-2 text-center text-xs text-zinc-400">No employees found</p>
+                    <p className="py-2 text-center text-xs text-slate-400">No employees found</p>
                 ) : (
                     filtered.map((emp) => (
                         <label
                             key={emp.id}
-                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-zinc-50"
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-slate-50"
                         >
                             <Checkbox
                                 checked={tierData.employee_ids.includes(emp.id)}
                                 onCheckedChange={() => onToggle(emp.id)}
                             />
-                            <span className="text-sm text-zinc-900">{emp.full_name}</span>
-                            <span className="text-xs text-zinc-400">{emp.department?.name}</span>
+                            <span className="text-sm text-slate-900">{emp.full_name}</span>
+                            <span className="text-xs text-slate-400">{emp.department?.name}</span>
                         </label>
                     ))
                 )}

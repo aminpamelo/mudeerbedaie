@@ -130,8 +130,8 @@ function formatFileSize(bytes) {
 function InfoRow({ label, value }) {
     return (
         <div className="py-3">
-            <dt className="text-sm font-medium text-zinc-500">{label}</dt>
-            <dd className="mt-1 text-sm text-zinc-900">{value || '-'}</dd>
+            <dt className="text-sm font-medium text-slate-500">{label}</dt>
+            <dd className="mt-1 text-sm text-slate-900">{value || '-'}</dd>
         </div>
     );
 }
@@ -362,7 +362,7 @@ export default function EmployeeShow() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900" />
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-900" />
             </div>
         );
     }
@@ -370,8 +370,8 @@ export default function EmployeeShow() {
     if (!emp.id) {
         return (
             <div className="py-20 text-center">
-                <p className="text-zinc-500">Employee not found.</p>
-                <Link to="/employees" className="mt-4 inline-block text-sm text-zinc-900 underline">
+                <p className="text-slate-500">Employee not found.</p>
+                <Link to="/employees" className="mt-4 inline-block text-sm text-slate-900 underline">
                     Back to Employees
                 </Link>
             </div>
@@ -383,7 +383,7 @@ export default function EmployeeShow() {
             {/* Back link */}
             <Link
                 to="/employees"
-                className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Employees
@@ -394,7 +394,7 @@ export default function EmployeeShow() {
                 <div className="flex items-start gap-4">
                     {/* Avatar with photo upload */}
                     <div className="relative group">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-lg font-semibold text-white overflow-hidden">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-slate-900 text-lg font-semibold text-white overflow-hidden">
                             {photoUploading ? (
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                             ) : emp.profile_photo_url ? (
@@ -434,10 +434,10 @@ export default function EmployeeShow() {
                         />
                     </div>
                     <div className="space-y-1">
-                        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                             {fullName}
                         </h1>
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-slate-500">
                             {[emp.employee_id, emp.department?.name, emp.position?.name]
                                 .filter(Boolean)
                                 .join(' \u00B7 ')}
@@ -446,7 +446,7 @@ export default function EmployeeShow() {
                             <StatusBadge status={emp.status} />
                         </div>
                         {emp.join_date && (
-                            <p className="text-xs text-zinc-400">
+                            <p className="text-xs text-slate-400">
                                 Joined {formatDate(emp.join_date)} &middot; {calculateTenure(emp.join_date)}
                             </p>
                         )}
@@ -475,9 +475,9 @@ export default function EmployeeShow() {
                                     className="fixed inset-0 z-40"
                                     onClick={() => setShowActionsMenu(false)}
                                 />
-                                <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
+                                <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                                     <button
-                                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100"
+                                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                                         onClick={() => {
                                             setShowActionsMenu(false);
                                             setStatusForm({
@@ -509,7 +509,7 @@ export default function EmployeeShow() {
             </div>
 
             {/* Tabs */}
-            <div className="border-b border-zinc-200">
+            <div className="border-b border-slate-200">
                 <nav className="-mb-px flex gap-4 overflow-x-auto" aria-label="Tabs">
                     {TABS.map((tab) => (
                         <button
@@ -518,8 +518,8 @@ export default function EmployeeShow() {
                             className={cn(
                                 'whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors',
                                 activeTab === tab.id
-                                    ? 'border-zinc-900 text-zinc-900'
-                                    : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
+                                    ? 'border-slate-900 text-slate-900'
+                                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
                             )}
                         >
                             {tab.label}
@@ -610,7 +610,7 @@ export default function EmployeeShow() {
                         <div className="space-y-2">
                             <Label>Remarks</Label>
                             <textarea
-                                className="flex min-h-[80px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                                className="flex min-h-[80px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                                 value={statusForm.remarks}
                                 onChange={(e) =>
                                     setStatusForm((prev) => ({
@@ -695,7 +695,7 @@ export default function EmployeeShow() {
                         <div className="space-y-2">
                             <Label>Notes</Label>
                             <textarea
-                                className="flex min-h-[80px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                                className="flex min-h-[80px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                                 value={uploadForm.notes}
                                 onChange={(e) =>
                                     setUploadForm((prev) => ({ ...prev, notes: e.target.value }))
@@ -789,7 +789,7 @@ export default function EmployeeShow() {
                         <div className="space-y-2">
                             <Label>Address</Label>
                             <textarea
-                                className="flex min-h-[80px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                                className="flex min-h-[80px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                                 value={contactForm.address}
                                 onChange={(e) =>
                                     setContactForm((prev) => ({
@@ -874,7 +874,7 @@ function PersonalTab({ employee, showIc, setShowIc }) {
                                     <button
                                         type="button"
                                         onClick={() => setShowIc(!showIc)}
-                                        className="text-zinc-400 hover:text-zinc-700"
+                                        className="text-slate-400 hover:text-slate-700"
                                     >
                                         {showIc ? (
                                             <EyeOff className="h-4 w-4" />
@@ -959,7 +959,7 @@ function BankTab({ employee, showAccount, setShowAccount }) {
                                     <button
                                         type="button"
                                         onClick={() => setShowAccount(!showAccount)}
-                                        className="text-zinc-400 hover:text-zinc-700"
+                                        className="text-slate-400 hover:text-slate-700"
                                     >
                                         {showAccount ? (
                                             <EyeOff className="h-4 w-4" />
@@ -992,35 +992,35 @@ function DocumentsTab({ documents, onUpload, onDelete }) {
             </CardHeader>
             <CardContent>
                 {documents.length === 0 ? (
-                    <div className="py-8 text-center text-sm text-zinc-500">
-                        <FileText className="mx-auto h-8 w-8 text-zinc-300" />
+                    <div className="py-8 text-center text-sm text-slate-500">
+                        <FileText className="mx-auto h-8 w-8 text-slate-300" />
                         <p className="mt-2">No documents uploaded yet.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-zinc-200 text-left">
-                                    <th className="pb-3 pr-4 font-medium text-zinc-500">Type</th>
-                                    <th className="pb-3 pr-4 font-medium text-zinc-500">File Name</th>
-                                    <th className="pb-3 pr-4 font-medium text-zinc-500">Upload Date</th>
-                                    <th className="pb-3 pr-4 font-medium text-zinc-500">Size</th>
-                                    <th className="pb-3 font-medium text-zinc-500">Actions</th>
+                                <tr className="border-b border-slate-200 text-left">
+                                    <th className="pb-3 pr-4 font-medium text-slate-500">Type</th>
+                                    <th className="pb-3 pr-4 font-medium text-slate-500">File Name</th>
+                                    <th className="pb-3 pr-4 font-medium text-slate-500">Upload Date</th>
+                                    <th className="pb-3 pr-4 font-medium text-slate-500">Size</th>
+                                    <th className="pb-3 font-medium text-slate-500">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {documents.map((doc) => (
-                                    <tr key={doc.id} className="border-b border-zinc-100">
+                                    <tr key={doc.id} className="border-b border-slate-100">
                                         <td className="py-3 pr-4">
                                             <Badge variant="secondary">{doc.document_type}</Badge>
                                         </td>
-                                        <td className="py-3 pr-4 text-zinc-900">
+                                        <td className="py-3 pr-4 text-slate-900">
                                             {doc.original_name || doc.file_name}
                                         </td>
-                                        <td className="py-3 pr-4 text-zinc-500">
+                                        <td className="py-3 pr-4 text-slate-500">
                                             {formatDate(doc.created_at)}
                                         </td>
-                                        <td className="py-3 pr-4 text-zinc-500">
+                                        <td className="py-3 pr-4 text-slate-500">
                                             {formatFileSize(doc.file_size)}
                                         </td>
                                         <td className="py-3">
@@ -1030,13 +1030,13 @@ function DocumentsTab({ documents, onUpload, onDelete }) {
                                                         href={doc.download_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-zinc-500 hover:text-zinc-900"
+                                                        className="text-slate-500 hover:text-slate-900"
                                                     >
                                                         <Download className="h-4 w-4" />
                                                     </a>
                                                 )}
                                                 <button
-                                                    className="text-zinc-500 hover:text-red-600"
+                                                    className="text-slate-500 hover:text-red-600"
                                                     onClick={() => onDelete(doc.id)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -1058,7 +1058,7 @@ function ContactsTab({ contacts, onAdd, onEdit, onDelete }) {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-zinc-900">Emergency Contacts</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Emergency Contacts</h3>
                 <Button size="sm" onClick={onAdd}>
                     <Plus className="h-4 w-4" />
                     Add Contact
@@ -1066,8 +1066,8 @@ function ContactsTab({ contacts, onAdd, onEdit, onDelete }) {
             </div>
             {contacts.length === 0 ? (
                 <Card>
-                    <CardContent className="py-8 text-center text-sm text-zinc-500">
-                        <Phone className="mx-auto h-8 w-8 text-zinc-300" />
+                    <CardContent className="py-8 text-center text-sm text-slate-500">
+                        <Phone className="mx-auto h-8 w-8 text-slate-300" />
                         <p className="mt-2">No emergency contacts added yet.</p>
                     </CardContent>
                 </Card>
@@ -1079,19 +1079,19 @@ function ContactsTab({ contacts, onAdd, onEdit, onDelete }) {
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-2">
                                         <div>
-                                            <p className="font-medium text-zinc-900">
+                                            <p className="font-medium text-slate-900">
                                                 {contact.name}
                                             </p>
-                                            <p className="text-sm text-zinc-500">
+                                            <p className="text-sm text-slate-500">
                                                 {contact.relationship}
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-sm text-zinc-600">
+                                        <div className="flex items-center gap-1.5 text-sm text-slate-600">
                                             <Phone className="h-3.5 w-3.5" />
                                             {contact.phone}
                                         </div>
                                         {contact.address && (
-                                            <div className="flex items-start gap-1.5 text-sm text-zinc-600">
+                                            <div className="flex items-start gap-1.5 text-sm text-slate-600">
                                                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                                                 {contact.address}
                                             </div>
@@ -1099,13 +1099,13 @@ function ContactsTab({ contacts, onAdd, onEdit, onDelete }) {
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <button
-                                            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                                             onClick={() => onEdit(contact)}
                                         >
                                             <Pencil className="h-4 w-4" />
                                         </button>
                                         <button
-                                            className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                                            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                                             onClick={() => onDelete(contact.id)}
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -1125,8 +1125,8 @@ function HistoryTab({ history }) {
     if (!history || history.length === 0) {
         return (
             <Card>
-                <CardContent className="py-8 text-center text-sm text-zinc-500">
-                    <Clock className="mx-auto h-8 w-8 text-zinc-300" />
+                <CardContent className="py-8 text-center text-sm text-slate-500">
+                    <Clock className="mx-auto h-8 w-8 text-slate-300" />
                     <p className="mt-2">No history records yet.</p>
                 </CardContent>
             </Card>
@@ -1135,16 +1135,16 @@ function HistoryTab({ history }) {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-zinc-900">Change History</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Change History</h3>
             <div className="relative space-y-0">
                 {/* Timeline line */}
-                <div className="absolute left-5 top-0 h-full w-px bg-zinc-200" />
+                <div className="absolute left-5 top-0 h-full w-px bg-slate-200" />
 
                 {history.map((entry, index) => {
                     const config =
                         CHANGE_TYPE_CONFIG[entry.change_type] || {
                             icon: Pencil,
-                            color: 'text-zinc-600 bg-zinc-100',
+                            color: 'text-slate-600 bg-slate-100',
                         };
                     const Icon = config.icon;
 
@@ -1160,7 +1160,7 @@ function HistoryTab({ history }) {
                             </div>
                             <div className="flex-1 pt-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-medium text-zinc-900">
+                                    <span className="text-sm font-medium text-slate-900">
                                         {formatDate(entry.effective_date || entry.created_at)}
                                     </span>
                                     <Badge variant="secondary">
@@ -1168,26 +1168,26 @@ function HistoryTab({ history }) {
                                     </Badge>
                                 </div>
                                 {entry.field_name && (
-                                    <p className="mt-1 text-sm text-zinc-600">
+                                    <p className="mt-1 text-sm text-slate-600">
                                         <span className="font-medium">
                                             {entry.field_name.replace(/_/g, ' ')}:
                                         </span>{' '}
-                                        <span className="text-zinc-400">
+                                        <span className="text-slate-400">
                                             {entry.old_value || '(empty)'}
                                         </span>{' '}
-                                        <span className="text-zinc-400">&rarr;</span>{' '}
-                                        <span className="font-medium text-zinc-900">
+                                        <span className="text-slate-400">&rarr;</span>{' '}
+                                        <span className="font-medium text-slate-900">
                                             {entry.new_value || '(empty)'}
                                         </span>
                                     </p>
                                 )}
                                 {entry.changed_by_name && (
-                                    <p className="mt-0.5 text-xs text-zinc-400">
+                                    <p className="mt-0.5 text-xs text-slate-400">
                                         Changed by: {entry.changed_by_name}
                                     </p>
                                 )}
                                 {entry.remarks && (
-                                    <p className="mt-1 text-sm italic text-zinc-500">
+                                    <p className="mt-1 text-sm italic text-slate-500">
                                         {entry.remarks}
                                     </p>
                                 )}

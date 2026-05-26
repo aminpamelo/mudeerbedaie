@@ -75,7 +75,7 @@ function ComponentTypeBadge({ type }) {
 
 function CheckIcon({ checked }) {
     return (
-        <span className={cn('text-xs font-medium', checked ? 'text-emerald-600' : 'text-zinc-300')}>
+        <span className={cn('text-xs font-medium', checked ? 'text-emerald-600' : 'text-slate-300')}>
             {checked ? 'Yes' : 'No'}
         </span>
     );
@@ -170,17 +170,17 @@ export default function SalaryComponents() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 6 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                                    <div className="h-4 w-16 animate-pulse rounded bg-zinc-200" />
+                                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-16 animate-pulse rounded bg-slate-200" />
                                     <div className="flex-1" />
-                                    <div className="h-6 w-20 animate-pulse rounded-full bg-zinc-200" />
+                                    <div className="h-6 w-20 animate-pulse rounded-full bg-slate-200" />
                                 </div>
                             ))}
                         </div>
                     ) : components.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Settings2 className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No salary components</p>
+                            <Settings2 className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-500">No salary components</p>
                         </div>
                     ) : (
                         <Table>
@@ -204,18 +204,18 @@ export default function SalaryComponents() {
                                         <TableCell>
                                             <div className="flex items-center gap-1.5">
                                                 {comp.is_system && (
-                                                    <Lock className="h-3.5 w-3.5 text-zinc-400" title="System component" />
+                                                    <Lock className="h-3.5 w-3.5 text-slate-400" title="System component" />
                                                 )}
-                                                <span className="font-medium text-zinc-900">{comp.name}</span>
+                                                <span className="font-medium text-slate-900">{comp.name}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-700">{comp.code}</code>
+                                            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">{comp.code}</code>
                                         </TableCell>
                                         <TableCell>
                                             <ComponentTypeBadge type={comp.type} />
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-slate-600">
                                             {CATEGORY_LABELS[comp.category] || comp.category}
                                         </TableCell>
                                         <TableCell><CheckIcon checked={comp.is_taxable} /></TableCell>
@@ -225,7 +225,7 @@ export default function SalaryComponents() {
                                         <TableCell>
                                             <span className={cn(
                                                 'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-                                                comp.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500',
+                                                comp.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500',
                                             )}>
                                                 {comp.is_active ? 'Active' : 'Inactive'}
                                             </span>
@@ -246,7 +246,7 @@ export default function SalaryComponents() {
                                                     </Button>
                                                 </div>
                                             ) : (
-                                                <span className="text-xs text-zinc-400">System</span>
+                                                <span className="text-xs text-slate-400">System</span>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -268,51 +268,51 @@ export default function SalaryComponents() {
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Name</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Name</label>
                             <input
                                 type="text"
                                 value={form.name}
                                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                                 placeholder="e.g. Housing Allowance"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Code</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Code</label>
                             <input
                                 type="text"
                                 value={form.code}
                                 onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none font-mono"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none font-mono"
                                 placeholder="e.g. HOUSING"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Sort Order</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Sort Order</label>
                             <input
                                 type="number"
                                 value={form.sort_order}
                                 onChange={(e) => setForm((p) => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Type</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Type</label>
                             <select
                                 value={form.type}
                                 onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="earning">Earning</option>
                                 <option value="deduction">Deduction</option>
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Category</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Category</label>
                             <select
                                 value={form.category}
                                 onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                             >
                                 {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                                     <option key={key} value={key}>{label}</option>
@@ -321,7 +321,7 @@ export default function SalaryComponents() {
                         </div>
 
                         <div className="col-span-2">
-                            <p className="mb-2 text-sm font-medium text-zinc-700">Statutory Applicability</p>
+                            <p className="mb-2 text-sm font-medium text-slate-700">Statutory Applicability</p>
                             <div className="grid grid-cols-2 gap-2">
                                 {[
                                     { key: 'is_taxable', label: 'Taxable' },
@@ -329,7 +329,7 @@ export default function SalaryComponents() {
                                     { key: 'is_socso_applicable', label: 'SOCSO' },
                                     { key: 'is_eis_applicable', label: 'EIS' },
                                 ].map(({ key, label }) => (
-                                    <label key={key} className="flex items-center gap-2 text-sm text-zinc-700">
+                                    <label key={key} className="flex items-center gap-2 text-sm text-slate-700">
                                         <input
                                             type="checkbox"
                                             checked={form[key]}

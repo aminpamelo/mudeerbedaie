@@ -120,13 +120,13 @@ export default function AssetCategories() {
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : categories.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Tag className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-600">No categories defined</p>
-                            <p className="mt-1 text-xs text-zinc-400">Add asset categories to organise your inventory.</p>
+                            <Tag className="mb-3 h-10 w-10 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No categories defined</p>
+                            <p className="mt-1 text-xs text-slate-400">Add asset categories to organise your inventory.</p>
                         </div>
                     ) : (
                         <Table>
@@ -145,22 +145,22 @@ export default function AssetCategories() {
                                         <TableCell>
                                             <p className="font-medium">{category.name}</p>
                                             {category.description && (
-                                                <p className="text-xs text-zinc-400">{category.description}</p>
+                                                <p className="text-xs text-slate-400">{category.description}</p>
                                             )}
                                         </TableCell>
-                                        <TableCell className="font-mono text-sm text-zinc-500">{category.code}</TableCell>
+                                        <TableCell className="font-mono text-sm text-slate-500">{category.code}</TableCell>
                                         <TableCell>
                                             {category.requires_serial_number ? (
                                                 <span className="text-xs font-medium text-emerald-600">Yes</span>
                                             ) : (
-                                                <span className="text-xs text-zinc-400">No</span>
+                                                <span className="text-xs text-slate-400">No</span>
                                             )}
                                         </TableCell>
                                         <TableCell>
                                             {category.is_active ? (
                                                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Active</span>
                                             ) : (
-                                                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">Inactive</span>
+                                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">Inactive</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -198,23 +198,23 @@ export default function AssetCategories() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Name *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Name *</label>
                                 <input
                                     type="text"
                                     value={form.name}
                                     onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                 />
                                 {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name[0]}</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Code *</label>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Code *</label>
                                 <input
                                     type="text"
                                     value={form.code}
                                     onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                     required
                                     maxLength={20}
                                 />
@@ -222,16 +222,16 @@ export default function AssetCategories() {
                             </div>
                         </div>
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Description</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Description</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 rows={2}
                             />
                         </div>
                         <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={form.requires_serial_number}
@@ -240,7 +240,7 @@ export default function AssetCategories() {
                                 />
                                 Requires Serial Number
                             </label>
-                            <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={form.is_active}

@@ -79,17 +79,17 @@ function getColorForDepth(depth) {
 
 function ZoomControls({ scale, onZoomIn, onZoomOut, onReset, isFullscreen, onToggleFullscreen }) {
     return (
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
             <Button variant="ghost" size="sm" onClick={onZoomOut} title="Zoom Out">
                 <ZoomOut className="h-4 w-4" />
             </Button>
-            <span className="px-2 text-xs font-medium text-zinc-500 tabular-nums">
+            <span className="px-2 text-xs font-medium text-slate-500 tabular-nums">
                 {Math.round(scale * 100)}%
             </span>
             <Button variant="ghost" size="sm" onClick={onZoomIn} title="Zoom In">
                 <ZoomIn className="h-4 w-4" />
             </Button>
-            <div className="mx-1 h-4 w-px bg-zinc-200" />
+            <div className="mx-1 h-4 w-px bg-slate-200" />
             <Button variant="ghost" size="sm" onClick={onToggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
                 {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </Button>
@@ -140,12 +140,12 @@ function PersonCard({ person, isHighlighted, onClick }) {
                     </span>
                 ))}
 
-                <p className="text-sm font-bold text-zinc-900 leading-tight">
+                <p className="text-sm font-bold text-slate-900 leading-tight">
                     {person.full_name}
                 </p>
 
                 {person.department && (
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                         {person.department.name}
                     </p>
                 )}
@@ -192,7 +192,7 @@ function EmployeeTreeBranch({ person, searchTerm, onPersonClick }) {
 
             {hasChildren && (
                 <>
-                    <div className="w-px h-5 bg-zinc-300" />
+                    <div className="w-px h-5 bg-slate-300" />
                     <div className="relative">
                         {children.length > 1 && (
                             <div className="absolute top-0 left-0 right-0 flex">
@@ -205,7 +205,7 @@ function EmployeeTreeBranch({ person, searchTerm, onPersonClick }) {
                         <div className="flex gap-2 sm:gap-4 relative">
                             {children.length > 1 && (
                                 <div
-                                    className="absolute top-0 h-px bg-zinc-300"
+                                    className="absolute top-0 h-px bg-slate-300"
                                     style={{
                                         left: `${100 / (children.length * 2)}%`,
                                         right: `${100 / (children.length * 2)}%`,
@@ -214,7 +214,7 @@ function EmployeeTreeBranch({ person, searchTerm, onPersonClick }) {
                             )}
                             {children.map((child) => (
                                 <div key={child.id} className="flex flex-col items-center">
-                                    <div className="w-px h-5 bg-zinc-300" />
+                                    <div className="w-px h-5 bg-slate-300" />
                                     <EmployeeTreeBranch
                                         person={child}
                                         searchTerm={searchTerm}
@@ -310,7 +310,7 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                             </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                            <p className="font-bold text-zinc-900">{person.full_name}</p>
+                            <p className="font-bold text-slate-900">{person.full_name}</p>
                             {(person.positions?.length > 0 ? person.positions : person.position ? [person.position] : []).map((pos, i) => (
                                 <span key={pos.id ?? i} className={cn(
                                     'inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mr-1',
@@ -320,18 +320,18 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                                 </span>
                             ))}
                             {person.department && (
-                                <p className="text-xs text-zinc-500 mt-0.5">{person.department.name}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{person.department.name}</p>
                             )}
                         </div>
                     </div>
                 </div>
 
                 {currentManager && (
-                    <div className="rounded-lg bg-zinc-50 border border-zinc-200 px-3 py-2 text-sm">
-                        <span className="text-zinc-500">Currently reports to: </span>
-                        <span className="font-medium text-zinc-900">{currentManager.full_name}</span>
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                        <span className="text-slate-500">Currently reports to: </span>
+                        <span className="font-medium text-slate-900">{currentManager.full_name}</span>
                         {currentManager.position?.title && (
-                            <span className="text-zinc-400"> — {currentManager.position.title}</span>
+                            <span className="text-slate-400"> — {currentManager.position.title}</span>
                         )}
                     </div>
                 )}
@@ -344,7 +344,7 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">
-                                <span className="text-zinc-500">No manager (top level)</span>
+                                <span className="text-slate-500">No manager (top level)</span>
                             </SelectItem>
                             {eligibleManagers.map((emp) => {
                                 const posLabels = (emp.positions?.length > 0 ? emp.positions : emp.position ? [emp.position] : []).map(p => p.title).join(', ');
@@ -353,7 +353,7 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                                         <div className="flex items-center gap-2">
                                             <span>{emp.full_name}</span>
                                             {posLabels && (
-                                                <span className="text-zinc-400 text-xs">— {posLabels}</span>
+                                                <span className="text-slate-400 text-xs">— {posLabels}</span>
                                             )}
                                         </div>
                                     </SelectItem>
@@ -364,7 +364,7 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                 </div>
 
                 <DialogFooter className="flex-row justify-between sm:justify-between">
-                    <Button variant="ghost" size="sm" onClick={() => onViewProfile?.(person.id)} className="text-zinc-500">
+                    <Button variant="ghost" size="sm" onClick={() => onViewProfile?.(person.id)} className="text-slate-500">
                         <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                         View Profile
                     </Button>
@@ -442,7 +442,7 @@ function EmployeeView() {
     if (isLoading) {
         return (
             <div className="flex h-96 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -450,7 +450,7 @@ function EmployeeView() {
     if (error) {
         return (
             <div className="flex h-96 flex-col items-center justify-center gap-2">
-                <p className="text-sm text-zinc-500">Failed to load organization chart</p>
+                <p className="text-sm text-slate-500">Failed to load organization chart</p>
                 <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Try Again</Button>
             </div>
         );
@@ -494,13 +494,13 @@ function EmployeeView() {
                     {Object.entries(LEVEL_COLORS).map(([level, colors]) => (
                         <div key={level} className="flex items-center gap-1.5">
                             <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
-                            <span className="text-zinc-500">Level {level}</span>
+                            <span className="text-slate-500">Level {level}</span>
                         </div>
                     ))}
                 </div>
 
                 {/* Tree */}
-                <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
+                <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
                     <div className="w-fit min-w-full" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease' }}>
                         {tree.length === 0 ? (
                             <EmptyState icon={Building2} title="No employees found" subtitle="Add employees and set their 'Reports To' to build the org chart" />
@@ -550,7 +550,7 @@ function DepartmentCard({ dept, depth, isHighlighted, onClick }) {
                 <div className="px-4 py-3 border-b border-inherit">
                     <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-zinc-900 leading-tight truncate">
+                            <p className="text-sm font-bold text-slate-900 leading-tight truncate">
                                 {dept.name}
                             </p>
                         </div>
@@ -578,12 +578,12 @@ function DepartmentCard({ dept, depth, isHighlighted, onClick }) {
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-medium text-zinc-800 truncate leading-tight flex items-center gap-1">
+                                        <p className="text-xs font-medium text-slate-800 truncate leading-tight flex items-center gap-1">
                                             {emp.is_head && <Crown className="h-3 w-3 text-amber-500 shrink-0" />}
                                             {emp.full_name}
                                         </p>
                                         {(emp.positions?.length > 0 ? emp.positions : emp.position ? [emp.position] : []).length > 0 && (
-                                            <p className="text-[10px] text-zinc-500 leading-tight">
+                                            <p className="text-[10px] text-slate-500 leading-tight">
                                                 {(emp.positions?.length > 0 ? emp.positions : [emp.position]).map(p => p.title).join(' · ')}
                                             </p>
                                         )}
@@ -592,7 +592,7 @@ function DepartmentCard({ dept, depth, isHighlighted, onClick }) {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-[11px] text-zinc-400 italic py-1">No employees</p>
+                        <p className="text-[11px] text-slate-400 italic py-1">No employees</p>
                     )}
                 </div>
             </div>
@@ -640,12 +640,12 @@ function DeptTreeBranch({ dept, searchTerm, onDeptClick, depth = 0 }) {
 
             {hasChildren && (
                 <>
-                    <div className="w-px h-5 bg-zinc-300" />
+                    <div className="w-px h-5 bg-slate-300" />
                     <div className="relative">
                         <div className="flex gap-3 sm:gap-5 relative">
                             {children.length > 1 && (
                                 <div
-                                    className="absolute top-0 h-px bg-zinc-300"
+                                    className="absolute top-0 h-px bg-slate-300"
                                     style={{
                                         left: `${100 / (children.length * 2)}%`,
                                         right: `${100 / (children.length * 2)}%`,
@@ -654,7 +654,7 @@ function DeptTreeBranch({ dept, searchTerm, onDeptClick, depth = 0 }) {
                             )}
                             {children.map((child) => (
                                 <div key={child.id} className="flex flex-col items-center">
-                                    <div className="w-px h-5 bg-zinc-300" />
+                                    <div className="w-px h-5 bg-slate-300" />
                                     <DeptTreeBranch
                                         dept={child}
                                         searchTerm={searchTerm}
@@ -763,8 +763,8 @@ function AssignParentModal({ dept, allDepartments, open, onOpenChange, onAssign,
                 <div className="rounded-lg border-2 border-violet-300 bg-violet-50 p-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="font-bold text-zinc-900">{dept.name}</p>
-                            <p className="text-xs text-zinc-500 mt-0.5">{dept.employee_count} employee(s)</p>
+                            <p className="font-bold text-slate-900">{dept.name}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{dept.employee_count} employee(s)</p>
                         </div>
                         <span className="rounded-full bg-violet-100 text-violet-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                             {dept.code}
@@ -773,10 +773,10 @@ function AssignParentModal({ dept, allDepartments, open, onOpenChange, onAssign,
                 </div>
 
                 {currentParent && (
-                    <div className="rounded-lg bg-zinc-50 border border-zinc-200 px-3 py-2 text-sm">
-                        <span className="text-zinc-500">Currently under: </span>
-                        <span className="font-medium text-zinc-900">{currentParent.name}</span>
-                        <span className="text-zinc-400"> ({currentParent.code})</span>
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                        <span className="text-slate-500">Currently under: </span>
+                        <span className="font-medium text-slate-900">{currentParent.name}</span>
+                        <span className="text-slate-400"> ({currentParent.code})</span>
                     </div>
                 )}
 
@@ -788,13 +788,13 @@ function AssignParentModal({ dept, allDepartments, open, onOpenChange, onAssign,
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">
-                                <span className="text-zinc-500">No parent (root level)</span>
+                                <span className="text-slate-500">No parent (root level)</span>
                             </SelectItem>
                             {eligibleParents.map((d) => (
                                 <SelectItem key={d.id} value={String(d.id)}>
                                     <div className="flex items-center gap-2">
                                         <span>{d.name}</span>
-                                        <span className="text-zinc-400 text-xs">({d.code})</span>
+                                        <span className="text-slate-400 text-xs">({d.code})</span>
                                     </div>
                                 </SelectItem>
                             ))}
@@ -871,7 +871,7 @@ function DepartmentView() {
     if (isLoading) {
         return (
             <div className="flex h-96 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -879,7 +879,7 @@ function DepartmentView() {
     if (error) {
         return (
             <div className="flex h-96 flex-col items-center justify-center gap-2">
-                <p className="text-sm text-zinc-500">Failed to load department chart</p>
+                <p className="text-sm text-slate-500">Failed to load department chart</p>
                 <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Try Again</Button>
             </div>
         );
@@ -923,13 +923,13 @@ function DepartmentView() {
                     {Object.entries(DEPT_DEPTH_COLORS).map(([depth, colors]) => (
                         <div key={depth} className="flex items-center gap-1.5">
                             <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
-                            <span className="text-zinc-500">Depth {depth}</span>
+                            <span className="text-slate-500">Depth {depth}</span>
                         </div>
                     ))}
                 </div>
 
                 {/* Tree */}
-                <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
+                <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
                     <div className="w-fit min-w-full" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease' }}>
                         {tree.length === 0 ? (
                             <EmptyState icon={Building2} title="No departments found" subtitle="Create departments and assign parent departments to build the hierarchy" />
@@ -956,14 +956,14 @@ function DepartmentView() {
 
 function StatCard({ icon: Icon, iconBg, iconColor, value, label }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-3">
                 <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', iconBg)}>
                     <Icon className={cn('h-5 w-5', iconColor)} />
                 </div>
                 <div>
-                    <p className="text-2xl font-bold text-zinc-900">{value}</p>
-                    <p className="text-xs text-zinc-500">{label}</p>
+                    <p className="text-2xl font-bold text-slate-900">{value}</p>
+                    <p className="text-xs text-slate-500">{label}</p>
                 </div>
             </div>
         </div>
@@ -973,7 +973,7 @@ function StatCard({ icon: Icon, iconBg, iconColor, value, label }) {
 function SearchBar({ value, onChange, placeholder }) {
     return (
         <div className="relative max-w-sm flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
                 placeholder={placeholder}
                 value={value}
@@ -983,7 +983,7 @@ function SearchBar({ value, onChange, placeholder }) {
             {value && (
                 <button
                     onClick={() => onChange('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                     <X className="h-4 w-4" />
                 </button>
@@ -994,7 +994,7 @@ function SearchBar({ value, onChange, placeholder }) {
 
 function EmptyState({ icon: Icon, title, subtitle }) {
     return (
-        <div className="flex h-64 flex-col items-center justify-center gap-2 text-zinc-400">
+        <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-400">
             <Icon className="h-12 w-12" />
             <p className="text-sm font-medium">{title}</p>
             <p className="text-xs">{subtitle}</p>
@@ -1015,14 +1015,14 @@ export default function OrgChart() {
             />
 
             {/* Tab Switcher */}
-            <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 w-fit">
+            <div className="flex gap-1 rounded-lg bg-slate-100 p-1 w-fit">
                 <button
                     onClick={() => setActiveTab('employee')}
                     className={cn(
                         'flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all',
                         activeTab === 'employee'
-                            ? 'bg-white text-zinc-900 shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                     )}
                 >
                     <Users className="h-4 w-4" />
@@ -1033,8 +1033,8 @@ export default function OrgChart() {
                     className={cn(
                         'flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all',
                         activeTab === 'department'
-                            ? 'bg-white text-zinc-900 shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                     )}
                 >
                     <Building2 className="h-4 w-4" />

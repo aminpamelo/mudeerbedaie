@@ -71,11 +71,11 @@ function SkeletonTable() {
             {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
                     <div className="flex-1 space-y-2">
-                        <div className="h-4 w-48 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />
+                        <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+                        <div className="h-3 w-32 animate-pulse rounded bg-slate-200" />
                     </div>
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -85,11 +85,11 @@ function SkeletonTable() {
 function EmptyState({ hasFilters, onClearFilters }) {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-            <CalendarDays className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">
+            <CalendarDays className="mb-4 h-12 w-12 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">
                 {hasFilters ? 'No meetings found' : 'No meetings yet'}
             </h3>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-slate-500">
                 {hasFilters
                     ? 'Try adjusting your search or filters.'
                     : 'Get started by scheduling your first meeting.'}
@@ -256,12 +256,12 @@ export default function MeetingList() {
                                             <TableCell>
                                                 <Link
                                                     to={`/meetings/${meeting.id}`}
-                                                    className="font-medium text-zinc-900 hover:text-blue-600 hover:underline"
+                                                    className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
                                                 >
                                                     {meeting.title}
                                                 </Link>
                                                 {meeting.series && (
-                                                    <span className="ml-2 text-xs text-zinc-400">
+                                                    <span className="ml-2 text-xs text-slate-400">
                                                         {meeting.series.name}
                                                     </span>
                                                 )}
@@ -279,13 +279,13 @@ export default function MeetingList() {
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <Users className="h-3.5 w-3.5 text-zinc-400" />
+                                                    <Users className="h-3.5 w-3.5 text-slate-400" />
                                                     <span>{meeting.attendees_count ?? meeting.attendees?.length ?? 0}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <ListTodo className="h-3.5 w-3.5 text-zinc-400" />
+                                                    <ListTodo className="h-3.5 w-3.5 text-slate-400" />
                                                     <span>{meeting.tasks_count ?? meeting.tasks?.length ?? 0}</span>
                                                 </div>
                                             </TableCell>
@@ -320,8 +320,8 @@ export default function MeetingList() {
                             </Table>
 
                             {lastPage > 1 && (
-                                <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3">
-                                    <p className="text-sm text-zinc-500">
+                                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+                                    <p className="text-sm text-slate-500">
                                         Page {page} of {lastPage}
                                     </p>
                                     <div className="flex gap-2">

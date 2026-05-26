@@ -24,13 +24,13 @@ import {
 } from '../../components/ui/table';
 
 const STATUS_BADGE = {
-    draft: 'bg-zinc-100 text-zinc-600',
+    draft: 'bg-slate-100 text-slate-600',
     published: 'bg-emerald-100 text-emerald-700',
     closed: 'bg-red-100 text-red-700',
 };
 
 const STAGE_BADGE = {
-    applied: 'bg-zinc-100 text-zinc-600',
+    applied: 'bg-slate-100 text-slate-600',
     screening: 'bg-blue-100 text-blue-700',
     interview: 'bg-amber-100 text-amber-700',
     assessment: 'bg-purple-100 text-purple-700',
@@ -51,8 +51,8 @@ function formatDate(dateString) {
 function SkeletonDetail() {
     return (
         <div className="space-y-6">
-            <div className="h-32 animate-pulse rounded-lg bg-zinc-200" />
-            <div className="h-48 animate-pulse rounded-lg bg-zinc-200" />
+            <div className="h-32 animate-pulse rounded-lg bg-slate-200" />
+            <div className="h-48 animate-pulse rounded-lg bg-slate-200" />
         </div>
     );
 }
@@ -116,11 +116,11 @@ export default function JobPostingDetail() {
                     <Card>
                         <CardContent className="p-6">
                             <div className="mb-4 flex items-start justify-between">
-                                <h3 className="text-lg font-semibold text-zinc-900">Posting Details</h3>
+                                <h3 className="text-lg font-semibold text-slate-900">Posting Details</h3>
                                 <span
                                     className={cn(
                                         'rounded-full px-2.5 py-1 text-xs font-medium capitalize',
-                                        STATUS_BADGE[posting.status] || 'bg-zinc-100 text-zinc-600'
+                                        STATUS_BADGE[posting.status] || 'bg-slate-100 text-slate-600'
                                     )}
                                 >
                                     {posting.status}
@@ -128,47 +128,47 @@ export default function JobPostingDetail() {
                             </div>
                             <dl className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="flex items-center gap-2">
-                                    <Building2 className="h-4 w-4 text-zinc-400" />
+                                    <Building2 className="h-4 w-4 text-slate-400" />
                                     <div>
-                                        <dt className="text-zinc-500">Department</dt>
-                                        <dd className="font-medium text-zinc-900">{posting.department?.name || '-'}</dd>
+                                        <dt className="text-slate-500">Department</dt>
+                                        <dd className="font-medium text-slate-900">{posting.department?.name || '-'}</dd>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Briefcase className="h-4 w-4 text-zinc-400" />
+                                    <Briefcase className="h-4 w-4 text-slate-400" />
                                     <div>
-                                        <dt className="text-zinc-500">Employment Type</dt>
-                                        <dd className="font-medium capitalize text-zinc-900">
+                                        <dt className="text-slate-500">Employment Type</dt>
+                                        <dd className="font-medium capitalize text-slate-900">
                                             {posting.employment_type?.replace('-', ' ') || '-'}
                                         </dd>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Users className="h-4 w-4 text-zinc-400" />
+                                    <Users className="h-4 w-4 text-slate-400" />
                                     <div>
-                                        <dt className="text-zinc-500">Vacancies</dt>
-                                        <dd className="font-medium text-zinc-900">{posting.vacancies ?? '-'}</dd>
+                                        <dt className="text-slate-500">Vacancies</dt>
+                                        <dd className="font-medium text-slate-900">{posting.vacancies ?? '-'}</dd>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4 text-zinc-400" />
+                                    <Calendar className="h-4 w-4 text-slate-400" />
                                     <div>
-                                        <dt className="text-zinc-500">Published</dt>
-                                        <dd className="font-medium text-zinc-900">{formatDate(posting.published_at)}</dd>
+                                        <dt className="text-slate-500">Published</dt>
+                                        <dd className="font-medium text-slate-900">{formatDate(posting.published_at)}</dd>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4 text-zinc-400" />
+                                    <Clock className="h-4 w-4 text-slate-400" />
                                     <div>
-                                        <dt className="text-zinc-500">Closes</dt>
-                                        <dd className="font-medium text-zinc-900">{formatDate(posting.closes_at)}</dd>
+                                        <dt className="text-slate-500">Closes</dt>
+                                        <dd className="font-medium text-slate-900">{formatDate(posting.closes_at)}</dd>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Globe className="h-4 w-4 text-zinc-400" />
+                                    <Globe className="h-4 w-4 text-slate-400" />
                                     <div>
-                                        <dt className="text-zinc-500">Applicants</dt>
-                                        <dd className="font-medium text-zinc-900">{posting.applicants_count ?? applicants.length}</dd>
+                                        <dt className="text-slate-500">Applicants</dt>
+                                        <dd className="font-medium text-slate-900">{posting.applicants_count ?? applicants.length}</dd>
                                     </div>
                                 </div>
                             </dl>
@@ -178,8 +178,8 @@ export default function JobPostingDetail() {
                     {posting.description && (
                         <Card>
                             <CardContent className="p-6">
-                                <h3 className="mb-3 text-base font-semibold text-zinc-900">Description</h3>
-                                <p className="whitespace-pre-line text-sm text-zinc-600">{posting.description}</p>
+                                <h3 className="mb-3 text-base font-semibold text-slate-900">Description</h3>
+                                <p className="whitespace-pre-line text-sm text-slate-600">{posting.description}</p>
                             </CardContent>
                         </Card>
                     )}
@@ -187,8 +187,8 @@ export default function JobPostingDetail() {
                     {posting.requirements && (
                         <Card>
                             <CardContent className="p-6">
-                                <h3 className="mb-3 text-base font-semibold text-zinc-900">Requirements</h3>
-                                <p className="whitespace-pre-line text-sm text-zinc-600">{posting.requirements}</p>
+                                <h3 className="mb-3 text-base font-semibold text-slate-900">Requirements</h3>
+                                <p className="whitespace-pre-line text-sm text-slate-600">{posting.requirements}</p>
                             </CardContent>
                         </Card>
                     )}
@@ -196,11 +196,11 @@ export default function JobPostingDetail() {
                     {/* Applicants Table */}
                     <Card>
                         <CardContent className="p-6">
-                            <h3 className="mb-4 text-lg font-semibold text-zinc-900">Applicants</h3>
+                            <h3 className="mb-4 text-lg font-semibold text-slate-900">Applicants</h3>
                             {applicants.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                                    <Users className="mb-3 h-10 w-10 text-zinc-300" />
-                                    <p className="text-sm text-zinc-500">No applicants yet for this position.</p>
+                                    <Users className="mb-3 h-10 w-10 text-slate-300" />
+                                    <p className="text-sm text-slate-500">No applicants yet for this position.</p>
                                 </div>
                             ) : (
                                 <Table>
@@ -218,23 +218,23 @@ export default function JobPostingDetail() {
                                                 <TableCell>
                                                     <Link
                                                         to={`/recruitment/applicants/${applicant.id}`}
-                                                        className="font-medium text-zinc-900 hover:text-zinc-600 hover:underline"
+                                                        className="font-medium text-slate-900 hover:text-slate-600 hover:underline"
                                                     >
                                                         {applicant.name}
                                                     </Link>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-500">{applicant.email}</TableCell>
+                                                <TableCell className="text-sm text-slate-500">{applicant.email}</TableCell>
                                                 <TableCell>
                                                     <span
                                                         className={cn(
                                                             'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                            STAGE_BADGE[applicant.stage] || 'bg-zinc-100 text-zinc-600'
+                                                            STAGE_BADGE[applicant.stage] || 'bg-slate-100 text-slate-600'
                                                         )}
                                                     >
                                                         {applicant.stage}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="text-sm text-zinc-500">
+                                                <TableCell className="text-sm text-slate-500">
                                                     {formatDate(applicant.applied_at)}
                                                 </TableCell>
                                             </TableRow>
@@ -250,7 +250,7 @@ export default function JobPostingDetail() {
                 <div className="space-y-6">
                     <Card>
                         <CardContent className="p-6">
-                            <h3 className="mb-4 text-base font-semibold text-zinc-900">Stage Breakdown</h3>
+                            <h3 className="mb-4 text-base font-semibold text-slate-900">Stage Breakdown</h3>
                             {STAGE_BADGE && Object.entries(
                                 applicants.reduce((acc, a) => {
                                     acc[a.stage] = (acc[a.stage] || 0) + 1;
@@ -261,16 +261,16 @@ export default function JobPostingDetail() {
                                     <span
                                         className={cn(
                                             'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                            STAGE_BADGE[stage] || 'bg-zinc-100 text-zinc-600'
+                                            STAGE_BADGE[stage] || 'bg-slate-100 text-slate-600'
                                         )}
                                     >
                                         {stage}
                                     </span>
-                                    <span className="font-semibold text-zinc-900">{count}</span>
+                                    <span className="font-semibold text-slate-900">{count}</span>
                                 </div>
                             ))}
                             {applicants.length === 0 && (
-                                <p className="text-xs text-zinc-400">No applicants yet.</p>
+                                <p className="text-xs text-slate-400">No applicants yet.</p>
                             )}
                         </CardContent>
                     </Card>

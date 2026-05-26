@@ -45,7 +45,7 @@ export default function SearchInput({
 
     return (
         <div className={cn('relative', className)}>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
                 value={localValue}
                 onChange={handleChange}
@@ -56,7 +56,7 @@ export default function SearchInput({
                 <button
                     type="button"
                     onClick={handleClear}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                     <X className="h-4 w-4" />
                 </button>

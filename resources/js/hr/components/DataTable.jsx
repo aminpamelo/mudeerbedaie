@@ -12,12 +12,14 @@ import { cn } from '../lib/utils';
 
 /**
  * @param {Object} props
- * @param {{ key: string, label: string, sortable?: boolean, className?: string, render?: (row: any) => React.ReactNode }[]} props.columns
+ * @param {{ key: string, label: string, sortable?: boolean, className?: string, headClassName?: string, render?: (row: any) => React.ReactNode }[]} props.columns
  * @param {any[]} props.data
  * @param {string} [props.emptyMessage]
  * @param {string} [props.sortKey]
  * @param {'asc' | 'desc'} [props.sortDirection]
  * @param {(key: string) => void} [props.onSort]
+ * @param {(row: any) => void} [props.onRowClick]
+ * @param {(row: any) => string} [props.rowKey]
  */
 export default function DataTable({
     columns,
@@ -26,6 +28,8 @@ export default function DataTable({
     sortKey,
     sortDirection,
     onSort,
+    onRowClick,
+    rowKey,
 }) {
     const [localSortKey, setLocalSortKey] = useState(null);
     const [localSortDir, setLocalSortDir] = useState('asc');
@@ -61,12 +65,12 @@ export default function DataTable({
 
     function SortIcon({ columnKey }) {
         if (activeSortKey !== columnKey) {
-            return <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-zinc-400" />;
+            return <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-slate-300 transition-colors group-hover:text-slate-500" />;
         }
         return activeSortDir === 'asc' ? (
-            <ArrowUp className="ml-1 h-3.5 w-3.5 text-zinc-700" />
+            <ArrowUp className="ml-1 h-3.5 w-3.5 text-indigo-600" />
         ) : (
-            <ArrowDown className="ml-1 h-3.5 w-3.5 text-zinc-700" />
+            <ArrowDown className="ml-1 h-3.5 w-3.5 text-indigo-600" />
         );
     }
 
@@ -77,21 +81,25 @@ export default function DataTable({
                     {columns.map((col) => (
                         <TableHead
                             key={col.key}
-                            className={cn(
-                                col.sortable && 'cursor-pointer select-none',
-                                col.className
-                            )}
-                            onClick={
+                            aria-sort={
                                 col.sortable
-                                    ? () => handleSort(col.key)
+                                    ? activeSortKey === col.key
+                                        ? activeSortDir === 'asc'
+                                            ? 'ascending'
+                                            : 'descending'
+                                        : 'none'
                                     : undefined
                             }
+                            className={cn(
+                                col.sortable && 'group cursor-pointer select-none transition-colors hover:bg-slate-100',
+                                col.headClassName,
+                                col.className
+                            )}
+                            onClick={col.sortable ? () => handleSort(col.key) : undefined}
                         >
                             <span className="inline-flex items-center">
                                 {col.label}
-                                {col.sortable && (
-                                    <SortIcon columnKey={col.key} />
-                                )}
+                                {col.sortable && <SortIcon columnKey={col.key} />}
                             </span>
                         </TableHead>
                     ))}
@@ -102,22 +110,24 @@ export default function DataTable({
                     <TableRow>
                         <TableCell
                             colSpan={columns.length}
-                            className="h-24 text-center text-zinc-500"
+                            className="h-24 text-center text-slate-400"
                         >
                             {emptyMessage}
                         </TableCell>
                     </TableRow>
                 ) : (
                     sortedData.map((row, idx) => (
-                        <TableRow key={row.id ?? idx}>
+                        <TableRow
+                            key={rowKey ? rowKey(row) : (row.id ?? idx)}
+                            onClick={onRowClick ? () => onRowClick(row) : undefined}
+                            className={onRowClick ? 'cursor-pointer' : undefined}
+                        >
                             {columns.map((col) => (
                                 <TableCell
                                     key={col.key}
                                     className={col.className}
                                 >
-                                    {col.render
-                                        ? col.render(row)
-                                        : row[col.key]}
+                                    {col.render ? col.render(row) : row[col.key]}
                                 </TableCell>
                             ))}
                         </TableRow>

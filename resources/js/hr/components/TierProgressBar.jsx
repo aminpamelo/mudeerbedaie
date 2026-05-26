@@ -44,8 +44,8 @@ export default function TierProgressBar({ maxTier, currentTier, approvalLogs = [
     }
 
     return (
-        <div className="mt-3 rounded-xl bg-zinc-50 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-2">Approval Progress</p>
+        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-2">Approval Progress</p>
             <div className="flex items-center gap-1">
                 {tiers.map((t, i) => (
                     <div key={t.tier} className="flex items-center gap-1 flex-1 min-w-0">
@@ -68,8 +68,8 @@ export default function TierProgressBar({ maxTier, currentTier, approvalLogs = [
                                 </div>
                             )}
                             {t.status === 'waiting' && (
-                                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-200">
-                                    <span className="text-[9px] font-bold text-zinc-400">{t.tier}</span>
+                                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200">
+                                    <span className="text-[9px] font-bold text-slate-400">{t.tier}</span>
                                 </div>
                             )}
 
@@ -79,11 +79,11 @@ export default function TierProgressBar({ maxTier, currentTier, approvalLogs = [
                                     t.status === 'approved' ? 'text-emerald-700' :
                                     t.status === 'rejected' ? 'text-red-700' :
                                     t.status === 'current' ? 'text-amber-700' :
-                                    'text-zinc-400'
+                                    'text-slate-400'
                                 }`}>
                                     T{t.tier}
                                 </p>
-                                <p className="text-[10px] text-zinc-500 truncate">
+                                <p className="text-[10px] text-slate-500 truncate">
                                     {t.log?.approver?.full_name
                                         ? `${t.log.approver.full_name}`
                                         : t.approvers.length > 0
@@ -92,7 +92,7 @@ export default function TierProgressBar({ maxTier, currentTier, approvalLogs = [
                                     }
                                 </p>
                                 {t.log?.created_at && (
-                                    <p className="text-[9px] text-zinc-400">{formatLogDate(t.log.created_at)}</p>
+                                    <p className="text-[9px] text-slate-400">{formatLogDate(t.log.created_at)}</p>
                                 )}
                             </div>
                         </div>
@@ -102,7 +102,7 @@ export default function TierProgressBar({ maxTier, currentTier, approvalLogs = [
                             <div className={`flex-1 h-px min-w-3 mx-1 ${
                                 t.status === 'approved' ? 'bg-emerald-300' :
                                 t.status === 'rejected' ? 'bg-red-300' :
-                                'bg-zinc-200'
+                                'bg-slate-200'
                             }`} />
                         )}
                     </div>

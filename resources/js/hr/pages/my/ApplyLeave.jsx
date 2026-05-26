@@ -132,8 +132,8 @@ export default function ApplyLeave() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-3" />
-                <h2 className="text-lg font-semibold text-zinc-900">Leave Applied!</h2>
-                <p className="text-sm text-zinc-500 mt-1">Your request has been submitted for approval.</p>
+                <h2 className="text-lg font-semibold text-slate-900">Leave Applied!</h2>
+                <p className="text-sm text-slate-500 mt-1">Your request has been submitted for approval.</p>
             </div>
         );
     }
@@ -146,8 +146,8 @@ export default function ApplyLeave() {
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h1 className="text-xl font-bold text-zinc-900">Apply for Leave</h1>
-                    <p className="text-sm text-zinc-500 mt-0.5">Submit a new leave application</p>
+                    <h1 className="text-xl font-bold text-slate-900">Apply for Leave</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Submit a new leave application</p>
                 </div>
             </div>
 
@@ -158,8 +158,8 @@ export default function ApplyLeave() {
                         <Label className="text-xs font-medium">Leave Type *</Label>
                         {loadingBalances ? (
                             <div className="flex items-center gap-2 mt-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                                <span className="text-sm text-zinc-500">Loading types...</span>
+                                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                                <span className="text-sm text-slate-500">Loading types...</span>
                             </div>
                         ) : (
                             <Select
@@ -243,8 +243,8 @@ export default function ApplyLeave() {
                                         className={cn(
                                             'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                                             form.half_day_period === 'morning'
-                                                ? 'bg-zinc-900 text-white'
-                                                : 'bg-zinc-100 text-zinc-600'
+                                                ? 'bg-slate-900 text-white'
+                                                : 'bg-slate-100 text-slate-600'
                                         )}
                                     >
                                         Morning
@@ -255,8 +255,8 @@ export default function ApplyLeave() {
                                         className={cn(
                                             'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                                             form.half_day_period === 'afternoon'
-                                                ? 'bg-zinc-900 text-white'
-                                                : 'bg-zinc-100 text-zinc-600'
+                                                ? 'bg-slate-900 text-white'
+                                                : 'bg-slate-100 text-slate-600'
                                         )}
                                     >
                                         Afternoon
@@ -318,7 +318,7 @@ export default function ApplyLeave() {
                             onChange={(e) => setForm({ ...form, attachment: e.target.files[0] })}
                             required={selectedBalance?.leave_type?.requires_attachment}
                         />
-                        <p className="text-[11px] text-zinc-400 mt-1">PDF, JPG, PNG, DOC. Max 10MB.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">PDF, JPG, PNG, DOC. Max 10MB.</p>
                     </CardContent>
                 </Card>
 
@@ -327,7 +327,7 @@ export default function ApplyLeave() {
                     <Card>
                         <CardContent className="py-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm text-zinc-600">After this request:</span>
+                                <span className="text-sm text-slate-600">After this request:</span>
                                 <span className={cn(
                                     'text-sm font-bold',
                                     availableAfter < 0 ? 'text-red-600' : 'text-emerald-600'

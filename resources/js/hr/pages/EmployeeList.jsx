@@ -8,7 +8,8 @@ import {
     Grid3X3,
     Users,
     UserCheck,
-    MoreHorizontal,
+    UserMinus,
+    Clock,
     Eye,
     Pencil,
     X,
@@ -17,11 +18,13 @@ import {
 } from 'lucide-react';
 import { fetchEmployees, fetchDepartments, exportEmployees } from '../lib/api';
 import { cn } from '../lib/utils';
-import PageHeader from '../components/PageHeader';
+import { PageHeader } from '../components/ui/page-header';
+import { StatCard } from '../components/ui/stat-card';
+import { StatusBadge } from '../components/ui/status-badge';
+import { EmptyState } from '../components/ui/empty-state';
 import SearchInput from '../components/SearchInput';
-import StatusBadge from '../components/StatusBadge';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
+import { Card } from '../components/ui/card';
 import {
     Select,
     SelectTrigger,
@@ -56,16 +59,11 @@ const TYPE_OPTIONS = [
 
 function getInitials(name) {
     if (!name) return '?';
-    return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 function formatDate(dateString) {
-    if (!dateString) return '-';
+    if (!dateString) return '–';
     return new Date(dateString).toLocaleDateString('en-MY', {
         year: 'numeric',
         month: 'short',
@@ -74,14 +72,14 @@ function formatDate(dateString) {
 }
 
 function EmployeeAvatar({ employee, size = 'sm' }) {
-    const sizeClasses = size === 'lg' ? 'h-14 w-14 text-lg' : 'h-9 w-9 text-xs';
+    const sizeClasses = size === 'lg' ? 'h-14 w-14 text-base' : 'h-9 w-9 text-xs';
 
     if (employee.profile_photo_url) {
         return (
             <img
                 src={employee.profile_photo_url}
                 alt={employee.full_name}
-                className={cn('rounded-full object-cover', sizeClasses)}
+                className={cn('rounded-full object-cover ring-2 ring-white', sizeClasses)}
             />
         );
     }
@@ -89,7 +87,7 @@ function EmployeeAvatar({ employee, size = 'sm' }) {
     return (
         <div
             className={cn(
-                'flex items-center justify-center rounded-full bg-zinc-200 font-semibold text-zinc-600',
+                'flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 font-semibold text-indigo-700 ring-2 ring-white',
                 sizeClasses
             )}
         >
@@ -98,50 +96,31 @@ function EmployeeAvatar({ employee, size = 'sm' }) {
     );
 }
 
-function SkeletonTable() {
+function SkeletonRow() {
     return (
-        <div className="space-y-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-9 w-9 animate-pulse rounded-full bg-zinc-200" />
-                    <div className="flex-1 space-y-2">
-                        <div className="h-4 w-48 animate-pulse rounded bg-zinc-200" />
-                        <div className="h-3 w-32 animate-pulse rounded bg-zinc-200" />
-                    </div>
-                    <div className="h-4 w-20 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
-                </div>
-            ))}
+        <div className="flex items-center gap-4 px-4 py-3.5">
+            <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200" />
+            <div className="flex-1 space-y-2">
+                <div className="h-3.5 w-48 animate-pulse rounded bg-slate-200" />
+                <div className="h-2.5 w-32 animate-pulse rounded bg-slate-100" />
+            </div>
+            <div className="h-3.5 w-20 animate-pulse rounded bg-slate-200" />
+            <div className="h-3.5 w-24 animate-pulse rounded bg-slate-200" />
+            <div className="h-5 w-16 animate-pulse rounded-full bg-slate-200" />
         </div>
     );
 }
 
-function EmptyState({ hasFilters, onClearFilters }) {
+function SkeletonStats() {
     return (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Users className="mb-4 h-12 w-12 text-zinc-300" />
-            <h3 className="text-lg font-semibold text-zinc-900">
-                {hasFilters ? 'No employees found' : 'No employees yet'}
-            </h3>
-            <p className="mt-1 text-sm text-zinc-500">
-                {hasFilters
-                    ? 'Try adjusting your search or filters to find what you are looking for.'
-                    : 'Get started by adding your first employee to the directory.'}
-            </p>
-            <div className="mt-4 flex gap-2">
-                {hasFilters && (
-                    <Button variant="outline" onClick={onClearFilters}>
-                        Clear Filters
-                    </Button>
-                )}
-                <Button asChild>
-                    <Link to="/employees/create">
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Add Employee
-                    </Link>
-                </Button>
-            </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-2xl border border-slate-200/70 bg-white p-5">
+                    <div className="mb-3 h-3 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="mb-2 h-9 w-16 animate-pulse rounded bg-slate-200" />
+                    <div className="h-3 w-20 animate-pulse rounded bg-slate-100" />
+                </div>
+            ))}
         </div>
     );
 }
@@ -187,6 +166,8 @@ export default function EmployeeList() {
     const stats = data?.stats || {};
     const totalEmployees = stats.total || pagination.total || 0;
     const activeCount = stats.active || 0;
+    const probationCount = stats.probation || 0;
+    const inactiveCount = (totalEmployees || 0) - activeCount - probationCount;
     const lastPage = pagination.last_page || 1;
     const departments = departmentsData?.data || [];
 
@@ -236,215 +217,221 @@ export default function EmployeeList() {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Export failed:', error);
+        } catch (err) {
+            console.error('Export failed:', err);
         }
     }
 
     return (
-        <div>
+        <div className="space-y-6 pb-10">
             <PageHeader
-                title="Employee Directory"
-                description="Manage and view all employees in the organization."
-                action={
-                    <Button asChild>
-                        <Link to="/employees/create">
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            Add Employee
-                        </Link>
-                    </Button>
+                title="Employees"
+                description="Manage your workforce and view employee details"
+                actions={
+                    <>
+                        <Button variant="outline" onClick={handleExport}>
+                            <Download className="h-4 w-4" />
+                            Export
+                        </Button>
+                        <Button asChild>
+                            <Link to="/employees/create">
+                                <Plus className="h-4 w-4" />
+                                Add Employee
+                            </Link>
+                        </Button>
+                    </>
                 }
             />
 
-            {/* Stats Bar */}
-            <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
-                                <Users className="h-5 w-5 text-zinc-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-zinc-900">
-                                    {totalEmployees}
-                                </p>
-                                <p className="text-xs text-zinc-500">Total Employees</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                                <UserCheck className="h-5 w-5 text-emerald-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-zinc-900">
-                                    {activeCount}
-                                </p>
-                                <p className="text-xs text-zinc-500">Active</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Stats */}
+            {isLoading ? (
+                <SkeletonStats />
+            ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <StatCard label="Total" value={totalEmployees} sub="all employees" icon={Users} accent="indigo" />
+                    <StatCard label="Active" value={activeCount} sub="currently working" icon={UserCheck} accent="emerald" />
+                    <StatCard label="Probation" value={probationCount} sub="pending confirmation" icon={Clock} accent="amber" />
+                    <StatCard label="Inactive" value={Math.max(0, inactiveCount)} sub="resigned or terminated" icon={UserMinus} accent="violet" />
+                </div>
+            )}
 
-            {/* Filters Toolbar */}
-            <Card className="mb-6">
-                <CardContent className="p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                        <SearchInput
-                            value={search}
-                            onChange={handleSearchChange}
-                            placeholder="Search name, employee ID, IC..."
-                            className="w-full lg:w-64"
-                        />
+            {/* Filters */}
+            <Card className="p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <SearchInput
+                        value={search}
+                        onChange={handleSearchChange}
+                        placeholder="Search name, employee ID, IC..."
+                        className="w-full lg:w-64"
+                    />
 
-                        <Select
-                            value={departmentFilter}
-                            onValueChange={handleDepartmentChange}
-                        >
-                            <SelectTrigger className="w-full lg:w-44">
-                                <SelectValue placeholder="Department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Departments</SelectItem>
-                                {departments.map((dept) => (
-                                    <SelectItem
-                                        key={dept.id}
-                                        value={String(dept.id)}
-                                    >
-                                        {dept.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <Select value={departmentFilter} onValueChange={handleDepartmentChange}>
+                        <SelectTrigger className="w-full lg:w-44">
+                            <SelectValue placeholder="Department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Departments</SelectItem>
+                            {departments.map((dept) => (
+                                <SelectItem key={dept.id} value={String(dept.id)}>
+                                    {dept.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                        <Select
-                            value={statusFilter}
-                            onValueChange={handleStatusChange}
-                        >
-                            <SelectTrigger className="w-full lg:w-36">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_OPTIONS.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <Select value={statusFilter} onValueChange={handleStatusChange}>
+                        <SelectTrigger className="w-full lg:w-36">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {STATUS_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                        <Select value={typeFilter} onValueChange={handleTypeChange}>
-                            <SelectTrigger className="w-full lg:w-36">
-                                <SelectValue placeholder="Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {TYPE_OPTIONS.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <Select value={typeFilter} onValueChange={handleTypeChange}>
+                        <SelectTrigger className="w-full lg:w-36">
+                            <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                        <div className="flex items-center gap-2 lg:ml-auto">
-                            <div className="flex rounded-lg border border-zinc-300">
-                                <button
-                                    type="button"
-                                    onClick={() => setViewMode('table')}
-                                    className={cn(
-                                        'flex items-center justify-center rounded-l-lg px-3 py-2 text-sm transition-colors',
-                                        viewMode === 'table'
-                                            ? 'bg-zinc-900 text-white'
-                                            : 'text-zinc-600 hover:bg-zinc-100'
-                                    )}
-                                >
-                                    <LayoutList className="h-4 w-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setViewMode('grid')}
-                                    className={cn(
-                                        'flex items-center justify-center rounded-r-lg px-3 py-2 text-sm transition-colors',
-                                        viewMode === 'grid'
-                                            ? 'bg-zinc-900 text-white'
-                                            : 'text-zinc-600 hover:bg-zinc-100'
-                                    )}
-                                >
-                                    <Grid3X3 className="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleExport}
+                    <div className="flex items-center gap-2 lg:ml-auto">
+                        <div className="flex rounded-lg border border-slate-300 bg-white p-0.5">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('table')}
+                                aria-label="Table view"
+                                aria-pressed={viewMode === 'table'}
+                                className={cn(
+                                    'flex items-center justify-center rounded-md px-2.5 py-1.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                                    viewMode === 'table'
+                                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                )}
                             >
-                                <Download className="mr-1.5 h-4 w-4" />
-                                Export
-                            </Button>
-
-                            {hasFilters && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={clearFilters}
-                                >
-                                    <X className="mr-1 h-4 w-4" />
-                                    Clear
-                                </Button>
-                            )}
+                                <LayoutList className="h-4 w-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('grid')}
+                                aria-label="Grid view"
+                                aria-pressed={viewMode === 'grid'}
+                                className={cn(
+                                    'flex items-center justify-center rounded-md px-2.5 py-1.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                                    viewMode === 'grid'
+                                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                )}
+                            >
+                                <Grid3X3 className="h-4 w-4" />
+                            </button>
                         </div>
+
+                        {hasFilters && (
+                            <Button variant="ghost" size="sm" onClick={clearFilters}>
+                                <X className="h-4 w-4" />
+                                Clear
+                            </Button>
+                        )}
                     </div>
-                </CardContent>
+                </div>
+
+                {hasFilters && (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
+                        <span className="text-xs font-medium text-slate-500">Active filters:</span>
+                        {search && (
+                            <FilterChip onRemove={() => handleSearchChange('')}>
+                                Search: "{search}"
+                            </FilterChip>
+                        )}
+                        {departmentFilter !== 'all' && (
+                            <FilterChip onRemove={() => handleDepartmentChange('all')}>
+                                Dept: {departments.find((d) => String(d.id) === departmentFilter)?.name}
+                            </FilterChip>
+                        )}
+                        {statusFilter !== 'all' && (
+                            <FilterChip onRemove={() => handleStatusChange('all')}>
+                                Status: {STATUS_OPTIONS.find((s) => s.value === statusFilter)?.label}
+                            </FilterChip>
+                        )}
+                        {typeFilter !== 'all' && (
+                            <FilterChip onRemove={() => handleTypeChange('all')}>
+                                Type: {TYPE_OPTIONS.find((t) => t.value === typeFilter)?.label}
+                            </FilterChip>
+                        )}
+                    </div>
+                )}
             </Card>
 
             {/* Content */}
             {isError ? (
-                <Card>
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                            <X className="h-6 w-6 text-red-600" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-zinc-900">
-                            Failed to load employees
-                        </h3>
-                        <p className="mt-1 text-sm text-zinc-500">
-                            {error?.response?.status === 401
-                                ? 'Your session has expired. Please refresh the page and log in again.'
+                <Card className="p-0">
+                    <EmptyState
+                        icon={X}
+                        accent="rose"
+                        title="Failed to load employees"
+                        description={
+                            error?.response?.status === 401
+                                ? 'Your session has expired. Please refresh the page.'
                                 : error?.response?.data?.error
-                                    ? error.response.data.error
-                                    : `Something went wrong while fetching the employee list. (${error?.response?.status || 'Network error'})`}
-                        </p>
-                        <Button
-                            variant="outline"
-                            className="mt-4"
-                            onClick={() => window.location.reload()}
-                        >
-                            Refresh Page
-                        </Button>
-                    </div>
+                                ? error.response.data.error
+                                : `Something went wrong. (${error?.response?.status || 'Network error'})`
+                        }
+                        action={
+                            <Button variant="outline" onClick={() => window.location.reload()}>
+                                Refresh Page
+                            </Button>
+                        }
+                        className="py-12"
+                    />
                 </Card>
             ) : isLoading ? (
-                <Card>
-                    <SkeletonTable />
+                <Card className="overflow-hidden p-0">
+                    <div className="divide-y divide-slate-100">
+                        {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
+                    </div>
                 </Card>
             ) : employees.length === 0 ? (
-                <Card>
+                <Card className="p-0">
                     <EmptyState
-                        hasFilters={hasFilters}
-                        onClearFilters={clearFilters}
+                        icon={Users}
+                        accent="indigo"
+                        title={hasFilters ? 'No employees found' : 'No employees yet'}
+                        description={
+                            hasFilters
+                                ? 'Try adjusting your search or filters.'
+                                : 'Get started by adding your first employee to the directory.'
+                        }
+                        action={
+                            <div className="flex gap-2">
+                                {hasFilters && (
+                                    <Button variant="outline" onClick={clearFilters}>
+                                        Clear Filters
+                                    </Button>
+                                )}
+                                <Button asChild>
+                                    <Link to="/employees/create">
+                                        <Plus className="h-4 w-4" />
+                                        Add Employee
+                                    </Link>
+                                </Button>
+                            </div>
+                        }
+                        className="py-16"
                     />
                 </Card>
             ) : viewMode === 'table' ? (
-                <Card>
+                <Card className="overflow-hidden p-0">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-12"></TableHead>
+                                <TableHead className="w-14"></TableHead>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Employee ID</TableHead>
                                 <TableHead>Department</TableHead>
@@ -452,7 +439,7 @@ export default function EmployeeList() {
                                 <TableHead>Type</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Join Date</TableHead>
-                                <TableHead className="w-12"></TableHead>
+                                <TableHead className="w-20"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -464,27 +451,30 @@ export default function EmployeeList() {
                                     <TableCell>
                                         <Link
                                             to={`/employees/${employee.id}`}
-                                            className="font-medium text-zinc-900 hover:text-zinc-600 hover:underline"
+                                            className="font-medium text-slate-900 hover:text-indigo-600 focus:outline-none focus-visible:underline"
                                         >
                                             {employee.full_name}
                                         </Link>
                                     </TableCell>
-                                    <TableCell className="font-mono text-sm">
+                                    <TableCell className="font-mono text-xs text-slate-500">
                                         {employee.employee_id}
                                     </TableCell>
-                                    <TableCell>
-                                        {employee.department?.name || '-'}
+                                    <TableCell className="text-slate-600">
+                                        {employee.department?.name || '–'}
                                     </TableCell>
-                                    <TableCell>
-                                        {employee.position?.title || '-'}
+                                    <TableCell className="text-slate-600">
+                                        {employee.position?.title || '–'}
                                     </TableCell>
-                                    <TableCell className="capitalize">
-                                        {employee.employment_type_label || (Array.isArray(employee.employment_type) ? employee.employment_type.map(t => t.replace(/[-_]/g, ' ')).join(', ') : '-')}
+                                    <TableCell className="capitalize text-slate-600">
+                                        {employee.employment_type_label ||
+                                            (Array.isArray(employee.employment_type)
+                                                ? employee.employment_type.map((t) => t.replace(/[-_]/g, ' ')).join(', ')
+                                                : '–')}
                                     </TableCell>
                                     <TableCell>
                                         <StatusBadge status={employee.status} />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="tabular-nums text-slate-600">
                                         {formatDate(employee.join_date)}
                                     </TableCell>
                                     <TableCell>
@@ -493,11 +483,8 @@ export default function EmployeeList() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8"
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/employees/${employee.id}`
-                                                    )
-                                                }
+                                                onClick={() => navigate(`/employees/${employee.id}`)}
+                                                aria-label="View employee"
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
@@ -505,11 +492,8 @@ export default function EmployeeList() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8"
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/employees/${employee.id}/edit`
-                                                    )
-                                                }
+                                                onClick={() => navigate(`/employees/${employee.id}/edit`)}
+                                                aria-label="Edit employee"
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -526,36 +510,29 @@ export default function EmployeeList() {
                         <Link
                             key={employee.id}
                             to={`/employees/${employee.id}`}
-                            className="group"
+                            className="group rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                         >
-                            <Card className="transition-shadow hover:shadow-md">
-                                <CardContent className="p-5">
-                                    <div className="flex items-start gap-4">
-                                        <EmployeeAvatar
-                                            employee={employee}
-                                            size="lg"
-                                        />
-                                        <div className="min-w-0 flex-1">
-                                            <h3 className="truncate text-sm font-semibold text-zinc-900 group-hover:text-zinc-600">
-                                                {employee.full_name}
-                                            </h3>
-                                            <p className="mt-0.5 font-mono text-xs text-zinc-500">
-                                                {employee.employee_id}
-                                            </p>
-                                            <p className="mt-1 truncate text-sm text-zinc-600">
-                                                {employee.department?.name || '-'}
-                                            </p>
-                                            <p className="truncate text-xs text-zinc-500">
-                                                {employee.position?.title || '-'}
-                                            </p>
-                                            <div className="mt-2">
-                                                <StatusBadge
-                                                    status={employee.status}
-                                                />
-                                            </div>
+                            <Card className="h-full p-5 transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md hover:shadow-slate-200/60">
+                                <div className="flex items-start gap-4">
+                                    <EmployeeAvatar employee={employee} size="lg" />
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="truncate text-sm font-semibold text-slate-900 group-hover:text-indigo-600">
+                                            {employee.full_name}
+                                        </h3>
+                                        <p className="mt-0.5 font-mono text-[11px] text-slate-500 tabular-nums">
+                                            {employee.employee_id}
+                                        </p>
+                                        <p className="mt-2 truncate text-xs text-slate-700">
+                                            {employee.department?.name || '–'}
+                                        </p>
+                                        <p className="truncate text-[11px] text-slate-400">
+                                            {employee.position?.title || '–'}
+                                        </p>
+                                        <div className="mt-3">
+                                            <StatusBadge status={employee.status} />
                                         </div>
                                     </div>
-                                </CardContent>
+                                </div>
                             </Card>
                         </Link>
                     ))}
@@ -564,9 +541,12 @@ export default function EmployeeList() {
 
             {/* Pagination */}
             {!isLoading && employees.length > 0 && lastPage > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                    <p className="text-sm text-zinc-500">
-                        Page {page} of {lastPage} ({totalEmployees} employees)
+                <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+                    <p className="text-sm text-slate-500">
+                        Page <span className="font-semibold tabular-nums text-slate-700">{page}</span> of{' '}
+                        <span className="font-semibold tabular-nums text-slate-700">{lastPage}</span>
+                        {' '}<span className="text-slate-400">·</span>{' '}
+                        <span className="tabular-nums">{totalEmployees}</span> employees
                     </p>
                     <div className="flex items-center gap-1">
                         <Button
@@ -575,28 +555,22 @@ export default function EmployeeList() {
                             disabled={page <= 1}
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                         >
-                            <ChevronLeft className="mr-1 h-4 w-4" />
+                            <ChevronLeft className="h-4 w-4" />
                             Previous
                         </Button>
                         {Array.from({ length: Math.min(lastPage, 5) }, (_, i) => {
                             let pageNum;
-                            if (lastPage <= 5) {
-                                pageNum = i + 1;
-                            } else if (page <= 3) {
-                                pageNum = i + 1;
-                            } else if (page >= lastPage - 2) {
-                                pageNum = lastPage - 4 + i;
-                            } else {
-                                pageNum = page - 2 + i;
-                            }
+                            if (lastPage <= 5) pageNum = i + 1;
+                            else if (page <= 3) pageNum = i + 1;
+                            else if (page >= lastPage - 2) pageNum = lastPage - 4 + i;
+                            else pageNum = page - 2 + i;
+
                             return (
                                 <Button
                                     key={pageNum}
-                                    variant={
-                                        page === pageNum ? 'default' : 'outline'
-                                    }
+                                    variant={page === pageNum ? 'default' : 'outline'}
                                     size="sm"
-                                    className="h-9 w-9 p-0"
+                                    className="h-9 w-9 p-0 tabular-nums"
                                     onClick={() => setPage(pageNum)}
                                 >
                                     {pageNum}
@@ -607,16 +581,27 @@ export default function EmployeeList() {
                             variant="outline"
                             size="sm"
                             disabled={page >= lastPage}
-                            onClick={() =>
-                                setPage((p) => Math.min(lastPage, p + 1))
-                            }
+                            onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
                         >
                             Next
-                            <ChevronRight className="ml-1 h-4 w-4" />
+                            <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
             )}
         </div>
+    );
+}
+
+function FilterChip({ children, onRemove }) {
+    return (
+        <button
+            type="button"
+            onClick={onRemove}
+            className="group inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+            {children}
+            <X className="h-3 w-3 text-indigo-400 group-hover:text-indigo-700" />
+        </button>
     );
 }

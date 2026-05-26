@@ -1,15 +1,127 @@
 @import "tailwindcss";
 
-/* HR Portal — Modern Theme */
+/* HR Portal — Fresh Indigo Theme */
 @theme {
-    --color-primary-50: oklch(0.97 0.02 270);
-    --color-primary-100: oklch(0.93 0.04 270);
-    --color-primary-200: oklch(0.87 0.08 270);
-    --color-primary-300: oklch(0.78 0.12 270);
-    --color-primary-400: oklch(0.68 0.16 270);
-    --color-primary-500: oklch(0.58 0.19 270);
-    --color-primary-600: oklch(0.50 0.20 270);
-    --color-primary-700: oklch(0.43 0.18 270);
-    --color-primary-800: oklch(0.36 0.15 270);
-    --color-primary-900: oklch(0.30 0.12 270);
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    /* Indigo primary scale */
+    --color-primary-50: #EEF2FF;
+    --color-primary-100: #E0E7FF;
+    --color-primary-200: #C7D2FE;
+    --color-primary-300: #A5B4FC;
+    --color-primary-400: #818CF8;
+    --color-primary-500: #6366F1;
+    --color-primary-600: #4F46E5;
+    --color-primary-700: #4338CA;
+    --color-primary-800: #3730A3;
+    --color-primary-900: #312E81;
+
+    /* Surfaces */
+    --color-surface: #FFFFFF;
+    --color-surface-muted: #F8FAFC;
+    --color-surface-subtle: #F1F5F9;
+
+    /* Semantic */
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #EF4444;
+    --color-info: #0EA5E9;
+}
+
+html,
+body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "ss02";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular numerals for KPI values */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Breathing ring animation — used around the Clock In button when ready */
+@keyframes hr-breathe {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50%      { transform: scale(1.15); opacity: 0.15; }
+}
+.hr-breathe {
+    animation: hr-breathe 2.6s ease-in-out infinite;
+}
+
+/* Subtle floating dot animation — for ambient hero decorations */
+@keyframes hr-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+.hr-float {
+    animation: hr-float 4s ease-in-out infinite;
+}
+.hr-float-delayed {
+    animation: hr-float 4s ease-in-out 1.5s infinite;
+}
+
+/* Shimmer for time digits — slow gradient sweep */
+@keyframes hr-shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.hr-shimmer {
+    background-image: linear-gradient(110deg, #1e293b 25%, #ec4899 45%, #6366F1 55%, #1e293b 75%);
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: hr-shimmer 6s ease-in-out infinite;
+}
+
+/* Slow rotation — decorative halo around the idle progress ring */
+@keyframes hr-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+.hr-spin-slow {
+    animation: hr-spin 14s linear infinite;
+}
+
+/* Conic gradient halo — a rotating ring of warm-to-cool colors */
+.hr-halo {
+    background: conic-gradient(
+        from 0deg,
+        rgba(99, 102, 241, 0.0) 0%,
+        rgba(236, 72, 153, 0.45) 15%,
+        rgba(251, 146, 60, 0.55) 30%,
+        rgba(244, 114, 182, 0.45) 45%,
+        rgba(139, 92, 246, 0.5) 60%,
+        rgba(99, 102, 241, 0.45) 75%,
+        rgba(99, 102, 241, 0.0) 100%
+    );
+}
+
+/* Sparkle dot for ambient decoration */
+@keyframes hr-twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.4); }
+}
+.hr-twinkle {
+    animation: hr-twinkle 3s ease-in-out infinite;
+}
+.hr-twinkle-2 {
+    animation: hr-twinkle 3.6s ease-in-out 1s infinite;
+}
+.hr-twinkle-3 {
+    animation: hr-twinkle 4.2s ease-in-out 2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hr-breathe, .hr-float, .hr-float-delayed, .hr-shimmer,
+    .hr-spin-slow, .hr-twinkle, .hr-twinkle-2, .hr-twinkle-3 {
+        animation: none;
+    }
+    .hr-shimmer {
+        color: #0F172A;
+        -webkit-text-fill-color: #0F172A;
+    }
 }

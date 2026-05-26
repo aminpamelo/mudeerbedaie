@@ -51,7 +51,7 @@ const SOURCE_OPTIONS = [
 ];
 
 const STAGE_BADGE = {
-    applied: 'bg-zinc-100 text-zinc-600',
+    applied: 'bg-slate-100 text-slate-600',
     screening: 'bg-blue-100 text-blue-700',
     interview: 'bg-amber-100 text-amber-700',
     assessment: 'bg-purple-100 text-purple-700',
@@ -78,7 +78,7 @@ function StarRating({ rating }) {
                     key={i}
                     className={cn(
                         'h-3.5 w-3.5',
-                        i < value ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'
+                        i < value ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
                     )}
                 />
             ))}
@@ -91,11 +91,11 @@ function SkeletonTable() {
         <div className="space-y-3 p-4">
             {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-2">
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-32 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -220,11 +220,11 @@ export default function Applicants() {
             ) : applicants.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Users className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">
+                        <Users className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">
                             {hasFilters ? 'No applicants match your filters' : 'No applicants yet'}
                         </h3>
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <p className="mt-1 text-sm text-slate-500">
                             {hasFilters
                                 ? 'Try adjusting your filters to find what you are looking for.'
                                 : 'Applicants will appear here once they apply for a job posting.'}
@@ -255,33 +255,33 @@ export default function Applicants() {
                         <TableBody>
                             {applicants.map((applicant) => (
                                 <TableRow key={applicant.id}>
-                                    <TableCell className="font-mono text-xs text-zinc-500">
+                                    <TableCell className="font-mono text-xs text-slate-500">
                                         {applicant.applicant_number || `#${applicant.id}`}
                                     </TableCell>
                                     <TableCell>
                                         <Link
                                             to={`/recruitment/applicants/${applicant.id}`}
-                                            className="font-medium text-zinc-900 hover:text-zinc-600 hover:underline"
+                                            className="font-medium text-slate-900 hover:text-slate-600 hover:underline"
                                         >
                                             {applicant.name}
                                         </Link>
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-500">{applicant.email}</TableCell>
+                                    <TableCell className="text-sm text-slate-500">{applicant.email}</TableCell>
                                     <TableCell className="text-sm">{applicant.job_posting?.title || '-'}</TableCell>
                                     <TableCell>
                                         <span
                                             className={cn(
                                                 'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
-                                                STAGE_BADGE[applicant.stage] || 'bg-zinc-100 text-zinc-600'
+                                                STAGE_BADGE[applicant.stage] || 'bg-slate-100 text-slate-600'
                                             )}
                                         >
                                             {applicant.stage}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="capitalize text-sm text-zinc-500">
+                                    <TableCell className="capitalize text-sm text-slate-500">
                                         {applicant.source || '-'}
                                     </TableCell>
-                                    <TableCell className="text-sm text-zinc-500">
+                                    <TableCell className="text-sm text-slate-500">
                                         {formatDate(applicant.applied_at)}
                                     </TableCell>
                                     <TableCell>
@@ -304,8 +304,8 @@ export default function Applicants() {
 
                     {/* Pagination */}
                     {lastPage > 1 && (
-                        <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3">
-                            <p className="text-sm text-zinc-500">
+                        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+                            <p className="text-sm text-slate-500">
                                 Page {page} of {lastPage} ({total} applicants)
                             </p>
                             <div className="flex items-center gap-2">

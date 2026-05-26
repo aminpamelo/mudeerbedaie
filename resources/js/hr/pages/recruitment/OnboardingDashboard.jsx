@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils';
 import PageHeader from '../../components/PageHeader';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
+import { StatCard } from '../../components/ui/stat-card';
 import {
     Table,
     TableHeader,
@@ -42,13 +43,13 @@ function ProgressBar({ value, total }) {
 
     return (
         <div className="flex items-center gap-3">
-            <div className="flex-1 overflow-hidden rounded-full bg-zinc-100">
+            <div className="flex-1 overflow-hidden rounded-full bg-slate-100">
                 <div
                     className={cn('h-2 rounded-full transition-all duration-500', color)}
                     style={{ width: `${pct}%` }}
                 />
             </div>
-            <span className="w-20 shrink-0 text-right text-xs text-zinc-500">
+            <span className="w-20 shrink-0 text-right text-xs text-slate-500">
                 {value}/{total} ({pct}%)
             </span>
         </div>
@@ -60,10 +61,10 @@ function SkeletonTable() {
         <div className="space-y-3 p-4">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-2">
-                    <div className="h-4 w-40 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1">
-                        <div className="h-2 animate-pulse rounded-full bg-zinc-200" />
+                        <div className="h-2 animate-pulse rounded-full bg-slate-200" />
                     </div>
                 </div>
             ))}
@@ -130,45 +131,9 @@ export default function OnboardingDashboard() {
 
             {/* Summary Cards */}
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50">
-                                <Users className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-zinc-500">Total Onboarding</p>
-                                <p className="text-2xl font-bold text-zinc-900">{onboardingList.length}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50">
-                                <ClipboardList className="h-6 w-6 text-amber-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-zinc-500">In Progress</p>
-                                <p className="text-2xl font-bold text-zinc-900">{inProgress}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50">
-                                <ClipboardList className="h-6 w-6 text-emerald-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-zinc-500">Completed</p>
-                                <p className="text-2xl font-bold text-zinc-900">{completed}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <StatCard label="Total Onboarding" value={onboardingList.length} icon={Users} accent="sky" />
+                <StatCard label="In Progress" value={inProgress} icon={ClipboardList} accent="amber" />
+                <StatCard label="Completed" value={completed} icon={ClipboardList} accent="emerald" />
             </div>
 
             {/* Onboarding List */}
@@ -179,9 +144,9 @@ export default function OnboardingDashboard() {
             ) : onboardingList.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <ClipboardList className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No onboarding in progress</h3>
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <ClipboardList className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No onboarding in progress</h3>
+                        <p className="mt-1 text-sm text-slate-500">
                             Assign onboarding to a newly hired employee to get started.
                         </p>
                         <Button className="mt-4" onClick={() => setAssignDialog(true)}>
@@ -213,10 +178,10 @@ export default function OnboardingDashboard() {
                                         <TableCell className="font-medium">
                                             {record.employee?.full_name || '-'}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {record.template?.name || '-'}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {record.start_date
                                                 ? new Date(record.start_date).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' })
                                                 : '-'}
@@ -232,7 +197,7 @@ export default function OnboardingDashboard() {
                                                         ? 'bg-emerald-100 text-emerald-700'
                                                         : pct > 0
                                                         ? 'bg-blue-100 text-blue-700'
-                                                        : 'bg-zinc-100 text-zinc-600'
+                                                        : 'bg-slate-100 text-slate-600'
                                                 )}
                                             >
                                                 {isDone ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started'}

@@ -63,11 +63,11 @@ function SkeletonTable() {
         <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <div className="h-4 w-36 animate-pulse rounded bg-zinc-200" />
-                    <div className="h-4 w-48 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-4 w-36 animate-pulse rounded bg-slate-200" />
+                    <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
                     <div className="flex-1" />
-                    <div className="h-6 w-16 animate-pulse rounded-full bg-zinc-200" />
-                    <div className="h-8 w-12 animate-pulse rounded bg-zinc-200" />
+                    <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-8 w-12 animate-pulse rounded bg-slate-200" />
                 </div>
             ))}
         </div>
@@ -181,8 +181,8 @@ export default function PipManagement() {
                         className={cn(
                             'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                             statusFilter === opt.value
-                                ? 'bg-zinc-900 text-white'
-                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                ? 'bg-slate-900 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         )}
                     >
                         {opt.label}
@@ -196,13 +196,13 @@ export default function PipManagement() {
                 ) : isError ? (
                     <CardContent className="flex flex-col items-center justify-center py-16">
                         <AlertTriangle className="mb-3 h-10 w-10 text-red-300" />
-                        <p className="text-sm font-medium text-zinc-600">Failed to load PIPs.</p>
+                        <p className="text-sm font-medium text-slate-600">Failed to load PIPs.</p>
                     </CardContent>
                 ) : pips.length === 0 ? (
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <TrendingUp className="mb-4 h-12 w-12 text-zinc-300" />
-                        <h3 className="text-lg font-semibold text-zinc-900">No PIPs found</h3>
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <TrendingUp className="mb-4 h-12 w-12 text-slate-300" />
+                        <h3 className="text-lg font-semibold text-slate-900">No PIPs found</h3>
+                        <p className="mt-1 text-sm text-slate-500">
                             {statusFilter !== 'all'
                                 ? 'No PIPs match the selected status.'
                                 : 'No performance improvement plans have been created yet.'}
@@ -227,40 +227,40 @@ export default function PipManagement() {
 
                                 return (
                                     <TableRow key={pip.id}>
-                                        <TableCell className="font-medium text-zinc-900">
+                                        <TableCell className="font-medium text-slate-900">
                                             {pip.employee?.full_name || '-'}
                                         </TableCell>
                                         <TableCell className="max-w-48">
-                                            <p className="truncate text-sm text-zinc-600" title={pip.reason}>
+                                            <p className="truncate text-sm text-slate-600" title={pip.reason}>
                                                 {pip.reason || '-'}
                                             </p>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {formatDate(pip.start_date)}
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-500">
+                                        <TableCell className="text-sm text-slate-500">
                                             {formatDate(pip.end_date)}
                                         </TableCell>
                                         <TableCell>
-                                            <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', STATUS_BADGE[pip.status] || 'bg-zinc-100 text-zinc-600')}>
+                                            <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', STATUS_BADGE[pip.status] || 'bg-slate-100 text-slate-600')}>
                                                 {pip.status || '-'}
                                             </span>
                                         </TableCell>
                                         <TableCell>
                                             {progress ? (
                                                 <div className="flex items-center gap-2">
-                                                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-200">
+                                                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200">
                                                         <div
                                                             className="h-full rounded-full bg-emerald-500"
                                                             style={{ width: `${Math.round((progress.completed / progress.total) * 100)}%` }}
                                                         />
                                                     </div>
-                                                    <span className="text-xs text-zinc-500">
+                                                    <span className="text-xs text-slate-500">
                                                         {progress.completed}/{progress.total}
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <span className="text-xs text-zinc-400">—</span>
+                                                <span className="text-xs text-slate-400">—</span>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -293,11 +293,11 @@ export default function PipManagement() {
                             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
                         )}
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Employee *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Employee *</label>
                             <select
                                 value={form.employee_id}
                                 onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 <option value="">Select employee...</option>
                                 {employees.map((emp) => (
@@ -308,32 +308,32 @@ export default function PipManagement() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-zinc-700">Reason *</label>
+                            <label className="mb-1 block text-sm font-medium text-slate-700">Reason *</label>
                             <textarea
                                 value={form.reason}
                                 onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
                                 placeholder="Describe the performance issue..."
                                 rows={3}
-                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">Start Date</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Start Date</label>
                                 <input
                                     type="date"
                                     value={form.start_date}
                                     onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-sm font-medium text-zinc-700">End Date</label>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">End Date</label>
                                 <input
                                     type="date"
                                     value={form.end_date}
                                     onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                 />
                             </div>
                         </div>
@@ -341,7 +341,7 @@ export default function PipManagement() {
                         {/* Goals */}
                         <div>
                             <div className="mb-2 flex items-center justify-between">
-                                <label className="text-sm font-medium text-zinc-700">Improvement Goals</label>
+                                <label className="text-sm font-medium text-slate-700">Improvement Goals</label>
                                 <Button type="button" variant="outline" size="sm" onClick={addGoal}>
                                     <Plus className="mr-1 h-3.5 w-3.5" />
                                     Add Goal
@@ -349,9 +349,9 @@ export default function PipManagement() {
                             </div>
                             <div className="space-y-3">
                                 {form.goals.map((goal, i) => (
-                                    <div key={i} className="rounded-lg border border-zinc-200 p-3">
+                                    <div key={i} className="rounded-lg border border-slate-200 p-3">
                                         <div className="mb-2 flex items-center justify-between">
-                                            <span className="text-xs font-medium text-zinc-500">Goal {i + 1}</span>
+                                            <span className="text-xs font-medium text-slate-500">Goal {i + 1}</span>
                                             {form.goals.length > 1 && (
                                                 <button
                                                     type="button"
@@ -368,7 +368,7 @@ export default function PipManagement() {
                                                 value={goal.title}
                                                 onChange={(e) => updateGoal(i, 'title', e.target.value)}
                                                 placeholder="Goal title"
-                                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                             />
                                             <div className="grid grid-cols-2 gap-2">
                                                 <input
@@ -376,13 +376,13 @@ export default function PipManagement() {
                                                     value={goal.description}
                                                     onChange={(e) => updateGoal(i, 'description', e.target.value)}
                                                     placeholder="Description (optional)"
-                                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                                 />
                                                 <input
                                                     type="date"
                                                     value={goal.target_date}
                                                     onChange={(e) => updateGoal(i, 'target_date', e.target.value)}
-                                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                                 />
                                             </div>
                                         </div>

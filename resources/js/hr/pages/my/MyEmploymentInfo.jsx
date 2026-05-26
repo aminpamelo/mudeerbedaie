@@ -29,9 +29,9 @@ function formatDate(dateStr) {
 
 function InfoRow({ label, value }) {
     return (
-        <div className="flex justify-between py-2 border-b border-zinc-100 last:border-0">
-            <span className="text-sm text-zinc-500">{label}</span>
-            <span className="text-sm font-medium text-zinc-900 text-right">{value || '-'}</span>
+        <div className="flex justify-between py-2 border-b border-slate-100 last:border-0">
+            <span className="text-sm text-slate-500">{label}</span>
+            <span className="text-sm font-medium text-slate-900 text-right">{value || '-'}</span>
         </div>
     );
 }
@@ -46,7 +46,7 @@ export default function MyEmploymentInfo() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
         );
     }
@@ -55,7 +55,7 @@ export default function MyEmploymentInfo() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-slate-600">
                     {error?.response?.data?.message || 'Failed to load employment info'}
                 </p>
             </div>
@@ -99,20 +99,20 @@ export default function MyEmploymentInfo() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-zinc-500" />
+                        <Briefcase className="h-4 w-4 text-slate-500" />
                         Employment Details
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex justify-between py-2 border-b border-zinc-100">
-                        <span className="text-sm text-zinc-500">Employment Type</span>
+                    <div className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-sm text-slate-500">Employment Type</span>
                         <Badge variant="secondary">
                             {employee.employment_type_label || '-'}
                         </Badge>
                     </div>
                     <InfoRow label="Join Date" value={formatDate(employee.join_date)} />
                     <div className="flex justify-between py-2">
-                        <span className="text-sm text-zinc-500">Status</span>
+                        <span className="text-sm text-slate-500">Status</span>
                         <StatusBadge status={employee.status} />
                     </div>
                 </CardContent>
@@ -156,7 +156,7 @@ export default function MyEmploymentInfo() {
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-zinc-500" />
+                            <CreditCard className="h-4 w-4 text-slate-500" />
                             Bank Information
                         </CardTitle>
                         {!editingBank && (
@@ -174,7 +174,7 @@ export default function MyEmploymentInfo() {
                     {editingBank ? (
                         <div className="space-y-3">
                             <div>
-                                <label className="text-xs font-medium text-zinc-500 mb-1 block">Bank Name</label>
+                                <label className="text-xs font-medium text-slate-500 mb-1 block">Bank Name</label>
                                 <Input
                                     value={bankName}
                                     onChange={(e) => setBankName(e.target.value)}
@@ -182,14 +182,14 @@ export default function MyEmploymentInfo() {
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-medium text-zinc-500 mb-1 block">Account Number</label>
+                                <label className="text-xs font-medium text-slate-500 mb-1 block">Account Number</label>
                                 <Input
                                     value={bankAccount}
                                     onChange={(e) => setBankAccount(e.target.value)}
                                     placeholder="Leave empty to keep current"
                                 />
                                 {employee.masked_bank_account && employee.masked_bank_account !== '-' && (
-                                    <p className="text-xs text-zinc-400 mt-1">Current: {employee.masked_bank_account}</p>
+                                    <p className="text-xs text-slate-400 mt-1">Current: {employee.masked_bank_account}</p>
                                 )}
                             </div>
                             {bankMutation.isError && (
@@ -213,7 +213,7 @@ export default function MyEmploymentInfo() {
                                 <button
                                     onClick={() => setEditingBank(false)}
                                     disabled={bankMutation.isPending}
-                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 rounded-lg hover:bg-zinc-200 disabled:opacity-50 transition-colors"
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50 transition-colors"
                                 >
                                     <X className="h-3 w-3" />
                                     Cancel
@@ -234,7 +234,7 @@ export default function MyEmploymentInfo() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-zinc-500" />
+                            <FileText className="h-4 w-4 text-slate-500" />
                             Contract Details
                         </CardTitle>
                     </CardHeader>

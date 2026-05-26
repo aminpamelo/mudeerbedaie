@@ -24,26 +24,26 @@ export default function AiSummaryPanel({ summary, onApproveTasks, approving }) {
     }
 
     return (
-        <div className="space-y-4 rounded-lg border border-zinc-200 p-4">
+        <div className="space-y-4 rounded-lg border border-slate-200 p-4">
             <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-semibold text-zinc-900">AI Summary</h3>
+                <h3 className="text-sm font-semibold text-slate-900">AI Summary</h3>
             </div>
 
             {summaryText && (
                 <div>
-                    <p className="text-xs font-medium uppercase text-zinc-500">Summary</p>
-                    <p className="mt-1 text-sm text-zinc-600">{summaryText}</p>
+                    <p className="text-xs font-medium uppercase text-slate-500">Summary</p>
+                    <p className="mt-1 text-sm text-slate-600">{summaryText}</p>
                 </div>
             )}
 
             {keyPoints.length > 0 && (
                 <div>
-                    <p className="text-xs font-medium uppercase text-zinc-500">Key Points</p>
+                    <p className="text-xs font-medium uppercase text-slate-500">Key Points</p>
                     <ul className="mt-1 space-y-1">
                         {keyPoints.map((point, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-zinc-600">
-                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" />
+                            <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
                                 {point}
                             </li>
                         ))}
@@ -53,26 +53,26 @@ export default function AiSummaryPanel({ summary, onApproveTasks, approving }) {
 
             {suggestedTasks.length > 0 && (
                 <div>
-                    <p className="text-xs font-medium uppercase text-zinc-500">Suggested Tasks</p>
+                    <p className="text-xs font-medium uppercase text-slate-500">Suggested Tasks</p>
                     <div className="mt-2 space-y-2">
                         {suggestedTasks.map((task, i) => (
                             <label
                                 key={i}
-                                className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-100 px-3 py-2 hover:bg-zinc-50"
+                                className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 px-3 py-2 hover:bg-slate-50"
                             >
                                 <input
                                     type="checkbox"
                                     checked={selectedTasks.includes(i)}
                                     onChange={() => toggleTask(i)}
-                                    className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
                                 />
                                 <div>
-                                    <p className="text-sm font-medium text-zinc-900">{task.title}</p>
+                                    <p className="text-sm font-medium text-slate-900">{task.title}</p>
                                     {task.description && (
-                                        <p className="text-xs text-zinc-500">{task.description}</p>
+                                        <p className="text-xs text-slate-500">{task.description}</p>
                                     )}
                                     {task.assignee && (
-                                        <span className="text-xs text-zinc-400">Assign to: {task.assignee}</span>
+                                        <span className="text-xs text-slate-400">Assign to: {task.assignee}</span>
                                     )}
                                 </div>
                             </label>

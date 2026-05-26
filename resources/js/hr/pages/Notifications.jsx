@@ -50,7 +50,7 @@ const NOTIFICATION_COLORS = {
     'package': 'bg-orange-100 text-orange-600',
     'user-plus': 'bg-indigo-100 text-indigo-600',
     'alert-triangle': 'bg-yellow-100 text-yellow-600',
-    'bell': 'bg-zinc-100 text-zinc-600',
+    'bell': 'bg-slate-100 text-slate-600',
 };
 
 function getNotificationIcon(iconName) {
@@ -58,7 +58,7 @@ function getNotificationIcon(iconName) {
 }
 
 function getNotificationColor(iconName) {
-    return NOTIFICATION_COLORS[iconName] || 'bg-zinc-100 text-zinc-600';
+    return NOTIFICATION_COLORS[iconName] || 'bg-slate-100 text-slate-600';
 }
 
 function timeAgo(dateStr) {
@@ -199,10 +199,10 @@ export default function Notifications() {
                             <div className={cn(
                                 'flex h-12 w-12 items-center justify-center rounded-xl',
                                 !checked
-                                    ? 'bg-zinc-100 text-zinc-400'
+                                    ? 'bg-slate-100 text-slate-400'
                                     : isSubscribed
                                     ? 'bg-green-100 text-green-600'
-                                    : 'bg-zinc-100 text-zinc-400'
+                                    : 'bg-slate-100 text-slate-400'
                             )}>
                                 {isSubscribed && checked ? (
                                     <BellRing className="h-6 w-6" />
@@ -211,10 +211,10 @@ export default function Notifications() {
                                 )}
                             </div>
                             <div>
-                                <h3 className="text-sm font-semibold text-zinc-900">
+                                <h3 className="text-sm font-semibold text-slate-900">
                                     Push Notifications
                                 </h3>
-                                <p className="text-sm text-zinc-500">
+                                <p className="text-sm text-slate-500">
                                     {!isSupported
                                         ? 'Push notifications are not supported in this browser.'
                                         : isSubscribed
@@ -250,7 +250,7 @@ export default function Notifications() {
 
             {/* Filter Tabs & Stats */}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1">
+                <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
                     {[
                         { key: 'all', label: 'All' },
                         { key: 'unread', label: 'Unread', count: unreadCount },
@@ -262,8 +262,8 @@ export default function Notifications() {
                             className={cn(
                                 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                                 filter === key
-                                    ? 'bg-zinc-900 text-white'
-                                    : 'text-zinc-600 hover:bg-zinc-100'
+                                    ? 'bg-slate-900 text-white'
+                                    : 'text-slate-600 hover:bg-slate-100'
                             )}
                         >
                             {label}
@@ -280,27 +280,27 @@ export default function Notifications() {
                         </button>
                     ))}
                 </div>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-slate-500">
                     {total} notification{total !== 1 ? 's' : ''}
                 </p>
             </div>
 
             {/* Notification List */}
             <Card>
-                <div className="divide-y divide-zinc-100">
+                <div className="divide-y divide-slate-100">
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                         </div>
                     ) : notifications.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
-                                <Bell className="h-7 w-7 text-zinc-400" />
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+                                <Bell className="h-7 w-7 text-slate-400" />
                             </div>
-                            <p className="mt-4 text-sm font-medium text-zinc-900">
+                            <p className="mt-4 text-sm font-medium text-slate-900">
                                 No notifications
                             </p>
-                            <p className="mt-1 text-sm text-zinc-500">
+                            <p className="mt-1 text-sm text-slate-500">
                                 {filter === 'unread'
                                     ? "You're all caught up!"
                                     : 'Notifications will appear here when you receive them.'}
@@ -317,7 +317,7 @@ export default function Notifications() {
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
                                     className={cn(
-                                        'flex w-full items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-zinc-50',
+                                        'flex w-full items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50',
                                         !notification.read_at && 'bg-blue-50/40'
                                     )}
                                 >
@@ -335,8 +335,8 @@ export default function Notifications() {
                                             <p className={cn(
                                                 'text-sm',
                                                 !notification.read_at
-                                                    ? 'font-semibold text-zinc-900'
-                                                    : 'font-medium text-zinc-700'
+                                                    ? 'font-semibold text-slate-900'
+                                                    : 'font-medium text-slate-700'
                                             )}>
                                                 {notification.data?.title || 'Notification'}
                                             </p>
@@ -344,15 +344,15 @@ export default function Notifications() {
                                                 {!notification.read_at && (
                                                     <div className="h-2 w-2 rounded-full bg-blue-500" />
                                                 )}
-                                                <span className="whitespace-nowrap text-xs text-zinc-400">
+                                                <span className="whitespace-nowrap text-xs text-slate-400">
                                                     {timeAgo(notification.created_at)}
                                                 </span>
                                             </div>
                                         </div>
-                                        <p className="mt-0.5 text-sm text-zinc-500">
+                                        <p className="mt-0.5 text-sm text-slate-500">
                                             {notification.data?.body || ''}
                                         </p>
-                                        <p className="mt-1 text-xs text-zinc-400">
+                                        <p className="mt-1 text-xs text-slate-400">
                                             {formatDate(notification.created_at)}
                                         </p>
                                     </div>
@@ -364,8 +364,8 @@ export default function Notifications() {
 
                 {/* Pagination */}
                 {lastPage > 1 && (
-                    <div className="flex items-center justify-between border-t border-zinc-200 px-5 py-3">
-                        <p className="text-sm text-zinc-500">
+                    <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
+                        <p className="text-sm text-slate-500">
                             Page {page} of {lastPage}
                         </p>
                         <div className="flex items-center gap-2">

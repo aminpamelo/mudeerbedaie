@@ -61,12 +61,12 @@ export default function AgendaEditor({ meetingId, items, onUpdate }) {
             </CardHeader>
             <CardContent>
                 {items.length === 0 && !adding ? (
-                    <p className="text-sm text-zinc-500">No agenda items yet.</p>
+                    <p className="text-sm text-slate-500">No agenda items yet.</p>
                 ) : (
                     <div className="space-y-3">
                         {items.map((item, index) => (
                             <div key={item.id} className="flex items-start gap-3">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                                     {index + 1}
                                 </span>
                                 {editingId === item.id ? (
@@ -100,9 +100,9 @@ export default function AgendaEditor({ meetingId, items, onUpdate }) {
                                 ) : (
                                     <div className="flex flex-1 items-start justify-between">
                                         <div>
-                                            <p className="text-sm font-medium text-zinc-900">{item.title}</p>
+                                            <p className="text-sm font-medium text-slate-900">{item.title}</p>
                                             {item.description && (
-                                                <p className="mt-0.5 text-sm text-zinc-500">{item.description}</p>
+                                                <p className="mt-0.5 text-sm text-slate-500">{item.description}</p>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-1">
@@ -121,7 +121,7 @@ export default function AgendaEditor({ meetingId, items, onUpdate }) {
                 )}
 
                 {adding && (
-                    <div className="mt-4 space-y-2 rounded-lg border border-zinc-200 p-3">
+                    <div className="mt-4 space-y-2 rounded-lg border border-slate-200 p-3">
                         <Input
                             value={form.title}
                             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
