@@ -28,6 +28,10 @@ class UpdateFunnelRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:1000'],
             'type' => ['sometimes', Rule::in(['sales', 'lead', 'webinar', 'course'])],
             'status' => ['sometimes', Rule::in(['draft', 'published', 'archived'])],
+            'funnel_category_id' => [
+                'nullable',
+                Rule::exists('funnel_categories', 'id')->where('user_id', auth()->id()),
+            ],
             'settings' => ['nullable', 'array'],
             'settings.meta_title' => ['nullable', 'string', 'max:255'],
             'settings.meta_description' => ['nullable', 'string', 'max:500'],

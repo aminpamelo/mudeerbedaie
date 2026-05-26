@@ -27,6 +27,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from '../../components/ui/dialog';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 // ---- Helpers ----
 function formatDecimalHours(decimalHours) {
@@ -185,70 +186,69 @@ export default function MyOvertime() {
     }
 
     return (
-        <div className="space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900">My Overtime</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Manage your overtime requests</p>
+        <div className="space-y-5 pb-4">
+            <EmployeePageHeader
+                icon={Timer}
+                accent="amber"
+                title="My Overtime"
+                context={formatDecimalHours(balance.available) + ' available'}
+                action={
+                    <button
+                        onClick={() => {
+                            if (activeTab === 'requests') { resetForm(); setShowForm(true); }
+                            else setShowClaimForm(true);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-md shadow-pink-500/30 transition-all hover:shadow-lg"
+                    >
+                        <Plus className="h-3 w-3" /> New
+                    </button>
+                }
+            />
+
+            {/* Balance tiles */}
+            <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/40 p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">Earned</p>
+                    <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">{formatDecimalHours(balance.total_earned)}</p>
                 </div>
-                {activeTab === 'requests' ? (
-                    <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
-                        <Plus className="h-4 w-4 mr-1" /> New OT Request
-                    </Button>
-                ) : (
-                    <Button size="sm" onClick={() => setShowClaimForm(true)}>
-                        <Plus className="h-4 w-4 mr-1" /> New Claim
-                    </Button>
-                )}
+                <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-amber-50/40 p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Used</p>
+                    <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">{formatDecimalHours(balance.total_used)}</p>
+                </div>
+                <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-sky-50/40 p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-sky-700">Available</p>
+                    <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">{formatDecimalHours(balance.available)}</p>
+                </div>
             </div>
 
             {/* Tab switcher */}
-            <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 w-fit">
-                <button
-                    onClick={() => setActiveTab('requests')}
-                    className={cn(
-                        'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-                        activeTab === 'requests'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
-                    )}
-                >
-                    OT Requests
-                </button>
-                <button
-                    onClick={() => setActiveTab('claims')}
-                    className={cn(
-                        'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-                        activeTab === 'claims'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
-                    )}
-                >
-                    My Claims
-                </button>
-            </div>
-
-            {/* Balance cards — always visible */}
-            <div className="grid grid-cols-3 gap-2">
-                <Card>
-                    <CardContent className="py-3 text-center">
-                        <p className="text-lg font-bold text-emerald-600">{formatDecimalHours(balance.total_earned)}</p>
-                        <p className="text-[10px] text-slate-500">Earned</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="py-3 text-center">
-                        <p className="text-lg font-bold text-amber-600">{formatDecimalHours(balance.total_used)}</p>
-                        <p className="text-[10px] text-slate-500">Used</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="py-3 text-center">
-                        <p className="text-lg font-bold text-blue-600">{formatDecimalHours(balance.available)}</p>
-                        <p className="text-[10px] text-slate-500">Available</p>
-                    </CardContent>
-                </Card>
+            <div className="flex items-center justify-center">
+                <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                    <button
+                        onClick={() => setActiveTab('requests')}
+                        aria-pressed={activeTab === 'requests'}
+                        className={cn(
+                            'rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                            activeTab === 'requests'
+                                ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
+                                : 'text-slate-500 hover:text-slate-700'
+                        )}
+                    >
+                        OT Requests
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('claims')}
+                        aria-pressed={activeTab === 'claims'}
+                        className={cn(
+                            'rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                            activeTab === 'claims'
+                                ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
+                                : 'text-slate-500 hover:text-slate-700'
+                        )}
+                    >
+                        My Claims
+                    </button>
+                </div>
             </div>
 
             {/* Tab content */}

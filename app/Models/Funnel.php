@@ -19,6 +19,7 @@ class Funnel extends Model
         'uuid',
         'user_id',
         'template_id',
+        'funnel_category_id',
         'name',
         'slug',
         'description',
@@ -69,6 +70,11 @@ class Funnel extends Model
     public function template(): BelongsTo
     {
         return $this->belongsTo(FunnelTemplate::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(FunnelCategory::class, 'funnel_category_id');
     }
 
     public function steps(): HasMany

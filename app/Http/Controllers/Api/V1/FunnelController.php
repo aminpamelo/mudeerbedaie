@@ -22,7 +22,10 @@ class FunnelController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Funnel::query()
-            ->with(['steps' => fn ($q) => $q->orderBy('sort_order')])
+            ->with([
+                'steps' => fn ($q) => $q->orderBy('sort_order'),
+                'category',
+            ])
             ->withCount('steps')
             ->latest();
 
@@ -44,7 +47,17 @@ class FunnelController extends Controller
             $query->where('type', $type);
         }
 
-        $funnels = $query->paginate($request->input('per_page', 15));
+        // Category filter: integer ID, or the literal 'none' for uncategorized
+        if ($request->has('category')) {
+            $category = $request->input('category');
+            if ($category === 'none' || $category === '0') {
+                $query->whereNull('funnel_category_id');
+            } elseif ($category !== '' && $category !== null && $category !== 'all') {
+                $query->where('funnel_category_id', (int) $category);
+            }
+        }
+
+        $funnels = $query->paginate($request->input('per_page', 100));
 
         return FunnelResource::collection($funnels);
     }
@@ -80,6 +93,7 @@ class FunnelController extends Controller
                 'type' => $data['type'] ?? 'sales',
                 'status' => 'draft',
                 'settings' => $data['settings'] ?? [],
+                'funnel_category_id' => $data['funnel_category_id'] ?? null,
             ]);
 
             // Create default landing step
@@ -94,7 +108,7 @@ class FunnelController extends Controller
 
         return response()->json([
             'message' => 'Funnel created successfully',
-            'data' => new FunnelResource($funnel->load('steps')),
+            'data' => new FunnelResource($funnel->load(['steps', 'category'])),
         ], 201);
     }
 
@@ -108,6 +122,7 @@ class FunnelController extends Controller
                 'steps' => fn ($q) => $q->orderBy('sort_order'),
                 'steps.products',
                 'steps.orderBumps',
+                'category',
             ])
             ->withCount(['sessions', 'orders'])
             ->firstOrFail();
@@ -138,7 +153,7 @@ class FunnelController extends Controller
 
         return response()->json([
             'message' => 'Funnel updated successfully',
-            'data' => new FunnelResource($funnel->fresh(['steps'])),
+            'data' => new FunnelResource($funnel->fresh(['steps', 'category'])),
         ]);
     }
 

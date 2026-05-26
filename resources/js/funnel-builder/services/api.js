@@ -42,6 +42,32 @@ async function request(endpoint, options = {}) {
 }
 
 /**
+ * Funnel Category API
+ */
+export const categoryApi = {
+    list: () => request('/funnel-categories'),
+
+    create: (data) => request('/funnel-categories', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+
+    update: (id, data) => request(`/funnel-categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    delete: (id) => request(`/funnel-categories/${id}`, {
+        method: 'DELETE',
+    }),
+
+    reorder: (categories) => request('/funnel-categories/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ categories }),
+    }),
+};
+
+/**
  * Funnel API
  */
 export const funnelApi = {
@@ -436,6 +462,7 @@ export const customDomainApi = {
 };
 
 export default {
+    category: categoryApi,
     funnel: funnelApi,
     step: stepApi,
     product: productApi,

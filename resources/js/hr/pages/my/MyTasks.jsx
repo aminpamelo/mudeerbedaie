@@ -15,6 +15,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent } from '../../components/ui/card';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 import {
     Select,
     SelectTrigger,
@@ -70,11 +71,13 @@ export default function MyTasks() {
     const tasks = data?.data || [];
 
     return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
-                <p className="mt-1 text-sm text-slate-500">Action items assigned to you from meetings.</p>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={ListTodo}
+                accent="indigo"
+                title="My Tasks"
+                context={tasks.length > 0 ? `${tasks.length} item${tasks.length === 1 ? '' : 's'}` : null}
+            />
 
             <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="mb-4">

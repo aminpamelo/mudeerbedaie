@@ -19,6 +19,10 @@ class StoreFunnelRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:1000'],
             'type' => ['nullable', Rule::in(['sales', 'lead', 'webinar', 'course'])],
             'template_id' => ['nullable', 'exists:funnel_templates,id'],
+            'funnel_category_id' => [
+                'nullable',
+                Rule::exists('funnel_categories', 'id')->where('user_id', auth()->id()),
+            ],
             'settings' => ['nullable', 'array'],
             'settings.meta_title' => ['nullable', 'string', 'max:255'],
             'settings.meta_description' => ['nullable', 'string', 'max:500'],

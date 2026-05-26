@@ -40,6 +40,7 @@ import {
     SelectItem,
     SelectValue,
 } from '../../components/ui/select';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 
@@ -363,7 +364,25 @@ export default function MyClaims() {
     }
 
     return (
-        <div className="space-y-6 pb-4">
+        <div className="space-y-5 pb-4">
+            <EmployeePageHeader
+                icon={Receipt}
+                accent="violet"
+                title="My Claims"
+                context={meta.total > 0 ? `${meta.total} total` : null}
+                action={
+                    <button
+                        onClick={() => {
+                            setFormOpen(true);
+                            setForm(EMPTY_FORM);
+                            setErrors({});
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-md shadow-pink-500/30 transition-all hover:shadow-lg"
+                    >
+                        <Plus className="h-3 w-3" /> New
+                    </button>
+                }
+            />
 
             {/* ── Budget section ─────────────────────────────────────────── */}
             {limits.length > 0 && (
@@ -417,17 +436,6 @@ export default function MyClaims() {
                                 <SelectItem value="paid">Paid</SelectItem>
                             </SelectContent>
                         </Select>
-                        <button
-                            onClick={() => {
-                                setFormOpen(true);
-                                setForm(EMPTY_FORM);
-                                setErrors({});
-                            }}
-                            className="flex h-7 items-center gap-1 rounded-full bg-slate-800 px-3 text-xs font-medium text-white transition-colors hover:bg-slate-700 active:bg-slate-900"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                            New
-                        </button>
                     </div>
                 </div>
 

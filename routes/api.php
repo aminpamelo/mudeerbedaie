@@ -118,6 +118,7 @@ use App\Http\Controllers\Api\V1\AffiliateDashboardController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FunnelAffiliateController;
 use App\Http\Controllers\Api\V1\FunnelAutomationController;
+use App\Http\Controllers\Api\V1\FunnelCategoryController;
 use App\Http\Controllers\Api\V1\FunnelCheckoutController;
 use App\Http\Controllers\Api\V1\FunnelController;
 use App\Http\Controllers\Api\V1\FunnelMediaController;
@@ -183,6 +184,13 @@ Route::middleware(['auth:sanctum'])->prefix('crm')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
+    // Funnel Categories
+    Route::get('funnel-categories', [FunnelCategoryController::class, 'index'])->name('api.funnel-categories.index');
+    Route::post('funnel-categories', [FunnelCategoryController::class, 'store'])->name('api.funnel-categories.store');
+    Route::post('funnel-categories/reorder', [FunnelCategoryController::class, 'reorder'])->name('api.funnel-categories.reorder');
+    Route::put('funnel-categories/{category}', [FunnelCategoryController::class, 'update'])->name('api.funnel-categories.update');
+    Route::delete('funnel-categories/{category}', [FunnelCategoryController::class, 'destroy'])->name('api.funnel-categories.destroy');
+
     // Funnels
     Route::get('funnels', [FunnelController::class, 'index'])->name('api.funnels.index');
     Route::post('funnels', [FunnelController::class, 'store'])->name('api.funnels.store');

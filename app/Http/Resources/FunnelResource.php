@@ -21,6 +21,15 @@ class FunnelResource extends JsonResource
             'thumbnail' => $this->thumbnail,
             'published_at' => $this->published_at?->toIso8601String(),
 
+            // Category
+            'funnel_category_id' => $this->funnel_category_id,
+            'category' => $this->whenLoaded('category', fn () => $this->category ? [
+                'id' => $this->category->id,
+                'name' => $this->category->name,
+                'slug' => $this->category->slug,
+                'color' => $this->category->color,
+            ] : null),
+
             // Embed settings
             'embed_enabled' => $this->embed_enabled ?? false,
             'embed_key' => $this->embed_key,

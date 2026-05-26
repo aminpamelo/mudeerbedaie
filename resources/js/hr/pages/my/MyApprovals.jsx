@@ -153,15 +153,15 @@ export default function MyApprovals() {
             {/* Header */}
             <div className="bg-white border-b border-slate-100 px-4 py-5 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-pink-500 to-orange-400 shadow-md shadow-pink-500/30">
                         <ShieldCheck className="h-5 w-5 text-white" />
                     </div>
                     <div>
                         <h1 className="text-base font-bold text-slate-900">My Approvals</h1>
-                        <p className="text-xs text-slate-400">Review requests from your team</p>
+                        <p className="text-xs text-slate-500">Review requests from your team</p>
                     </div>
                     {!isLoading && totalPending > 0 && (
-                        <span className="ml-auto flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-2 text-xs font-bold text-white">
+                        <span className="ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-2 text-xs font-bold tabular-nums text-white shadow-md shadow-rose-500/30">
                             {totalPending}
                         </span>
                     )}

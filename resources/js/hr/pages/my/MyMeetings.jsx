@@ -12,6 +12,8 @@ import { fetchMyMeetings } from '../../lib/api';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent } from '../../components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
+import { CalendarRange } from 'lucide-react';
 
 const STATUS_BADGE = {
     draft: { label: 'Draft', variant: 'secondary' },
@@ -42,11 +44,13 @@ export default function MyMeetings() {
     const meetings = data?.data || [];
 
     return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Meetings</h1>
-                <p className="mt-1 text-sm text-slate-500">View meetings you are invited to or organizing.</p>
-            </div>
+        <div className="space-y-4 pb-4">
+            <EmployeePageHeader
+                icon={CalendarRange}
+                accent="sky"
+                title="My Meetings"
+                context={meetings.length > 0 ? `${meetings.length} ${tab}` : null}
+            />
 
             <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="mb-4">

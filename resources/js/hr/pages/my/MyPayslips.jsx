@@ -4,26 +4,15 @@ import {
     Download,
     FileText,
     Loader2,
-    DollarSign,
-    TrendingDown,
     Wallet,
+    Receipt,
     ChevronRight,
+    Sparkles,
 } from 'lucide-react';
 import {
     Card,
-    CardHeader,
     CardContent,
-    CardTitle,
-    CardDescription,
 } from '../../components/ui/card';
-import {
-    Table,
-    TableHeader,
-    TableBody,
-    TableRow,
-    TableHead,
-    TableCell,
-} from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import {
     Dialog,
@@ -33,6 +22,8 @@ import {
     DialogDescription,
     DialogFooter,
 } from '../../components/ui/dialog';
+import { EmployeePageHeader } from '../../components/ui/employee-page-header';
+import { RecordCard, RecordList } from '../../components/ui/record-card';
 import { cn } from '../../lib/utils';
 import { fetchMyPayslips, fetchMyPayslip, downloadMyPayslipPdf, fetchMyPayslipYtd } from '../../lib/api';
 
@@ -46,6 +37,12 @@ function formatCurrency(amount) {
     return `RM ${parseFloat(amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatCurrencyShort(amount) {
+    if (amount == null) return 'RM 0';
+    const n = parseFloat(amount);
+    return `RM ${n.toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
+}
+
 function downloadBlob(data, filename) {
     const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
     const link = document.createElement('a');
@@ -55,24 +52,6 @@ function downloadBlob(data, filename) {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
-}
-
-function SummaryCard({ title, value, icon: Icon, iconColor, iconBg }) {
-    return (
-        <Card>
-            <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', iconBg)}>
-                        <Icon className={cn('h-5 w-5', iconColor)} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-slate-500">{title}</p>
-                        <p className="text-lg font-bold text-slate-900">{value}</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
 }
 
 export default function MyPayslips() {
@@ -102,6 +81,8 @@ export default function MyPayslips() {
     const ytd = ytdData?.data || {};
     const detail = detailData?.data;
 
+    const latestPayslip = payslips[0];
+
     async function handleDownload(payslip) {
         setDownloadingId(payslip.id);
         try {
@@ -120,127 +101,137 @@ export default function MyPayslips() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">My Payslips</h1>
-                <p className="text-sm text-slate-500">View and download your monthly payslips</p>
-            </div>
+        <div className="space-y-5 pb-4">
+            <EmployeePageHeader
+                icon={Wallet}
+                accent="emerald"
+                title="My Payslips"
+                context={`YTD ${currentYear}`}
+            />
 
-            {/* YTD Summary */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <SummaryCard
-                    title={`YTD Gross (${currentYear})`}
-                    value={formatCurrency(ytd.ytd_gross)}
-                    icon={DollarSign}
-                    iconColor="text-blue-600"
-                    iconBg="bg-blue-50"
-                />
-                <SummaryCard
-                    title="YTD Deductions"
-                    value={formatCurrency(ytd.ytd_deductions)}
-                    icon={TrendingDown}
-                    iconColor="text-red-600"
-                    iconBg="bg-red-50"
-                />
-                <SummaryCard
-                    title="YTD Net Pay"
-                    value={formatCurrency(ytd.ytd_net)}
-                    icon={Wallet}
-                    iconColor="text-emerald-600"
-                    iconBg="bg-emerald-50"
-                />
-            </div>
+            {/* Hero: Latest payslip card with celebratory gradient */}
+            {latestPayslip ? (
+                <div className="relative overflow-hidden rounded-3xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 p-5 shadow-md shadow-emerald-200/20">
+                    <div className="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-emerald-300/30 blur-3xl hr-float" aria-hidden />
+                    <div className="absolute -left-12 -bottom-12 h-36 w-36 rounded-full bg-sky-300/30 blur-3xl hr-float-delayed" aria-hidden />
+                    <Sparkles className="absolute right-3 top-3 h-4 w-4 text-amber-400 hr-twinkle" aria-hidden />
 
-            {/* Filter */}
-            <Card>
-                <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-slate-700">Year:</label>
-                        <select
-                            value={filterYear}
-                            onChange={(e) => setFilterYear(parseInt(e.target.value))}
-                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
-                        >
-                            {[currentYear - 2, currentYear - 1, currentYear].map((y) => (
-                                <option key={y} value={y}>{y}</option>
-                            ))}
-                        </select>
+                    <div className="relative">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                            Latest payslip · {MONTHS[latestPayslip.month - 1]} {latestPayslip.year}
+                        </p>
+                        <p className="mt-2 text-[40px] font-bold tabular-nums leading-none tracking-tight text-slate-900">
+                            {formatCurrency(latestPayslip.net_salary)}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-slate-600">Net pay</p>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700 backdrop-blur-sm ring-1 ring-white/80">
+                                Gross <span className="tabular-nums">{formatCurrencyShort(latestPayslip.gross_salary)}</span>
+                            </div>
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-rose-700 backdrop-blur-sm ring-1 ring-white/80">
+                                – <span className="tabular-nums">{formatCurrencyShort(latestPayslip.total_deductions)}</span> deductions
+                            </div>
+                            <button
+                                onClick={() => handleDownload(latestPayslip)}
+                                disabled={downloadingId === latestPayslip.id}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md shadow-pink-500/30 transition-all hover:shadow-lg disabled:opacity-60"
+                            >
+                                {downloadingId === latestPayslip.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                    <Download className="h-3 w-3" strokeWidth={2.5} />
+                                )}
+                                Download PDF
+                            </button>
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            ) : null}
 
-            {/* Payslips Table */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Payslips — {filterYear}</CardTitle>
-                    <CardDescription>{payslips.length} payslip(s)</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {isLoading ? (
-                        <div className="space-y-3 p-6">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                                <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                                    <div className="flex-1" />
-                                    <div className="h-8 w-24 animate-pulse rounded bg-slate-200" />
-                                </div>
-                            ))}
-                        </div>
-                    ) : payslips.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <FileText className="mb-3 h-10 w-10 text-slate-300" />
-                            <p className="text-sm font-medium text-slate-500">No payslips for {filterYear}</p>
-                            <p className="text-xs text-slate-400">Payslips appear after payroll is finalized</p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Period</TableHead>
-                                    <TableHead>Gross Pay</TableHead>
-                                    <TableHead>Deductions</TableHead>
-                                    <TableHead>Net Pay</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {payslips.map((payslip) => (
-                                    <TableRow
-                                        key={payslip.id}
-                                        className="cursor-pointer hover:bg-slate-50"
-                                        onClick={() => openDetail(payslip)}
-                                    >
-                                        <TableCell className="font-medium">
-                                            {MONTHS[payslip.month - 1]} {payslip.year}
-                                        </TableCell>
-                                        <TableCell>{formatCurrency(payslip.gross_salary)}</TableCell>
-                                        <TableCell className="text-red-600">{formatCurrency(payslip.total_deductions)}</TableCell>
-                                        <TableCell className="font-semibold text-emerald-600">{formatCurrency(payslip.net_salary)}</TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleDownload(payslip)}
-                                                    disabled={downloadingId === payslip.id}
-                                                >
-                                                    {downloadingId === payslip.id ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <Download className="h-4 w-4" />
-                                                    )}
-                                                </Button>
-                                                <ChevronRight className="h-4 w-4 text-slate-400" />
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+            {/* YTD Stats */}
+            <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-sky-50/40 p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-sky-700">YTD Gross</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{formatCurrencyShort(ytd.ytd_gross)}</p>
+                </div>
+                <div className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-rose-50/40 p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-rose-700">YTD Deductions</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{formatCurrencyShort(ytd.ytd_deductions)}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/40 p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">YTD Net</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{formatCurrencyShort(ytd.ytd_net)}</p>
+                </div>
+            </div>
+
+            {/* Year filter as segmented pill */}
+            <div className="flex items-center justify-center">
+                <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                    {[currentYear - 2, currentYear - 1, currentYear].map((y) => (
+                        <button
+                            key={y}
+                            onClick={() => setFilterYear(y)}
+                            aria-pressed={filterYear === y}
+                            className={cn(
+                                'rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                                filterYear === y
+                                    ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
+                                    : 'text-slate-500 hover:text-slate-700'
+                            )}
+                        >
+                            {y}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Payslips list */}
+            <div>
+                <div className="mb-2 flex items-center justify-between px-1">
+                    <h3 className="text-sm font-bold text-slate-900">Payslips · {filterYear}</h3>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                        <span className="tabular-nums text-slate-800">{payslips.length}</span> total
+                    </span>
+                </div>
+                <RecordList
+                    items={payslips}
+                    isLoading={isLoading}
+                    emptyIcon={FileText}
+                    emptyAccent="slate"
+                    emptyTitle={`No payslips for ${filterYear}`}
+                    emptyDescription="Payslips appear after payroll is finalized"
+                    renderItem={(payslip) => (
+                        <RecordCard
+                            key={payslip.id}
+                            icon={Receipt}
+                            accent="emerald"
+                            title={`${MONTHS[payslip.month - 1]} ${payslip.year}`}
+                            subtitle={`Net ${formatCurrency(payslip.net_salary)}`}
+                            meta={`Gross ${formatCurrencyShort(payslip.gross_salary)} · Deductions ${formatCurrencyShort(payslip.total_deductions)}`}
+                            onClick={() => openDetail(payslip)}
+                        >
+                            <div className="mt-2 flex justify-end gap-1.5">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownload(payslip);
+                                    }}
+                                    disabled={downloadingId === payslip.id}
+                                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-200 disabled:opacity-50"
+                                >
+                                    {downloadingId === payslip.id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <Download className="h-3 w-3" strokeWidth={2.5} />
+                                    )}
+                                    PDF
+                                </button>
+                            </div>
+                        </RecordCard>
                     )}
-                </CardContent>
-            </Card>
+                />
+            </div>
 
             {/* Payslip Detail Dialog */}
             <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
@@ -264,42 +255,42 @@ export default function MyPayslips() {
                         <div className="space-y-4">
                             {/* Earnings */}
                             <div>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Earnings</p>
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">Earnings</p>
                                 <div className="space-y-1">
                                     {(detail.items || [])
                                         .filter((item) => item.type === 'earning')
                                         .map((item, i) => (
                                             <div key={i} className="flex justify-between text-sm">
                                                 <span className="text-slate-700">{item.component_name}</span>
-                                                <span className="font-medium">{formatCurrency(item.amount)}</span>
+                                                <span className="font-medium tabular-nums">{formatCurrency(item.amount)}</span>
                                             </div>
                                         ))}
-                                    <div className="flex justify-between border-t border-slate-200 pt-1 text-sm font-semibold">
+                                    <div className="flex justify-between border-t border-slate-200 pt-1 text-sm font-bold">
                                         <span>Gross Pay</span>
-                                        <span>{formatCurrency(detail.gross_salary)}</span>
+                                        <span className="tabular-nums">{formatCurrency(detail.gross_salary)}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Statutory Deductions */}
                             <div>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Statutory Deductions</p>
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-rose-700">Statutory Deductions</p>
                                 <div className="space-y-1 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-slate-700">EPF (Employee 11%)</span>
-                                        <span className="text-red-600">{formatCurrency(detail.epf_employee)}</span>
+                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.epf_employee)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-700">SOCSO</span>
-                                        <span className="text-red-600">{formatCurrency(detail.socso_employee)}</span>
+                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.socso_employee)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-700">EIS</span>
-                                        <span className="text-red-600">{formatCurrency(detail.eis_employee)}</span>
+                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.eis_employee)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-700">PCB (Income Tax)</span>
-                                        <span className="text-red-600">{formatCurrency(detail.pcb_amount)}</span>
+                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.pcb_amount)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -307,43 +298,43 @@ export default function MyPayslips() {
                             {/* Other Deductions */}
                             {(detail.items || []).filter((item) => item.type === 'deduction' && !item.is_statutory).length > 0 && (
                                 <div>
-                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Other Deductions</p>
+                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-600">Other Deductions</p>
                                     <div className="space-y-1 text-sm">
                                         {(detail.items || [])
                                             .filter((item) => item.type === 'deduction' && !item.is_statutory)
                                             .map((item, i) => (
                                                 <div key={i} className="flex justify-between">
                                                     <span className="text-slate-700">{item.component_name}</span>
-                                                    <span className="text-red-600">{formatCurrency(item.amount)}</span>
+                                                    <span className="text-rose-600 tabular-nums">{formatCurrency(item.amount)}</span>
                                                 </div>
                                             ))}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Net Pay */}
-                            <div className="rounded-lg bg-emerald-50 p-3">
-                                <div className="flex justify-between text-base font-bold text-emerald-800">
-                                    <span>Net Pay</span>
-                                    <span>{formatCurrency(detail.net_salary)}</span>
+                            {/* Net Pay highlight */}
+                            <div className="rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 p-4 ring-1 ring-emerald-200">
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-sm font-bold uppercase tracking-wider text-emerald-800">Net Pay</span>
+                                    <span className="text-xl font-bold tabular-nums text-emerald-900">{formatCurrency(detail.net_salary)}</span>
                                 </div>
                             </div>
 
                             {/* Employer Contributions */}
-                            <div className="rounded-lg bg-slate-50 p-3">
-                                <p className="mb-2 text-xs font-semibold text-slate-500">Employer Contributions (Not deducted from you)</p>
+                            <div className="rounded-2xl bg-slate-50 p-3">
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Employer Contributions (not from you)</p>
                                 <div className="space-y-1 text-sm text-slate-600">
                                     <div className="flex justify-between">
                                         <span>EPF (Employer 13%)</span>
-                                        <span>{formatCurrency(detail.epf_employer)}</span>
+                                        <span className="tabular-nums">{formatCurrency(detail.epf_employer)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>SOCSO (Employer)</span>
-                                        <span>{formatCurrency(detail.socso_employer)}</span>
+                                        <span className="tabular-nums">{formatCurrency(detail.socso_employer)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>EIS (Employer)</span>
-                                        <span>{formatCurrency(detail.eis_employer)}</span>
+                                        <span className="tabular-nums">{formatCurrency(detail.eis_employer)}</span>
                                     </div>
                                 </div>
                             </div>

@@ -264,7 +264,7 @@ export default function MyApprovalsLeave() {
                                 onClick={() => setTab(t.key)}
                                 className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                                     tab === t.key
-                                        ? 'border-slate-900 text-slate-900'
+                                        ? 'border-pink-500 text-pink-600'
                                         : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}
                             >
