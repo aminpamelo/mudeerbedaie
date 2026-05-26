@@ -633,11 +633,11 @@ new #[Layout('components.layouts.teacher')] class extends Component
          START SESSION CONFIRMATION MODAL
          ────────────────────────────────────────────────────────── --}}
     <flux:modal wire:model="showStartConfirmation" class="max-w-md !p-0 overflow-hidden">
-        <div class="teacher-app">
+        <div class="teacher-app flex flex-col max-h-[90vh] max-h-[90dvh]">
             {{-- top gradient stripe --}}
-            <div class="teacher-modal-stripe"></div>
+            <div class="teacher-modal-stripe shrink-0"></div>
 
-            <div class="bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 text-center">
+            <div class="bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 text-center flex-1 min-h-0 overflow-y-auto">
                 {{-- gradient orb --}}
                 <div class="flex justify-center mb-5">
                     <div class="teacher-modal-orb">
@@ -670,7 +670,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
             </div>
 
             {{-- footer actions --}}
-            <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 border-t border-slate-200/70 dark:border-zinc-800 flex gap-2 justify-end">
+            <div class="bg-slate-50/80 dark:bg-zinc-950/60 px-6 py-4 border-t border-slate-200/70 dark:border-zinc-800 flex gap-2 justify-end shrink-0">
                 <button type="button" wire:click="closeStartConfirmation" class="teacher-cta-ghost">
                     Cancel
                 </button>
