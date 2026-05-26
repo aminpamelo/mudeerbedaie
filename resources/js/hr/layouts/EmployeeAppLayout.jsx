@@ -114,7 +114,7 @@ function BottomTabs({ moreItems }) {
                     <div className="absolute bottom-[calc(3.5rem+env(safe-area-inset-bottom))] left-0 right-0 rounded-t-2xl bg-white p-4 shadow-2xl">
                         <div className="mb-3 flex items-center justify-between">
                             <h3 className="text-sm font-semibold text-slate-800">More</h3>
-                            <button onClick={() => setShowMore(false)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100">
+                            <button onClick={() => setShowMore(false)} aria-label="Close menu" className="rounded-full p-1 text-slate-400 hover:bg-slate-100">
                                 <X className="h-4 w-4" />
                             </button>
                         </div>

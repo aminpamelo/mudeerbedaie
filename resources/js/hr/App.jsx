@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { RouteFallback } from './components/RouteFallback';
+import { CommandPalette } from './components/CommandPalette';
 
 // Layouts — kept eager so the shell renders instantly while routes lazy-load.
 import HrLayout from './layouts/HrLayout';
@@ -345,6 +346,7 @@ export default function App() {
                                 <Route path="*" element={<Navigate to="/" replace />} />
                             </Routes>
                         </Suspense>
+                        <CommandPalette isAdmin={isAdmin} />
                     </ErrorBoundary>
                 </BrowserRouter>
             </ToastProvider>

@@ -15,6 +15,7 @@ import {
     ArrowRight,
     TrendingUp,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { fetchMyAttendance, fetchMyAttendanceSummary } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { Card, CardContent } from '../../components/ui/card';
@@ -23,6 +24,7 @@ import { BalanceRing } from '../../components/ui/balance-ring';
 import { StatusBadge } from '../../components/ui/status-badge';
 import { EmptyState } from '../../components/ui/empty-state';
 import { RecordCard, RecordList } from '../../components/ui/record-card';
+import { Fab } from '../../components/ui/fab';
 
 // ---- Helpers ----
 
@@ -108,6 +110,7 @@ const STATUS_ACCENT = {
 };
 
 export default function MyAttendance() {
+    const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -401,6 +404,16 @@ export default function MyAttendance() {
                     }}
                 />
             </div>
+
+            {/* Mobile FAB — quick clock action (hidden on desktop where header pill is enough) */}
+            <Fab
+                icon={Clock}
+                onClick={() => navigate('/clock')}
+                ariaLabel="Clock in or out"
+                className="lg:hidden"
+            >
+                Clock
+            </Fab>
         </div>
     );
 }

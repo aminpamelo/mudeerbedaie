@@ -386,12 +386,31 @@ function Sidebar({ mobile = false }) {
                 {mobile && (
                     <button
                         onClick={toggleSidebar}
+                        aria-label="Close menu"
                         className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                     >
                         <X className="h-5 w-5" />
                     </button>
                 )}
             </div>
+
+            {/* Command palette hint (desktop only) */}
+            {!mobile && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        // Dispatch a synthetic Ctrl+K to trigger the palette
+                        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+                    }}
+                    className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 transition-colors hover:border-indigo-200 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
+                    <Search className="h-3.5 w-3.5" />
+                    <span className="flex-1 text-left">Search…</span>
+                    <kbd className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
+                        ⌘K
+                    </kbd>
+                </button>
+            )}
 
             {/* Navigation */}
             <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
@@ -485,6 +504,7 @@ export default function HrLayout() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={toggleSidebar}
+                            aria-label="Open menu"
                             className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                         >
                             <Menu className="h-5 w-5" />
