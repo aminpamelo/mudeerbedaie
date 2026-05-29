@@ -25,6 +25,12 @@ yarn-error.log
 /.worktrees
 .cloudflared-tunnel.yaml
 
+# Livewire publishes JS assets here. Tracking them causes drift bugs whenever
+# the composer-installed Livewire version moves ahead — the browser ends up
+# running stale JS against newer server PHP. Let Livewire's controller serve
+# the matching version via /livewire/livewire.js instead.
+/public/vendor/livewire
+
 # Root-level spreadsheet/data exports (keep fixtures in tests/Fixtures/)
 /*.xlsx
 /*.xls
