@@ -1244,7 +1244,7 @@ new class extends Component
                                         </div>
                                         <input
                                             type="tel"
-                                            wire:model.blur="customerData.phone"
+                                            wire:model="customerData.phone"
                                             class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             placeholder="12 345 6789"
                                         >
@@ -1256,7 +1256,7 @@ new class extends Component
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
                                     <input
                                         type="text"
-                                        wire:model.blur="customerData.name"
+                                        wire:model="customerData.name"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="John Doe"
                                     >
@@ -1267,7 +1267,7 @@ new class extends Component
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Emel (Pilihan)</label>
                                     <input
                                         type="email"
-                                        wire:model.blur="customerData.email"
+                                        wire:model="customerData.email"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="your@email.com"
                                     >
@@ -1321,7 +1321,7 @@ new class extends Component
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Alamat *</label>
                                     <input
                                         type="text"
-                                        wire:model.blur="billingAddress.address_line_1"
+                                        wire:model="billingAddress.address_line_1"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="Alamat jalan"
                                     >
@@ -1331,7 +1331,7 @@ new class extends Component
                                 <div>
                                     <input
                                         type="text"
-                                        wire:model.blur="billingAddress.address_line_2"
+                                        wire:model="billingAddress.address_line_2"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="Apartmen, suite, dll. (pilihan)"
                                     >
@@ -1342,7 +1342,7 @@ new class extends Component
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Bandar *</label>
                                         <input
                                             type="text"
-                                            wire:model.blur="billingAddress.city"
+                                            wire:model="billingAddress.city"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         >
                                         @error('billingAddress.city') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -1352,7 +1352,7 @@ new class extends Component
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Negeri *</label>
                                         <input
                                             type="text"
-                                            wire:model.blur="billingAddress.state"
+                                            wire:model="billingAddress.state"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         >
                                         @error('billingAddress.state') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -1364,7 +1364,7 @@ new class extends Component
                                             type="text"
                                             inputmode="numeric"
                                             maxlength="10"
-                                            wire:model.blur="billingAddress.postal_code"
+                                            wire:model="billingAddress.postal_code"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         >
                                         @error('billingAddress.postal_code') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
