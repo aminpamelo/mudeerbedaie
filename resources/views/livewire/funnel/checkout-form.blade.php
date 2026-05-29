@@ -360,6 +360,16 @@ new class extends Component
 
     public function proceedToPayment(): void
     {
+        // Trim whitespace so values that look valid in the UI (e.g. "12312 ")
+        // don't fail length checks after Laravel's TrimStrings middleware.
+        $this->customerData['email'] = trim($this->customerData['email'] ?? '');
+        $this->customerData['name'] = trim($this->customerData['name'] ?? '');
+        $this->customerData['phone'] = trim($this->customerData['phone'] ?? '');
+
+        foreach (['first_name', 'address_line_1', 'address_line_2', 'city', 'state', 'postal_code'] as $field) {
+            $this->billingAddress[$field] = trim($this->billingAddress[$field] ?? '');
+        }
+
         // Auto-populate billing name from customer name
         if (! $this->disableShipping) {
             $this->billingAddress['first_name'] = $this->customerData['name'] ?? '';
@@ -367,19 +377,34 @@ new class extends Component
 
         $rules = [
             'customerData.email' => 'nullable|email',
-            'customerData.name' => 'required|min:2',
-            'customerData.phone' => 'required|min:7',
+            'customerData.name' => 'required|string|min:2',
+            'customerData.phone' => 'required|string|min:7',
         ];
 
         if (! $this->disableShipping) {
-            $rules['billingAddress.first_name'] = 'required|min:2';
-            $rules['billingAddress.address_line_1'] = 'required|min:5';
-            $rules['billingAddress.city'] = 'required|min:2';
-            $rules['billingAddress.state'] = 'required|min:2';
-            $rules['billingAddress.postal_code'] = 'required|min:5';
+            $rules['billingAddress.first_name'] = 'required|string|min:2';
+            $rules['billingAddress.address_line_1'] = 'required|string|min:5';
+            $rules['billingAddress.city'] = 'required|string|min:2';
+            $rules['billingAddress.state'] = 'required|string|min:2';
+            $rules['billingAddress.postal_code'] = 'required|string|min:5';
         }
 
-        $this->validate($rules);
+        $messages = [
+            'customerData.email.email' => 'Sila masukkan alamat emel yang sah.',
+            'customerData.name.required' => 'Nama penuh diperlukan.',
+            'customerData.name.min' => 'Nama penuh mestilah sekurang-kurangnya 2 aksara.',
+            'customerData.phone.required' => 'Nombor telefon diperlukan.',
+            'customerData.phone.min' => 'Nombor telefon mestilah sekurang-kurangnya 7 digit.',
+            'billingAddress.first_name.required' => 'Nama diperlukan.',
+            'billingAddress.address_line_1.required' => 'Alamat diperlukan.',
+            'billingAddress.address_line_1.min' => 'Alamat mestilah sekurang-kurangnya 5 aksara.',
+            'billingAddress.city.required' => 'Bandar diperlukan.',
+            'billingAddress.state.required' => 'Negeri diperlukan.',
+            'billingAddress.postal_code.required' => 'Poskod diperlukan.',
+            'billingAddress.postal_code.min' => 'Poskod mestilah sekurang-kurangnya 5 aksara.',
+        ];
+
+        $this->validate($rules, $messages);
 
         // Update session with contact info
         $fullPhone = $this->getFullPhone();
@@ -1219,7 +1244,7 @@ new class extends Component
                                         </div>
                                         <input
                                             type="tel"
-                                            wire:model="customerData.phone"
+                                            wire:model.blur="customerData.phone"
                                             class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             placeholder="12 345 6789"
                                         >
@@ -1231,7 +1256,7 @@ new class extends Component
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
                                     <input
                                         type="text"
-                                        wire:model="customerData.name"
+                                        wire:model.blur="customerData.name"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="John Doe"
                                     >
@@ -1242,7 +1267,7 @@ new class extends Component
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Emel (Pilihan)</label>
                                     <input
                                         type="email"
-                                        wire:model="customerData.email"
+                                        wire:model.blur="customerData.email"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="your@email.com"
                                     >
@@ -1296,7 +1321,7 @@ new class extends Component
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Alamat *</label>
                                     <input
                                         type="text"
-                                        wire:model="billingAddress.address_line_1"
+                                        wire:model.blur="billingAddress.address_line_1"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="Alamat jalan"
                                     >
@@ -1306,7 +1331,7 @@ new class extends Component
                                 <div>
                                     <input
                                         type="text"
-                                        wire:model="billingAddress.address_line_2"
+                                        wire:model.blur="billingAddress.address_line_2"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="Apartmen, suite, dll. (pilihan)"
                                     >
@@ -1317,7 +1342,7 @@ new class extends Component
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Bandar *</label>
                                         <input
                                             type="text"
-                                            wire:model="billingAddress.city"
+                                            wire:model.blur="billingAddress.city"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         >
                                         @error('billingAddress.city') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -1327,7 +1352,7 @@ new class extends Component
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Negeri *</label>
                                         <input
                                             type="text"
-                                            wire:model="billingAddress.state"
+                                            wire:model.blur="billingAddress.state"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         >
                                         @error('billingAddress.state') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -1337,7 +1362,9 @@ new class extends Component
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Poskod *</label>
                                         <input
                                             type="text"
-                                            wire:model="billingAddress.postal_code"
+                                            inputmode="numeric"
+                                            maxlength="10"
+                                            wire:model.blur="billingAddress.postal_code"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         >
                                         @error('billingAddress.postal_code') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
