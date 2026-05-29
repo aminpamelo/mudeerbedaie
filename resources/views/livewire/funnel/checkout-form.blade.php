@@ -1543,6 +1543,7 @@ new class extends Component
         let stripe = null;
         let elements = null;
         let cardElement = null;
+        let mountedContainer = null;
         let mountedPublishableKey = null;
 
         function ensureStripe(publishableKey) {
@@ -1554,6 +1555,7 @@ new class extends Component
                 elements = stripe.elements();
                 mountedPublishableKey = publishableKey;
                 cardElement = null;
+                mountedContainer = null;
             }
             return stripe;
         }
@@ -1561,6 +1563,15 @@ new class extends Component
         function mountCardElement(publishableKey) {
             const container = document.getElementById('stripe-card-element');
             if (!container) {
+                mountedContainer = null;
+                return;
+            }
+            // Skip re-mount if already mounted to this exact container DOM node.
+            // The MutationObserver below fires on every body mutation including
+            // the iframes Stripe.js itself injects during mount, so without this
+            // guard mountCardElement → Stripe mutation → observer → mountCardElement
+            // becomes an infinite loop that hangs the tab.
+            if (cardElement && mountedContainer === container) {
                 return;
             }
             if (!ensureStripe(publishableKey)) {
@@ -1582,6 +1593,7 @@ new class extends Component
                 },
             });
             cardElement.mount('#stripe-card-element');
+            mountedContainer = container;
             cardElement.on('change', ({ error }) => {
                 const err = document.getElementById('stripe-card-errors');
                 if (err) {
