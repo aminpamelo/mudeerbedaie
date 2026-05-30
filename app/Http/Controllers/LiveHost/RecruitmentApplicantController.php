@@ -87,6 +87,7 @@ class RecruitmentApplicantController extends Controller
                     'applicant_number' => $a->applicant_number,
                     'full_name' => $a->name,
                     'email' => $a->email,
+                    'phone' => $a->phone,
                     'platforms' => $a->valueByRole('platforms') ?? [],
                     'rating' => $a->rating,
                     'current_stage_id' => $a->current_stage_id,
