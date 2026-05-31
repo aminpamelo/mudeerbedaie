@@ -1,6 +1,17 @@
 import './styles/pocket.css';
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
+
+// Expired CSRF token / session → 419. Reload to fetch a fresh token instead of
+// surfacing Inertia's blank error modal.
+router.on('invalid', (event) => {
+  if (event.detail?.response?.status === 419) {
+    event.preventDefault();
+    if (window.confirm('Your session expired. Reload to continue?')) {
+      window.location.reload();
+    }
+  }
+});
 
 createInertiaApp({
   title: (title) => (title ? `${title} · Sistem Livehost Bedaie` : 'Sistem Livehost Bedaie'),
