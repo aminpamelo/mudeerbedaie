@@ -34,6 +34,7 @@ class User extends Authenticatable
         'locale',
         'host_color',
         'avatar_path',
+        'is_top_host_eligible',
     ];
 
     /**
@@ -57,6 +58,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'is_top_host_eligible' => 'boolean',
         ];
     }
 
@@ -547,5 +549,32 @@ class User extends Authenticatable
 
         return User::query()
             ->whereHas('commissionProfile', fn ($q) => $q->whereIn('upline_user_id', $directIds));
+    }
+
+    /**
+     * Mentoring programs this host leads (as the top host / mentor).
+     */
+    public function ledMentoringPrograms(): HasMany
+    {
+        return $this->hasMany(LiveHostMentoringProgram::class, 'leader_user_id');
+    }
+
+    /**
+     * Mentee enrollment rows where this user is the host being mentored.
+     */
+    public function menteeEnrollments(): HasMany
+    {
+        return $this->hasMany(LiveHostMentee::class, 'mentee_user_id');
+    }
+
+    /**
+     * The host's current active mentee enrollment, if any. A host can only be
+     * an active mentee in one program at a time (enforced at enrollment).
+     */
+    public function activeMenteeEnrollment(): HasOne
+    {
+        return $this->hasOne(LiveHostMentee::class, 'mentee_user_id')
+            ->where('status', 'active')
+            ->latestOfMany('enrolled_at');
     }
 }

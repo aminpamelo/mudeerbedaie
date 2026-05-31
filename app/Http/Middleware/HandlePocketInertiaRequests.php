@@ -36,6 +36,23 @@ class HandlePocketInertiaRequests extends HandleInertiaRequests
             'features' => [
                 'allowance_enabled' => (bool) config('livehost.allowance_enabled'),
             ],
+            // How many active mentees this host mentors — drives the "My Mentees"
+            // entry point, shown only to hosts who actually lead someone.
+            'mentorMenteeCount' => fn () => $this->mentorMenteeCount($request),
         ];
+    }
+
+    private function mentorMenteeCount(Request $request): int
+    {
+        $user = $request->user();
+
+        if (! $user || $user->role !== 'live_host') {
+            return 0;
+        }
+
+        return \App\Models\LiveHostMentee::query()
+            ->where('status', 'active')
+            ->mentoredBy($user->id)
+            ->count();
     }
 }
