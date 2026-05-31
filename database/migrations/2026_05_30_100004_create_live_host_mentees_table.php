@@ -41,7 +41,11 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->unsignedTinyInteger('rating')->nullable();
             $table->text('notes')->nullable();
-            $table->timestamp('enrolled_at');
+            // useCurrent() so MySQL gets a valid DEFAULT CURRENT_TIMESTAMP. A
+            // NOT NULL timestamp that isn't the table's first timestamp column
+            // would otherwise be assigned an invalid '0000-00-00' default under
+            // strict mode (NO_ZERO_DATE). The app always sets enrolled_at.
+            $table->timestamp('enrolled_at')->useCurrent();
             $table->timestamp('graduated_at')->nullable();
             $table->timestamps();
 

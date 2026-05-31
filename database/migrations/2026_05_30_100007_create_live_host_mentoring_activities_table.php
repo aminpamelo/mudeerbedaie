@@ -26,7 +26,10 @@ return new class extends Migration
             $table->string('type'); // coaching|meeting|training|check_in|other
             $table->string('title');
             $table->text('notes')->nullable();
-            $table->timestamp('occurred_at');
+            // useCurrent() gives a valid DEFAULT CURRENT_TIMESTAMP and avoids the
+            // implicit ON UPDATE CURRENT_TIMESTAMP MySQL would otherwise attach to
+            // a first NOT NULL timestamp column. The app always sets occurred_at.
+            $table->timestamp('occurred_at')->useCurrent();
             $table->foreignId('created_by')
                 ->nullable()
                 ->constrained('users')
