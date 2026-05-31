@@ -207,6 +207,25 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
         Route::delete('replacement-requests/{replacementRequest}', [\App\Http\Controllers\LiveHostPocket\ReplacementRequestController::class, 'destroy'])
             ->name('replacement-requests.destroy');
 
+        Route::get('my-path', [\App\Http\Controllers\LiveHostPocket\MentoringController::class, 'show'])
+            ->name('my-path');
+
+        // My Mentees — top-host self-service cockpit (scoped to mentees they lead).
+        Route::get('mentees', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'index'])
+            ->name('mentees.index');
+        Route::get('mentees/{mentee}', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'show'])
+            ->name('mentees.show');
+        Route::post('mentees/{mentee}/activities', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'logActivity'])
+            ->name('mentees.activities.store');
+        Route::patch('mentees/{mentee}/checklist/{item}/toggle', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'toggleChecklistItem'])
+            ->name('mentees.checklist.toggle');
+        Route::patch('mentees/{mentee}/level', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'assignLevel'])
+            ->name('mentees.level');
+        Route::patch('mentees/{mentee}/stage', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'moveStage'])
+            ->name('mentees.stage');
+        Route::post('mentees/{mentee}/graduate', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'graduate'])
+            ->name('mentees.graduate');
+
         Route::get('me', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'show'])
             ->name('me');
 
@@ -476,6 +495,100 @@ Route::middleware(['auth'])
                     Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
                         ->name('applicants.password-reset-link');
                 });
+            });
+
+        // Mentoring — post-recruitment performance/mentoring funnel. PIC-only
+        // (admin, admin_livehost): the PIC sets up programs, assigns a top-host
+        // leader, enrols existing live hosts as mentees, and on the leader's
+        // behalf monitors KPIs, logs activities, and assigns performance levels.
+        Route::middleware('role:admin,admin_livehost')
+            ->prefix('mentoring')
+            ->name('mentoring.')
+            ->group(function () {
+                // Programs
+                Route::get('programs', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'index'])
+                    ->name('programs.index');
+                Route::get('programs/create', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'create'])
+                    ->name('programs.create');
+                Route::post('programs', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'store'])
+                    ->name('programs.store');
+                Route::get('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'show'])
+                    ->name('programs.show');
+                Route::get('programs/{program}/edit', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'edit'])
+                    ->name('programs.edit');
+                Route::put('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'update'])
+                    ->name('programs.update');
+                Route::patch('programs/{program}/activate', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'activate'])
+                    ->name('programs.activate');
+                Route::patch('programs/{program}/pause', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'pause'])
+                    ->name('programs.pause');
+                Route::patch('programs/{program}/complete', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'complete'])
+                    ->name('programs.complete');
+                Route::delete('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'destroy'])
+                    ->name('programs.destroy');
+
+                // Stage editor (reorder must precede the {stage} routes).
+                Route::post('programs/{program}/stages', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'store'])
+                    ->name('programs.stages.store');
+                Route::put('programs/{program}/stages/reorder', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'reorder'])
+                    ->name('programs.stages.reorder');
+                Route::put('programs/{program}/stages/{stage}', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'update'])
+                    ->name('programs.stages.update');
+                Route::delete('programs/{program}/stages/{stage}', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'destroy'])
+                    ->name('programs.stages.destroy');
+
+                // Enrolment is nested under a program (carries program context).
+                Route::post('programs/{program}/mentees', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'enroll'])
+                    ->name('programs.mentees.enroll');
+
+                // Coaching / meeting / training activity log (drives the leader
+                // activity indicator). Logged against a program, optionally a mentee.
+                Route::post('programs/{program}/activities', [\App\Http\Controllers\LiveHost\MentoringActivityController::class, 'store'])
+                    ->name('programs.activities.store');
+                Route::delete('activities/{activity}', [\App\Http\Controllers\LiveHost\MentoringActivityController::class, 'destroy'])
+                    ->name('activities.destroy');
+
+                // Mentee board, detail, stage moves, lifecycle.
+                Route::get('mentees', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'index'])
+                    ->name('mentees.index');
+                Route::get('mentees/{mentee}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'show'])
+                    ->name('mentees.show');
+                Route::patch('mentees/{mentee}/stage', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'moveStage'])
+                    ->name('mentees.stage');
+                Route::patch('mentees/{mentee}/current-stage', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateCurrentStage'])
+                    ->name('mentees.current-stage');
+                Route::patch('mentees/{mentee}/notes', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateNotes'])
+                    ->name('mentees.notes');
+                Route::patch('mentees/{mentee}/drop', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'drop'])
+                    ->name('mentees.drop');
+                Route::patch('mentees/{mentee}/restore', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'restore'])
+                    ->name('mentees.restore');
+                Route::post('mentees/{mentee}/graduate', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'graduate'])
+                    ->name('mentees.graduate');
+                Route::patch('mentees/{mentee}/level', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'assignLevel'])
+                    ->name('mentees.level');
+                Route::patch('mentees/{mentee}/monthly-score', [\App\Http\Controllers\LiveHost\MentoringPerformanceController::class, 'store'])
+                    ->name('mentees.monthly-score');
+
+                // Per-mentee task checklist.
+                Route::post('mentees/{mentee}/checklist', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'storeChecklistItem'])
+                    ->name('mentees.checklist.store');
+                Route::patch('mentees/{mentee}/checklist/{item}/toggle', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'toggleChecklistItem'])
+                    ->name('mentees.checklist.toggle');
+                Route::delete('mentees/{mentee}/checklist/{item}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'destroyChecklistItem'])
+                    ->name('mentees.checklist.destroy');
+
+                // Customizable performance-level catalog (reorder before {level}).
+                Route::get('levels', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'index'])
+                    ->name('levels.index');
+                Route::post('levels', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'store'])
+                    ->name('levels.store');
+                Route::put('levels/reorder', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'reorder'])
+                    ->name('levels.reorder');
+                Route::put('levels/{level}', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'update'])
+                    ->name('levels.update');
+                Route::delete('levels/{level}', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'destroy'])
+                    ->name('levels.destroy');
             });
 
         // Shared: scheduling + read-only reference data (admin, admin_livehost, livehost_assistant).

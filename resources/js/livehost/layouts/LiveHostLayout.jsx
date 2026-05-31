@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   LogOut,
   UserMinus,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 import {
@@ -39,6 +40,7 @@ const NAV_GROUPS = [
       { key: 'hosts', label: 'Live Hosts', href: '/livehost/hosts', icon: Users, countKey: 'hosts' },
       { key: 'replacements', label: 'Permohonan Ganti', href: '/livehost/replacements', icon: Replace, countKey: 'replacements' },
       { key: 'recruitment', label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
+      { key: 'mentoring', label: 'Mentoring', href: '/livehost/mentoring/programs', icon: GraduationCap, countKey: 'activeMentees' },
     ],
   },
   {
@@ -76,6 +78,7 @@ const NAV_ITEM_PERMISSION = {
   hosts: null,
   replacements: null,
   recruitment: 'canSeeRecruitment',
+  mentoring: 'canSeeMentoring',
   'time-slots': null,
   'session-slots': null,
   'platform-accounts': null,

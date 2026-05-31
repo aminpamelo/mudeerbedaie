@@ -158,6 +158,8 @@ class HandleInertiaRequests extends Middleware
             'canSeeRecruitment' => $user && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true),
             'canSeeTiktokImports' => $isPic,
             'canSeeReports' => $isPic,
+            'canSeeMentoring' => $isPic,
+            'canManageMentoring' => $isPic,
         ];
     }
 
@@ -220,6 +222,7 @@ class HandleInertiaRequests extends Middleware
                 ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
                 ->count(),
             'unmatchedOrders' => $this->unmatchedOrderCount(),
+            'activeMentees' => \App\Models\LiveHostMentee::query()->where('status', 'active')->count(),
         ]);
     }
 }

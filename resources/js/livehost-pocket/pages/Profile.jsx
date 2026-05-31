@@ -1,5 +1,5 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { Camera, Loader2, LogOut, Trash2 } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Camera, ChevronRight, GraduationCap, Loader2, LogOut, Trash2, Users } from 'lucide-react';
 import { useRef, useState } from 'react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { initialsFrom } from '@/livehost-pocket/lib/utils';
@@ -14,7 +14,7 @@ import { initialsFrom } from '@/livehost-pocket/lib/utils';
  * scope in.
  */
 export default function Profile() {
-  const { profile } = usePage().props;
+  const { profile, mentorMenteeCount } = usePage().props;
   const initials = initialsFrom(profile?.name);
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -150,6 +150,36 @@ export default function Profile() {
             { label: 'Role', value: profile?.role },
           ]}
         />
+
+        {mentorMenteeCount > 0 && (
+          <Link
+            href="/live-host/mentees"
+            className="mt-4 flex items-center gap-3 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[14px] py-[13px] transition active:scale-[0.98]"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--hot)] to-[var(--accent)] text-white">
+              <Users className="h-[18px] w-[18px]" strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[var(--fg)]">My Mentees</div>
+              <div className="mt-0.5 text-[11.5px] text-[var(--fg-2)]">Coach the {mentorMenteeCount} host{mentorMenteeCount === 1 ? '' : 's'} you mentor</div>
+            </div>
+            <ChevronRight className="h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
+          </Link>
+        )}
+
+        <Link
+          href="/live-host/my-path"
+          className="mt-4 flex items-center gap-3 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[14px] py-[13px] transition active:scale-[0.98]"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] text-white">
+            <GraduationCap className="h-[18px] w-[18px]" strokeWidth={2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[var(--fg)]">My Path</div>
+            <div className="mt-0.5 text-[11.5px] text-[var(--fg-2)]">Your mentoring level, tasks &amp; progress</div>
+          </div>
+          <ChevronRight className="h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
+        </Link>
 
         <div className="pt-4">
           <button
