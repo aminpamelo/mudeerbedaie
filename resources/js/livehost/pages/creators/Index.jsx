@@ -246,11 +246,11 @@ export default function CreatorsIndex() {
   const groupedCreators = useMemo(() => {
     const groups = new Map();
     for (const creator of creators.data) {
-      const key = creator.host?.id ?? 'unassigned';
+      const key = creator.platform_account?.id ?? 'unassigned';
       if (!groups.has(key)) {
         groups.set(key, {
           key,
-          host: creator.host,
+          platformAccount: creator.platform_account,
           creators: [],
         });
       }
@@ -316,11 +316,11 @@ export default function CreatorsIndex() {
                 <div className="flex items-center justify-between border-b border-[#F0F0F0] bg-[#FAFAFA] px-5 py-3">
                   <div>
                     <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
-                      {group.host?.name ?? 'Unassigned'}
+                      {group.platformAccount?.name ?? 'Unassigned'}
                     </div>
-                    {group.host?.email && (
+                    {group.platformAccount?.platform && (
                       <div className="mt-0.5 text-[11.5px] text-[#737373]">
-                        {group.host.email}
+                        {group.platformAccount.platform}
                       </div>
                     )}
                   </div>
@@ -331,7 +331,7 @@ export default function CreatorsIndex() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
-                      <th className="px-5 py-3 text-left">Platform account</th>
+                      <th className="px-5 py-3 text-left">Host</th>
                       <th className="px-5 py-3 text-left">Nickname</th>
                       <th className="px-5 py-3 text-left">Creator ID</th>
                       <th className="px-5 py-3 text-right">Actions</th>
@@ -344,17 +344,15 @@ export default function CreatorsIndex() {
                         className="border-t border-[#F0F0F0] transition-colors hover:bg-[#FAFAFA]"
                       >
                         <td className="px-5 py-3.5">
-                          {creator.platform_account ? (
+                          {creator.host ? (
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 truncate text-[13.5px] font-semibold tracking-[-0.01em]">
-                                {creator.platform_account.name}
+                                {creator.host.name}
                                 {creator.is_primary && <PrimaryBadge />}
                               </div>
-                              {creator.platform_account.platform && (
-                                <div className="mt-0.5 truncate text-[11.5px] text-[#737373]">
-                                  {creator.platform_account.platform}
-                                </div>
-                              )}
+                              <div className="mt-0.5 truncate text-[11.5px] text-[#737373]">
+                                {creator.host.email}
+                              </div>
                             </div>
                           ) : (
                             <span className="text-[#737373]">—</span>
