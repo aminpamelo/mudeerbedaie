@@ -388,7 +388,7 @@ new class extends Component
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-200">
+                    <tr class="border-b border-gray-200 dark:border-zinc-700">
                         <th class="text-left py-3 px-4">
                             <button wire:click="sortBy('order_number')" class="flex items-center gap-1 hover:text-blue-600">
                                 Order Number
@@ -423,7 +423,7 @@ new class extends Component
                 </thead>
                 <tbody>
                     @forelse($orders as $order)
-                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <tr class="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-zinc-700/60 dark:hover:bg-zinc-800/60">
                             <td class="py-3 px-4">
                                 <flux:text class="font-mono text-sm">{{ $order->order_number }}</flux:text>
                                 @if($order->stripe_invoice_id)
