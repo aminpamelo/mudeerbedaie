@@ -39,11 +39,11 @@ class CreatorController extends Controller
                         ->orWhereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
                 });
             })
-            ->leftJoin('users', 'users.id', '=', 'live_host_platform_accounts.user_id')
+            ->leftJoin('users', 'users.id', '=', 'live_host_platform_account.user_id')
             ->orderBy('users.name')
-            ->orderByDesc('live_host_platform_accounts.is_primary')
-            ->orderBy('live_host_platform_accounts.id')
-            ->select('live_host_platform_accounts.*')
+            ->orderByDesc('live_host_platform_account.is_primary')
+            ->orderBy('live_host_platform_account.id')
+            ->select('live_host_platform_account.*')
             ->paginate(15)
             ->withQueryString()
             ->through(fn (LiveHostPlatformAccount $c) => $this->mapCreator($c));
