@@ -35,11 +35,11 @@ import {
 
 function FieldLabel({ icon: Icon, accent = 'indigo', required, children }) {
     const colors = {
-        indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
-        sky: { bg: 'bg-sky-50', text: 'text-sky-600' },
-        violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
-        rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
-        amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+        indigo: { bg: 'bg-indigo-50 dark:bg-indigo-500/15', text: 'text-indigo-600 dark:text-indigo-300' },
+        sky: { bg: 'bg-sky-50 dark:bg-sky-500/15', text: 'text-sky-600 dark:text-sky-300' },
+        violet: { bg: 'bg-violet-50 dark:bg-violet-500/15', text: 'text-violet-600 dark:text-violet-300' },
+        rose: { bg: 'bg-rose-50 dark:bg-rose-500/15', text: 'text-rose-600 dark:text-rose-300' },
+        amber: { bg: 'bg-amber-50 dark:bg-amber-500/15', text: 'text-amber-600 dark:text-amber-300' },
     };
     const c = colors[accent] || colors.indigo;
     return (
@@ -49,7 +49,7 @@ function FieldLabel({ icon: Icon, accent = 'indigo', required, children }) {
                     <Icon className={cn('h-3.5 w-3.5', c.text)} strokeWidth={2.25} />
                 </div>
             )}
-            <span className="text-sm font-semibold text-slate-800">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {children}
                 {required && <span className="ml-0.5 text-rose-500">*</span>}
             </span>
@@ -159,9 +159,9 @@ export default function ApplyLeave() {
                     <Sparkles className="absolute right-2 top-2 h-5 w-5 text-amber-400 hr-twinkle" />
                     <Sparkles className="absolute left-2 bottom-2 h-4 w-4 text-pink-400 hr-twinkle-2" />
                 </div>
-                <h2 className="mt-6 text-xl font-bold text-slate-900">Leave applied!</h2>
-                <p className="mt-2 text-sm text-slate-600">Your request has been submitted for approval.</p>
-                <p className="mt-1 text-xs text-slate-400">Redirecting in a moment…</p>
+                <h2 className="mt-6 text-xl font-bold text-slate-900 dark:text-white">Leave applied!</h2>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Your request has been submitted for approval.</p>
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Redirecting in a moment…</p>
             </div>
         );
     }
@@ -175,16 +175,16 @@ export default function ApplyLeave() {
                 <button
                     onClick={() => navigate('/my/leave')}
                     aria-label="Back"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-white/[0.07] dark:bg-[#0F1626] dark:text-slate-300"
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="flex-1">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-700 ring-1 ring-violet-100">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-700 ring-1 ring-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:ring-violet-500/25">
                         <CalendarOff className="h-3 w-3" strokeWidth={2.5} />
                         Apply for Leave
                     </div>
-                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Time off request</h1>
+                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 dark:text-white">Time off request</h1>
                 </div>
             </div>
 
@@ -223,13 +223,13 @@ export default function ApplyLeave() {
 
             <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Leave Type */}
-                <Card className="border-slate-200/80">
+                <Card className="border-slate-200/80 dark:border-white/[0.07]">
                     <CardContent className="pt-4">
                         <FieldLabel icon={CalendarOff} accent="violet" required>Leave type</FieldLabel>
                         {loadingBalances ? (
                             <div className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                                <span className="text-sm text-slate-500">Loading types…</span>
+                                <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-slate-500" />
+                                <span className="text-sm text-slate-500 dark:text-slate-400">Loading types…</span>
                             </div>
                         ) : (
                             <Select
@@ -258,12 +258,12 @@ export default function ApplyLeave() {
                 </Card>
 
                 {/* Date Range */}
-                <Card className="border-slate-200/80">
+                <Card className="border-slate-200/80 dark:border-white/[0.07]">
                     <CardContent className="space-y-3 pt-4">
                         <FieldLabel icon={Calendar} accent="sky" required>When</FieldLabel>
                         <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">From</label>
+                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</label>
                                 <Input
                                     type="date"
                                     value={form.start_date}
@@ -273,7 +273,7 @@ export default function ApplyLeave() {
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">To</label>
+                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</label>
                                 <Input
                                     type="date"
                                     value={form.end_date}
@@ -285,11 +285,11 @@ export default function ApplyLeave() {
                         </div>
 
                         {calculatedDays !== null && (
-                            <div className="flex items-center gap-3 rounded-xl border border-sky-100 bg-sky-50 p-2.5">
-                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100">
-                                    <Info className="h-3.5 w-3.5 text-sky-600" strokeWidth={2.25} />
+                            <div className="flex items-center gap-3 rounded-xl border border-sky-100 bg-sky-50 p-2.5 dark:border-sky-500/20 dark:bg-sky-500/10">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+                                    <Info className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300" strokeWidth={2.25} />
                                 </div>
-                                <span className="text-xs font-semibold text-sky-800">
+                                <span className="text-xs font-semibold text-sky-800 dark:text-sky-300">
                                     <span className="tabular-nums">{calculatedDays}</span> working day{calculatedDays !== 1 ? 's' : ''}
                                 </span>
                             </div>
@@ -297,17 +297,17 @@ export default function ApplyLeave() {
 
                         {/* Half Day Toggle */}
                         <div>
-                            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-indigo-200">
+                            <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-indigo-200 dark:border-white/[0.10] dark:bg-white/[0.05]">
                                 <input
                                     type="checkbox"
                                     checked={form.is_half_day}
                                     onChange={(e) => setForm({ ...form, is_half_day: e.target.checked })}
                                     className="h-4 w-4 rounded text-indigo-600 focus:ring-2 focus:ring-indigo-500"
                                 />
-                                <span className="text-sm font-medium text-slate-700">Half day only</span>
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Half day only</span>
                             </label>
                             {form.is_half_day && (
-                                <div className="mt-2 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                                <div className="mt-2 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-white/[0.10] dark:bg-white/[0.05]">
                                     <button
                                         type="button"
                                         onClick={() => setForm({ ...form, half_day_period: 'morning' })}
@@ -315,7 +315,7 @@ export default function ApplyLeave() {
                                             'rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all',
                                             form.half_day_period === 'morning'
                                                 ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-sm shadow-pink-500/30'
-                                                : 'text-slate-500 hover:text-slate-700'
+                                                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                                         )}
                                     >
                                         Morning
@@ -327,7 +327,7 @@ export default function ApplyLeave() {
                                             'rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all',
                                             form.half_day_period === 'afternoon'
                                                 ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 text-white shadow-sm shadow-rose-500/30'
-                                                : 'text-slate-500 hover:text-slate-700'
+                                                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                                         )}
                                     >
                                         Afternoon
@@ -361,7 +361,7 @@ export default function ApplyLeave() {
                 )}
 
                 {/* Reason */}
-                <Card className="border-slate-200/80">
+                <Card className="border-slate-200/80 dark:border-white/[0.07]">
                     <CardContent className="pt-4">
                         <FieldLabel icon={FileText} accent="indigo" required>Reason</FieldLabel>
                         <Textarea
@@ -375,7 +375,7 @@ export default function ApplyLeave() {
                 </Card>
 
                 {/* Attachment */}
-                <Card className="border-slate-200/80">
+                <Card className="border-slate-200/80 dark:border-white/[0.07]">
                     <CardContent className="pt-4">
                         <FieldLabel
                             icon={Paperclip}
@@ -390,17 +390,17 @@ export default function ApplyLeave() {
                             onChange={(e) => setForm({ ...form, attachment: e.target.files[0] })}
                             required={selectedBalance?.leave_type?.requires_attachment}
                         />
-                        <p className="mt-1.5 text-[11px] text-slate-400">PDF, JPG, PNG, DOC · Max 10MB</p>
+                        <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">PDF, JPG, PNG, DOC · Max 10MB</p>
                     </CardContent>
                 </Card>
 
                 {/* Insufficient balance warning */}
                 {insufficientBalance && (
-                    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                            <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-500/25 dark:bg-rose-500/15">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/15">
+                            <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-300" strokeWidth={2.25} />
                         </div>
-                        <p className="text-sm font-semibold text-rose-800">
+                        <p className="text-sm font-semibold text-rose-800 dark:text-rose-300">
                             This request exceeds your available days.
                         </p>
                     </div>
@@ -408,11 +408,11 @@ export default function ApplyLeave() {
 
                 {/* Error */}
                 {error && (
-                    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                            <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-500/25 dark:bg-rose-500/15">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/15">
+                            <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-300" strokeWidth={2.25} />
                         </div>
-                        <p className="text-sm font-medium text-rose-800">{error}</p>
+                        <p className="text-sm font-medium text-rose-800 dark:text-rose-300">{error}</p>
                     </div>
                 )}
 
@@ -422,9 +422,9 @@ export default function ApplyLeave() {
                     disabled={submitMut.isPending || !formValid}
                     className={cn(
                         'group relative h-14 w-full overflow-hidden rounded-2xl text-white transition-all active:scale-[0.97]',
-                        'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                        'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#080C16]',
                         !formValid || submitMut.isPending
-                            ? 'cursor-not-allowed bg-slate-300 shadow-md shadow-slate-300/40'
+                            ? 'cursor-not-allowed bg-slate-300 shadow-md shadow-slate-300/40 dark:bg-white/[0.08] dark:shadow-none'
                             : 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 shadow-xl shadow-pink-500/40 hover:shadow-2xl hover:shadow-pink-500/50 focus-visible:ring-pink-300'
                     )}
                 >

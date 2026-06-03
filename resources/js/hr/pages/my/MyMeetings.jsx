@@ -17,7 +17,7 @@ import { CalendarRange } from 'lucide-react';
 
 const STATUS_BADGE = {
     draft: { label: 'Draft', variant: 'secondary' },
-    scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-800 border-transparent' },
+    scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-800 border-transparent dark:bg-blue-500/15 dark:text-blue-300' },
     in_progress: { label: 'In Progress', variant: 'warning' },
     completed: { label: 'Completed', variant: 'success' },
     cancelled: { label: 'Cancelled', variant: 'destructive' },
@@ -67,9 +67,9 @@ export default function MyMeetings() {
             ) : meetings.length === 0 ? (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <CalendarDays className="mb-4 h-12 w-12 text-slate-300" />
-                        <h3 className="text-lg font-semibold text-slate-900">No meetings</h3>
-                        <p className="mt-1 text-sm text-slate-500">You have no {tab} meetings.</p>
+                        <CalendarDays className="mb-4 h-12 w-12 text-slate-300 dark:text-slate-600" />
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No meetings</h3>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">You have no {tab} meetings.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -81,8 +81,8 @@ export default function MyMeetings() {
                                 <CardContent className="p-4">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                            <h3 className="font-semibold text-slate-900">{meeting.title}</h3>
-                                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                                            <h3 className="font-semibold text-slate-900 dark:text-white">{meeting.title}</h3>
+                                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                                                 <span className="flex items-center gap-1">
                                                     <CalendarDays className="h-3.5 w-3.5" />
                                                     {formatDate(meeting.date)}

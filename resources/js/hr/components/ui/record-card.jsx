@@ -25,8 +25,8 @@ export function RecordCard({ icon: Icon, accent = 'indigo', title, subtitle, met
         <Component
             onClick={onClick}
             className={cn(
-                'group flex w-full items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 text-left transition-all',
-                onClick && 'hover:border-indigo-200 hover:shadow-md hover:shadow-slate-200/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
+                'group flex w-full items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 text-left transition-all dark:border-white/[0.07] dark:bg-[#0F1626]',
+                onClick && 'hover:border-indigo-200 hover:shadow-md hover:shadow-slate-200/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:hover:border-indigo-500/40 dark:hover:shadow-black/30 dark:focus-visible:ring-offset-[#080C16]',
                 className
             )}
         >
@@ -39,21 +39,21 @@ export function RecordCard({ icon: Icon, accent = 'indigo', title, subtitle, met
             <div className="min-w-0 flex-1">
                 {title && (
                     <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
                         {badge && <span className="shrink-0">{badge}</span>}
                     </div>
                 )}
                 {subtitle && (
-                    <p className="mt-0.5 truncate text-xs text-slate-600">{subtitle}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-400">{subtitle}</p>
                 )}
                 {meta && (
-                    <p className="mt-0.5 truncate text-[11px] text-slate-400">{meta}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">{meta}</p>
                 )}
                 {children}
             </div>
 
             {onClick && (
-                <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500 dark:text-slate-600 dark:group-hover:text-indigo-400" />
             )}
         </Component>
     );
@@ -80,11 +80,11 @@ export function RecordList({
         return (
             <div className={cn('space-y-2', className)}>
                 {Array.from({ length: skeletonCount }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5">
-                        <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-slate-200" />
+                    <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 dark:border-white/[0.07] dark:bg-[#0F1626]">
+                        <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-slate-200 dark:bg-white/[0.08]" />
                         <div className="flex-1 space-y-2">
-                            <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200" />
-                            <div className="h-2.5 w-1/2 animate-pulse rounded bg-slate-100" />
+                            <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                            <div className="h-2.5 w-1/2 animate-pulse rounded bg-slate-100 dark:bg-white/[0.05]" />
                         </div>
                     </div>
                 ))}
@@ -94,7 +94,7 @@ export function RecordList({
 
     if (!items || items.length === 0) {
         return (
-            <div className={cn('rounded-2xl border border-dashed border-slate-200 bg-white py-2', className)}>
+            <div className={cn('rounded-2xl border border-dashed border-slate-200 bg-white py-2 dark:border-white/10 dark:bg-[#0F1626]', className)}>
                 <EmptyState
                     icon={emptyIcon}
                     accent={emptyAccent}

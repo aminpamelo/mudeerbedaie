@@ -6,8 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\StoreDisciplinaryActionRequest;
 use App\Models\DisciplinaryAction;
 use App\Models\Employee;
-use App\Models\LetterTemplate;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Hr\DisciplinaryLetterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -116,39 +115,18 @@ class HrDisciplinaryActionController extends Controller
         ]);
     }
 
-    public function pdf(DisciplinaryAction $disciplinaryAction): \Illuminate\Http\Response
+    public function pdf(DisciplinaryAction $disciplinaryAction, DisciplinaryLetterService $letterService): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        $disciplinaryAction->load(['employee.department', 'employee.position']);
-
-        $template = LetterTemplate::active()
-            ->ofType($disciplinaryAction->type)
-            ->first();
-
-        if (! $template) {
-            abort(404, 'No active letter template found for this type.');
+        try {
+            $path = $letterService->generatePdf($disciplinaryAction);
+        } catch (\RuntimeException $e) {
+            abort(404, $e->getMessage());
         }
 
-        $html = $template->render([
-            'employee_name' => $disciplinaryAction->employee->full_name,
-            'employee_id' => $disciplinaryAction->employee->employee_id,
-            'position' => $disciplinaryAction->employee->position?->title ?? 'N/A',
-            'department' => $disciplinaryAction->employee->department?->name ?? 'N/A',
-            'incident_date' => $disciplinaryAction->incident_date->format('d/m/Y'),
-            'issued_date' => ($disciplinaryAction->issued_date ?? now())->format('d/m/Y'),
-            'reason' => $disciplinaryAction->reason,
-            'response_deadline' => $disciplinaryAction->response_deadline?->format('d/m/Y') ?? 'N/A',
-            'company_name' => config('app.name'),
-        ]);
-
-        $pdf = Pdf::loadHTML($html)->setPaper('a4');
-
-        $filename = "disciplinary_{$disciplinaryAction->reference_number}.pdf";
-        $path = "hr/disciplinary/{$filename}";
-        Storage::disk('public')->put($path, $pdf->output());
-
-        $disciplinaryAction->update(['letter_pdf_path' => $path]);
-
-        return $pdf->download($filename);
+        return response()->download(
+            Storage::disk('public')->path($path),
+            "disciplinary_{$disciplinaryAction->reference_number}.pdf"
+        );
     }
 
     public function employeeHistory(int $employeeId): JsonResponse

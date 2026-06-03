@@ -68,8 +68,8 @@ export default function ApplyExitPermission() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-3" />
-                <h2 className="text-lg font-semibold text-slate-900">Request Submitted!</h2>
-                <p className="text-sm text-slate-500 mt-1">Your exit permission request has been submitted for approval.</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Request Submitted!</h2>
+                <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">Your exit permission request has been submitted for approval.</p>
             </div>
         );
     }
@@ -80,15 +80,15 @@ export default function ApplyExitPermission() {
                 <button
                     onClick={() => navigate('/my/exit-permissions')}
                     aria-label="Back"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-white/[0.07] dark:bg-[#0F1626] dark:text-slate-300"
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="flex-1">
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/25">
                         Apply for Exit Permission
                     </div>
-                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">New request</h1>
+                    <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 dark:text-white">New request</h1>
                 </div>
             </div>
 
@@ -106,7 +106,7 @@ export default function ApplyExitPermission() {
                             required
                         />
                         {fieldErrors.addressed_to && (
-                            <p className="text-xs text-red-500 mt-1">{fieldErrors.addressed_to[0]}</p>
+                            <p className="text-xs text-red-500 mt-1 dark:text-red-400">{fieldErrors.addressed_to[0]}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -124,7 +124,7 @@ export default function ApplyExitPermission() {
                                 required
                             />
                             {fieldErrors.exit_date && (
-                                <p className="text-xs text-red-500 mt-1">{fieldErrors.exit_date[0]}</p>
+                                <p className="text-xs text-red-500 mt-1 dark:text-red-400">{fieldErrors.exit_date[0]}</p>
                             )}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -138,7 +138,7 @@ export default function ApplyExitPermission() {
                                     required
                                 />
                                 {fieldErrors.exit_time && (
-                                    <p className="text-xs text-red-500 mt-1">{fieldErrors.exit_time[0]}</p>
+                                    <p className="text-xs text-red-500 mt-1 dark:text-red-400">{fieldErrors.exit_time[0]}</p>
                                 )}
                             </div>
                             <div>
@@ -151,7 +151,7 @@ export default function ApplyExitPermission() {
                                     required
                                 />
                                 {fieldErrors.return_time && (
-                                    <p className="text-xs text-red-500 mt-1">{fieldErrors.return_time[0]}</p>
+                                    <p className="text-xs text-red-500 mt-1 dark:text-red-400">{fieldErrors.return_time[0]}</p>
                                 )}
                             </div>
                         </div>
@@ -164,7 +164,7 @@ export default function ApplyExitPermission() {
                         <Label className="text-xs font-medium">Errand Type *</Label>
                         <div className="mt-2 space-y-2">
                             {ERRAND_OPTIONS.map((option) => (
-                                <label key={option.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                                <label key={option.value} className="flex items-center gap-2 text-sm cursor-pointer dark:text-slate-200">
                                     <input
                                         type="radio"
                                         name="errand_type"
@@ -172,14 +172,14 @@ export default function ApplyExitPermission() {
                                         checked={form.errand_type === option.value}
                                         onChange={(e) => setForm({ ...form, errand_type: e.target.value })}
                                         required
-                                        className="accent-slate-800"
+                                        className="accent-slate-800 dark:accent-indigo-500"
                                     />
                                     {option.label}
                                 </label>
                             ))}
                         </div>
                         {fieldErrors.errand_type && (
-                            <p className="text-xs text-red-500 mt-1">{fieldErrors.errand_type[0]}</p>
+                            <p className="text-xs text-red-500 mt-1 dark:text-red-400">{fieldErrors.errand_type[0]}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -198,16 +198,16 @@ export default function ApplyExitPermission() {
                             required
                         />
                         {fieldErrors.purpose && (
-                            <p className="text-xs text-red-500 mt-1">{fieldErrors.purpose[0]}</p>
+                            <p className="text-xs text-red-500 mt-1 dark:text-red-400">{fieldErrors.purpose[0]}</p>
                         )}
                     </CardContent>
                 </Card>
 
                 {/* Error */}
                 {error && (
-                    <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3">
-                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                        <p className="text-sm text-red-700">{error}</p>
+                    <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3 dark:bg-red-500/15 dark:border-red-500/25">
+                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0 dark:text-red-400" />
+                        <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                     </div>
                 )}
 

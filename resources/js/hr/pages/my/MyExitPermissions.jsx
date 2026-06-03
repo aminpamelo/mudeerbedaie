@@ -37,8 +37,8 @@ const STATUS_CONFIG = {
 };
 
 const ERRAND_CONFIG = {
-    company: { label: 'Urusan Syarikat', badgeClass: 'bg-blue-100 text-blue-700' },
-    personal: { label: 'Urusan Peribadi', badgeClass: 'bg-purple-100 text-purple-700' },
+    company: { label: 'Urusan Syarikat', badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
+    personal: { label: 'Urusan Peribadi', badgeClass: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300' },
 };
 
 // ========== MAIN COMPONENT ==========
@@ -111,8 +111,8 @@ export default function MyExitPermissions() {
                         </div>
                     ) : permissions.length === 0 ? (
                         <div className="py-8 text-center">
-                            <DoorOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                            <p className="text-sm text-slate-500">
+                            <DoorOpen className="h-8 w-8 text-slate-300 mx-auto mb-2 dark:text-slate-600" />
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
                                 No exit permission requests yet. Apply for one when you need to leave during work hours.
                             </p>
                         </div>
@@ -124,11 +124,11 @@ export default function MyExitPermissions() {
                                 return (
                                     <div
                                         key={permission.id}
-                                        className="flex items-start justify-between rounded-lg border border-slate-100 p-3"
+                                        className="flex items-start justify-between rounded-lg border border-slate-100 p-3 dark:border-white/[0.06]"
                                     >
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <p className="text-sm font-medium text-slate-900">
+                                                <p className="text-sm font-medium text-slate-900 dark:text-white">
                                                     {permission.permission_number}
                                                 </p>
                                                 <Badge variant={statusCfg.variant} className="text-[10px]">
@@ -142,11 +142,11 @@ export default function MyExitPermissions() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-slate-500 mt-0.5">
+                                            <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                                                 {formatDate(permission.exit_date)} · {formatTime(permission.exit_time)} → {formatTime(permission.return_time)}
                                             </p>
                                             {permission.purpose && (
-                                                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                                                <p className="text-xs text-slate-500 mt-0.5 truncate dark:text-slate-400">
                                                     {permission.purpose}
                                                 </p>
                                             )}
@@ -156,7 +156,7 @@ export default function MyExitPermissions() {
                                                 <button
                                                     onClick={() => handleDownloadPdf(permission)}
                                                     disabled={downloadingId === permission.id}
-                                                    className="inline-flex items-center justify-center h-7 w-7 rounded text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                                                    className="inline-flex items-center justify-center h-7 w-7 rounded text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors disabled:opacity-50 dark:text-emerald-400 dark:hover:text-emerald-300 dark:hover:bg-emerald-500/15"
                                                     title="Download PDF"
                                                 >
                                                     {downloadingId === permission.id
@@ -169,7 +169,7 @@ export default function MyExitPermissions() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                                     onClick={() => {
                                                         if (window.confirm('Cancel this exit permission request?')) {
                                                             cancelMut.mutate(permission.id);

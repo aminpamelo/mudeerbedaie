@@ -90,7 +90,7 @@ function ContactForm({ contact, onSave, onCancel, isPending, error }) {
                         id="contact-primary"
                         checked={formData.is_primary}
                         onChange={(e) => updateField('is_primary', e.target.checked)}
-                        className="rounded border-slate-300"
+                        className="rounded border-slate-300 dark:border-white/[0.10] dark:bg-white/[0.05]"
                     />
                     <Label htmlFor="contact-primary" className="text-sm font-normal">
                         Primary emergency contact
@@ -180,7 +180,7 @@ export default function MyEmergencyContacts() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-600 dark:text-slate-300">
                     {error?.response?.data?.message || 'Failed to load emergency contacts'}
                 </p>
             </div>
@@ -198,7 +198,7 @@ export default function MyEmergencyContacts() {
 
             {/* Header with Add Button */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-slate-700">
+                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200">
                     {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
                 </h3>
                 {!showAddForm && (
@@ -234,9 +234,9 @@ export default function MyEmergencyContacts() {
             {contacts.length === 0 && !showAddForm ? (
                 <Card>
                     <CardContent className="py-10 text-center">
-                        <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                        <p className="text-sm text-slate-500">No emergency contacts added yet</p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <Users className="h-10 w-10 text-slate-300 mx-auto mb-3 dark:text-slate-600" />
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No emergency contacts added yet</p>
+                        <p className="text-xs text-slate-400 mt-1 dark:text-slate-500">
                             Add at least one emergency contact for safety purposes
                         </p>
                     </CardContent>
@@ -269,7 +269,7 @@ export default function MyEmergencyContacts() {
                                 <div className="flex items-start justify-between">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                            <p className="text-sm font-medium text-slate-900">
+                                            <p className="text-sm font-medium text-slate-900 dark:text-white">
                                                 {contact.name}
                                             </p>
                                             {contact.is_primary && (
@@ -278,18 +278,18 @@ export default function MyEmergencyContacts() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <p className="text-xs text-slate-500 mt-0.5">
+                                        <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                                             {contact.relationship}
                                         </p>
                                         <div className="mt-2 space-y-1">
                                             {contact.phone && (
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
                                                     <Phone className="h-3 w-3" />
                                                     <span>{contact.phone}</span>
                                                 </div>
                                             )}
                                             {contact.email && (
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
                                                     <Mail className="h-3 w-3" />
                                                     <span>{contact.email}</span>
                                                 </div>
@@ -312,7 +312,7 @@ export default function MyEmergencyContacts() {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/15"
                                             onClick={() => {
                                                 if (window.confirm('Delete this emergency contact?')) {
                                                     deleteMutation.mutate(contact.id);

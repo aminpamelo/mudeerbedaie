@@ -17,11 +17,11 @@ function formatDate(dateStr) {
 }
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', className: 'bg-slate-100 text-slate-600' },
-    self_assessment: { label: 'Self Assessment', className: 'bg-blue-100 text-blue-700' },
-    manager_review: { label: 'Manager Review', className: 'bg-amber-100 text-amber-700' },
-    completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
-    cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
+    draft: { label: 'Draft', className: 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300' },
+    self_assessment: { label: 'Self Assessment', className: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
+    manager_review: { label: 'Manager Review', className: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' },
+    completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
+    cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' },
 };
 
 function StarRating({ rating, max = 5 }) {
@@ -32,10 +32,10 @@ function StarRating({ rating, max = 5 }) {
             {Array.from({ length: max }).map((_, i) => (
                 <Star
                     key={i}
-                    className={`h-3.5 w-3.5 ${i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`}
+                    className={`h-3.5 w-3.5 ${i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-slate-200 dark:text-slate-600'}`}
                 />
             ))}
-            <span className="ml-1 text-xs font-medium text-slate-600">{value.toFixed(1)}</span>
+            <span className="ml-1 text-xs font-medium text-slate-600 dark:text-slate-300">{value.toFixed(1)}</span>
         </div>
     );
 }
@@ -65,45 +65,45 @@ export default function MyReviews() {
                 <CardContent>
                     {isLoading ? (
                         <div className="flex justify-center py-10">
-                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400 dark:text-slate-500" />
                         </div>
                     ) : reviews.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-14 text-center">
-                            <ClipboardList className="h-10 w-10 text-slate-300 mb-3" />
-                            <p className="text-sm font-medium text-slate-600">No reviews yet</p>
-                            <p className="mt-1 text-xs text-slate-400">Your performance reviews will appear here.</p>
+                            <ClipboardList className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-3" />
+                            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">No reviews yet</p>
+                            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Your performance reviews will appear here.</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
                             {reviews.map((review) => {
-                                const statusCfg = STATUS_CONFIG[review.status] || { label: review.status, className: 'bg-slate-100 text-slate-600' };
+                                const statusCfg = STATUS_CONFIG[review.status] || { label: review.status, className: 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300' };
                                 return (
                                     <Link
                                         key={review.id}
                                         to={`/my/reviews/${review.id}`}
-                                        className="flex items-center justify-between rounded-lg border border-slate-100 p-3 hover:bg-slate-50 transition-colors"
+                                        className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-white/[0.07] p-3 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
                                     >
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <p className="text-sm font-medium text-slate-900">
+                                                <p className="text-sm font-medium text-slate-900 dark:text-white">
                                                     {review.cycle?.name || 'Performance Review'}
                                                 </p>
                                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusCfg.className}`}>
                                                     {statusCfg.label}
                                                 </span>
                                                 {review.cycle?.review_type && (
-                                                    <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-600 capitalize">
+                                                    <span className="rounded-full bg-purple-50 dark:bg-purple-500/15 px-2 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-300 capitalize">
                                                         {review.cycle.review_type.replace('_', ' ')}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-slate-500 mt-0.5">
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                                 {formatDate(review.cycle?.period_start)} – {formatDate(review.cycle?.period_end)}
                                             </p>
                                             <div className="mt-1 flex items-center gap-3">
                                                 {review.reviewer && (
-                                                    <p className="text-xs text-slate-400">
-                                                        Reviewer: <span className="text-slate-600">{review.reviewer?.name}</span>
+                                                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                                                        Reviewer: <span className="text-slate-600 dark:text-slate-300">{review.reviewer?.name}</span>
                                                     </p>
                                                 )}
                                                 {review.status === 'completed' && review.overall_rating && (
@@ -111,7 +111,7 @@ export default function MyReviews() {
                                                 )}
                                             </div>
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-slate-300 shrink-0 ml-2" />
+                                        <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 ml-2" />
                                     </Link>
                                 );
                             })}

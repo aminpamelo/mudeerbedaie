@@ -104,7 +104,7 @@ export default function NotificationBell() {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                className="relative rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
@@ -115,15 +115,15 @@ export default function NotificationBell() {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:w-96">
+                <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:w-96 dark:border-white/[0.08] dark:bg-[#0F1626] dark:shadow-2xl dark:shadow-black/40">
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                        <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+                    <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/[0.06]">
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (
                                 <button
                                     onClick={markAllRead}
-                                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-indigo-400 dark:hover:text-indigo-300"
                                 >
                                     <CheckCheck className="h-3.5 w-3.5" />
                                     Mark all read
@@ -131,7 +131,7 @@ export default function NotificationBell() {
                             )}
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="text-slate-400 hover:text-slate-600"
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                             >
                                 <X className="h-4 w-4" />
                             </button>
@@ -145,7 +145,7 @@ export default function NotificationBell() {
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                             </div>
                         ) : notifications.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-slate-500">
+                            <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                                 No notifications yet
                             </div>
                         ) : (
@@ -153,27 +153,27 @@ export default function NotificationBell() {
                                 <button
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
-                                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${
-                                        !notification.read_at ? 'bg-blue-50/50' : ''
+                                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                                        !notification.read_at ? 'bg-blue-50/50 dark:bg-indigo-500/10' : ''
                                     }`}
                                 >
                                     {/* Unread dot */}
                                     <div className="mt-1.5 shrink-0">
                                         {!notification.read_at ? (
-                                            <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                            <div className="h-2 w-2 rounded-full bg-blue-500 dark:bg-indigo-400" />
                                         ) : (
                                             <div className="h-2 w-2" />
                                         )}
                                     </div>
 
                                     <div className="min-w-0 flex-1">
-                                        <p className={`text-sm ${!notification.read_at ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
+                                        <p className={`text-sm ${!notification.read_at ? 'font-semibold text-slate-900 dark:text-slate-100' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
                                             {notification.data?.title || 'Notification'}
                                         </p>
-                                        <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
+                                        <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
                                             {notification.data?.body || ''}
                                         </p>
-                                        <p className="mt-1 text-xs text-slate-400">
+                                        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                                             {timeAgo(notification.created_at)}
                                         </p>
                                     </div>
@@ -183,13 +183,13 @@ export default function NotificationBell() {
                     </div>
 
                     {/* View All Footer */}
-                    <div className="border-t border-slate-200">
+                    <div className="border-t border-slate-200 dark:border-white/[0.06]">
                         <button
                             onClick={() => {
                                 setIsOpen(false);
                                 navigate('/notifications');
                             }}
-                            className="flex w-full items-center justify-center py-2.5 text-xs font-medium text-blue-600 transition-colors hover:bg-slate-50 hover:text-blue-700"
+                            className="flex w-full items-center justify-center py-2.5 text-xs font-medium text-blue-600 transition-colors hover:bg-slate-50 hover:text-blue-700 dark:text-indigo-400 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
                         >
                             View all notifications
                         </button>

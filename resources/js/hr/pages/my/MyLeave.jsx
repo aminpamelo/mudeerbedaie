@@ -143,17 +143,17 @@ export default function MyLeave() {
                             size={232}
                             stroke={12}
                         >
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                                 {primaryBalance.leave_type?.name || primaryBalance.type_name || 'Leave'}
                             </div>
                             <div className="mt-2 flex items-baseline tabular-nums leading-none">
-                                <span className="text-5xl font-bold tracking-tight text-slate-900">{available}</span>
-                                <span className="ml-1 text-base font-semibold text-slate-400">/ {total}</span>
+                                <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-white">{available}</span>
+                                <span className="ml-1 text-base font-semibold text-slate-400 dark:text-slate-500">/ {total}</span>
                             </div>
-                            <p className="mt-2 text-[11px] font-medium text-slate-500">
+                            <p className="mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                                 days available
                             </p>
-                            <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400">
+                            <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400 dark:text-slate-500">
                                 {used} used · {carried} carried
                             </p>
                         </BalanceRing>
@@ -164,7 +164,7 @@ export default function MyLeave() {
             {/* Quick stats chips */}
             <div className="flex flex-wrap items-center justify-center gap-2">
                 {pendingCount > 0 && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/25">
                         <span className="relative flex h-1.5 w-1.5">
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
                             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
@@ -173,12 +173,12 @@ export default function MyLeave() {
                     </div>
                 )}
                 {approvedCount > 0 && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/25">
                         <span className="tabular-nums">{approvedCount}</span> approved
                     </div>
                 )}
                 {otBalance && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/25">
                         <span className="tabular-nums">{otBalance.available_days ?? otBalance.available ?? 0}</span> OT replacement
                     </div>
                 )}
@@ -187,7 +187,7 @@ export default function MyLeave() {
             {/* All Balances grid */}
             {!loadingBalances && balances.length > 1 && (
                 <div>
-                    <h3 className="mb-2 px-1 text-sm font-bold text-slate-900">All balances</h3>
+                    <h3 className="mb-2 px-1 text-sm font-bold text-slate-900 dark:text-slate-100">All balances</h3>
                     <div className="grid grid-cols-2 gap-2">
                         {balances.filter((b) => b !== primaryBalance).map((bal) => {
                             const entitled = parseFloat(bal.entitled_days) || 0;
@@ -210,14 +210,14 @@ export default function MyLeave() {
                             return (
                                 <Card key={bal.id || bal.leave_type_id} className="border-slate-200/80">
                                     <CardContent className="p-3">
-                                        <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                        <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                             {bal.leave_type?.name || bal.type_name || 'Leave'}
                                         </p>
                                         <div className="mt-1 flex items-baseline gap-1">
-                                            <span className="text-2xl font-bold tabular-nums text-slate-900">{available}</span>
-                                            <span className="text-xs font-semibold text-slate-400">/ {total}</span>
+                                            <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{available}</span>
+                                            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">/ {total}</span>
                                         </div>
-                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.08]">
                                             <div
                                                 className={cn(
                                                     'h-full rounded-full bg-gradient-to-r transition-all',
@@ -226,7 +226,7 @@ export default function MyLeave() {
                                                 style={{ width: `${usedPct}%` }}
                                             />
                                         </div>
-                                        <p className="mt-1 text-[10px] text-slate-400 tabular-nums">
+                                        <p className="mt-1 text-[10px] text-slate-400 tabular-nums dark:text-slate-500">
                                             {used} used · {carried} carried
                                         </p>
                                     </CardContent>
@@ -244,15 +244,15 @@ export default function MyLeave() {
                         <button
                             onClick={() => setCalDate(new Date(calYear, calMonth - 1, 1))}
                             aria-label="Previous month"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
                         >
                             <ChevronLeft className="h-4 w-4" />
                         </button>
-                        <h3 className="text-sm font-bold text-slate-900">{calLabel}</h3>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{calLabel}</h3>
                         <button
                             onClick={() => setCalDate(new Date(calYear, calMonth + 1, 1))}
                             aria-label="Next month"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
                         >
                             <ChevronRight className="h-4 w-4" />
                         </button>
@@ -260,7 +260,7 @@ export default function MyLeave() {
 
                     <div className="grid grid-cols-7 gap-1">
                         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                            <div key={i} className="pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">{d}</div>
+                            <div key={i} className="pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{d}</div>
                         ))}
                         {calendarDays.map((date, i) => {
                             const dateKey = date.toISOString().substring(0, 10);
@@ -274,17 +274,17 @@ export default function MyLeave() {
                                     className={cn(
                                         'relative flex aspect-square items-center justify-center rounded-xl text-xs transition-all',
                                         !isCurrentMonth && 'opacity-30',
-                                        isToday && !isLeave && 'bg-gradient-to-br from-indigo-50 to-pink-50 ring-2 ring-pink-300',
-                                        isLeave && isCurrentMonth && 'bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-800 font-semibold ring-1 ring-violet-200',
+                                        isToday && !isLeave && 'bg-gradient-to-br from-indigo-50 to-pink-50 ring-2 ring-pink-300 dark:from-indigo-500/15 dark:to-pink-500/15 dark:ring-pink-500/50',
+                                        isLeave && isCurrentMonth && 'bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-800 font-semibold ring-1 ring-violet-200 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:ring-violet-500/30',
                                         isLeave && isToday && 'ring-2 ring-pink-400'
                                     )}
                                 >
                                     <span className={cn(
                                         'tabular-nums',
-                                        isToday && !isLeave ? 'text-pink-700 font-bold' :
-                                        isLeave && isCurrentMonth ? 'text-violet-800' :
-                                        isCurrentMonth ? 'text-slate-700' :
-                                        'text-slate-400'
+                                        isToday && !isLeave ? 'text-pink-700 font-bold dark:text-pink-300' :
+                                        isLeave && isCurrentMonth ? 'text-violet-800 dark:text-violet-300' :
+                                        isCurrentMonth ? 'text-slate-700 dark:text-slate-200' :
+                                        'text-slate-400 dark:text-slate-500'
                                     )}>
                                         {date.getDate()}
                                     </span>
@@ -293,14 +293,14 @@ export default function MyLeave() {
                         })}
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-x-3 border-t border-slate-100 pt-3">
+                    <div className="mt-4 flex flex-wrap gap-x-3 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
                         <div className="flex items-center gap-1.5">
-                            <div className="h-2 w-2 rounded bg-gradient-to-br from-violet-400 to-fuchsia-500 ring-1 ring-white shadow-sm" />
-                            <span className="text-[10px] font-medium text-slate-500">Leave</span>
+                            <div className="h-2 w-2 rounded bg-gradient-to-br from-violet-400 to-fuchsia-500 ring-1 ring-white shadow-sm dark:ring-white/20" />
+                            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Leave</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="h-2 w-2 rounded ring-2 ring-pink-400" />
-                            <span className="text-[10px] font-medium text-slate-500">Today</span>
+                            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Today</span>
                         </div>
                     </div>
                 </CardContent>
@@ -309,10 +309,10 @@ export default function MyLeave() {
             {/* Requests */}
             <div>
                 <div className="mb-2 flex items-center justify-between px-1">
-                    <h3 className="text-sm font-bold text-slate-900">My requests</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">My requests</h3>
                     {requests.length > 0 && (
-                        <span className="text-[11px] font-semibold text-slate-500">
-                            <span className="tabular-nums text-slate-800">{requests.length}</span> total
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            <span className="tabular-nums text-slate-800 dark:text-slate-200">{requests.length}</span> total
                         </span>
                     )}
                 </div>
@@ -357,7 +357,7 @@ export default function MyLeave() {
                                                 }
                                             }}
                                             disabled={cancelMut.isPending}
-                                            className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                                            className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/25 dark:hover:bg-rose-500/25"
                                         >
                                             <Trash2 className="h-3 w-3" />
                                             Cancel

@@ -52,7 +52,7 @@ export function BalanceRing({
         <div className={cn('relative mx-auto', className)} style={{ width: size, height: size }}>
             {halo && (
                 <div className={cn(
-                    'absolute inset-0 rounded-full blur-3xl opacity-40',
+                    'absolute inset-0 rounded-full blur-3xl opacity-40 dark:opacity-[0.18]',
                     a.cardTint
                 )} aria-hidden />
             )}
@@ -69,7 +69,8 @@ export function BalanceRing({
                     cy={center}
                     r={radius}
                     fill="none"
-                    stroke="#F1F5F9"
+                    stroke="currentColor"
+                    className="text-slate-100 dark:text-white/[0.07]"
                     strokeWidth={stroke}
                 />
                 <circle
@@ -89,21 +90,21 @@ export function BalanceRing({
                 {children ?? (
                     <>
                         <div className="flex items-baseline tabular-nums leading-none">
-                            <span className="text-5xl font-bold tracking-tight text-slate-900">{value}</span>
+                            <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</span>
                             {max != null && (
-                                <span className="ml-1 text-base font-semibold text-slate-400">/ {max}</span>
+                                <span className="ml-1 text-base font-semibold text-slate-400 dark:text-slate-500">/ {max}</span>
                             )}
                             {unit && (
-                                <span className="ml-1 text-base font-semibold text-slate-500">{unit}</span>
+                                <span className="ml-1 text-base font-semibold text-slate-500 dark:text-slate-400">{unit}</span>
                             )}
                         </div>
                         {label && (
-                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 {label}
                             </p>
                         )}
                         {showPercent && (
-                            <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400">
+                            <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400 dark:text-slate-500">
                                 {Math.round(percent * 100)}%
                             </p>
                         )}
@@ -130,7 +131,7 @@ export function MultiSegmentRing({ segments = [], size = 220, stroke = 10, child
     return (
         <div className={cn('relative mx-auto', className)} style={{ width: size, height: size }}>
             <svg width={size} height={size} className="-rotate-90">
-                <circle cx={center} cy={center} r={radius} fill="none" stroke="#F1F5F9" strokeWidth={stroke} />
+                <circle cx={center} cy={center} r={radius} fill="none" stroke="currentColor" className="text-slate-100 dark:text-white/[0.07]" strokeWidth={stroke} />
                 {segments.map((seg, i) => {
                     const slice = (seg.max / totalMax) * circumference;
                     const filled = Math.max(0, Math.min(1, seg.max > 0 ? seg.value / seg.max : 0));

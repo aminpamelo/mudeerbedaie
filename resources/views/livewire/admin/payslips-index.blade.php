@@ -363,6 +363,7 @@ new class extends Component {
                     <flux:select wire:model.live="teacherFilter" placeholder="All Teachers" class="min-w-40">
                         <option value="all">All Teachers</option>
                         @foreach($teachers as $teacher)
+                            @continue(! $teacher)
                             <option value="{{ $teacher->id }}">{{ $teacher->name }}</option>
                         @endforeach
                     </flux:select>
@@ -523,6 +524,7 @@ new class extends Component {
                             </div>
                             <div class="mt-2 max-h-60 overflow-y-auto border rounded-md p-4">
                                 @foreach($teachers as $teacher)
+                                    @continue(! $teacher)
                                     <label class="flex items-center mb-2 hover:bg-gray-50 :bg-gray-800 p-2 rounded">
                                         <input type="checkbox" wire:model="selectedTeachers" value="{{ $teacher->id }}" 
                                                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">

@@ -51,7 +51,7 @@ export default function MyProfileOverview() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-600 dark:text-slate-300">
                     {error?.response?.data?.message || 'Failed to load profile'}
                 </p>
             </div>
@@ -109,12 +109,12 @@ export default function MyProfileOverview() {
                     <Card key={item.label}>
                         <CardContent className="pt-4 pb-4">
                             <div className="flex items-start gap-3">
-                                <div className="rounded-lg bg-slate-100 p-2 shrink-0">
-                                    <item.icon className="h-4 w-4 text-slate-600" />
+                                <div className="rounded-lg bg-slate-100 p-2 shrink-0 dark:bg-white/[0.08]">
+                                    <item.icon className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs text-slate-500">{item.label}</p>
-                                    <p className="text-sm font-medium text-slate-900 truncate">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.label}</p>
+                                    <p className="text-sm font-medium text-slate-900 truncate dark:text-white">
                                         {item.value}
                                     </p>
                                 </div>
@@ -143,7 +143,7 @@ export default function MyProfileOverview() {
                             }`}
                         />
                         <div>
-                            <p className="text-sm font-medium text-slate-900">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">
                                 {employee.status === 'active'
                                     ? 'Active Employee'
                                     : employee.status === 'probation'
@@ -153,12 +153,12 @@ export default function MyProfileOverview() {
                                         : employee.status?.replace('_', ' ')?.replace(/\b\w/g, (c) => c.toUpperCase()) || '-'}
                             </p>
                             {employee.status === 'probation' && employee.probation_end_date && (
-                                <p className="text-xs text-slate-500 mt-0.5">
+                                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                                     Probation ends {formatDate(employee.probation_end_date)}
                                 </p>
                             )}
                             {employee.join_date && (
-                                <p className="text-xs text-slate-500 mt-0.5">
+                                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                                     Joined {formatDate(employee.join_date)}
                                 </p>
                             )}

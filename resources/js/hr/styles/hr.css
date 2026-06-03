@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode (Tailwind v4 defaults to prefers-color-scheme).
+   A `.dark` class on <html> now activates every `dark:` variant. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* HR Portal — Fresh Indigo Theme */
 @theme {
     --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -34,6 +38,45 @@ body {
     font-feature-settings: "cv11", "ss01", "ss02";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+/* Night mode — paint the document shell dark before React mounts so there is
+   no white flash behind the app, and hint native UI (scrollbars, form controls). */
+html.dark {
+    color-scheme: dark;
+}
+html.dark body {
+    background-color: #080C16;
+}
+body {
+    transition: background-color 0.3s ease;
+}
+
+/* Premium layered night-mode shell — a deep indigo-navy base with a soft brand
+   aurora glowing from the top, giving the flat dark UI real depth. */
+.dark .hr-app-shell {
+    background-color: #080C16;
+    background-image:
+        radial-gradient(130% 90% at 50% -15%, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0) 55%),
+        linear-gradient(180deg, #0C1322 0%, #080C16 62%);
+}
+
+/* Subtle, themed scrollbars in night mode */
+.dark ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.22);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(148, 163, 184, 0.35);
+}
+.dark ::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 /* Tabular numerals for KPI values */
@@ -75,6 +118,10 @@ body {
     color: transparent;
     -webkit-text-fill-color: transparent;
     animation: hr-shimmer 6s ease-in-out infinite;
+}
+/* Lighten the shimmer base for dark mode so the digits stay legible */
+.dark .hr-shimmer {
+    background-image: linear-gradient(110deg, #e2e8f0 25%, #f9a8d4 45%, #a5b4fc 55%, #e2e8f0 75%);
 }
 
 /* Slow rotation — decorative halo around the idle progress ring */
@@ -142,6 +189,10 @@ body {
     .hr-shimmer {
         color: #0F172A;
         -webkit-text-fill-color: #0F172A;
+    }
+    .dark .hr-shimmer {
+        color: #F1F5F9;
+        -webkit-text-fill-color: #F1F5F9;
     }
     .hr-stagger > * {
         opacity: 1;

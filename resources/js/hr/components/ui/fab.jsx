@@ -19,7 +19,7 @@ export function Fab({ icon: Icon, children, onClick, to, ariaLabel, variant = 's
 
     const baseClasses = cn(
         'group fixed right-4 z-30 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all active:scale-95',
-        'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-pink-300',
+        'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-pink-300 dark:ring-offset-[#080C16]',
         // bottom-20 (5rem) on mobile to clear the bottom tab bar; safe area added inline
         'bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-6',
         variants[variant],

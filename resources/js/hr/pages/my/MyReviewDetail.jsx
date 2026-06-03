@@ -19,11 +19,11 @@ function formatDate(dateStr) {
 }
 
 const STATUS_CONFIG = {
-    draft: { label: 'Draft', className: 'bg-slate-100 text-slate-600' },
-    self_assessment: { label: 'Self Assessment', className: 'bg-blue-100 text-blue-700' },
-    manager_review: { label: 'Manager Review', className: 'bg-amber-100 text-amber-700' },
-    completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
-    cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
+    draft: { label: 'Draft', className: 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300' },
+    self_assessment: { label: 'Self Assessment', className: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
+    manager_review: { label: 'Manager Review', className: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' },
+    completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
+    cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300' },
 };
 
 function StarSelector({ value, onChange, disabled }) {
@@ -46,30 +46,30 @@ function StarSelector({ value, onChange, disabled }) {
                         className={`h-6 w-6 transition-colors ${
                             star <= display
                                 ? 'fill-amber-400 text-amber-400'
-                                : 'text-slate-200 hover:text-amber-300'
+                                : 'text-slate-200 hover:text-amber-300 dark:text-slate-600'
                         }`}
                     />
                 </button>
             ))}
             {value > 0 && (
-                <span className="ml-1 text-sm font-medium text-slate-600">{value}/5</span>
+                <span className="ml-1 text-sm font-medium text-slate-600 dark:text-slate-300">{value}/5</span>
             )}
         </div>
     );
 }
 
 function RatingDisplay({ rating, max = 5 }) {
-    if (!rating) return <span className="text-sm text-slate-400">Not rated</span>;
+    if (!rating) return <span className="text-sm text-slate-400 dark:text-slate-500">Not rated</span>;
     const value = parseFloat(rating);
     return (
         <div className="flex items-center gap-1">
             {Array.from({ length: max }).map((_, i) => (
                 <Star
                     key={i}
-                    className={`h-4 w-4 ${i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`}
+                    className={`h-4 w-4 ${i < Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-slate-200 dark:text-slate-600'}`}
                 />
             ))}
-            <span className="ml-1 text-sm font-medium text-slate-700">{value.toFixed(1)}</span>
+            <span className="ml-1 text-sm font-medium text-slate-700 dark:text-slate-200">{value.toFixed(1)}</span>
         </div>
     );
 }
@@ -117,7 +117,7 @@ export default function MyReviewDetail() {
     if (isLoading) {
         return (
             <div className="flex justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400 dark:text-slate-500" />
             </div>
         );
     }
@@ -125,13 +125,13 @@ export default function MyReviewDetail() {
     if (!review) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-                <ClipboardList className="h-10 w-10 text-slate-300 mb-3" />
-                <p className="text-sm text-slate-600">Review not found.</p>
+                <ClipboardList className="h-10 w-10 text-slate-300 mb-3 dark:text-slate-600" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">Review not found.</p>
             </div>
         );
     }
 
-    const statusCfg = STATUS_CONFIG[review.status] || { label: review.status, className: 'bg-slate-100 text-slate-600' };
+    const statusCfg = STATUS_CONFIG[review.status] || { label: review.status, className: 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300' };
     const isEditable = review.status === 'self_assessment' || review.status === 'draft';
     const isCompleted = review.status === 'completed';
     const kpiScores = review.kpi_scores ?? [];
@@ -143,20 +143,20 @@ export default function MyReviewDetail() {
                 <button
                     onClick={() => navigate(-1)}
                     aria-label="Back"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-white/[0.07] dark:bg-[#0F1626] dark:text-slate-300"
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h1 className="text-lg font-bold text-slate-900">
+                        <h1 className="text-lg font-bold text-slate-900 dark:text-white">
                             {review.cycle?.name || 'Performance Review'}
                         </h1>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusCfg.className}`}>
                             {statusCfg.label}
                         </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                         {formatDate(review.cycle?.period_start)} – {formatDate(review.cycle?.period_end)}
                     </p>
                 </div>
@@ -166,25 +166,25 @@ export default function MyReviewDetail() {
             <Card>
                 <CardContent className="py-3.5 px-4 grid grid-cols-2 gap-3">
                     <div>
-                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Reviewer</p>
-                        <p className="text-sm text-slate-900 mt-0.5">{review.reviewer?.name || '-'}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium dark:text-slate-500">Reviewer</p>
+                        <p className="text-sm text-slate-900 mt-0.5 dark:text-white">{review.reviewer?.name || '-'}</p>
                     </div>
                     <div>
-                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Review Type</p>
-                        <p className="text-sm text-slate-900 mt-0.5 capitalize">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium dark:text-slate-500">Review Type</p>
+                        <p className="text-sm text-slate-900 mt-0.5 capitalize dark:text-white">
                             {review.cycle?.review_type?.replace('_', ' ') || '-'}
                         </p>
                     </div>
                     {isCompleted && review.overall_rating && (
                         <div className="col-span-2">
-                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">Overall Rating</p>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1 dark:text-slate-500">Overall Rating</p>
                             <RatingDisplay rating={review.overall_rating} />
                         </div>
                     )}
                     {isCompleted && review.manager_comment && (
                         <div className="col-span-2">
-                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">Manager Comments</p>
-                            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3">{review.manager_comment}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1 dark:text-slate-500">Manager Comments</p>
+                            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3 dark:text-slate-200 dark:bg-white/[0.04]">{review.manager_comment}</p>
                         </div>
                     )}
                 </CardContent>
@@ -192,9 +192,9 @@ export default function MyReviewDetail() {
 
             {/* Submitted success state */}
             {submitted && (
-                <div className="flex items-center gap-3 rounded-lg bg-emerald-50 border border-emerald-200 p-4">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                    <p className="text-sm text-emerald-800 font-medium">
+                <div className="flex items-center gap-3 rounded-lg bg-emerald-50 border border-emerald-200 p-4 dark:bg-emerald-500/15 dark:border-emerald-500/25">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 dark:text-emerald-400" />
+                    <p className="text-sm text-emerald-800 font-medium dark:text-emerald-300">
                         Self-assessment submitted successfully.
                     </p>
                 </div>
@@ -211,17 +211,17 @@ export default function MyReviewDetail() {
                             {kpiScores.map((ks) => {
                                 const kpiId = String(ks.kpi_id ?? ks.id);
                                 return (
-                                    <div key={kpiId} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                                    <div key={kpiId} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0 dark:border-white/[0.06]">
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-slate-900">
+                                                <p className="text-sm font-medium text-slate-900 dark:text-white">
                                                     {ks.kpi?.name || ks.name || 'KPI'}
                                                 </p>
                                                 {ks.kpi?.description && (
-                                                    <p className="text-xs text-slate-400 mt-0.5">{ks.kpi.description}</p>
+                                                    <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">{ks.kpi.description}</p>
                                                 )}
                                                 {ks.kpi?.weight && (
-                                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                                    <p className="text-[10px] text-slate-400 mt-0.5 dark:text-slate-500">
                                                         Weight: {ks.kpi.weight}%
                                                     </p>
                                                 )}
@@ -237,14 +237,14 @@ export default function MyReviewDetail() {
                                         {isEditable && !submitted && (
                                             <div className="mt-3 space-y-2">
                                                 <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Your Score</p>
+                                                    <p className="text-xs text-slate-500 mb-1 dark:text-slate-400">Your Score</p>
                                                     <StarSelector
                                                         value={scores[kpiId] ?? ks.self_score ?? 0}
                                                         onChange={(val) => setScores((s) => ({ ...s, [kpiId]: val }))}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Your Comments</p>
+                                                    <p className="text-xs text-slate-500 mb-1 dark:text-slate-400">Your Comments</p>
                                                     <textarea
                                                         rows={2}
                                                         value={comments[kpiId] ?? ks.self_comment ?? ''}
@@ -252,7 +252,7 @@ export default function MyReviewDetail() {
                                                             setComments((c) => ({ ...c, [kpiId]: e.target.value }))
                                                         }
                                                         placeholder="Add comments for this KPI..."
-                                                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/[0.10] dark:bg-white/[0.05] dark:text-slate-100 dark:placeholder-slate-500"
                                                     />
                                                 </div>
                                             </div>
@@ -262,13 +262,13 @@ export default function MyReviewDetail() {
                                         {(isCompleted || submitted) && (
                                             <div className="mt-3 grid grid-cols-2 gap-3">
                                                 <div>
-                                                    <p className="text-[10px] uppercase text-slate-400 mb-1">Self Score</p>
+                                                    <p className="text-[10px] uppercase text-slate-400 mb-1 dark:text-slate-500">Self Score</p>
                                                     <RatingDisplay rating={ks.self_score} />
                                                 </div>
                                                 {ks.self_comment && (
                                                     <div className="col-span-2">
-                                                        <p className="text-[10px] uppercase text-slate-400 mb-1">Self Comment</p>
-                                                        <p className="text-xs text-slate-600">{ks.self_comment}</p>
+                                                        <p className="text-[10px] uppercase text-slate-400 mb-1 dark:text-slate-500">Self Comment</p>
+                                                        <p className="text-xs text-slate-600 dark:text-slate-300">{ks.self_comment}</p>
                                                     </div>
                                                 )}
                                             </div>
@@ -284,7 +284,7 @@ export default function MyReviewDetail() {
                         <>
                             <Card>
                                 <CardContent className="py-3.5 px-4">
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2 dark:text-slate-200">
                                         Overall Comments
                                     </label>
                                     <textarea
@@ -292,7 +292,7 @@ export default function MyReviewDetail() {
                                         value={overallComment}
                                         onChange={(e) => setOverallComment(e.target.value)}
                                         placeholder="Share any overall thoughts or comments about your performance..."
-                                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/[0.10] dark:bg-white/[0.05] dark:text-slate-100 dark:placeholder-slate-500"
                                     />
                                 </CardContent>
                             </Card>
@@ -309,7 +309,7 @@ export default function MyReviewDetail() {
                                 Submit Self-Assessment
                             </Button>
                             {mutation.isError && (
-                                <p className="text-xs text-red-600 text-center">
+                                <p className="text-xs text-red-600 text-center dark:text-red-400">
                                     Failed to submit. Please try again.
                                 </p>
                             )}
@@ -322,8 +322,8 @@ export default function MyReviewDetail() {
             {kpiScores.length === 0 && (
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                        <ClipboardList className="h-8 w-8 text-slate-300 mb-2" />
-                        <p className="text-sm text-slate-500">No KPIs assigned for this review.</p>
+                        <ClipboardList className="h-8 w-8 text-slate-300 mb-2 dark:text-slate-600" />
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No KPIs assigned for this review.</p>
                     </CardContent>
                 </Card>
             )}

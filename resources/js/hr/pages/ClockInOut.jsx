@@ -74,9 +74,9 @@ const DAY_COLORS = {
     leave: 'bg-gradient-to-t from-violet-500 to-violet-400',
     half_day: 'bg-gradient-to-t from-orange-500 to-orange-400',
     early_leave: 'bg-gradient-to-t from-fuchsia-500 to-fuchsia-400',
-    holiday: 'bg-slate-200',
-    off_day: 'bg-slate-200',
-    none: 'bg-slate-100',
+    holiday: 'bg-slate-200 dark:bg-slate-700',
+    off_day: 'bg-slate-200 dark:bg-slate-700',
+    none: 'bg-slate-100 dark:bg-slate-800',
 };
 
 // ---- Live Clock ----
@@ -161,24 +161,24 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
         const { hours, minutes, seconds } = formatElapsedParts(elapsedSec);
         timeNode = (
             <div className="flex items-baseline tabular-nums leading-none">
-                <span className="text-[44px] font-bold text-slate-900 tracking-tight">{hours}</span>
-                <span className="mx-0.5 text-2xl font-bold text-slate-400">:</span>
-                <span className="text-[44px] font-bold text-slate-900 tracking-tight">{minutes}</span>
-                <span className="mx-0.5 text-2xl font-bold text-slate-400">:</span>
-                <span className="text-2xl font-semibold text-slate-500 tracking-tight">{seconds}</span>
+                <span className="text-[44px] font-bold text-slate-900 tracking-tight dark:text-white">{hours}</span>
+                <span className="mx-0.5 text-2xl font-bold text-slate-400 dark:text-slate-500">:</span>
+                <span className="text-[44px] font-bold text-slate-900 tracking-tight dark:text-white">{minutes}</span>
+                <span className="mx-0.5 text-2xl font-bold text-slate-400 dark:text-slate-500">:</span>
+                <span className="text-2xl font-semibold text-slate-500 tracking-tight dark:text-slate-400">{seconds}</span>
             </div>
         );
         subLabel = `Started at ${formatTime(clockInTime)}`;
     } else if (state === 'complete') {
         timeNode = (
-            <div className="text-[44px] font-bold tabular-nums leading-none tracking-tight text-emerald-700">
+            <div className="text-[44px] font-bold tabular-nums leading-none tracking-tight text-emerald-700 dark:text-emerald-300">
                 {totalWorkMinutes != null ? formatDuration(totalWorkMinutes) : '–'}
             </div>
         );
         subLabel = 'Great work today!';
     } else if (state === 'on_leave') {
         timeNode = (
-            <div className="flex items-center gap-2 text-2xl font-bold text-violet-700">
+            <div className="flex items-center gap-2 text-2xl font-bold text-violet-700 dark:text-violet-300">
                 <Palmtree className="h-7 w-7" />
                 On Leave
             </div>
@@ -186,7 +186,7 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
         subLabel = 'Enjoy your day off';
     } else if (state === 'off_day') {
         timeNode = (
-            <div className="flex items-center gap-2 text-2xl font-bold text-slate-600">
+            <div className="flex items-center gap-2 text-2xl font-bold text-slate-600 dark:text-slate-300">
                 <Coffee className="h-7 w-7" />
                 Off Day
             </div>
@@ -199,7 +199,7 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
         timeNode = (
             <div className="flex items-baseline tabular-nums leading-none">
                 <span className="hr-shimmer text-[52px] font-bold tracking-tight">{time}</span>
-                <span className="ml-1.5 text-lg font-bold text-slate-500">{ampm?.toLowerCase()}</span>
+                <span className="ml-1.5 text-lg font-bold text-slate-500 dark:text-slate-400">{ampm?.toLowerCase()}</span>
             </div>
         );
         subLabel = 'Ready when you are';
@@ -213,22 +213,22 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
         'READY';
 
     const stateLabelColor =
-        state === 'working' ? 'text-pink-600' :
-        state === 'complete' ? 'text-emerald-600' :
-        state === 'on_leave' ? 'text-violet-600' :
-        state === 'off_day' ? 'text-slate-500' :
-        'text-indigo-600';
+        state === 'working' ? 'text-pink-600 dark:text-pink-400' :
+        state === 'complete' ? 'text-emerald-600 dark:text-emerald-400' :
+        state === 'on_leave' ? 'text-violet-600 dark:text-violet-400' :
+        state === 'off_day' ? 'text-slate-500 dark:text-slate-400' :
+        'text-indigo-600 dark:text-indigo-400';
 
     return (
         <div className="relative mx-auto" style={{ width: size, height: size }}>
-            {/* Outer ambient glow */}
+            {/* Outer ambient glow — light pastel in day, restrained deep aura at night */}
             <div className={cn(
-                'absolute inset-0 rounded-full blur-3xl opacity-50',
-                state === 'working' ? 'bg-gradient-to-br from-indigo-300 via-pink-300 to-orange-200' :
-                state === 'complete' ? 'bg-emerald-200' :
-                state === 'on_leave' ? 'bg-violet-200' :
-                state === 'off_day' ? 'bg-slate-200' :
-                'bg-gradient-to-br from-rose-200 via-violet-200 to-indigo-200'
+                'absolute inset-0 rounded-full blur-3xl opacity-50 dark:opacity-100',
+                state === 'working' ? 'bg-gradient-to-br from-indigo-300 via-pink-300 to-orange-200 dark:from-indigo-500/25 dark:via-fuchsia-500/20 dark:to-orange-500/15' :
+                state === 'complete' ? 'bg-emerald-200 dark:bg-emerald-500/20' :
+                state === 'on_leave' ? 'bg-violet-200 dark:bg-violet-500/20' :
+                state === 'off_day' ? 'bg-slate-200 dark:bg-slate-500/[0.10]' :
+                'bg-gradient-to-br from-rose-200 via-violet-200 to-indigo-200 dark:from-rose-500/15 dark:via-violet-500/18 dark:to-indigo-500/20'
             )} aria-hidden />
 
             {/* Rotating conic halo — only when ready/working (subtle life) */}
@@ -263,7 +263,8 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
                     cy={size / 2}
                     r={radius}
                     fill="none"
-                    stroke="#F1F5F9"
+                    stroke="currentColor"
+                    className="text-slate-100 dark:text-slate-800"
                     strokeWidth={stroke}
                 />
                 <circle
@@ -284,7 +285,7 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
                 {/* State pill at top */}
                 <div className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-sm ring-1 ring-slate-200',
+                    'inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest shadow-sm ring-1 ring-slate-200 dark:bg-white/[0.06] dark:shadow-none dark:ring-white/[0.10] dark:backdrop-blur-md',
                     stateLabelColor
                 )}>
                     <span className={cn(
@@ -304,13 +305,13 @@ function ProgressRing({ state, currentTime, clockInTime, totalWorkMinutes, sched
                 </div>
 
                 {/* Sublabel */}
-                <p className="mt-2 text-[11px] font-medium text-slate-500">
+                <p className="mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                     {subLabel}
                 </p>
 
                 {/* Progress percentage when working */}
                 {state === 'working' && (
-                    <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400">
+                    <p className="mt-1 text-[10px] font-semibold tabular-nums text-slate-400 dark:text-slate-500">
                         {Math.round(progress * 100)}% of workday
                     </p>
                 )}
@@ -329,9 +330,9 @@ function ActionPill({ type, isPending, onClick, disabled, hint }) {
                 disabled={isDisabled}
                 className={cn(
                     'group relative h-14 w-full overflow-hidden rounded-2xl text-white transition-all active:scale-[0.97] active:duration-75',
-                    'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                    'focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950',
                     isDisabled
-                        ? 'cursor-not-allowed bg-slate-300 shadow-md shadow-slate-300/40'
+                        ? 'cursor-not-allowed bg-slate-300 shadow-md shadow-slate-300/40 dark:bg-white/[0.05] dark:text-slate-500 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.06]'
                         : isClockIn
                             ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 shadow-xl shadow-pink-500/40 hover:shadow-2xl hover:shadow-pink-500/50 focus-visible:ring-pink-300'
                             : 'bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 shadow-xl shadow-rose-500/40 hover:shadow-2xl hover:shadow-rose-500/50 focus-visible:ring-rose-300'
@@ -359,7 +360,7 @@ function ActionPill({ type, isPending, onClick, disabled, hint }) {
                 )}
             </button>
             {disabled && hint && (
-                <p className="text-center text-[11px] font-medium text-slate-500">{hint}</p>
+                <p className="text-center text-[11px] font-medium text-slate-500 dark:text-slate-400">{hint}</p>
             )}
         </div>
     );
@@ -416,20 +417,20 @@ function CompactCamera({ onCapture, isCapturing, isCompleted }) {
 
     if (!hasCamera) {
         return (
-            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                    <Camera className="h-4 w-4 text-slate-400" strokeWidth={2.25} />
+            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                    <Camera className="h-4 w-4 text-slate-400 dark:text-slate-500" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-600">No camera available</p>
-                    <p className="text-[11px] text-slate-400">Photo verification optional</p>
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No camera available</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">Photo verification optional</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 to-pink-50/60 p-2.5">
+        <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 to-pink-50/60 p-2.5 dark:border-indigo-500/20 dark:from-indigo-500/10 dark:to-pink-500/10">
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-900 ring-2 ring-white shadow-md">
                 <video
                     ref={videoRef}
@@ -457,10 +458,10 @@ function CompactCamera({ onCapture, isCapturing, isCompleted }) {
                 )}
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-slate-700">Photo verification</p>
-                <p className="text-[11px] text-slate-500">Auto-captured when you clock in</p>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Photo verification</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Auto-captured when you clock in</p>
             </div>
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-500" />
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-500 dark:text-indigo-400" />
         </div>
     );
 }
@@ -777,25 +778,25 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
 
     if (geoLoading) {
         return (
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
-                    <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-500 dark:text-slate-400" />
                 </div>
-                <p className="text-sm font-medium text-slate-600">Getting your location…</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Getting your location…</p>
             </div>
         );
     }
 
     if (geoError) {
         return (
-            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                    <MapPinOff className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-500/30 dark:bg-rose-500/10">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
+                    <MapPinOff className="h-4 w-4 text-rose-600 dark:text-rose-400" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-rose-800">{geoError}</p>
+                    <p className="text-sm font-semibold text-rose-800 dark:text-rose-300">{geoError}</p>
                     {isWfh && (
-                        <p className="mt-0.5 text-xs text-rose-600">Required for WFH clock-in. Enable GPS in browser settings.</p>
+                        <p className="mt-0.5 text-xs text-rose-600 dark:text-rose-400">Required for WFH clock-in. Enable GPS in browser settings.</p>
                     )}
                 </div>
             </div>
@@ -805,17 +806,17 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
     // WFH location status
     if (isWfh && location) {
         return (
-            <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50/40 p-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
-                    <MapPin className="h-4 w-4 text-indigo-600" strokeWidth={2.25} />
+            <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50/40 p-3 dark:border-indigo-500/30 dark:from-indigo-500/10 dark:to-violet-500/5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-500/20">
+                    <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-indigo-800">Location captured</p>
-                    <p className="text-xs text-indigo-600">
+                    <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Location captured</p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400">
                         WFH location recorded on clock-in
                     </p>
                 </div>
-                <CheckCircle2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-indigo-500 shrink-0 dark:text-indigo-400" />
             </div>
         );
     }
@@ -833,34 +834,34 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
             <div className={cn(
                 'flex items-center gap-3 rounded-2xl border p-3',
                 isInRange
-                    ? 'bg-gradient-to-r from-emerald-50 to-emerald-50/40 border-emerald-200'
-                    : 'bg-gradient-to-r from-amber-50 to-orange-50/40 border-amber-200'
+                    ? 'bg-gradient-to-r from-emerald-50 to-emerald-50/40 border-emerald-200 dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-emerald-500/5'
+                    : 'bg-gradient-to-r from-amber-50 to-orange-50/40 border-amber-200 dark:border-amber-500/30 dark:from-amber-500/10 dark:to-orange-500/5'
             )}>
                 <div className={cn(
                     'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                    isInRange ? 'bg-emerald-100' : 'bg-amber-100'
+                    isInRange ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-amber-100 dark:bg-amber-500/20'
                 )}>
                     <MapPin className={cn(
                         'h-4 w-4',
-                        isInRange ? 'text-emerald-600' : 'text-amber-600'
+                        isInRange ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
                     )} strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className={cn(
                         'text-sm font-semibold',
-                        isInRange ? 'text-emerald-800' : 'text-amber-800'
+                        isInRange ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
                     )}>
                         {isInRange ? 'You\'re at the office' : 'You\'re not at the office'}
                     </p>
                     <p className={cn(
                         'text-xs',
-                        isInRange ? 'text-emerald-600' : 'text-amber-700'
+                        isInRange ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
                     )}>
                         {Math.round(distance)}m away
                         {!isInRange && ` · must be within ${officeConfig.radius_meters}m`}
                     </p>
                 </div>
-                {isInRange && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                {isInRange && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 dark:text-emerald-400" />}
             </div>
         );
     }
@@ -872,24 +873,24 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
 function ClockOutLocationStatus({ location, geoError, geoLoading }) {
     if (geoLoading) {
         return (
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200">
-                    <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-500 dark:text-slate-400" />
                 </div>
-                <p className="text-sm font-medium text-slate-600">Getting location for clock-out…</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Getting location for clock-out…</p>
             </div>
         );
     }
 
     if (geoError) {
         return (
-            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                    <MapPinOff className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-500/30 dark:bg-rose-500/10">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
+                    <MapPinOff className="h-4 w-4 text-rose-600 dark:text-rose-400" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-rose-800">{geoError}</p>
-                    <p className="mt-0.5 text-xs text-rose-600">GPS is required to clock out. Enable location services.</p>
+                    <p className="text-sm font-semibold text-rose-800 dark:text-rose-300">{geoError}</p>
+                    <p className="mt-0.5 text-xs text-rose-600 dark:text-rose-400">GPS is required to clock out. Enable location services.</p>
                 </div>
             </div>
         );
@@ -897,15 +898,15 @@ function ClockOutLocationStatus({ location, geoError, geoLoading }) {
 
     if (location) {
         return (
-            <div className="flex items-center gap-3 rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50 to-sky-50/40 p-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100">
-                    <MapPin className="h-4 w-4 text-sky-600" strokeWidth={2.25} />
+            <div className="flex items-center gap-3 rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50 to-sky-50/40 p-3 dark:border-sky-500/30 dark:from-sky-500/10 dark:to-sky-500/5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-500/20">
+                    <MapPin className="h-4 w-4 text-sky-600 dark:text-sky-400" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-sky-800">Location captured</p>
-                    <p className="text-xs text-sky-600">Will be recorded on clock out</p>
+                    <p className="text-sm font-semibold text-sky-800 dark:text-sky-300">Location captured</p>
+                    <p className="text-xs text-sky-600 dark:text-sky-400">Will be recorded on clock out</p>
                 </div>
-                <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0 dark:text-sky-400" />
             </div>
         );
     }
@@ -1074,11 +1075,11 @@ export default function ClockInOut() {
         <div className="space-y-5 max-w-md mx-auto pb-2">
             {/* ─── Top row: greeting chip + date ─────────────────── */}
             <div className="flex items-center justify-between">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm ring-1 ring-rose-100">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm ring-1 ring-rose-100 dark:bg-white/[0.06] dark:text-rose-300 dark:ring-white/[0.10] dark:backdrop-blur-md">
                     <GreetingIcon className="h-3.5 w-3.5 text-amber-500" />
                     {greeting.text}, {user.name?.split(' ')[0]}
                 </div>
-                <span className="text-[11px] font-semibold text-slate-500">{greetingDate}</span>
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{greetingDate}</span>
             </div>
 
             {/* ─── Hero: Progress Ring ───────────────────────────── */}
@@ -1096,20 +1097,20 @@ export default function ClockInOut() {
             {/* ─── Quick info chips below ring ─────────────────────── */}
             <div className="flex flex-wrap items-center justify-center gap-2">
                 {today?.schedule_start && today?.schedule_end && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 dark:bg-white/[0.06] dark:text-slate-200 dark:ring-white/[0.10] dark:backdrop-blur-md">
                         <Clock className="h-3 w-3 text-sky-500" strokeWidth={2.5} />
                         <span className="tabular-nums">{today.schedule_start} – {today.schedule_end}</span>
                     </div>
                 )}
                 {weekDaysIn > 0 && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 dark:bg-white/[0.06] dark:text-slate-200 dark:ring-white/[0.10] dark:backdrop-blur-md">
                         <Sparkles className="h-3 w-3 text-amber-500" strokeWidth={2.5} />
                         <span className="tabular-nums">{weekDaysIn}</span>
-                        <span className="text-slate-500">day{weekDaysIn !== 1 ? 's' : ''} this week</span>
+                        <span className="text-slate-500 dark:text-slate-400">day{weekDaysIn !== 1 ? 's' : ''} this week</span>
                     </div>
                 )}
                 {ringState === 'working' && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-50 to-orange-50 px-3 py-1.5 text-[11px] font-semibold text-pink-700 ring-1 ring-pink-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-50 to-orange-50 px-3 py-1.5 text-[11px] font-semibold text-pink-700 ring-1 ring-pink-200 dark:from-pink-500/15 dark:to-orange-500/10 dark:text-pink-300 dark:ring-pink-500/30">
                         <span className="relative flex h-1.5 w-1.5">
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pink-400 opacity-75" />
                             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-pink-500" />
@@ -1122,7 +1123,7 @@ export default function ClockInOut() {
             {/* ─── Office / WFH segmented toggle (only when not clocked in) ───── */}
             {!isClockedIn && !isCompleted && ringState === 'ready' && (
                 <div className="flex items-center justify-center">
-                    <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                    <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05] dark:backdrop-blur-md">
                         <button
                             onClick={() => setIsWfh(false)}
                             aria-pressed={!isWfh}
@@ -1130,7 +1131,7 @@ export default function ClockInOut() {
                                 'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
                                 !isWfh
                                     ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                             )}
                         >
                             <Building2 className="h-3.5 w-3.5" strokeWidth={2.5} /> Office
@@ -1142,7 +1143,7 @@ export default function ClockInOut() {
                                 'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
                                 isWfh
                                     ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                             )}
                         >
                             <Home className="h-3.5 w-3.5" strokeWidth={2.5} /> WFH
@@ -1179,9 +1180,9 @@ export default function ClockInOut() {
                 />
             )}
             {(ringState === 'on_leave' || ringState === 'off_day') && (
-                <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-4">
+                <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-4 dark:border-white/[0.07] dark:bg-[#0F1626]">
                     <Sparkles className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-semibold text-slate-700">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                         {ringState === 'on_leave' ? 'No clock-in today — enjoy!' : 'It\'s your day off — relax!'}
                     </span>
                 </div>
@@ -1216,44 +1217,44 @@ export default function ClockInOut() {
 
             {/* ─── Alerts ──────────────────────────────────────────── */}
             {error && (
-                <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 shadow-sm">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                        <AlertCircle className="h-4 w-4 text-rose-600" strokeWidth={2.25} />
+                <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 shadow-sm dark:border-rose-500/30 dark:bg-rose-500/10">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
+                        <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" strokeWidth={2.25} />
                     </div>
-                    <p className="text-sm font-medium text-rose-800">{error}</p>
+                    <p className="text-sm font-medium text-rose-800 dark:text-rose-300">{error}</p>
                 </div>
             )}
             {success && (
-                <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-50/40 p-3 shadow-sm">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" strokeWidth={2.25} />
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-50/40 p-3 shadow-sm dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-emerald-500/5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-500/20">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2.25} />
                     </div>
-                    <p className="text-sm font-semibold text-emerald-800">{success}</p>
+                    <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{success}</p>
                 </div>
             )}
 
             {/* ─── Today's record (compact 3-up tiles) ─────────────── */}
             {today && (
                 <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-3 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-700">In</p>
-                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900">{formatTime(today.clock_in)}</p>
+                    <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-3 text-center dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-emerald-500/5">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">In</p>
+                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{formatTime(today.clock_in)}</p>
                     </div>
-                    <div className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-rose-50/30 p-3 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-rose-700">Out</p>
-                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900">{formatTime(today.clock_out)}</p>
+                    <div className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-rose-50/30 p-3 text-center dark:border-rose-500/20 dark:from-rose-500/10 dark:to-rose-500/5">
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-rose-700 dark:text-rose-400">Out</p>
+                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{formatTime(today.clock_out)}</p>
                     </div>
                     <div className={cn(
                         'rounded-2xl border p-3 text-center',
                         isClockedIn
-                            ? 'bg-gradient-to-br from-amber-50 to-orange-50/30 border-amber-100'
-                            : 'bg-gradient-to-br from-indigo-50 to-pink-50/30 border-indigo-100'
+                            ? 'bg-gradient-to-br from-amber-50 to-orange-50/30 border-amber-100 dark:border-amber-500/20 dark:from-amber-500/10 dark:to-orange-500/5'
+                            : 'bg-gradient-to-br from-indigo-50 to-pink-50/30 border-indigo-100 dark:border-indigo-500/20 dark:from-indigo-500/10 dark:to-pink-500/5'
                     )}>
                         <p className={cn(
                             'text-[9px] font-bold uppercase tracking-widest',
-                            isClockedIn ? 'text-amber-700' : 'text-indigo-700'
+                            isClockedIn ? 'text-amber-700 dark:text-amber-400' : 'text-indigo-700 dark:text-indigo-400'
                         )}>Total</p>
-                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900">
+                        <p className="mt-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">
                             {today.total_work_minutes
                                 ? formatDuration(today.total_work_minutes)
                                 : isClockedIn
@@ -1269,14 +1270,14 @@ export default function ClockInOut() {
             <Card className="border-slate-200/80">
                 <CardContent className="py-4">
                     <div className="mb-4 flex items-center justify-between">
-                        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50">
-                                <CalendarRange className="h-3.5 w-3.5 text-violet-600" strokeWidth={2.25} />
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-500/15">
+                                <CalendarRange className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" strokeWidth={2.25} />
                             </div>
                             This Week
                         </h3>
-                        <span className="text-[11px] font-semibold text-slate-500">
-                            <span className="tabular-nums text-slate-800">{weekDaysIn}</span> / 5 days
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            <span className="tabular-nums text-slate-800 dark:text-slate-200">{weekDaysIn}</span> / 5 days
                         </span>
                     </div>
                     {/* Mini bar chart — height encodes scheduled work, color encodes status */}
@@ -1310,7 +1311,7 @@ export default function ClockInOut() {
                                     </div>
                                     <span className={cn(
                                         'text-[10px] font-bold uppercase tracking-wider',
-                                        isToday ? 'text-pink-600' : isOffDay ? 'text-slate-300' : 'text-slate-500'
+                                        isToday ? 'text-pink-600 dark:text-pink-400' : isOffDay ? 'text-slate-300 dark:text-slate-600' : 'text-slate-500 dark:text-slate-400'
                                     )}>
                                         {DAY_LABELS[i]}
                                     </span>

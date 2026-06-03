@@ -28,8 +28,8 @@ export function EmptyState({ icon: Icon, accent = 'slate', title, description, a
                     <Icon className={cn('h-5 w-5', a.iconFlat)} strokeWidth={2.25} />
                 </div>
             )}
-            {title && <p className="text-xs font-medium text-slate-600">{title}</p>}
-            {description && <p className="mt-0.5 text-[11px] text-slate-400">{description}</p>}
+            {title && <p className="text-xs font-medium text-slate-600 dark:text-slate-300">{title}</p>}
+            {description && <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">{description}</p>}
             {action && <div className="mt-3">{action}</div>}
         </div>
     );

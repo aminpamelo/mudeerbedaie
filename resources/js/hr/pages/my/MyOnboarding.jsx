@@ -28,25 +28,25 @@ const TASK_STATUS_CONFIG = {
         label: 'Pending',
         icon: Circle,
         rowClass: '',
-        iconClass: 'text-slate-300',
+        iconClass: 'text-slate-300 dark:text-slate-600',
     },
     in_progress: {
         label: 'In Progress',
         icon: Clock,
-        rowClass: 'bg-blue-50/40',
-        iconClass: 'text-blue-400',
+        rowClass: 'bg-blue-50/40 dark:bg-blue-500/[0.08]',
+        iconClass: 'text-blue-400 dark:text-blue-300',
     },
     completed: {
         label: 'Completed',
         icon: CheckCircle2,
-        rowClass: 'bg-emerald-50/40',
-        iconClass: 'text-emerald-500',
+        rowClass: 'bg-emerald-50/40 dark:bg-emerald-500/[0.08]',
+        iconClass: 'text-emerald-500 dark:text-emerald-400',
     },
     skipped: {
         label: 'Skipped',
         icon: Circle,
         rowClass: '',
-        iconClass: 'text-slate-200',
+        iconClass: 'text-slate-200 dark:text-slate-600',
     },
 };
 
@@ -76,11 +76,11 @@ export default function MyOnboarding() {
                 />
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="rounded-full bg-slate-100 p-4 mb-4">
-                            <ListChecks className="h-8 w-8 text-slate-400" />
+                        <div className="rounded-full bg-slate-100 dark:bg-white/[0.04] p-4 mb-4">
+                            <ListChecks className="h-8 w-8 text-slate-400 dark:text-slate-500" />
                         </div>
-                        <p className="text-sm font-medium text-slate-600">No onboarding checklist</p>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">No onboarding checklist</p>
+                        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                             Your onboarding tasks will appear here when assigned.
                         </p>
                     </CardContent>
@@ -108,21 +108,21 @@ export default function MyOnboarding() {
                     <div className="flex items-center gap-3">
                         <div className={cn(
                             'rounded-full p-3',
-                            progressPct === 100 ? 'bg-emerald-100' : 'bg-blue-50'
+                            progressPct === 100 ? 'bg-emerald-100 dark:bg-emerald-500/15' : 'bg-blue-50 dark:bg-blue-500/15'
                         )}>
                             {progressPct === 100
-                                ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                                : <ListChecks className="h-5 w-5 text-blue-600" />
+                                ? <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+                                : <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-300" />
                             }
                         </div>
                         <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-slate-900">
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                 {onboarding.template?.name || 'Onboarding Checklist'}
                             </p>
                             {progressPct === 100 ? (
-                                <p className="text-xs text-emerald-600 font-medium">All tasks completed!</p>
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">All tasks completed!</p>
                             ) : (
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                     {completedTasks} of {totalTasks} tasks completed
                                 </p>
                             )}
@@ -130,8 +130,8 @@ export default function MyOnboarding() {
                         <div className="shrink-0 text-right">
                             <span className={cn(
                                 'text-2xl font-bold',
-                                progressPct === 100 ? 'text-emerald-600' :
-                                progressPct >= 50 ? 'text-blue-600' : 'text-slate-700'
+                                progressPct === 100 ? 'text-emerald-600 dark:text-emerald-400' :
+                                progressPct >= 50 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'
                             )}>
                                 {progressPct}%
                             </span>
@@ -139,7 +139,7 @@ export default function MyOnboarding() {
                     </div>
 
                     {/* Progress bar */}
-                    <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/[0.08] overflow-hidden">
                         <div
                             className={cn(
                                 'h-full rounded-full transition-all duration-500',
@@ -152,17 +152,17 @@ export default function MyOnboarding() {
 
                     {/* Stats row */}
                     <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-lg bg-slate-50 py-2">
-                            <p className="text-lg font-bold text-slate-900">{totalTasks}</p>
-                            <p className="text-[10px] text-slate-400">Total</p>
+                        <div className="rounded-lg bg-slate-50 dark:bg-white/[0.04] py-2">
+                            <p className="text-lg font-bold text-slate-900 dark:text-white">{totalTasks}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500">Total</p>
                         </div>
-                        <div className="rounded-lg bg-emerald-50 py-2">
-                            <p className="text-lg font-bold text-emerald-700">{completedTasks}</p>
-                            <p className="text-[10px] text-emerald-500">Done</p>
+                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/15 py-2">
+                            <p className="text-lg font-bold text-emerald-700 dark:text-white">{completedTasks}</p>
+                            <p className="text-[10px] text-emerald-500 dark:text-emerald-300">Done</p>
                         </div>
-                        <div className="rounded-lg bg-amber-50 py-2">
-                            <p className="text-lg font-bold text-amber-700">{totalTasks - completedTasks}</p>
-                            <p className="text-[10px] text-amber-500">Remaining</p>
+                        <div className="rounded-lg bg-amber-50 dark:bg-amber-500/15 py-2">
+                            <p className="text-lg font-bold text-amber-700 dark:text-white">{totalTasks - completedTasks}</p>
+                            <p className="text-[10px] text-amber-500 dark:text-amber-300">Remaining</p>
                         </div>
                     </div>
                 </CardContent>
@@ -184,7 +184,7 @@ export default function MyOnboarding() {
                                 <div
                                     key={task.id ?? index}
                                     className={cn(
-                                        'flex items-start gap-3 rounded-lg border border-slate-100 p-3 transition-colors',
+                                        'flex items-start gap-3 rounded-lg border border-slate-100 dark:border-white/[0.07] p-3 transition-colors',
                                         cfg.rowClass
                                     )}
                                 >
@@ -192,20 +192,20 @@ export default function MyOnboarding() {
                                     <div className="min-w-0 flex-1">
                                         <p className={cn(
                                             'text-sm font-medium',
-                                            task.status === 'completed' ? 'text-slate-500 line-through' : 'text-slate-900'
+                                            task.status === 'completed' ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-900 dark:text-white'
                                         )}>
                                             {task.title}
                                         </p>
                                         {task.description && (
-                                            <p className="text-xs text-slate-400 mt-0.5">{task.description}</p>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{task.description}</p>
                                         )}
                                         <div className="mt-1.5 flex flex-wrap items-center gap-3">
                                             {task.due_date && (
                                                 <div className="flex items-center gap-1">
-                                                    <CalendarDays className="h-3 w-3 text-slate-400" />
+                                                    <CalendarDays className="h-3 w-3 text-slate-400 dark:text-slate-500" />
                                                     <span className={cn(
                                                         'text-xs',
-                                                        overdue ? 'text-red-500 font-medium' : 'text-slate-400'
+                                                        overdue ? 'text-red-500 dark:text-red-400 font-medium' : 'text-slate-400 dark:text-slate-500'
                                                     )}>
                                                         Due: {formatDate(task.due_date)}
                                                         {overdue && ' (Overdue)'}
@@ -214,8 +214,8 @@ export default function MyOnboarding() {
                                             )}
                                             {(task.assigned_to_name || task.assigned_to?.name) && (
                                                 <div className="flex items-center gap-1">
-                                                    <User className="h-3 w-3 text-slate-400" />
-                                                    <span className="text-xs text-slate-400">
+                                                    <User className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                                                    <span className="text-xs text-slate-400 dark:text-slate-500">
                                                         {task.assigned_to_name || task.assigned_to?.name}
                                                     </span>
                                                 </div>
@@ -227,12 +227,12 @@ export default function MyOnboarding() {
                                         <span className={cn(
                                             'rounded-full px-2 py-0.5 text-[10px] font-medium',
                                             task.status === 'completed'
-                                                ? 'bg-emerald-100 text-emerald-700'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
                                                 : task.status === 'in_progress'
-                                                ? 'bg-blue-100 text-blue-700'
+                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
                                                 : overdue
-                                                ? 'bg-red-100 text-red-600'
-                                                : 'bg-slate-100 text-slate-600'
+                                                ? 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                                                : 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300'
                                         )}>
                                             {overdue && task.status !== 'completed' ? 'Overdue' : cfg.label}
                                         </span>

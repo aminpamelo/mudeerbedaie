@@ -41,6 +41,7 @@ import {
     SelectValue,
 } from '../../components/ui/select';
 import { EmployeePageHeader } from '../../components/ui/employee-page-header';
+import useHrStore from '../../stores/useHrStore';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 
@@ -56,11 +57,11 @@ const PALETTE = [
 ];
 
 const STATUS_CONFIG = {
-    draft:    { label: 'Draft',    dot: '#94a3b8', bg: '#f8fafc', text: '#64748b' },
-    pending:  { label: 'Pending',  dot: '#f59e0b', bg: '#fffbeb', text: '#b45309' },
-    approved: { label: 'Approved', dot: '#22c55e', bg: '#f0fdf4', text: '#15803d' },
-    rejected: { label: 'Rejected', dot: '#ef4444', bg: '#fef2f2', text: '#dc2626' },
-    paid:     { label: 'Paid',     dot: '#3b82f6', bg: '#eff6ff', text: '#1d4ed8' },
+    draft:    { label: 'Draft',    dot: '#94a3b8', bg: '#f8fafc', text: '#64748b', darkBg: 'rgba(255,255,255,0.08)', darkText: '#cbd5e1' },
+    pending:  { label: 'Pending',  dot: '#f59e0b', bg: '#fffbeb', text: '#b45309', darkBg: 'rgba(245,158,11,0.15)', darkText: '#fcd34d' },
+    approved: { label: 'Approved', dot: '#22c55e', bg: '#f0fdf4', text: '#15803d', darkBg: 'rgba(34,197,94,0.15)', darkText: '#86efac' },
+    rejected: { label: 'Rejected', dot: '#ef4444', bg: '#fef2f2', text: '#dc2626', darkBg: 'rgba(239,68,68,0.15)', darkText: '#fca5a5' },
+    paid:     { label: 'Paid',     dot: '#3b82f6', bg: '#eff6ff', text: '#1d4ed8', darkBg: 'rgba(59,130,246,0.15)', darkText: '#93c5fd' },
 };
 
 const EMPTY_FORM = {
@@ -95,6 +96,7 @@ function formatCurrency(amount) {
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function BudgetCard({ limit, index }) {
+    const isDark = useHrStore((s) => s.theme === 'dark');
     const palette = PALETTE[index % PALETTE.length];
     const usedPercent = limit.monthly_limit
         ? Math.min(100, (limit.used_this_month / limit.monthly_limit) * 100)
@@ -108,8 +110,8 @@ function BudgetCard({ limit, index }) {
 
     return (
         <div
-            className="flex flex-col gap-2 rounded-2xl p-4"
-            style={{ backgroundColor: palette.bg }}
+            className="flex flex-col gap-2 rounded-2xl p-4 dark:border dark:border-white/[0.06]"
+            style={{ backgroundColor: isDark ? palette.accent + '14' : palette.bg }}
         >
             {/* header row */}
             <div className="flex items-center justify-between">
@@ -125,7 +127,7 @@ function BudgetCard({ limit, index }) {
             </div>
 
             {/* category name */}
-            <p className="text-xs font-medium leading-tight text-slate-500">{limit.name}</p>
+            <p className="text-xs font-medium leading-tight text-slate-500 dark:text-slate-300">{limit.name}</p>
 
             {/* remaining amount */}
             {remaining !== null ? (
@@ -133,17 +135,17 @@ function BudgetCard({ limit, index }) {
                     <div>
                         <p
                             className="text-lg font-bold tabular-nums leading-none"
-                            style={{ color: palette.text }}
+                            style={{ color: isDark ? palette.accent : palette.text }}
                         >
                             {formatCurrency(remaining)}
                         </p>
-                        <p className="mt-0.5 text-xs text-slate-400">remaining</p>
+                        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-400">remaining</p>
                     </div>
 
                     {/* progress bar */}
                     <div
                         className="h-1.5 w-full overflow-hidden rounded-full"
-                        style={{ backgroundColor: palette.track }}
+                        style={{ backgroundColor: isDark ? palette.accent + '2E' : palette.track }}
                     >
                         <div
                             className="h-1.5 rounded-full transition-all duration-700"
@@ -156,13 +158,14 @@ function BudgetCard({ limit, index }) {
                     </p>
                 </>
             ) : (
-                <p className="text-xs italic text-slate-400">No monthly limit</p>
+                <p className="text-xs italic text-slate-400 dark:text-slate-500">No monthly limit</p>
             )}
         </div>
     );
 }
 
 function ClaimRow({ claim, onSubmit, onDelete }) {
+    const isDark = useHrStore((s) => s.theme === 'dark');
     const statusCfg = STATUS_CONFIG[claim.status] || STATUS_CONFIG.draft;
 
     return (
@@ -176,7 +179,7 @@ function ClaimRow({ claim, onSubmit, onDelete }) {
             {/* info */}
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-800">
+                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {claim.claim_type?.name || '-'}
                     </p>
                     {claim.receipt_url && (
@@ -184,34 +187,34 @@ function ClaimRow({ claim, onSubmit, onDelete }) {
                             href={claim.receipt_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="shrink-0 text-slate-400 hover:text-blue-500"
+                            className="shrink-0 text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400"
                             title="View receipt"
                         >
                             <Paperclip className="h-3 w-3" />
                         </a>
                     )}
                 </div>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
                     {formatDate(claim.claim_date)}
                     {claim.description && <span> · {claim.description}</span>}
                 </p>
                 {claim.distance_km && (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-blue-500">
+                    <p className="mt-1 flex items-center gap-1 text-xs text-blue-500 dark:text-blue-400">
                         <Car className="h-3 w-3 shrink-0" />
                         {claim.distance_km} km · {claim.origin} → {claim.destination}
                     </p>
                 )}
-                <p className="mt-0.5 font-mono text-xs text-slate-300">{claim.claim_number}</p>
+                <p className="mt-0.5 font-mono text-xs text-slate-300 dark:text-slate-600">{claim.claim_number}</p>
             </div>
 
             {/* amount + actions */}
             <div className="shrink-0 text-right">
-                <p className="text-sm font-bold tabular-nums text-slate-800">
+                <p className="text-sm font-bold tabular-nums text-slate-800 dark:text-slate-100">
                     {formatCurrency(claim.amount)}
                 </p>
                 <span
                     className="mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: statusCfg.bg, color: statusCfg.text }}
+                    style={{ backgroundColor: isDark ? statusCfg.darkBg : statusCfg.bg, color: isDark ? statusCfg.darkText : statusCfg.text }}
                 >
                     {statusCfg.label}
                 </span>
@@ -219,14 +222,14 @@ function ClaimRow({ claim, onSubmit, onDelete }) {
                     <div className="mt-2 flex items-center justify-end gap-1.5">
                         <button
                             onClick={() => onSubmit(claim)}
-                            className="flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-slate-700 active:bg-slate-900"
+                            className="flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-slate-700 active:bg-slate-900 dark:bg-indigo-600 dark:hover:bg-indigo-500"
                         >
                             <Send className="h-2.5 w-2.5" />
                             Submit
                         </button>
                         <button
                             onClick={() => onDelete(claim)}
-                            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-slate-500 dark:hover:bg-red-500/15 dark:hover:text-red-400"
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -240,7 +243,7 @@ function ClaimRow({ claim, onSubmit, onDelete }) {
 // ── Input style helper ────────────────────────────────────────────────────────
 
 const inputCls =
-    'w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm placeholder:text-slate-400 transition focus:border-slate-400 focus:bg-white focus:outline-none';
+    'w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm placeholder:text-slate-400 transition focus:border-slate-400 focus:bg-white focus:outline-none dark:border-white/[0.10] dark:bg-white/[0.05] dark:text-slate-100 dark:placeholder:text-slate-500 dark:[color-scheme:dark] dark:focus:border-white/20 dark:focus:bg-white/[0.07]';
 
 // ── Main component ───────────────────────────────────────────────────────────
 
@@ -388,10 +391,10 @@ export default function MyClaims() {
             {limits.length > 0 && (
                 <section>
                     <div className="mb-3 flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                             Monthly Budget
                         </p>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
                             {limits.filter((l) => l.monthly_limit).length} active limits
                         </span>
                     </div>
@@ -407,11 +410,11 @@ export default function MyClaims() {
             <section>
                 <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                             My Claims
                         </p>
                         {meta.total > 0 && (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500 dark:bg-white/[0.08] dark:text-slate-300">
                                 {meta.total}
                             </span>
                         )}
@@ -439,23 +442,23 @@ export default function MyClaims() {
                     </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100/80">
+                <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100/80 dark:bg-[#0F1626] dark:ring-white/[0.06] dark:shadow-black/20">
                     {isLoading ? (
                         <div className="flex justify-center py-14">
-                            <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+                            <Loader2 className="h-5 w-5 animate-spin text-slate-300 dark:text-slate-600" />
                         </div>
                     ) : claims.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50">
-                                <Receipt className="h-6 w-6 text-slate-300" />
+                            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 dark:bg-white/[0.04]">
+                                <Receipt className="h-6 w-6 text-slate-300 dark:text-slate-600" />
                             </div>
-                            <p className="text-sm font-semibold text-slate-500">No claims yet</p>
-                            <p className="mt-0.5 text-xs text-slate-400">
+                            <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">No claims yet</p>
+                            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
                                 Your submitted expense claims will appear here.
                             </p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-slate-50">
+                        <div className="divide-y divide-slate-50 dark:divide-white/[0.06]">
                             {claims.map((claim) => (
                                 <ClaimRow
                                     key={claim.id}
@@ -468,22 +471,22 @@ export default function MyClaims() {
                     )}
 
                     {meta.last_page > 1 && (
-                        <div className="flex items-center justify-between border-t border-slate-50 px-4 py-3">
-                            <span className="text-xs text-slate-400">
+                        <div className="flex items-center justify-between border-t border-slate-50 px-4 py-3 dark:border-white/[0.06]">
+                            <span className="text-xs text-slate-400 dark:text-slate-500">
                                 Page {meta.current_page} of {meta.last_page}
                             </span>
                             <div className="flex gap-1.5">
                                 <button
                                     disabled={page <= 1}
                                     onClick={() => setPage((p) => p - 1)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 disabled:opacity-30"
+                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 disabled:opacity-30 dark:border-white/[0.10] dark:text-slate-400 dark:hover:border-white/20"
                                 >
                                     <ChevronLeft className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                     disabled={page >= meta.last_page}
                                     onClick={() => setPage((p) => p + 1)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 disabled:opacity-30"
+                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 disabled:opacity-30 dark:border-white/[0.10] dark:text-slate-400 dark:hover:border-white/20"
                                 >
                                     <ChevronRight className="h-3.5 w-3.5" />
                                 </button>
@@ -496,8 +499,8 @@ export default function MyClaims() {
             {/* ── New Claim Dialog ──────────────────────────────────────── */}
             <Dialog open={formOpen} onOpenChange={setFormOpen}>
                 <DialogContent className={cn('gap-0 p-0', isMileageType ? 'max-w-lg' : 'max-w-md')}>
-                    <div className="border-b border-slate-100 px-6 py-5">
-                        <DialogTitle className="text-base font-semibold text-slate-800">
+                    <div className="border-b border-slate-100 px-6 py-5 dark:border-white/[0.06]">
+                        <DialogTitle className="text-base font-semibold text-slate-800 dark:text-slate-100">
                             New Expense Claim
                         </DialogTitle>
                         <DialogDescription className="mt-0.5 text-xs text-slate-400">
@@ -508,7 +511,7 @@ export default function MyClaims() {
                     <form onSubmit={handleSubmitForm} className="space-y-4 px-6 py-5">
                         {/* Claim type */}
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                 Claim Type *
                             </label>
                             <Select value={form.claim_type_id} onValueChange={handleClaimTypeChange}>
@@ -537,14 +540,14 @@ export default function MyClaims() {
 
                         {/* Mileage fields */}
                         {isMileageType ? (
-                            <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-                                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                            <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+                                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
                                     <Route className="h-3.5 w-3.5" />
                                     Mileage Details
                                 </div>
 
                                 <div>
-                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Vehicle Type *
                                     </label>
                                     <Select
@@ -566,7 +569,7 @@ export default function MyClaims() {
                                                     <SelectItem key={r.id} value={String(r.id)}>
                                                         <span className="flex items-center justify-between gap-3">
                                                             <span>{r.name}</span>
-                                                            <span className="text-xs text-slate-500">
+                                                            <span className="text-xs text-slate-500 dark:text-slate-400">
                                                                 RM {parseFloat(r.rate_per_km).toFixed(2)}/km
                                                             </span>
                                                         </span>
@@ -583,7 +586,7 @@ export default function MyClaims() {
                                 </div>
 
                                 <div>
-                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Distance (km) *
                                     </label>
                                     <input
@@ -604,18 +607,18 @@ export default function MyClaims() {
                                 </div>
 
                                 {calculatedAmount !== null && (
-                                    <div className="flex items-center gap-2.5 rounded-xl border border-blue-200 bg-white px-4 py-3">
+                                    <div className="flex items-center gap-2.5 rounded-xl border border-blue-200 bg-white px-4 py-3 dark:border-blue-500/25 dark:bg-blue-500/10">
                                         <Calculator className="h-4 w-4 shrink-0 text-blue-400" />
-                                        <p className="text-sm text-slate-600">
+                                        <p className="text-sm text-slate-600 dark:text-slate-300">
                                             <span className="tabular-nums">
                                                 {parseFloat(form.distance_km).toFixed(1)} km
                                             </span>
-                                            <span className="mx-1.5 text-slate-400">×</span>
+                                            <span className="mx-1.5 text-slate-400 dark:text-slate-500">×</span>
                                             <span className="tabular-nums">
                                                 RM {parseFloat(selectedRate.rate_per_km).toFixed(2)}/km
                                             </span>
-                                            <span className="mx-1.5 text-slate-400">=</span>
-                                            <span className="font-bold tabular-nums text-blue-700">
+                                            <span className="mx-1.5 text-slate-400 dark:text-slate-500">=</span>
+                                            <span className="font-bold tabular-nums text-blue-700 dark:text-blue-300">
                                                 RM {calculatedAmount.toFixed(2)}
                                             </span>
                                         </p>
@@ -624,7 +627,7 @@ export default function MyClaims() {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                             <MapPin className="h-3 w-3 text-green-500" /> Origin *
                                         </label>
                                         <input
@@ -642,7 +645,7 @@ export default function MyClaims() {
                                         )}
                                     </div>
                                     <div>
-                                        <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                             <MapPin className="h-3 w-3 text-red-500" /> Destination *
                                         </label>
                                         <input
@@ -664,7 +667,7 @@ export default function MyClaims() {
                                 </div>
 
                                 <div>
-                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Trip Purpose *
                                     </label>
                                     <input
@@ -684,7 +687,7 @@ export default function MyClaims() {
                             </div>
                         ) : (
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                     Amount (MYR) *
                                 </label>
                                 <input
@@ -707,7 +710,7 @@ export default function MyClaims() {
 
                         {/* Claim date */}
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                 Claim Date *
                             </label>
                             <input
@@ -726,7 +729,7 @@ export default function MyClaims() {
 
                         {/* Description */}
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                 Description *
                             </label>
                             <textarea
@@ -747,10 +750,10 @@ export default function MyClaims() {
                         {/* Receipt upload */}
                         {!isMileageType && (
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                     Receipt
                                 </label>
-                                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-500 transition hover:border-slate-400 hover:bg-slate-100">
+                                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-500 transition hover:border-slate-400 hover:bg-slate-100 dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/20 dark:hover:bg-white/[0.07]">
                                     <Upload className="h-4 w-4 shrink-0" />
                                     <span className="truncate">
                                         {form.receipt
@@ -776,11 +779,11 @@ export default function MyClaims() {
                         )}
 
                         {/* Footer */}
-                        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="rounded-xl text-slate-600"
+                                className="rounded-xl text-slate-600 dark:text-slate-300"
                                 onClick={() => setFormOpen(false)}
                             >
                                 Cancel
@@ -788,7 +791,7 @@ export default function MyClaims() {
                             <Button
                                 type="submit"
                                 disabled={createMutation.isPending}
-                                className="rounded-xl bg-slate-800 px-5 text-white hover:bg-slate-700"
+                                className="rounded-xl bg-slate-800 px-5 text-white hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500"
                             >
                                 {createMutation.isPending && (
                                     <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -806,7 +809,7 @@ export default function MyClaims() {
                 onOpenChange={() => setSubmitDialog({ open: false, claim: null })}
             >
                 <DialogContent className="max-w-sm gap-0 p-0">
-                    <div className="border-b border-slate-100 px-6 py-5">
+                    <div className="border-b border-slate-100 px-6 py-5 dark:border-white/[0.06]">
                         <DialogTitle className="text-base font-semibold">Submit Claim</DialogTitle>
                         <DialogDescription className="mt-0.5 text-xs text-slate-400">
                             You won't be able to edit it after submission.
@@ -814,27 +817,27 @@ export default function MyClaims() {
                     </div>
                     {submitDialog.claim && (
                         <div className="px-6 py-5">
-                            <div className="rounded-xl bg-slate-50 px-4 py-3">
-                                <p className="text-sm font-semibold text-slate-800">
+                            <div className="rounded-xl bg-slate-50 px-4 py-3 dark:bg-white/[0.04]">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                                     {submitDialog.claim.claim_type?.name}
                                 </p>
-                                <p className="mt-0.5 text-sm text-slate-500">
+                                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
                                     {formatCurrency(submitDialog.claim.amount)} ·{' '}
                                     {formatDate(submitDialog.claim.claim_date)}
                                 </p>
                             </div>
                         </div>
                     )}
-                    <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-white/[0.06]">
                         <Button
                             variant="ghost"
-                            className="rounded-xl text-slate-600"
+                            className="rounded-xl text-slate-600 dark:text-slate-300"
                             onClick={() => setSubmitDialog({ open: false, claim: null })}
                         >
                             Cancel
                         </Button>
                         <Button
-                            className="rounded-xl bg-slate-800 text-white hover:bg-slate-700"
+                            className="rounded-xl bg-slate-800 text-white hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500"
                             onClick={() => submitMutation.mutate(submitDialog.claim.id)}
                             disabled={submitMutation.isPending}
                         >
@@ -853,16 +856,16 @@ export default function MyClaims() {
                 onOpenChange={() => setDeleteDialog({ open: false, claim: null })}
             >
                 <DialogContent className="max-w-sm gap-0 p-0">
-                    <div className="border-b border-slate-100 px-6 py-5">
+                    <div className="border-b border-slate-100 px-6 py-5 dark:border-white/[0.06]">
                         <DialogTitle className="text-base font-semibold">Delete Draft</DialogTitle>
                         <DialogDescription className="mt-0.5 text-xs text-slate-400">
                             This action cannot be undone.
                         </DialogDescription>
                     </div>
-                    <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-white/[0.06]">
                         <Button
                             variant="ghost"
-                            className="rounded-xl text-slate-600"
+                            className="rounded-xl text-slate-600 dark:text-slate-300"
                             onClick={() => setDeleteDialog({ open: false, claim: null })}
                         >
                             Cancel

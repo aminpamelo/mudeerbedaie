@@ -19,6 +19,8 @@ import {
     Save,
     Loader2,
     AlertCircle,
+    MessageCircle,
+    BadgeCheck,
 } from 'lucide-react';
 import {
     fetchMyProfile,
@@ -57,10 +59,15 @@ function formatDate(dateStr) {
 }
 
 function InfoRow({ label, value }) {
+    const isEmpty = value === undefined || value === null || value === '' || value === '-';
     return (
-        <div className="flex justify-between py-2.5 border-b border-slate-100 last:border-0">
-            <span className="text-sm text-slate-500">{label}</span>
-            <span className="text-sm font-medium text-slate-900 text-right">{value || '-'}</span>
+        <div className="flex items-center justify-between gap-4 py-2.5 border-b border-slate-100 last:border-0 dark:border-white/[0.06]">
+            <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+            {isEmpty ? (
+                <span className="text-sm italic text-slate-300 dark:text-slate-600">Not set</span>
+            ) : (
+                <span className="text-sm font-medium text-slate-900 text-right dark:text-slate-100">{value}</span>
+            )}
         </div>
     );
 }
@@ -124,18 +131,20 @@ export default function MyProfile() {
     return (
         <div className="space-y-4">
             {/* Profile Header */}
-            <Card>
-                <CardContent className="pt-6">
+            <Card className="relative overflow-hidden">
+                {/* brand glow */}
+                <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/20" aria-hidden="true" />
+                <CardContent className="relative pt-6">
                     <div className="flex flex-col items-center text-center">
-                        <div className="h-20 w-20 rounded-full bg-slate-900 text-white flex items-center justify-center text-2xl font-bold mb-3">
+                        <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-bold text-white shadow-lg shadow-indigo-500/25 ring-4 ring-white dark:ring-white/10">
                             {getInitials(employee.full_name)}
                         </div>
-                        <h2 className="text-xl font-bold text-slate-900">{employee.full_name}</h2>
-                        <p className="text-sm text-slate-500 mt-0.5">{employee.employee_id}</p>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-600">
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{employee.full_name}</h2>
+                        <p className="mt-0.5 font-mono text-sm text-slate-500 dark:text-slate-400">{employee.employee_id}</p>
+                        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
                             {employee.department?.name && <span>{employee.department.name}</span>}
                             {employee.department?.name && employee.position?.title && (
-                                <span className="text-slate-300">|</span>
+                                <span className="text-slate-300 dark:text-slate-600">·</span>
                             )}
                             {employee.position?.title && <span>{employee.position.title}</span>}
                         </div>
@@ -148,16 +157,16 @@ export default function MyProfile() {
 
             {/* Scrollable Tabs */}
             <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
-                <div className="flex gap-1 min-w-max bg-slate-100 rounded-xl p-1">
+                <div className="flex gap-1 min-w-max rounded-xl bg-slate-100 p-1 dark:bg-white/[0.04]">
                     {TABS.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={cn(
-                                'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all whitespace-nowrap',
+                                'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium whitespace-nowrap transition-all',
                                 activeTab === tab.id
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white'
+                                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                             )}
                         >
                             <tab.icon className="h-3.5 w-3.5" />
@@ -180,54 +189,125 @@ export default function MyProfile() {
 // ═════════════════════════════════════════════════════════════
 // OVERVIEW TAB
 // ═════════════════════════════════════════════════════════════
+function QuickAction({ icon: Icon, label, href, external }) {
+    const disabled = !href;
+    return (
+        <a
+            href={href || undefined}
+            {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            onClick={(e) => disabled && e.preventDefault()}
+            aria-disabled={disabled}
+            aria-label={disabled ? `${label} unavailable` : label}
+            className={cn(
+                'flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-2xl border py-2.5 text-xs font-medium transition-all active:scale-95',
+                disabled
+                    ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-600'
+                    : 'border-slate-200/80 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-600 dark:border-white/[0.07] dark:bg-[#0F1626] dark:text-slate-200 dark:hover:border-indigo-500/40 dark:hover:text-indigo-300'
+            )}
+        >
+            <Icon className="h-5 w-5" strokeWidth={2} />
+            {label}
+        </a>
+    );
+}
+
+function tenureFrom(dateStr) {
+    if (!dateStr) return null;
+    const start = new Date(dateStr);
+    const now = new Date();
+    let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    if (now.getDate() < start.getDate()) months -= 1;
+    if (months < 0) return null;
+    const yr = Math.floor(months / 12);
+    const mo = months % 12;
+    return [yr ? `${yr} yr` : null, mo ? `${mo} mo` : null].filter(Boolean).join(' ') || 'New';
+}
+
 function OverviewTab({ employee }) {
+    const phone = employee.phone;
+    const email = employee.personal_email;
+    const tenure = tenureFrom(employee.join_date);
+
     const quickInfo = [
-        { icon: Phone, label: 'Phone', value: employee.phone || '-' },
-        { icon: Mail, label: 'Email', value: employee.personal_email || '-' },
-        { icon: Calendar, label: 'Join Date', value: formatDate(employee.join_date) },
-        { icon: Briefcase, label: 'Type', value: employee.employment_type_label || '-' },
+        { icon: Phone, label: 'Phone', value: phone },
+        { icon: Mail, label: 'Email', value: email },
+        { icon: Calendar, label: 'Join Date', value: employee.join_date ? formatDate(employee.join_date) : null },
+        { icon: Briefcase, label: 'Type', value: employee.employment_type_label },
     ];
+
+    const statusMeta = {
+        active: { label: 'Active Employee', dot: 'bg-emerald-500', glow: 'shadow-emerald-500/40' },
+        probation: { label: 'Probation Period', dot: 'bg-amber-500', glow: 'shadow-amber-500/40' },
+        on_leave: { label: 'Currently On Leave', dot: 'bg-blue-500', glow: 'shadow-blue-500/40' },
+    };
+    const sm = statusMeta[employee.status] || {
+        label: employee.status?.replace(/_/g, ' ')?.replace(/\b\w/g, (c) => c.toUpperCase()) || 'Employee',
+        dot: 'bg-slate-400',
+        glow: 'shadow-slate-400/40',
+    };
 
     return (
         <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-                {quickInfo.map((item) => (
-                    <Card key={item.label}>
-                        <CardContent className="py-3.5 px-3.5">
-                            <div className="flex items-start gap-2.5">
-                                <div className="rounded-lg bg-slate-100 p-2 shrink-0">
-                                    <item.icon className="h-4 w-4 text-slate-600" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[11px] text-slate-500">{item.label}</p>
-                                    <p className="text-sm font-medium text-slate-900 truncate">{item.value}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+            {/* Quick actions */}
+            <div className="grid grid-cols-3 gap-2.5">
+                <QuickAction icon={Phone} label="Call" href={phone ? `tel:${phone}` : null} />
+                <QuickAction icon={Mail} label="Email" href={email ? `mailto:${email}` : null} />
+                <QuickAction
+                    icon={MessageCircle}
+                    label="WhatsApp"
+                    href={phone ? `https://wa.me/${String(phone).replace(/\D/g, '')}` : null}
+                    external
+                />
             </div>
 
-            {/* Status */}
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-3">
+                {quickInfo.map((item) => {
+                    const isEmpty = !item.value;
+                    return (
+                        <Card key={item.label}>
+                            <CardContent className="px-3.5 py-3.5">
+                                <div className="flex items-start gap-2.5">
+                                    <div className="shrink-0 rounded-lg bg-indigo-50 p-2 dark:bg-indigo-500/15">
+                                        <item.icon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{item.label}</p>
+                                        {isEmpty ? (
+                                            <p className="text-sm italic text-slate-300 dark:text-slate-600">Not set</p>
+                                        ) : (
+                                            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{item.value}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
+
+            {/* Status + tenure */}
             <Card>
                 <CardContent className="py-4">
                     <div className="flex items-center gap-3">
-                        <div className={cn('h-3 w-3 rounded-full shrink-0',
-                            employee.status === 'active' ? 'bg-emerald-500' :
-                            employee.status === 'probation' ? 'bg-amber-500' :
-                            employee.status === 'on_leave' ? 'bg-blue-500' : 'bg-slate-400'
-                        )} />
-                        <div>
-                            <p className="text-sm font-medium text-slate-900">
-                                {employee.status === 'active' ? 'Active Employee' :
-                                 employee.status === 'probation' ? 'Probation Period' :
-                                 employee.status === 'on_leave' ? 'Currently On Leave' :
-                                 employee.status?.replace('_', ' ')?.replace(/\b\w/g, (c) => c.toUpperCase()) || '-'}
-                            </p>
+                        <span className={cn('relative flex h-3 w-3 shrink-0')}>
+                            {employee.status === 'active' && (
+                                <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-60', sm.dot)} />
+                            )}
+                            <span className={cn('relative inline-flex h-3 w-3 rounded-full shadow-sm', sm.dot, sm.glow)} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">{sm.label}</p>
                             {employee.join_date && (
-                                <p className="text-xs text-slate-500 mt-0.5">Joined {formatDate(employee.join_date)}</p>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Joined {formatDate(employee.join_date)}</p>
                             )}
                         </div>
+                        {tenure && (
+                            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 dark:bg-white/[0.06]">
+                                <BadgeCheck className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{tenure}</span>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>

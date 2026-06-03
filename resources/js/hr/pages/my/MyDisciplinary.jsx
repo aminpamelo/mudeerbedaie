@@ -35,10 +35,10 @@ import {
 } from '../../components/ui/dialog';
 
 const STATUS_CONFIG = {
-    issued: { label: 'Issued', variant: 'outline', className: 'border-blue-300 bg-blue-50 text-blue-700' },
-    pending_response: { label: 'Pending Response', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700' },
-    responded: { label: 'Responded', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700' },
-    closed: { label: 'Closed', variant: 'outline', className: 'border-slate-300 bg-slate-50 text-slate-600' },
+    issued: { label: 'Issued', variant: 'outline', className: 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/25 dark:bg-blue-500/15 dark:text-blue-300' },
+    pending_response: { label: 'Pending Response', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300' },
+    responded: { label: 'Responded', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/15 dark:text-green-300' },
+    closed: { label: 'Closed', variant: 'outline', className: 'border-slate-300 bg-slate-50 text-slate-600 dark:border-white/[0.07] dark:bg-white/[0.04] dark:text-slate-300' },
 };
 
 const TYPE_LABELS = {
@@ -135,20 +135,20 @@ export default function MyDisciplinary() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 4 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                                     <div className="flex-1" />
-                                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-8 w-20 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                                 </div>
                             ))}
                         </div>
                     ) : records.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <ShieldAlert className="mb-3 h-10 w-10 text-slate-300" />
-                            <p className="text-sm font-medium text-slate-500">No disciplinary records</p>
-                            <p className="text-xs text-slate-400">You have a clean record</p>
+                            <ShieldAlert className="mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" />
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No disciplinary records</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">You have a clean record</p>
                         </div>
                     ) : (
                         <Table>
@@ -191,7 +191,7 @@ export default function MyDisciplinary() {
                                                     Respond
                                                 </Button>
                                             ) : (
-                                                <span className="text-xs text-slate-400">-</span>
+                                                <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -221,16 +221,16 @@ export default function MyDisciplinary() {
                     {selectedRecord && (
                         <div className="space-y-4">
                             {/* Notice Details */}
-                            <div className="rounded-lg bg-amber-50 p-4">
+                            <div className="rounded-lg bg-amber-50 p-4 dark:bg-amber-500/15">
                                 <div className="flex items-start gap-2">
-                                    <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600 shrink-0 dark:text-amber-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-amber-800">Reason</p>
-                                        <p className="mt-1 text-sm text-amber-700">{selectedRecord.reason}</p>
+                                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Reason</p>
+                                        <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">{selectedRecord.reason}</p>
                                     </div>
                                 </div>
                                 {selectedRecord.incident_date && (
-                                    <p className="mt-2 text-xs text-amber-600">
+                                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                         Incident Date: {formatDate(selectedRecord.incident_date)}
                                     </p>
                                 )}
@@ -238,7 +238,7 @@ export default function MyDisciplinary() {
 
                             {/* Response Input */}
                             <div>
-                                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
                                     Your Response
                                 </label>
                                 <textarea
@@ -246,9 +246,9 @@ export default function MyDisciplinary() {
                                     onChange={(e) => setResponseText(e.target.value)}
                                     placeholder="Provide your written response to this notice..."
                                     rows={5}
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/[0.10] dark:bg-white/[0.05] dark:text-slate-100 dark:placeholder:text-slate-500"
                                 />
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                                     Please provide a detailed response. This will be reviewed by HR.
                                 </p>
                             </div>

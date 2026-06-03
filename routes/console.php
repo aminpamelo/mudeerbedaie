@@ -44,6 +44,9 @@ Schedule::command('hr:mark-absent')->dailyAt('23:59');
 // HR Module - Generate monthly penalty summary on 1st of each month
 Schedule::command('hr:penalty-summary')->monthlyOn(1, '08:00');
 
+// HR Module - Auto-issue show cause letters for repeated late arrivals (end of day, after lates recorded)
+Schedule::command('hr:issue-late-show-cause')->dailyAt('22:00')->withoutOverlapping();
+
 // HR Module - Initialize leave balances on Jan 1st each year
 Schedule::command('hr:initialize-leave-balances')->yearlyOn(1, 1, '00:01');
 

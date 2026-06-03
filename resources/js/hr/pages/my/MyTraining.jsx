@@ -38,18 +38,18 @@ import {
 } from '../../components/ui/dialog';
 
 const TRAINING_STATUS_CONFIG = {
-    enrolled: { label: 'Enrolled', variant: 'outline', className: 'border-blue-300 bg-blue-50 text-blue-700' },
-    in_progress: { label: 'In Progress', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700' },
-    attended: { label: 'Attended', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700' },
-    completed: { label: 'Completed', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700' },
-    cancelled: { label: 'Cancelled', variant: 'destructive', className: 'border-red-300 bg-red-50 text-red-700' },
-    no_show: { label: 'No Show', variant: 'destructive', className: 'border-red-300 bg-red-50 text-red-700' },
+    enrolled: { label: 'Enrolled', variant: 'outline', className: 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/25 dark:bg-blue-500/15 dark:text-blue-300' },
+    in_progress: { label: 'In Progress', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300' },
+    attended: { label: 'Attended', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/15 dark:text-green-300' },
+    completed: { label: 'Completed', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/15 dark:text-green-300' },
+    cancelled: { label: 'Cancelled', variant: 'destructive', className: 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/25 dark:bg-red-500/15 dark:text-red-300' },
+    no_show: { label: 'No Show', variant: 'destructive', className: 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/25 dark:bg-red-500/15 dark:text-red-300' },
 };
 
 const CERT_STATUS_CONFIG = {
-    active: { label: 'Active', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700' },
-    expiring_soon: { label: 'Expiring Soon', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700' },
-    expired: { label: 'Expired', variant: 'destructive', className: 'border-red-300 bg-red-50 text-red-700' },
+    active: { label: 'Active', variant: 'success', className: 'border-green-300 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/15 dark:text-green-300' },
+    expiring_soon: { label: 'Expiring Soon', variant: 'warning', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300' },
+    expired: { label: 'Expired', variant: 'destructive', className: 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/25 dark:bg-red-500/15 dark:text-red-300' },
 };
 
 function formatDate(dateStr) {
@@ -114,13 +114,13 @@ function StarRating({ value, onChange, readonly = false }) {
                             'h-5 w-5',
                             (hoverValue || value) >= star
                                 ? 'fill-amber-400 text-amber-400'
-                                : 'fill-slate-200 text-slate-200'
+                                : 'fill-slate-200 text-slate-200 dark:fill-slate-600 dark:text-slate-600'
                         )}
                     />
                 </button>
             ))}
             {value > 0 && (
-                <span className="ml-1 text-xs text-slate-500">{value}/5</span>
+                <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">{value}/5</span>
             )}
         </div>
     );
@@ -192,7 +192,7 @@ export default function MyTraining() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <GraduationCap className="h-5 w-5 text-slate-400" />
+                        <GraduationCap className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                         <div>
                             <CardTitle>My Trainings</CardTitle>
                             <CardDescription>{trainings.length} program(s)</CardDescription>
@@ -204,19 +204,19 @@ export default function MyTraining() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 3 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                                     <div className="flex-1" />
-                                    <div className="h-8 w-24 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-8 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                                 </div>
                             ))}
                         </div>
                     ) : trainings.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <GraduationCap className="mb-3 h-10 w-10 text-slate-300" />
-                            <p className="text-sm font-medium text-slate-500">No training programs</p>
-                            <p className="text-xs text-slate-400">You have not been enrolled in any training yet</p>
+                            <GraduationCap className="mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" />
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No training programs</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">You have not been enrolled in any training yet</p>
                         </div>
                     ) : (
                         <Table>
@@ -240,11 +240,11 @@ export default function MyTraining() {
                                         <TableRow key={training.enrollment_id || training.id}>
                                             <TableCell>
                                                 <div>
-                                                    <p className="font-medium text-slate-900">
+                                                    <p className="font-medium text-slate-900 dark:text-white">
                                                         {training.program_title || training.title}
                                                     </p>
                                                     {training.provider && (
-                                                        <p className="text-xs text-slate-400">{training.provider}</p>
+                                                        <p className="text-xs text-slate-400 dark:text-slate-500">{training.provider}</p>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -252,7 +252,7 @@ export default function MyTraining() {
                                                 <div className="text-sm">
                                                     {formatDate(training.start_date || training.date)}
                                                     {training.end_date && training.end_date !== training.start_date && (
-                                                        <span className="text-slate-400">
+                                                        <span className="text-slate-400 dark:text-slate-500">
                                                             {' - '}{formatDate(training.end_date)}
                                                         </span>
                                                     )}
@@ -265,7 +265,7 @@ export default function MyTraining() {
                                                 {training.rating ? (
                                                     <StarRating value={training.rating} onChange={() => {}} readonly />
                                                 ) : (
-                                                    <span className="text-xs text-slate-400">-</span>
+                                                    <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -279,7 +279,7 @@ export default function MyTraining() {
                                                         Give Feedback
                                                     </Button>
                                                 ) : (
-                                                    <span className="text-xs text-slate-400">-</span>
+                                                    <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -295,7 +295,7 @@ export default function MyTraining() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-2">
-                        <Award className="h-5 w-5 text-slate-400" />
+                        <Award className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                         <div>
                             <CardTitle>My Certifications</CardTitle>
                             <CardDescription>{certifications.length} certification(s)</CardDescription>
@@ -307,19 +307,19 @@ export default function MyTraining() {
                         <div className="space-y-3 p-6">
                             {Array.from({ length: 3 }).map((_, i) => (
                                 <div key={i} className="flex items-center gap-4 py-2">
-                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
-                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-28 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
+                                    <div className="h-4 w-20 animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                                 </div>
                             ))}
                         </div>
                     ) : certifications.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Award className="mb-3 h-10 w-10 text-slate-300" />
-                            <p className="text-sm font-medium text-slate-500">No certifications</p>
-                            <p className="text-xs text-slate-400">Your certifications will appear here</p>
+                            <Award className="mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" />
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No certifications</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">Your certifications will appear here</p>
                         </div>
                     ) : (
                         <Table>
@@ -340,19 +340,19 @@ export default function MyTraining() {
                                         <TableRow
                                             key={cert.id}
                                             className={cn(
-                                                certStatus === 'expired' && 'bg-red-50/50',
-                                                certStatus === 'expiring_soon' && 'bg-amber-50/50'
+                                                certStatus === 'expired' && 'bg-red-50/50 dark:bg-red-500/[0.08]',
+                                                certStatus === 'expiring_soon' && 'bg-amber-50/50 dark:bg-amber-500/[0.08]'
                                             )}
                                         >
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     {certStatus === 'expiring_soon' && (
-                                                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                                                        <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
                                                     )}
                                                     {certStatus === 'expired' && (
-                                                        <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                                                        <XCircle className="h-4 w-4 text-red-500 dark:text-red-400 shrink-0" />
                                                     )}
-                                                    <span className="font-medium text-slate-900">
+                                                    <span className="font-medium text-slate-900 dark:text-white">
                                                         {cert.certification_name || cert.name}
                                                     </span>
                                                 </div>
@@ -366,8 +366,8 @@ export default function MyTraining() {
                                             <TableCell>
                                                 <span
                                                     className={cn(
-                                                        certStatus === 'expired' && 'font-medium text-red-600',
-                                                        certStatus === 'expiring_soon' && 'font-medium text-amber-600'
+                                                        certStatus === 'expired' && 'font-medium text-red-600 dark:text-red-400',
+                                                        certStatus === 'expiring_soon' && 'font-medium text-amber-600 dark:text-amber-400'
                                                     )}
                                                 >
                                                     {formatDate(cert.expiry_date)}
@@ -400,18 +400,18 @@ export default function MyTraining() {
                     <div className="space-y-4">
                         {/* Rating */}
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-slate-700">
+                            <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
                                 Rating
                             </label>
                             <StarRating value={rating} onChange={setRating} />
                             {rating === 0 && (
-                                <p className="mt-1 text-xs text-slate-400">Please select a rating</p>
+                                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Please select a rating</p>
                             )}
                         </div>
 
                         {/* Feedback Text */}
                         <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
                                 Feedback
                             </label>
                             <textarea
@@ -419,7 +419,7 @@ export default function MyTraining() {
                                 onChange={(e) => setFeedbackText(e.target.value)}
                                 placeholder="Share your thoughts on the training program..."
                                 rows={4}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                className="w-full rounded-lg border border-slate-300 dark:border-white/[0.10] px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:bg-white/[0.05] focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                         </div>
                     </div>

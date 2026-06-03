@@ -29,7 +29,11 @@ class DisciplinaryAction extends Model
         'letter_pdf_path',
         'status',
         'previous_action_id',
+        'source',
+        'source_period',
     ];
+
+    public const SOURCE_ATTENDANCE_LATE = 'attendance_late';
 
     protected function casts(): array
     {

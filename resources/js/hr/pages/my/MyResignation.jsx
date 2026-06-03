@@ -19,10 +19,10 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 
 const STATUS_CONFIG = {
-    pending: { label: 'Pending', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', badgeClass: 'border-amber-300 bg-amber-50 text-amber-700' },
-    approved: { label: 'Approved', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', badgeClass: 'border-green-300 bg-green-50 text-green-700' },
-    rejected: { label: 'Rejected', icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', badgeClass: 'border-red-300 bg-red-50 text-red-700' },
-    completed: { label: 'Completed', icon: CheckCircle2, color: 'text-slate-600', bg: 'bg-slate-50', badgeClass: 'border-slate-300 bg-slate-50 text-slate-600' },
+    pending: { label: 'Pending', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', badgeClass: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300' },
+    approved: { label: 'Approved', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', badgeClass: 'border-green-300 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/15 dark:text-green-300' },
+    rejected: { label: 'Rejected', icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', badgeClass: 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/25 dark:bg-red-500/15 dark:text-red-300' },
+    completed: { label: 'Completed', icon: CheckCircle2, color: 'text-slate-600', bg: 'bg-slate-50', badgeClass: 'border-slate-300 bg-slate-50 text-slate-600 dark:border-white/[0.10] dark:bg-white/[0.08] dark:text-slate-300' },
 };
 
 const PROGRESSION_STEPS = ['pending', 'approved', 'completed'];
@@ -54,7 +54,7 @@ function StatusProgressBar({ status }) {
                                     'flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors',
                                     isActive
                                         ? 'border-green-500 bg-green-500 text-white'
-                                        : 'border-slate-300 bg-white text-slate-400'
+                                        : 'border-slate-300 bg-white text-slate-400 dark:border-white/[0.10] dark:bg-white/[0.05] dark:text-slate-500'
                                 )}
                             >
                                 {isActive ? (
@@ -66,7 +66,7 @@ function StatusProgressBar({ status }) {
                             <span
                                 className={cn(
                                     'mt-1 text-[10px] font-medium capitalize',
-                                    isCurrent ? 'text-green-700' : 'text-slate-400'
+                                    isCurrent ? 'text-green-700 dark:text-green-400' : 'text-slate-400 dark:text-slate-500'
                                 )}
                             >
                                 {step}
@@ -78,7 +78,7 @@ function StatusProgressBar({ status }) {
                                     'mb-4 h-0.5 w-12 sm:w-16',
                                     !isRejected && index < currentIndex
                                         ? 'bg-green-500'
-                                        : 'bg-slate-200'
+                                        : 'bg-slate-200 dark:bg-white/[0.08]'
                                 )}
                             />
                         )}
@@ -126,7 +126,7 @@ export default function MyResignation() {
                     <CardContent className="p-6">
                         <div className="space-y-4">
                             {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="h-5 w-full animate-pulse rounded bg-slate-200" />
+                                <div key={i} className="h-5 w-full animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                             ))}
                         </div>
                     </CardContent>
@@ -171,13 +171,13 @@ export default function MyResignation() {
 
                         {/* Rejected Notice */}
                         {resignation.status === 'rejected' && (
-                            <div className="rounded-lg bg-red-50 p-4">
+                            <div className="rounded-lg bg-red-50 p-4 dark:bg-red-500/15">
                                 <div className="flex items-start gap-2">
-                                    <XCircle className="mt-0.5 h-4 w-4 text-red-600 shrink-0" />
+                                    <XCircle className="mt-0.5 h-4 w-4 text-red-600 shrink-0 dark:text-red-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-red-800">Resignation Rejected</p>
+                                        <p className="text-sm font-medium text-red-800 dark:text-red-300">Resignation Rejected</p>
                                         {resignation.rejection_reason && (
-                                            <p className="mt-1 text-sm text-red-700">{resignation.rejection_reason}</p>
+                                            <p className="mt-1 text-sm text-red-700 dark:text-red-300">{resignation.rejection_reason}</p>
                                         )}
                                     </div>
                                 </div>
@@ -186,51 +186,51 @@ export default function MyResignation() {
 
                         {/* Details Grid */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="rounded-lg border border-slate-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4 dark:border-white/[0.07]">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <CalendarDays className="h-4 w-4 text-slate-400" />
-                                    <p className="text-xs font-medium text-slate-500">Submitted Date</p>
+                                    <CalendarDays className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Submitted Date</p>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                     {formatDate(resignation.submitted_at || resignation.created_at)}
                                 </p>
                             </div>
 
-                            <div className="rounded-lg border border-slate-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4 dark:border-white/[0.07]">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <Clock className="h-4 w-4 text-slate-400" />
-                                    <p className="text-xs font-medium text-slate-500">Notice Period</p>
+                                    <Clock className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Notice Period</p>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                     {resignation.notice_period || '-'}
                                 </p>
                             </div>
 
-                            <div className="rounded-lg border border-slate-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4 dark:border-white/[0.07]">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <CalendarDays className="h-4 w-4 text-slate-400" />
-                                    <p className="text-xs font-medium text-slate-500">Last Working Date</p>
+                                    <CalendarDays className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Last Working Date</p>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                     {formatDate(resignation.last_working_date)}
                                 </p>
                             </div>
 
-                            <div className="rounded-lg border border-slate-200 p-4">
+                            <div className="rounded-lg border border-slate-200 p-4 dark:border-white/[0.07]">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <UserCheck className="h-4 w-4 text-slate-400" />
-                                    <p className="text-xs font-medium text-slate-500">Approved By</p>
+                                    <UserCheck className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Approved By</p>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                     {resignation.approved_by_name || '-'}
                                 </p>
                             </div>
                         </div>
 
                         {/* Reason */}
-                        <div className="rounded-lg bg-slate-50 p-4">
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Reason for Resignation</p>
-                            <p className="text-sm text-slate-700">{resignation.reason}</p>
+                        <div className="rounded-lg bg-slate-50 p-4 dark:bg-white/[0.04]">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Reason for Resignation</p>
+                            <p className="text-sm text-slate-700 dark:text-slate-200">{resignation.reason}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -247,12 +247,12 @@ export default function MyResignation() {
             />
 
             {/* Warning Notice */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
                 <div className="flex items-start gap-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
+                    <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0 dark:text-amber-300" />
                     <div>
-                        <p className="text-sm font-medium text-amber-800">Important Notice</p>
-                        <p className="mt-1 text-sm text-amber-700">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Important Notice</p>
+                        <p className="mt-1 text-sm text-amber-700 dark:text-amber-300/90">
                             Submitting a resignation is a formal process. Once submitted, it will be reviewed by HR
                             and your manager. Please ensure you have considered this decision carefully before proceeding.
                         </p>
@@ -270,7 +270,7 @@ export default function MyResignation() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
                             Reason for Resignation
                         </label>
                         <textarea
@@ -278,7 +278,7 @@ export default function MyResignation() {
                             onChange={(e) => setReason(e.target.value)}
                             placeholder="Please provide the reason for your resignation..."
                             rows={6}
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/[0.10] dark:bg-white/[0.05] dark:text-slate-100 dark:placeholder:text-slate-500"
                         />
                     </div>
 
@@ -287,17 +287,17 @@ export default function MyResignation() {
                             onClick={() => setConfirmDialog(true)}
                             disabled={!reason.trim()}
                             variant="outline"
-                            className="border-red-300 text-red-600 hover:bg-red-50"
+                            className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/15"
                         >
                             <LogOut className="mr-2 h-4 w-4" />
                             Submit Resignation
                         </Button>
                     ) : (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                            <p className="text-sm font-medium text-red-800">
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-500/25 dark:bg-red-500/15">
+                            <p className="text-sm font-medium text-red-800 dark:text-red-300">
                                 Are you sure you want to submit your resignation?
                             </p>
-                            <p className="mt-1 text-xs text-red-600">
+                            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                                 This action cannot be undone after HR approval.
                             </p>
                             <div className="mt-3 flex gap-2">
@@ -326,8 +326,8 @@ export default function MyResignation() {
                     )}
 
                     {submitMutation.isError && (
-                        <div className="rounded-lg bg-red-50 p-3">
-                            <p className="text-sm text-red-700">
+                        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-500/15">
+                            <p className="text-sm text-red-700 dark:text-red-300">
                                 {submitMutation.error?.response?.data?.message || 'Failed to submit resignation. Please try again.'}
                             </p>
                         </div>

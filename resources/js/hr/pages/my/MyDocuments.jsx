@@ -113,7 +113,7 @@ export default function MyDocuments() {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-600 dark:text-slate-300">
                     {error?.response?.data?.message || 'Failed to load documents'}
                 </p>
             </div>
@@ -131,7 +131,7 @@ export default function MyDocuments() {
 
             {/* Header with Upload Button */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-slate-700">
+                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200">
                     {documents.length} document{documents.length !== 1 ? 's' : ''}
                 </h3>
                 {!showUploadForm && (
@@ -239,9 +239,9 @@ export default function MyDocuments() {
             {documents.length === 0 && !showUploadForm ? (
                 <Card>
                     <CardContent className="py-10 text-center">
-                        <FileText className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                        <p className="text-sm text-slate-500">No documents uploaded yet</p>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <FileText className="h-10 w-10 text-slate-300 mx-auto mb-3 dark:text-slate-600" />
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No documents uploaded yet</p>
+                        <p className="text-xs text-slate-400 mt-1 dark:text-slate-500">
                             Upload your personal documents for record keeping
                         </p>
                     </CardContent>
@@ -252,11 +252,11 @@ export default function MyDocuments() {
                         <CardContent className="pt-4 pb-4">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                                    <div className="rounded-lg bg-slate-100 p-2 shrink-0">
-                                        <File className="h-4 w-4 text-slate-600" />
+                                    <div className="rounded-lg bg-slate-100 p-2 shrink-0 dark:bg-white/[0.08]">
+                                        <File className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-medium text-slate-900 truncate">
+                                        <p className="text-sm font-medium text-slate-900 truncate dark:text-white">
                                             {doc.title}
                                         </p>
                                         <div className="flex items-center gap-2 mt-1">
@@ -264,7 +264,7 @@ export default function MyDocuments() {
                                                 {getDocumentTypeLabel(doc.document_type)}
                                             </Badge>
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
+                                        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                                             <span>{formatDate(doc.created_at)}</span>
                                             {doc.file_size && (
                                                 <span>{formatFileSize(doc.file_size)}</span>

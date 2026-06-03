@@ -8,12 +8,12 @@ const buttonVariants = cva(
     {
         variants: {
             variant: {
-                default: 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 hover:bg-indigo-700',
-                destructive: 'bg-rose-600 text-white shadow-sm hover:bg-rose-700',
-                outline: 'border border-slate-300 bg-white shadow-sm hover:bg-slate-50 hover:text-slate-800',
-                secondary: 'bg-slate-100 text-slate-800 shadow-sm hover:bg-slate-200',
-                ghost: 'hover:bg-slate-100 hover:text-slate-800',
-                link: 'text-slate-800 underline-offset-4 hover:underline',
+                default: 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400',
+                destructive: 'bg-rose-600 text-white shadow-sm hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500',
+                outline: 'border border-slate-300 bg-white shadow-sm hover:bg-slate-50 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white',
+                secondary: 'bg-slate-100 text-slate-800 shadow-sm hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
+                ghost: 'hover:bg-slate-100 hover:text-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white',
+                link: 'text-slate-800 underline-offset-4 hover:underline dark:text-slate-200',
             },
             size: {
                 default: 'h-10 px-4 py-2',

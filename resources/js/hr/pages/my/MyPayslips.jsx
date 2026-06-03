@@ -151,23 +151,23 @@ export default function MyPayslips() {
 
             {/* YTD Stats */}
             <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-sky-50/40 p-3 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-sky-700">YTD Gross</p>
-                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{formatCurrencyShort(ytd.ytd_gross)}</p>
+                <div className="rounded-2xl border border-sky-100 dark:border-sky-500/25 bg-gradient-to-br from-sky-50 to-sky-50/40 dark:from-sky-500/15 dark:to-sky-500/[0.08] p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-sky-700 dark:text-sky-300">YTD Gross</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900 dark:text-white">{formatCurrencyShort(ytd.ytd_gross)}</p>
                 </div>
-                <div className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-rose-50/40 p-3 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-rose-700">YTD Deductions</p>
-                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{formatCurrencyShort(ytd.ytd_deductions)}</p>
+                <div className="rounded-2xl border border-rose-100 dark:border-rose-500/25 bg-gradient-to-br from-rose-50 to-rose-50/40 dark:from-rose-500/15 dark:to-rose-500/[0.08] p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-rose-700 dark:text-rose-300">YTD Deductions</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900 dark:text-white">{formatCurrencyShort(ytd.ytd_deductions)}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-50/40 p-3 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">YTD Net</p>
-                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{formatCurrencyShort(ytd.ytd_net)}</p>
+                <div className="rounded-2xl border border-emerald-100 dark:border-emerald-500/25 bg-gradient-to-br from-emerald-50 to-emerald-50/40 dark:from-emerald-500/15 dark:to-emerald-500/[0.08] p-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">YTD Net</p>
+                    <p className="mt-1 text-sm font-bold tabular-nums text-slate-900 dark:text-white">{formatCurrencyShort(ytd.ytd_net)}</p>
                 </div>
             </div>
 
             {/* Year filter as segmented pill */}
             <div className="flex items-center justify-center">
-                <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                <div className="inline-flex rounded-full border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-[#0F1626] p-1 shadow-sm">
                     {[currentYear - 2, currentYear - 1, currentYear].map((y) => (
                         <button
                             key={y}
@@ -177,7 +177,7 @@ export default function MyPayslips() {
                                 'rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
                                 filterYear === y
                                     ? 'bg-gradient-to-r from-indigo-500 via-pink-500 to-orange-400 text-white shadow-md shadow-pink-500/30'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                             )}
                         >
                             {y}
@@ -189,9 +189,9 @@ export default function MyPayslips() {
             {/* Payslips list */}
             <div>
                 <div className="mb-2 flex items-center justify-between px-1">
-                    <h3 className="text-sm font-bold text-slate-900">Payslips · {filterYear}</h3>
-                    <span className="text-[11px] font-semibold text-slate-500">
-                        <span className="tabular-nums text-slate-800">{payslips.length}</span> total
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Payslips · {filterYear}</h3>
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        <span className="tabular-nums text-slate-800 dark:text-slate-100">{payslips.length}</span> total
                     </span>
                 </div>
                 <RecordList
@@ -218,7 +218,7 @@ export default function MyPayslips() {
                                         handleDownload(payslip);
                                     }}
                                     disabled={downloadingId === payslip.id}
-                                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-200 disabled:opacity-50"
+                                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold text-slate-700 dark:text-slate-200 ring-1 ring-slate-200 dark:ring-white/[0.07] transition-colors hover:bg-slate-200 dark:hover:bg-white/[0.12] disabled:opacity-50"
                                 >
                                     {downloadingId === payslip.id ? (
                                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -248,24 +248,24 @@ export default function MyPayslips() {
                     {detailLoading ? (
                         <div className="space-y-2">
                             {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={i} className="h-4 w-full animate-pulse rounded bg-slate-200" />
+                                <div key={i} className="h-4 w-full animate-pulse rounded bg-slate-200 dark:bg-white/[0.08]" />
                             ))}
                         </div>
                     ) : detail ? (
                         <div className="space-y-4">
                             {/* Earnings */}
                             <div>
-                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">Earnings</p>
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Earnings</p>
                                 <div className="space-y-1">
                                     {(detail.items || [])
                                         .filter((item) => item.type === 'earning')
                                         .map((item, i) => (
                                             <div key={i} className="flex justify-between text-sm">
-                                                <span className="text-slate-700">{item.component_name}</span>
+                                                <span className="text-slate-700 dark:text-slate-200">{item.component_name}</span>
                                                 <span className="font-medium tabular-nums">{formatCurrency(item.amount)}</span>
                                             </div>
                                         ))}
-                                    <div className="flex justify-between border-t border-slate-200 pt-1 text-sm font-bold">
+                                    <div className="flex justify-between border-t border-slate-200 dark:border-white/[0.07] pt-1 text-sm font-bold">
                                         <span>Gross Pay</span>
                                         <span className="tabular-nums">{formatCurrency(detail.gross_salary)}</span>
                                     </div>
@@ -274,23 +274,23 @@ export default function MyPayslips() {
 
                             {/* Statutory Deductions */}
                             <div>
-                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-rose-700">Statutory Deductions</p>
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Statutory Deductions</p>
                                 <div className="space-y-1 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-slate-700">EPF (Employee 11%)</span>
-                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.epf_employee)}</span>
+                                        <span className="text-slate-700 dark:text-slate-200">EPF (Employee 11%)</span>
+                                        <span className="text-rose-600 dark:text-rose-300 tabular-nums">{formatCurrency(detail.epf_employee)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-slate-700">SOCSO</span>
-                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.socso_employee)}</span>
+                                        <span className="text-slate-700 dark:text-slate-200">SOCSO</span>
+                                        <span className="text-rose-600 dark:text-rose-300 tabular-nums">{formatCurrency(detail.socso_employee)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-slate-700">EIS</span>
-                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.eis_employee)}</span>
+                                        <span className="text-slate-700 dark:text-slate-200">EIS</span>
+                                        <span className="text-rose-600 dark:text-rose-300 tabular-nums">{formatCurrency(detail.eis_employee)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-slate-700">PCB (Income Tax)</span>
-                                        <span className="text-rose-600 tabular-nums">{formatCurrency(detail.pcb_amount)}</span>
+                                        <span className="text-slate-700 dark:text-slate-200">PCB (Income Tax)</span>
+                                        <span className="text-rose-600 dark:text-rose-300 tabular-nums">{formatCurrency(detail.pcb_amount)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -298,14 +298,14 @@ export default function MyPayslips() {
                             {/* Other Deductions */}
                             {(detail.items || []).filter((item) => item.type === 'deduction' && !item.is_statutory).length > 0 && (
                                 <div>
-                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-600">Other Deductions</p>
+                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Other Deductions</p>
                                     <div className="space-y-1 text-sm">
                                         {(detail.items || [])
                                             .filter((item) => item.type === 'deduction' && !item.is_statutory)
                                             .map((item, i) => (
                                                 <div key={i} className="flex justify-between">
-                                                    <span className="text-slate-700">{item.component_name}</span>
-                                                    <span className="text-rose-600 tabular-nums">{formatCurrency(item.amount)}</span>
+                                                    <span className="text-slate-700 dark:text-slate-200">{item.component_name}</span>
+                                                    <span className="text-rose-600 dark:text-rose-300 tabular-nums">{formatCurrency(item.amount)}</span>
                                                 </div>
                                             ))}
                                     </div>
@@ -313,17 +313,17 @@ export default function MyPayslips() {
                             )}
 
                             {/* Net Pay highlight */}
-                            <div className="rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 p-4 ring-1 ring-emerald-200">
+                            <div className="rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-500/15 dark:to-emerald-500/[0.08] p-4 ring-1 ring-emerald-200 dark:ring-emerald-500/25">
                                 <div className="flex items-baseline justify-between">
-                                    <span className="text-sm font-bold uppercase tracking-wider text-emerald-800">Net Pay</span>
-                                    <span className="text-xl font-bold tabular-nums text-emerald-900">{formatCurrency(detail.net_salary)}</span>
+                                    <span className="text-sm font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Net Pay</span>
+                                    <span className="text-xl font-bold tabular-nums text-emerald-900 dark:text-white">{formatCurrency(detail.net_salary)}</span>
                                 </div>
                             </div>
 
                             {/* Employer Contributions */}
-                            <div className="rounded-2xl bg-slate-50 p-3">
-                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Employer Contributions (not from you)</p>
-                                <div className="space-y-1 text-sm text-slate-600">
+                            <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] p-3">
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Employer Contributions (not from you)</p>
+                                <div className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
                                     <div className="flex justify-between">
                                         <span>EPF (Employer 13%)</span>
                                         <span className="tabular-nums">{formatCurrency(detail.epf_employer)}</span>
