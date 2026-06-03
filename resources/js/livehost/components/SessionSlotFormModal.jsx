@@ -204,6 +204,42 @@ export default function SessionSlotFormModal({
     Boolean(form.data.live_host_id) &&
     pivotCandidates.length === 0;
 
+  // Creator-identity options for the searchable picker. Grouped by the linked
+  // creator handle (the platform account is already chosen above, so the shop
+  // name is redundant); the live host's name becomes the primary label so
+  // otherwise-identical "shop - @handle" rows are finally distinguishable and
+  // searchable. Primary identities sort first within each handle group, and
+  // unlinked-handle pivots sink to the bottom.
+  const creatorOptions = useMemo(() => {
+    const groupFor = (p) =>
+      p.creatorHandle && p.creatorHandle !== '' && p.creatorHandle !== '—'
+        ? `@${p.creatorHandle}`
+        : 'No handle linked';
+
+    return [...pivotCandidates]
+      .sort((a, b) => {
+        const ga = groupFor(a);
+        const gb = groupFor(b);
+        const aNoHandle = ga === 'No handle linked';
+        const bNoHandle = gb === 'No handle linked';
+        if (aNoHandle !== bNoHandle) return aNoHandle ? 1 : -1;
+        if (ga !== gb) return ga.localeCompare(gb);
+        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+        return (a.userName ?? '').localeCompare(b.userName ?? '');
+      })
+      .map((p) => {
+        const hostName = p.userName ?? `Host #${p.userId}`;
+        return {
+          value: String(p.id),
+          label: hostName,
+          hint: p.isPrimary ? 'Primary identity' : null,
+          group: groupFor(p),
+          keywords: [hostName, p.creatorHandle].filter(Boolean).join(' '),
+          avatar: { initials: initialsFrom(hostName), color: colorFor(hostName) },
+        };
+      });
+  }, [pivotCandidates]);
+
   const selectedHostLabel = useMemo(() => {
     if (!form.data.live_host_id) {
       return '';
@@ -357,23 +393,19 @@ export default function SessionSlotFormModal({
             }
             required
           >
-            <ModalSelect
+            <SearchableSelect
               value={form.data.live_host_platform_account_id}
-              onChange={(e) => form.setData('live_host_platform_account_id', e.target.value)}
-              required
-            >
-              <option value="">
-                {pivotCandidates.length === 0
+              onChange={(next) => form.setData('live_host_platform_account_id', next)}
+              disabled={pivotCandidates.length === 0}
+              placeholder={
+                pivotCandidates.length === 0
                   ? 'No creator identities available'
-                  : 'Select creator identity'}
-              </option>
-              {pivotCandidates.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                  {p.isPrimary ? ' · primary' : ''}
-                </option>
-              ))}
-            </ModalSelect>
+                  : 'Select creator identity'
+              }
+              searchPlaceholder="Search host or handle…"
+              emptyLabel="No creator identities match"
+              options={creatorOptions}
+            />
 
             {canQuickAddCreator && (
               <div className="mt-2 space-y-2 rounded-lg border border-dashed border-[#D4D4D4] bg-[#FAFAFA] p-3">

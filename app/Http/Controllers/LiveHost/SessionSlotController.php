@@ -310,6 +310,7 @@ class SessionSlotController extends Controller
      * @return \Illuminate\Support\Collection<int, array{
      *     id: int,
      *     userId: int,
+     *     userName: ?string,
      *     platformAccountId: int,
      *     creatorHandle: ?string,
      *     creatorPlatformUserId: ?string,
@@ -320,7 +321,7 @@ class SessionSlotController extends Controller
     private function hostPlatformPivotOptions(): \Illuminate\Support\Collection
     {
         return LiveHostPlatformAccount::query()
-            ->with('platformAccount:id,name')
+            ->with(['platformAccount:id,name', 'user:id,name'])
             ->orderByDesc('is_primary')
             ->get()
             ->map(function (LiveHostPlatformAccount $pivot) {
@@ -332,6 +333,7 @@ class SessionSlotController extends Controller
                 return [
                     'id' => $pivot->id,
                     'userId' => $pivot->user_id,
+                    'userName' => $pivot->user?->name,
                     'platformAccountId' => $pivot->platform_account_id,
                     'creatorHandle' => $pivot->creator_handle,
                     'creatorPlatformUserId' => $pivot->creator_platform_user_id,

@@ -337,32 +337,45 @@ export default function SearchableSelect({
               filtered.map((opt, idx) => {
                 const active = idx === activeIdx;
                 const isSelected = String(opt.value) === String(value);
+                const showGroupHeader =
+                  opt.group != null && opt.group !== (filtered[idx - 1]?.group ?? null);
 
                 return (
-                  <button
-                    key={`${opt.value}-${idx}`}
-                    type="button"
-                    onMouseEnter={() => setActiveIdx(idx)}
-                    onClick={() => {
-                      onChange(opt.value);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] transition-colors',
-                      active ? 'bg-[#F5F5F5] text-[#0A0A0A]' : 'text-[#404040] hover:bg-[#F5F5F5]'
+                  <div key={`${opt.value}-${idx}`}>
+                    {showGroupHeader && (
+                      <div
+                        className={cn(
+                          'px-2.5 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[#A3A3A3]',
+                          idx > 0 && 'mt-1 border-t border-[#F0F0F0]'
+                        )}
+                      >
+                        {opt.group}
+                      </div>
                     )}
-                  >
-                    {renderAvatar(opt)}
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium leading-tight">{opt.label}</span>
-                      {opt.hint && (
-                        <span className="truncate text-[11px] text-[#737373]">{opt.hint}</span>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] transition-colors',
+                        active ? 'bg-[#F5F5F5] text-[#0A0A0A]' : 'text-[#404040] hover:bg-[#F5F5F5]'
                       )}
-                    </span>
-                    {isSelected && (
-                      <Check className="h-3.5 w-3.5 shrink-0 text-[#10B981]" strokeWidth={2.5} />
-                    )}
-                  </button>
+                    >
+                      {renderAvatar(opt)}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-medium leading-tight">{opt.label}</span>
+                        {opt.hint && (
+                          <span className="truncate text-[11px] text-[#737373]">{opt.hint}</span>
+                        )}
+                      </span>
+                      {isSelected && (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-[#10B981]" strokeWidth={2.5} />
+                      )}
+                    </button>
+                  </div>
                 );
               })
             )}

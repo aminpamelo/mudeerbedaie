@@ -123,6 +123,7 @@ it('session-slot create page exposes host-platform pivot options to the UI', fun
         ->has('hostPlatformPivots', 1)
         ->where('hostPlatformPivots.0.id', $this->pivot->id)
         ->where('hostPlatformPivots.0.userId', $this->host->id)
+        ->where('hostPlatformPivots.0.userName', $this->host->name)
         ->where('hostPlatformPivots.0.platformAccountId', $this->account->id)
         ->where('hostPlatformPivots.0.creatorHandle', '@amar')
         ->where('hostPlatformPivots.0.isPrimary', true)
