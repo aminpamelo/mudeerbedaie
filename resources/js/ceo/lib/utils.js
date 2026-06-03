@@ -1,29 +1,55 @@
 /**
  * Minimal className combiner — joins truthy class fragments with a space.
- * Kept local to the CEO bundle so it shares nothing with the livehost app.
+ * Local to the CEO bundle so it shares nothing with the livehost app.
  */
 export function cn(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
-const TONE_TEXT = {
-  positive: 'text-[var(--color-emerald-ink)]',
-  warning: 'text-[var(--color-amber-ink)]',
-  negative: 'text-[var(--color-rose-ink)]',
-  muted: 'text-muted',
-};
-
-/** Map a metric tone to a text-color class. Falls back to ink. */
-export function toneText(tone) {
-  return TONE_TEXT[tone] ?? 'text-ink';
+/** Map a semantic tone to its vibrant hex (for SVG strokes / inline styles). */
+export function toneColor(tone) {
+  switch (tone) {
+    case 'positive':
+      return 'var(--color-emerald)';
+    case 'warning':
+      return 'var(--color-amber)';
+    case 'negative':
+      return 'var(--color-rose)';
+    case 'info':
+      return 'var(--color-sky)';
+    case 'muted':
+      return 'var(--color-muted-2)';
+    default:
+      return 'var(--color-ink)';
+  }
 }
 
-const SEVERITY = {
-  critical: { dot: 'bg-[var(--color-rose)]', text: 'text-[var(--color-rose-ink)]', soft: 'bg-[var(--color-rose-soft)]' },
-  warning: { dot: 'bg-[var(--color-amber)]', text: 'text-[var(--color-amber-ink)]', soft: 'bg-[var(--color-amber-soft)]' },
-  info: { dot: 'bg-[var(--color-sky)]', text: 'text-[var(--color-sky-ink)]', soft: 'bg-[var(--color-sky-soft)]' },
-};
+/** Map a metric tone to a text-color class for big numbers. */
+export function toneText(tone) {
+  switch (tone) {
+    case 'positive':
+      return 'text-[var(--color-emerald-ink)]';
+    case 'warning':
+      return 'text-[var(--color-amber-ink)]';
+    case 'negative':
+      return 'text-[var(--color-rose-ink)]';
+    case 'info':
+      return 'text-[var(--color-sky-ink)]';
+    case 'muted':
+      return 'text-muted';
+    default:
+      return 'text-ink';
+  }
+}
 
-export function severityStyles(severity) {
-  return SEVERITY[severity] ?? SEVERITY.info;
+export function initialsFrom(name) {
+  if (!name) return '?';
+  return (
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '?'
+  );
 }

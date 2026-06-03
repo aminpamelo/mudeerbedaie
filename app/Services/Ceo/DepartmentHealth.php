@@ -28,6 +28,8 @@ final class DepartmentHealth
      * @param  array<int, int|float>  $trend
      * @param  array<int, Alert>  $alerts
      * @param  array<string, int|float>  $extra
+     * @param  array<int, array{label: string, value: int, target?: int, suffix?: string, tone?: string}>  $gauges
+     * @param  array<int, array{label: string, value: int|float, max: int|float, valueLabel?: string, tone?: string}>  $bars
      */
     public function __construct(
         public readonly string $key,
@@ -39,6 +41,8 @@ final class DepartmentHealth
         public readonly array $trend = [],
         public readonly array $alerts = [],
         public readonly array $extra = [],
+        public readonly array $gauges = [],
+        public readonly array $bars = [],
     ) {}
 
     /**
@@ -74,6 +78,8 @@ final class DepartmentHealth
             'metrics' => $this->metrics,
             'trend' => $this->trend,
             'alerts' => $this->alerts,
+            'gauges' => $this->gauges,
+            'bars' => $this->bars,
         ];
     }
 }

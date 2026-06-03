@@ -64,10 +64,24 @@ final class CeoPeriod
 
     public function label(): string
     {
-        return match ($this->key) {
-            '7d' => 'Last 7 days',
-            '30d' => 'Last 30 days',
-            default => 'Today',
-        };
+        return __('ceo.periods.'.$this->key);
+    }
+
+    /**
+     * Shape consumed by the period switcher on every CEO page.
+     *
+     * @return array{key: string, label: string, options: array<int, array{key: string, label: string}>}
+     */
+    public function toPayload(): array
+    {
+        return [
+            'key' => $this->key,
+            'label' => $this->label(),
+            'options' => [
+                ['key' => 'today', 'label' => __('ceo.periods.today')],
+                ['key' => '7d', 'label' => __('ceo.periods.7d')],
+                ['key' => '30d', 'label' => __('ceo.periods.30d')],
+            ],
+        ];
     }
 }

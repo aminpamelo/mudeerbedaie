@@ -44,15 +44,15 @@ class EducationHealthReport
 
         return new DepartmentHealth(
             key: 'education',
-            label: 'Education',
+            label: __('ceo.departments.education'),
             accent: 'sky',
             status: $status,
             href: '/admin/classes',
             metrics: [
-                ['label' => 'Sessions today', 'value' => $completedToday.' / '.$scheduledToday, 'hint' => 'completed / scheduled'],
-                ['label' => 'Attendance', 'value' => $attendance === null ? '—' : $attendance.'%', 'hint' => strtolower($period->label()), 'tone' => $this->attendanceTone($attendance)],
-                ['label' => 'No-shows', 'value' => (string) $noShows, 'tone' => $noShows > 0 ? 'warning' : 'muted'],
-                ['label' => 'New enrollments', 'value' => (string) $newEnrollments, 'hint' => strtolower($period->label())],
+                ['label' => __('ceo.metrics.sessions_today'), 'value' => $completedToday.' / '.$scheduledToday, 'hint' => __('ceo.hints.completed_scheduled')],
+                ['label' => __('ceo.metrics.attendance'), 'value' => $attendance === null ? '—' : $attendance.'%', 'hint' => mb_strtolower($period->label()), 'tone' => $this->attendanceTone($attendance)],
+                ['label' => __('ceo.metrics.no_shows'), 'value' => (string) $noShows, 'tone' => $noShows > 0 ? 'warning' : 'muted'],
+                ['label' => __('ceo.metrics.new_enrollments'), 'value' => (string) $newEnrollments, 'hint' => mb_strtolower($period->label())],
             ],
             trend: $this->dailyTrend($period),
             alerts: $this->alerts($noShows, $cancelled),
@@ -61,7 +61,109 @@ class EducationHealthReport
                 'sessionsScheduledToday' => $scheduledToday,
                 'attendanceRate' => $attendance ?? 0,
             ],
+            gauges: [
+                ['label' => __('ceo.metrics.attendance'), 'value' => $attendance ?? 0, 'target' => 80, 'suffix' => '%', 'tone' => $this->attendanceTone($attendance)],
+            ],
+            bars: [
+                ['label' => __('ceo.metrics.sessions_today'), 'value' => $completedToday, 'max' => max($scheduledToday, 1), 'valueLabel' => $completedToday.' / '.$scheduledToday, 'tone' => 'info'],
+            ],
         );
+    }
+
+    /**
+     * Rich drill-in payload for the dedicated Education detail page.
+     *
+     * @return array<string, mixed>
+     */
+    public function detail(CeoPeriod $period): array
+    {
+        $health = $this->run($period);
+        $from = $period->from->toDateString();
+        $to = $period->to->toDateString();
+
+        $statusCounts = ClassSession::query()
+            ->whereBetween('session_date', [$from, $to])
+            ->selectRaw('status, COUNT(*) as c')
+            ->groupBy('status')
+            ->pluck('c', 'status');
+
+        $attendanceSplit = DB::table('class_attendance')
+            ->join('class_sessions', 'class_sessions.id', '=', 'class_attendance.session_id')
+            ->whereBetween('class_sessions.session_date', [$from, $to])
+            ->selectRaw('class_attendance.status, COUNT(*) as c')
+            ->groupBy('class_attendance.status')
+            ->pluck('c', 'status');
+
+        $newEnrollments = (int) Enrollment::query()->whereBetween('enrollment_date', [$from, $to])->count();
+        $activeEnrollments = (int) Enrollment::query()->where('status', 'enrolled')->count();
+
+        $topCourses = Enrollment::query()
+            ->join('courses', 'courses.id', '=', 'enrollments.course_id')
+            ->whereBetween('enrollments.enrollment_date', [$from, $to])
+            ->groupBy('enrollments.course_id', 'courses.name')
+            ->selectRaw('courses.name as name, COUNT(*) as enrolments')
+            ->orderByDesc('enrolments')
+            ->limit(6)
+            ->get();
+
+        return [
+            'key' => $health->key,
+            'label' => $health->label,
+            'accent' => $health->accent,
+            'status' => $health->status,
+            'moduleHref' => '/admin/classes',
+            'moduleLabel' => __('ceo.modules.education'),
+            'gauges' => $health->gauges,
+            'alerts' => $health->alerts,
+            'kpis' => [
+                ['label' => __('ceo.metrics.sessions_today'), 'value' => $health->extra['sessionsCompletedToday'].' / '.$health->extra['sessionsScheduledToday'], 'hint' => __('ceo.hints.completed_scheduled')],
+                ['label' => __('ceo.metrics.attendance'), 'value' => $health->extra['attendanceRate'] > 0 ? $health->extra['attendanceRate'].'%' : '—', 'hint' => mb_strtolower($period->label())],
+                ['label' => __('ceo.metrics.no_shows'), 'value' => (string) ((int) ($statusCounts['no_show'] ?? 0)), 'tone' => ($statusCounts['no_show'] ?? 0) > 0 ? 'warning' : 'muted'],
+                ['label' => __('ceo.metrics.cancelled'), 'value' => (string) ((int) ($statusCounts['cancelled'] ?? 0))],
+                ['label' => __('ceo.metrics.new_enrollments'), 'value' => (string) $newEnrollments, 'hint' => mb_strtolower($period->label())],
+                ['label' => __('ceo.metrics.active_enrollments'), 'value' => (string) $activeEnrollments],
+            ],
+            'sections' => [
+                [
+                    'type' => 'chart',
+                    'title' => __('ceo.sections.completed_sessions'),
+                    'subtitle' => mb_strtolower($period->label()),
+                    'data' => $health->trend,
+                ],
+                [
+                    'type' => 'breakdown',
+                    'title' => __('ceo.sections.sessions_by_status'),
+                    'segments' => [
+                        ['label' => __('ceo.segments.completed'), 'value' => (int) ($statusCounts['completed'] ?? 0), 'tone' => 'positive'],
+                        ['label' => __('ceo.segments.scheduled'), 'value' => (int) ($statusCounts['scheduled'] ?? 0), 'tone' => 'info'],
+                        ['label' => __('ceo.segments.no_show'), 'value' => (int) ($statusCounts['no_show'] ?? 0), 'tone' => 'warning'],
+                        ['label' => __('ceo.segments.cancelled'), 'value' => (int) ($statusCounts['cancelled'] ?? 0), 'tone' => 'negative'],
+                    ],
+                ],
+                [
+                    'type' => 'breakdown',
+                    'title' => __('ceo.sections.attendance_split'),
+                    'segments' => [
+                        ['label' => __('ceo.segments.present'), 'value' => (int) ($attendanceSplit['present'] ?? 0), 'tone' => 'positive'],
+                        ['label' => __('ceo.segments.late'), 'value' => (int) ($attendanceSplit['late'] ?? 0), 'tone' => 'warning'],
+                        ['label' => __('ceo.segments.absent'), 'value' => (int) ($attendanceSplit['absent'] ?? 0), 'tone' => 'negative'],
+                    ],
+                ],
+                [
+                    'type' => 'list',
+                    'title' => __('ceo.sections.top_courses'),
+                    'subtitle' => __('ceo.subtitles.by_new_enrollments'),
+                    'columns' => [
+                        ['key' => 'name', 'label' => __('ceo.columns.course')],
+                        ['key' => 'enrolments', 'label' => __('ceo.columns.enrolments'), 'align' => 'right'],
+                    ],
+                    'rows' => $topCourses->map(fn ($r) => [
+                        'name' => (string) $r->name,
+                        'enrolments' => (int) $r->enrolments,
+                    ])->all(),
+                ],
+            ],
+        ];
     }
 
     /**
@@ -121,7 +223,7 @@ class EducationHealthReport
         if ($noShows > 0) {
             $alerts[] = [
                 'severity' => 'warning',
-                'message' => $noShows.' class '.($noShows === 1 ? 'session' : 'sessions').' marked no-show',
+                'message' => trans_choice('ceo.alerts.no_shows', $noShows, ['count' => $noShows]),
                 'href' => '/admin/classes',
             ];
         }
@@ -129,7 +231,7 @@ class EducationHealthReport
         if ($cancelled > 3) {
             $alerts[] = [
                 'severity' => 'info',
-                'message' => $cancelled.' classes cancelled this period',
+                'message' => trans_choice('ceo.alerts.classes_cancelled', $cancelled, ['count' => $cancelled]),
                 'href' => '/admin/classes',
             ];
         }

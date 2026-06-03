@@ -42,11 +42,8 @@ class CeoDashboardService
         ];
 
         return [
-            'period' => [
-                'key' => $period->key,
-                'label' => $period->label(),
-                'options' => $this->periodOptions(),
-            ],
+            'period' => $period->toPayload(),
+            'health' => $this->opsHealth($departments),
             'pulse' => $this->pulse($departments, $period),
             'departments' => array_values(array_map(fn (DepartmentHealth $d) => $d->toArray(), $departments)),
             'attention' => $this->attention($departments),
@@ -55,7 +52,75 @@ class CeoDashboardService
 
     private function cached(string $key, CeoPeriod $period, \Closure $callback): DepartmentHealth
     {
-        return Cache::remember("ceo:health:{$key}:{$period->key}", self::CACHE_TTL, $callback);
+        return Cache::remember("ceo:health:{$key}:{$period->key}:".app()->getLocale(), self::CACHE_TTL, $callback);
+    }
+
+    /**
+     * Rich drill-in payload for a single department's detail page, or null when
+     * the key is unknown (so the controller can 404).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function departmentDetail(string $key, CeoPeriod $period): ?array
+    {
+        $report = match ($key) {
+            'livehost' => $this->liveHost,
+            'education' => $this->education,
+            'ecommerce' => $this->ecommerce,
+            'hr' => $this->hr,
+            default => null,
+        };
+
+        if ($report === null) {
+            return null;
+        }
+
+        return Cache::remember("ceo:detail:{$key}:{$period->key}:".app()->getLocale(), self::CACHE_TTL, fn () => $report->detail($period));
+    }
+
+    /**
+     * Single composite "Operations Health" score (0-100) shown as the hero
+     * gauge — the one number that answers "how is the company running right
+     * now?". Each department's traffic-light status is scored and averaged;
+     * red departments drag the score down hard so a single fire is visible.
+     *
+     * @param  array<string, DepartmentHealth>  $departments
+     * @return array<string, mixed>
+     */
+    private function opsHealth(array $departments): array
+    {
+        $scoreFor = [
+            DepartmentHealth::GREEN => 100,
+            DepartmentHealth::AMBER => 62,
+            DepartmentHealth::RED => 28,
+        ];
+
+        $scores = array_map(fn (DepartmentHealth $d) => $scoreFor[$d->status] ?? 62, $departments);
+        $overall = count($scores) > 0 ? (int) round(array_sum($scores) / count($scores)) : 100;
+
+        $worst = DepartmentHealth::worst(array_map(fn (DepartmentHealth $d) => $d->status, $departments));
+        $counts = [
+            'green' => count(array_filter($departments, fn (DepartmentHealth $d) => $d->status === DepartmentHealth::GREEN)),
+            'amber' => count(array_filter($departments, fn (DepartmentHealth $d) => $d->status === DepartmentHealth::AMBER)),
+            'red' => count(array_filter($departments, fn (DepartmentHealth $d) => $d->status === DepartmentHealth::RED)),
+        ];
+
+        return [
+            'score' => $overall,
+            'status' => $worst,
+            'label' => match (true) {
+                $overall >= 85 => __('ceo.health.all_healthy'),
+                $overall >= 60 => __('ceo.health.watch_items'),
+                default => __('ceo.health.needs_attention'),
+            },
+            'counts' => $counts,
+            'segments' => array_values(array_map(fn (DepartmentHealth $d) => [
+                'key' => $d->key,
+                'label' => $d->label,
+                'status' => $d->status,
+                'accent' => $d->accent,
+            ], $departments)),
+        ];
     }
 
     /**
@@ -80,40 +145,40 @@ class CeoDashboardService
         return [
             [
                 'key' => 'liveNow',
-                'label' => 'Live now',
+                'label' => __('ceo.metrics.live_now'),
                 'value' => (string) $liveNow,
                 'tone' => $liveNow > 0 ? 'positive' : 'muted',
                 'live' => $liveNow > 0,
             ],
             [
                 'key' => 'sessionsToday',
-                'label' => 'Sessions today',
+                'label' => __('ceo.metrics.sessions_today'),
                 'value' => $sessionsDone.' / '.$sessionsPlanned,
-                'hint' => 'done / scheduled',
+                'hint' => __('ceo.hints.done_scheduled'),
             ],
             [
                 'key' => 'attendance',
-                'label' => 'Staff attendance',
+                'label' => __('ceo.metrics.staff_attendance'),
                 'value' => $attendance > 0 ? $attendance.'%' : '—',
-                'hint' => 'today',
+                'hint' => mb_strtolower(__('ceo.periods.today')),
                 'tone' => $this->rateTone($attendance),
             ],
             [
                 'key' => 'headcount',
-                'label' => 'Active staff',
+                'label' => __('ceo.metrics.active_staff'),
                 'value' => (string) $headcount,
             ],
             [
                 'key' => 'attention',
-                'label' => 'Needs attention',
+                'label' => __('ceo.ui.needs_attention'),
                 'value' => (string) $attentionCount,
                 'tone' => $attentionCount > 0 ? 'warning' : 'positive',
             ],
             [
                 'key' => 'revenue',
-                'label' => 'Revenue',
+                'label' => __('ceo.metrics.revenue'),
                 'value' => 'RM '.number_format($revenue),
-                'hint' => strtolower($period->label()),
+                'hint' => mb_strtolower($period->label()),
                 'delta' => $this->revenueDelta($period, $revenue),
             ],
         ];
@@ -187,17 +252,5 @@ class CeoDashboardService
             $rate >= 70 => 'warning',
             default => 'negative',
         };
-    }
-
-    /**
-     * @return array<int, array{key: string, label: string}>
-     */
-    private function periodOptions(): array
-    {
-        return [
-            ['key' => 'today', 'label' => 'Today'],
-            ['key' => '7d', 'label' => 'Last 7 days'],
-            ['key' => '30d', 'label' => 'Last 30 days'],
-        ];
     }
 }

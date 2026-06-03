@@ -2,9 +2,8 @@ import { router } from '@inertiajs/react';
 import { cn } from '@/ceo/lib/utils';
 
 /**
- * Segmented control for the global time window. Posts the chosen period back to
- * the same route via Inertia, preserving scroll and replacing history so the
- * back button doesn't fill with period toggles.
+ * Segmented control for the global time window. Posts the chosen period to the
+ * same route via Inertia, preserving scroll.
  */
 export default function PeriodSwitcher({ period }) {
   const options = period?.options ?? [];
@@ -16,7 +15,7 @@ export default function PeriodSwitcher({ period }) {
   };
 
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-surface p-0.5">
+    <div className="glass inline-flex items-center gap-0.5 rounded-[12px] p-1">
       {options.map((option) => {
         const isActive = option.key === active;
         return (
@@ -25,8 +24,8 @@ export default function PeriodSwitcher({ period }) {
             type="button"
             onClick={() => select(option.key)}
             className={cn(
-              'rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium transition-colors',
-              isActive ? 'bg-ink text-white' : 'text-muted hover:bg-surface-2 hover:text-ink'
+              'rounded-[9px] px-3.5 py-1.5 text-[12.5px] font-semibold transition-all',
+              isActive ? 'bg-ink text-white shadow-[0_4px_14px_-4px_rgba(15,23,42,0.5)]' : 'text-muted hover:text-ink'
             )}
           >
             {option.label}

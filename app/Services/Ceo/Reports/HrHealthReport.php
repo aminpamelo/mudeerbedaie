@@ -37,15 +37,15 @@ class HrHealthReport
 
         return new DepartmentHealth(
             key: 'hr',
-            label: 'HR',
+            label: __('ceo.departments.hr'),
             accent: 'amber',
             status: $status,
             href: '/hr',
             metrics: [
-                ['label' => 'Active staff', 'value' => (string) $headcount, 'hint' => $onLeaveToday > 0 ? $onLeaveToday.' on leave today' : null],
-                ['label' => 'Attendance today', 'value' => $attendanceToday['rate'] === null ? '—' : $attendanceToday['rate'].'%', 'tone' => $this->attendanceTone($attendanceToday['rate'])],
-                ['label' => 'Late today', 'value' => (string) $attendanceToday['late'], 'tone' => $attendanceToday['late'] > 0 ? 'warning' : 'muted'],
-                ['label' => 'Pending approvals', 'value' => (string) ($pendingLeave + $pendingClaims), 'hint' => 'leave + claims'],
+                ['label' => __('ceo.metrics.active_staff'), 'value' => (string) $headcount, 'hint' => $onLeaveToday > 0 ? __('ceo.hints.on_leave_today', ['count' => $onLeaveToday]) : null],
+                ['label' => __('ceo.metrics.attendance_today'), 'value' => $attendanceToday['rate'] === null ? '—' : $attendanceToday['rate'].'%', 'tone' => $this->attendanceTone($attendanceToday['rate'])],
+                ['label' => __('ceo.metrics.late_today'), 'value' => (string) $attendanceToday['late'], 'tone' => $attendanceToday['late'] > 0 ? 'warning' : 'muted'],
+                ['label' => __('ceo.metrics.pending_approvals'), 'value' => (string) ($pendingLeave + $pendingClaims), 'hint' => __('ceo.hints.leave_claims')],
             ],
             trend: $this->dailyTrend($period),
             alerts: $this->alerts($pendingLeave, $pendingClaims, $attendanceToday),
@@ -54,7 +54,125 @@ class HrHealthReport
                 'onLeaveToday' => $onLeaveToday,
                 'attendanceRateToday' => $attendanceToday['rate'] ?? 0,
             ],
+            gauges: [
+                ['label' => __('ceo.metrics.attendance'), 'value' => $attendanceToday['rate'] ?? 0, 'target' => 90, 'suffix' => '%', 'tone' => $this->attendanceTone($attendanceToday['rate'])],
+            ],
+            bars: [
+                ['label' => __('ceo.metrics.pending_approvals'), 'value' => min($pendingLeave + $pendingClaims, 10), 'max' => 10, 'valueLabel' => __('ceo.hints.open_count', ['count' => $pendingLeave + $pendingClaims]), 'tone' => ($pendingLeave + $pendingClaims) > 5 ? 'warning' : 'positive'],
+            ],
         );
+    }
+
+    /**
+     * Rich drill-in payload for the dedicated HR detail page.
+     *
+     * @return array<string, mixed>
+     */
+    public function detail(CeoPeriod $period): array
+    {
+        $health = $this->run($period);
+        $today = CarbonImmutable::now()->startOfDay();
+
+        $todayStatus = AttendanceLog::query()
+            ->whereDate('date', $today)
+            ->selectRaw('status, COUNT(*) as c')
+            ->groupBy('status')
+            ->pluck('c', 'status');
+
+        $pendingLeave = (int) LeaveRequest::query()->where('status', 'pending')->count();
+        $pendingClaims = (int) ClaimRequest::query()->where('status', 'pending')->count();
+        $onLeaveToday = $this->onLeaveToday($today);
+        $lateToday = (int) ($todayStatus['late'] ?? 0);
+
+        $byDepartment = Employee::query()
+            ->join('departments', 'departments.id', '=', 'employees.department_id')
+            ->whereNotIn('employees.status', self::INACTIVE_STATUSES)
+            ->groupBy('employees.department_id', 'departments.name')
+            ->selectRaw('departments.name as name, COUNT(*) as headcount')
+            ->orderByDesc('headcount')
+            ->limit(6)
+            ->get();
+
+        $pendingApprovals = LeaveRequest::query()
+            ->join('employees', 'employees.id', '=', 'leave_requests.employee_id')
+            ->where('leave_requests.status', 'pending')
+            ->selectRaw("employees.full_name as name, 'leave' as kind, leave_requests.start_date as on_date")
+            ->limit(10)
+            ->get()
+            ->concat(
+                ClaimRequest::query()
+                    ->join('employees', 'employees.id', '=', 'claim_requests.employee_id')
+                    ->where('claim_requests.status', 'pending')
+                    ->selectRaw("employees.full_name as name, 'claim' as kind, claim_requests.claim_date as on_date")
+                    ->limit(10)
+                    ->get()
+            )
+            ->take(8);
+
+        return [
+            'key' => $health->key,
+            'label' => $health->label,
+            'accent' => $health->accent,
+            'status' => $health->status,
+            'moduleHref' => '/hr',
+            'moduleLabel' => __('ceo.modules.hr'),
+            'gauges' => $health->gauges,
+            'alerts' => $health->alerts,
+            'kpis' => [
+                ['label' => __('ceo.metrics.active_staff'), 'value' => (string) $health->extra['headcount']],
+                ['label' => __('ceo.metrics.attendance_today'), 'value' => $health->extra['attendanceRateToday'] > 0 ? $health->extra['attendanceRateToday'].'%' : '—'],
+                ['label' => __('ceo.metrics.late_today'), 'value' => (string) $lateToday, 'tone' => $lateToday > 0 ? 'warning' : 'muted'],
+                ['label' => __('ceo.metrics.on_leave_today'), 'value' => (string) $onLeaveToday],
+                ['label' => __('ceo.metrics.pending_leave'), 'value' => (string) $pendingLeave, 'tone' => $pendingLeave > 5 ? 'warning' : 'muted'],
+                ['label' => __('ceo.metrics.pending_claims'), 'value' => (string) $pendingClaims, 'tone' => $pendingClaims > 0 ? 'warning' : 'muted'],
+            ],
+            'sections' => [
+                [
+                    'type' => 'chart',
+                    'title' => __('ceo.sections.staff_present'),
+                    'subtitle' => mb_strtolower($period->label()),
+                    'data' => $health->trend,
+                ],
+                [
+                    'type' => 'breakdown',
+                    'title' => __('ceo.sections.attendance_today'),
+                    'segments' => [
+                        ['label' => __('ceo.segments.present'), 'value' => (int) ($todayStatus['present'] ?? 0) + (int) ($todayStatus['wfh'] ?? 0), 'tone' => 'positive'],
+                        ['label' => __('ceo.segments.late'), 'value' => (int) ($todayStatus['late'] ?? 0), 'tone' => 'warning'],
+                        ['label' => __('ceo.segments.absent'), 'value' => (int) ($todayStatus['absent'] ?? 0), 'tone' => 'negative'],
+                        ['label' => __('ceo.segments.on_leave'), 'value' => (int) ($todayStatus['on_leave'] ?? 0), 'tone' => 'info'],
+                    ],
+                ],
+                [
+                    'type' => 'list',
+                    'title' => __('ceo.sections.headcount_by_department'),
+                    'subtitle' => __('ceo.subtitles.active_staff'),
+                    'columns' => [
+                        ['key' => 'name', 'label' => __('ceo.columns.department')],
+                        ['key' => 'headcount', 'label' => __('ceo.columns.staff'), 'align' => 'right'],
+                    ],
+                    'rows' => $byDepartment->map(fn ($r) => [
+                        'name' => (string) $r->name,
+                        'headcount' => (int) $r->headcount,
+                    ])->all(),
+                ],
+                [
+                    'type' => 'list',
+                    'title' => __('ceo.sections.pending_approvals'),
+                    'subtitle' => __('ceo.subtitles.leave_claims'),
+                    'columns' => [
+                        ['key' => 'name', 'label' => __('ceo.columns.employee')],
+                        ['key' => 'kind', 'label' => __('ceo.columns.type')],
+                        ['key' => 'on_date', 'label' => __('ceo.columns.date'), 'align' => 'right'],
+                    ],
+                    'rows' => $pendingApprovals->map(fn ($r) => [
+                        'name' => (string) $r->name,
+                        'kind' => __('ceo.kinds.'.$r->kind),
+                        'on_date' => $r->on_date ? substr((string) $r->on_date, 0, 10) : '—',
+                    ])->values()->all(),
+                ],
+            ],
+        ];
     }
 
     /**
@@ -127,7 +245,7 @@ class HrHealthReport
         if ($pendingLeave > 0) {
             $alerts[] = [
                 'severity' => $pendingLeave > 5 ? 'warning' : 'info',
-                'message' => $pendingLeave.' leave '.($pendingLeave === 1 ? 'request' : 'requests').' awaiting approval',
+                'message' => trans_choice('ceo.alerts.leave_pending', $pendingLeave, ['count' => $pendingLeave]),
                 'href' => '/hr',
             ];
         }
@@ -135,7 +253,7 @@ class HrHealthReport
         if ($pendingClaims > 0) {
             $alerts[] = [
                 'severity' => 'info',
-                'message' => $pendingClaims.' expense '.($pendingClaims === 1 ? 'claim' : 'claims').' awaiting approval',
+                'message' => trans_choice('ceo.alerts.claims_pending', $pendingClaims, ['count' => $pendingClaims]),
                 'href' => '/hr',
             ];
         }
@@ -143,7 +261,7 @@ class HrHealthReport
         if ($attendance['absent'] > 0 && $attendance['rate'] !== null && $attendance['rate'] < 90) {
             $alerts[] = [
                 'severity' => 'warning',
-                'message' => $attendance['absent'].' staff absent today',
+                'message' => trans_choice('ceo.alerts.staff_absent', $attendance['absent'], ['count' => $attendance['absent']]),
                 'href' => '/hr',
             ];
         }

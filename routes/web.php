@@ -258,6 +258,11 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
     ->group(function () {
         Route::get('/', [\App\Http\Controllers\Ceo\DashboardController::class, 'index'])
             ->name('dashboard');
+        Route::post('locale', [\App\Http\Controllers\Ceo\DashboardController::class, 'setLocale'])
+            ->name('locale');
+        Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
+            ->where('department', 'livehost|education|ecommerce|hr')
+            ->name('department');
     });
 
 // Live Host PIC (Inertia) — shared surface for admin + admin_livehost + livehost_assistant,

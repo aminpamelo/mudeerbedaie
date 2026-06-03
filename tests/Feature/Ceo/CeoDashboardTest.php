@@ -57,11 +57,16 @@ describe('dashboard payload', function () {
                 ->component('Dashboard', false)
                 ->has('period.key')
                 ->has('period.options', 3)
+                ->has('health.score')
+                ->has('health.status')
+                ->has('health.segments', 4)
                 ->has('pulse', 6)
                 ->has('departments', 4)
                 ->has('attention')
                 ->has('departments.0.status')
                 ->has('departments.0.metrics')
+                ->has('departments.0.gauges')
+                ->has('departments.0.bars')
             );
     });
 
@@ -73,6 +78,76 @@ describe('dashboard payload', function () {
 
         $this->actingAs($ceo)->get('/ceo?period=30d')
             ->assertInertia(fn (Assert $page) => $page->where('period.key', '30d'));
+    });
+});
+
+describe('localization', function () {
+    it('defaults the CEO dashboard to Malay', function () {
+        $ceo = User::factory()->create(['role' => 'ceo']);
+
+        $this->actingAs($ceo)
+            ->get('/ceo')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('ceoLocale', 'ms')
+                ->where('period.label', 'Hari ini')
+                ->has('i18n.company_overview')
+            );
+    });
+
+    it('switches to English and back via the locale endpoint', function () {
+        $ceo = User::factory()->create(['role' => 'ceo']);
+
+        $this->actingAs($ceo)->post('/ceo/locale', ['locale' => 'en'])->assertRedirect();
+
+        $this->actingAs($ceo)->get('/ceo')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('ceoLocale', 'en')
+                ->where('period.label', 'Today')
+            );
+
+        $this->actingAs($ceo)->post('/ceo/locale', ['locale' => 'ms'])->assertRedirect();
+
+        $this->actingAs($ceo)->get('/ceo')
+            ->assertInertia(fn (Assert $page) => $page->where('ceoLocale', 'ms'));
+    });
+
+    it('ignores an unsupported locale and keeps the default', function () {
+        $ceo = User::factory()->create(['role' => 'ceo']);
+
+        $this->actingAs($ceo)->post('/ceo/locale', ['locale' => 'fr'])->assertRedirect();
+
+        $this->actingAs($ceo)->get('/ceo')
+            ->assertInertia(fn (Assert $page) => $page->where('ceoLocale', 'ms'));
+    });
+});
+
+describe('department detail pages', function () {
+    it('forbids non-executive roles from detail pages', function () {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        $this->actingAs($teacher)->get('/ceo/livehost')->assertForbidden();
+    });
+
+    it('renders the detail page for each department', function (string $key) {
+        $ceo = User::factory()->create(['role' => 'ceo']);
+
+        $this->actingAs($ceo)
+            ->get("/ceo/{$key}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('DepartmentDetail', false)
+                ->where('department.key', $key)
+                ->has('department.kpis', 6)
+                ->has('department.gauges')
+                ->has('department.sections')
+                ->has('period.key')
+            );
+    })->with(['livehost', 'education', 'ecommerce', 'hr']);
+
+    it('404s for an unknown department', function () {
+        $ceo = User::factory()->create(['role' => 'ceo']);
+
+        $this->actingAs($ceo)->get('/ceo/marketing')->assertNotFound();
     });
 });
 
