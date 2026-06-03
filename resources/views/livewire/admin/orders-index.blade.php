@@ -19,6 +19,10 @@ new class extends Component
 
     public $studentFilter = '';
 
+    public $studentSearch = '';
+
+    public $studentName = '';
+
     public $paymentMethodFilter = '';
 
     public $enrollmentFilter = '';
@@ -37,6 +41,30 @@ new class extends Component
         'sortBy' => ['except' => 'created_at'],
         'sortDirection' => ['except' => 'desc'],
     ];
+
+    public function mount(): void
+    {
+        if ($this->studentFilter) {
+            $this->studentName = Student::with('user:id,name')
+                ->find($this->studentFilter)?->user?->name ?? '';
+        }
+    }
+
+    public function selectStudent($id, $name): void
+    {
+        $this->studentFilter = (string) $id;
+        $this->studentName = $name;
+        $this->studentSearch = '';
+        $this->resetPage();
+    }
+
+    public function clearStudent(): void
+    {
+        $this->studentFilter = '';
+        $this->studentName = '';
+        $this->studentSearch = '';
+        $this->resetPage();
+    }
 
     public function updatingSearch()
     {
@@ -84,6 +112,8 @@ new class extends Component
         $this->statusFilter = '';
         $this->courseFilter = '';
         $this->studentFilter = '';
+        $this->studentSearch = '';
+        $this->studentName = '';
         $this->paymentMethodFilter = '';
         $this->enrollmentFilter = '';
         $this->resetPage();
@@ -133,20 +163,42 @@ new class extends Component
             'courses' => Cache::remember('admin.orders.courses', now()->addMinutes(5), function () {
                 return Course::orderBy('name')->get(['id', 'name']);
             }),
-            'students' => Cache::remember('admin.orders.students', now()->addMinutes(5), function () {
-                return Student::query()
-                    ->with('user:id,name')
-                    ->get(['id', 'user_id'])
-                    ->map(function ($student) {
-                        return (object) [
-                            'id' => $student->id,
-                            'name' => $student->user?->name ?? 'No User Assigned',
-                        ];
-                    });
-            }),
+            'studentResults' => $this->searchStudents(),
             'orderStatuses' => Order::getStatuses(),
             'paymentMethods' => Order::getPaymentMethods(),
         ], $this->summaryStats());
+    }
+
+    /**
+     * Bounded student lookup for the searchable filter.
+     *
+     * Never loads the full student table — only up to 50 matches for the
+     * current search term — to keep the page memory-safe at any scale.
+     *
+     * @return \Illuminate\Support\Collection<int, object{id: int, name: string}>
+     */
+    protected function searchStudents(): \Illuminate\Support\Collection
+    {
+        $term = trim($this->studentSearch);
+
+        if (strlen($term) < 2) {
+            return collect();
+        }
+
+        return Student::query()
+            ->whereHas('user', function ($q) use ($term) {
+                $q->where('name', 'like', '%'.$term.'%')
+                    ->orWhere('email', 'like', '%'.$term.'%');
+            })
+            ->with('user:id,name,email')
+            ->limit(50)
+            ->get(['id', 'user_id'])
+            ->map(function ($student) {
+                return (object) [
+                    'id' => $student->id,
+                    'name' => $student->user?->name ?? 'No User Assigned',
+                ];
+            });
     }
 
     /**
@@ -283,12 +335,42 @@ new class extends Component
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="studentFilter">
-                <flux:select.option value="">All Students</flux:select.option>
-                @foreach($students as $student)
-                    <flux:select.option value="{{ $student->id }}">{{ $student->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                @if($studentFilter)
+                    <div class="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-zinc-700 px-3 py-2">
+                        <span class="truncate text-sm">{{ $studentName ?: 'Selected student' }}</span>
+                        <button type="button" wire:click="clearStudent" class="text-gray-400 hover:text-gray-600">
+                            <flux:icon name="x-mark" class="w-4 h-4" />
+                        </button>
+                    </div>
+                @else
+                    <flux:input
+                        wire:model.live.debounce.300ms="studentSearch"
+                        placeholder="Search student..."
+                        @focus="open = true"
+                        x-on:input="open = true"
+                    />
+                    <div
+                        x-show="open && $wire.studentSearch.length >= 2"
+                        x-cloak
+                        class="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+                    >
+                        @forelse($studentResults as $student)
+                            <button
+                                type="button"
+                                wire:key="student-opt-{{ $student->id }}"
+                                wire:click="selectStudent({{ $student->id }}, @js($student->name))"
+                                @click="open = false"
+                                class="block w-full truncate px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-700"
+                            >
+                                {{ $student->name }}
+                            </button>
+                        @empty
+                            <div class="px-3 py-2 text-sm text-gray-500">No students found.</div>
+                        @endforelse
+                    </div>
+                @endif
+            </div>
 
             <flux:select wire:model.live="paymentMethodFilter">
                 <flux:select.option value="">All Payment Methods</flux:select.option>
