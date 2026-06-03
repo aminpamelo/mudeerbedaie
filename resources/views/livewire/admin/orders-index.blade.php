@@ -1,5 +1,6 @@
 <?php
 use App\Models\Course;
+use App\Models\Enrollment;
 use App\Models\Order;
 use App\Models\Student;
 use Livewire\Volt\Component;
@@ -19,6 +20,8 @@ new class extends Component
 
     public $paymentMethodFilter = '';
 
+    public $enrollmentFilter = '';
+
     public $sortBy = 'created_at';
 
     public $sortDirection = 'desc';
@@ -29,6 +32,7 @@ new class extends Component
         'courseFilter' => ['except' => ''],
         'studentFilter' => ['except' => ''],
         'paymentMethodFilter' => ['except' => ''],
+        'enrollmentFilter' => ['except' => '', 'as' => 'enrollment'],
         'sortBy' => ['except' => 'created_at'],
         'sortDirection' => ['except' => 'desc'],
     ];
@@ -58,6 +62,11 @@ new class extends Component
         $this->resetPage();
     }
 
+    public function updatingEnrollmentFilter()
+    {
+        $this->resetPage();
+    }
+
     public function sortBy($field)
     {
         if ($this->sortBy === $field) {
@@ -75,6 +84,7 @@ new class extends Component
         $this->courseFilter = '';
         $this->studentFilter = '';
         $this->paymentMethodFilter = '';
+        $this->enrollmentFilter = '';
         $this->resetPage();
     }
 
@@ -87,13 +97,15 @@ new class extends Component
     public function with(): array
     {
         $query = Order::query()
-            ->with(['student.user', 'course', 'enrollment'])
+            ->with(['student.user:id,name,email', 'course:id,name'])
             ->when($this->search, function ($query) {
-                $query->whereHas('student.user', function ($q) {
-                    $q->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('email', 'like', '%'.$this->search.'%');
-                })->orWhere('order_number', 'like', '%'.$this->search.'%')
-                    ->orWhere('stripe_invoice_id', 'like', '%'.$this->search.'%');
+                $query->where(function ($q) {
+                    $q->whereHas('student.user', function ($sub) {
+                        $sub->where('name', 'like', '%'.$this->search.'%')
+                            ->orWhere('email', 'like', '%'.$this->search.'%');
+                    })->orWhere('order_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('stripe_invoice_id', 'like', '%'.$this->search.'%');
+                });
             })
             ->when($this->statusFilter, function ($query) {
                 $query->where('status', $this->statusFilter);
@@ -107,22 +119,36 @@ new class extends Component
             ->when($this->paymentMethodFilter, function ($query) {
                 $query->where('payment_method', $this->paymentMethodFilter);
             })
+            ->when($this->enrollmentFilter, function ($query) {
+                $query->where('enrollment_id', $this->enrollmentFilter);
+            })
             ->orderBy($this->sortBy, $this->sortDirection);
+
+        $methodCounts = Order::query()
+            ->selectRaw('payment_method, COUNT(*) as aggregate')
+            ->groupBy('payment_method')
+            ->pluck('aggregate', 'payment_method');
 
         return [
             'orders' => $query->paginate(15),
+            'activeEnrollment' => $this->enrollmentFilter
+                ? Enrollment::with(['student.user:id,name', 'course:id,name'])->find($this->enrollmentFilter)
+                : null,
             'totalRevenue' => Order::paid()->sum('amount'),
             'totalOrders' => Order::count(),
             'failedOrders' => Order::failed()->count(),
-            'stripeOrders' => Order::where('payment_method', 'stripe')->count(),
-            'manualOrders' => Order::where('payment_method', 'manual')->count(),
+            'stripeOrders' => $methodCounts['stripe'] ?? 0,
+            'manualOrders' => $methodCounts['manual'] ?? 0,
             'courses' => Course::orderBy('name')->get(['id', 'name']),
-            'students' => Student::with('user')->get()->map(function ($student) {
-                return (object) [
-                    'id' => $student->id,
-                    'name' => $student->user?->name ?? 'No User Assigned',
-                ];
-            }),
+            'students' => Student::query()
+                ->with('user:id,name')
+                ->get(['id', 'user_id'])
+                ->map(function ($student) {
+                    return (object) [
+                        'id' => $student->id,
+                        'name' => $student->user?->name ?? 'No User Assigned',
+                    ];
+                }),
             'orderStatuses' => Order::getStatuses(),
             'paymentMethods' => Order::getPaymentMethods(),
         ];
@@ -140,6 +166,24 @@ new class extends Component
             Export
         </flux:button>
     </div>
+
+    @if($activeEnrollment)
+        <flux:callout class="mb-6" icon="funnel" variant="secondary">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <flux:callout.heading>Filtered by enrollment</flux:callout.heading>
+                    <flux:callout.text>
+                        Showing orders for
+                        <strong>{{ $activeEnrollment->student?->user?->name ?? 'Unknown student' }}</strong>
+                        in <strong>{{ $activeEnrollment->course?->name ?? 'Unknown course' }}</strong>.
+                    </flux:callout.text>
+                </div>
+                <flux:button size="sm" variant="ghost" wire:click="$set('enrollmentFilter', '')">
+                    Clear
+                </flux:button>
+            </div>
+        </flux:callout>
+    @endif
 
     <!-- Summary Stats -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
