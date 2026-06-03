@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table) {
             $table->index(['payment_method', 'status'], 'orders_payment_method_status_index');
+            $table->index('created_at', 'orders_created_at_index');
         });
     }
 
@@ -23,6 +24,7 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table) {
             $table->dropIndex('orders_payment_method_status_index');
+            $table->dropIndex('orders_created_at_index');
         });
     }
 };

@@ -3,6 +3,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Order;
 use App\Models\Student;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -124,34 +125,59 @@ new class extends Component
             })
             ->orderBy($this->sortBy, $this->sortDirection);
 
-        $methodCounts = Order::query()
-            ->selectRaw('payment_method, COUNT(*) as aggregate')
-            ->groupBy('payment_method')
-            ->pluck('aggregate', 'payment_method');
-
-        return [
+        return array_merge([
             'orders' => $query->paginate(15),
             'activeEnrollment' => $this->enrollmentFilter
                 ? Enrollment::with(['student.user:id,name', 'course:id,name'])->find($this->enrollmentFilter)
                 : null,
-            'totalRevenue' => Order::paid()->sum('amount'),
-            'totalOrders' => Order::count(),
-            'failedOrders' => Order::failed()->count(),
-            'stripeOrders' => $methodCounts['stripe'] ?? 0,
-            'manualOrders' => $methodCounts['manual'] ?? 0,
-            'courses' => Course::orderBy('name')->get(['id', 'name']),
-            'students' => Student::query()
-                ->with('user:id,name')
-                ->get(['id', 'user_id'])
-                ->map(function ($student) {
-                    return (object) [
-                        'id' => $student->id,
-                        'name' => $student->user?->name ?? 'No User Assigned',
-                    ];
-                }),
+            'courses' => Cache::remember('admin.orders.courses', now()->addMinutes(5), function () {
+                return Course::orderBy('name')->get(['id', 'name']);
+            }),
+            'students' => Cache::remember('admin.orders.students', now()->addMinutes(5), function () {
+                return Student::query()
+                    ->with('user:id,name')
+                    ->get(['id', 'user_id'])
+                    ->map(function ($student) {
+                        return (object) [
+                            'id' => $student->id,
+                            'name' => $student->user?->name ?? 'No User Assigned',
+                        ];
+                    });
+            }),
             'orderStatuses' => Order::getStatuses(),
             'paymentMethods' => Order::getPaymentMethods(),
-        ];
+        ], $this->summaryStats());
+    }
+
+    /**
+     * Global summary stats for the header cards.
+     *
+     * These are full-table aggregates that do not depend on the active filters,
+     * so they are cached briefly to keep the page responsive on large datasets.
+     *
+     * @return array{totalRevenue: float, totalOrders: int, failedOrders: int, stripeOrders: int, manualOrders: int}
+     */
+    protected function summaryStats(): array
+    {
+        return Cache::remember('admin.orders.summary_stats', now()->addSeconds(60), function () {
+            $byStatus = Order::query()
+                ->selectRaw('status, COUNT(*) as orders_count, SUM(amount) as orders_total')
+                ->groupBy('status')
+                ->get();
+
+            $byMethod = Order::query()
+                ->selectRaw('payment_method, COUNT(*) as orders_count')
+                ->groupBy('payment_method')
+                ->pluck('orders_count', 'payment_method');
+
+            return [
+                'totalRevenue' => (float) ($byStatus->firstWhere('status', 'paid')->orders_total ?? 0),
+                'totalOrders' => (int) $byStatus->sum('orders_count'),
+                'failedOrders' => (int) ($byStatus->firstWhere('status', 'failed')->orders_count ?? 0),
+                'stripeOrders' => (int) ($byMethod['stripe'] ?? 0),
+                'manualOrders' => (int) ($byMethod['manual'] ?? 0),
+            ];
+        });
     }
 }; ?>
 
