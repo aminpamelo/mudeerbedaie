@@ -2312,34 +2312,85 @@ new class extends Component
         </div>
     @endif
 
-    <div class="mb-6 flex items-center justify-between">
-        <div>
-            <flux:heading size="xl">Enrollment Details</flux:heading>
-            <flux:text class="mt-2">{{ $enrollment->student->user->name }} - {{ $enrollment->course->name }}</flux:text>
-        </div>
-        <div class="flex space-x-3">
-            <flux:button variant="ghost" href="{{ route('enrollments.index') }}">
-                Back to Enrollments
-            </flux:button>
-            <flux:button variant="primary" href="{{ route('enrollments.edit', $enrollment) }}" icon="pencil">
-                Edit Enrollment
-            </flux:button>
+    {{-- Hero Header --}}
+    <div class="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 p-6 shadow-lg ring-1 ring-black/5 sm:p-8">
+        <div class="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl"></div>
+        <div class="pointer-events-none absolute -bottom-24 right-28 h-52 w-52 rounded-full bg-fuchsia-400/20 blur-2xl"></div>
+
+        <div class="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold text-white ring-1 ring-white/30 backdrop-blur">
+                    {{ $enrollment->student->user->initials() }}
+                </div>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-white/70">Enrollment</span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur">
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-300 ring-2 ring-emerald-300/30"></span>
+                            {{ $enrollment->academic_status->label() }}
+                        </span>
+                    </div>
+                    <h1 class="mt-1 truncate text-2xl font-bold text-white">{{ $enrollment->student->user->name }}</h1>
+                    <p class="truncate text-sm text-white/80">{{ $enrollment->course->name }}</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="{{ route('enrollments.index') }}" class="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/20">
+                    <flux:icon.arrow-left class="h-4 w-4" />
+                    Back
+                </a>
+                <a href="{{ route('enrollments.edit', $enrollment) }}" class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50">
+                    <flux:icon.pencil class="h-4 w-4" />
+                    Edit Enrollment
+                </a>
+            </div>
         </div>
     </div>
 
-    <div class="mt-6 space-y-8">
-        <!-- Status Badge -->
-        <div class="flex justify-center">
-            <flux:badge size="lg" :class="$enrollment->academic_status->badgeClass()">
-                {{ $enrollment->academic_status->label() }}
-            </flux:badge>
+    {{-- Quick Stats --}}
+    <div class="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/50">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <flux:icon.banknotes class="h-4 w-4 text-indigo-500" />
+                <span class="text-xs font-medium uppercase tracking-wide">Enrollment Fee</span>
+            </div>
+            <p class="mt-2 text-lg font-bold text-gray-900 dark:text-white">{{ $enrollment->formatted_enrollment_fee }}</p>
         </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/50">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <flux:icon.academic-cap class="h-4 w-4 text-violet-500" />
+                <span class="text-xs font-medium uppercase tracking-wide">Course Fee</span>
+            </div>
+            <p class="mt-2 text-lg font-bold text-gray-900 dark:text-white">{{ $enrollment->course->formatted_fee ?? 'N/A' }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/50">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <flux:icon.calendar-days class="h-4 w-4 text-sky-500" />
+                <span class="text-xs font-medium uppercase tracking-wide">Enrolled On</span>
+            </div>
+            <p class="mt-2 text-lg font-bold text-gray-900 dark:text-white">{{ $enrollment->created_at->format('M j, Y') }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800/50">
+            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <flux:icon.credit-card class="h-4 w-4 text-emerald-500" />
+                <span class="text-xs font-medium uppercase tracking-wide">Payment</span>
+            </div>
+            <p class="mt-2 text-lg font-bold {{ $hasPaymentMethods ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">{{ $hasPaymentMethods ? 'Saved' : 'None' }}</p>
+        </div>
+    </div>
 
+    <div class="space-y-8">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Student Information -->
             <flux:card>
-                <flux:heading size="lg">Student Information</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20">
+                        <flux:icon.user class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Student Information</flux:heading>
+                </div>
+
                 <div class="mt-6 space-y-4">
                     <div class="flex items-center space-x-4">
                         <flux:avatar size="lg">
@@ -2487,8 +2538,13 @@ new class extends Component
 
             <!-- Course Information -->
             <flux:card>
-                <flux:heading size="lg">Course Information</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-400 dark:ring-violet-500/20">
+                        <flux:icon.academic-cap class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Course Information</flux:heading>
+                </div>
+
                 <div class="mt-6 space-y-4">
                     <div>
                         <p class="text-lg font-medium">{{ $enrollment->course->name }}</p>
@@ -2532,8 +2588,15 @@ new class extends Component
 
         <!-- Class Management -->
         <flux:card>
-            <flux:heading size="lg">Class Management</flux:heading>
-            <flux:text class="mt-2">Manage which classes this student is enrolled in for this course</flux:text>
+            <div class="flex items-center gap-3">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20">
+                    <flux:icon.calendar class="h-5 w-5" />
+                </span>
+                <div>
+                    <flux:heading size="lg">Class Management</flux:heading>
+                    <flux:text class="mt-0.5">Manage which classes this student is enrolled in for this course</flux:text>
+                </div>
+            </div>
 
             <div class="mt-6">
                 @php
@@ -2558,7 +2621,7 @@ new class extends Component
                                             return $cs->class_id === $class->id && $cs->status === 'active';
                                         });
                                     @endphp
-                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                    <div class="flex items-center justify-between rounded-xl border border-gray-200 p-4 transition hover:border-indigo-200 hover:shadow-sm dark:border-zinc-700 dark:hover:border-indigo-500/40">
                                         <div class="flex-1">
                                             <flux:heading size="sm">
                                                 <a href="{{ route('classes.show', $class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
@@ -2612,7 +2675,7 @@ new class extends Component
                             @if($enrolledClasses->count() > 0)
                                 <div class="space-y-3">
                                     @foreach($enrolledClasses as $classStudent)
-                                        <div class="p-4 border border-gray-200 rounded-lg">
+                                        <div class="rounded-xl border border-gray-200 p-4 transition hover:shadow-sm dark:border-zinc-700">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex-1">
                                                     <flux:heading size="sm">
@@ -2671,8 +2734,13 @@ new class extends Component
         @if(!$enrollment->isManualPaymentType())
             @if($enrollment->stripe_subscription_id)
             <flux:card>
-                <flux:heading size="lg">Subscription Information</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20">
+                        <flux:icon.credit-card class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Subscription Information</flux:heading>
+                </div>
+
                 <div class="mt-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
@@ -2836,11 +2904,16 @@ new class extends Component
             </flux:card>
         @else
             <flux:card>
-                <flux:heading size="lg">Subscription Information</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20">
+                        <flux:icon.credit-card class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Subscription Information</flux:heading>
+                </div>
+
                 <div class="mt-6 text-center py-8">
                     <flux:icon.credit-card class="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">No Active Subscription</h3>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No Active Subscription</h3>
                     <p class="mt-1 text-sm text-gray-500">This enrollment does not have an active subscription.</p>
                     
                     @php
@@ -2958,7 +3031,12 @@ new class extends Component
         <!-- Manual Payment Management -->
         @if($enrollment->isManualPaymentType())
             <flux:card>
-                <flux:heading size="lg">Manual Payment Management</flux:heading>
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20">
+                        <flux:icon.banknotes class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Manual Payment Management</flux:heading>
+                </div>
                 <flux:text class="mt-2 text-gray-600">
                     This enrollment is set up for manual payments. Manage payment orders and approvals here.
                 </flux:text>
@@ -3393,7 +3471,12 @@ new class extends Component
         @else
             <!-- Automatic Payment Management -->
             <flux:card>
-                <flux:heading size="lg">Automatic Payment Management</flux:heading>
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20">
+                        <flux:icon.arrow-path class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Automatic Payment Management</flux:heading>
+                </div>
                 <flux:text class="mt-2 text-gray-600">
                     This enrollment is set up for automatic payments. Payments are processed automatically via the student's saved payment method.
                 </flux:text>
@@ -3475,8 +3558,13 @@ new class extends Component
         
         <!-- Enrollment Details -->
         <flux:card>
-            <flux:heading size="lg">Enrollment Information</flux:heading>
-            
+            <div class="flex items-center gap-3">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20">
+                    <flux:icon.identification class="h-5 w-5" />
+                </span>
+                <flux:heading size="lg">Enrollment Information</flux:heading>
+            </div>
+
             <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                     <p class="text-sm font-medium text-gray-500">Enrollment Date</p>
@@ -3531,7 +3619,12 @@ new class extends Component
 
             @if($paymentReport->isNotEmpty())
                 <flux:card>
-                    <flux:heading size="lg">Subscription Payment Report</flux:heading>
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20">
+                            <flux:icon.chart-bar class="h-5 w-5" />
+                        </span>
+                        <flux:heading size="lg">Subscription Payment Report</flux:heading>
+                    </div>
                     <flux:text class="mt-2 text-gray-600">
                         Payment periods based on subscription billing cycle with status tracking
                     </flux:text>
@@ -3643,7 +3736,12 @@ new class extends Component
         @if($enrollment->orders->isNotEmpty())
             <flux:card>
                 <div class="flex items-center justify-between">
-                    <flux:heading size="lg">Payment History</flux:heading>
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-400 dark:ring-violet-500/20">
+                            <flux:icon.clock class="h-5 w-5" />
+                        </span>
+                        <flux:heading size="lg">Payment History</flux:heading>
+                    </div>
                     @if($enrollment->stripe_subscription_id && !$enrollment->isInternalSubscription())
                         <flux:button
                             size="sm"
@@ -3752,10 +3850,15 @@ new class extends Component
         <!-- Notes -->
         @if($enrollment->notes)
             <flux:card>
-                <flux:heading size="lg">Notes</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20">
+                        <flux:icon.pencil-square class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Notes</flux:heading>
+                </div>
+
                 <div class="mt-6">
-                    <p class="text-sm text-gray-900">{{ $enrollment->notes }}</p>
+                    <p class="text-sm text-gray-900 dark:text-gray-200">{{ $enrollment->notes }}</p>
                 </div>
             </flux:card>
         @endif
@@ -3763,10 +3866,15 @@ new class extends Component
         <!-- Progress Data -->
         @if($enrollment->progress_data)
             <flux:card>
-                <flux:heading size="lg">Progress Data</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20">
+                        <flux:icon.chart-bar class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Progress Data</flux:heading>
+                </div>
+
                 <div class="mt-6">
-                    <pre class="text-sm text-gray-900 bg-gray-50 p-4 rounded-lg overflow-auto">{{ json_encode($enrollment->progress_data, JSON_PRETTY_PRINT) }}</pre>
+                    <pre class="text-sm text-gray-900 dark:text-gray-200 bg-gray-50 dark:bg-zinc-800/60 p-4 rounded-lg overflow-auto">{{ json_encode($enrollment->progress_data, JSON_PRETTY_PRINT) }}</pre>
                 </div>
             </flux:card>
         @endif
@@ -3776,8 +3884,13 @@ new class extends Component
         <!-- Course Billing Information -->
         @if($enrollment->course->feeSettings)
             <flux:card>
-                <flux:heading size="lg">Course Billing Information</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-400 dark:ring-violet-500/20">
+                        <flux:icon.receipt-percent class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Course Billing Information</flux:heading>
+                </div>
+
                 <div class="mt-6">
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div>
@@ -3803,8 +3916,13 @@ new class extends Component
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Enrollment Timeline -->
             <flux:card>
-                <flux:heading size="lg">Timeline</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20">
+                        <flux:icon.clock class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Timeline</flux:heading>
+                </div>
+
                 <div class="mt-6">
                     <div class="flow-root">
                         <ul role="list" class="-mb-8">
@@ -3874,8 +3992,13 @@ new class extends Component
 
             <!-- Subscription Log -->
             <flux:card>
-                <flux:heading size="lg">Subscription Log</flux:heading>
-                
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-500/10 dark:text-zinc-300 dark:ring-zinc-500/20">
+                        <flux:icon.queue-list class="h-5 w-5" />
+                    </span>
+                    <flux:heading size="lg">Subscription Log</flux:heading>
+                </div>
+
                 <div class="mt-6">
                     @if($subscriptionEvents && $subscriptionEvents->isNotEmpty())
                         <div class="flow-root">
