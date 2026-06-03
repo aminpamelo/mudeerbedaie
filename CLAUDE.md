@@ -110,8 +110,9 @@ This project now has THREE coexisting UI paradigms. New features should use the 
 - **React SPA (HR)** — `/hr/*` is a standalone React SPA with API controllers under `Api/Hr/*`. New HR pages extend this SPA.
 - **Inertia.js + React (Live Host Desk)** — `/livehost/*` is an Inertia-driven React app for the PIC (admin_livehost role). Controllers in `app/Http/Controllers/LiveHost/*` return Inertia responses; React pages live in `resources/js/livehost/pages/*`. New Live Host PIC features extend this.
 - **Inertia.js + React (Live Host Pocket)** — `/live-host/*` is an Inertia React app for the host themselves, served from `app/Http/Controllers/LiveHostPocket/*` with React pages at `resources/js/livehost-pocket/pages/*`. New host-facing UI extends this app.
+- **Inertia.js + React (CEO Overview)** — `/ceo` is a read-only executive dashboard (role `ceo` + `admin`) aggregating operational health across every department. Controller at `app/Http/Controllers/Ceo/DashboardController.php`; React pages at `resources/js/ceo/pages/*`; per-department health logic in `app/Services/Ceo/Reports/*` (each returns a `DepartmentHealth` value object), orchestrated by `CeoDashboardService`. Root view overridden via `HandleCeoInertiaRequests`.
 
-The Inertia paradigm was introduced for the Live Host PIC Dashboard and is deliberately scoped to that surface in v1. Do not introduce it elsewhere without a design discussion.
+The Inertia paradigm was introduced for the Live Host PIC Dashboard. It has since been extended to the Live Host Pocket and the CEO Overview after design discussion. Do not introduce it on further surfaces without a similar discussion.
 
 ### Livewire Volt Pattern
 This project uses Livewire Volt, which allows single-file components with PHP logic at the top:

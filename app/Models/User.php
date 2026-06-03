@@ -147,6 +147,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is a CEO / executive (read-only company overview access)
+     */
+    public function isCeo(): bool
+    {
+        return $this->role === 'ceo';
+    }
+
+    /**
      * Get assigned class IDs for this class admin (from PIC relationship)
      *
      * @return array<int>

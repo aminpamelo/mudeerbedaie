@@ -249,6 +249,17 @@ Route::middleware(['auth', 'role:live_host'])
             ->name('session-slots');
     });
 
+// CEO Overview (Inertia) — read-only executive dashboard aggregating operational
+// health across every department/module. Mirrors the Live Host Desk Inertia
+// setup; HandleCeoInertiaRequests overrides the root view to `ceo.app`.
+Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInertiaRequests::class])
+    ->prefix('ceo')
+    ->name('ceo.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\Ceo\DashboardController::class, 'index'])
+            ->name('dashboard');
+    });
+
 // Live Host PIC (Inertia) — shared surface for admin + admin_livehost + livehost_assistant,
 // with admin-only endpoints gated further inside.
 //
