@@ -39,7 +39,8 @@ class CreatorController extends Controller
                         ->orWhereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
                 });
             })
-            ->orderBy('platform_account_id')
+            ->orderByRaw('creator_handle IS NULL')
+            ->orderBy('creator_handle')
             ->orderByDesc('is_primary')
             ->orderBy('id')
             ->paginate(15)

@@ -14,6 +14,14 @@ import {
   DialogTitle,
 } from '@/livehost/components/ui/dialog';
 
+function formatHandle(handle) {
+  if (!handle) {
+    return handle;
+  }
+  const trimmed = String(handle).trim();
+  return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
 function PrimaryBadge() {
   return (
     <span className="inline-flex items-center rounded-full bg-[#ECFDF5] px-2 py-[2px] text-[10.5px] font-medium text-[#065F46]">
@@ -220,7 +228,7 @@ export default function CreatorsIndex() {
   }, [search, filters]);
 
   const handleDelete = (creator) => {
-    const label = creator.creator_handle || creator.creator_platform_user_id;
+    const label = (creator.creator_handle ? formatHandle(creator.creator_handle) : null) || creator.creator_platform_user_id;
     if (!window.confirm(`Remove creator "${label}"?`)) {
       return;
     }
@@ -246,11 +254,12 @@ export default function CreatorsIndex() {
   const groupedCreators = useMemo(() => {
     const groups = new Map();
     for (const creator of creators.data) {
-      const key = creator.platform_account?.id ?? 'unassigned';
+      const handle = creator.creator_handle?.trim();
+      const key = handle ? handle.toLowerCase() : '__no_nickname__';
       if (!groups.has(key)) {
         groups.set(key, {
           key,
-          platformAccount: creator.platform_account,
+          nickname: handle || null,
           creators: [],
         });
       }
@@ -314,14 +323,11 @@ export default function CreatorsIndex() {
                 className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
               >
                 <div className="flex items-center justify-between border-b border-[#F0F0F0] bg-[#FAFAFA] px-5 py-3">
-                  <div>
-                    <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
-                      {group.platformAccount?.name ?? 'Unassigned'}
-                    </div>
-                    {group.platformAccount?.platform && (
-                      <div className="mt-0.5 text-[11.5px] text-[#737373]">
-                        {group.platformAccount.platform}
-                      </div>
+                  <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
+                    {group.nickname ? (
+                      formatHandle(group.nickname)
+                    ) : (
+                      <span className="text-[#737373]">No nickname</span>
                     )}
                   </div>
                   <div className="text-[11.5px] font-medium text-[#737373]">
@@ -332,7 +338,7 @@ export default function CreatorsIndex() {
                   <thead>
                     <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                       <th className="px-5 py-3 text-left">Host</th>
-                      <th className="px-5 py-3 text-left">Nickname</th>
+                      <th className="px-5 py-3 text-left">Platform account</th>
                       <th className="px-5 py-3 text-left">Creator ID</th>
                       <th className="px-5 py-3 text-right">Actions</th>
                     </tr>
@@ -359,7 +365,18 @@ export default function CreatorsIndex() {
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-[13px] text-[#0A0A0A]">
-                          {creator.creator_handle || <span className="text-[#737373]">—</span>}
+                          {creator.platform_account ? (
+                            <div className="min-w-0">
+                              <div className="truncate">{creator.platform_account.name}</div>
+                              {creator.platform_account.platform && (
+                                <div className="mt-0.5 truncate text-[11.5px] text-[#737373]">
+                                  {creator.platform_account.platform}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[#737373]">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 font-mono text-[12px] tabular-nums text-[#0A0A0A]">
                           {creator.creator_platform_user_id || (
