@@ -66,13 +66,54 @@ it('reconcile button imports missing paid orders for the visible students', func
         ->test('admin.class-show', ['class' => $class])
         ->set('activeTab', 'payment-reports')
         ->call('reconcilePayments')
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertSet('reconcileResult.status', 'success')
+        ->assertSee('Imported 1 missing payment');
 
     $order = Order::where('stripe_invoice_id', 'in_volt_may')->first();
 
     expect($order)->not->toBeNull()
         ->and($order->status)->toBe(Order::STATUS_PAID)
         ->and($order->period_start->format('Y-m'))->toBe('2026-05');
+});
+
+it('reconcile button surfaces the error message when Stripe fails', function () {
+    $admin = User::factory()->admin()->create();
+    $class = ClassModel::factory()->create(['status' => 'active']);
+
+    $student = Student::factory()->create();
+    ClassStudent::create([
+        'class_id' => $class->id,
+        'student_id' => $student->id,
+        'enrolled_at' => now(),
+        'status' => 'active',
+    ]);
+
+    Enrollment::factory()->create([
+        'student_id' => $student->id,
+        'course_id' => $class->course_id,
+        'stripe_subscription_id' => 'sub_volt_fail',
+        'subscription_status' => 'active',
+    ]);
+
+    $settings = Mockery::mock(SettingsService::class);
+    $settings->shouldReceive('get')->andReturn('sk_test_dummy');
+    app()->instance(SettingsService::class, $settings);
+
+    $stripeService = Mockery::mock(StripeService::class)->makePartial();
+    $stripeService->shouldReceive('reconcileSubscriptionOrders')
+        ->andThrow(new \Exception('No such subscription: sub_volt_fail'));
+    app()->instance(StripeService::class, $stripeService);
+
+    Volt::actingAs($admin)
+        ->test('admin.class-show', ['class' => $class])
+        ->set('activeTab', 'payment-reports')
+        ->call('reconcilePayments')
+        ->assertHasNoErrors()
+        ->assertSet('reconcileResult.status', 'error')
+        ->assertSee('No such subscription: sub_volt_fail');
+
+    expect(Order::count())->toBe(0);
 });
 
 it('reconcile button warns when there are no stripe-backed enrollments', function () {
@@ -99,7 +140,8 @@ it('reconcile button warns when there are no stripe-backed enrollments', functio
         ->set('activeTab', 'payment-reports')
         ->call('reconcilePayments')
         ->assertHasNoErrors()
-        ->assertSee('No Stripe-backed enrollments');
+        ->assertSet('reconcileResult.status', 'warning')
+        ->assertSee('Nothing to reconcile');
 
     expect(Order::count())->toBe(0);
 });

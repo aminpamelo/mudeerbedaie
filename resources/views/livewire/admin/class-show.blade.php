@@ -1333,11 +1333,11 @@ new class extends Component
         $this->resetPage();
     }
 
-    public bool $reconciling = false;
+    public ?array $reconcileResult = null;
 
     public function reconcilePayments()
     {
-        $this->reconciling = true;
+        $this->reconcileResult = null;
 
         $studentIds = $this->class_students_for_payment_report->pluck('student.id')->filter()->all();
 
@@ -1345,25 +1345,45 @@ new class extends Component
             ->whereIn('student_id', $studentIds)
             ->whereNotNull('stripe_subscription_id')
             ->where('stripe_subscription_id', 'not like', 'INTERNAL-%')
+            ->with('student.user')
             ->get();
 
         if ($enrollments->isEmpty()) {
-            $this->reconciling = false;
-            session()->flash('error', 'No Stripe-backed enrollments to reconcile in the current view.');
+            $this->reconcileResult = [
+                'status' => 'warning',
+                'message' => 'Nothing to reconcile — none of the students in this view have an automatic (Stripe) subscription. Try clearing the filters or searching a specific student.',
+                'details' => [],
+            ];
 
             return;
         }
 
-        $stripeService = app(\App\Services\StripeService::class);
+        try {
+            $stripeService = app(\App\Services\StripeService::class);
+        } catch (\Throwable $e) {
+            $this->reconcileResult = [
+                'status' => 'error',
+                'message' => 'Could not connect to Stripe.',
+                'details' => [$e->getMessage()],
+            ];
+
+            return;
+        }
+
         $created = 0;
-        $failed = 0;
+        $checked = 0;
+        $errors = [];
 
         foreach ($enrollments as $enrollment) {
+            $checked++;
+
             try {
                 $result = $stripeService->reconcileSubscriptionOrders($enrollment);
                 $created += $result['created'];
-            } catch (\Exception $e) {
-                $failed++;
+            } catch (\Throwable $e) {
+                $name = $enrollment->student?->user?->name ?? ('Enrollment #'.$enrollment->id);
+                $errors[] = $name.': '.$e->getMessage();
+
                 \Log::warning('Reconcile from payment report failed', [
                     'enrollment_id' => $enrollment->id,
                     'subscription_id' => $enrollment->stripe_subscription_id,
@@ -1372,18 +1392,30 @@ new class extends Component
             }
         }
 
-        $this->reconciling = false;
-
-        if ($created > 0) {
-            $message = "Reconciliation complete. {$created} missing payment(s) imported from Stripe.";
-            if ($failed > 0) {
-                $message .= " {$failed} enrollment(s) could not be reached — check logs.";
-            }
-            session()->flash('success', $message);
-        } elseif ($failed > 0) {
-            session()->flash('error', "Reconciliation finished with errors on {$failed} enrollment(s). Check logs.");
+        if (! empty($errors) && $created === 0) {
+            $this->reconcileResult = [
+                'status' => 'error',
+                'message' => "Reconciliation failed for all {$checked} student(s) checked.",
+                'details' => $errors,
+            ];
+        } elseif (! empty($errors)) {
+            $this->reconcileResult = [
+                'status' => 'warning',
+                'message' => "Imported {$created} missing payment(s) from {$checked} student(s), but ".count($errors).' could not be reached.',
+                'details' => $errors,
+            ];
+        } elseif ($created > 0) {
+            $this->reconcileResult = [
+                'status' => 'success',
+                'message' => "Imported {$created} missing payment(s) from {$checked} student(s). The figures below are now up to date.",
+                'details' => [],
+            ];
         } else {
-            session()->flash('success', 'Already up to date — no missing payments found in Stripe.');
+            $this->reconcileResult = [
+                'status' => 'success',
+                'message' => "All up to date — checked {$checked} student(s), nothing was missing in Stripe.",
+                'details' => [],
+            ];
         }
     }
 
@@ -6004,6 +6036,47 @@ new class extends Component
                     </div>
                     </div>
                 </div>
+
+                <!-- Reconcile: in-progress indicator -->
+                <div wire:loading.flex wire:target="reconcilePayments"
+                     class="items-center gap-2 border-t border-zinc-200 dark:border-zinc-700 px-5 py-3 text-sm text-zinc-600 dark:text-zinc-300">
+                    <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin shrink-0" />
+                    Contacting Stripe and importing any missing payments… this can take a few seconds per student.
+                </div>
+
+                <!-- Reconcile: result panel -->
+                @if($reconcileResult)
+                    <div wire:loading.remove wire:target="reconcilePayments"
+                         @class([
+                            'border-t px-5 py-3 text-sm',
+                            'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-300' => $reconcileResult['status'] === 'success',
+                            'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300' => $reconcileResult['status'] === 'warning',
+                            'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-800 dark:text-red-300' => $reconcileResult['status'] === 'error',
+                         ])>
+                        <div class="flex items-start gap-2">
+                            @if($reconcileResult['status'] === 'success')
+                                <flux:icon.check-circle class="w-4 h-4 mt-0.5 shrink-0" />
+                            @elseif($reconcileResult['status'] === 'warning')
+                                <flux:icon.exclamation-triangle class="w-4 h-4 mt-0.5 shrink-0" />
+                            @else
+                                <flux:icon.x-circle class="w-4 h-4 mt-0.5 shrink-0" />
+                            @endif
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium">{{ $reconcileResult['message'] }}</p>
+                                @if(! empty($reconcileResult['details']))
+                                    <ul class="mt-1 list-disc list-inside space-y-0.5 text-xs opacity-90">
+                                        @foreach($reconcileResult['details'] as $detail)
+                                            <li>{{ $detail }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                            <button type="button" wire:click="$set('reconcileResult', null)" class="opacity-60 hover:opacity-100 shrink-0">
+                                <flux:icon.x-mark class="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                @endif
 
                 <div class="px-5 py-3 space-y-3">
                     <!-- Filters Row -->
