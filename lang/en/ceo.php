@@ -33,6 +33,7 @@ return [
         'healthy' => 'Healthy',
         'watch' => 'Watch',
         'attention' => 'Attention',
+        'install_app' => 'Install app',
     ],
 
     'status' => [

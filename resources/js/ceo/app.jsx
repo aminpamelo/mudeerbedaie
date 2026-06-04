@@ -2,6 +2,14 @@ import './styles/ceo.css';
 import { createInertiaApp, router } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
+// Register the CEO PWA service worker (scope /ceo). Served from the site root so
+// the /ceo scope is allowed without a Service-Worker-Allowed header.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/ceo-sw.js', { scope: '/ceo' }).catch(() => {});
+  });
+}
+
 // When the CSRF token / session has expired, a write request comes back as 419.
 // Intercept it and offer a clean reload instead of Inertia's blank error modal.
 router.on('invalid', (event) => {

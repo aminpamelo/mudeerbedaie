@@ -33,6 +33,7 @@ return [
         'healthy' => 'Sihat',
         'watch' => 'Awasi',
         'attention' => 'Perhatian',
+        'install_app' => 'Pasang aplikasi',
     ],
 
     'status' => [

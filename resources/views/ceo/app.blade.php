@@ -1,9 +1,20 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="bg-[#FAFAFA]">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="bg-[#EEF2FF]">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- CEO PWA: installable executive dashboard (scope /ceo). --}}
+    <link rel="manifest" href="{{ route('ceo.manifest') }}">
+    <meta name="theme-color" content="#6366F1">
+    <meta name="application-name" content="CEO">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="CEO">
+    <link rel="apple-touch-icon" href="/icons/ceo-192.svg">
+    <link rel="icon" type="image/svg+xml" href="/icons/ceo-192.svg">
 
     <title inertia>{{ config('app.name', 'CEO Overview') }}</title>
 

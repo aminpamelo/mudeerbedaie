@@ -3,6 +3,7 @@ import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users } fro
 import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
+import InstallButton from '@/ceo/components/InstallButton';
 
 const DEPARTMENTS = [
   { key: 'livehost', href: '/ceo/livehost', icon: Radio, accent: 'emerald' },
@@ -118,6 +119,7 @@ function Sidebar({ auth, brand, currentUrl }) {
         </div>
       </nav>
 
+      <InstallButton />
       <LanguageSwitcher />
 
       <div className="flex items-center gap-[10px] rounded-2xl bg-white/50 p-[10px]">

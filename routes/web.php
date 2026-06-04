@@ -249,6 +249,12 @@ Route::middleware(['auth', 'role:live_host'])
             ->name('session-slots');
     });
 
+// CEO PWA manifest — public (no sensitive data) so the browser can fetch it for
+// install without an auth round-trip. The companion service worker is the static
+// file public/ceo-sw.js (scope /ceo).
+Route::get('ceo/manifest.json', [\App\Http\Controllers\Ceo\CeoPwaController::class, 'manifest'])
+    ->name('ceo.manifest');
+
 // CEO Overview (Inertia) — read-only executive dashboard aggregating operational
 // health across every department/module. Mirrors the Live Host Desk Inertia
 // setup; HandleCeoInertiaRequests overrides the root view to `ceo.app`.
