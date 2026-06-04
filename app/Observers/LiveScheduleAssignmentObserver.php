@@ -38,6 +38,7 @@ class LiveScheduleAssignmentObserver
             [
                 'platform_account_id' => $assignment->platform_account_id,
                 'live_host_platform_account_id' => $assignment->live_host_platform_account_id,
+                'live_account_id' => $assignment->live_account_id,
                 'live_host_id' => $assignment->live_host_id,
                 'title' => $this->sessionTitle($assignment),
                 'status' => $this->mapStatus($assignment->status),
@@ -89,9 +90,20 @@ class LiveScheduleAssignmentObserver
         return (int) $start->diffInMinutes($end);
     }
 
+    /**
+     * Title by the creator account (the punca kuasa) the host goes live on,
+     * falling back to the shop name for legacy/unresolved rows.
+     */
     private function sessionTitle(LiveScheduleAssignment $assignment): string
     {
-        $assignment->loadMissing('platformAccount');
+        $assignment->loadMissing(['liveAccount', 'platformAccount']);
+
+        $account = $assignment->liveAccount;
+        $label = $account?->nickname ?: $account?->display_name;
+
+        if ($label) {
+            return "Live · {$label}";
+        }
 
         return $assignment->platformAccount?->name
             ? "Live · {$assignment->platformAccount->name}"

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\LiveTimeSlot;
@@ -34,6 +35,26 @@ it('creates a LiveSession when a dated assignment is created', function () {
         ->and($session->scheduled_start_at->format('Y-m-d H:i'))->toBe('2026-04-20 09:00')
         ->and($session->duration_minutes)->toBe(120)
         ->and($session->status)->toBe('scheduled');
+});
+
+it('titles and keys the materialized session by the creator account', function () {
+    $liveAccount = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
+
+    $assignment = LiveScheduleAssignment::create([
+        'platform_account_id' => $this->account->id,
+        'live_account_id' => $liveAccount->id,
+        'time_slot_id' => $this->slot->id,
+        'live_host_id' => $this->host->id,
+        'day_of_week' => 1,
+        'schedule_date' => '2026-04-20',
+        'is_template' => false,
+        'status' => 'scheduled',
+    ]);
+
+    $session = LiveSession::where('live_schedule_assignment_id', $assignment->id)->first();
+
+    expect($session->live_account_id)->toBe($liveAccount->id)
+        ->and($session->title)->toBe('Live · amarmirzabedaie');
 });
 
 it('does not create a LiveSession for template assignments', function () {

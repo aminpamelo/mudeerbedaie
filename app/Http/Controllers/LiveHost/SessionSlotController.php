@@ -5,6 +5,7 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreSessionSlotRequest;
 use App\Http\Requests\LiveHost\UpdateSessionSlotRequest;
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
@@ -22,6 +23,7 @@ class SessionSlotController extends Controller
     {
         $host = $request->string('host')->toString();
         $platformAccount = $request->string('platform_account')->toString();
+        $liveAccount = $request->string('live_account')->toString();
         $status = $request->string('status')->toString();
         $dayOfWeek = $request->string('day_of_week')->toString();
         $mode = $request->string('mode')->toString();
@@ -30,6 +32,7 @@ class SessionSlotController extends Controller
         $assignments = LiveScheduleAssignment::query()
             ->with([
                 'liveHost:id,name,email',
+                'liveAccount:id,nickname,display_name,creator_user_id,needs_review',
                 'platformAccount:id,name,platform_id',
                 'platformAccount.platform:id,name,display_name,slug',
                 'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
@@ -43,6 +46,10 @@ class SessionSlotController extends Controller
             ->when(
                 $platformAccount !== '',
                 fn ($q) => $q->where('platform_account_id', $platformAccount)
+            )
+            ->when(
+                $liveAccount !== '',
+                fn ($q) => $q->where('live_account_id', $liveAccount)
             )
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($dayOfWeek !== '', fn ($q) => $q->where('day_of_week', (int) $dayOfWeek))
@@ -68,6 +75,7 @@ class SessionSlotController extends Controller
             'filters' => [
                 'host' => $host,
                 'platform_account' => $platformAccount,
+                'live_account' => $liveAccount,
                 'status' => $status,
                 'day_of_week' => $dayOfWeek,
                 'mode' => $mode,
@@ -75,6 +83,7 @@ class SessionSlotController extends Controller
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
@@ -84,6 +93,7 @@ class SessionSlotController extends Controller
     {
         $host = $request->string('host')->toString();
         $platformAccount = $request->string('platform_account')->toString();
+        $liveAccount = $request->string('live_account')->toString();
         $status = $request->string('status')->toString();
         $mode = $request->string('mode')->toString();
         $weekOf = $request->string('week_of')->toString();
@@ -96,6 +106,7 @@ class SessionSlotController extends Controller
         $assignments = LiveScheduleAssignment::query()
             ->with([
                 'liveHost:id,name,email',
+                'liveAccount:id,nickname,display_name,creator_user_id,needs_review',
                 'platformAccount:id,name,platform_id',
                 'platformAccount.platform:id,name,display_name,slug',
                 'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
@@ -109,6 +120,10 @@ class SessionSlotController extends Controller
             ->when(
                 $platformAccount !== '',
                 fn ($q) => $q->where('platform_account_id', $platformAccount)
+            )
+            ->when(
+                $liveAccount !== '',
+                fn ($q) => $q->where('live_account_id', $liveAccount)
             )
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when(
@@ -138,12 +153,14 @@ class SessionSlotController extends Controller
             'filters' => [
                 'host' => $host,
                 'platform_account' => $platformAccount,
+                'live_account' => $liveAccount,
                 'status' => $status,
                 'mode' => $mode,
                 'week_of' => $weekStart->toDateString(),
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
@@ -154,6 +171,7 @@ class SessionSlotController extends Controller
         return Inertia::render('session-slots/Create', [
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
@@ -180,6 +198,7 @@ class SessionSlotController extends Controller
     {
         $sessionSlot->load([
             'liveHost:id,name,email',
+            'liveAccount:id,nickname,display_name,creator_user_id,needs_review',
             'platformAccount:id,name,platform_id',
             'platformAccount.platform:id,name,display_name,slug',
             'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
@@ -190,6 +209,7 @@ class SessionSlotController extends Controller
             'sessionSlot' => $this->mapAssignment($sessionSlot),
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
@@ -202,6 +222,7 @@ class SessionSlotController extends Controller
                 'id' => $sessionSlot->id,
                 'platform_account_id' => $sessionSlot->platform_account_id,
                 'live_host_platform_account_id' => $sessionSlot->live_host_platform_account_id,
+                'live_account_id' => $sessionSlot->live_account_id,
                 'time_slot_id' => $sessionSlot->time_slot_id,
                 'live_host_id' => $sessionSlot->live_host_id,
                 'day_of_week' => (int) $sessionSlot->day_of_week,
@@ -212,6 +233,7 @@ class SessionSlotController extends Controller
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
@@ -274,8 +296,20 @@ class SessionSlotController extends Controller
         $end = $a->timeSlot ? substr((string) $a->timeSlot->end_time, 0, 5) : null;
         $timeSlotLabel = $start && $end ? "{$start}–{$end}" : '—';
 
+        $account = $a->liveAccount;
+        $accountLabel = $account
+            ? ($account->nickname ?: $account->display_name ?: ($account->creator_user_id ? "Creator {$account->creator_user_id}" : null))
+            : null;
+
         return [
             'id' => $a->id,
+            // Punca kuasa: the creator account the host goes live on.
+            'liveAccountId' => $a->live_account_id,
+            'liveAccountLabel' => $accountLabel,
+            'liveAccountDisplayName' => $account?->display_name,
+            'creatorUserId' => $account?->creator_user_id,
+            'liveAccountNeedsReview' => (bool) ($account?->needs_review),
+            // Commerce reference (the shop being promoted in this block).
             'platformAccountId' => $a->platform_account_id,
             'platformAccount' => $a->platformAccount?->name,
             'platformType' => $a->platformAccount?->platform?->slug,
@@ -369,6 +403,48 @@ class SessionSlotController extends Controller
                 'name' => $a->name,
                 'platform' => $a->platform?->display_name ?? $a->platform?->name,
             ]);
+    }
+
+    /**
+     * Creator accounts (the scheduling punca kuasa) for the nickname-first
+     * picker and the calendar's account filter/lanes. Each entry carries the
+     * shops the account may promote (so the modal can derive/limit the shop)
+     * and the eligible operating hosts.
+     *
+     * @return \Illuminate\Support\Collection<int, array{
+     *     id: int,
+     *     label: string,
+     *     nickname: ?string,
+     *     displayName: ?string,
+     *     creatorUserId: ?string,
+     *     needsReview: bool,
+     *     shops: array<int, array{id: int, name: ?string, isPrimary: bool}>,
+     *     hostIds: array<int, int>
+     * }>
+     */
+    private function liveAccountOptions(): \Illuminate\Support\Collection
+    {
+        return LiveAccount::query()
+            ->where('is_active', true)
+            ->with(['shops:id,name', 'hosts:id'])
+            ->orderByRaw('COALESCE(nickname, display_name)')
+            ->get()
+            ->map(function (LiveAccount $account) {
+                return [
+                    'id' => $account->id,
+                    'label' => $account->label,
+                    'nickname' => $account->nickname,
+                    'displayName' => $account->display_name,
+                    'creatorUserId' => $account->creator_user_id,
+                    'needsReview' => (bool) $account->needs_review,
+                    'shops' => $account->shops->map(fn (PlatformAccount $shop) => [
+                        'id' => $shop->id,
+                        'name' => $shop->name,
+                        'isPrimary' => (bool) $shop->pivot->is_primary,
+                    ])->values()->all(),
+                    'hostIds' => $account->hosts->pluck('id')->all(),
+                ];
+            });
     }
 
     /**

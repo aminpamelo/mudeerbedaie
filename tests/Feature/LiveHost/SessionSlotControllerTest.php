@@ -97,6 +97,35 @@ it('filters session slots by platform_account', function () {
         ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 2));
 });
 
+it('surfaces the live account nickname in the slot payload', function () {
+    $liveAccount = LiveAccount::factory()->create([
+        'nickname' => 'amarmirzabedaie',
+        'display_name' => 'BeDaie Ustaz Amar',
+        'creator_user_id' => '6526684195492729856',
+    ]);
+    LiveScheduleAssignment::factory()->create(['live_account_id' => $liveAccount->id]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/table')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.data.0.liveAccountId', $liveAccount->id)
+            ->where('sessionSlots.data.0.liveAccountLabel', 'amarmirzabedaie')
+            ->where('sessionSlots.data.0.creatorUserId', '6526684195492729856')
+            ->has('liveAccounts')
+            ->etc());
+});
+
+it('filters session slots by live_account', function () {
+    $accountA = LiveAccount::factory()->create();
+    $accountB = LiveAccount::factory()->create();
+    LiveScheduleAssignment::factory()->count(2)->create(['live_account_id' => $accountA->id]);
+    LiveScheduleAssignment::factory()->count(4)->create(['live_account_id' => $accountB->id]);
+
+    actingAs($this->pic)
+        ->get("/livehost/session-slots/table?live_account={$accountA->id}")
+        ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 2));
+});
+
 it('filters session slots by status', function () {
     LiveScheduleAssignment::factory()->count(2)->create(['status' => 'confirmed']);
     LiveScheduleAssignment::factory()->count(3)->create(['status' => 'cancelled']);
