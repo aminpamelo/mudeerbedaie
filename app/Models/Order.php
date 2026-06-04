@@ -516,6 +516,8 @@ class Order extends Model
             default => self::STATUS_FAILED,
         };
 
+        [$periodStartTs, $periodEndTs] = self::resolveBillingPeriod($stripeInvoice);
+
         return self::create([
             'enrollment_id' => $enrollment->id,
             'student_id' => $enrollment->student_id,
@@ -526,8 +528,8 @@ class Order extends Model
             'amount' => $amount,
             'currency' => strtoupper($stripeInvoice['currency']),
             'status' => $status,
-            'period_start' => Carbon::createFromTimestamp($stripeInvoice['period_start']),
-            'period_end' => Carbon::createFromTimestamp($stripeInvoice['period_end']),
+            'period_start' => Carbon::createFromTimestamp($periodStartTs),
+            'period_end' => Carbon::createFromTimestamp($periodEndTs),
             'billing_reason' => $stripeInvoice['billing_reason'] ?? self::REASON_SUBSCRIPTION_CYCLE,
             'payment_method' => self::PAYMENT_METHOD_STRIPE,
             'paid_at' => $stripeInvoice['status'] === 'paid' ? now() : null,
@@ -540,5 +542,40 @@ class Order extends Model
                 'stripe_customer_id' => $stripeInvoice['customer'] ?? null,
             ],
         ]);
+    }
+
+    /**
+     * Resolve the billing period (start, end) timestamps for an order from a Stripe invoice.
+     *
+     * For subscription renewals, the invoice-level period_start/period_end can lag behind the
+     * actual service window being billed, which causes a paid month to be mapped onto the wrong
+     * calendar column in the payment report. The line item's period reflects the true service
+     * window, so we prefer the latest line item period and fall back to the invoice level.
+     *
+     * @param  array<string, mixed>  $stripeInvoice
+     * @return array{0: int, 1: int}
+     */
+    private static function resolveBillingPeriod(array $stripeInvoice): array
+    {
+        $best = null;
+
+        foreach ($stripeInvoice['lines']['data'] ?? [] as $lineItem) {
+            $start = $lineItem['period']['start'] ?? null;
+            $end = $lineItem['period']['end'] ?? null;
+
+            if ($start === null || $end === null) {
+                continue;
+            }
+
+            if ($best === null || $start > $best[0]) {
+                $best = [$start, $end];
+            }
+        }
+
+        if ($best !== null) {
+            return $best;
+        }
+
+        return [$stripeInvoice['period_start'], $stripeInvoice['period_end']];
     }
 }

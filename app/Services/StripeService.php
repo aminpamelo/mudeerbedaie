@@ -55,6 +55,22 @@ class StripeService
         return $this->stripe;
     }
 
+    /**
+     * List a subscription's invoices from Stripe as plain arrays (newest first).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listSubscriptionInvoices(string $subscriptionId, int $limit = 100): array
+    {
+        $invoices = $this->stripe->invoices->all([
+            'subscription' => $subscriptionId,
+            'limit' => $limit,
+            'expand' => ['data.lines'],
+        ]);
+
+        return array_map(fn ($invoice) => $invoice->toArray(), $invoices->data);
+    }
+
     public function getPublishableKey(): string
     {
         return $this->settingsService->get('stripe_publishable_key', '');
