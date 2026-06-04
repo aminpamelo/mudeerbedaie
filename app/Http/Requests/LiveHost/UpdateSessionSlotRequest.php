@@ -67,7 +67,7 @@ class UpdateSessionSlotRequest extends FormRequest
             ],
             'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
-            'live_host_id' => ['nullable', 'exists:users,id'],
+            'live_host_id' => ['required', 'exists:users,id'],
             'live_host_platform_account_id' => [
                 'nullable',
                 'integer',
@@ -95,6 +95,7 @@ class UpdateSessionSlotRequest extends FormRequest
             'schedule_date.date_format' => 'Schedule date must be a valid YYYY-MM-DD date.',
             'schedule_date.required_if' => 'Pick a specific date when the slot is not a weekly template.',
             'live_account_id.unique' => 'This account is already scheduled for that time slot and day on the selected date.',
+            'live_host_id.required' => 'Choose which host is broadcasting this live.',
         ];
     }
 

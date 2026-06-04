@@ -158,12 +158,13 @@ export default function SessionSlotsCreate() {
             </Field>
           </div>
 
-          <Field label="Live host (optional)" error={form.errors.live_host_id}>
+          <Field label="Live host (who's broadcasting)" error={form.errors.live_host_id} required>
             <Select
               value={form.data.live_host_id}
               onChange={(e) => form.setData('live_host_id', e.target.value)}
+              required
             >
-              <option value="">Unassigned</option>
+              <option value="">Select live host</option>
               {hosts.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}

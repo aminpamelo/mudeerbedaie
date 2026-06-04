@@ -228,16 +228,10 @@ it('creates a new session slot', function () {
     expect($created->created_by)->toBe($this->pic->id);
 });
 
-it('creates a session slot with no host assigned', function () {
-    $host = User::factory()->create(['role' => 'live_host']);
+it('rejects a session slot without a live host (must identify who broadcasts)', function () {
     $account = PlatformAccount::factory()->create();
     $liveAccount = LiveAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
-    $pivot = LiveHostPlatformAccount::create([
-        'user_id' => $host->id,
-        'platform_account_id' => $account->id,
-        'is_primary' => true,
-    ]);
 
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
@@ -245,16 +239,10 @@ it('creates a session slot with no host assigned', function () {
             'live_account_id' => $liveAccount->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => null,
-            'live_host_platform_account_id' => $pivot->id,
             'day_of_week' => 0,
             'is_template' => true,
         ])
-        ->assertRedirect('/livehost/session-slots')
-        ->assertSessionHas('success');
-
-    $created = LiveScheduleAssignment::latest('id')->first();
-    expect($created->live_host_id)->toBeNull();
-    expect($created->status)->toBe('scheduled');
+        ->assertSessionHasErrors('live_host_id');
 });
 
 it('rejects session slot create with missing required fields', function () {
@@ -265,6 +253,7 @@ it('rejects session slot create with missing required fields', function () {
             'time_slot_id',
             'day_of_week',
             'live_account_id',
+            'live_host_id',
         ]);
 });
 
@@ -323,11 +312,14 @@ it('allows many accounts to share the same shop and time slot', function () {
     $shop = PlatformAccount::factory()->create();
     $accountA = LiveAccount::factory()->create();
     $accountB = LiveAccount::factory()->create();
+    $hostA = User::factory()->create(['role' => 'live_host']);
+    $hostB = User::factory()->create(['role' => 'live_host']);
     $slot = LiveTimeSlot::factory()->create();
 
     LiveScheduleAssignment::factory()->create([
         'platform_account_id' => $shop->id,
         'live_account_id' => $accountA->id,
+        'live_host_id' => $hostA->id,
         'time_slot_id' => $slot->id,
         'day_of_week' => 2,
         'is_template' => true,
@@ -338,6 +330,7 @@ it('allows many accounts to share the same shop and time slot', function () {
         ->post('/livehost/session-slots', [
             'platform_account_id' => $shop->id,
             'live_account_id' => $accountB->id,
+            'live_host_id' => $hostB->id,
             'time_slot_id' => $slot->id,
             'day_of_week' => 2,
             'is_template' => true,

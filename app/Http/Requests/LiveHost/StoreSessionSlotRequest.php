@@ -63,7 +63,9 @@ class StoreSessionSlotRequest extends FormRequest
             // uniqueness.
             'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
-            'live_host_id' => ['nullable', 'exists:users,id'],
+            // Several hosts can share one creator account, so every scheduled
+            // slot must name who is broadcasting.
+            'live_host_id' => ['required', 'exists:users,id'],
             'live_host_platform_account_id' => [
                 'nullable',
                 'integer',
@@ -92,6 +94,7 @@ class StoreSessionSlotRequest extends FormRequest
             'schedule_date.required_if' => 'Pick a specific date when the slot is not a weekly template.',
             'live_account_id.unique' => 'This account is already scheduled for that time slot and day on the selected date.',
             'live_account_id.required' => 'Choose the creator account that will go live.',
+            'live_host_id.required' => 'Choose which host is broadcasting this live.',
         ];
     }
 

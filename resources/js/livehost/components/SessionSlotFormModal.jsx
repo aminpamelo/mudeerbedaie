@@ -218,7 +218,7 @@ export default function SessionSlotFormModal({
       });
     }
 
-    return [{ value: '', label: 'Unassigned', empty: true }, ...opts];
+    return opts;
   }, [hosts, accountHostIds, selectedAccount]);
 
   // Auto-pick the host when exactly one operates the chosen account.
@@ -414,16 +414,16 @@ export default function SessionSlotFormModal({
             hint={
               selectedAccount && (selectedAccount.hostIds ?? []).length > 1
                 ? 'Several hosts share this account — pick who is doing this live.'
-                : 'Identify which host goes live on this account. Leave Unassigned for planning.'
+                : 'Identify which host goes live on this account.'
             }
+            required
           >
             <SearchableSelect
               value={form.data.live_host_id}
               onChange={(next) => form.setData('live_host_id', next)}
-              placeholder="Unassigned"
+              placeholder="Select live host"
               searchPlaceholder="Search host by name…"
               emptyLabel="No hosts match"
-              allowClear
               options={hostOptions}
             />
           </ModalField>
