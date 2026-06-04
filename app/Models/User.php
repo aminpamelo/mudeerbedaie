@@ -371,6 +371,16 @@ class User extends Authenticatable
     }
 
     /**
+     * The creator accounts (nicknames) this host is eligible to go live on.
+     */
+    public function liveAccounts(): BelongsToMany
+    {
+        return $this->belongsToMany(LiveAccount::class, 'live_account_host', 'user_id', 'live_account_id')
+            ->withPivot('is_primary')
+            ->withTimestamps();
+    }
+
+    /**
      * Get classes where this user is assigned as PIC (Person In Charge)
      */
     public function picClasses(): BelongsToMany

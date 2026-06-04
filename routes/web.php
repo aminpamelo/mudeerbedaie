@@ -385,6 +385,18 @@ Route::middleware(['auth'])
             Route::delete('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'destroy'])
                 ->name('creators.destroy');
 
+            // Live accounts (creator nicknames) — the scheduling punca kuasa.
+            Route::post('live-accounts', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'store'])
+                ->name('live-accounts.store');
+            Route::put('live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'update'])
+                ->name('live-accounts.update');
+            Route::delete('live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'destroy'])
+                ->name('live-accounts.destroy');
+            Route::post('hosts/{host}/live-accounts', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'attachHost'])
+                ->name('hosts.live-accounts.attach');
+            Route::delete('hosts/{host}/live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'detachHost'])
+                ->name('hosts.live-accounts.detach');
+
             Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
                 ->name('sessions.index');
             Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
@@ -633,6 +645,9 @@ Route::middleware(['auth'])
 
             Route::get('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'index'])
                 ->name('creators.index');
+
+            Route::get('live-accounts', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'index'])
+                ->name('live-accounts.index');
 
             Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
                 ->except(['show'])

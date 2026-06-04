@@ -80,6 +80,8 @@ export default function HostShow() {
   const {
     host,
     platformAccounts,
+    liveAccounts = [],
+    availableLiveAccounts = [],
     recentSessions,
     stats,
     commissionProfile,
@@ -91,6 +93,22 @@ export default function HostShow() {
     auth,
   } = usePage().props;
   const canManageHosts = Boolean(auth?.permissions?.canManageHosts);
+  const [attachAccountId, setAttachAccountId] = useState('');
+
+  const attachLiveAccount = () => {
+    if (!attachAccountId) {
+      return;
+    }
+    router.post(
+      `/livehost/hosts/${host.id}/live-accounts`,
+      { live_account_id: Number(attachAccountId) },
+      { preserveScroll: true, onSuccess: () => setAttachAccountId('') }
+    );
+  };
+
+  const detachLiveAccount = (accountId) => {
+    router.delete(`/livehost/hosts/${host.id}/live-accounts/${accountId}`, { preserveScroll: true });
+  };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -233,6 +251,63 @@ export default function HostShow() {
                   </ul>
                 )}
               </div>
+            </div>
+
+            {/* Live accounts (creator nicknames) this host goes live on */}
+            <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-semibold text-[15px] tracking-[-0.015em]">Live accounts</div>
+                {canManageHosts && availableLiveAccounts.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={attachAccountId}
+                      onChange={(e) => setAttachAccountId(e.target.value)}
+                      className="h-8 rounded-lg border border-[#EAEAEA] bg-white px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                    >
+                      <option value="">Link an account…</option>
+                      {availableLiveAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button size="sm" onClick={attachLiveAccount} disabled={!attachAccountId} className="h-8">
+                      Link
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {liveAccounts.length === 0 ? (
+                <div className="text-sm text-[#737373] py-6 text-center">
+                  No creator accounts linked. Link the accounts this host goes live on.
+                </div>
+              ) : (
+                <ul className="space-y-0">
+                  {liveAccounts.map((a) => (
+                    <li
+                      key={a.id}
+                      className="flex items-center justify-between py-2.5 border-b border-[#F0F0F0] last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-[#0A0A0A]">{a.label}</div>
+                        <div className="text-xs text-[#737373] mt-0.5">
+                          {a.creatorUserId ? `ID ${a.creatorUserId}` : 'No Creator ID'}
+                          {a.shops.length > 0 ? ` · ${a.shops.join(', ')}` : ''}
+                        </div>
+                      </div>
+                      {canManageHosts && (
+                        <button
+                          type="button"
+                          onClick={() => detachLiveAccount(a.id)}
+                          className="text-xs text-[#A3A3A3] hover:text-[#F43F5E]"
+                        >
+                          Unlink
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </>
         )}

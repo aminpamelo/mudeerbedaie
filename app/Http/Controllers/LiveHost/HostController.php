@@ -249,6 +249,17 @@ class HostController extends Controller
                 'platform' => $pa->platform?->slug,
                 'platformName' => $pa->platform?->name ?? $pa->platform?->display_name,
             ]),
+            'liveAccounts' => $host->liveAccounts()->with('shops:id,name')->get()->map(fn (\App\Models\LiveAccount $a) => [
+                'id' => $a->id,
+                'label' => $a->label,
+                'creatorUserId' => $a->creator_user_id,
+                'shops' => $a->shops->pluck('name')->all(),
+            ]),
+            'availableLiveAccounts' => \App\Models\LiveAccount::query()
+                ->whereDoesntHave('hosts', fn ($q) => $q->where('users.id', $host->id))
+                ->orderByRaw('COALESCE(nickname, display_name)')
+                ->get(['id', 'nickname', 'display_name'])
+                ->map(fn (\App\Models\LiveAccount $a) => ['id' => $a->id, 'name' => $a->label]),
             'recentSessions' => $recentSessions,
             'stats' => [
                 'totalSessions' => $totalSessions,
