@@ -17,6 +17,7 @@ class LiveSession extends Model
     protected $fillable = [
         'platform_account_id',
         'live_host_platform_account_id',
+        'live_account_id',
         'live_schedule_id',
         'live_schedule_assignment_id',
         'live_host_id',
@@ -68,6 +69,11 @@ class LiveSession extends Model
     public function liveHostPlatformAccount(): BelongsTo
     {
         return $this->belongsTo(LiveHostPlatformAccount::class, 'live_host_platform_account_id');
+    }
+
+    public function liveAccount(): BelongsTo
+    {
+        return $this->belongsTo(LiveAccount::class, 'live_account_id');
     }
 
     public function gmvAdjustments(): HasMany
