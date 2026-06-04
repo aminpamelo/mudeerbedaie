@@ -189,6 +189,50 @@ export default function SessionSlotFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.data.live_account_id, mode]);
 
+  // The hosts who share (operate) the selected creator account. Several staff
+  // can broadcast on the same brand account, so the live-host picker surfaces
+  // those who operate this account first to make "who is going live" explicit.
+  const accountHostIds = useMemo(
+    () => new Set((selectedAccount?.hostIds ?? []).map(Number)),
+    [selectedAccount]
+  );
+
+  const hostOptions = useMemo(() => {
+    const opts = hosts.map((h) => {
+      const operates = accountHostIds.has(Number(h.id));
+      return {
+        value: String(h.id),
+        label: h.name,
+        hint: h.email ?? null,
+        group: selectedAccount ? (operates ? 'Operates this account' : 'Other hosts') : undefined,
+        keywords: [h.name, h.email].filter(Boolean).join(' '),
+        avatar: { initials: initialsFrom(h.name), color: colorFor(h.name) },
+      };
+    });
+
+    if (selectedAccount) {
+      opts.sort((a, b) => {
+        const ga = a.group === 'Operates this account' ? 0 : 1;
+        const gb = b.group === 'Operates this account' ? 0 : 1;
+        return ga !== gb ? ga - gb : a.label.localeCompare(b.label);
+      });
+    }
+
+    return [{ value: '', label: 'Unassigned', empty: true }, ...opts];
+  }, [hosts, accountHostIds, selectedAccount]);
+
+  // Auto-pick the host when exactly one operates the chosen account.
+  useEffect(() => {
+    if (mode === 'edit' || !selectedAccount) {
+      return;
+    }
+    const ids = selectedAccount.hostIds ?? [];
+    if (ids.length === 1 && !form.data.live_host_id) {
+      form.setData('live_host_id', String(ids[0]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.data.live_account_id, mode]);
+
   const accountOptions = useMemo(
     () =>
       liveAccounts.map((a) => {
@@ -364,7 +408,15 @@ export default function SessionSlotFormModal({
             </ModalField>
           </div>
 
-          <ModalField label="Live host (optional)" error={form.errors.live_host_id}>
+          <ModalField
+            label="Live host (who’s broadcasting)"
+            error={form.errors.live_host_id}
+            hint={
+              selectedAccount && (selectedAccount.hostIds ?? []).length > 1
+                ? 'Several hosts share this account — pick who is doing this live.'
+                : 'Identify which host goes live on this account. Leave Unassigned for planning.'
+            }
+          >
             <SearchableSelect
               value={form.data.live_host_id}
               onChange={(next) => form.setData('live_host_id', next)}
@@ -372,19 +424,7 @@ export default function SessionSlotFormModal({
               searchPlaceholder="Search host by name…"
               emptyLabel="No hosts match"
               allowClear
-              options={[
-                { value: '', label: 'Unassigned', empty: true },
-                ...hosts.map((h) => ({
-                  value: String(h.id),
-                  label: h.name,
-                  hint: h.email ?? null,
-                  keywords: [h.name, h.email].filter(Boolean).join(' '),
-                  avatar: {
-                    initials: initialsFrom(h.name),
-                    color: colorFor(h.name),
-                  },
-                })),
-              ]}
+              options={hostOptions}
             />
           </ModalField>
 

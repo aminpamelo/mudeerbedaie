@@ -115,6 +115,19 @@ it('surfaces the live account nickname in the slot payload', function () {
             ->etc());
 });
 
+it('exposes the hosts who share each account for the live-host picker', function () {
+    $account = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
+    $shared = User::factory()->count(2)->create(['role' => 'live_host']);
+    $account->hosts()->attach($shared->pluck('id')->all());
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('liveAccounts.0.nickname', 'amarmirzabedaie')
+            ->where('liveAccounts.0.hostIds', $shared->pluck('id')->all())
+            ->etc());
+});
+
 it('renders the calendar with live account props', function () {
     $liveAccount = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
     LiveScheduleAssignment::factory()->forDate(now()->format('Y-m-d'))->create([
