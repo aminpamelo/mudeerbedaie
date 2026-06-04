@@ -57,10 +57,12 @@ it('honours dateFrom/dateTo query params', function () {
 it('streams a CSV export with header + one row per account', function () {
     $admin = User::factory()->create(['role' => 'admin_livehost']);
     $host = User::factory()->create(['role' => 'live_host']);
-    $account = PlatformAccount::factory()->create(['name' => 'TheAccount']);
+    $account = PlatformAccount::factory()->create(['name' => 'TheShop']);
+    $liveAccount = \App\Models\LiveAccount::factory()->create(['nickname' => 'TheAccount']);
 
     LiveScheduleAssignment::factory()->create([
         'platform_account_id' => $account->id,
+        'live_account_id' => $liveAccount->id,
         'is_template' => false,
         'schedule_date' => '2026-04-10',
         'live_host_id' => $host->id,

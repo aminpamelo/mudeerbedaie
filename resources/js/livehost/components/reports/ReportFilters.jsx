@@ -21,8 +21,16 @@ export default function ReportFilters({ filters, options, basePath }) {
     () => options.platformAccounts.filter((a) => filters.platformAccountIds.includes(a.id)),
     [options.platformAccounts, filters.platformAccountIds]
   );
+  // Creator-account (nickname) filter — only present on scheduling reports
+  // that opt in by supplying options.liveAccounts (e.g. Coverage).
+  const liveAccountIds = filters.liveAccountIds ?? [];
+  const selectedCreators = useMemo(
+    () => (options.liveAccounts ?? []).filter((a) => liveAccountIds.includes(a.id)),
+    [options.liveAccounts, liveAccountIds]
+  );
 
-  const hasActiveChips = selectedHosts.length > 0 || selectedAccounts.length > 0;
+  const hasActiveChips =
+    selectedHosts.length > 0 || selectedAccounts.length > 0 || selectedCreators.length > 0;
 
   return (
     <div className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
@@ -38,8 +46,16 @@ export default function ReportFilters({ filters, options, basePath }) {
           selected={filters.hostIds}
           onChange={(ids) => apply({ hostIds: ids })}
         />
+        {options.liveAccounts && (
+          <MultiSelectPopover
+            label="Creator"
+            options={options.liveAccounts}
+            selected={liveAccountIds}
+            onChange={(ids) => apply({ liveAccountIds: ids })}
+          />
+        )}
         <MultiSelectPopover
-          label="Accounts"
+          label="Shops"
           options={options.platformAccounts}
           selected={filters.platformAccountIds}
           onChange={(ids) => apply({ platformAccountIds: ids })}
@@ -60,6 +76,17 @@ export default function ReportFilters({ filters, options, basePath }) {
               <span className="chip-x"><X className="size-3" /></span>
             </button>
           ))}
+          {selectedCreators.map((a) => (
+            <button
+              type="button"
+              key={`c-${a.id}`}
+              className="chip"
+              onClick={() => apply({ liveAccountIds: liveAccountIds.filter((id) => id !== a.id) })}
+            >
+              <span>{a.name}</span>
+              <span className="chip-x"><X className="size-3" /></span>
+            </button>
+          ))}
           {selectedAccounts.map((a) => (
             <button
               type="button"
@@ -75,7 +102,7 @@ export default function ReportFilters({ filters, options, basePath }) {
             <button
               type="button"
               className="ml-auto text-[11px] text-[var(--color-muted)] hover:text-[var(--color-ink)]"
-              onClick={() => apply({ hostIds: [], platformAccountIds: [] })}
+              onClick={() => apply({ hostIds: [], platformAccountIds: [], liveAccountIds: [] })}
             >
               Clear filters
             </button>

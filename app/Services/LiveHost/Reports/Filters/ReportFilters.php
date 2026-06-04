@@ -11,12 +11,14 @@ class ReportFilters
     /**
      * @param  array<int>  $hostIds
      * @param  array<int>  $platformAccountIds
+     * @param  array<int>  $liveAccountIds
      */
     public function __construct(
         public readonly CarbonImmutable $dateFrom,
         public readonly CarbonImmutable $dateTo,
         public readonly array $hostIds = [],
         public readonly array $platformAccountIds = [],
+        public readonly array $liveAccountIds = [],
     ) {
         if ($this->dateFrom->greaterThan($this->dateTo)) {
             throw new InvalidArgumentException('dateFrom must be on or before dateTo.');
@@ -44,7 +46,13 @@ class ReportFilters
             ->values()
             ->all();
 
-        return new self($from, $to, $hostIds, $platformAccountIds);
+        $liveAccountIds = collect((array) $request->query('liveAccountIds', []))
+            ->map(fn ($v) => (int) $v)
+            ->filter()
+            ->values()
+            ->all();
+
+        return new self($from, $to, $hostIds, $platformAccountIds, $liveAccountIds);
     }
 
     private static function parseOrFallback(mixed $raw, CarbonImmutable $fallback): CarbonImmutable
@@ -66,6 +74,6 @@ class ReportFilters
         $priorTo = $this->dateFrom->subDay();
         $priorFrom = $priorTo->subDays($days - 1);
 
-        return new self($priorFrom, $priorTo, $this->hostIds, $this->platformAccountIds);
+        return new self($priorFrom, $priorTo, $this->hostIds, $this->platformAccountIds, $this->liveAccountIds);
     }
 }

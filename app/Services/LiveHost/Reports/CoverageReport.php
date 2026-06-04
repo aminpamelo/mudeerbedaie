@@ -34,6 +34,10 @@ class CoverageReport
                 $filters->platformAccountIds,
                 fn ($q, $ids) => $q->whereIn('live_schedule_assignments.platform_account_id', $ids)
             )
+            ->when(
+                $filters->liveAccountIds,
+                fn ($q, $ids) => $q->whereIn('live_schedule_assignments.live_account_id', $ids)
+            )
             ->leftJoin(
                 'live_sessions',
                 'live_sessions.live_schedule_assignment_id',
@@ -41,18 +45,19 @@ class CoverageReport
                 'live_schedule_assignments.id'
             )
             ->leftJoin(
-                'platform_accounts',
-                'platform_accounts.id',
+                'live_accounts',
+                'live_accounts.id',
                 '=',
-                'live_schedule_assignments.platform_account_id'
+                'live_schedule_assignments.live_account_id'
             )
             ->orderBy('live_schedule_assignments.schedule_date')
             ->get([
                 'live_schedule_assignments.id as slot_id',
                 'live_schedule_assignments.schedule_date as schedule_date',
                 'live_schedule_assignments.live_host_id as live_host_id',
-                'live_schedule_assignments.platform_account_id as platform_account_id',
-                'platform_accounts.name as account_name',
+                'live_schedule_assignments.live_account_id as live_account_id',
+                'live_accounts.nickname as account_nickname',
+                'live_accounts.display_name as account_display_name',
                 'live_sessions.status as session_status',
             ]);
 
@@ -101,11 +106,16 @@ class CoverageReport
             }
             $weekly[$weekStart][$bucket]++;
 
-            $accountId = (int) $slot->platform_account_id;
+            // Group by the creator account (the punca kuasa). Slots with no
+            // resolved account collapse into a single "Unassigned" row (key 0).
+            $accountId = (int) ($slot->live_account_id ?? 0);
+            $accountName = $slot->account_nickname
+                ?: $slot->account_display_name
+                ?: ($accountId === 0 ? 'Unassigned' : "Account {$accountId}");
             if (! isset($accounts[$accountId])) {
                 $accounts[$accountId] = [
                     'accountId' => $accountId,
-                    'name' => (string) ($slot->account_name ?? ''),
+                    'name' => (string) $accountName,
                     'totalSlots' => 0,
                     'assigned' => 0,
                     'unassigned' => 0,
