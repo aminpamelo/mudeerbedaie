@@ -242,7 +242,7 @@ export default function SessionSlotsIndex() {
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Day</th>
                   <th className="px-5 py-3 text-left">Time slot</th>
-                  <th className="px-5 py-3 text-left">Platform</th>
+                  <th className="px-5 py-3 text-left">Account</th>
                   <th className="px-5 py-3 text-left">Host</th>
                   <th className="px-5 py-3 text-left">Mode</th>
                   <th className="px-5 py-3 text-left">Status</th>
@@ -271,12 +271,15 @@ export default function SessionSlotsIndex() {
                       {slot.timeSlotLabel}
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="text-[13px] text-[#0A0A0A]">
-                        {slot.platformAccount ?? '—'}
+                      <div className="text-[13px] font-medium text-[#0A0A0A]">
+                        {slot.liveAccountLabel ?? (
+                          <span className="italic text-[#A3A3A3]">Unassigned</span>
+                        )}
                       </div>
-                      {slot.platformType && (
-                        <div className="text-[11px] uppercase tracking-wide text-[#737373]">
-                          {slot.platformType}
+                      {slot.platformAccount && (
+                        <div className="text-[11px] text-[#737373]">
+                          {slot.platformAccount}
+                          {slot.platformType ? ` · ${slot.platformType}` : ''}
                         </div>
                       )}
                     </td>

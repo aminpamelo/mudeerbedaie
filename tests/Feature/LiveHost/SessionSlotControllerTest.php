@@ -115,6 +115,22 @@ it('surfaces the live account nickname in the slot payload', function () {
             ->etc());
 });
 
+it('renders the calendar with live account props', function () {
+    $liveAccount = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
+    LiveScheduleAssignment::factory()->forDate(now()->format('Y-m-d'))->create([
+        'live_account_id' => $liveAccount->id,
+        'day_of_week' => (int) now()->dayOfWeek,
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->component('session-slots/Calendar', false)
+            ->has('liveAccounts')
+            ->has('sessionSlots')
+            ->etc());
+});
+
 it('filters session slots by live_account', function () {
     $accountA = LiveAccount::factory()->create();
     $accountB = LiveAccount::factory()->create();

@@ -152,6 +152,7 @@ export default function SessionSlotsCalendar() {
     filters,
     hosts,
     platformAccounts,
+    liveAccounts = [],
     timeSlots,
     hostPlatformPivots,
     flash,
@@ -159,6 +160,7 @@ export default function SessionSlotsCalendar() {
 
   const [host, setHost] = useState(filters?.host ?? '');
   const [platformAccount, setPlatformAccount] = useState(filters?.platform_account ?? '');
+  const [liveAccount, setLiveAccount] = useState(filters?.live_account ?? '');
   const [status, setStatus] = useState(filters?.status ?? '');
   const [mode, setMode] = useState(filters?.mode ?? '');
 
@@ -198,39 +200,44 @@ export default function SessionSlotsCalendar() {
     return { hourStart: start, hourEnd: end, totalHeight: (end - start) * HOUR_PX };
   }, [timeSlots, sessionSlots]);
 
-  // Resolve the set of accounts that should render as swim lanes. When the
-  // platform filter is set, lanes collapse to just that account (matches
-  // single-column behaviour). Otherwise, collect every account referenced by
-  // a session or a time slot for the current week so empty lanes aren't shown.
+  // Resolve the set of CREATOR ACCOUNTS (the punca kuasa) that render as swim
+  // lanes. When the account filter is set, lanes collapse to just that account.
+  // Otherwise, collect every live account referenced by a session this week,
+  // plus an "Unassigned" lane for legacy/unresolved slots. The shop is no
+  // longer the lane axis — many accounts can be live for one shop at once.
   const activeAccounts = useMemo(() => {
-    if (platformAccount) {
-      const id = Number(platformAccount);
-      const meta = platformAccounts.find((pa) => Number(pa.id) === id);
+    const lookup = (id) => liveAccounts.find((a) => Number(a.id) === Number(id));
+
+    if (liveAccount) {
+      const meta = lookup(liveAccount);
       return meta ? [meta] : [];
     }
 
     const ids = new Set();
+    let hasUnassigned = false;
     for (const s of sessionSlots) {
-      if (s.platformAccountId) {
-        ids.add(Number(s.platformAccountId));
-      }
-    }
-    for (const ts of timeSlots) {
-      if (ts.platformAccountId) {
-        ids.add(Number(ts.platformAccountId));
+      if (s.liveAccountId) {
+        ids.add(Number(s.liveAccountId));
+      } else {
+        hasUnassigned = true;
       }
     }
 
-    return Array.from(ids)
-      .map((id) => platformAccounts.find((pa) => Number(pa.id) === id))
-      .filter(Boolean)
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  }, [platformAccount, sessionSlots, timeSlots, platformAccounts]);
+    const accounts = Array.from(ids)
+      .map((id) => lookup(id) ?? { id, label: `Account ${id}`, shops: [] })
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+
+    if (hasUnassigned) {
+      accounts.push({ id: '__none__', label: 'Unassigned', shops: [], isNone: true });
+    }
+
+    return accounts;
+  }, [liveAccount, sessionSlots, liveAccounts]);
 
   const accountColorMap = useMemo(() => {
     const map = new Map();
     activeAccounts.forEach((account, i) => {
-      map.set(Number(account.id), ACCOUNT_PALETTE[i % ACCOUNT_PALETTE.length]);
+      map.set(String(account.id), ACCOUNT_PALETTE[i % ACCOUNT_PALETTE.length]);
     });
     return map;
   }, [activeAccounts]);
@@ -240,13 +247,14 @@ export default function SessionSlotsCalendar() {
   const minGridWidth = 64 + 7 * laneCount * LANE_MIN_WIDTH;
 
   const colorForAccount = (accountId) =>
-    accountColorMap.get(Number(accountId)) ?? FALLBACK_ACCOUNT_COLOR;
+    accountColorMap.get(String(accountId ?? '__none__')) ?? FALLBACK_ACCOUNT_COLOR;
 
   useEffect(() => {
     const initial = filters ?? {};
     if (
       (initial.host ?? '') === host &&
       (initial.platform_account ?? '') === platformAccount &&
+      (initial.live_account ?? '') === liveAccount &&
       (initial.status ?? '') === status &&
       (initial.mode ?? '') === mode
     ) {
@@ -259,6 +267,7 @@ export default function SessionSlotsCalendar() {
         {
           host: host || undefined,
           platform_account: platformAccount || undefined,
+          live_account: liveAccount || undefined,
           status: status || undefined,
           mode: mode || undefined,
           week_of: weekStart,
@@ -268,7 +277,7 @@ export default function SessionSlotsCalendar() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [host, platformAccount, status, mode, filters, weekStart]);
+  }, [host, platformAccount, liveAccount, status, mode, filters, weekStart]);
 
   const goToWeek = (isoDate) => {
     router.get(
@@ -276,6 +285,7 @@ export default function SessionSlotsCalendar() {
       {
         host: host || undefined,
         platform_account: platformAccount || undefined,
+        live_account: liveAccount || undefined,
         status: status || undefined,
         mode: mode || undefined,
         week_of: isoDate,
@@ -303,10 +313,15 @@ export default function SessionSlotsCalendar() {
   const dateForDow = (dow) => addDays(weekStart, dow);
 
   const handleScaffoldClick = (dow, timeSlot, laneAccount = null) => {
+    const isReal = laneAccount && !laneAccount.isNone;
+    const primaryShop = isReal
+      ? (laneAccount.shops?.find((s) => s.isPrimary) ?? laneAccount.shops?.[0])
+      : null;
     setCreatePrefill({
       dayOfWeek: dow,
       timeSlotId: timeSlot?.id ?? null,
-      platformAccountId: timeSlot?.platformAccountId ?? laneAccount?.id ?? null,
+      liveAccountId: isReal ? laneAccount.id : null,
+      platformAccountId: timeSlot?.platformAccountId ?? primaryShop?.id ?? null,
       scheduleDate: addDays(weekStart, dow),
     });
     setCreateOpen(true);
@@ -420,11 +435,23 @@ export default function SessionSlotsCalendar() {
               ))}
             </select>
             <select
+              value={liveAccount}
+              onChange={(e) => setLiveAccount(e.target.value)}
+              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            >
+              <option value="">All accounts</option>
+              {liveAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+            <select
               value={platformAccount}
               onChange={(e) => setPlatformAccount(e.target.value)}
               className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             >
-              <option value="">All TikTok accounts</option>
+              <option value="">All shops</option>
               {platformAccounts.map((pa) => (
                 <option key={pa.id} value={pa.id}>
                   {pa.name} {pa.platform ? `· ${pa.platform}` : ''}
@@ -480,7 +507,7 @@ export default function SessionSlotsCalendar() {
           </div>
         </div>
 
-        {/* Legend — one chip per active account */}
+        {/* Legend — one chip per active creator account (the punca kuasa) */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px]">
           <span className="font-mono text-[10px] uppercase tracking-wider text-[#A3A3A3]">
             Accounts
@@ -490,16 +517,17 @@ export default function SessionSlotsCalendar() {
           ) : (
             activeAccounts.map((account) => {
               const color = colorForAccount(account.id);
+              const shopLabel = (account.shops ?? []).map((s) => s.name).filter(Boolean).join(', ');
               return (
-                <div key={account.id} className="flex items-center gap-1.5">
+                <div key={account.id} className="flex items-center gap-1.5" title={shopLabel}>
                   <span
                     className="h-2 w-2 rounded-sm"
                     style={{ backgroundColor: color.dot }}
                   ></span>
-                  <span className="font-medium text-[#0A0A0A]">{account.name}</span>
-                  {account.platform && (
-                    <span className="font-mono text-[10px] uppercase tracking-wide text-[#A3A3A3]">
-                      · {account.platform}
+                  <span className="font-medium text-[#0A0A0A]">{account.label}</span>
+                  {shopLabel && (
+                    <span className="max-w-[160px] truncate font-mono text-[10px] uppercase tracking-wide text-[#A3A3A3]">
+                      · {shopLabel}
                     </span>
                   )}
                 </div>
@@ -585,7 +613,7 @@ export default function SessionSlotsCalendar() {
                           <div
                             key={account.id}
                             className="flex items-center gap-1 border-r border-[#F5F5F5] px-1.5 py-1 last:border-r-0"
-                            title={account.name}
+                            title={account.label}
                           >
                             <span
                               className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
@@ -595,7 +623,7 @@ export default function SessionSlotsCalendar() {
                               className="truncate font-mono text-[9px] font-semibold uppercase tracking-wide"
                               style={{ color: color.text }}
                             >
-                              {account.name}
+                              {account.label}
                             </span>
                           </div>
                         );
@@ -668,8 +696,10 @@ export default function SessionSlotsCalendar() {
                   )}
 
                   {lanes.map((account, laneIndex) => {
-                    const accountId = account ? Number(account.id) : null;
-                    const color = account ? colorForAccount(accountId) : FALLBACK_ACCOUNT_COLOR;
+                    const isFallback = account === null;
+                    const isNone = Boolean(account?.isNone);
+                    const color = account ? colorForAccount(account.id) : FALLBACK_ACCOUNT_COLOR;
+                    const accountShopIds = (account?.shops ?? []).map((s) => Number(s.id));
 
                     const laneScaffolds = timeSlots.filter((ts) => {
                       const matchesDay =
@@ -677,21 +707,31 @@ export default function SessionSlotsCalendar() {
                       if (!matchesDay) {
                         return false;
                       }
-                      if (accountId === null) {
+                      // Single fallback lane (no accounts yet) shows every scaffold.
+                      if (isFallback) {
                         return true;
                       }
-                      // Global time slots (no account attached) show in every lane
+                      // The Unassigned lane only surfaces legacy slots, never scaffolds.
+                      if (isNone) {
+                        return false;
+                      }
+                      // Global time slots (no shop attached) show in every account lane.
                       if (!ts.platformAccountId) {
                         return true;
                       }
-                      return Number(ts.platformAccountId) === accountId;
+                      // Otherwise show the scaffold only in lanes whose account is
+                      // affiliated with the time slot's shop.
+                      return accountShopIds.includes(Number(ts.platformAccountId));
                     });
 
                     const laneSlots = slots.filter((slot) => {
-                      if (accountId === null) {
+                      if (isFallback) {
                         return true;
                       }
-                      return Number(slot.platformAccountId) === accountId;
+                      if (isNone) {
+                        return slot.liveAccountId == null;
+                      }
+                      return Number(slot.liveAccountId) === Number(account.id);
                     });
 
                     return (
@@ -755,7 +795,7 @@ export default function SessionSlotsCalendar() {
                           const topPx = ((startMin - hourStart * 60) / 60) * HOUR_PX;
                           const heightPx = (duration / 60) * HOUR_PX;
                           const pc = platformStyle(slot.platformType);
-                          const slotColor = colorForAccount(slot.platformAccountId);
+                          const slotColor = color;
                           const isCompact = heightPx < 60;
 
                           return (
@@ -817,10 +857,16 @@ export default function SessionSlotsCalendar() {
                                       )}
                                       {heightPx >= 88 && (
                                         <div
-                                          className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-wide"
+                                          className="mt-0.5 flex items-center gap-1 truncate font-mono text-[9px] uppercase tracking-wide"
                                           style={{ color: slotColor.text }}
+                                          title={slot.platformAccount ?? pc.label}
                                         >
-                                          {pc.label}
+                                          <span className="shrink-0">{pc.label}</span>
+                                          {slot.platformAccount && (
+                                            <span className="truncate normal-case opacity-80">
+                                              {slot.platformAccount}
+                                            </span>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -875,6 +921,7 @@ export default function SessionSlotsCalendar() {
         prefill={createPrefill}
         hosts={hosts}
         platformAccounts={platformAccounts}
+        liveAccounts={liveAccounts}
         timeSlots={timeSlots}
         hostPlatformPivots={hostPlatformPivots ?? []}
         returnTo="calendar"
@@ -892,6 +939,7 @@ export default function SessionSlotsCalendar() {
         sessionSlot={editTarget}
         hosts={hosts}
         platformAccounts={platformAccounts}
+        liveAccounts={liveAccounts}
         timeSlots={timeSlots}
         hostPlatformPivots={hostPlatformPivots ?? []}
         returnTo="calendar"
