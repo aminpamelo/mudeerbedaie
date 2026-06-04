@@ -25,6 +25,7 @@ class StoreSessionSlotRequest extends FormRequest
         $this->merge([
             'live_host_id' => $this->nullableId($this->input('live_host_id')),
             'live_host_platform_account_id' => $this->nullableId($this->input('live_host_platform_account_id')),
+            'live_account_id' => $this->nullableId($this->input('live_account_id')),
             'schedule_date' => $this->nullableString($this->input('schedule_date')),
             'is_template' => $this->toBool($this->input('is_template'), true),
         ]);
@@ -41,9 +42,11 @@ class StoreSessionSlotRequest extends FormRequest
         $scheduleDate = $this->input('schedule_date');
 
         return [
-            'platform_account_id' => [
-                'required', 'exists:platform_accounts,id',
-                Rule::unique('live_schedule_assignments')
+            // The creator account is the punca kuasa: a single account cannot
+            // hold two slots at the same time/day/date (even across shops).
+            'live_account_id' => [
+                'required', 'integer', 'exists:live_accounts,id',
+                Rule::unique('live_schedule_assignments', 'live_account_id')
                     ->where(fn ($q) => $q
                         ->where('time_slot_id', $this->input('time_slot_id'))
                         ->where('day_of_week', $this->input('day_of_week'))
@@ -55,10 +58,14 @@ class StoreSessionSlotRequest extends FormRequest
                         )
                     ),
             ],
+            // The shop is the commerce reference being promoted in this block;
+            // many accounts may share one shop+time, so it no longer gates
+            // uniqueness.
+            'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
             'live_host_id' => ['nullable', 'exists:users,id'],
             'live_host_platform_account_id' => [
-                'required',
+                'nullable',
                 'integer',
                 'exists:live_host_platform_account,id',
             ],
@@ -83,7 +90,8 @@ class StoreSessionSlotRequest extends FormRequest
             'day_of_week.between' => 'Day of week must be between 0 (Sunday) and 6 (Saturday).',
             'schedule_date.date_format' => 'Schedule date must be a valid YYYY-MM-DD date.',
             'schedule_date.required_if' => 'Pick a specific date when the slot is not a weekly template.',
-            'platform_account_id.unique' => 'A session slot already exists for this platform, time slot and day on the selected date.',
+            'live_account_id.unique' => 'This account is already scheduled for that time slot and day on the selected date.',
+            'live_account_id.required' => 'Choose the creator account that will go live.',
         ];
     }
 

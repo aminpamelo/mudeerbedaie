@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
@@ -132,6 +133,7 @@ it('renders the session slot create form with dropdown data', function () {
 it('creates a new session slot', function () {
     $host = User::factory()->create(['role' => 'live_host']);
     $account = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
     $pivot = LiveHostPlatformAccount::create([
         'user_id' => $host->id,
@@ -142,6 +144,7 @@ it('creates a new session slot', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $account->id,
+            'live_account_id' => $liveAccount->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => $host->id,
             'live_host_platform_account_id' => $pivot->id,
@@ -156,6 +159,7 @@ it('creates a new session slot', function () {
     $created = LiveScheduleAssignment::latest('id')->first();
     expect($created)->not->toBeNull();
     expect($created->platform_account_id)->toBe($account->id);
+    expect($created->live_account_id)->toBe($liveAccount->id);
     expect($created->time_slot_id)->toBe($slot->id);
     expect($created->live_host_id)->toBe($host->id);
     expect($created->live_host_platform_account_id)->toBe($pivot->id);
@@ -169,6 +173,7 @@ it('creates a new session slot', function () {
 it('creates a session slot with no host assigned', function () {
     $host = User::factory()->create(['role' => 'live_host']);
     $account = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
     $pivot = LiveHostPlatformAccount::create([
         'user_id' => $host->id,
@@ -179,6 +184,7 @@ it('creates a session slot with no host assigned', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $account->id,
+            'live_account_id' => $liveAccount->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => null,
             'live_host_platform_account_id' => $pivot->id,
@@ -200,8 +206,86 @@ it('rejects session slot create with missing required fields', function () {
             'platform_account_id',
             'time_slot_id',
             'day_of_week',
-            'live_host_platform_account_id',
+            'live_account_id',
         ]);
+});
+
+it('blocks the same account being double-booked at one time slot', function () {
+    $shop = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create();
+
+    LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $shop->id,
+        'live_account_id' => $liveAccount->id,
+        'time_slot_id' => $slot->id,
+        'day_of_week' => 2,
+        'is_template' => true,
+        'schedule_date' => null,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots', [
+            'platform_account_id' => $shop->id,
+            'live_account_id' => $liveAccount->id,
+            'time_slot_id' => $slot->id,
+            'day_of_week' => 2,
+            'is_template' => true,
+        ])
+        ->assertSessionHasErrors('live_account_id');
+});
+
+it('blocks the same account double-booked even across different shops', function () {
+    $shopA = PlatformAccount::factory()->create();
+    $shopB = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create();
+
+    LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $shopA->id,
+        'live_account_id' => $liveAccount->id,
+        'time_slot_id' => $slot->id,
+        'day_of_week' => 2,
+        'is_template' => true,
+        'schedule_date' => null,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots', [
+            'platform_account_id' => $shopB->id,
+            'live_account_id' => $liveAccount->id,
+            'time_slot_id' => $slot->id,
+            'day_of_week' => 2,
+            'is_template' => true,
+        ])
+        ->assertSessionHasErrors('live_account_id');
+});
+
+it('allows many accounts to share the same shop and time slot', function () {
+    $shop = PlatformAccount::factory()->create();
+    $accountA = LiveAccount::factory()->create();
+    $accountB = LiveAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create();
+
+    LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $shop->id,
+        'live_account_id' => $accountA->id,
+        'time_slot_id' => $slot->id,
+        'day_of_week' => 2,
+        'is_template' => true,
+        'schedule_date' => null,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots', [
+            'platform_account_id' => $shop->id,
+            'live_account_id' => $accountB->id,
+            'time_slot_id' => $slot->id,
+            'day_of_week' => 2,
+            'is_template' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/livehost/session-slots');
 });
 
 it('rejects session slot create with out-of-range day_of_week', function () {
