@@ -71,6 +71,74 @@ class StripeService
         return array_map(fn ($invoice) => $invoice->toArray(), $invoices->data);
     }
 
+    /**
+     * Backfill local Order rows for an enrollment's paid Stripe invoices that are
+     * missing locally (e.g. a missed webhook). Returns a summary of the run.
+     *
+     * @return array{created: int, skipped: int, rows: array<int, array{0: string, 1: string, 2: string, 3: string}>}
+     */
+    public function reconcileSubscriptionOrders(Enrollment $enrollment, bool $dryRun = false, int $limit = 100): array
+    {
+        $created = 0;
+        $skipped = 0;
+        $rows = [];
+
+        foreach ($this->listSubscriptionInvoices($enrollment->stripe_subscription_id, $limit) as $data) {
+            $invoiceId = $data['id'] ?? null;
+
+            if (! $invoiceId) {
+                continue;
+            }
+
+            if (Order::where('stripe_invoice_id', $invoiceId)->exists()) {
+                $skipped++;
+
+                continue;
+            }
+
+            if (($data['status'] ?? null) !== 'paid') {
+                $skipped++;
+
+                continue;
+            }
+
+            $periodStart = $data['lines']['data'][0]['period']['start'] ?? $data['period_start'] ?? null;
+            $period = $periodStart ? Carbon::createFromTimestamp($periodStart)->format('Y-m-d') : '-';
+
+            if ($dryRun) {
+                $rows[] = [$invoiceId, $period, number_format(($data['amount_paid'] ?? 0) / 100, 2), 'would create'];
+                $created++;
+
+                continue;
+            }
+
+            $order = $this->createOrderFromStripeInvoice($data);
+
+            if (! $order) {
+                $rows[] = [$invoiceId, $period, '-', 'failed'];
+
+                continue;
+            }
+
+            $order->markAsPaid();
+
+            if (! empty($data['period_end'])) {
+                $enrollment->updateNextPaymentDate(Carbon::createFromTimestamp($data['period_end'])->addDay());
+            }
+
+            $rows[] = [$invoiceId, $period, number_format($order->amount, 2), 'created'];
+            $created++;
+
+            Log::info('Reconcile: created missing order from Stripe invoice', [
+                'order_id' => $order->id,
+                'enrollment_id' => $enrollment->id,
+                'stripe_invoice_id' => $invoiceId,
+            ]);
+        }
+
+        return ['created' => $created, 'skipped' => $skipped, 'rows' => $rows];
+    }
+
     public function getPublishableKey(): string
     {
         return $this->settingsService->get('stripe_publishable_key', '');

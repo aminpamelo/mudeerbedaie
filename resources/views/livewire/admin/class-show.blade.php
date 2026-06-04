@@ -1333,6 +1333,60 @@ new class extends Component
         $this->resetPage();
     }
 
+    public bool $reconciling = false;
+
+    public function reconcilePayments()
+    {
+        $this->reconciling = true;
+
+        $studentIds = $this->class_students_for_payment_report->pluck('student.id')->filter()->all();
+
+        $enrollments = \App\Models\Enrollment::where('course_id', $this->class->course_id)
+            ->whereIn('student_id', $studentIds)
+            ->whereNotNull('stripe_subscription_id')
+            ->where('stripe_subscription_id', 'not like', 'INTERNAL-%')
+            ->get();
+
+        if ($enrollments->isEmpty()) {
+            $this->reconciling = false;
+            session()->flash('error', 'No Stripe-backed enrollments to reconcile in the current view.');
+
+            return;
+        }
+
+        $stripeService = app(\App\Services\StripeService::class);
+        $created = 0;
+        $failed = 0;
+
+        foreach ($enrollments as $enrollment) {
+            try {
+                $result = $stripeService->reconcileSubscriptionOrders($enrollment);
+                $created += $result['created'];
+            } catch (\Exception $e) {
+                $failed++;
+                \Log::warning('Reconcile from payment report failed', [
+                    'enrollment_id' => $enrollment->id,
+                    'subscription_id' => $enrollment->stripe_subscription_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $this->reconciling = false;
+
+        if ($created > 0) {
+            $message = "Reconciliation complete. {$created} missing payment(s) imported from Stripe.";
+            if ($failed > 0) {
+                $message .= " {$failed} enrollment(s) could not be reached — check logs.";
+            }
+            session()->flash('success', $message);
+        } elseif ($failed > 0) {
+            session()->flash('error', "Reconciliation finished with errors on {$failed} enrollment(s). Check logs.");
+        } else {
+            session()->flash('success', 'Already up to date — no missing payments found in Stripe.');
+        }
+    }
+
     public function getClassStudentsForPaymentReportProperty()
     {
         $query = $this->class->activeStudents()
@@ -5878,6 +5932,20 @@ new class extends Component
                         <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Payment Reports</h3>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Track student payment history for this class</p>
                     </div>
+                    <div class="flex items-center gap-2">
+                    <!-- Reconcile with Stripe -->
+                    <flux:button variant="outline" size="sm"
+                        wire:click="reconcilePayments"
+                        wire:confirm="Reconcile the students shown here against Stripe? This imports any paid invoices that are missing locally."
+                        wire:target="reconcilePayments"
+                        wire:loading.attr="disabled">
+                        <div class="flex items-center justify-center">
+                            <flux:icon icon="arrow-path" class="w-4 h-4 mr-1" wire:loading.class="animate-spin" wire:target="reconcilePayments" />
+                            <span wire:loading.remove wire:target="reconcilePayments">Reconcile</span>
+                            <span wire:loading wire:target="reconcilePayments">Reconciling…</span>
+                        </div>
+                    </flux:button>
+
                     <!-- Column Visibility Manager -->
                     <div class="relative" x-data="{ open: @entangle('showPaymentColumnManager') }">
                         <flux:button variant="outline" size="sm" @click="open = !open">
@@ -5933,6 +6001,7 @@ new class extends Component
                                 @endif
                             </div>
                         </div>
+                    </div>
                     </div>
                 </div>
 

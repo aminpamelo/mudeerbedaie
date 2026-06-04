@@ -3,9 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Enrollment;
-use App\Models\Order;
 use App\Services\StripeService;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -41,10 +39,10 @@ class ReconcileStripeOrders extends Command
 
         foreach ($enrollments as $enrollment) {
             try {
-                $invoices = $stripeService->listSubscriptionInvoices($enrollment->stripe_subscription_id, $limit);
+                $result = $stripeService->reconcileSubscriptionOrders($enrollment, $dryRun, $limit);
             } catch (\Exception $e) {
-                $this->error("Failed to list invoices for {$enrollment->stripe_subscription_id}: {$e->getMessage()}");
-                Log::error('Reconcile: failed to list Stripe invoices', [
+                $this->error("Failed to reconcile {$enrollment->stripe_subscription_id}: {$e->getMessage()}");
+                Log::error('Reconcile: failed to reconcile subscription', [
                     'enrollment_id' => $enrollment->id,
                     'subscription_id' => $enrollment->stripe_subscription_id,
                     'error' => $e->getMessage(),
@@ -53,53 +51,13 @@ class ReconcileStripeOrders extends Command
                 continue;
             }
 
-            foreach ($invoices as $data) {
-                $invoiceId = $data['id'];
-
-                if (Order::where('stripe_invoice_id', $invoiceId)->exists()) {
-                    $skipped++;
-
-                    continue;
-                }
-
-                if (($data['status'] ?? null) !== 'paid') {
-                    $skipped++;
-
-                    continue;
-                }
-
-                $period = $this->describePeriod($data);
-
-                if ($dryRun) {
-                    $rows[] = [$enrollment->id, $invoiceId, $period, number_format(($data['amount_paid'] ?? 0) / 100, 2), 'would create'];
-                    $created++;
-
-                    continue;
-                }
-
-                $order = $stripeService->createOrderFromStripeInvoice($data);
-
-                if (! $order) {
-                    $rows[] = [$enrollment->id, $invoiceId, $period, '-', 'failed'];
-
-                    continue;
-                }
-
-                $order->markAsPaid();
-
-                if (! empty($data['period_end'])) {
-                    $enrollment->updateNextPaymentDate(Carbon::createFromTimestamp($data['period_end'])->addDay());
-                }
-
-                $rows[] = [$enrollment->id, $invoiceId, $period, number_format($order->amount, 2), 'created'];
-                $created++;
-
-                Log::info('Reconcile: created missing order from Stripe invoice', [
-                    'order_id' => $order->id,
-                    'enrollment_id' => $enrollment->id,
-                    'stripe_invoice_id' => $invoiceId,
-                ]);
+            foreach ($result['rows'] as $row) {
+                array_unshift($row, $enrollment->id);
+                $rows[] = $row;
             }
+
+            $created += $result['created'];
+            $skipped += $result['skipped'];
         }
 
         if (! empty($rows)) {
@@ -129,15 +87,5 @@ class ReconcileStripeOrders extends Command
         }
 
         return $query->get();
-    }
-
-    /**
-     * @param  array<string, mixed>  $invoice
-     */
-    private function describePeriod(array $invoice): string
-    {
-        $start = $invoice['lines']['data'][0]['period']['start'] ?? $invoice['period_start'] ?? null;
-
-        return $start ? Carbon::createFromTimestamp($start)->format('Y-m-d') : '-';
     }
 }
