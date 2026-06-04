@@ -1185,6 +1185,19 @@ new class extends Component
 
     public $expectedAmount = 0;
 
+    // Order Breakdown Modal Properties
+    public bool $showOrderBreakdownModal = false;
+
+    public array $breakdownOrders = [];
+
+    public string $breakdownStudentName = '';
+
+    public string $breakdownPeriodLabel = '';
+
+    public string $breakdownPeriodRange = '';
+
+    public float $breakdownTotal = 0;
+
     // Edit Enrollment Modal Properties
     public bool $showEditEnrollmentModal = false;
 
@@ -1753,6 +1766,71 @@ new class extends Component
         $this->receiptFile = null;
         $this->paidAmountForPeriod = 0;
         $this->expectedAmount = 0;
+    }
+
+    public function openOrderBreakdownModal($studentId, $periodLabel, $periodStart, $periodEnd): void
+    {
+        $student = \App\Models\Student::with('user:id,name')->find($studentId);
+
+        $orders = \App\Models\Order::query()
+            ->where('student_id', $studentId)
+            ->where('course_id', $this->class->course_id)
+            ->whereDate('period_start', '>=', $periodStart)
+            ->whereDate('period_start', '<=', $periodEnd)
+            ->where('status', \App\Models\Order::STATUS_PAID)
+            ->with('items')
+            ->orderBy('paid_at')
+            ->get();
+
+        $processorIds = $orders
+            ->map(fn ($order) => $order->metadata['processed_by'] ?? null)
+            ->filter()
+            ->unique();
+        $processors = \App\Models\User::whereIn('id', $processorIds)->pluck('name', 'id');
+
+        $this->breakdownOrders = $orders->map(function ($order) use ($processors) {
+            $meta = $order->metadata ?? [];
+
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'amount' => (float) $order->amount,
+                'payment_method' => $order->payment_method,
+                'payment_method_label' => $order->payment_method_label,
+                'billing_reason_label' => $order->billing_reason_label,
+                'paid_at' => $order->paid_at?->format('M j, Y · g:i A'),
+                'period' => $order->getPeriodDescription(),
+                'receipt_url' => $order->receipt_url,
+                'stripe_invoice_id' => $order->stripe_invoice_id,
+                'notes' => $meta['notes'] ?? null,
+                'is_manual' => ($meta['manual_payment'] ?? false) || $order->payment_method === \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                'processed_by' => isset($meta['processed_by']) ? ($processors[$meta['processed_by']] ?? null) : null,
+                'processed_at' => isset($meta['processed_at']) ? \Carbon\Carbon::parse($meta['processed_at'])->format('M j, Y · g:i A') : null,
+                'items' => $order->items->map(fn ($item) => [
+                    'description' => $item->description,
+                    'quantity' => (int) $item->quantity,
+                    'unit_price' => (float) $item->unit_price,
+                    'total_price' => (float) $item->total_price,
+                ])->toArray(),
+                'url' => route('orders.show', $order->id),
+            ];
+        })->toArray();
+
+        $this->breakdownStudentName = $student?->user?->name ?? 'Unknown student';
+        $this->breakdownPeriodLabel = $periodLabel;
+        $this->breakdownPeriodRange = \Carbon\Carbon::parse($periodStart)->format('M j').' - '.\Carbon\Carbon::parse($periodEnd)->format('M j, Y');
+        $this->breakdownTotal = (float) $orders->sum('amount');
+        $this->showOrderBreakdownModal = true;
+    }
+
+    public function closeOrderBreakdownModal(): void
+    {
+        $this->showOrderBreakdownModal = false;
+        $this->breakdownOrders = [];
+        $this->breakdownStudentName = '';
+        $this->breakdownPeriodLabel = '';
+        $this->breakdownPeriodRange = '';
+        $this->breakdownTotal = 0;
     }
 
     public function updatedReceiptFile()
@@ -6285,24 +6363,31 @@ new class extends Component
                                             <td class="py-3 px-3 text-center border-l border-gray-100 dark:border-zinc-700">
                                                 @switch($payment['status'])
                                                     @case('paid')
-                                                        <div class="space-y-1">
-                                                            @if(isset($payment['paid_orders']) && $payment['paid_orders']->count() > 0)
-                                                                <a href="{{ route('orders.show', $payment['paid_orders']->first()) }}"
-                                                                   class="block hover:opacity-80 cursor-pointer"
-                                                                   wire:navigate>
-                                                                    <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full mb-1">
-                                                                        <flux:icon.check class="w-4 h-4" />
-                                                                    </div>
-                                                                </a>
-                                                            @else
+                                                        @if(isset($payment['paid_orders']) && $payment['paid_orders']->count() > 0)
+                                                            <button type="button"
+                                                                    wire:click="openOrderBreakdownModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}')"
+                                                                    title="View payment breakdown"
+                                                                    class="group w-full space-y-1 rounded-lg p-1 cursor-pointer transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                                                <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full mb-1 transition-transform group-hover:scale-110">
+                                                                    <flux:icon.check class="w-4 h-4" />
+                                                                </div>
+                                                                <div class="text-xs font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                                                    RM {{ number_format($payment['paid_amount'] ?? 0, 2) }}
+                                                                </div>
+                                                                @if($payment['paid_orders']->count() > 1)
+                                                                    <div class="text-[10px] text-emerald-500/80 dark:text-emerald-400/70">{{ $payment['paid_orders']->count() }} payments</div>
+                                                                @endif
+                                                            </button>
+                                                        @else
+                                                            <div class="space-y-1">
                                                                 <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full mb-1">
                                                                     <flux:icon.check class="w-4 h-4" />
                                                                 </div>
-                                                            @endif
-                                                            <div class="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                                                RM {{ number_format($payment['paid_amount'] ?? 0, 2) }}
+                                                                <div class="text-xs font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                                                    RM {{ number_format($payment['paid_amount'] ?? 0, 2) }}
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        @endif
                                                         @break
 
                                                     @case('unpaid')
@@ -6740,6 +6825,168 @@ new class extends Component
                                 </div>
                             </flux:button>
                         </div>
+                    </div>
+                @endif
+            </flux:modal>
+
+            <!-- Order Breakdown Modal -->
+            <flux:modal name="order-breakdown" :show="$showOrderBreakdownModal" wire:model="showOrderBreakdownModal" class="md:w-[44rem]">
+                <div class="flex items-start justify-between gap-4 pb-4 border-b border-gray-200 dark:border-zinc-700 mb-4 pt-8">
+                    <div>
+                        <flux:heading size="lg">Payment Breakdown</flux:heading>
+                        <flux:text class="mt-1">
+                            {{ $breakdownStudentName }} · {{ $breakdownPeriodLabel }} ({{ $breakdownPeriodRange }})
+                        </flux:text>
+                    </div>
+                </div>
+
+                @if(count($breakdownOrders) > 0)
+                    <div class="space-y-4">
+                        <!-- Total Summary -->
+                        <div class="flex items-center justify-between rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40 px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400">
+                                    <flux:icon name="banknotes" class="w-4 h-4" />
+                                </span>
+                                <div>
+                                    <flux:text class="text-xs text-emerald-700 dark:text-emerald-400">Total Paid</flux:text>
+                                    <div class="text-lg font-bold text-emerald-700 dark:text-emerald-300 tabular-nums leading-tight">
+                                        RM {{ number_format($breakdownTotal, 2) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <flux:text class="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                                {{ count($breakdownOrders) }} {{ \Illuminate\Support\Str::plural('payment', count($breakdownOrders)) }}
+                            </flux:text>
+                        </div>
+
+                        <!-- Per-order breakdown -->
+                        <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                            @foreach($breakdownOrders as $order)
+                                <div wire:key="breakdown-order-{{ $order['id'] }}" class="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+                                    <!-- Order header -->
+                                    <div class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 dark:bg-zinc-800 border-b border-gray-100 dark:border-zinc-700">
+                                        <div class="min-w-0">
+                                            <div class="font-mono text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $order['order_number'] }}</div>
+                                            <div class="mt-0.5 flex items-center gap-1.5">
+                                                @if($order['is_manual'])
+                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
+                                                        <flux:icon name="banknotes" class="w-3 h-3" />
+                                                        {{ $order['payment_method_label'] }}
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+                                                        <flux:icon name="credit-card" class="w-3 h-3" />
+                                                        {{ $order['payment_method_label'] }}
+                                                    </span>
+                                                @endif
+                                                <span class="text-[11px] text-gray-400 dark:text-gray-500">{{ $order['billing_reason_label'] }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <div class="text-base font-bold text-gray-900 dark:text-gray-100 tabular-nums">RM {{ number_format($order['amount'], 2) }}</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Meta grid -->
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 text-sm">
+                                        <div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">Paid On</div>
+                                            <div class="text-gray-900 dark:text-gray-200">{{ $order['paid_at'] ?? '—' }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">Billing Period</div>
+                                            <div class="text-gray-900 dark:text-gray-200">{{ $order['period'] }}</div>
+                                        </div>
+                                        @if($order['processed_by'])
+                                            <div>
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">Recorded By</div>
+                                                <div class="text-gray-900 dark:text-gray-200">{{ $order['processed_by'] }}</div>
+                                            </div>
+                                        @endif
+                                        @if($order['processed_at'])
+                                            <div>
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">Recorded At</div>
+                                                <div class="text-gray-900 dark:text-gray-200">{{ $order['processed_at'] }}</div>
+                                            </div>
+                                        @endif
+                                        @if($order['stripe_invoice_id'])
+                                            <div class="col-span-2">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">Stripe Invoice</div>
+                                                <div class="font-mono text-xs text-gray-700 dark:text-gray-300 break-all">{{ $order['stripe_invoice_id'] }}</div>
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    <!-- Line items -->
+                                    @if(count($order['items']) > 0)
+                                        <div class="px-4 pb-3">
+                                            <div class="rounded-lg border border-gray-100 dark:border-zinc-700 overflow-hidden">
+                                                <table class="w-full text-sm">
+                                                    <thead>
+                                                        <tr class="bg-gray-50 dark:bg-zinc-800 text-left text-xs text-gray-500 dark:text-gray-400">
+                                                            <th class="py-2 px-3 font-medium">Description</th>
+                                                            <th class="py-2 px-3 font-medium text-center">Qty</th>
+                                                            <th class="py-2 px-3 font-medium text-right">Unit</th>
+                                                            <th class="py-2 px-3 font-medium text-right">Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
+                                                        @foreach($order['items'] as $item)
+                                                            <tr>
+                                                                <td class="py-2 px-3 text-gray-900 dark:text-gray-200">{{ $item['description'] }}</td>
+                                                                <td class="py-2 px-3 text-center text-gray-600 dark:text-gray-400 tabular-nums">{{ $item['quantity'] }}</td>
+                                                                <td class="py-2 px-3 text-right text-gray-600 dark:text-gray-400 tabular-nums">RM {{ number_format($item['unit_price'], 2) }}</td>
+                                                                <td class="py-2 px-3 text-right font-medium text-gray-900 dark:text-gray-200 tabular-nums">RM {{ number_format($item['total_price'], 2) }}</td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <!-- Notes -->
+                                    @if($order['notes'])
+                                        <div class="px-4 pb-3">
+                                            <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 px-3 py-2">
+                                                <div class="flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 mb-0.5">
+                                                    <flux:icon name="chat-bubble-bottom-center-text" class="w-3.5 h-3.5" />
+                                                    Notes
+                                                </div>
+                                                <flux:text class="text-sm text-amber-800 dark:text-amber-200">{{ $order['notes'] }}</flux:text>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <!-- Footer actions -->
+                                    <div class="flex items-center justify-end gap-3 px-4 py-2.5 bg-gray-50 dark:bg-zinc-800 border-t border-gray-100 dark:border-zinc-700">
+                                        @if($order['receipt_url'])
+                                            <a href="{{ $order['receipt_url'] }}" target="_blank" rel="noopener"
+                                               class="inline-flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                                                <flux:icon name="paper-clip" class="w-3.5 h-3.5" />
+                                                Receipt
+                                            </a>
+                                        @endif
+                                        <a href="{{ $order['url'] }}" wire:navigate
+                                           class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+                                            View full order
+                                            <flux:icon name="arrow-top-right-on-square" class="w-3.5 h-3.5" />
+                                        </a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <!-- Modal actions -->
+                        <div class="flex justify-end pt-2">
+                            <flux:button variant="outline" wire:click="closeOrderBreakdownModal">Close</flux:button>
+                        </div>
+                    </div>
+                @else
+                    <div class="py-10 text-center">
+                        <flux:icon name="document-magnifying-glass" class="w-10 h-10 mx-auto text-gray-300 dark:text-zinc-600" />
+                        <flux:text class="mt-3 text-gray-500 dark:text-gray-400">No paid orders found for this period.</flux:text>
                     </div>
                 @endif
             </flux:modal>
