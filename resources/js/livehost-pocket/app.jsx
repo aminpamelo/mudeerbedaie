@@ -2,6 +2,15 @@ import './styles/pocket.css';
 import { createInertiaApp, router } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
+// Register the Live Host Pocket PWA service worker (scope /live-host). Served
+// from the site root so the /live-host scope is allowed without a
+// Service-Worker-Allowed header (same trick as the CEO worker).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/pocket-sw.js', { scope: '/live-host' }).catch(() => {});
+  });
+}
+
 // Expired CSRF token / session → 419. Reload to fetch a fresh token instead of
 // surfacing Inertia's blank error modal.
 router.on('invalid', (event) => {

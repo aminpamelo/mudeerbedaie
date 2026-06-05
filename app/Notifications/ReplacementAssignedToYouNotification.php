@@ -7,6 +7,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class ReplacementAssignedToYouNotification extends Notification implements ShouldQueue
 {
@@ -16,7 +18,22 @@ class ReplacementAssignedToYouNotification extends Notification implements Shoul
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', WebPushChannel::class];
+    }
+
+    public function toWebPush(object $notifiable, $notification): WebPushMessage
+    {
+        $req = $this->request->loadMissing(['assignment.timeSlot', 'assignment.platformAccount']);
+        $dayName = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'][$req->assignment?->day_of_week ?? 0] ?? '';
+        $startTime = substr((string) ($req->assignment?->timeSlot?->start_time ?? ''), 0, 5);
+        $platform = $req->assignment?->platformAccount?->name ?? '';
+
+        return (new WebPushMessage)
+            ->title('Anda ditugaskan sebagai pengganti')
+            ->body(trim("{$dayName} {$startTime} · {$platform}"))
+            ->icon('/icons/pocket-192.svg')
+            ->badge('/icons/pocket-192.svg')
+            ->data(['url' => route('live-host.schedule')]);
     }
 
     public function toMail(object $notifiable): MailMessage

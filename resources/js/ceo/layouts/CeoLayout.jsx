@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users } from 'lucide-react';
+import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks } from 'lucide-react';
 import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
@@ -12,11 +12,14 @@ const DEPARTMENTS = [
   { key: 'hr', href: '/ceo/hr', icon: Users, accent: 'amber' },
 ];
 
+const MONITORING = [{ key: 'tasks_nav', href: '/ceo/tasks', icon: ListChecks, accent: 'rose' }];
+
 const ACCENT_HEX = {
   emerald: '#10B981',
   sky: '#0EA5E9',
   violet: '#8B5CF6',
   amber: '#F59E0B',
+  rose: '#F43F5E',
 };
 
 /**
@@ -113,6 +116,34 @@ function Sidebar({ auth, brand, currentUrl }) {
                   <Icon className="h-[15px] w-[15px]" style={{ color: active ? '#fff' : hex }} strokeWidth={2} />
                 </span>
                 <span>{t(`dept_${item.key}`)}</span>
+              </a>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.04em] text-muted-2">{t('monitoring')}</div>
+          {MONITORING.map((item) => {
+            const Icon = item.icon;
+            const active = isDeptActive(item.href);
+            const hex = ACCENT_HEX[item.accent];
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                data-accent={item.accent}
+                className={cn(
+                  'group flex items-center gap-[10px] rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-all',
+                  active ? 'bg-white/70 text-ink shadow-[0_6px_16px_-10px_rgba(15,23,42,0.4)]' : 'text-ink-2 hover:bg-white/50 hover:text-ink'
+                )}
+              >
+                <span
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-colors"
+                  style={{ background: active ? hex : `color-mix(in oklab, ${hex} 14%, white)` }}
+                >
+                  <Icon className="h-[15px] w-[15px]" style={{ color: active ? '#fff' : hex }} strokeWidth={2} />
+                </span>
+                <span>{t(item.key)}</span>
               </a>
             );
           })}

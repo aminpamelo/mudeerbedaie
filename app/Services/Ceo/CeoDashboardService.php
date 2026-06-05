@@ -7,6 +7,7 @@ use App\Services\Ceo\Reports\EcommerceHealthReport;
 use App\Services\Ceo\Reports\EducationHealthReport;
 use App\Services\Ceo\Reports\HrHealthReport;
 use App\Services\Ceo\Reports\LiveHostHealthReport;
+use App\Services\Ceo\Reports\TaskMonitoringReport;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -27,7 +28,24 @@ class CeoDashboardService
         private readonly LiveHostHealthReport $liveHost,
         private readonly EcommerceHealthReport $ecommerce,
         private readonly HrHealthReport $hr,
+        private readonly TaskMonitoringReport $taskReport,
     ) {}
+
+    /**
+     * Rich payload for the cross-company task-monitoring page (staff performance
+     * across assigned tasks). Cached per period + locale like the department
+     * reports.
+     *
+     * @return array<string, mixed>
+     */
+    public function taskMonitoring(CeoPeriod $period): array
+    {
+        return Cache::remember(
+            "ceo:tasks:{$period->key}:".app()->getLocale(),
+            self::CACHE_TTL,
+            fn () => $this->taskReport->build($period)
+        );
+    }
 
     /**
      * @return array<string, mixed>

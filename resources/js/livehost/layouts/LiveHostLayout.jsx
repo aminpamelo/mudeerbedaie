@@ -18,6 +18,7 @@ import {
   BarChart3,
   CalendarRange,
   ShoppingBag,
+  Database,
   LogOut,
   UserMinus,
   GraduationCap,
@@ -57,6 +58,7 @@ const NAV_GROUPS = [
     label: 'Records',
     items: [
       { key: 'sessions', label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
+      { key: 'session-data', label: 'Session Data', href: '/livehost/session-data', icon: Database },
       { key: 'orders', label: 'Orders', href: '/livehost/orders', icon: ShoppingBag, countKey: 'unmatchedOrders' },
       { key: 'commission', label: 'Commission', href: '/livehost/commission', icon: DollarSign },
       { key: 'payroll', label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
@@ -86,6 +88,7 @@ const NAV_ITEM_PERMISSION = {
   creators: null,
   'live-accounts': null,
   sessions: 'canSeeSessions',
+  'session-data': 'canSeeSessions',
   orders: 'canSeeFinancials',
   commission: 'canSeeFinancials',
   payroll: 'canSeePayroll',

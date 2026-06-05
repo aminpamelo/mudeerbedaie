@@ -11,6 +11,7 @@ use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -183,7 +184,12 @@ class SessionSlotController extends Controller
         $data['created_by'] = $request->user()?->id;
         $data['status'] = $data['status'] ?? 'scheduled';
 
-        LiveScheduleAssignment::create($data);
+        $sessionSlot = LiveScheduleAssignment::create($data);
+
+        if ($sessionSlot->live_host_id !== null && $this->isFutureDated($sessionSlot)) {
+            User::find($sessionSlot->live_host_id)
+                ?->notify(new ScheduleSlotChangedNotification($sessionSlot, 'assigned'));
+        }
 
         $redirect = match ($request->string('return_to')->toString()) {
             'calendar' => redirect()->route('livehost.session-slots.calendar', $request->only(['week_of'])),
@@ -246,6 +252,8 @@ class SessionSlotController extends Controller
 
         $sessionSlot->update($data);
 
+        $this->pushSlotUpdate($sessionSlot);
+
         $redirect = match ($request->string('return_to')->toString()) {
             'calendar' => redirect()->route('livehost.session-slots.calendar', $request->only(['week_of'])),
             'table' => redirect()->route('livehost.session-slots.table'),
@@ -254,6 +262,47 @@ class SessionSlotController extends Controller
         };
 
         return $redirect->with('success', 'Session slot updated.');
+    }
+
+    /**
+     * True for dated (non-template), today-or-future slots — the only ones a
+     * host can still act on, so the only ones worth a push.
+     */
+    private function isFutureDated(LiveScheduleAssignment $slot): bool
+    {
+        return ! $slot->is_template
+            && $slot->schedule_date !== null
+            && CarbonImmutable::parse($slot->schedule_date)->gte(CarbonImmutable::today());
+    }
+
+    /**
+     * Notify the host when their dated slot meaningfully changes. A newly
+     * assigned host is told "assigned"; an existing host whose time / creator
+     * account / platform / status moved is told "updated". Pure reassignments
+     * that go through the replacement workflow update the row outside this
+     * controller, so they never reach here — no double notification.
+     */
+    private function pushSlotUpdate(LiveScheduleAssignment $slot): void
+    {
+        if (! $this->isFutureDated($slot) || $slot->live_host_id === null) {
+            return;
+        }
+
+        if ($slot->wasChanged('live_host_id')) {
+            User::find($slot->live_host_id)
+                ?->notify(new ScheduleSlotChangedNotification($slot, 'assigned'));
+
+            return;
+        }
+
+        $detailsChanged = $slot->wasChanged([
+            'time_slot_id', 'schedule_date', 'platform_account_id', 'live_account_id', 'status',
+        ]);
+
+        if ($detailsChanged) {
+            User::find($slot->live_host_id)
+                ?->notify(new ScheduleSlotChangedNotification($slot, 'updated'));
+        }
     }
 
     public function destroy(LiveScheduleAssignment $sessionSlot): RedirectResponse

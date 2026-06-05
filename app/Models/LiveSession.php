@@ -25,6 +25,8 @@ class LiveSession extends Model
         'description',
         'status',
         'scheduled_start_at',
+        'reminder_15m_sent_at',
+        'recap_reminder_sent_at',
         'actual_start_at',
         'actual_end_at',
         'duration_minutes',
@@ -50,6 +52,8 @@ class LiveSession extends Model
     {
         return [
             'scheduled_start_at' => 'datetime',
+            'reminder_15m_sent_at' => 'datetime',
+            'recap_reminder_sent_at' => 'datetime',
             'actual_start_at' => 'datetime',
             'actual_end_at' => 'datetime',
             'uploaded_at' => 'datetime',

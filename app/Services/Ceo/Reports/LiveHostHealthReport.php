@@ -174,7 +174,8 @@ class LiveHostHealthReport
 
         $slots = LiveScheduleAssignment::query()
             ->where('is_template', false)
-            ->whereBetween('schedule_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereDate('schedule_date', '>=', $weekStart->toDateString())
+            ->whereDate('schedule_date', '<=', $weekEnd->toDateString())
             ->get(['schedule_date', 'live_host_id']);
 
         $total = $slots->count();

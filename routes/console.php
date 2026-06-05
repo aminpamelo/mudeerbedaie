@@ -97,3 +97,9 @@ Schedule::command('tiktok:sync-finance')->dailyAt('06:00');
 
 // Live Host - Expire pending replacement requests whose expires_at has passed
 Schedule::command('replacements:expire')->everyFiveMinutes();
+
+// Live Host Pocket - Push "session starting soon" reminders ~15 min before start
+Schedule::command('livehost:send-session-reminders')->everyFiveMinutes()->withoutOverlapping();
+
+// Live Host Pocket - Remind hosts to submit overdue session recaps
+Schedule::command('livehost:send-recap-reminders')->hourly()->withoutOverlapping();

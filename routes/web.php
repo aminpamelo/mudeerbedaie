@@ -167,12 +167,27 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
 // tab on the Sessions list (`/live-host/sessions?filter=ended`); the route
 // name is kept as a redirect so any external link or sidebar reference still
 // resolves.
+//
+// Pocket PWA manifest — public (no sensitive data) so the browser can fetch it
+// for install without an auth round-trip. The companion service worker is the
+// static file public/pocket-sw.js (scope /live-host).
+Route::get('live-host/manifest.json', [\App\Http\Controllers\LiveHostPocket\PocketPwaController::class, 'manifest'])
+    ->name('live-host.manifest');
+
 Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketInertiaRequests::class])
     ->prefix('live-host')
     ->name('live-host.')
     ->group(function () {
         Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
             ->name('dashboard');
+
+        // Web Push subscription lifecycle for the installed Pocket PWA. The
+        // React opt-in flow POSTs the browser PushSubscription here; DELETE on
+        // unsubscribe / permission revoke.
+        Route::post('push-subscriptions', [\App\Http\Controllers\LiveHostPocket\PushSubscriptionController::class, 'store'])
+            ->name('push-subscriptions.store');
+        Route::delete('push-subscriptions', [\App\Http\Controllers\LiveHostPocket\PushSubscriptionController::class, 'destroy'])
+            ->name('push-subscriptions.destroy');
 
         Route::get('schedule', [\App\Http\Controllers\LiveHostPocket\ScheduleController::class, 'index'])
             ->name('schedule');
@@ -266,6 +281,8 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
             ->name('dashboard');
         Route::post('locale', [\App\Http\Controllers\Ceo\DashboardController::class, 'setLocale'])
             ->name('locale');
+        Route::get('tasks', [\App\Http\Controllers\Ceo\TaskMonitoringController::class, 'index'])
+            ->name('tasks');
         Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
             ->where('department', 'livehost|education|ecommerce|hr')
             ->name('department');
@@ -396,6 +413,12 @@ Route::middleware(['auth'])
                 ->name('hosts.live-accounts.attach');
             Route::delete('hosts/{host}/live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'detachHost'])
                 ->name('hosts.live-accounts.detach');
+
+            // Combined "Session Data" view: live sessions merged with their linked
+            // TikTok actual records (GMV/viewers/items/creator). Distinct base path
+            // so it doesn't collide with the sessions/{session} wildcard below.
+            Route::get('session-data', [\App\Http\Controllers\LiveHost\SessionDataController::class, 'index'])
+                ->name('session-data.index');
 
             Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
                 ->name('sessions.index');

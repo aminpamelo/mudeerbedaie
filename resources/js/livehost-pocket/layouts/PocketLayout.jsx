@@ -10,6 +10,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/livehost-pocket/lib/utils';
+import InstallButton from '@/livehost-pocket/components/InstallButton';
+import NotificationOptIn from '@/livehost-pocket/components/NotificationOptIn';
 
 /**
  * Pocket shell — iOS-style phone layout with a fake status bar, scrollable
@@ -124,6 +126,8 @@ export default function PocketLayout({ children }) {
       <StatusBar />
       <FlashToast message={flashSuccess} tone="success" />
       <FlashToast message={flashError} tone="error" />
+      <NotificationOptIn />
+      <InstallButton />
       <main className="px-5 pb-32">{children}</main>
       <TabBar currentPath={url.split('?')[0] ?? url} />
     </div>

@@ -7,6 +7,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class ScheduleAssignmentNotification extends Notification implements ShouldQueue
 {
@@ -19,7 +21,27 @@ class ScheduleAssignmentNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', WebPushChannel::class];
+    }
+
+    public function toWebPush(object $notifiable, $notification): WebPushMessage
+    {
+        $title = match ($this->action) {
+            'assigned' => 'Slot baharu ditetapkan',
+            'removed' => 'Slot dibuang',
+            'updated' => 'Jadual dikemas kini',
+            default => 'Kemas kini jadual',
+        };
+
+        $platform = $this->schedule->platformAccount?->name ?? '';
+        $body = trim("{$this->schedule->day_name} {$this->schedule->time_range} · {$platform}");
+
+        return (new WebPushMessage)
+            ->title($title)
+            ->body($body)
+            ->icon('/icons/pocket-192.svg')
+            ->badge('/icons/pocket-192.svg')
+            ->data(['url' => route('live-host.schedule')]);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -36,9 +58,9 @@ class ScheduleAssignmentNotification extends Notification implements ShouldQueue
         };
 
         $message = match ($this->action) {
-            'assigned' => "You have been assigned to a new live streaming slot.",
-            'removed' => "You have been removed from a live streaming slot.",
-            'updated' => "Your schedule assignment has been updated.",
+            'assigned' => 'You have been assigned to a new live streaming slot.',
+            'removed' => 'You have been removed from a live streaming slot.',
+            'updated' => 'Your schedule assignment has been updated.',
             default => "There's an update to your schedule.",
         };
 

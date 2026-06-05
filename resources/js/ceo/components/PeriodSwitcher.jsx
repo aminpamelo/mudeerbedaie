@@ -11,7 +11,10 @@ export default function PeriodSwitcher({ period }) {
 
   const select = (key) => {
     if (key === active) return;
-    router.get('/ceo', { period: key }, { preserveScroll: true });
+    // Stay on the current CEO page (overview / department detail / task
+    // monitoring) — only swap the ?period query.
+    const path = typeof window !== 'undefined' ? window.location.pathname : '/ceo';
+    router.get(path, { period: key }, { preserveScroll: true });
   };
 
   return (

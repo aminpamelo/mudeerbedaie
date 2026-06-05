@@ -8,6 +8,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use InvalidArgumentException;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class ReplacementResolvedNotification extends Notification implements ShouldQueue
 {
@@ -30,7 +32,29 @@ class ReplacementResolvedNotification extends Notification implements ShouldQueu
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', WebPushChannel::class];
+    }
+
+    public function toWebPush(object $notifiable, $notification): WebPushMessage
+    {
+        $body = match ($this->resolution) {
+            self::RESOLUTION_ASSIGNED => 'Permohonan ganti anda telah diluluskan.',
+            self::RESOLUTION_REJECTED => 'Permohonan ganti anda ditolak — anda masih bertanggungjawab untuk slot ini.',
+            self::RESOLUTION_EXPIRED => 'Permohonan ganti anda tamat tempoh tanpa pengganti — sila hadir untuk slot ini.',
+        };
+
+        $title = match ($this->resolution) {
+            self::RESOLUTION_ASSIGNED => 'Permohonan ganti diluluskan',
+            self::RESOLUTION_REJECTED => 'Permohonan ganti ditolak',
+            self::RESOLUTION_EXPIRED => 'Permohonan ganti tamat tempoh',
+        };
+
+        return (new WebPushMessage)
+            ->title($title)
+            ->body($body)
+            ->icon('/icons/pocket-192.svg')
+            ->badge('/icons/pocket-192.svg')
+            ->data(['url' => route('live-host.schedule')]);
     }
 
     public function toMail(object $notifiable): MailMessage
