@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
@@ -96,6 +97,64 @@ it('filters session slots by platform_account', function () {
         ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 2));
 });
 
+it('surfaces the live account nickname in the slot payload', function () {
+    $liveAccount = LiveAccount::factory()->create([
+        'nickname' => 'amarmirzabedaie',
+        'display_name' => 'BeDaie Ustaz Amar',
+        'creator_user_id' => '6526684195492729856',
+    ]);
+    LiveScheduleAssignment::factory()->create(['live_account_id' => $liveAccount->id]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/table')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.data.0.liveAccountId', $liveAccount->id)
+            ->where('sessionSlots.data.0.liveAccountLabel', 'amarmirzabedaie')
+            ->where('sessionSlots.data.0.creatorUserId', '6526684195492729856')
+            ->has('liveAccounts')
+            ->etc());
+});
+
+it('exposes the hosts who share each account for the live-host picker', function () {
+    $account = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
+    $shared = User::factory()->count(2)->create(['role' => 'live_host']);
+    $account->hosts()->attach($shared->pluck('id')->all());
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('liveAccounts.0.nickname', 'amarmirzabedaie')
+            ->where('liveAccounts.0.hostIds', $shared->pluck('id')->all())
+            ->etc());
+});
+
+it('renders the calendar with live account props', function () {
+    $liveAccount = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
+    LiveScheduleAssignment::factory()->forDate(now()->format('Y-m-d'))->create([
+        'live_account_id' => $liveAccount->id,
+        'day_of_week' => (int) now()->dayOfWeek,
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->component('session-slots/Calendar', false)
+            ->has('liveAccounts')
+            ->has('sessionSlots')
+            ->etc());
+});
+
+it('filters session slots by live_account', function () {
+    $accountA = LiveAccount::factory()->create();
+    $accountB = LiveAccount::factory()->create();
+    LiveScheduleAssignment::factory()->count(2)->create(['live_account_id' => $accountA->id]);
+    LiveScheduleAssignment::factory()->count(4)->create(['live_account_id' => $accountB->id]);
+
+    actingAs($this->pic)
+        ->get("/livehost/session-slots/table?live_account={$accountA->id}")
+        ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 2));
+});
+
 it('filters session slots by status', function () {
     LiveScheduleAssignment::factory()->count(2)->create(['status' => 'confirmed']);
     LiveScheduleAssignment::factory()->count(3)->create(['status' => 'cancelled']);
@@ -132,6 +191,7 @@ it('renders the session slot create form with dropdown data', function () {
 it('creates a new session slot', function () {
     $host = User::factory()->create(['role' => 'live_host']);
     $account = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
     $pivot = LiveHostPlatformAccount::create([
         'user_id' => $host->id,
@@ -142,6 +202,7 @@ it('creates a new session slot', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $account->id,
+            'live_account_id' => $liveAccount->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => $host->id,
             'live_host_platform_account_id' => $pivot->id,
@@ -156,6 +217,7 @@ it('creates a new session slot', function () {
     $created = LiveScheduleAssignment::latest('id')->first();
     expect($created)->not->toBeNull();
     expect($created->platform_account_id)->toBe($account->id);
+    expect($created->live_account_id)->toBe($liveAccount->id);
     expect($created->time_slot_id)->toBe($slot->id);
     expect($created->live_host_id)->toBe($host->id);
     expect($created->live_host_platform_account_id)->toBe($pivot->id);
@@ -166,31 +228,21 @@ it('creates a new session slot', function () {
     expect($created->created_by)->toBe($this->pic->id);
 });
 
-it('creates a session slot with no host assigned', function () {
-    $host = User::factory()->create(['role' => 'live_host']);
+it('rejects a session slot without a live host (must identify who broadcasts)', function () {
     $account = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
-    $pivot = LiveHostPlatformAccount::create([
-        'user_id' => $host->id,
-        'platform_account_id' => $account->id,
-        'is_primary' => true,
-    ]);
 
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $account->id,
+            'live_account_id' => $liveAccount->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => null,
-            'live_host_platform_account_id' => $pivot->id,
             'day_of_week' => 0,
             'is_template' => true,
         ])
-        ->assertRedirect('/livehost/session-slots')
-        ->assertSessionHas('success');
-
-    $created = LiveScheduleAssignment::latest('id')->first();
-    expect($created->live_host_id)->toBeNull();
-    expect($created->status)->toBe('scheduled');
+        ->assertSessionHasErrors('live_host_id');
 });
 
 it('rejects session slot create with missing required fields', function () {
@@ -200,8 +252,91 @@ it('rejects session slot create with missing required fields', function () {
             'platform_account_id',
             'time_slot_id',
             'day_of_week',
-            'live_host_platform_account_id',
+            'live_account_id',
+            'live_host_id',
         ]);
+});
+
+it('blocks the same account being double-booked at one time slot', function () {
+    $shop = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create();
+
+    LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $shop->id,
+        'live_account_id' => $liveAccount->id,
+        'time_slot_id' => $slot->id,
+        'day_of_week' => 2,
+        'is_template' => true,
+        'schedule_date' => null,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots', [
+            'platform_account_id' => $shop->id,
+            'live_account_id' => $liveAccount->id,
+            'time_slot_id' => $slot->id,
+            'day_of_week' => 2,
+            'is_template' => true,
+        ])
+        ->assertSessionHasErrors('live_account_id');
+});
+
+it('blocks the same account double-booked even across different shops', function () {
+    $shopA = PlatformAccount::factory()->create();
+    $shopB = PlatformAccount::factory()->create();
+    $liveAccount = LiveAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create();
+
+    LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $shopA->id,
+        'live_account_id' => $liveAccount->id,
+        'time_slot_id' => $slot->id,
+        'day_of_week' => 2,
+        'is_template' => true,
+        'schedule_date' => null,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots', [
+            'platform_account_id' => $shopB->id,
+            'live_account_id' => $liveAccount->id,
+            'time_slot_id' => $slot->id,
+            'day_of_week' => 2,
+            'is_template' => true,
+        ])
+        ->assertSessionHasErrors('live_account_id');
+});
+
+it('allows many accounts to share the same shop and time slot', function () {
+    $shop = PlatformAccount::factory()->create();
+    $accountA = LiveAccount::factory()->create();
+    $accountB = LiveAccount::factory()->create();
+    $hostA = User::factory()->create(['role' => 'live_host']);
+    $hostB = User::factory()->create(['role' => 'live_host']);
+    $slot = LiveTimeSlot::factory()->create();
+
+    LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $shop->id,
+        'live_account_id' => $accountA->id,
+        'live_host_id' => $hostA->id,
+        'time_slot_id' => $slot->id,
+        'day_of_week' => 2,
+        'is_template' => true,
+        'schedule_date' => null,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots', [
+            'platform_account_id' => $shop->id,
+            'live_account_id' => $accountB->id,
+            'live_host_id' => $hostB->id,
+            'time_slot_id' => $slot->id,
+            'day_of_week' => 2,
+            'is_template' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/livehost/session-slots');
 });
 
 it('rejects session slot create with out-of-range day_of_week', function () {

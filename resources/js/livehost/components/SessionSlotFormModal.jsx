@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { router, useForm } from '@inertiajs/react';
+import { useEffect, useMemo } from 'react';
+import { useForm } from '@inertiajs/react';
 import { Button } from '@/livehost/components/ui/button';
 import {
   Dialog,
@@ -32,8 +32,7 @@ const STATUS_OPTIONS = [
 ];
 
 // Platform-aware accent so each marketplace is identifiable at a glance inside
-// the searchable account picker. Matches the signal colors used elsewhere in
-// the livehost dashboard.
+// the searchable shop picker. Matches the signal colors used elsewhere.
 const PLATFORM_AVATAR = {
   'tiktok-shop': { initials: 'TT', color: '#EC4899' },
   tiktok: { initials: 'TT', color: '#EC4899' },
@@ -77,15 +76,17 @@ export default function SessionSlotFormModal({
   prefill = null,
   hosts = [],
   platformAccounts = [],
+  liveAccounts = [],
   timeSlots = [],
+  // eslint-disable-next-line no-unused-vars -- legacy prop; pivot is superseded by live_account
   hostPlatformPivots = [],
   returnTo = null,
   weekOf = null,
   onSuccess = null,
 }) {
   const form = useForm({
+    live_account_id: '',
     platform_account_id: '',
-    live_host_platform_account_id: '',
     time_slot_id: '',
     live_host_id: '',
     day_of_week: '1',
@@ -95,29 +96,18 @@ export default function SessionSlotFormModal({
     remarks: '',
   });
 
-  const [quickCreator, setQuickCreator] = useState({
-    creator_handle: '',
-    creator_platform_user_id: '',
-  });
-  const [quickCreatorError, setQuickCreatorError] = useState(null);
-  const [attaching, setAttaching] = useState(false);
-
   useEffect(() => {
     if (!open) {
       return;
     }
 
     form.clearErrors();
-    setQuickCreator({ creator_handle: '', creator_platform_user_id: '' });
-    setQuickCreatorError(null);
 
     if (mode === 'edit' && sessionSlot) {
       form.setData({
+        live_account_id: sessionSlot.liveAccountId ? String(sessionSlot.liveAccountId) : '',
         platform_account_id: sessionSlot.platformAccountId
           ? String(sessionSlot.platformAccountId)
-          : '',
-        live_host_platform_account_id: sessionSlot.liveHostPlatformAccountId
-          ? String(sessionSlot.liveHostPlatformAccountId)
           : '',
         time_slot_id: sessionSlot.timeSlotId ? String(sessionSlot.timeSlotId) : '',
         live_host_id: sessionSlot.hostId ? String(sessionSlot.hostId) : '',
@@ -131,8 +121,8 @@ export default function SessionSlotFormModal({
     }
 
     form.setData({
+      live_account_id: prefill?.liveAccountId ? String(prefill.liveAccountId) : '',
       platform_account_id: prefill?.platformAccountId ? String(prefill.platformAccountId) : '',
-      live_host_platform_account_id: '',
       time_slot_id: prefill?.timeSlotId ? String(prefill.timeSlotId) : '',
       live_host_id: '',
       day_of_week: String(Number.isFinite(prefill?.dayOfWeek) ? prefill.dayOfWeek : 1),
@@ -148,147 +138,123 @@ export default function SessionSlotFormModal({
     sessionSlot?.id,
     prefill?.dayOfWeek,
     prefill?.timeSlotId,
+    prefill?.liveAccountId,
     prefill?.platformAccountId,
     prefill?.scheduleDate,
   ]);
 
-  // Task 23: narrow the creator-identity dropdown to pivots matching the
-  // selected platform account (and, when provided, the selected host). Once
-  // the candidate list is known, auto-pick the primary pivot so the
-  // common-case flow ("assign session to host on their default shop") is
-  // zero-click. User can override before submitting.
-  const pivotCandidates = useMemo(() => {
-    if (!form.data.platform_account_id) {
-      return [];
-    }
-    const platformId = Number(form.data.platform_account_id);
-    const hostId = form.data.live_host_id ? Number(form.data.live_host_id) : null;
+  const selectedAccount = useMemo(
+    () => liveAccounts.find((a) => String(a.id) === String(form.data.live_account_id)) ?? null,
+    [liveAccounts, form.data.live_account_id]
+  );
 
-    return hostPlatformPivots.filter((p) => {
-      if (p.platformAccountId !== platformId) return false;
-      if (hostId !== null && p.userId !== hostId) return false;
-      return true;
-    });
-  }, [form.data.platform_account_id, form.data.live_host_id, hostPlatformPivots]);
+  const platformAccountById = useMemo(
+    () => new Map(platformAccounts.map((pa) => [Number(pa.id), pa])),
+    [platformAccounts]
+  );
 
+  // The shop being promoted is constrained to the account's affiliated shops.
+  // When the account has no recorded affiliations yet, fall back to the full
+  // shop list so scheduling is never blocked.
+  const shopChoices = useMemo(() => {
+    const affiliated = selectedAccount?.shops ?? [];
+    const source = affiliated.length
+      ? affiliated.map((s) => platformAccountById.get(Number(s.id)) ?? { id: s.id, name: s.name })
+      : platformAccounts;
+
+    return source.map((pa) => ({
+      value: String(pa.id),
+      label: pa.name,
+      hint: pa.platform ?? null,
+      keywords: [pa.name, pa.platform].filter(Boolean).join(' '),
+      avatar: platformAvatar(pa.platform, pa.name),
+    }));
+  }, [selectedAccount, platformAccounts, platformAccountById]);
+
+  // When the account changes, default the shop to the account's primary (or
+  // sole) affiliation so the common case is zero-click.
   useEffect(() => {
-    if (mode === 'edit') {
+    if (mode === 'edit' || !selectedAccount) {
       return;
     }
-    if (pivotCandidates.length === 0) {
-      if (form.data.live_host_platform_account_id !== '') {
-        form.setData('live_host_platform_account_id', '');
-      }
+    const shops = selectedAccount.shops ?? [];
+    if (shops.length === 0) {
       return;
     }
-    const currentId = form.data.live_host_platform_account_id
-      ? Number(form.data.live_host_platform_account_id)
-      : null;
-    const stillValid = currentId
-      ? pivotCandidates.some((p) => p.id === currentId)
-      : false;
+    const stillValid = shops.some((s) => String(s.id) === String(form.data.platform_account_id));
     if (!stillValid) {
-      const primary = pivotCandidates.find((p) => p.isPrimary);
-      const next = primary ?? pivotCandidates[0];
-      form.setData('live_host_platform_account_id', String(next.id));
+      const primary = shops.find((s) => s.isPrimary) ?? shops[0];
+      form.setData('platform_account_id', String(primary.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pivotCandidates, mode]);
+  }, [form.data.live_account_id, mode]);
 
-  // Quick-add shows when the user has picked both a platform account and a
-  // host but no pivot exists for that pair yet. In edit mode we never prompt
-  // for it because the existing pivot is already selected.
-  const canQuickAddCreator =
-    mode === 'create' &&
-    Boolean(form.data.platform_account_id) &&
-    Boolean(form.data.live_host_id) &&
-    pivotCandidates.length === 0;
+  // The hosts who share (operate) the selected creator account. Several staff
+  // can broadcast on the same brand account, so the live-host picker surfaces
+  // those who operate this account first to make "who is going live" explicit.
+  const accountHostIds = useMemo(
+    () => new Set((selectedAccount?.hostIds ?? []).map(Number)),
+    [selectedAccount]
+  );
 
-  // Creator-identity options for the searchable picker. Grouped by the linked
-  // creator handle (the platform account is already chosen above, so the shop
-  // name is redundant); the live host's name becomes the primary label so
-  // otherwise-identical "shop - @handle" rows are finally distinguishable and
-  // searchable. Primary identities sort first within each handle group, and
-  // unlinked-handle pivots sink to the bottom.
-  const creatorOptions = useMemo(() => {
-    const groupFor = (p) =>
-      p.creatorHandle && p.creatorHandle !== '' && p.creatorHandle !== '—'
-        ? `@${p.creatorHandle}`
-        : 'No handle linked';
+  const hostOptions = useMemo(() => {
+    const opts = hosts.map((h) => {
+      const operates = accountHostIds.has(Number(h.id));
+      return {
+        value: String(h.id),
+        label: h.name,
+        hint: h.email ?? null,
+        group: selectedAccount ? (operates ? 'Operates this account' : 'Other hosts') : undefined,
+        keywords: [h.name, h.email].filter(Boolean).join(' '),
+        avatar: { initials: initialsFrom(h.name), color: colorFor(h.name) },
+      };
+    });
 
-    return [...pivotCandidates]
-      .sort((a, b) => {
-        const ga = groupFor(a);
-        const gb = groupFor(b);
-        const aNoHandle = ga === 'No handle linked';
-        const bNoHandle = gb === 'No handle linked';
-        if (aNoHandle !== bNoHandle) return aNoHandle ? 1 : -1;
-        if (ga !== gb) return ga.localeCompare(gb);
-        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
-        return (a.userName ?? '').localeCompare(b.userName ?? '');
-      })
-      .map((p) => {
-        const hostName = p.userName ?? `Host #${p.userId}`;
-        return {
-          value: String(p.id),
-          label: hostName,
-          hint: p.isPrimary ? 'Primary identity' : null,
-          group: groupFor(p),
-          keywords: [hostName, p.creatorHandle].filter(Boolean).join(' '),
-          avatar: { initials: initialsFrom(hostName), color: colorFor(hostName) },
-        };
+    if (selectedAccount) {
+      opts.sort((a, b) => {
+        const ga = a.group === 'Operates this account' ? 0 : 1;
+        const gb = b.group === 'Operates this account' ? 0 : 1;
+        return ga !== gb ? ga - gb : a.label.localeCompare(b.label);
       });
-  }, [pivotCandidates]);
-
-  const selectedHostLabel = useMemo(() => {
-    if (!form.data.live_host_id) {
-      return '';
     }
-    const id = Number(form.data.live_host_id);
-    return hosts.find((h) => Number(h.id) === id)?.name ?? '';
-  }, [form.data.live_host_id, hosts]);
 
-  const selectedPlatformLabel = useMemo(() => {
-    if (!form.data.platform_account_id) {
-      return '';
-    }
-    const id = Number(form.data.platform_account_id);
-    return platformAccounts.find((pa) => Number(pa.id) === id)?.name ?? '';
-  }, [form.data.platform_account_id, platformAccounts]);
+    return opts;
+  }, [hosts, accountHostIds, selectedAccount]);
 
-  const attachCreator = () => {
-    if (attaching) {
+  // Auto-pick the host when exactly one operates the chosen account.
+  useEffect(() => {
+    if (mode === 'edit' || !selectedAccount) {
       return;
     }
-    setQuickCreatorError(null);
+    const ids = selectedAccount.hostIds ?? [];
+    if (ids.length === 1 && !form.data.live_host_id) {
+      form.setData('live_host_id', String(ids[0]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.data.live_account_id, mode]);
 
-    const payload = {
-      user_id: Number(form.data.live_host_id),
-      platform_account_id: Number(form.data.platform_account_id),
-      creator_handle: quickCreator.creator_handle || null,
-      creator_platform_user_id: quickCreator.creator_platform_user_id,
-      is_primary: true,
-    };
-
-    setAttaching(true);
-    router.post('/livehost/creators', payload, {
-      preserveScroll: true,
-      preserveState: true,
-      onSuccess: () => {
-        setQuickCreator({ creator_handle: '', creator_platform_user_id: '' });
-      },
-      onError: (errors) => {
-        const firstError =
-          errors.creator_platform_user_id ||
-          errors.creator_handle ||
-          errors.platform_account_id ||
-          errors.user_id ||
-          Object.values(errors)[0];
-        setQuickCreatorError(firstError ?? 'Could not attach creator identity.');
-      },
-      onFinish: () => setAttaching(false),
-    });
-  };
+  const accountOptions = useMemo(
+    () =>
+      liveAccounts.map((a) => {
+        const shopNames = (a.shops ?? []).map((s) => s.name).filter(Boolean);
+        return {
+          value: String(a.id),
+          label: a.label,
+          hint: a.needsReview
+            ? 'Needs review'
+            : shopNames.length
+              ? shopNames.join(', ')
+              : a.creatorUserId
+                ? `ID ${a.creatorUserId}`
+                : null,
+          keywords: [a.label, a.nickname, a.displayName, a.creatorUserId, ...shopNames]
+            .filter(Boolean)
+            .join(' '),
+          avatar: { initials: initialsFrom(a.label), color: colorFor(a.label) },
+        };
+      }),
+    [liveAccounts]
+  );
 
   const contextLabel = useMemo(() => {
     if (mode === 'edit') {
@@ -314,12 +280,9 @@ export default function SessionSlotFormModal({
 
     form.transform((data) => ({
       ...data,
+      live_account_id: data.live_account_id === '' ? null : Number(data.live_account_id),
       platform_account_id:
         data.platform_account_id === '' ? null : Number(data.platform_account_id),
-      live_host_platform_account_id:
-        data.live_host_platform_account_id === ''
-          ? null
-          : Number(data.live_host_platform_account_id),
       time_slot_id: data.time_slot_id === '' ? null : Number(data.time_slot_id),
       live_host_id: data.live_host_id === '' ? null : Number(data.live_host_id),
       day_of_week: data.day_of_week === '' ? null : Number(data.day_of_week),
@@ -364,101 +327,41 @@ export default function SessionSlotFormModal({
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-4">
-          <ModalField label="Platform account" error={form.errors.platform_account_id} required>
+          {/* The creator account (nickname) is the punca kuasa: chosen first. */}
+          <ModalField
+            label="Creator account"
+            error={form.errors.live_account_id}
+            hint="The account the host goes live on. The shop below is what this broadcast promotes."
+            required
+          >
             <SearchableSelect
-              value={form.data.platform_account_id}
-              onChange={(next) => form.setData('platform_account_id', next)}
-              placeholder="Select platform account"
-              searchPlaceholder="Search account or platform…"
+              value={form.data.live_account_id}
+              onChange={(next) => form.setData('live_account_id', next)}
+              placeholder="Select creator account"
+              searchPlaceholder="Search nickname, handle or shop…"
               emptyLabel="No accounts match"
-              options={platformAccounts.map((pa) => ({
-                value: String(pa.id),
-                label: pa.name,
-                hint: pa.platform ?? null,
-                keywords: [pa.name, pa.platform].filter(Boolean).join(' '),
-                avatar: platformAvatar(pa.platform, pa.name),
-              }))}
+              options={accountOptions}
             />
           </ModalField>
 
           <ModalField
-            label="Creator identity"
-            error={form.errors.live_host_platform_account_id}
+            label="Shop (promoted)"
+            error={form.errors.platform_account_id}
             hint={
-              canQuickAddCreator
-                ? null
-                : pivotCandidates.length === 0
-                  ? 'Pick a platform account (and optionally a host) to see creator identities.'
-                  : 'Defaults to the host’s primary identity for this platform account.'
+              selectedAccount && (selectedAccount.shops ?? []).length === 0
+                ? 'This account has no linked shops yet — pick any, then link it in Creators.'
+                : 'Limited to the shops this account is affiliated with.'
             }
             required
           >
             <SearchableSelect
-              value={form.data.live_host_platform_account_id}
-              onChange={(next) => form.setData('live_host_platform_account_id', next)}
-              disabled={pivotCandidates.length === 0}
-              placeholder={
-                pivotCandidates.length === 0
-                  ? 'No creator identities available'
-                  : 'Select creator identity'
-              }
-              searchPlaceholder="Search host or handle…"
-              emptyLabel="No creator identities match"
-              options={creatorOptions}
+              value={form.data.platform_account_id}
+              onChange={(next) => form.setData('platform_account_id', next)}
+              placeholder="Select shop"
+              searchPlaceholder="Search shop or platform…"
+              emptyLabel="No shops match"
+              options={shopChoices}
             />
-
-            {canQuickAddCreator && (
-              <div className="mt-2 space-y-2 rounded-lg border border-dashed border-[#D4D4D4] bg-[#FAFAFA] p-3">
-                <div className="text-[11.5px] text-[#525252]">
-                  <span className="font-medium text-[#0A0A0A]">
-                    {selectedHostLabel || 'This host'}
-                  </span>
-                  {' '}isn’t linked to{' '}
-                  <span className="font-medium text-[#0A0A0A]">
-                    {selectedPlatformLabel || 'this account'}
-                  </span>
-                  {' '}yet. Attach a creator identity to continue:
-                </div>
-                <Input
-                  value={quickCreator.creator_platform_user_id}
-                  onChange={(e) =>
-                    setQuickCreator((prev) => ({
-                      ...prev,
-                      creator_platform_user_id: e.target.value,
-                    }))
-                  }
-                  placeholder="Creator ID (from TikTok report) *"
-                  disabled={attaching}
-                />
-                <Input
-                  value={quickCreator.creator_handle}
-                  onChange={(e) =>
-                    setQuickCreator((prev) => ({
-                      ...prev,
-                      creator_handle: e.target.value,
-                    }))
-                  }
-                  placeholder="Nickname (optional)"
-                  disabled={attaching}
-                />
-                {quickCreatorError && (
-                  <p className="text-[11.5px] text-[#F43F5E]">{quickCreatorError}</p>
-                )}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-[#737373]">
-                    Marked as primary for this host. Edit later in Creators.
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={attachCreator}
-                    disabled={attaching || !quickCreator.creator_platform_user_id.trim()}
-                  >
-                    {attaching ? 'Attaching…' : 'Attach identity'}
-                  </Button>
-                </div>
-              </div>
-            )}
           </ModalField>
 
           <ModalField label="Time slot" error={form.errors.time_slot_id} required>
@@ -505,27 +408,23 @@ export default function SessionSlotFormModal({
             </ModalField>
           </div>
 
-          <ModalField label="Live host (optional)" error={form.errors.live_host_id}>
+          <ModalField
+            label="Live host (who’s broadcasting)"
+            error={form.errors.live_host_id}
+            hint={
+              selectedAccount && (selectedAccount.hostIds ?? []).length > 1
+                ? 'Several hosts share this account — pick who is doing this live.'
+                : 'Identify which host goes live on this account.'
+            }
+            required
+          >
             <SearchableSelect
               value={form.data.live_host_id}
               onChange={(next) => form.setData('live_host_id', next)}
-              placeholder="Unassigned"
+              placeholder="Select live host"
               searchPlaceholder="Search host by name…"
               emptyLabel="No hosts match"
-              allowClear
-              options={[
-                { value: '', label: 'Unassigned', empty: true },
-                ...hosts.map((h) => ({
-                  value: String(h.id),
-                  label: h.name,
-                  hint: h.email ?? null,
-                  keywords: [h.name, h.email].filter(Boolean).join(' '),
-                  avatar: {
-                    initials: initialsFrom(h.name),
-                    color: colorFor(h.name),
-                  },
-                })),
-              ]}
+              options={hostOptions}
             />
           </ModalField>
 

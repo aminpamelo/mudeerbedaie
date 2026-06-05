@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
@@ -24,9 +25,10 @@ beforeEach(function () {
         'creator_platform_user_id' => '6526684195492729856',
         'is_primary' => true,
     ]);
+    $this->liveAccount = LiveAccount::factory()->create(['nickname' => 'amar']);
 });
 
-it('rejects a new session slot without live_host_platform_account_id', function () {
+it('rejects a new session slot without a creator account (live_account_id)', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $this->account->id,
@@ -35,7 +37,7 @@ it('rejects a new session slot without live_host_platform_account_id', function 
             'day_of_week' => 2,
             'is_template' => true,
         ])
-        ->assertSessionHasErrors('live_host_platform_account_id');
+        ->assertSessionHasErrors('live_account_id');
 });
 
 it('rejects a new session slot with a non-existent live_host_platform_account_id', function () {
@@ -51,10 +53,11 @@ it('rejects a new session slot with a non-existent live_host_platform_account_id
         ->assertSessionHasErrors('live_host_platform_account_id');
 });
 
-it('creates a session slot with pivot id and persists it', function () {
+it('creates a session slot with a creator account (and optional pivot) and persists it', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $this->account->id,
+            'live_account_id' => $this->liveAccount->id,
             'time_slot_id' => $this->timeSlot->id,
             'live_host_id' => $this->host->id,
             'live_host_platform_account_id' => $this->pivot->id,
@@ -67,6 +70,7 @@ it('creates a session slot with pivot id and persists it', function () {
 
     $created = LiveScheduleAssignment::latest('id')->first();
     expect($created)->not->toBeNull()
+        ->and($created->live_account_id)->toBe($this->liveAccount->id)
         ->and($created->live_host_platform_account_id)->toBe($this->pivot->id);
 });
 

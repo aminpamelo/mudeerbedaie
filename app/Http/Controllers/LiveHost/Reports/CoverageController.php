@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\LiveHost\Reports;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveAccount;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Services\LiveHost\Reports\CoverageReport;
@@ -32,6 +33,7 @@ class CoverageController extends Controller
                 'dateTo' => $filters->dateTo->toDateString(),
                 'hostIds' => $filters->hostIds,
                 'platformAccountIds' => $filters->platformAccountIds,
+                'liveAccountIds' => $filters->liveAccountIds,
             ],
             'filterOptions' => [
                 'hosts' => User::query()
@@ -44,6 +46,12 @@ class CoverageController extends Controller
                     ->orderBy('name')
                     ->get(['id', 'name'])
                     ->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])
+                    ->all(),
+                'liveAccounts' => LiveAccount::query()
+                    ->where('is_active', true)
+                    ->orderByRaw('COALESCE(nickname, display_name)')
+                    ->get(['id', 'nickname', 'display_name'])
+                    ->map(fn (LiveAccount $a) => ['id' => $a->id, 'name' => $a->label])
                     ->all(),
             ],
         ]);

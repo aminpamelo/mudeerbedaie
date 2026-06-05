@@ -24,9 +24,10 @@ const STATUS_OPTIONS = [
 ];
 
 export default function SessionSlotsEdit() {
-  const { sessionSlot, hosts, platformAccounts, timeSlots } = usePage().props;
+  const { sessionSlot, hosts, platformAccounts, liveAccounts = [], timeSlots } = usePage().props;
 
   const form = useForm({
+    live_account_id: sessionSlot.live_account_id?.toString() ?? '',
     platform_account_id: sessionSlot.platform_account_id?.toString() ?? '',
     time_slot_id: sessionSlot.time_slot_id?.toString() ?? '',
     live_host_id: sessionSlot.live_host_id?.toString() ?? '',
@@ -43,6 +44,7 @@ export default function SessionSlotsEdit() {
     e.preventDefault();
     form.transform((data) => ({
       ...data,
+      live_account_id: data.live_account_id === '' ? null : Number(data.live_account_id),
       platform_account_id: data.platform_account_id === '' ? null : Number(data.platform_account_id),
       time_slot_id: data.time_slot_id === '' ? null : Number(data.time_slot_id),
       live_host_id: data.live_host_id === '' ? null : Number(data.live_host_id),
@@ -81,13 +83,28 @@ export default function SessionSlotsEdit() {
           onSubmit={submit}
           className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 space-y-5"
         >
-          <Field label="Platform account" error={form.errors.platform_account_id} required>
+          <Field label="Creator account" error={form.errors.live_account_id} required>
+            <Select
+              value={form.data.live_account_id}
+              onChange={(e) => form.setData('live_account_id', e.target.value)}
+              required
+            >
+              <option value="">Select creator account</option>
+              {liveAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Shop (promoted)" error={form.errors.platform_account_id} required>
             <Select
               value={form.data.platform_account_id}
               onChange={(e) => form.setData('platform_account_id', e.target.value)}
               required
             >
-              <option value="">Select platform account</option>
+              <option value="">Select shop</option>
               {platformAccounts.map((pa) => (
                 <option key={pa.id} value={pa.id}>
                   {pa.name}
@@ -141,12 +158,13 @@ export default function SessionSlotsEdit() {
             </Field>
           </div>
 
-          <Field label="Live host (optional)" error={form.errors.live_host_id}>
+          <Field label="Live host (who's broadcasting)" error={form.errors.live_host_id} required>
             <Select
               value={form.data.live_host_id}
               onChange={(e) => form.setData('live_host_id', e.target.value)}
+              required
             >
-              <option value="">Unassigned</option>
+              <option value="">Select live host</option>
               {hosts.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}

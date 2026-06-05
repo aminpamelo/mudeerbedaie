@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ActualLiveRecord;
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
@@ -9,6 +10,50 @@ use Carbon\Carbon;
 
 beforeEach(function () {
     Carbon::setTestNow('2026-04-24 12:00:00');
+});
+
+it('finds candidates via the session live account creator id', function () {
+    $account = PlatformAccount::factory()->create();
+    $live = LiveAccount::factory()->create(['creator_user_id' => 'creator_acct']);
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'live_account_id' => $live->id,
+        'live_host_platform_account_id' => null,
+        'scheduled_start_at' => Carbon::parse('2026-04-24 14:00:00', 'Asia/Kuala_Lumpur'),
+    ]);
+
+    $hit = ActualLiveRecord::factory()->create([
+        'platform_account_id' => $account->id,
+        'creator_platform_user_id' => 'creator_acct',
+        'launched_time' => Carbon::parse('2026-04-24 14:10:00', 'Asia/Kuala_Lumpur'),
+    ]);
+
+    $results = app(ActualLiveRecordCandidateFinder::class)->forSession($session);
+    expect($results->pluck('id')->all())->toContain($hit->id);
+});
+
+it('finds candidates via normalized handle when the account has no creator id', function () {
+    $account = PlatformAccount::factory()->create();
+    $live = LiveAccount::factory()->create([
+        'creator_user_id' => null,
+        'normalized_handle' => 'amarmirzabedaie',
+    ]);
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'live_account_id' => $live->id,
+        'live_host_platform_account_id' => null,
+        'scheduled_start_at' => Carbon::parse('2026-04-24 14:00:00', 'Asia/Kuala_Lumpur'),
+    ]);
+
+    $hit = ActualLiveRecord::factory()->create([
+        'platform_account_id' => $account->id,
+        'creator_platform_user_id' => null,
+        'creator_handle' => 'AmarMirzaBeDaie',
+        'launched_time' => Carbon::parse('2026-04-24 14:10:00', 'Asia/Kuala_Lumpur'),
+    ]);
+
+    $results = app(ActualLiveRecordCandidateFinder::class)->forSession($session);
+    expect($results->pluck('id')->all())->toContain($hit->id);
 });
 
 it('returns same-host same-day records ordered by time proximity', function () {

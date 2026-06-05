@@ -119,8 +119,11 @@ export default function SessionSlotDetailModal({
                 {DAY_NAMES[sessionSlot.dayOfWeek] ?? 'Unknown day'} ·{' '}
                 <span className="tabular-nums">{sessionSlot.timeSlotLabel}</span>
               </div>
-              <div className="mt-1 text-[13px] text-[#737373]">
-                {sessionSlot.platformAccount ?? 'No platform account'}
+              <div className="mt-1 text-[13px] font-medium text-[#0A0A0A]">
+                {sessionSlot.liveAccountLabel ?? 'No creator account'}
+              </div>
+              <div className="mt-0.5 text-[12px] text-[#737373]">
+                {sessionSlot.platformAccount ?? 'No shop'}
                 {sessionSlot.platformType ? ` · ${sessionSlot.platformType}` : ''}
               </div>
               <div className="mt-2 flex items-center gap-2">
@@ -143,12 +146,17 @@ export default function SessionSlotDetailModal({
           {/* Metadata grid */}
           <div className="grid grid-cols-2 gap-3">
             <DetailTile
+              label="Creator account"
+              value={sessionSlot.liveAccountLabel ?? '—'}
+              hint={sessionSlot.creatorUserId ? `ID ${sessionSlot.creatorUserId}` : null}
+            />
+            <DetailTile
               label="Host"
               value={sessionSlot.hostName ?? 'Unassigned'}
               hint={sessionSlot.hostEmail}
             />
             <DetailTile
-              label="Platform account"
+              label="Shop (promoted)"
               value={sessionSlot.platformAccount ?? '—'}
               hint={sessionSlot.platformType}
             />

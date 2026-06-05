@@ -50,6 +50,7 @@ const NAV_GROUPS = [
       { key: 'session-slots', label: 'Session Slots', href: '/livehost/session-slots', icon: LayoutGrid },
       { key: 'platform-accounts', label: 'Platform Accounts', href: '/livehost/platform-accounts', icon: Store, countKey: 'platformAccounts' },
       { key: 'creators', label: 'Creators', href: '/livehost/creators', icon: UserCircle2, countKey: 'creators' },
+      { key: 'live-accounts', label: 'Live Accounts', href: '/livehost/live-accounts', icon: UserCircle2 },
     ],
   },
   {
@@ -83,6 +84,7 @@ const NAV_ITEM_PERMISSION = {
   'session-slots': null,
   'platform-accounts': null,
   creators: null,
+  'live-accounts': null,
   sessions: 'canSeeSessions',
   orders: 'canSeeFinancials',
   commission: 'canSeeFinancials',

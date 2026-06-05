@@ -105,15 +105,15 @@ it('groups weekly trend by Monday', function () {
         ->and($byWeek['2026-04-13']['assigned'])->toBe(1);
 });
 
-it('produces account rows with correct coverage rate', function () {
+it('produces account rows by creator account with correct coverage rate', function () {
     $host = User::factory()->create(['role' => 'live_host']);
-    $a1 = PlatformAccount::factory()->create(['name' => 'Acc Alpha']);
-    $a2 = PlatformAccount::factory()->create(['name' => 'Acc Beta']);
+    $a1 = \App\Models\LiveAccount::factory()->create(['nickname' => 'Acc Alpha']);
+    $a2 = \App\Models\LiveAccount::factory()->create(['nickname' => 'Acc Beta']);
 
     // a1: 2 slots, both assigned
     foreach (['2026-04-08', '2026-04-09'] as $date) {
         LiveScheduleAssignment::factory()->create([
-            'platform_account_id' => $a1->id,
+            'live_account_id' => $a1->id,
             'is_template' => false,
             'schedule_date' => $date,
             'live_host_id' => $host->id,
@@ -121,13 +121,13 @@ it('produces account rows with correct coverage rate', function () {
     }
     // a2: 2 slots, 1 unassigned + 1 assigned
     LiveScheduleAssignment::factory()->create([
-        'platform_account_id' => $a2->id,
+        'live_account_id' => $a2->id,
         'is_template' => false,
         'schedule_date' => '2026-04-10',
         'live_host_id' => null,
     ]);
     LiveScheduleAssignment::factory()->create([
-        'platform_account_id' => $a2->id,
+        'live_account_id' => $a2->id,
         'is_template' => false,
         'schedule_date' => '2026-04-11',
         'live_host_id' => $host->id,

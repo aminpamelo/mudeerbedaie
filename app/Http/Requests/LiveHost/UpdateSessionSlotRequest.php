@@ -25,6 +25,7 @@ class UpdateSessionSlotRequest extends FormRequest
         $this->merge([
             'live_host_id' => $this->nullableId($this->input('live_host_id')),
             'live_host_platform_account_id' => $this->nullableId($this->input('live_host_platform_account_id')),
+            'live_account_id' => $this->nullableId($this->input('live_account_id')),
             'schedule_date' => $this->nullableString($this->input('schedule_date')),
             'is_template' => $this->toBool($this->input('is_template'), true),
         ]);
@@ -33,10 +34,11 @@ class UpdateSessionSlotRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * Note: `live_host_platform_account_id` is nullable on update so legacy
-     * slots created before Task 23 (which did not require this field) can
-     * still be edited without forcing a backfill. New slots must provide it —
-     * see StoreSessionSlotRequest.
+     * Note: `live_account_id` and `live_host_platform_account_id` are nullable
+     * on update so legacy slots created before the account became the punca
+     * kuasa (and unresolved backfill rows) can still be edited without forcing
+     * a backfill. New slots must provide live_account_id — see
+     * StoreSessionSlotRequest.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
@@ -48,9 +50,9 @@ class UpdateSessionSlotRequest extends FormRequest
         $ignoreId = is_object($sessionSlot) ? $sessionSlot->getKey() : $sessionSlot;
 
         return [
-            'platform_account_id' => [
-                'required', 'exists:platform_accounts,id',
-                Rule::unique('live_schedule_assignments')
+            'live_account_id' => [
+                'nullable', 'integer', 'exists:live_accounts,id',
+                Rule::unique('live_schedule_assignments', 'live_account_id')
                     ->ignore($ignoreId)
                     ->where(fn ($q) => $q
                         ->where('time_slot_id', $this->input('time_slot_id'))
@@ -63,8 +65,9 @@ class UpdateSessionSlotRequest extends FormRequest
                         )
                     ),
             ],
+            'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
-            'live_host_id' => ['nullable', 'exists:users,id'],
+            'live_host_id' => ['required', 'exists:users,id'],
             'live_host_platform_account_id' => [
                 'nullable',
                 'integer',
@@ -91,7 +94,8 @@ class UpdateSessionSlotRequest extends FormRequest
             'day_of_week.between' => 'Day of week must be between 0 (Sunday) and 6 (Saturday).',
             'schedule_date.date_format' => 'Schedule date must be a valid YYYY-MM-DD date.',
             'schedule_date.required_if' => 'Pick a specific date when the slot is not a weekly template.',
-            'platform_account_id.unique' => 'A session slot already exists for this platform, time slot and day on the selected date.',
+            'live_account_id.unique' => 'This account is already scheduled for that time slot and day on the selected date.',
+            'live_host_id.required' => 'Choose which host is broadcasting this live.',
         ];
     }
 

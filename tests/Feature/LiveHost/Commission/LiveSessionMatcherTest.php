@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveSession;
 use App\Models\Platform;
@@ -55,9 +56,52 @@ it('matches a LiveSession with same creator id and time within window', function
         'launched_time' => Carbon::parse('2026-04-18 22:14:00'),
     ]);
 
-    $match = (new LiveSessionMatcher)->match($report);
+    $match = app(LiveSessionMatcher::class)->match($report);
 
     expect($match?->id)->toBe($session->id);
+});
+
+it('matches via the live account Creator ID (punca kuasa)', function () {
+    $account = LiveAccount::factory()->create(['creator_user_id' => '6526684195492729856']);
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $this->platformAccount->id,
+        'live_account_id' => $account->id,
+        'live_host_platform_account_id' => null,
+        'status' => 'ended',
+        'actual_start_at' => Carbon::parse('2026-04-18 22:14:00'),
+    ]);
+
+    $report = TiktokLiveReport::create([
+        'import_id' => $this->import->id,
+        'tiktok_creator_id' => '6526684195492729856',
+        'launched_time' => Carbon::parse('2026-04-18 22:20:00'),
+    ]);
+
+    expect(app(LiveSessionMatcher::class)->match($report)?->id)->toBe($session->id);
+});
+
+it('matches via the nickname when the CSV row has no Creator ID', function () {
+    $account = LiveAccount::factory()->create([
+        'creator_user_id' => null,
+        'nickname' => 'amarmirzabedaie',
+        'normalized_handle' => 'amarmirzabedaie',
+    ]);
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $this->platformAccount->id,
+        'live_account_id' => $account->id,
+        'live_host_platform_account_id' => null,
+        'status' => 'ended',
+        'actual_start_at' => Carbon::parse('2026-04-18 22:14:00'),
+    ]);
+
+    $report = TiktokLiveReport::create([
+        'import_id' => $this->import->id,
+        'tiktok_creator_id' => null,
+        'creator_nickname' => '@AmarMirzaBeDaie',
+        'launched_time' => Carbon::parse('2026-04-18 22:20:00'),
+    ]);
+
+    expect(app(LiveSessionMatcher::class)->match($report)?->id)->toBe($session->id);
 });
 
 it('returns null when no session matches the creator id', function () {
@@ -75,7 +119,7 @@ it('returns null when no session matches the creator id', function () {
         'launched_time' => Carbon::parse('2026-04-18 22:14:00'),
     ]);
 
-    expect((new LiveSessionMatcher)->match($report))->toBeNull();
+    expect(app(LiveSessionMatcher::class)->match($report))->toBeNull();
 });
 
 it('returns null when session is outside the +/- 30min window', function () {
@@ -93,7 +137,7 @@ it('returns null when session is outside the +/- 30min window', function () {
         'launched_time' => Carbon::parse('2026-04-18 22:14:00'),
     ]);
 
-    expect((new LiveSessionMatcher)->match($report))->toBeNull();
+    expect(app(LiveSessionMatcher::class)->match($report))->toBeNull();
 });
 
 it('returns null when the report has a null launched_time', function () {
@@ -111,7 +155,7 @@ it('returns null when the report has a null launched_time', function () {
         'launched_time' => null,
     ]);
 
-    expect((new LiveSessionMatcher)->match($report))->toBeNull();
+    expect(app(LiveSessionMatcher::class)->match($report))->toBeNull();
 });
 
 it('picks the closest-time candidate when multiple exist', function () {
@@ -139,7 +183,7 @@ it('picks the closest-time candidate when multiple exist', function () {
         'launched_time' => $reportTime,
     ]);
 
-    $match = (new LiveSessionMatcher)->match($report);
+    $match = app(LiveSessionMatcher::class)->match($report);
 
     expect($match?->id)->toBe($sessionTenMin->id)
         ->and($match?->id)->not->toBe($sessionTwentyMin->id);
@@ -180,15 +224,15 @@ it('matcher scopes to platform_account_id when provided — session from a diffe
     ]);
 
     // Unscoped: matches the Shop B session — current (backward-compat) behavior.
-    $unscoped = (new LiveSessionMatcher)->match($report);
+    $unscoped = app(LiveSessionMatcher::class)->match($report);
     expect($unscoped?->id)->toBe($sessionOnShopB->id);
 
     // Scoped to Shop A: NO match, because the only candidate is on Shop B.
-    $scoped = (new LiveSessionMatcher)->match($report, $shopA->id);
+    $scoped = app(LiveSessionMatcher::class)->match($report, $shopA->id);
     expect($scoped)->toBeNull();
 
     // Scoped to Shop B: still matches.
-    $scopedB = (new LiveSessionMatcher)->match($report, $shopB->id);
+    $scopedB = app(LiveSessionMatcher::class)->match($report, $shopB->id);
     expect($scopedB?->id)->toBe($sessionOnShopB->id);
 });
 
@@ -220,5 +264,5 @@ it('does not match sessions belonging to a different creator id', function () {
         'launched_time' => Carbon::parse('2026-04-18 22:14:00'),
     ]);
 
-    expect((new LiveSessionMatcher)->match($report))->toBeNull();
+    expect(app(LiveSessionMatcher::class)->match($report))->toBeNull();
 });
