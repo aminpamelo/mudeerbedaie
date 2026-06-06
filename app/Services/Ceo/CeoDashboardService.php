@@ -7,6 +7,7 @@ use App\Services\Ceo\Reports\EcommerceHealthReport;
 use App\Services\Ceo\Reports\EducationHealthReport;
 use App\Services\Ceo\Reports\HrHealthReport;
 use App\Services\Ceo\Reports\LiveHostHealthReport;
+use App\Services\Ceo\Reports\MonthlyReportService;
 use App\Services\Ceo\Reports\TaskMonitoringReport;
 use Illuminate\Support\Facades\Cache;
 
@@ -29,7 +30,27 @@ class CeoDashboardService
         private readonly EcommerceHealthReport $ecommerce,
         private readonly HrHealthReport $hr,
         private readonly TaskMonitoringReport $taskReport,
+        private readonly MonthlyReportService $monthlyReport,
     ) {}
+
+    /**
+     * Monthly performance scorecard (KPI rows × Jan–Dec) for a department and
+     * year. Null when the department isn't supported. Cached per dept/year/locale.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function monthlyReport(string $department, int $year): ?array
+    {
+        if (! in_array($department, MonthlyReportService::DEPARTMENTS, true)) {
+            return null;
+        }
+
+        return Cache::remember(
+            "ceo:monthly:{$department}:{$year}:".app()->getLocale(),
+            self::CACHE_TTL,
+            fn () => $this->monthlyReport->build($department, $year)
+        );
+    }
 
     /**
      * Rich payload for the cross-company task-monitoring page (staff performance

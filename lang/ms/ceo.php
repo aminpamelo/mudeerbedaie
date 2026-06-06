@@ -39,6 +39,8 @@ return [
         'tasks_title' => 'Pemantauan Tugasan',
         'tasks_subtitle' => 'Prestasi kakitangan merentas tugasan ditugaskan',
         'tasks_no_staff' => 'Tiada kakitangan dengan tugasan',
+        'reports' => 'Laporan',
+        'monthly_nav' => 'Prestasi Bulanan',
     ],
 
     'status' => [
@@ -234,5 +236,25 @@ return [
         'col_days_late' => 'Hari lewat',
         'days_late' => ':count hari lewat',
         'of_period' => 'tempoh ini',
+    ],
+
+    // Monthly performance report (backend-generated labels).
+    'monthly' => [
+        'title' => 'Prestasi Bulanan',
+        'subtitle' => 'E-dagang · bulan demi bulan',
+        'na' => '—',
+        'col_metric' => 'Metrik',
+        'col_ytd_total' => 'Jumlah YTD',
+        'col_ytd_avg' => 'Purata YTD',
+        'col_trend' => 'Trend',
+        'col_mom' => 'Bln/Bln',
+        'total_revenue' => 'Jumlah hasil',
+        'm_revenue' => 'Hasil',
+        'm_orders' => 'Pesanan',
+        'm_paid' => 'Pesanan dibayar',
+        'm_success' => 'Kejayaan bayaran',
+        'm_aov' => 'Purata nilai pesanan',
+        'm_failed' => 'Bayaran gagal',
+        'm_cancelled' => 'Dibatalkan',
     ],
 ];

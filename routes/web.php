@@ -283,6 +283,8 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
             ->name('locale');
         Route::get('tasks', [\App\Http\Controllers\Ceo\TaskMonitoringController::class, 'index'])
             ->name('tasks');
+        Route::get('reports/monthly', [\App\Http\Controllers\Ceo\MonthlyReportController::class, 'index'])
+            ->name('reports.monthly');
         Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
             ->where('department', 'livehost|education|ecommerce|hr')
             ->name('department');

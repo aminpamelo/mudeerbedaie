@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks } from 'lucide-react';
+import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange } from 'lucide-react';
 import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
@@ -13,6 +13,8 @@ const DEPARTMENTS = [
 ];
 
 const MONITORING = [{ key: 'tasks_nav', href: '/ceo/tasks', icon: ListChecks, accent: 'rose' }];
+
+const REPORTS = [{ key: 'monthly_nav', href: '/ceo/reports/monthly', icon: CalendarRange, accent: 'violet' }];
 
 const ACCENT_HEX = {
   emerald: '#10B981',
@@ -124,6 +126,34 @@ function Sidebar({ auth, brand, currentUrl }) {
         <div className="flex flex-col gap-0.5">
           <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.04em] text-muted-2">{t('monitoring')}</div>
           {MONITORING.map((item) => {
+            const Icon = item.icon;
+            const active = isDeptActive(item.href);
+            const hex = ACCENT_HEX[item.accent];
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                data-accent={item.accent}
+                className={cn(
+                  'group flex items-center gap-[10px] rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-all',
+                  active ? 'bg-white/70 text-ink shadow-[0_6px_16px_-10px_rgba(15,23,42,0.4)]' : 'text-ink-2 hover:bg-white/50 hover:text-ink'
+                )}
+              >
+                <span
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-colors"
+                  style={{ background: active ? hex : `color-mix(in oklab, ${hex} 14%, white)` }}
+                >
+                  <Icon className="h-[15px] w-[15px]" style={{ color: active ? '#fff' : hex }} strokeWidth={2} />
+                </span>
+                <span>{t(item.key)}</span>
+              </a>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.04em] text-muted-2">{t('reports')}</div>
+          {REPORTS.map((item) => {
             const Icon = item.icon;
             const active = isDeptActive(item.href);
             const hex = ACCENT_HEX[item.accent];

@@ -39,6 +39,8 @@ return [
         'tasks_title' => 'Task Monitoring',
         'tasks_subtitle' => 'Staff performance across assigned tasks',
         'tasks_no_staff' => 'No staff with assigned tasks',
+        'reports' => 'Reports',
+        'monthly_nav' => 'Monthly Performance',
     ],
 
     'status' => [
@@ -234,5 +236,25 @@ return [
         'col_days_late' => 'Days late',
         'days_late' => ':count day late|:count days late',
         'of_period' => 'this period',
+    ],
+
+    // Monthly performance report (backend-generated labels).
+    'monthly' => [
+        'title' => 'Monthly Performance',
+        'subtitle' => 'E-commerce · month by month',
+        'na' => '—',
+        'col_metric' => 'Metric',
+        'col_ytd_total' => 'YTD Total',
+        'col_ytd_avg' => 'YTD Avg',
+        'col_trend' => 'Trend',
+        'col_mom' => 'MoM',
+        'total_revenue' => 'Total revenue',
+        'm_revenue' => 'Revenue',
+        'm_orders' => 'Orders',
+        'm_paid' => 'Paid orders',
+        'm_success' => 'Payment success',
+        'm_aov' => 'Avg order value',
+        'm_failed' => 'Failed payments',
+        'm_cancelled' => 'Cancelled',
     ],
 ];
