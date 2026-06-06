@@ -57,6 +57,9 @@ return [
         'today' => 'Hari ini',
         '7d' => '7 hari lepas',
         '30d' => '30 hari lepas',
+        'month' => 'Bulan',
+        'quarter' => 'Suku',
+        'quarter_label' => 'Suku :n :year',
     ],
 
     'departments' => [

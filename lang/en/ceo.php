@@ -57,6 +57,9 @@ return [
         'today' => 'Today',
         '7d' => 'Last 7 days',
         '30d' => 'Last 30 days',
+        'month' => 'Month',
+        'quarter' => 'Quarter',
+        'quarter_label' => 'Q:n :year',
     ],
 
     'departments' => [

@@ -56,7 +56,7 @@ describe('dashboard payload', function () {
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Dashboard', false)
                 ->has('period.key')
-                ->has('period.options', 3)
+                ->has('period.options', 5)
                 ->has('health.score')
                 ->has('health.status')
                 ->has('health.segments', 4)
@@ -92,6 +92,22 @@ describe('localization', function () {
                 ->where('period.label', 'Hari ini')
                 ->has('i18n.company_overview')
             );
+    });
+
+    it('accepts month and quarter periods with a ref', function () {
+        $ceo = User::factory()->create(['role' => 'ceo']);
+
+        $this->actingAs($ceo)->get('/ceo/ecommerce?period=quarter&ref=2026-1')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('period.key', 'quarter')
+                ->where('period.ref', '2026-1')
+                ->where('period.stepped', true)
+                ->has('period.prevRef')
+            );
+
+        $this->actingAs($ceo)->get('/ceo?period=month')
+            ->assertInertia(fn (Assert $page) => $page->where('period.key', 'month')->where('period.stepped', true));
     });
 
     it('switches to English and back via the locale endpoint', function () {

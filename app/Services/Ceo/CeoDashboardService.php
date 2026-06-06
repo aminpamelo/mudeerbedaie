@@ -41,7 +41,7 @@ class CeoDashboardService
     public function taskMonitoring(CeoPeriod $period): array
     {
         return Cache::remember(
-            "ceo:tasks:{$period->key}:".app()->getLocale(),
+            "ceo:tasks:{$period->cacheKey()}:".app()->getLocale(),
             self::CACHE_TTL,
             fn () => $this->taskReport->build($period)
         );
@@ -70,7 +70,7 @@ class CeoDashboardService
 
     private function cached(string $key, CeoPeriod $period, \Closure $callback): DepartmentHealth
     {
-        return Cache::remember("ceo:health:{$key}:{$period->key}:".app()->getLocale(), self::CACHE_TTL, $callback);
+        return Cache::remember("ceo:health:{$key}:{$period->cacheKey()}:".app()->getLocale(), self::CACHE_TTL, $callback);
     }
 
     /**
@@ -93,7 +93,7 @@ class CeoDashboardService
             return null;
         }
 
-        return Cache::remember("ceo:detail:{$key}:{$period->key}:".app()->getLocale(), self::CACHE_TTL, fn () => $report->detail($period));
+        return Cache::remember("ceo:detail:{$key}:{$period->cacheKey()}:".app()->getLocale(), self::CACHE_TTL, fn () => $report->detail($period));
     }
 
     /**
