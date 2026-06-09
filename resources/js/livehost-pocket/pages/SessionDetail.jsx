@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { cn } from '@/livehost-pocket/lib/utils';
-import { formatSessionScheduleLine } from '@/livehost-pocket/lib/format';
+import { accountLabel, formatSessionScheduleLine, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 
 const MISSED_REASONS = [
   { code: 'tech_issue', label: 'Tech / connection issue' },
@@ -313,11 +313,16 @@ function SessionHead({ session }) {
     <div className="mb-4 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[14px]">
       <div className="mb-2 inline-flex items-center gap-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
         <span className="h-1 w-1 bg-[var(--fg-1)]" aria-hidden="true" />
-        {session?.platformAccount ?? session?.platformType ?? 'Platform'}
+        {accountLabel(session)}
       </div>
-      <h1 className="mb-2 font-display text-[19px] font-medium leading-[1.12] tracking-[-0.03em] text-[var(--fg)]">
-        {session?.title ?? 'Untitled session'}
+      <h1 className="mb-1 font-display text-[19px] font-medium leading-[1.12] tracking-[-0.03em] text-[var(--fg)]">
+        {liveHeading(session)}
       </h1>
+      {shopSubline(session) ? (
+        <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+          Kedai · {shopSubline(session)}
+        </div>
+      ) : null}
       {scheduleLine ? (
         <div className="mb-2 font-mono text-[11px] tracking-[0.02em] text-[var(--fg-2)]">
           {scheduleLine}

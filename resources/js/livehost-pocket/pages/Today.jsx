@@ -11,6 +11,7 @@ import {
   minutesSince,
   shortGreetingFor,
 } from '@/livehost-pocket/lib/utils';
+import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 
 /**
  * Today screen (Batch 2) — host-scoped overview with live-now card, daily
@@ -157,11 +158,16 @@ function LiveNowCard({ session, now }) {
 
       <div className="relative z-10 mt-4 flex items-center gap-[6px] font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--fg-2)]">
         <span className="h-1 w-1 bg-[var(--hot)]" aria-hidden="true" />
-        {session.platformAccount ?? session.platformType ?? 'Platform'}
+        {accountLabel(session)}
       </div>
       <h2 className="relative z-10 mt-1 font-display text-[20px] font-medium leading-[1.12] tracking-[-0.03em] text-[var(--fg)]">
-        {session.title}
+        {liveHeading(session)}
       </h2>
+      {shopSubline(session) ? (
+        <div className="relative z-10 mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+          Kedai · {shopSubline(session)}
+        </div>
+      ) : null}
 
       <div className="relative z-10 mt-[14px] flex gap-[18px] border-t border-[var(--hair)] pt-3">
         <div>
@@ -348,7 +354,7 @@ function UpcomingRow({ session }) {
       </div>
       <div>
         <div className="text-[12.5px] font-bold tracking-[-0.005em] text-[var(--fg)]">
-          {session.title}
+          {liveHeading(session)}
         </div>
         <div className="mt-[2px] font-mono text-[9.5px] tracking-[0.02em] text-[var(--fg-3)]">
           {meta}

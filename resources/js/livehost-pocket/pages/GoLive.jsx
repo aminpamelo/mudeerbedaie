@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Radio, CalendarClock } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { cn, formatClockHM } from '@/livehost-pocket/lib/utils';
+import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 
 /**
  * Go Live — pre-flight briefing.
@@ -516,7 +517,7 @@ function SessionPreview({ session, accent }) {
             }}
             aria-hidden="true"
           />
-          {session.platformAccount ?? session.platformType ?? 'Platform'}
+          {accountLabel(session)}
         </span>
         <span className="font-mono text-[9.5px] tracking-[0.04em] text-[var(--fg-3)]">
           LS-{String(session.id).padStart(5, '0')}
@@ -524,8 +525,13 @@ function SessionPreview({ session, accent }) {
       </div>
 
       <h3 className="mt-[6px] font-display text-[16px] font-medium leading-[1.2] tracking-[-0.02em] text-[var(--fg)]">
-        {session.title ?? 'Sesi tanpa tajuk'}
+        {liveHeading(session)}
       </h3>
+      {shopSubline(session) ? (
+        <div className="mt-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+          Kedai · {shopSubline(session)}
+        </div>
+      ) : null}
 
       <div className="mt-[10px] flex items-baseline gap-[16px] border-t border-[var(--hair)] pt-[8px]">
         <Stat label="Dijadualkan" value={start ? formatClockHM(start) : '—'} />

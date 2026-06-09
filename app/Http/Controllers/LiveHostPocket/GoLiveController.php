@@ -45,7 +45,7 @@ class GoLiveController extends Controller
         $now = now();
 
         $liveSession = LiveSession::query()
-            ->with(['platformAccount.platform'])
+            ->with(['platformAccount.platform', 'liveAccount'])
             ->where('live_host_id', $host->id)
             ->where('status', 'live')
             ->orderByDesc('actual_start_at')
@@ -59,7 +59,7 @@ class GoLiveController extends Controller
         }
 
         $candidate = LiveSession::query()
-            ->with(['platformAccount.platform'])
+            ->with(['platformAccount.platform', 'liveAccount'])
             ->where('live_host_id', $host->id)
             ->where('status', 'scheduled')
             ->where('scheduled_start_at', '>=', $now->copy()->subHours(self::IMMINENT_GRACE_HOURS))
@@ -140,6 +140,7 @@ class GoLiveController extends Controller
         return [
             'id' => $session->id,
             'title' => $session->title,
+            'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
             'platformAccount' => $session->platformAccount?->name,
             'platformType' => $session->platformAccount?->platform?->slug,
             'platformName' => $session->platformAccount?->platform?->display_name

@@ -27,7 +27,7 @@ class DashboardController extends Controller
         $host = $request->user();
 
         $liveNow = LiveSession::query()
-            ->with(['platformAccount.platform'])
+            ->with(['platformAccount.platform', 'liveAccount'])
             ->where('live_host_id', $host->id)
             ->where('status', 'live')
             ->orderByDesc('actual_start_at')
@@ -52,7 +52,7 @@ class DashboardController extends Controller
             ->sum('duration_minutes');
 
         $upcoming = LiveSession::query()
-            ->with(['platformAccount.platform'])
+            ->with(['platformAccount.platform', 'liveAccount'])
             ->where('live_host_id', $host->id)
             ->where('status', 'scheduled')
             ->where('scheduled_start_at', '>', now())
@@ -103,6 +103,7 @@ class DashboardController extends Controller
         return [
             'id' => $session->id,
             'title' => $session->title,
+            'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
             'platformAccount' => $session->platformAccount?->name,
             'platformType' => $session->platformAccount?->platform?->slug,
             'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),
@@ -122,6 +123,7 @@ class DashboardController extends Controller
         return [
             'id' => $session->id,
             'title' => $session->title,
+            'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
             'platformAccount' => $session->platformAccount?->name,
             'platformType' => $session->platformAccount?->platform?->slug,
             'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),

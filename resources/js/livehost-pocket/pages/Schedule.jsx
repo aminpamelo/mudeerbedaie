@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
+import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 
 /**
  * Schedule — weekly read-only roster.
@@ -203,7 +204,7 @@ function PendingRecapsList({ items }) {
 }
 
 function PendingRecapRow({ session }) {
-  const platform = session.platformAccount ?? session.platformType ?? 'Platform';
+  const platform = accountLabel(session);
   const platformAccent = platformColor(session.platformType);
   const platformTintBg = platformTint(session.platformType);
   const needsUpload = Boolean(session.needsUpload);
@@ -265,8 +266,13 @@ function PendingRecapRow({ session }) {
       </div>
 
       <div className="mt-[6px] font-display text-[15px] font-medium leading-tight tracking-[-0.015em] text-[var(--fg)]">
-        {session.title || 'Sesi tanpa tajuk'}
+        {liveHeading(session)}
       </div>
+      {shopSubline(session) ? (
+        <div className="mt-[2px] font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+          Kedai · {shopSubline(session)}
+        </div>
+      ) : null}
       {startLabel ? (
         <div className="mt-[2px] font-mono text-[10.5px] tabular-nums tracking-[0.04em] text-[var(--fg-3)]">
           {startLabel}
@@ -660,7 +666,7 @@ function SlotCard({ slot, dayName, bucketDate, isPast = false, isToday = false }
     return null;
   }
 
-  const platform = slot.platformAccount ?? slot.platformType ?? 'Platform';
+  const platform = accountLabel(slot);
   const accent = platformColor(slot.platformType);
   const tint = platformTint(slot.platformType);
   const duration = durationLabel(slot.startTime, slot.endTime);
@@ -747,6 +753,12 @@ function SlotCard({ slot, dayName, bucketDate, isPast = false, isToday = false }
             ) : null}
           </div>
         </div>
+
+        {shopSubline(slot) ? (
+          <div className="mt-[4px] font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--fg-3)]">
+            Kedai · {shopSubline(slot)}
+          </div>
+        ) : null}
 
         {/* Time block — anchor of the card. */}
         <div className="mt-[6px] flex items-baseline justify-between gap-2">

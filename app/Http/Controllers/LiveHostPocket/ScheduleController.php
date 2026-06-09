@@ -53,7 +53,7 @@ class ScheduleController extends Controller
         );
 
         $assignments = LiveScheduleAssignment::query()
-            ->with(['timeSlot', 'platformAccount.platform'])
+            ->with(['timeSlot', 'platformAccount.platform', 'liveAccount'])
             ->where('live_host_id', $host->id)
             ->where('status', '!=', 'cancelled')
             ->where(function ($q) use ($weekStart, $weekEnd): void {
@@ -116,6 +116,7 @@ class ScheduleController extends Controller
                     'date' => $slotDateString,
                     'startTime' => $this->formatTime($assignment->timeSlot?->start_time),
                     'endTime' => $this->formatTime($assignment->timeSlot?->end_time),
+                    'creatorAccount' => $assignment->liveAccount?->display_name ?: $assignment->liveAccount?->nickname,
                     'platformAccount' => $assignment->platformAccount?->name,
                     'platformType' => $assignment->platformAccount?->platform?->slug,
                     'isRecurring' => (bool) $assignment->is_template,
@@ -254,7 +255,7 @@ class ScheduleController extends Controller
     private function pendingRecapsFor(int $hostId): array
     {
         return LiveSession::query()
-            ->with(['platformAccount.platform'])
+            ->with(['platformAccount.platform', 'liveAccount'])
             ->withCount('attachments')
             ->where('live_host_id', $hostId)
             ->where(function ($q): void {
@@ -277,6 +278,7 @@ class ScheduleController extends Controller
                 'id' => $session->id,
                 'title' => $session->title,
                 'status' => $session->status,
+                'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
                 'platformAccount' => $session->platformAccount?->name,
                 'platformType' => $session->platformAccount?->platform?->slug,
                 'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),

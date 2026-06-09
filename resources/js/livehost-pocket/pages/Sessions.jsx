@@ -1,11 +1,14 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import {
+  accountLabel,
   formatCompactNumber,
   formatDurationHM,
   formatRinggitInt,
   formatSessionScheduleLine,
   formatShortDateTime,
+  liveHeading,
+  shopSubline,
 } from '@/livehost-pocket/lib/format';
 import { cn, formatClockHM, minutesSince, formatMinutesHM } from '@/livehost-pocket/lib/utils';
 
@@ -173,15 +176,21 @@ function SessionCard({ session }) {
 
       <div className="mb-2 flex items-center justify-between">
         <PlatformLabel
-          name={session.platformAccount}
+          name={accountLabel(session)}
           platformType={session.platformType}
         />
         <StatusChip status={status} awaitingRecap={isAwaitingRecap} needsUpload={needsUpload} />
       </div>
 
       <div className="mb-1 text-[14.5px] font-bold leading-tight tracking-[-0.01em] text-[var(--fg)]">
-        {session.title}
+        {liveHeading(session)}
       </div>
+
+      {shopSubline(session) ? (
+        <div className="mb-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+          Kedai · {shopSubline(session)}
+        </div>
+      ) : null}
 
       <ScheduleLine session={session} isLive={isLive} />
 

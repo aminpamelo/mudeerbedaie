@@ -34,7 +34,7 @@ class SessionDetailController extends Controller
     {
         abort_unless($session->live_host_id === $request->user()->id, 403);
 
-        $session->load(['platformAccount.platform', 'analytics', 'attachments']);
+        $session->load(['platformAccount.platform', 'analytics', 'attachments', 'liveAccount']);
 
         return Inertia::render('SessionDetail', [
             'session' => $this->sessionDto($session),
@@ -185,6 +185,7 @@ class SessionDetailController extends Controller
             'description' => $session->description,
             'status' => $session->status,
             'remarks' => $session->remarks,
+            'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
             'platformAccount' => $session->platformAccount?->name,
             'platformType' => $session->platformAccount?->platform?->slug,
             'platformName' => $session->platformAccount?->platform?->name,

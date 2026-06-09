@@ -10,6 +10,35 @@ const DAY_SHORT_MS = ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'];
 const MONTH_SHORT_MS = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
 
 /**
+ * Host-facing identity for a session/slot card: the creator account ("punca
+ * kuasa") the host actually goes live as. Falls back to the TTS shop / platform
+ * name only when no creator account is linked to the slot, so a card is never
+ * blank. Hosts were confused by seeing the shop name here instead of the
+ * creator account they stream under.
+ */
+export function accountLabel(item) {
+  return item?.creatorAccount || item?.platformAccount || item?.platformType || 'Akaun';
+}
+
+/**
+ * "Live · {creator account}" heading. Prefers the creator account; if the slot
+ * has neither a creator account nor a shop, falls back to the stored title.
+ */
+export function liveHeading(item) {
+  const name = item?.creatorAccount || item?.platformAccount;
+  return name ? `Live · ${name}` : item?.title || 'Sesi live';
+}
+
+/**
+ * The TTS shop name, shown as a small secondary "Kedai · …" line — but only
+ * when a creator account is already the headline. When no creator account is
+ * linked the shop is the headline itself, so returning null avoids repeating it.
+ */
+export function shopSubline(item) {
+  return item?.creatorAccount && item?.platformAccount ? item.platformAccount : null;
+}
+
+/**
  * Short, locale-aware date/time label suitable for a session-card's
  * "scheduled" line. Output is in Bahasa Malaysia.
  *

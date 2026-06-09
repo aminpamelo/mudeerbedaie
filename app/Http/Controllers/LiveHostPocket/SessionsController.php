@@ -28,7 +28,7 @@ class SessionsController extends Controller
         $filter = $request->string('filter')->toString() ?: 'ended';
 
         $query = LiveSession::query()
-            ->with(['platformAccount.platform', 'analytics'])
+            ->with(['platformAccount.platform', 'analytics', 'liveAccount'])
             ->withCount('attachments')
             ->where('live_host_id', $host->id);
 
@@ -67,6 +67,7 @@ class SessionsController extends Controller
             'id' => $session->id,
             'title' => $session->title,
             'status' => $session->status,
+            'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
             'platformAccount' => $session->platformAccount?->name,
             'platformType' => $session->platformAccount?->platform?->slug,
             'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),
