@@ -143,6 +143,17 @@ class RecruitmentCampaignController extends Controller
         return back()->with('success', 'Campaign paused.');
     }
 
+    public function resume(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
+    {
+        if ($campaign->status !== 'paused') {
+            abort(422, 'Only paused campaigns can be resumed.');
+        }
+
+        $campaign->update(['status' => 'open']);
+
+        return back()->with('success', 'Campaign resumed.');
+    }
+
     public function close(Request $request, LiveHostRecruitmentCampaign $campaign): RedirectResponse
     {
         if (! in_array($campaign->status, ['open', 'paused'], true)) {

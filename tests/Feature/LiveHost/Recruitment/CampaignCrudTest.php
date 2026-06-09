@@ -124,6 +124,26 @@ it('refuses to pause a non-open campaign', function () {
         ->assertStatus(422);
 });
 
+it('resumes a paused campaign', function () {
+    $admin = adminLivehost();
+    $campaign = LiveHostRecruitmentCampaign::factory()->create(['status' => 'paused']);
+
+    $this->actingAs($admin)
+        ->patch(route('livehost.recruitment.campaigns.resume', $campaign))
+        ->assertRedirect();
+
+    expect($campaign->fresh()->status)->toBe('open');
+});
+
+it('refuses to resume a non-paused campaign', function () {
+    $admin = adminLivehost();
+    $campaign = LiveHostRecruitmentCampaign::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin)
+        ->patch(route('livehost.recruitment.campaigns.resume', $campaign))
+        ->assertStatus(422);
+});
+
 it('closes an open or paused campaign and refuses to re-open it', function () {
     $admin = adminLivehost();
     $campaign = LiveHostRecruitmentCampaign::factory()->create(['status' => 'paused']);

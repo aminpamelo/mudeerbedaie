@@ -514,6 +514,8 @@ Route::middleware(['auth'])
                     ->name('campaigns.publish');
                 Route::patch('campaigns/{campaign}/pause', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'pause'])
                     ->name('campaigns.pause');
+                Route::patch('campaigns/{campaign}/resume', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'resume'])
+                    ->name('campaigns.resume');
                 Route::patch('campaigns/{campaign}/close', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'close'])
                     ->name('campaigns.close');
                 Route::delete('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'destroy'])
