@@ -41,6 +41,8 @@ return [
         'tasks_no_staff' => 'Tiada kakitangan dengan tugasan',
         'reports' => 'Laporan',
         'monthly_nav' => 'Prestasi Bulanan',
+        'monthly_nav_ecommerce' => 'Bulanan · E-dagang',
+        'monthly_nav_livehost' => 'Bulanan · Live Host',
     ],
 
     'status' => [
@@ -69,6 +71,7 @@ return [
         'education' => 'Pendidikan',
         'ecommerce' => 'E-dagang',
         'hr' => 'HR',
+        'sales' => 'Jualan',
     ],
 
     'modules' => [
@@ -76,6 +79,12 @@ return [
         'education' => 'Buka admin Kelas',
         'ecommerce' => 'Buka admin Pesanan',
         'hr' => 'Buka modul HR',
+        'sales' => 'Buka laporan Jualan',
+    ],
+
+    'sales' => [
+        'unassigned' => 'Tanpa Jurujual (POS)',
+        'no_source' => 'Tiada sumber',
     ],
 
     'metrics' => [
@@ -105,10 +114,17 @@ return [
         'pending_leave' => 'Cuti tertunggak',
         'pending_claims' => 'Tuntutan tertunggak',
         'fulfilment_backlog' => 'Tunggakan pemenuhan',
+        'orders' => 'Pesanan',
+        'paid_conversion' => 'Penukaran dibayar',
+        'pending_orders' => 'Pesanan tertunggak',
+        'items_sold' => 'Item terjual',
+        'sales_today' => 'Jualan hari ini',
     ],
 
     'hints' => [
         'done_scheduled' => 'selesai / dijadual',
+        'awaiting_payment' => 'menunggu bayaran',
+        'pending_count' => ':count tertunggak',
         'completed_scheduled' => 'siap / dijadual',
         'this_week' => 'minggu ini',
         'paid_awaiting_ship' => 'dibayar, menunggu hantar',
@@ -133,6 +149,9 @@ return [
         'recent_orders' => 'Pesanan terkini',
         'headcount_by_department' => 'Bilangan kakitangan mengikut jabatan',
         'pending_approvals' => 'Kelulusan tertunggak',
+        'revenue_trend' => 'Trend hasil',
+        'top_salespersons' => 'Jurujual teratas',
+        'sales_by_source' => 'Jualan mengikut sumber',
     ],
 
     'subtitles' => [
@@ -156,6 +175,10 @@ return [
         'employee' => 'Pekerja',
         'type' => 'Jenis',
         'date' => 'Tarikh',
+        'salesperson' => 'Jurujual',
+        'orders' => 'Pesanan',
+        'revenue' => 'Hasil',
+        'source' => 'Sumber',
     ],
 
     'segments' => [
@@ -172,6 +195,7 @@ return [
         'paid' => 'Dibayar',
         'failed' => 'Gagal',
         'in_progress' => 'Dalam proses',
+        'pending' => 'Tertunggak',
     ],
 
     'kinds' => [
@@ -199,6 +223,8 @@ return [
         'tasks_overdue' => ':count tugasan lewat tempoh',
         'staff_overdue' => ':count kakitangan ada tugasan lewat tempoh',
         'tasks_due_soon' => ':count tugasan tamat dalam 7 hari',
+        'sales_pending_payment' => ':count jualan menunggu bayaran',
+        'low_conversion' => 'Penukaran dibayar pada :rate% tempoh ini',
     ],
 
     // Task monitoring page (backend-generated labels).
@@ -249,6 +275,7 @@ return [
         'col_trend' => 'Trend',
         'col_mom' => 'Bln/Bln',
         'total_revenue' => 'Jumlah hasil',
+        'total_gmv' => 'Jumlah GMV',
         'm_revenue' => 'Hasil',
         'm_orders' => 'Pesanan',
         'm_paid' => 'Pesanan dibayar',
@@ -256,5 +283,12 @@ return [
         'm_aov' => 'Purata nilai pesanan',
         'm_failed' => 'Bayaran gagal',
         'm_cancelled' => 'Dibatalkan',
+        'm_gmv' => 'GMV',
+        'm_sessions' => 'Sesi',
+        'm_completed' => 'Sesi selesai',
+        'm_completion' => 'Kadar selesai',
+        'm_gmv_avg' => 'Purata GMV sesi',
+        'm_hours' => 'Jam siaran',
+        'm_replacements' => 'Penggantian',
     ],
 ];

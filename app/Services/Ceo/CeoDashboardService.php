@@ -8,6 +8,7 @@ use App\Services\Ceo\Reports\EducationHealthReport;
 use App\Services\Ceo\Reports\HrHealthReport;
 use App\Services\Ceo\Reports\LiveHostHealthReport;
 use App\Services\Ceo\Reports\MonthlyReportService;
+use App\Services\Ceo\Reports\SalesHealthReport;
 use App\Services\Ceo\Reports\TaskMonitoringReport;
 use Illuminate\Support\Facades\Cache;
 
@@ -29,6 +30,7 @@ class CeoDashboardService
         private readonly LiveHostHealthReport $liveHost,
         private readonly EcommerceHealthReport $ecommerce,
         private readonly HrHealthReport $hr,
+        private readonly SalesHealthReport $sales,
         private readonly TaskMonitoringReport $taskReport,
         private readonly MonthlyReportService $monthlyReport,
     ) {}
@@ -78,6 +80,7 @@ class CeoDashboardService
             'education' => $this->cached('education', $period, fn () => $this->education->run($period)),
             'ecommerce' => $this->cached('ecommerce', $period, fn () => $this->ecommerce->run($period)),
             'hr' => $this->cached('hr', $period, fn () => $this->hr->run($period)),
+            'sales' => $this->cached('sales', $period, fn () => $this->sales->run($period)),
         ];
 
         return [
@@ -107,6 +110,7 @@ class CeoDashboardService
             'education' => $this->education,
             'ecommerce' => $this->ecommerce,
             'hr' => $this->hr,
+            'sales' => $this->sales,
             default => null,
         };
 

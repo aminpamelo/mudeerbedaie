@@ -286,7 +286,7 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
         Route::get('reports/monthly', [\App\Http\Controllers\Ceo\MonthlyReportController::class, 'index'])
             ->name('reports.monthly');
         Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
-            ->where('department', 'livehost|education|ecommerce|hr')
+            ->where('department', 'livehost|education|ecommerce|hr|sales')
             ->name('department');
     });
 

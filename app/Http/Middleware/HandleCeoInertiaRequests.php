@@ -52,6 +52,7 @@ class HandleCeoInertiaRequests extends HandleInertiaRequests
                 'dept_education' => __('ceo.departments.education'),
                 'dept_ecommerce' => __('ceo.departments.ecommerce'),
                 'dept_hr' => __('ceo.departments.hr'),
+                'dept_sales' => __('ceo.departments.sales'),
             ]),
         ];
     }

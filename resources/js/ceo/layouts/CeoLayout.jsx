@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange } from 'lucide-react';
+import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange, Wallet } from 'lucide-react';
 import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
@@ -10,11 +10,15 @@ const DEPARTMENTS = [
   { key: 'education', href: '/ceo/education', icon: GraduationCap, accent: 'sky' },
   { key: 'ecommerce', href: '/ceo/ecommerce', icon: ShoppingBag, accent: 'violet' },
   { key: 'hr', href: '/ceo/hr', icon: Users, accent: 'amber' },
+  { key: 'sales', href: '/ceo/sales', icon: Wallet, accent: 'brand' },
 ];
 
 const MONITORING = [{ key: 'tasks_nav', href: '/ceo/tasks', icon: ListChecks, accent: 'rose' }];
 
-const REPORTS = [{ key: 'monthly_nav', href: '/ceo/reports/monthly', icon: CalendarRange, accent: 'violet' }];
+const REPORTS = [
+  { key: 'monthly_nav_ecommerce', dept: 'ecommerce', href: '/ceo/reports/monthly?department=ecommerce', icon: CalendarRange, accent: 'violet' },
+  { key: 'monthly_nav_livehost', dept: 'livehost', href: '/ceo/reports/monthly?department=livehost', icon: CalendarRange, accent: 'emerald' },
+];
 
 const ACCENT_HEX = {
   emerald: '#10B981',
@@ -22,6 +26,7 @@ const ACCENT_HEX = {
   violet: '#8B5CF6',
   amber: '#F59E0B',
   rose: '#F43F5E',
+  brand: '#6366F1',
 };
 
 /**
@@ -54,6 +59,12 @@ function Sidebar({ auth, brand, currentUrl }) {
 
   const overviewActive = currentUrl === '/ceo' || currentUrl === '/ceo/' || currentUrl.startsWith('/ceo?');
   const isDeptActive = (href) => currentUrl === href || currentUrl === `${href}/` || currentUrl.startsWith(`${href}?`);
+
+  // Both monthly reports share one route; disambiguate by the department param
+  // (defaulting to ecommerce, which the controller assumes when absent).
+  const onMonthly = currentUrl.startsWith('/ceo/reports/monthly');
+  const monthlyDept = new URLSearchParams(currentUrl.split('?')[1] || '').get('department') || 'ecommerce';
+  const isReportActive = (item) => onMonthly && monthlyDept === item.dept;
 
   const handleLogout = () => {
     if (!window.confirm('Log out of CEO Overview?')) return;
@@ -155,7 +166,7 @@ function Sidebar({ auth, brand, currentUrl }) {
           <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.04em] text-muted-2">{t('reports')}</div>
           {REPORTS.map((item) => {
             const Icon = item.icon;
-            const active = isDeptActive(item.href);
+            const active = isReportActive(item);
             const hex = ACCENT_HEX[item.accent];
             return (
               <a

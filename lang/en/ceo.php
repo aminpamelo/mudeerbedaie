@@ -41,6 +41,8 @@ return [
         'tasks_no_staff' => 'No staff with assigned tasks',
         'reports' => 'Reports',
         'monthly_nav' => 'Monthly Performance',
+        'monthly_nav_ecommerce' => 'Monthly · E-commerce',
+        'monthly_nav_livehost' => 'Monthly · Live Host',
     ],
 
     'status' => [
@@ -69,6 +71,7 @@ return [
         'education' => 'Education',
         'ecommerce' => 'E-commerce',
         'hr' => 'HR',
+        'sales' => 'Sales',
     ],
 
     'modules' => [
@@ -76,6 +79,12 @@ return [
         'education' => 'Open Classes admin',
         'ecommerce' => 'Open Orders admin',
         'hr' => 'Open HR module',
+        'sales' => 'Open Sales report',
+    ],
+
+    'sales' => [
+        'unassigned' => 'Unassigned (POS)',
+        'no_source' => 'No source',
     ],
 
     'metrics' => [
@@ -105,10 +114,17 @@ return [
         'pending_leave' => 'Pending leave',
         'pending_claims' => 'Pending claims',
         'fulfilment_backlog' => 'Fulfilment backlog',
+        'orders' => 'Orders',
+        'paid_conversion' => 'Paid conversion',
+        'pending_orders' => 'Pending orders',
+        'items_sold' => 'Items sold',
+        'sales_today' => 'Sales today',
     ],
 
     'hints' => [
         'done_scheduled' => 'done / scheduled',
+        'awaiting_payment' => 'awaiting payment',
+        'pending_count' => ':count pending',
         'completed_scheduled' => 'completed / scheduled',
         'this_week' => 'this week',
         'paid_awaiting_ship' => 'paid, awaiting ship',
@@ -133,6 +149,9 @@ return [
         'recent_orders' => 'Recent orders',
         'headcount_by_department' => 'Headcount by department',
         'pending_approvals' => 'Pending approvals',
+        'revenue_trend' => 'Revenue trend',
+        'top_salespersons' => 'Top salespersons',
+        'sales_by_source' => 'Sales by source',
     ],
 
     'subtitles' => [
@@ -156,6 +175,10 @@ return [
         'employee' => 'Employee',
         'type' => 'Type',
         'date' => 'Date',
+        'salesperson' => 'Salesperson',
+        'orders' => 'Orders',
+        'revenue' => 'Revenue',
+        'source' => 'Source',
     ],
 
     'segments' => [
@@ -172,6 +195,7 @@ return [
         'paid' => 'Paid',
         'failed' => 'Failed',
         'in_progress' => 'In progress',
+        'pending' => 'Pending',
     ],
 
     'kinds' => [
@@ -199,6 +223,8 @@ return [
         'tasks_overdue' => ':count task is overdue|:count tasks are overdue',
         'staff_overdue' => ':count staff member has overdue tasks|:count staff members have overdue tasks',
         'tasks_due_soon' => ':count task due within 7 days|:count tasks due within 7 days',
+        'sales_pending_payment' => ':count sale awaiting payment|:count sales awaiting payment',
+        'low_conversion' => 'Paid conversion at :rate% this period',
     ],
 
     // Task monitoring page (backend-generated labels).
@@ -249,6 +275,7 @@ return [
         'col_trend' => 'Trend',
         'col_mom' => 'MoM',
         'total_revenue' => 'Total revenue',
+        'total_gmv' => 'Total GMV',
         'm_revenue' => 'Revenue',
         'm_orders' => 'Orders',
         'm_paid' => 'Paid orders',
@@ -256,5 +283,12 @@ return [
         'm_aov' => 'Avg order value',
         'm_failed' => 'Failed payments',
         'm_cancelled' => 'Cancelled',
+        'm_gmv' => 'GMV',
+        'm_sessions' => 'Sessions',
+        'm_completed' => 'Completed sessions',
+        'm_completion' => 'Completion rate',
+        'm_gmv_avg' => 'Avg GMV / session',
+        'm_hours' => 'Live hours',
+        'm_replacements' => 'Replacements',
     ],
 ];
