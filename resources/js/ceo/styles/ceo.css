@@ -155,7 +155,13 @@ body::before {
 @keyframes bar-in { from { transform: scaleX(0); } }
 .bar-fill { transform-origin: left; animation: bar-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Mobile "More" navigation sheet (slides up from the bottom edge). */
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.sheet-up { animation: sheet-up 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.scrim-in { animation: scrim-in 0.22s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   body::before { animation: none; }
-  .gauge-arc, .bar-fill, .live-dot::after { animation: none; }
+  .gauge-arc, .bar-fill, .live-dot::after, .sheet-up, .scrim-in { animation: none; }
 }

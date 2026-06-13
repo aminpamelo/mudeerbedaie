@@ -41,7 +41,7 @@ export default function DepartmentDetail({ period, department }) {
     <CeoLayout>
       <Head title={label} />
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-8 pb-2 pt-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 pb-2 pt-6">
         <div className="flex items-center gap-3">
           <Link href="/ceo" className="grid h-9 w-9 place-items-center rounded-xl glass text-muted transition-colors hover:text-ink" aria-label={t('back_to_overview')}>
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
@@ -56,7 +56,7 @@ export default function DepartmentDetail({ period, department }) {
         </div>
       </header>
 
-      <div className="flex flex-col gap-6 px-8 pb-10" data-accent={accent} data-status={status}>
+      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10" data-accent={accent} data-status={status}>
         {/* Hero */}
         <section className="glass-card relative flex flex-col items-center gap-6 overflow-hidden rounded-[22px] p-6 sm:flex-row sm:gap-9 sm:p-7">
           <span className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-30 blur-3xl" style={{ background: 'var(--accent)' }} aria-hidden="true" />

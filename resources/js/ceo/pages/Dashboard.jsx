@@ -13,7 +13,7 @@ export default function Dashboard({ period, health, pulse = [], departments = []
     <CeoLayout>
       <Head title={t('overview')} />
 
-      <header className="flex items-center justify-between px-8 pb-2 pt-6">
+      <header className="flex items-center justify-between px-4 sm:px-6 lg:px-8 pb-2 pt-6">
         <div>
           <h1 className="font-display text-[22px] text-ink">{t('company_overview')}</h1>
           <p className="text-[12.5px] text-muted">{t('overview_subtitle')} · {period?.label}</p>
@@ -21,7 +21,7 @@ export default function Dashboard({ period, health, pulse = [], departments = []
         <PeriodSwitcher period={period} />
       </header>
 
-      <div className="flex flex-col gap-6 px-8 pb-10">
+      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10">
         <HealthHero health={health} period={period} />
 
         {/* Pulse strip */}

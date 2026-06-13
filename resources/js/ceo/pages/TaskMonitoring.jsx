@@ -39,7 +39,7 @@ export default function TaskMonitoring({ period, tasks, board, employees = [], c
     <CeoLayout>
       <Head title={t('tasks_title')} />
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-8 pb-2 pt-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 pb-2 pt-6">
         <div>
           <h1 className="font-display text-[22px] text-ink">{t('tasks_title')}</h1>
           <p className="text-[12.5px] text-muted">{t('tasks_subtitle')} · {period?.label}</p>
@@ -47,7 +47,7 @@ export default function TaskMonitoring({ period, tasks, board, employees = [], c
         <PeriodSwitcher period={period} />
       </header>
 
-      <div className="flex flex-col gap-6 px-8 pb-10" data-accent="rose" data-status={status}>
+      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10" data-accent="rose" data-status={status}>
         {/* Hero: on-time gauge + status + module link */}
         <section className="glass-card relative flex flex-col items-center gap-6 overflow-hidden rounded-[22px] p-6 sm:flex-row sm:gap-9 sm:p-7">
           <span className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-30 blur-3xl" style={{ background: 'var(--signal)' }} aria-hidden="true" />

@@ -44,7 +44,7 @@ export default function MonthlyReport({ report }) {
     <CeoLayout>
       <Head title={`${t('monthly_nav')} · ${label} · ${year}`} />
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-8 pb-2 pt-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 pb-2 pt-6">
         <div className="flex items-center gap-3">
           <Link href={backHref} className="grid h-9 w-9 place-items-center rounded-xl glass text-muted transition-colors hover:text-ink" aria-label={t('back_to_overview')}>
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
@@ -57,7 +57,7 @@ export default function MonthlyReport({ report }) {
         <YearStepper report={report} />
       </header>
 
-      <div className="flex flex-col gap-6 px-8 pb-10" data-accent={accent}>
+      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10" data-accent={accent}>
         {/* Hero summary */}
         <section className="glass-card relative flex flex-col gap-4 overflow-hidden rounded-[22px] p-6">
           <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, var(--color-brand), ${accentVar})` }} aria-hidden="true" />
