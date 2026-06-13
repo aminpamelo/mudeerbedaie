@@ -30,18 +30,27 @@ export default function TaskEditModal({ mode, task, employees, categories, statu
 
   function submit(e) {
     e.preventDefault();
-    form
-      .transform((data) => ({
-        ...data,
-        category_id: data.category_id || null,
-        description: data.description || null,
-        ...(isEdit ? {} : { status: undefined }),
-      }))
-      [isEdit ? 'patch' : 'post'](isEdit ? `/ceo/tasks/${task.id}` : '/ceo/tasks', {
-        preserveScroll: true,
-        only: ['board', 'tasks'],
-        onSuccess: onClose,
-      });
+
+    // `transform()` only registers the callback and returns undefined in
+    // @inertiajs/react, so it cannot be chained — call it, then submit on `form`.
+    form.transform((data) => ({
+      ...data,
+      category_id: data.category_id || null,
+      description: data.description || null,
+      ...(isEdit ? {} : { status: undefined }),
+    }));
+
+    const options = {
+      preserveScroll: true,
+      only: ['board', 'tasks'],
+      onSuccess: onClose,
+    };
+
+    if (isEdit) {
+      form.patch(`/ceo/tasks/${task.id}`, options);
+    } else {
+      form.post('/ceo/tasks', options);
+    }
   }
 
   return (
