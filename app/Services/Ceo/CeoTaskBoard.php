@@ -38,11 +38,11 @@ class CeoTaskBoard
         $search = trim((string) $request->query('search', '')) ?: null;
 
         $query = Task::query()
-            ->with(['assignee:id,full_name', 'category:id,name,color', 'taskable'])
+            ->with(['assignee:id,full_name', 'assignees:id,full_name', 'category:id,name,color', 'taskable'])
             ->when($status === 'open', fn ($q) => $q->whereIn('status', self::OPEN_STATUSES))
             ->when(in_array($status, self::STATUSES, true), fn ($q) => $q->where('status', $status))
             ->when($priority, fn ($q) => $q->where('priority', $priority))
-            ->when($assignedTo, fn ($q) => $q->where('assigned_to', $assignedTo))
+            ->when($assignedTo, fn ($q) => $q->whereHas('assignees', fn ($sub) => $sub->where('employees.id', $assignedTo)))
             ->when($search, fn ($q) => $q->where(function ($sub) use ($search) {
                 $sub->where('title', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%");
             }))
@@ -97,6 +97,10 @@ class CeoTaskBoard
             'deadline' => $task->deadline?->toDateString(),
             'assigned_to' => $task->assigned_to,
             'assignee_name' => $task->assignee?->full_name,
+            'assignees' => $task->assignees
+                ->map(fn ($e) => ['id' => $e->id, 'name' => $e->full_name])
+                ->values()
+                ->all(),
             'category_id' => $task->category_id,
             'category' => $task->category ? [
                 'id' => $task->category->id,

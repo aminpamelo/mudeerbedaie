@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,6 +14,24 @@ class Task extends Model
 {
     use HasFactory;
     use SoftDeletes;
+
+    /**
+     * Keep the task_assignee pivot consistent for tasks created/assigned through
+     * any path (CEO, HR, meeting action items): the primary `assigned_to` is
+     * always one of the co-owners. CEO multi-assign adds further co-owners on top.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Task $task): void {
+            if (! $task->assigned_to) {
+                return;
+            }
+
+            if (! $task->assignees()->where('employees.id', $task->assigned_to)->exists()) {
+                $task->assignees()->attach($task->assigned_to);
+            }
+        });
+    }
 
     protected $fillable = [
         'taskable_type',
@@ -78,10 +97,23 @@ class Task extends Model
 
     /**
      * Get the employee this task is assigned to.
+     *
+     * This is the "primary" owner — always one of the {@see assignees()}. Kept as
+     * a single column so existing per-assignee features keep working; the full set
+     * of co-owners lives in the task_assignee pivot.
      */
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'assigned_to');
+    }
+
+    /**
+     * All employees who co-own this task (a shared task can have several owners).
+     */
+    public function assignees(): BelongsToMany
+    {
+        return $this->belongsToMany(Employee::class, 'task_assignee', 'task_id', 'employee_id')
+            ->withTimestamps();
     }
 
     /**

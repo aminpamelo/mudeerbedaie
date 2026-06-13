@@ -25,6 +25,8 @@ class UpdateTaskRequest extends FormRequest
             'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'assigned_to' => ['sometimes', 'exists:employees,id'],
+            'assignee_ids' => ['sometimes', 'array', 'min:1'],
+            'assignee_ids.*' => ['integer', 'exists:employees,id'],
             'category_id' => ['nullable', 'exists:task_categories,id'],
             'priority' => ['sometimes', 'in:low,medium,high,urgent'],
             'status' => ['sometimes', 'in:pending,in_progress,completed,cancelled'],

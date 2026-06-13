@@ -5,6 +5,7 @@ namespace App\Services\Ceo\Reports;
 use App\Models\Task;
 use App\Services\Ceo\CeoPeriod;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Builds the CEO "Task Monitoring" page: how staff are performing on the tasks
@@ -187,7 +188,8 @@ class TaskMonitoringReport
     private function staffLeaderboard(string $todayDate, CeoPeriod $period): array
     {
         $rows = Task::query()
-            ->join('employees', 'employees.id', '=', 'tasks.assigned_to')
+            ->join('task_assignee', 'task_assignee.task_id', '=', 'tasks.id')
+            ->join('employees', 'employees.id', '=', 'task_assignee.employee_id')
             ->whereNull('employees.deleted_at')
             ->selectRaw(
                 "employees.id as eid, employees.full_name as name,
@@ -223,7 +225,7 @@ class TaskMonitoringReport
     private function overdueTasks(CarbonImmutable $today): array
     {
         return Task::query()
-            ->with(['assignee:id,full_name'])
+            ->with(['assignees:id,full_name'])
             ->whereIn('status', self::OPEN_STATUSES)
             ->whereDate('deadline', '<', $today->toDateString())
             ->orderBy('deadline')
@@ -234,7 +236,7 @@ class TaskMonitoringReport
 
                 return [
                     'task' => (string) $t->title,
-                    'staff' => $t->assignee?->full_name ?? '—',
+                    'staff' => $t->assignees->pluck('full_name')->filter()->implode(', ') ?: '—',
                     'priority' => __('ceo.tasks.priority_'.$t->priority),
                     'late' => trans_choice('ceo.tasks.days_late', $daysLate, ['count' => $daysLate]),
                 ];
@@ -279,11 +281,13 @@ class TaskMonitoringReport
                 'href' => '/hr/meetings',
             ];
 
-            $staffOverdue = Task::query()
-                ->whereIn('status', self::OPEN_STATUSES)
-                ->whereDate('deadline', '<', $todayDate)
-                ->distinct('assigned_to')
-                ->count('assigned_to');
+            $staffOverdue = DB::table('task_assignee')
+                ->join('tasks', 'tasks.id', '=', 'task_assignee.task_id')
+                ->whereNull('tasks.deleted_at')
+                ->whereIn('tasks.status', self::OPEN_STATUSES)
+                ->whereDate('tasks.deadline', '<', $todayDate)
+                ->distinct('task_assignee.employee_id')
+                ->count('task_assignee.employee_id');
 
             if ($staffOverdue > 0) {
                 $alerts[] = [

@@ -158,13 +158,26 @@ export default function TaskBoard({ board, employees, categories }) {
                   </div>
                 </div>
 
-                <select value={row.assigned_to ? String(row.assigned_to) : ''} onChange={(e) => patchTask(row.id, { assigned_to: e.target.value })} className={INLINE} aria-label={t('tasks_col_assignee')}>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={String(emp.id)}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
+                {/* Owners — a task can be co-owned; edit the set via the modal */}
+                <button
+                  type="button"
+                  onClick={() => setModal({ mode: 'edit', task: row })}
+                  className={cn(INLINE, 'flex w-full items-center gap-1.5 text-left')}
+                  aria-label={t('tasks_col_assignee')}
+                >
+                  {(row.assignees?.length ?? 0) === 0 ? (
+                    <span className="text-muted-2">{t('tasks_select_assignee')}</span>
+                  ) : (
+                    <>
+                      <span className="min-w-0 truncate">{row.assignees[0].name}</span>
+                      {row.assignees.length > 1 && (
+                        <span className="shrink-0 rounded-full bg-[rgba(99,102,241,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-brand-ink)]">
+                          +{row.assignees.length - 1}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
 
                 <select value={row.priority} onChange={(e) => patchTask(row.id, { priority: e.target.value })} className={INLINE} aria-label={t('tasks_col_priority')}>
                   {priorityOptions.map((o) => (

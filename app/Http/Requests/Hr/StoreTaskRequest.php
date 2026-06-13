@@ -24,7 +24,11 @@ class StoreTaskRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'assigned_to' => ['required', 'exists:employees,id'],
+            // A task may be assigned to one person (`assigned_to`, legacy/HR) or
+            // co-owned by several (`assignee_ids`); at least one is required.
+            'assigned_to' => ['required_without:assignee_ids', 'nullable', 'exists:employees,id'],
+            'assignee_ids' => ['required_without:assigned_to', 'array', 'min:1'],
+            'assignee_ids.*' => ['integer', 'exists:employees,id'],
             'category_id' => ['nullable', 'exists:task_categories,id'],
             'priority' => ['required', 'in:low,medium,high,urgent'],
             'deadline' => ['required', 'date', 'after_or_equal:today'],
