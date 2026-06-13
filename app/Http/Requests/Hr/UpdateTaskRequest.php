@@ -25,9 +25,10 @@ class UpdateTaskRequest extends FormRequest
             'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'assigned_to' => ['sometimes', 'exists:employees,id'],
+            'category_id' => ['nullable', 'exists:task_categories,id'],
             'priority' => ['sometimes', 'in:low,medium,high,urgent'],
             'status' => ['sometimes', 'in:pending,in_progress,completed,cancelled'],
-            'deadline' => ['sometimes', 'date', 'after_or_equal:today'],
+            'deadline' => ['sometimes', 'date'],
         ];
     }
 
@@ -38,7 +39,6 @@ class UpdateTaskRequest extends FormRequest
     {
         return [
             'assigned_to.exists' => 'The selected assignee does not exist.',
-            'deadline.after_or_equal' => 'Deadline must be today or in the future.',
         ];
     }
 }

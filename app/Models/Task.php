@@ -17,6 +17,7 @@ class Task extends Model
     protected $fillable = [
         'taskable_type',
         'taskable_id',
+        'category_id',
         'parent_id',
         'title',
         'description',
@@ -57,6 +58,14 @@ class Task extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'parent_id');
+    }
+
+    /**
+     * Get the category this task belongs to.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(TaskCategory::class, 'category_id');
     }
 
     /**

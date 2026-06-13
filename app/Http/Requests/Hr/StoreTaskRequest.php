@@ -25,6 +25,7 @@ class StoreTaskRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'assigned_to' => ['required', 'exists:employees,id'],
+            'category_id' => ['nullable', 'exists:task_categories,id'],
             'priority' => ['required', 'in:low,medium,high,urgent'],
             'deadline' => ['required', 'date', 'after_or_equal:today'],
         ];

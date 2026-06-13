@@ -50,7 +50,7 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
     });
 
     const commentMut = useMutation({
-        mutationFn: ({ taskId, body }) => addTaskComment(taskId, { body }),
+        mutationFn: ({ taskId, content }) => addTaskComment(taskId, { content }),
         onSuccess: () => { invalidate(); setCommentText(''); },
     });
 
@@ -180,7 +180,7 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => commentMut.mutate({ taskId: task.id, body: commentText })}
+                                            onClick={() => commentMut.mutate({ taskId: task.id, content: commentText })}
                                             disabled={!commentText.trim() || commentMut.isPending}
                                         >
                                             <MessageSquare className="mr-1 h-3.5 w-3.5" />

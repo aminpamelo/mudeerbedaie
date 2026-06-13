@@ -514,6 +514,7 @@ export const approveAiTasks = (meetingId, data) => api.post(`/meetings/${meeting
 // ========== Tasks ==========
 export const fetchMeetingTasks = (params) => api.get('/tasks', { params }).then(r => r.data);
 export const fetchMeetingTask = (id) => api.get(`/tasks/${id}`).then(r => r.data);
+export const createTask = (data) => api.post('/tasks', data).then(r => r.data);
 export const createMeetingTask = (meetingId, data) => api.post(`/meetings/${meetingId}/tasks`, data).then(r => r.data);
 export const updateMeetingTaskItem = (id, data) => api.put(`/tasks/${id}`, data).then(r => r.data);
 export const updateTaskStatus = (id, data) => api.patch(`/tasks/${id}/status`, data).then(r => r.data);
@@ -521,6 +522,12 @@ export const deleteMeetingTask = (id) => api.delete(`/tasks/${id}`).then(r => r.
 export const createSubtask = (taskId, data) => api.post(`/tasks/${taskId}/subtasks`, data).then(r => r.data);
 export const addTaskComment = (taskId, data) => api.post(`/tasks/${taskId}/comments`, data).then(r => r.data);
 export const uploadTaskAttachment = (taskId, formData) => api.post(`/tasks/${taskId}/attachments`, formData, { headers: { 'Content-Type': undefined } }).then(r => r.data);
+
+// ========== Task Categories ==========
+export const fetchTaskCategories = (params) => api.get('/tasks/categories', { params }).then(r => r.data);
+export const createTaskCategory = (data) => api.post('/tasks/categories', data).then(r => r.data);
+export const updateTaskCategory = (id, data) => api.put(`/tasks/categories/${id}`, data).then(r => r.data);
+export const deleteTaskCategory = (id) => api.delete(`/tasks/categories/${id}`).then(r => r.data);
 
 // ========== My Meetings & Tasks ==========
 export const fetchMyMeetings = (params) => api.get('/my/meetings', { params }).then(r => r.data);

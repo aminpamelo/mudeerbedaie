@@ -25,6 +25,8 @@ class CeoDashboardService
 {
     private const CACHE_TTL = 60;
 
+    private const TASK_CACHE_VERSION_KEY = 'ceo:tasks:version';
+
     public function __construct(
         private readonly EducationHealthReport $education,
         private readonly LiveHostHealthReport $liveHost,
@@ -63,11 +65,25 @@ class CeoDashboardService
      */
     public function taskMonitoring(CeoPeriod $period): array
     {
+        $version = Cache::get(self::TASK_CACHE_VERSION_KEY, 0);
+
         return Cache::remember(
-            "ceo:tasks:{$period->cacheKey()}:".app()->getLocale(),
+            "ceo:tasks:v{$version}:{$period->cacheKey()}:".app()->getLocale(),
             self::CACHE_TTL,
             fn () => $this->taskReport->build($period)
         );
+    }
+
+    /**
+     * Invalidate every cached task-monitoring aggregate (across all periods and
+     * locales) so a task edited from the CEO board is reflected immediately. The
+     * database cache driver has no tag support, so we bump a version baked into
+     * the cache key rather than enumerating unbounded stepped-period keys.
+     */
+    public static function bustTaskCache(): void
+    {
+        Cache::add(self::TASK_CACHE_VERSION_KEY, 0);
+        Cache::increment(self::TASK_CACHE_VERSION_KEY);
     }
 
     /**

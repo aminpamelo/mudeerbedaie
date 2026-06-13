@@ -283,6 +283,12 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
             ->name('locale');
         Route::get('tasks', [\App\Http\Controllers\Ceo\TaskMonitoringController::class, 'index'])
             ->name('tasks');
+        Route::post('tasks', [\App\Http\Controllers\Ceo\CeoTaskController::class, 'store'])
+            ->name('tasks.store');
+        Route::patch('tasks/{task}', [\App\Http\Controllers\Ceo\CeoTaskController::class, 'update'])
+            ->name('tasks.update');
+        Route::delete('tasks/{task}', [\App\Http\Controllers\Ceo\CeoTaskController::class, 'destroy'])
+            ->name('tasks.destroy');
         Route::get('reports/monthly', [\App\Http\Controllers\Ceo\MonthlyReportController::class, 'index'])
             ->name('reports.monthly');
         Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])

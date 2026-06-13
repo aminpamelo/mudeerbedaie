@@ -20,7 +20,19 @@ class HrTaskController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Task::query()
-            ->with(['assignee:id,full_name', 'assigner:id,full_name', 'taskable']);
+            ->with([
+                'assignee:id,full_name',
+                'assigner:id,full_name',
+                'category:id,name,color',
+                'taskable',
+            ]);
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
 
         if ($status = $request->get('status')) {
             $query->where('status', $status);
@@ -34,8 +46,22 @@ class HrTaskController extends Controller
             $query->where('assigned_to', $assignedTo);
         }
 
+        if ($request->filled('category_id')) {
+            $categoryId = $request->get('category_id');
+
+            if ($categoryId === 'none') {
+                $query->whereNull('category_id');
+            } else {
+                $query->where('category_id', $categoryId);
+            }
+        }
+
         if ($taskableType = $request->get('taskable_type')) {
-            $query->where('taskable_type', $taskableType);
+            if ($taskableType === 'standalone') {
+                $query->whereNull('taskable_type');
+            } else {
+                $query->where('taskable_type', $taskableType);
+            }
         }
 
         if ($deadlineFrom = $request->get('deadline_from')) {
@@ -61,6 +87,7 @@ class HrTaskController extends Controller
         $task->load([
             'assignee:id,full_name',
             'assigner:id,full_name',
+            'category:id,name,color',
             'taskable',
             'subtasks.assignee:id,full_name',
             'comments.employee:id,full_name',
@@ -68,6 +95,29 @@ class HrTaskController extends Controller
         ]);
 
         return response()->json(['data' => $task]);
+    }
+
+    /**
+     * Create a standalone task not tied to any meeting.
+     */
+    public function store(StoreTaskRequest $request): JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        $task = Task::create([
+            ...$request->validated(),
+            'taskable_type' => null,
+            'taskable_id' => null,
+            'assigned_by' => $employee?->id,
+            'status' => 'pending',
+        ]);
+
+        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
+
+        return response()->json([
+            'data' => $task,
+            'message' => 'Task created successfully.',
+        ], 201);
     }
 
     /**
@@ -85,7 +135,7 @@ class HrTaskController extends Controller
             'status' => 'pending',
         ]);
 
-        $task->load(['assignee:id,full_name', 'assigner:id,full_name']);
+        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $task,
@@ -100,13 +150,17 @@ class HrTaskController extends Controller
     {
         $validated = $request->validated();
 
-        if (isset($validated['status']) && $validated['status'] === 'completed' && ! $task->completed_at) {
-            $validated['completed_at'] = now();
+        if (array_key_exists('status', $validated)) {
+            if ($validated['status'] === 'completed' && ! $task->completed_at) {
+                $validated['completed_at'] = now();
+            } elseif ($validated['status'] !== 'completed' && $task->completed_at) {
+                $validated['completed_at'] = null;
+            }
         }
 
         $task->update($validated);
 
-        $task->load(['assignee:id,full_name', 'assigner:id,full_name']);
+        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $task,
@@ -127,9 +181,13 @@ class HrTaskController extends Controller
 
         if ($validated['status'] === 'completed' && ! $task->completed_at) {
             $updateData['completed_at'] = now();
+        } elseif ($validated['status'] !== 'completed' && $task->completed_at) {
+            $updateData['completed_at'] = null;
         }
 
         $task->update($updateData);
+
+        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $task,
@@ -163,7 +221,7 @@ class HrTaskController extends Controller
             'status' => 'pending',
         ]);
 
-        $subtask->load(['assignee:id,full_name', 'assigner:id,full_name']);
+        $subtask->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $subtask,

@@ -9,6 +9,7 @@ import SegmentedBar from '@/ceo/components/SegmentedBar';
 import DataList from '@/ceo/components/DataList';
 import StaffPerformanceTable from '@/ceo/components/StaffPerformanceTable';
 import AttentionFeed from '@/ceo/components/AttentionFeed';
+import TaskBoard from '@/ceo/components/TaskBoard';
 import { useT, statusLabel } from '@/ceo/lib/i18n';
 
 function Card({ title, subtitle, children, className = '' }) {
@@ -23,7 +24,7 @@ function Card({ title, subtitle, children, className = '' }) {
   );
 }
 
-export default function TaskMonitoring({ period, tasks }) {
+export default function TaskMonitoring({ period, tasks, board, employees = [], categories = [] }) {
   const t = useT();
   const { status, gauge, kpis = [], breakdowns = [], trend, staff, overdueList, alerts = [], moduleHref, moduleLabel } = tasks;
 
@@ -78,6 +79,9 @@ export default function TaskMonitoring({ period, tasks }) {
             <KpiTile key={kpi.label} kpi={kpi} />
           ))}
         </section>
+
+        {/* Editable task list — the CEO acts on tasks directly here */}
+        {board && <TaskBoard board={board} employees={employees} categories={categories} />}
 
         {/* Breakdowns */}
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">

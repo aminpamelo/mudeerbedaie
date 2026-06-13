@@ -102,6 +102,7 @@ use App\Http\Controllers\Api\Hr\HrResignationController;
 use App\Http\Controllers\Api\Hr\HrReviewCycleController;
 use App\Http\Controllers\Api\Hr\HrSalaryComponentController;
 use App\Http\Controllers\Api\Hr\HrStatutoryRateController;
+use App\Http\Controllers\Api\Hr\HrTaskCategoryController;
 use App\Http\Controllers\Api\Hr\HrTaskController;
 use App\Http\Controllers\Api\Hr\HrTaxProfileController;
 use App\Http\Controllers\Api\Hr\HrTrainingBudgetController;
@@ -905,6 +906,14 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // Tasks (shared across modules)
     Route::get('tasks', [HrTaskController::class, 'index'])->name('api.hr.tasks.index');
+
+    // Task categories — registered before tasks/{task} so "categories" is not matched as a task id.
+    Route::get('tasks/categories', [HrTaskCategoryController::class, 'index'])->name('api.hr.tasks.categories.index');
+    Route::post('tasks/categories', [HrTaskCategoryController::class, 'store'])->name('api.hr.tasks.categories.store');
+    Route::put('tasks/categories/{category}', [HrTaskCategoryController::class, 'update'])->name('api.hr.tasks.categories.update');
+    Route::delete('tasks/categories/{category}', [HrTaskCategoryController::class, 'destroy'])->name('api.hr.tasks.categories.destroy');
+
+    Route::post('tasks', [HrTaskController::class, 'store'])->name('api.hr.tasks.store');
     Route::get('tasks/{task}', [HrTaskController::class, 'show'])->name('api.hr.tasks.show');
     Route::post('meetings/{meeting}/tasks', [HrTaskController::class, 'storeForMeeting'])->name('api.hr.meetings.tasks.store');
     Route::put('tasks/{task}', [HrTaskController::class, 'update'])->name('api.hr.tasks.update');
