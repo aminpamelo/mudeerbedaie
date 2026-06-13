@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ItTicket;
+use App\Models\ItTicketCategory;
 use App\Models\User;
 use Livewire\Volt\Component;
 
@@ -13,6 +14,7 @@ new class extends Component
     public string $status;
     public string $type;
     public string $priority;
+    public $categoryId = null;
     public ?int $assigneeId;
     public ?string $dueDate;
 
@@ -23,10 +25,11 @@ new class extends Component
 
     public function mount(ItTicket $itTicket): void
     {
-        $this->itTicket = $itTicket->load(['reporter', 'assignee', 'comments.user']);
+        $this->itTicket = $itTicket->load(['reporter', 'assignee', 'category', 'comments.user']);
         $this->status = $itTicket->status;
         $this->type = $itTicket->type;
         $this->priority = $itTicket->priority;
+        $this->categoryId = $itTicket->category_id;
         $this->assigneeId = $itTicket->assignee_id;
         $this->dueDate = $itTicket->due_date?->format('Y-m-d');
     }
@@ -34,6 +37,11 @@ new class extends Component
     public function getAdminUsersProperty()
     {
         return User::where('role', 'admin')->orderBy('name')->get();
+    }
+
+    public function getCategoriesProperty()
+    {
+        return ItTicketCategory::orderBy('sort_order')->orderBy('name')->get();
     }
 
     public function updateField(string $field): void
@@ -50,12 +58,17 @@ new class extends Component
             $data = ['assignee_id' => $this->assigneeId];
         }
 
+        if ($field === 'categoryId') {
+            $data = ['category_id' => $this->categoryId ?: null];
+        }
+
         if ($field === 'dueDate') {
             $data = ['due_date' => $this->dueDate];
         }
 
         $this->itTicket->update($data);
         $this->itTicket->refresh();
+        $this->itTicket->load('category');
     }
 
     public function addComment(): void
@@ -202,7 +215,17 @@ new class extends Component
                 </div>
 
                 <div>
-                    <flux:label class="mb-1.5">Assignee</flux:label>
+                    <flux:label class="mb-1.5">Category</flux:label>
+                    <flux:select wire:model="categoryId" wire:change="updateField('categoryId')">
+                        <option value="">No category</option>
+                        @foreach($this->categories as $category)
+                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                <div>
+                    <flux:label class="mb-1.5">Assignee (in charge)</flux:label>
                     <flux:select wire:model="assigneeId" wire:change="updateField('assigneeId')">
                         <option value="">Unassigned</option>
                         @foreach($this->adminUsers as $user)
@@ -212,8 +235,16 @@ new class extends Component
                 </div>
 
                 <div>
-                    <flux:label class="mb-1.5">Due Date</flux:label>
+                    <flux:label class="mb-1.5">Deadline</flux:label>
                     <flux:input wire:model="dueDate" wire:change="updateField('dueDate')" type="date" />
+                    @php $dMeta = $itTicket->deadlineMeta(); @endphp
+                    @if($itTicket->due_date)
+                        <div class="mt-2">
+                            <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium {{ $dMeta['classes'] }}">
+                                <flux:icon name="{{ $dMeta['icon'] }}" class="size-3" /> {{ $dMeta['label'] }}
+                            </span>
+                        </div>
+                    @endif
                 </div>
 
                 @if($itTicket->completed_at)

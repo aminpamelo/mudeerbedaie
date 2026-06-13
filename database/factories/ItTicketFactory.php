@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\ItTicket;
+use App\Models\ItTicketCategory;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -18,6 +19,7 @@ class ItTicketFactory extends Factory
             'description' => fake()->paragraph(),
             'type' => fake()->randomElement(ItTicket::types()),
             'priority' => fake()->randomElement(ItTicket::priorities()),
+            'category_id' => ItTicketCategory::inRandomOrder()->value('id'),
             'status' => 'backlog',
             'position' => 0,
             'reporter_id' => User::factory(),

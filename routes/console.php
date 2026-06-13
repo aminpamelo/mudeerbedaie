@@ -59,6 +59,10 @@ Schedule::command('hr:send-late-alerts')->everyFifteenMinutes()->between('8:00',
 // HR Notifications - Leave balance check (weekly Monday 8 AM)
 Schedule::command('hr:check-leave-balances')->weeklyOn(1, '8:00');
 
+// IT Board - Deadline reminders to assignees (twice daily: morning 8AM, evening 6PM)
+Schedule::command('it-board:send-deadline-reminders --period=morning')->dailyAt('08:00')->withoutOverlapping();
+Schedule::command('it-board:send-deadline-reminders --period=evening')->dailyAt('18:00')->withoutOverlapping();
+
 // HR Notifications - Upcoming leave reminders (daily 6 PM)
 Schedule::command('hr:send-upcoming-leave-reminders')->dailyAt('18:00');
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ItTicket;
+use App\Models\ItTicketCategory;
 use App\Models\User;
 use Livewire\Volt\Component;
 
@@ -11,6 +12,7 @@ new class extends Component
     public string $type = 'task';
     public string $priority = 'medium';
     public string $status = 'backlog';
+    public $categoryId = null;
     public ?int $assigneeId = null;
     public ?string $dueDate = null;
 
@@ -24,14 +26,22 @@ new class extends Component
         return User::where('role', 'admin')->orderBy('name')->get();
     }
 
+    public function getCategoriesProperty()
+    {
+        return ItTicketCategory::orderBy('sort_order')->orderBy('name')->get();
+    }
+
     public function create(): void
     {
+        $this->categoryId = $this->categoryId ?: null;
+
         $this->validate([
             'title' => 'required|min:3|max:255',
             'description' => 'nullable|max:5000',
             'type' => 'required|in:' . implode(',', ItTicket::types()),
             'priority' => 'required|in:' . implode(',', ItTicket::priorities()),
             'status' => 'required|in:' . implode(',', ItTicket::statuses()),
+            'categoryId' => 'nullable|exists:it_ticket_categories,id',
             'assigneeId' => 'nullable|exists:users,id',
             'dueDate' => 'nullable|date',
         ]);
@@ -42,6 +52,7 @@ new class extends Component
             'description' => $this->description,
             'type' => $this->type,
             'priority' => $this->priority,
+            'category_id' => $this->categoryId,
             'status' => $this->status,
             'position' => ItTicket::where('status', $this->status)->max('position') + 1,
             'reporter_id' => auth()->id(),
@@ -106,9 +117,18 @@ new class extends Component
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
-                        <flux:label for="assigneeId" class="mb-1.5">Assign To</flux:label>
+                        <flux:label for="categoryId" class="mb-1.5">Category</flux:label>
+                        <flux:select wire:model="categoryId" id="categoryId">
+                            <option value="">No category</option>
+                            @foreach($this->categories as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    <div>
+                        <flux:label for="assigneeId" class="mb-1.5">Assign To (in charge)</flux:label>
                         <flux:select wire:model="assigneeId" id="assigneeId">
                             <option value="">Unassigned</option>
                             @foreach($this->adminUsers as $user)
@@ -117,7 +137,7 @@ new class extends Component
                         </flux:select>
                     </div>
                     <div>
-                        <flux:label for="dueDate" class="mb-1.5">Due Date</flux:label>
+                        <flux:label for="dueDate" class="mb-1.5">Deadline</flux:label>
                         <flux:input wire:model="dueDate" id="dueDate" type="date" />
                     </div>
                 </div>
