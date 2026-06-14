@@ -166,7 +166,7 @@ class BayarcashService
      *     order_number: string,
      *     amount: float,
      *     payer_name: string,
-     *     payer_email: string,
+     *     payer_email?: string,
      *     payer_phone?: string,
      *     payment_channel?: int,
      *     bank_code?: string
@@ -187,7 +187,9 @@ class BayarcashService
             'order_number' => $data['order_number'],
             'amount' => $amount,
             'payer_name' => $data['payer_name'],
-            'payer_email' => $data['payer_email'],
+            // Bayarcash requires a payer email, but some buyers (e.g. elderly
+            // customers) genuinely have none, so fall back to a placeholder.
+            'payer_email' => $this->resolvePayerEmail($data),
             // Bayarcash rejects a leading "+" and other formatting — send a
             // digits-only Malaysian number (e.g. 60123456789).
             'payer_telephone_number' => $this->normalizePhoneNumber($data['payer_phone'] ?? ''),
@@ -224,6 +226,42 @@ class BayarcashService
 
             throw new \RuntimeException($this->formatValidationErrors($e->errors()), 0, $e);
         }
+    }
+
+    /**
+     * Bayarcash requires a payer email, but some buyers (e.g. elderly
+     * customers) genuinely have none. When the email is blank, synthesise a
+     * deterministic, non-deliverable placeholder from the phone number
+     * (falling back to the order number) so the payment can still proceed.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function resolvePayerEmail(array $data): string
+    {
+        $email = trim((string) ($data['payer_email'] ?? ''));
+
+        if ($email !== '') {
+            return $email;
+        }
+
+        $phone = $this->normalizePhoneNumber((string) ($data['payer_phone'] ?? ''));
+        $local = $phone !== ''
+            ? $phone
+            : 'order-'.preg_replace('/[^a-z0-9]+/i', '', (string) ($data['order_number'] ?? 'guest'));
+
+        return $local.'@'.$this->placeholderEmailDomain();
+    }
+
+    /**
+     * A "noemail" subdomain of the configured app host. It has no MX record,
+     * so placeholder receipts bounce silently instead of reaching a real inbox.
+     */
+    private function placeholderEmailDomain(): string
+    {
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'kelasify.com';
+        $host = preg_replace('/^www\./i', '', $host);
+
+        return 'noemail.'.$host;
     }
 
     /**

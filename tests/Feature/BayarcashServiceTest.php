@@ -31,6 +31,52 @@ describe('normalizePhoneNumber', function () {
     });
 });
 
+describe('resolvePayerEmail', function () {
+    it('keeps a real email the buyer provided', function () {
+        $email = invokePrivate($this->service, 'resolvePayerEmail', [[
+            'payer_email' => 'buyer@example.com',
+            'payer_phone' => '0123456789',
+            'order_number' => 'ORD-1',
+        ]]);
+
+        expect($email)->toBe('buyer@example.com');
+    });
+
+    it('builds a placeholder from the phone when the email is blank', function () {
+        config(['app.url' => 'https://kelasify.com']);
+
+        $email = invokePrivate($this->service, 'resolvePayerEmail', [[
+            'payer_email' => '',
+            'payer_phone' => '0123456789',
+            'order_number' => 'ORD-1',
+        ]]);
+
+        expect($email)->toBe('60123456789@noemail.kelasify.com');
+    });
+
+    it('falls back to the order number when both email and phone are blank', function () {
+        config(['app.url' => 'https://kelasify.com']);
+
+        $email = invokePrivate($this->service, 'resolvePayerEmail', [[
+            'payer_email' => null,
+            'order_number' => 'ORD-2024-99',
+        ]]);
+
+        expect($email)->toBe('order-ORD202499@noemail.kelasify.com');
+    });
+
+    it('derives the placeholder domain from the configured app host', function () {
+        config(['app.url' => 'https://www.mudeerbedaie.test']);
+
+        $email = invokePrivate($this->service, 'resolvePayerEmail', [[
+            'payer_phone' => '0198887777',
+            'order_number' => 'ORD-3',
+        ]]);
+
+        expect($email)->toBe('60198887777@noemail.mudeerbedaie.test');
+    });
+});
+
 describe('formatValidationErrors', function () {
     it('flattens nested field errors into a readable message', function () {
         $errors = ['errors' => ['payer_telephone_number' => ['The phone number format is invalid.']]];
