@@ -1,4 +1,3 @@
-import { Link } from '@inertiajs/react';
 import { ChevronRight, ShieldCheck, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { cn } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
@@ -34,7 +33,7 @@ export default function AttentionFeed({ items = [] }) {
       {items.map((item, index) => {
         const { tone, Icon } = SEVERITY[item.severity] ?? SEVERITY.info;
         return (
-          <Link
+          <a
             key={`${item.departmentKey}-${index}`}
             href={item.href}
             data-tone={tone}
@@ -50,7 +49,7 @@ export default function AttentionFeed({ items = [] }) {
               {item.department}
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-2 transition-colors group-hover:text-ink" strokeWidth={2} />
-          </Link>
+          </a>
         );
       })}
     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Ceo\CeoDashboardService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +32,16 @@ class Task extends Model
                 $task->assignees()->attach($task->assigned_to);
             }
         });
+
+        // Any task mutation invalidates the CEO's cached task aggregates (Task
+        // Monitoring + Staff KPI) so changes made from any surface — the HR
+        // module, meeting action items or the CEO board — appear immediately
+        // instead of waiting out the cache TTL.
+        $bustCeoCache = static fn () => CeoDashboardService::bustTaskCache();
+        static::saved($bustCeoCache);
+        static::deleted($bustCeoCache);
+        static::restored($bustCeoCache);
+        static::forceDeleted($bustCeoCache);
     }
 
     protected $fillable = [

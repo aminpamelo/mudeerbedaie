@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Employee;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\Ceo\CeoDashboardService;
 use App\Services\Ceo\Reports\StaffKpiReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -74,5 +75,19 @@ describe('staff kpi metrics', function () {
         expect($row['ytdTotal'])->toBe('0');
         expect($row['bestIndex'])->toBeNull();
         expect($row['tasks'])->toBe([]);
+    });
+
+    it('reflects a task change immediately by busting the cached report', function () {
+        $emp = Employee::factory()->create();
+        $service = app(CeoDashboardService::class);
+
+        // Warm the cache: no completions yet.
+        expect($service->staffKpi(2026)['summary']['heroValue'])->toBe('0');
+
+        // A completed task created from any path fires the model hook that busts
+        // the CEO cache, so the next read rebuilds instead of serving stale data.
+        Task::factory()->create(['assigned_to' => $emp->id, 'status' => 'completed', 'completed_at' => '2026-02-10 09:00:00', 'deadline' => '2026-02-15']);
+
+        expect($service->staffKpi(2026)['summary']['heroValue'])->toBe('1');
     });
 });

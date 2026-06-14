@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Hr;
 
+use App\Http\Controllers\Concerns\ResolvesTaskAssignees;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\StoreTaskRequest;
 use App\Http\Requests\Hr\UpdateTaskRequest;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
 
 class HrTaskController extends Controller
 {
+    use ResolvesTaskAssignees;
+
     /**
      * Paginated list of tasks with filters.
      */
@@ -22,6 +25,7 @@ class HrTaskController extends Controller
         $query = Task::query()
             ->with([
                 'assignee:id,full_name',
+                'assignees:id,full_name',
                 'assigner:id,full_name',
                 'category:id,name,color',
                 'taskable',
@@ -45,7 +49,8 @@ class HrTaskController extends Controller
         }
 
         if ($assignedTo = $request->get('assigned_to')) {
-            $query->where('assigned_to', $assignedTo);
+            // Match tasks where the employee is any co-owner, not just the primary.
+            $query->whereHas('assignees', fn ($q) => $q->where('employees.id', $assignedTo));
         }
 
         if ($request->filled('category_id')) {
