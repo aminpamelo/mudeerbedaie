@@ -15,6 +15,12 @@ new class extends Component {
     public bool $enable_jnt_shipping = false;
     public string $jnt_default_service_type = 'EZ';
 
+    // EasyParcel settings (aggregator)
+    public string $easyparcel_api_key = '';
+    public string $easyparcel_sandbox = '1';
+    public bool $enable_easyparcel_shipping = false;
+    public ?float $easyparcel_balance = null;
+
     // Sender defaults
     public string $sender_name = '';
     public string $sender_phone = '';
@@ -41,6 +47,12 @@ new class extends Component {
         $this->jnt_sandbox = $sandboxValue ? '1' : '0';
         $this->enable_jnt_shipping = (bool) $this->getSettingsService()->get('enable_jnt_shipping', false);
         $this->jnt_default_service_type = $this->getSettingsService()->get('jnt_default_service_type', 'EZ');
+
+        // Load EasyParcel settings
+        $this->easyparcel_api_key = $this->getSettingsService()->get('easyparcel_api_key', '');
+        $epSandbox = $this->getSettingsService()->get('easyparcel_sandbox', true);
+        $this->easyparcel_sandbox = $epSandbox ? '1' : '0';
+        $this->enable_easyparcel_shipping = (bool) $this->getSettingsService()->get('enable_easyparcel_shipping', false);
 
         // Load sender defaults
         $senderDefaults = $this->getSettingsService()->getShippingSenderDefaults();
@@ -117,6 +129,47 @@ new class extends Component {
             }
         } catch (\Exception $e) {
             $this->dispatch('jnt-test-failed', message: $e->getMessage());
+        }
+    }
+
+    public function saveEasyParcel(): void
+    {
+        $this->validate([
+            'easyparcel_api_key' => 'nullable|string|max:255',
+            'easyparcel_sandbox' => 'required|in:0,1',
+            'enable_easyparcel_shipping' => 'boolean',
+        ]);
+
+        $settings = $this->getSettingsService();
+        $settings->set('easyparcel_api_key', $this->easyparcel_api_key, 'encrypted', 'shipping');
+        $settings->set('easyparcel_sandbox', $this->easyparcel_sandbox === '1', 'boolean', 'shipping');
+        $settings->set('enable_easyparcel_shipping', $this->enable_easyparcel_shipping, 'boolean', 'shipping');
+
+        $this->dispatch('settings-saved');
+    }
+
+    public function testEasyParcelConnection(): void
+    {
+        if (empty($this->easyparcel_api_key)) {
+            $this->dispatch('easyparcel-test-failed', message: 'Please enter your EasyParcel API key first.');
+
+            return;
+        }
+
+        try {
+            // Persist first so the service reads the current credentials.
+            $this->saveEasyParcel();
+
+            $service = app(ShippingManager::class)->getProvider('easyparcel');
+
+            if ($service->testConnection()) {
+                $this->easyparcel_balance = $service->getCreditBalance();
+                $this->dispatch('easyparcel-test-success');
+            } else {
+                $this->dispatch('easyparcel-test-failed', message: 'Connection failed. Check your API key and environment.');
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('easyparcel-test-failed', message: $e->getMessage());
         }
     }
 
@@ -211,6 +264,40 @@ new class extends Component {
         </flux:badge>
     </div>
 
+    <!-- EasyParcel Test Success -->
+    <div
+        x-data="{ show: false }"
+        x-on:easyparcel-test-success.window="show = true; setTimeout(() => show = false, 3000)"
+        x-show="show"
+        x-transition
+        x-cloak
+        class="fixed top-4 right-4 z-50"
+    >
+        <flux:badge color="emerald" size="lg">
+            <div class="flex items-center">
+                <flux:icon name="check-circle" class="w-4 h-4 mr-2" />
+                EasyParcel connection successful!
+            </div>
+        </flux:badge>
+    </div>
+
+    <!-- EasyParcel Test Failed -->
+    <div
+        x-data="{ show: false, message: '' }"
+        x-on:easyparcel-test-failed.window="show = true; message = $event.detail.message; setTimeout(() => show = false, 5000)"
+        x-show="show"
+        x-transition
+        x-cloak
+        class="fixed top-4 right-4 z-50"
+    >
+        <flux:badge color="red" size="lg">
+            <div class="flex items-center">
+                <flux:icon name="x-circle" class="w-4 h-4 mr-2" />
+                <span x-text="message"></span>
+            </div>
+        </flux:badge>
+    </div>
+
     <!-- Shipping Provider Tabs -->
     <div class="mb-6">
         <nav class="flex space-x-8" role="tablist">
@@ -224,6 +311,19 @@ new class extends Component {
                 <div class="flex items-center">
                     <flux:icon name="truck" class="w-4 h-4 mr-2" />
                     J&T Express
+                </div>
+            </button>
+
+            <button
+                type="button"
+                wire:click="switchTab('easyparcel')"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'easyparcel') border-indigo-500 text-indigo-600 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 @endif"
+                role="tab"
+                aria-selected="{{ $activeTab === 'easyparcel' ? 'true' : 'false' }}"
+            >
+                <div class="flex items-center">
+                    <flux:icon name="globe-alt" class="w-4 h-4 mr-2" />
+                    EasyParcel
                 </div>
             </button>
 
@@ -350,6 +450,100 @@ new class extends Component {
                             <li>Use sandbox mode for testing. Sandbox credentials are shown in field descriptions.</li>
                             <li>Contact J&T Malaysia to register and obtain production credentials.</li>
                             <li>The signature is calculated as: Base64(MD5(bizContent + privateKey))</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        @if($activeTab === 'easyparcel')
+        <div role="tabpanel" class="space-y-6">
+            <!-- EasyParcel Settings Card -->
+            <div class="rounded-lg border border-zinc-200 bg-white p-6">
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">EasyParcel Configuration</h3>
+                    <p class="mt-1 text-sm text-gray-500">Connect your EasyParcel account to compare couriers and book shipments. EasyParcel charges from your prepaid account credit.</p>
+                </div>
+
+                <form wire:submit="saveEasyParcel" class="space-y-6">
+                    <!-- Enable Toggle -->
+                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 p-4">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900">Enable EasyParcel Shipping</h4>
+                            <p class="text-sm text-gray-500">Allow EasyParcel rate-shopping and booking on orders.</p>
+                        </div>
+                        <flux:switch wire:model="enable_easyparcel_shipping" />
+                    </div>
+
+                    <!-- Environment Mode -->
+                    <flux:field>
+                        <flux:label>Environment Mode *</flux:label>
+                        <flux:description>Use Demo while testing, then switch to Production when you go live.</flux:description>
+                        <div class="mt-2 flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <flux:radio wire:model="easyparcel_sandbox" value="1" />
+                                <span class="text-sm">Demo (Sandbox)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <flux:radio wire:model="easyparcel_sandbox" value="0" />
+                                <span class="text-sm">Production</span>
+                            </label>
+                        </div>
+                        <flux:error name="easyparcel_sandbox" />
+                    </flux:field>
+
+                    <!-- API Key -->
+                    <flux:field>
+                        <flux:label>API Key *</flux:label>
+                        <flux:description>From your EasyParcel account under Integrations → API. Stored encrypted.</flux:description>
+                        <flux:input wire:model="easyparcel_api_key" type="password" placeholder="Enter your EasyParcel API key" />
+                        <flux:error name="easyparcel_api_key" />
+                    </flux:field>
+
+                    @if($easyparcel_balance !== null)
+                        <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                            <div class="flex items-center">
+                                <flux:icon name="wallet" class="w-4 h-4 mr-2" />
+                                Account credit balance: <span class="font-semibold ml-1">MYR {{ number_format($easyparcel_balance, 2) }}</span>
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-between border-t border-zinc-200 pt-4">
+                        <flux:button
+                            type="button"
+                            variant="outline"
+                            wire:click="testEasyParcelConnection"
+                            wire:loading.attr="disabled"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="signal" class="w-4 h-4 mr-1" />
+                                <span wire:loading.remove wire:target="testEasyParcelConnection">Test Connection</span>
+                                <span wire:loading wire:target="testEasyParcelConnection">Testing...</span>
+                            </div>
+                        </flux:button>
+
+                        <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
+                            <span wire:loading.remove wire:target="saveEasyParcel">Save EasyParcel Settings</span>
+                            <span wire:loading wire:target="saveEasyParcel">Saving...</span>
+                        </flux:button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Help Info -->
+            <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <div class="flex">
+                    <flux:icon name="information-circle" class="w-5 h-5 text-blue-400 mr-3 shrink-0" />
+                    <div class="text-sm text-blue-700">
+                        <p class="font-medium mb-1">EasyParcel Aggregator API</p>
+                        <ul class="list-disc list-inside space-y-1 text-blue-600">
+                            <li>EasyParcel compares many couriers (J&T, Poslaju, DHL, etc.) in one integration. See the <a href="https://developers.easyparcel.com/" target="_blank" class="underline">developer docs</a>.</li>
+                            <li>Booking deducts from your prepaid EasyParcel credit and returns the AWB + printable label immediately.</li>
+                            <li>Set the sender address under the <button type="button" wire:click="switchTab('sender')" class="underline">Sender Defaults</button> tab.</li>
+                            <li>Cancellations/refunds are handled in the EasyParcel dashboard.</li>
                         </ul>
                     </div>
                 </div>

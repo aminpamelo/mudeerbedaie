@@ -1,6 +1,7 @@
 <?php
 
 use App\DTOs\Shipping\ShipmentRequest;
+use App\DTOs\Shipping\ShippingRateRequest;
 use App\Models\ProductOrder;
 use App\Models\StockLevel;
 use App\Models\StockMovement;
@@ -28,6 +29,10 @@ new class extends Component
     public bool $showTrackingModal = false;
     public array $trackingInfo = [];
     public string $manualTrackingId = '';
+
+    // EasyParcel rate-shopping
+    public array $easyParcelRates = [];
+    public ?string $easyParcelServiceId = null;
 
     public function mount(ProductOrder $order): void
     {
@@ -466,6 +471,135 @@ new class extends Component
     private function isJntEnabled(): bool
     {
         return app(SettingsService::class)->isJntEnabled();
+    }
+
+    private function isEasyParcelEnabled(): bool
+    {
+        return app(SettingsService::class)->isEasyParcelEnabled();
+    }
+
+    private function orderShippingAddress()
+    {
+        return $this->order->addresses()->where('type', 'shipping')->first()
+            ?? $this->order->addresses()->where('type', 'billing')->first();
+    }
+
+    public function getEasyParcelRates(): void
+    {
+        $this->easyParcelRates = [];
+        $this->easyParcelServiceId = null;
+
+        $shippingAddress = $this->orderShippingAddress();
+
+        if (! $shippingAddress) {
+            session()->flash('error', 'No shipping address found for this order.');
+
+            return;
+        }
+
+        try {
+            $sender = app(SettingsService::class)->getShippingSenderDefaults();
+            $provider = app(ShippingManager::class)->getProvider('easyparcel');
+
+            $rates = $provider->getRates(new ShippingRateRequest(
+                originPostalCode: $sender['postal_code'] ?: '',
+                originCity: $sender['city'] ?: '',
+                originState: $sender['state'] ?: '',
+                destinationPostalCode: $shippingAddress->postal_code ?: '',
+                destinationCity: $shippingAddress->city ?: '',
+                destinationState: $shippingAddress->state ?: '',
+                weightKg: (float) ($this->order->weight_kg ?: 0.5),
+                itemValue: (float) $this->order->total_amount,
+            ));
+
+            if (empty($rates)) {
+                session()->flash('error', 'No EasyParcel rates returned. Check the sender/receiver postcodes and your API key.');
+
+                return;
+            }
+
+            $this->easyParcelRates = array_map(fn ($rate) => [
+                'service_id' => $rate->serviceCode,
+                'name' => $rate->serviceName,
+                'price' => $rate->cost,
+                'days' => $rate->estimatedDays,
+            ], $rates);
+
+            // Pre-select the cheapest option.
+            $cheapest = collect($this->easyParcelRates)->sortBy('price')->first();
+            $this->easyParcelServiceId = $cheapest['service_id'] ?? null;
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to fetch EasyParcel rates: '.$e->getMessage());
+        }
+    }
+
+    public function bookEasyParcelShipment(): void
+    {
+        if (empty($this->easyParcelServiceId)) {
+            session()->flash('error', 'Please select a courier service first.');
+
+            return;
+        }
+
+        $shippingAddress = $this->orderShippingAddress();
+
+        if (! $shippingAddress) {
+            session()->flash('error', 'No shipping address found for this order.');
+
+            return;
+        }
+
+        try {
+            $sender = app(SettingsService::class)->getShippingSenderDefaults();
+            $provider = app(ShippingManager::class)->getProvider('easyparcel');
+
+            $result = $provider->createShipment(new ShipmentRequest(
+                orderNumber: $this->order->order_number,
+                senderName: $sender['name'] ?: 'Sender',
+                senderPhone: $sender['phone'] ?: '',
+                senderAddress: $sender['address'] ?: '',
+                senderCity: $sender['city'] ?: '',
+                senderState: $sender['state'] ?: '',
+                senderPostalCode: $sender['postal_code'] ?: '',
+                receiverName: trim($shippingAddress->first_name.' '.$shippingAddress->last_name),
+                receiverPhone: $shippingAddress->phone ?: '',
+                receiverAddress: trim($shippingAddress->address_line_1.' '.$shippingAddress->address_line_2),
+                receiverCity: $shippingAddress->city ?: '',
+                receiverState: $shippingAddress->state ?: '',
+                receiverPostalCode: $shippingAddress->postal_code ?: '',
+                weightKg: (float) ($this->order->weight_kg ?: 0.5),
+                itemDescription: 'Order '.$this->order->order_number,
+                itemValue: (float) $this->order->total_amount,
+                itemQuantity: (int) $this->order->items->sum('quantity_ordered'),
+                serviceCode: $this->easyParcelServiceId,
+            ));
+
+            if ($result->success) {
+                $metadata = $this->order->metadata ?? [];
+                $metadata['shipping_label_url'] = $result->labelUrl;
+                $metadata['shipping_tracking_url'] = $result->trackingUrl;
+                $metadata['easyparcel_order_no'] = $result->providerOrderId;
+
+                $this->order->update([
+                    'tracking_id' => $result->trackingNumber,
+                    'shipping_provider' => 'easyparcel',
+                    'status' => 'shipped',
+                    'shipped_at' => now(),
+                    'metadata' => $metadata,
+                ]);
+                $this->orderStatus = 'shipped';
+                $this->easyParcelRates = [];
+                $this->easyParcelServiceId = null;
+                $this->order->addSystemNote("EasyParcel shipment booked. AWB: {$result->trackingNumber}");
+                session()->flash('success', "Shipment booked! AWB: {$result->trackingNumber}");
+            } else {
+                session()->flash('error', "Failed to book shipment: {$result->message}");
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'EasyParcel booking failed: '.$e->getMessage());
+        }
+
+        $this->order->refresh();
     }
 
     // Class Assignment
@@ -1088,7 +1222,7 @@ new class extends Component
                             @if($order->shipping_provider)
                                 <div class="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-700/50">
                                     <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Provider</flux:text>
-                                    <flux:text class="font-medium text-sm capitalize">{{ $order->shipping_provider === 'jnt' ? 'J&T Express' : $order->shipping_provider }}</flux:text>
+                                    <flux:text class="font-medium text-sm capitalize">{{ ['jnt' => 'J&T Express', 'easyparcel' => 'EasyParcel'][$order->shipping_provider] ?? $order->shipping_provider }}</flux:text>
                                 </div>
                             @endif
                             @if($order->delivery_option)
@@ -1117,7 +1251,7 @@ new class extends Component
                             @endif
                         </div>
 
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-2">
                             @if($order->shipping_provider)
                                 <flux:button variant="outline" size="sm" wire:click="viewTracking">
                                     <div class="flex items-center justify-center">
@@ -1125,6 +1259,16 @@ new class extends Component
                                         View Tracking
                                     </div>
                                 </flux:button>
+
+                                @php $labelUrl = data_get($order->metadata, 'shipping_label_url'); @endphp
+                                @if($labelUrl)
+                                    <flux:button variant="outline" size="sm" :href="$labelUrl" target="_blank">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="printer" class="w-4 h-4 mr-1" />
+                                            Print Label
+                                        </div>
+                                    </flux:button>
+                                @endif
 
                                 @if($order->status === 'shipped')
                                     <flux:button variant="outline" size="sm" wire:click="cancelJntShipment"
@@ -1156,6 +1300,61 @@ new class extends Component
                                             </div>
                                         </flux:button>
                                     </div>
+                                </div>
+                            @endif
+
+                            @if($this->isEasyParcelEnabled() && in_array($order->status, ['confirmed', 'processing']))
+                                <div class="p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                                                <flux:icon name="globe-alt" class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                            </div>
+                                            <div>
+                                                <flux:text class="text-sm font-medium text-indigo-900 dark:text-indigo-200">EasyParcel</flux:text>
+                                                <flux:text class="text-xs text-indigo-700 dark:text-indigo-300">Compare couriers, then book &amp; pay in one click.</flux:text>
+                                            </div>
+                                        </div>
+                                        <flux:button variant="outline" size="sm" wire:click="getEasyParcelRates" wire:loading.attr="disabled" wire:target="getEasyParcelRates">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="magnifying-glass" class="w-4 h-4 mr-1" />
+                                                <span wire:loading.remove wire:target="getEasyParcelRates">Get Rates</span>
+                                                <span wire:loading wire:target="getEasyParcelRates">Fetching...</span>
+                                            </div>
+                                        </flux:button>
+                                    </div>
+
+                                    @if(!empty($easyParcelRates))
+                                        <div class="mt-4 space-y-2">
+                                            @foreach($easyParcelRates as $rate)
+                                                <label wire:key="ep-rate-{{ $rate['service_id'] }}"
+                                                    class="flex items-center justify-between gap-3 rounded-lg border p-3 cursor-pointer transition-colors
+                                                        {{ $easyParcelServiceId === $rate['service_id'] ? 'border-indigo-400 bg-white dark:bg-zinc-800 ring-1 ring-indigo-300' : 'border-zinc-200 dark:border-zinc-700 bg-white/60 dark:bg-zinc-800/60 hover:border-indigo-300' }}">
+                                                    <div class="flex items-center gap-3 min-w-0">
+                                                        <flux:radio wire:model="easyParcelServiceId" value="{{ $rate['service_id'] }}" />
+                                                        <div class="min-w-0">
+                                                            <flux:text class="text-sm font-medium truncate">{{ $rate['name'] }}</flux:text>
+                                                            @if($rate['days'])
+                                                                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">~{{ $rate['days'] }} day(s)</flux:text>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                    <flux:text class="text-sm font-semibold whitespace-nowrap">MYR {{ number_format($rate['price'], 2) }}</flux:text>
+                                                </label>
+                                            @endforeach
+
+                                            <div class="flex justify-end pt-1">
+                                                <flux:button variant="primary" size="sm" wire:click="bookEasyParcelShipment" wire:loading.attr="disabled" wire:target="bookEasyParcelShipment"
+                                                    wire:confirm="Book this shipment and pay from your EasyParcel credit?">
+                                                    <div class="flex items-center justify-center">
+                                                        <flux:icon name="truck" class="w-4 h-4 mr-1" />
+                                                        <span wire:loading.remove wire:target="bookEasyParcelShipment">Book &amp; Pay</span>
+                                                        <span wire:loading wire:target="bookEasyParcelShipment">Booking...</span>
+                                                    </div>
+                                                </flux:button>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             @endif
 

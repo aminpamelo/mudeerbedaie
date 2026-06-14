@@ -11,5 +11,10 @@ class ShipmentResult
         public readonly ?string $sortingCode = null,
         public readonly string $message = '',
         public readonly array $rawResponse = [],
+        // Aggregators (e.g. EasyParcel) return a printable AWB label, a public
+        // tracking URL, and their own order reference distinct from the AWB.
+        public readonly ?string $labelUrl = null,
+        public readonly ?string $trackingUrl = null,
+        public readonly ?string $providerOrderId = null,
     ) {}
 }

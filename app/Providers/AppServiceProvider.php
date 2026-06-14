@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Observers\LiveSessionVerifiedObserver;
 use App\Policies\LiveHostPolicy;
 use App\Policies\ProductOrderPolicy;
+use App\Services\Shipping\EasyParcelShippingService;
 use App\Services\Shipping\JntShippingService;
 use App\Services\Shipping\ShippingManager;
 use Illuminate\Mail\Events\MessageSending;
@@ -29,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ShippingManager::class, function ($app) {
             $manager = new ShippingManager;
             $manager->registerProvider($app->make(JntShippingService::class));
+            $manager->registerProvider($app->make(EasyParcelShippingService::class));
 
             return $manager;
         });

@@ -322,6 +322,35 @@ class SettingsService
     }
 
     /**
+     * Get EasyParcel shipping aggregator configuration
+     */
+    public function getEasyParcelConfig(): array
+    {
+        return [
+            'api_key' => $this->get('easyparcel_api_key'),
+            'sandbox' => (bool) $this->get('easyparcel_sandbox', true),
+            'enabled' => (bool) $this->get('enable_easyparcel_shipping', false),
+        ];
+    }
+
+    /**
+     * Check if EasyParcel shipping is configured
+     */
+    public function isEasyParcelConfigured(): bool
+    {
+        return ! empty($this->get('easyparcel_api_key'));
+    }
+
+    /**
+     * Check if EasyParcel shipping is enabled
+     */
+    public function isEasyParcelEnabled(): bool
+    {
+        return $this->isEasyParcelConfigured()
+            && (bool) $this->get('enable_easyparcel_shipping', false);
+    }
+
+    /**
      * Get default sender/origin address for shipping
      */
     public function getShippingSenderDefaults(): array
