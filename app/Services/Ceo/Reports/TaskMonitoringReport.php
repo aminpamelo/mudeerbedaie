@@ -62,6 +62,38 @@ class TaskMonitoringReport
             ->whereBetween('deadline', [$fromDate, $toDate])->count();
         $completionRate = $dueInPeriod > 0 ? (int) round($completedOfDue / $dueInPeriod * 100) : null;
 
+        // Backlog staleness: average lateness (days) of the tasks currently
+        // overdue. Computed in PHP to stay driver-agnostic (MySQL + SQLite).
+        $overdueDeadlines = Task::query()->whereIn('status', self::OPEN_STATUSES)
+            ->whereNotNull('deadline')->whereDate('deadline', '<', $todayDate)->pluck('deadline');
+        $avgDaysOverdue = $overdueDeadlines->isNotEmpty()
+            ? (int) round((float) $overdueDeadlines->avg(fn ($d) => $d->startOfDay()->diffInDays($today)))
+            : null;
+
+        // Distinct staff carrying the open workload — context for the Open tile.
+        $openStaff = DB::table('task_assignee')
+            ->join('tasks', 'tasks.id', '=', 'task_assignee.task_id')
+            ->whereNull('tasks.deleted_at')
+            ->whereIn('tasks.status', self::OPEN_STATUSES)
+            ->distinct('task_assignee.employee_id')
+            ->count('task_assignee.employee_id');
+
+        // Prior equal-length window for period-over-period throughput deltas.
+        $prior = $period->priorPeriod();
+        $completedPrior = Task::query()->where('status', 'completed')
+            ->whereBetween('completed_at', [$prior->from, $prior->to])->count();
+        $onTimePrior = Task::query()->where('status', 'completed')
+            ->whereBetween('completed_at', [$prior->from, $prior->to])
+            ->whereRaw('date(completed_at) <= deadline')->count();
+        $onTimeRatePrior = $completedPrior > 0 ? (int) round($onTimePrior / $completedPrior * 100) : null;
+        $dueInPrior = Task::query()->where('status', '!=', 'cancelled')
+            ->whereBetween('deadline', [$prior->from->toDateString(), $prior->to->toDateString()])->count();
+        $completedOfDuePrior = Task::query()->where('status', 'completed')
+            ->whereBetween('deadline', [$prior->from->toDateString(), $prior->to->toDateString()])->count();
+        $completionRatePrior = $dueInPrior > 0 ? (int) round($completedOfDuePrior / $dueInPrior * 100) : null;
+
+        $overdueShare = $open > 0 ? (int) round($overdue / $open * 100) : null;
+
         $periodLabel = mb_strtolower($period->label());
         $status = $this->status($onTimeRate, $completionRate, $overdue);
 
@@ -77,12 +109,50 @@ class TaskMonitoringReport
                 'tone' => $this->rateTone($onTimeRate),
             ],
             'kpis' => [
-                ['label' => __('ceo.tasks.open'), 'value' => (string) $open, 'tone' => $open > 0 ? 'info' : 'muted'],
-                ['label' => __('ceo.tasks.overdue'), 'value' => (string) $overdue, 'tone' => $overdue > 0 ? 'negative' : 'muted'],
-                ['label' => __('ceo.tasks.due_soon'), 'value' => (string) $dueSoon, 'tone' => $dueSoon > 0 ? 'warning' : 'muted'],
-                ['label' => __('ceo.tasks.completed'), 'value' => (string) $completedPeriod, 'hint' => $periodLabel, 'tone' => 'positive'],
-                ['label' => __('ceo.tasks.completion_rate'), 'value' => $completionRate === null ? '—' : $completionRate.'%', 'hint' => $periodLabel],
-                ['label' => __('ceo.tasks.on_time_rate'), 'value' => $onTimeRate === null ? '—' : $onTimeRate.'%', 'hint' => $periodLabel, 'tone' => $this->rateTone($onTimeRate)],
+                [
+                    'label' => __('ceo.tasks.open'),
+                    'value' => (string) $open,
+                    'hint' => $openStaff > 0 ? __('ceo.tasks.open_across_staff', ['count' => $openStaff]) : null,
+                    'tone' => $open > 0 ? 'info' : 'muted',
+                ],
+                [
+                    'label' => __('ceo.tasks.overdue'),
+                    'value' => (string) $overdue,
+                    'hint' => $overdue > 0 && $overdueShare !== null ? __('ceo.tasks.overdue_share', ['pct' => $overdueShare]) : null,
+                    'tone' => $overdue > 0 ? 'negative' : 'muted',
+                ],
+                [
+                    'label' => __('ceo.tasks.avg_days_overdue'),
+                    'value' => $avgDaysOverdue === null ? '—' : (string) $avgDaysOverdue,
+                    'hint' => $avgDaysOverdue === null ? null : __('ceo.tasks.avg_days_hint'),
+                    'tone' => $avgDaysOverdue === null ? 'muted' : ($avgDaysOverdue >= 14 ? 'negative' : 'warning'),
+                ],
+                [
+                    'label' => __('ceo.tasks.due_soon'),
+                    'value' => (string) $dueSoon,
+                    'tone' => $dueSoon > 0 ? 'warning' : 'muted',
+                ],
+                [
+                    'label' => __('ceo.tasks.completed'),
+                    'value' => (string) $completedPeriod,
+                    'hint' => $periodLabel,
+                    'delta' => $this->countDelta($completedPeriod, $completedPrior),
+                    'tone' => 'positive',
+                ],
+                [
+                    'label' => __('ceo.tasks.completion_rate'),
+                    'value' => $completionRate === null ? '—' : $completionRate.'%',
+                    'hint' => $completionRate === null ? $periodLabel : __('ceo.tasks.completion_context', ['done' => $completedOfDue, 'due' => $dueInPeriod]),
+                    'delta' => $this->ppDelta($completionRate, $completionRatePrior),
+                    'tone' => $this->rateTone($completionRate),
+                ],
+                [
+                    'label' => __('ceo.tasks.on_time_rate'),
+                    'value' => $onTimeRate === null ? '—' : $onTimeRate.'%',
+                    'hint' => $onTimeRate === null ? $periodLabel : __('ceo.tasks.ontime_context', ['ontime' => $onTimePeriod, 'completed' => $completedPeriod]),
+                    'delta' => $this->ppDelta($onTimeRate, $onTimeRatePrior),
+                    'tone' => $this->rateTone($onTimeRate),
+                ],
             ],
             'breakdowns' => [
                 [
@@ -265,6 +335,50 @@ class TaskMonitoringReport
             $rate >= 60 => 'warning',
             default => 'negative',
         };
+    }
+
+    /**
+     * Period-over-period delta for a count metric where more is better.
+     * `direction` is green (up) when the count grew, red (down) when it shrank.
+     *
+     * @return array{direction: string, text: string}|null
+     */
+    private function countDelta(int $current, int $prior): ?array
+    {
+        $change = $current - $prior;
+
+        if ($change === 0) {
+            return null;
+        }
+
+        return [
+            'direction' => $change > 0 ? 'up' : 'down',
+            'text' => sprintf('%+d', $change),
+        ];
+    }
+
+    /**
+     * Period-over-period delta for a percentage-rate metric where higher is
+     * better, expressed in percentage points. Null when either side is unknown.
+     *
+     * @return array{direction: string, text: string}|null
+     */
+    private function ppDelta(?int $current, ?int $prior): ?array
+    {
+        if ($current === null || $prior === null) {
+            return null;
+        }
+
+        $change = $current - $prior;
+
+        if ($change === 0) {
+            return null;
+        }
+
+        return [
+            'direction' => $change > 0 ? 'up' : 'down',
+            'text' => sprintf('%+dpp', $change),
+        ];
     }
 
     /**

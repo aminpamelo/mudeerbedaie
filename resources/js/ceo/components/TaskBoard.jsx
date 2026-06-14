@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { router } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Loader2, ChevronDown, FolderTree, LayoutList } from 'lucide-react';
 import { cn, toneColor } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import TaskEditModal from './TaskEditModal';
 import Modal from './Modal';
+import { useToast } from './Toast';
 
 const PRIORITY_TONE = { urgent: 'negative', high: 'warning', medium: 'info', low: 'muted' };
 
@@ -26,11 +27,14 @@ function currentQuery() {
  */
 export default function TaskBoard({ board, employees, categories }) {
   const t = useT();
+  const toast = useToast();
   const { data: rows, meta, filters, statusFilters, statusOptions, priorityOptions } = board;
+  const grouped = filters.group === 'category';
   const [search, setSearch] = useState(filters.search ?? '');
   const [modal, setModal] = useState(null);
   const [confirmTask, setConfirmTask] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
   const searchTimer = useRef(null);
 
   function navigate(overrides, only = ['board']) {
@@ -45,6 +49,11 @@ export default function TaskBoard({ board, employees, categories }) {
     navigate({ [key]: value || undefined, page: undefined });
   }
 
+  function setGroupView(on) {
+    // Grouped is the default (no param); the flat list is the explicit opt-out.
+    navigate({ group: on ? undefined : 'none', page: undefined });
+  }
+
   function onSearch(value) {
     setSearch(value);
     clearTimeout(searchTimer.current);
@@ -54,7 +63,14 @@ export default function TaskBoard({ board, employees, categories }) {
   function patchTask(id, payload) {
     // async so quick successive inline edits to a row don't cancel one another
     // (Inertia cancels in-flight synchronous visits by default).
-    router.patch(`/ceo/tasks/${id}`, payload, { async: true, preserveScroll: true, preserveState: true, only: ['board', 'tasks'] });
+    router.patch(`/ceo/tasks/${id}`, payload, {
+      async: true,
+      preserveScroll: true,
+      preserveState: true,
+      only: ['board', 'tasks'],
+      onSuccess: () => toast.success(t('tasks_flash_updated')),
+      onError: () => toast.error(t('tasks_flash_error')),
+    });
   }
 
   function destroy() {
@@ -64,6 +80,8 @@ export default function TaskBoard({ board, employees, categories }) {
       preserveScroll: true,
       preserveState: true,
       only: ['board', 'tasks'],
+      onSuccess: () => toast.success(t('tasks_flash_deleted')),
+      onError: () => toast.error(t('tasks_flash_error')),
       onFinish: () => {
         setDeleting(false);
         setConfirmTask(null);
@@ -72,6 +90,103 @@ export default function TaskBoard({ board, employees, categories }) {
   }
 
   const activeStatus = filters.status ?? 'open';
+
+  // Group the (unpaginated, when grouped) rows by category; uncategorized last.
+  const groups = useMemo(() => {
+    if (!grouped) {
+      return [];
+    }
+    const map = new Map();
+    for (const row of rows) {
+      const key = row.category?.id ?? '__none__';
+      if (!map.has(key)) {
+        map.set(key, { key, category: row.category ?? null, rows: [] });
+      }
+      map.get(key).rows.push(row);
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.key === '__none__') return 1;
+      if (b.key === '__none__') return -1;
+      return (a.category?.name ?? '').localeCompare(b.category?.name ?? '');
+    });
+  }, [grouped, rows]);
+
+  const renderRow = (row) => (
+    <div key={row.id} className={cn('flex flex-col gap-2 py-3 lg:grid lg:items-center lg:gap-3', GRID)}>
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: toneColor(PRIORITY_TONE[row.priority]) }} aria-hidden="true" />
+        <div className="min-w-0">
+          <button onClick={() => setModal({ mode: 'edit', task: row })} className="block max-w-full truncate text-left text-[13px] font-medium text-ink hover:text-[var(--color-brand-ink)]">
+            {row.title}
+          </button>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
+            {row.category && (
+              <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium" style={{ color: row.category.color, background: `${row.category.color}14` }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: row.category.color }} />
+                {row.category.name}
+              </span>
+            )}
+            {row.source ? <span className="truncate">{row.source}</span> : <span className="text-muted-2">{t('tasks_standalone')}</span>}
+            {row.overdue && <span className="rounded-full bg-[rgba(244,63,94,0.12)] px-1.5 py-0.5 font-semibold text-[var(--color-rose-ink)]">{t('tasks_overdue_tag')}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Owners — a task can be co-owned; edit the set via the modal */}
+      <button
+        type="button"
+        onClick={() => setModal({ mode: 'edit', task: row })}
+        className={cn(INLINE, 'flex w-full items-center gap-1.5 text-left')}
+        aria-label={t('tasks_col_assignee')}
+      >
+        {(row.assignees?.length ?? 0) === 0 ? (
+          <span className="text-muted-2">{t('tasks_select_assignee')}</span>
+        ) : (
+          <>
+            <span className="min-w-0 truncate">{row.assignees[0].name}</span>
+            {row.assignees.length > 1 && (
+              <span className="shrink-0 rounded-full bg-[rgba(99,102,241,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-brand-ink)]">
+                +{row.assignees.length - 1}
+              </span>
+            )}
+          </>
+        )}
+      </button>
+
+      <select value={row.priority} onChange={(e) => patchTask(row.id, { priority: e.target.value })} className={INLINE} aria-label={t('tasks_col_priority')}>
+        {priorityOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+
+      <input
+        type="date"
+        value={row.deadline ?? ''}
+        onChange={(e) => e.target.value && patchTask(row.id, { deadline: e.target.value })}
+        className={cn(INLINE, row.overdue && 'text-[var(--color-rose-ink)]')}
+        aria-label={t('tasks_col_deadline')}
+      />
+
+      <select value={row.status} onChange={(e) => patchTask(row.id, { status: e.target.value })} className={INLINE} aria-label={t('tasks_col_status')}>
+        {statusOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+
+      <div className="flex items-center gap-1 lg:justify-end">
+        <button onClick={() => setModal({ mode: 'edit', task: row })} className="grid h-7 w-7 place-items-center rounded-lg text-muted-2 transition-colors hover:bg-white/70 hover:text-ink" aria-label={t('tasks_edit_task')}>
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => setConfirmTask(row)} className="grid h-7 w-7 place-items-center rounded-lg text-muted-2 transition-colors hover:bg-[rgba(244,63,94,0.1)] hover:text-[var(--color-rose-ink)]" aria-label={t('tasks_delete')}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="glass-card flex flex-col gap-4 rounded-[20px] p-6">
@@ -120,11 +235,64 @@ export default function TaskBoard({ board, employees, categories }) {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-2" />
           <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder={t('tasks_search_ph')} className={cn(INLINE, 'pl-8')} />
         </div>
+
+        {/* List vs grouped-by-category view */}
+        <div className="glass ml-auto inline-flex items-center gap-0.5 rounded-[12px] p-1">
+          <button
+            type="button"
+            onClick={() => setGroupView(false)}
+            className={cn('inline-flex items-center gap-1 rounded-[9px] px-2.5 py-1.5 text-[12px] font-semibold transition-all', !grouped ? 'bg-ink text-white' : 'text-muted hover:text-ink')}
+            aria-pressed={!grouped}
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+            {t('tasks_view_list')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setGroupView(true)}
+            className={cn('inline-flex items-center gap-1 rounded-[9px] px-2.5 py-1.5 text-[12px] font-semibold transition-all', grouped ? 'bg-ink text-white' : 'text-muted hover:text-ink')}
+            aria-pressed={grouped}
+          >
+            <FolderTree className="h-3.5 w-3.5" />
+            {t('tasks_view_group')}
+          </button>
+        </div>
       </div>
 
       {/* List */}
       {rows.length === 0 ? (
         <div className="grid h-20 place-items-center rounded-xl bg-[rgba(15,23,42,0.04)] text-[12px] text-muted">{t('tasks_empty')}</div>
+      ) : grouped ? (
+        <div className="flex flex-col gap-3">
+          {groups.map((g) => {
+            const isCollapsed = collapsed[g.key];
+            const overdueCount = g.rows.filter((r) => r.overdue).length;
+            const color = g.category?.color ?? 'var(--color-muted-2)';
+            return (
+              <div key={g.key} className="overflow-hidden rounded-[14px] border border-[rgba(15,23,42,0.07)]">
+                <button
+                  type="button"
+                  onClick={() => setCollapsed((c) => ({ ...c, [g.key]: !c[g.key] }))}
+                  className="flex w-full items-center justify-between gap-2 bg-[rgba(15,23,42,0.025)] px-3.5 py-2.5 text-left transition-colors hover:bg-[rgba(15,23,42,0.045)]"
+                  aria-expanded={!isCollapsed}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-2 transition-transform', isCollapsed && '-rotate-90')} />
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} aria-hidden="true" />
+                    <span className="truncate text-[13px] font-semibold text-ink">{g.category?.name ?? t('tasks_uncategorized')}</span>
+                    <span className="shrink-0 rounded-full bg-[rgba(15,23,42,0.07)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-muted">{g.rows.length}</span>
+                  </div>
+                  {overdueCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-[rgba(244,63,94,0.12)] px-2 py-0.5 text-[10.5px] font-semibold tabular-nums text-[var(--color-rose-ink)]">
+                      {overdueCount} {t('tasks_overdue_tag')}
+                    </span>
+                  )}
+                </button>
+                {!isCollapsed && <div className="flex flex-col divide-y divide-[rgba(15,23,42,0.06)] px-3.5">{g.rows.map(renderRow)}</div>}
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <>
           <div className={cn('hidden gap-3 px-1 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted-2 lg:grid', GRID)}>
@@ -136,84 +304,7 @@ export default function TaskBoard({ board, employees, categories }) {
             <span />
           </div>
 
-          <div className="flex flex-col divide-y divide-[rgba(15,23,42,0.06)]">
-            {rows.map((row) => (
-              <div key={row.id} className={cn('flex flex-col gap-2 py-3 lg:grid lg:items-center lg:gap-3', GRID)}>
-                <div className="flex min-w-0 items-start gap-2">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: toneColor(PRIORITY_TONE[row.priority]) }} aria-hidden="true" />
-                  <div className="min-w-0">
-                    <button onClick={() => setModal({ mode: 'edit', task: row })} className="block max-w-full truncate text-left text-[13px] font-medium text-ink hover:text-[var(--color-brand-ink)]">
-                      {row.title}
-                    </button>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
-                      {row.category && (
-                        <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium" style={{ color: row.category.color, background: `${row.category.color}14` }}>
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: row.category.color }} />
-                          {row.category.name}
-                        </span>
-                      )}
-                      {row.source ? <span className="truncate">{row.source}</span> : <span className="text-muted-2">{t('tasks_standalone')}</span>}
-                      {row.overdue && <span className="rounded-full bg-[rgba(244,63,94,0.12)] px-1.5 py-0.5 font-semibold text-[var(--color-rose-ink)]">{t('tasks_overdue_tag')}</span>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Owners — a task can be co-owned; edit the set via the modal */}
-                <button
-                  type="button"
-                  onClick={() => setModal({ mode: 'edit', task: row })}
-                  className={cn(INLINE, 'flex w-full items-center gap-1.5 text-left')}
-                  aria-label={t('tasks_col_assignee')}
-                >
-                  {(row.assignees?.length ?? 0) === 0 ? (
-                    <span className="text-muted-2">{t('tasks_select_assignee')}</span>
-                  ) : (
-                    <>
-                      <span className="min-w-0 truncate">{row.assignees[0].name}</span>
-                      {row.assignees.length > 1 && (
-                        <span className="shrink-0 rounded-full bg-[rgba(99,102,241,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-brand-ink)]">
-                          +{row.assignees.length - 1}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </button>
-
-                <select value={row.priority} onChange={(e) => patchTask(row.id, { priority: e.target.value })} className={INLINE} aria-label={t('tasks_col_priority')}>
-                  {priorityOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="date"
-                  value={row.deadline ?? ''}
-                  onChange={(e) => e.target.value && patchTask(row.id, { deadline: e.target.value })}
-                  className={cn(INLINE, row.overdue && 'text-[var(--color-rose-ink)]')}
-                  aria-label={t('tasks_col_deadline')}
-                />
-
-                <select value={row.status} onChange={(e) => patchTask(row.id, { status: e.target.value })} className={INLINE} aria-label={t('tasks_col_status')}>
-                  {statusOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="flex items-center gap-1 lg:justify-end">
-                  <button onClick={() => setModal({ mode: 'edit', task: row })} className="grid h-7 w-7 place-items-center rounded-lg text-muted-2 transition-colors hover:bg-white/70 hover:text-ink" aria-label={t('tasks_edit_task')}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => setConfirmTask(row)} className="grid h-7 w-7 place-items-center rounded-lg text-muted-2 transition-colors hover:bg-[rgba(244,63,94,0.1)] hover:text-[var(--color-rose-ink)]" aria-label={t('tasks_delete')}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="flex flex-col divide-y divide-[rgba(15,23,42,0.06)]">{rows.map(renderRow)}</div>
 
           {meta.last_page > 1 && (
             <div className="flex items-center justify-between pt-1">

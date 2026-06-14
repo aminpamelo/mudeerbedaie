@@ -20,14 +20,16 @@ export default function Modal({ title, onClose, children, size = 'md', closeLabe
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center p-4">
       <div
-        className="absolute inset-0 bg-[rgba(11,18,32,0.45)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(11,18,32,0.55)] backdrop-blur-md"
         onClick={onClose}
         aria-hidden="true"
       />
+      {/* Near-opaque surface (not the translucent `glass-card`) so dialog content
+          stays crisp and legible over the busy, dimmed dashboard behind it. */}
       <div
         role="dialog"
         aria-modal="true"
-        className={`glass-card relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-[20px] p-6 ${WIDTHS[size] ?? WIDTHS.md}`}
+        className={`relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-[20px] border border-[rgba(15,23,42,0.08)] bg-white/95 p-6 shadow-[0_24px_70px_-18px_rgba(11,18,32,0.5)] backdrop-blur-xl ${WIDTHS[size] ?? WIDTHS.md}`}
       >
         <div className="mb-4 flex items-center justify-between gap-4">
           <h3 className="font-display text-[16px] text-ink">{title}</h3>

@@ -161,7 +161,11 @@ body::before {
 @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
 .scrim-in { animation: scrim-in 0.22s ease-out both; }
 
+/* Toast cards — slide up + fade as they appear. */
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.toast-in { animation: toast-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
   body::before { animation: none; }
-  .gauge-arc, .bar-fill, .live-dot::after, .sheet-up, .scrim-in { animation: none; }
+  .gauge-arc, .bar-fill, .live-dot::after, .sheet-up, .scrim-in, .toast-in { animation: none; }
 }

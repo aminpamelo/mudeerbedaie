@@ -4,6 +4,7 @@ import { Loader2, Search, Check, X, ChevronDown } from 'lucide-react';
 import Modal from './Modal';
 import { cn } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
+import { useToast } from './Toast';
 
 const FIELD =
   'w-full rounded-xl border border-[rgba(15,23,42,0.12)] bg-white/70 px-3 py-2 text-[13px] text-ink outline-none transition focus:border-[var(--color-brand)]';
@@ -125,6 +126,7 @@ function MultiAssigneeSelect({ employees, value, onChange, t }) {
  */
 export default function TaskEditModal({ mode, task, employees, categories, statusOptions, priorityOptions, onClose }) {
   const t = useT();
+  const toast = useToast();
   const isEdit = mode === 'edit';
 
   const initialAssignees = task?.assignees?.length
@@ -160,7 +162,11 @@ export default function TaskEditModal({ mode, task, employees, categories, statu
     const options = {
       preserveScroll: true,
       only: ['board', 'tasks'],
-      onSuccess: onClose,
+      onSuccess: () => {
+        toast.success(isEdit ? t('tasks_flash_updated') : t('tasks_flash_created'), { dismissLabel: t('tasks_close') });
+        onClose();
+      },
+      onError: () => toast.error(t('tasks_flash_error'), { dismissLabel: t('tasks_close') }),
     };
 
     if (isEdit) {

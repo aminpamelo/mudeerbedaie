@@ -13,6 +13,7 @@ class TaskComment extends Model
     protected $fillable = [
         'task_id',
         'employee_id',
+        'user_id',
         'content',
     ];
 
@@ -25,10 +26,18 @@ class TaskComment extends Model
     }
 
     /**
-     * Get the employee who wrote this comment.
+     * Get the employee who wrote this comment (when the author is an employee).
      */
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * Get the user account that authored this comment (always set).
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

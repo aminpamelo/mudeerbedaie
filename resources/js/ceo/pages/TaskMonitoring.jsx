@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Head } from '@inertiajs/react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, LayoutDashboard, ListChecks, CalendarDays } from 'lucide-react';
 import CeoLayout from '@/ceo/layouts/CeoLayout';
 import PeriodSwitcher from '@/ceo/components/PeriodSwitcher';
 import RadialGauge from '@/ceo/components/RadialGauge';
@@ -10,6 +11,8 @@ import DataList from '@/ceo/components/DataList';
 import StaffPerformanceTable from '@/ceo/components/StaffPerformanceTable';
 import AttentionFeed from '@/ceo/components/AttentionFeed';
 import TaskBoard from '@/ceo/components/TaskBoard';
+import TaskCalendar from '@/ceo/components/TaskCalendar';
+import { cn } from '@/ceo/lib/utils';
 import { useT, statusLabel } from '@/ceo/lib/i18n';
 
 function Card({ title, subtitle, children, className = '' }) {
@@ -24,8 +27,24 @@ function Card({ title, subtitle, children, className = '' }) {
   );
 }
 
-export default function TaskMonitoring({ period, tasks, board, employees = [], categories = [] }) {
+const TABS = [
+  { key: 'overview', icon: LayoutDashboard },
+  { key: 'list', icon: ListChecks },
+  { key: 'calendar', icon: CalendarDays },
+];
+
+const TAB_KEYS = TABS.map((tab) => tab.key);
+
+/** Read the active tab from the URL so it survives a reload or a shared link. */
+function initialTabFromUrl() {
+  if (typeof window === 'undefined') return 'overview';
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return TAB_KEYS.includes(tab) ? tab : 'overview';
+}
+
+export default function TaskMonitoring({ period, tasks, board, calendar, employees = [], categories = [] }) {
   const t = useT();
+  const [activeTab, setActiveTab] = useState(initialTabFromUrl);
   const { status, gauge, kpis = [], breakdowns = [], trend, staff, overdueList, alerts = [], moduleHref, moduleLabel } = tasks;
 
   const alertItems = alerts.map((a, i) => ({
@@ -35,19 +54,91 @@ export default function TaskMonitoring({ period, tasks, board, employees = [], c
     href: a.href ?? moduleHref,
   }));
 
+  const tabLabels = { overview: t('tasks_tab_overview'), list: t('tasks_tab_list'), calendar: t('tasks_tab_calendar') };
+  const tabBadges = { list: board?.meta?.total };
+
+  // Persist the active tab in the URL (?tab=list) without a server round-trip, so a
+  // reload or shared link reopens the same tab. The board's own Inertia visits carry
+  // the existing query string forward, so the tab also survives filtering/paging.
+  function changeTab(key) {
+    setActiveTab(key);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (key === 'overview') {
+      url.searchParams.delete('tab');
+    } else {
+      url.searchParams.set('tab', key);
+    }
+    window.history.replaceState(window.history.state, '', url);
+  }
+
   return (
     <CeoLayout>
       <Head title={t('tasks_title')} />
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 pb-2 pt-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 pb-3 pt-6">
         <div>
           <h1 className="font-display text-[22px] text-ink">{t('tasks_title')}</h1>
-          <p className="text-[12.5px] text-muted">{t('tasks_subtitle')} · {period?.label}</p>
+          <p className="text-[12.5px] text-muted">{t('tasks_subtitle')}{activeTab === 'overview' && period?.label ? ` · ${period.label}` : ''}</p>
         </div>
-        <PeriodSwitcher period={period} />
+        {activeTab === 'overview' && <PeriodSwitcher period={period} />}
       </header>
 
-      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10" data-accent="rose" data-status={status}>
+      {/* Tab navigation: read-only overview vs the editable task list */}
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div role="tablist" aria-label={t('tasks_title')} className="glass inline-flex items-center gap-1 rounded-[14px] p-1">
+          {TABS.map((tab) => {
+            const active = activeTab === tab.key;
+            const Icon = tab.icon;
+            const badge = tabBadges[tab.key];
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => changeTab(tab.key)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold transition-all',
+                  active ? 'text-white shadow-sm' : 'text-muted hover:text-ink'
+                )}
+                style={active ? { background: 'linear-gradient(90deg, var(--color-brand), var(--color-violet))' } : undefined}
+              >
+                <Icon className="h-4 w-4" strokeWidth={2.2} />
+                {tabLabels[tab.key]}
+                {badge != null && (
+                  <span
+                    className={cn(
+                      'rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
+                      active ? 'bg-white/25 text-white' : 'bg-[rgba(15,23,42,0.08)] text-muted'
+                    )}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ===================== TASK LIST TAB ===================== */}
+      {activeTab === 'list' && (
+        <div role="tabpanel" className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10 pt-5">
+          {board && <TaskBoard board={board} employees={employees} categories={categories} />}
+        </div>
+      )}
+
+      {/* ===================== CALENDAR TAB ===================== */}
+      {activeTab === 'calendar' && (
+        <div role="tabpanel" className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10 pt-5">
+          {calendar && <TaskCalendar calendar={calendar} onOpenList={() => changeTab('list')} />}
+        </div>
+      )}
+
+      {/* ===================== OVERVIEW TAB ===================== */}
+      <div role="tabpanel" className={cn('flex flex-col gap-6 px-4 sm:px-6 lg:px-8 pb-10 pt-5', activeTab !== 'overview' && 'hidden')} data-accent="rose" data-status={status}>
         {/* Hero: on-time gauge + status + module link */}
         <section className="glass-card relative flex flex-col items-center gap-6 overflow-hidden rounded-[22px] p-6 sm:flex-row sm:gap-9 sm:p-7">
           <span className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-30 blur-3xl" style={{ background: 'var(--signal)' }} aria-hidden="true" />
@@ -74,14 +165,11 @@ export default function TaskMonitoring({ period, tasks, board, employees = [], c
         </section>
 
         {/* KPI tiles */}
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           {kpis.map((kpi) => (
             <KpiTile key={kpi.label} kpi={kpi} />
           ))}
         </section>
-
-        {/* Editable task list — the CEO acts on tasks directly here */}
-        {board && <TaskBoard board={board} employees={employees} categories={categories} />}
 
         {/* Breakdowns */}
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">

@@ -24,6 +24,9 @@ class CeoTaskBoard
 
     private const PER_PAGE = 12;
 
+    /** Safety cap for the unpaginated grouped view. */
+    private const GROUP_CAP = 500;
+
     /**
      * @return array<string, mixed>
      */
@@ -36,6 +39,9 @@ class CeoTaskBoard
         $priority = in_array($request->query('priority'), self::PRIORITIES, true) ? $request->query('priority') : null;
         $assignedTo = $request->filled('assigned_to') ? (int) $request->query('assigned_to') : null;
         $search = trim((string) $request->query('search', '')) ?: null;
+        // Grouped by category is the default; the flat list is the opt-out
+        // (?group=none). ?group=category stays valid for old links.
+        $grouped = $request->query('group') !== 'none';
 
         $query = Task::query()
             ->with(['assignee:id,full_name', 'assignees:id,full_name', 'category:id,name,color', 'taskable'])
@@ -50,23 +56,38 @@ class CeoTaskBoard
             ->orderByRaw('CASE WHEN status IN (?, ?) AND deadline < ? THEN 0 ELSE 1 END', ['pending', 'in_progress', $todayDate])
             ->orderBy('deadline');
 
-        $paginator = $query->paginate(self::PER_PAGE)->withQueryString();
-
-        $rows = collect($paginator->items())->map(fn (Task $task) => $this->row($task, $todayDate))->all();
-
-        return [
-            'data' => $rows,
-            'meta' => [
+        // Grouping by category must span every matching task, not just one
+        // page, so the grouped view returns the full (capped) result set and
+        // skips pagination. The flat list stays paginated.
+        if ($grouped) {
+            $items = $query->limit(self::GROUP_CAP)->get();
+            $rows = $items->map(fn (Task $task) => $this->row($task, $todayDate))->all();
+            $meta = [
+                'current_page' => 1,
+                'last_page' => 1,
+                'total' => $items->count(),
+                'per_page' => $items->count(),
+            ];
+        } else {
+            $paginator = $query->paginate(self::PER_PAGE)->withQueryString();
+            $rows = collect($paginator->items())->map(fn (Task $task) => $this->row($task, $todayDate))->all();
+            $meta = [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
                 'total' => $paginator->total(),
                 'per_page' => $paginator->perPage(),
-            ],
+            ];
+        }
+
+        return [
+            'data' => $rows,
+            'meta' => $meta,
             'filters' => [
                 'status' => $status,
                 'priority' => $priority,
                 'assigned_to' => $assignedTo,
                 'search' => $search,
+                'group' => $grouped ? 'category' : 'none',
             ],
             'statusFilters' => [
                 ['value' => 'open', 'label' => __('ceo.tasks.filter_open')],

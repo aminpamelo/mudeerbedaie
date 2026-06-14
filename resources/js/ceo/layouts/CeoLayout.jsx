@@ -5,6 +5,7 @@ import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
 import InstallButton from '@/ceo/components/InstallButton';
+import { ToastProvider } from '@/ceo/components/Toast';
 
 const DEPARTMENTS = [
   { labelKey: 'dept_livehost', href: '/ceo/livehost', icon: Radio, accent: 'emerald' },
@@ -298,12 +299,14 @@ export default function CeoLayout({ children }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   return (
-    <div className="relative z-10 lg:grid lg:min-h-dvh lg:grid-cols-[248px_1fr]">
-      <Sidebar auth={auth} brand={brand} currentUrl={url} />
-      <MobileTopBar brand={brand} />
-      <main className="flex min-w-0 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
-      <MobileTabBar currentUrl={url} onMore={() => setMoreOpen(true)} moreActive={moreOpen} />
-      {moreOpen && <MoreSheet auth={auth} brand={brand} currentUrl={url} onClose={() => setMoreOpen(false)} />}
-    </div>
+    <ToastProvider>
+      <div className="relative z-10 lg:grid lg:min-h-dvh lg:grid-cols-[248px_1fr]">
+        <Sidebar auth={auth} brand={brand} currentUrl={url} />
+        <MobileTopBar brand={brand} />
+        <main className="flex min-w-0 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
+        <MobileTabBar currentUrl={url} onMore={() => setMoreOpen(true)} moreActive={moreOpen} />
+        {moreOpen && <MoreSheet auth={auth} brand={brand} currentUrl={url} onClose={() => setMoreOpen(false)} />}
+      </div>
+    </ToastProvider>
   );
 }

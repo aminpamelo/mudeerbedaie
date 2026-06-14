@@ -1130,7 +1130,7 @@ export default function TaskDashboard() {
 
     const validViews = VIEW_MODES.map((v) => v.key);
     const hashView = location.hash.replace('#', '');
-    const [viewMode, setViewMode] = useState(validViews.includes(hashView) ? hashView : 'table');
+    const [viewMode, setViewMode] = useState(validViews.includes(hashView) ? hashView : 'group');
     const [groupBy, setGroupBy] = useState('category');
 
     function handleViewChange(mode) {

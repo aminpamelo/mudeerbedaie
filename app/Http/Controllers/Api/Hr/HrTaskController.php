@@ -25,6 +25,8 @@ class HrTaskController extends Controller
                 'assigner:id,full_name',
                 'category:id,name,color',
                 'taskable',
+                'comments.employee:id,full_name',
+                'comments.user:id,name',
             ]);
 
         if ($search = $request->get('search')) {
@@ -91,6 +93,7 @@ class HrTaskController extends Controller
             'taskable',
             'subtasks.assignee:id,full_name',
             'comments.employee:id,full_name',
+            'comments.user:id,name',
             'attachments.uploader:id,full_name',
         ]);
 
@@ -243,10 +246,11 @@ class HrTaskController extends Controller
         $comment = TaskComment::create([
             'task_id' => $task->id,
             'employee_id' => $employee?->id,
+            'user_id' => $request->user()->id,
             'content' => $validated['content'],
         ]);
 
-        $comment->load('employee:id,full_name');
+        $comment->load(['employee:id,full_name', 'user:id,name']);
 
         return response()->json([
             'data' => $comment,

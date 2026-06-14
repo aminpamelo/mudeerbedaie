@@ -1,18 +1,5 @@
 import { cn, toneText } from '@/ceo/lib/utils';
-
-function DeltaChip({ delta }) {
-  if (!delta) return null;
-  const map = {
-    up: 'bg-[rgba(16,185,129,0.16)] text-[var(--color-emerald-ink)]',
-    down: 'bg-[rgba(244,63,94,0.16)] text-[var(--color-rose-ink)]',
-    flat: 'bg-[rgba(15,23,42,0.06)] text-muted',
-  };
-  return (
-    <span className={cn('inline-flex items-center rounded-full px-1.5 py-px font-mono text-[10.5px] font-semibold tabular-nums', map[delta.direction] ?? map.flat)}>
-      {delta.text}
-    </span>
-  );
-}
+import DeltaChip from '@/ceo/components/DeltaChip';
 
 const ICON_TINT = {
   positive: 'var(--color-emerald)',
