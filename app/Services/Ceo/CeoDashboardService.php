@@ -35,6 +35,8 @@ class CeoDashboardService
         private readonly SalesHealthReport $sales,
         private readonly TaskMonitoringReport $taskReport,
         private readonly MonthlyReportService $monthlyReport,
+        private readonly StaffKpiReport $staffKpiReport,
+        private readonly DepartmentMatrixReport $matrixReport,
     ) {}
 
     /**
@@ -134,7 +136,13 @@ class CeoDashboardService
             return null;
         }
 
-        return Cache::remember("ceo:detail:{$key}:{$period->cacheKey()}:".app()->getLocale(), self::CACHE_TTL, fn () => $report->detail($period));
+        return Cache::remember(
+            "ceo:detail:{$key}:{$period->cacheKey()}:".app()->getLocale(),
+            self::CACHE_TTL,
+            fn () => array_merge($report->detail($period), [
+                'matrix' => $this->matrixReport->build($key, $period),
+            ])
+        );
     }
 
     /**

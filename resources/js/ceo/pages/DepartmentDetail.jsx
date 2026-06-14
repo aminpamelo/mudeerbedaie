@@ -7,6 +7,7 @@ import KpiTile from '@/ceo/components/KpiTile';
 import AreaChart from '@/ceo/components/AreaChart';
 import SegmentedBar from '@/ceo/components/SegmentedBar';
 import DataList from '@/ceo/components/DataList';
+import MonthlyMatrix from '@/ceo/components/MonthlyMatrix';
 import AttentionFeed from '@/ceo/components/AttentionFeed';
 import { useT, statusLabel } from '@/ceo/lib/i18n';
 
@@ -27,7 +28,7 @@ function SectionCard({ section }) {
 
 export default function DepartmentDetail({ period, department }) {
   const t = useT();
-  const { label, accent, status, gauges = [], kpis = [], sections = [], alerts = [], moduleHref, moduleLabel } = department;
+  const { label, accent, status, gauges = [], kpis = [], sections = [], alerts = [], matrix = null, moduleHref, moduleLabel } = department;
   const gauge = gauges[0] ?? null;
 
   const alertItems = alerts.map((a, i) => ({
@@ -86,7 +87,24 @@ export default function DepartmentDetail({ period, department }) {
           )}
         </section>
 
-        {/* KPI tiles */}
+        {/* Performance matrix — metric × period buckets (the report centerpiece) */}
+        {matrix && (
+          <section className="glass-card flex flex-col gap-4 rounded-[20px] p-6">
+            <div>
+              <h3 className="font-display text-[15px] text-ink">{matrix.title}</h3>
+              {matrix.subtitle && <p className="text-[11px] text-muted">{matrix.subtitle}</p>}
+            </div>
+            {matrix.empty ? (
+              <div className="grid h-20 place-items-center rounded-xl bg-[rgba(15,23,42,0.04)] text-[12px] text-muted">
+                {t('no_activity_period')}
+              </div>
+            ) : (
+              <MonthlyMatrix months={matrix.months} columns={matrix.columns} rows={matrix.rows} />
+            )}
+          </section>
+        )}
+
+        {/* Snapshot KPI tiles — point-in-time + rate metrics */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {kpis.map((kpi) => (
             <KpiTile key={kpi.label} kpi={kpi} />
