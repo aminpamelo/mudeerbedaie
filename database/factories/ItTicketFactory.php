@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\ItTicket;
 use App\Models\ItTicketCategory;
+use App\Models\ItTicketType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,7 +18,7 @@ class ItTicketFactory extends Factory
             'ticket_number' => ItTicket::generateTicketNumber(),
             'title' => fake()->sentence(4),
             'description' => fake()->paragraph(),
-            'type' => fake()->randomElement(ItTicket::types()),
+            'type_id' => ItTicketType::query()->inRandomOrder()->value('id') ?? ItTicketType::factory(),
             'priority' => fake()->randomElement(ItTicket::priorities()),
             'category_id' => ItTicketCategory::inRandomOrder()->value('id'),
             'status' => 'backlog',
@@ -30,12 +31,21 @@ class ItTicketFactory extends Factory
 
     public function bug(): static
     {
-        return $this->state(fn (array $attributes) => ['type' => 'bug']);
+        return $this->state(fn (array $attributes) => [
+            'type_id' => ItTicketType::firstOrCreate(['name' => 'Bug'], ['color' => '#ef4444'])->id,
+        ]);
     }
 
     public function feature(): static
     {
-        return $this->state(fn (array $attributes) => ['type' => 'feature']);
+        return $this->state(fn (array $attributes) => [
+            'type_id' => ItTicketType::firstOrCreate(['name' => 'Feature'], ['color' => '#22c55e'])->id,
+        ]);
+    }
+
+    public function ofType(ItTicketType $type): static
+    {
+        return $this->state(fn (array $attributes) => ['type_id' => $type->id]);
     }
 
     public function urgent(): static

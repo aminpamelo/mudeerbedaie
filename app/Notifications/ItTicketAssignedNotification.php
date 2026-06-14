@@ -66,7 +66,7 @@ class ItTicketAssignedNotification extends Notification implements ShouldQueue
             'ticket_id' => $ticket->id,
             'ticket_number' => $ticket->ticket_number,
             'title' => $ticket->title,
-            'type' => $ticket->type,
+            'type' => $ticket->type?->name,
             'priority' => $ticket->priority,
             'status' => $ticket->status,
             'due_date' => $ticket->due_date?->toDateString(),

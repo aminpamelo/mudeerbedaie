@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\ItTicket;
-use App\Models\ItTicketComment;
+use App\Models\ItTicketType;
 use App\Models\User;
 use Livewire\Volt\Volt;
 
@@ -42,11 +42,20 @@ it('detects overdue tickets', function () {
     expect($done->isOverdue())->toBeFalse();
 });
 
-it('returns correct type and priority colors', function () {
-    $ticket = new ItTicket(['type' => 'bug', 'priority' => 'urgent']);
+it('returns the type hex color and priority color', function () {
+    $type = ItTicketType::factory()->create(['name' => 'Bug', 'color' => '#ef4444']);
+    $ticket = ItTicket::factory()->ofType($type)->create(['priority' => 'urgent']);
 
-    expect($ticket->getTypeColor())->toBe('red');
+    expect($ticket->getTypeColor())->toBe('#ef4444');
+    expect($ticket->getTypeLabel())->toBe('Bug');
     expect($ticket->getPriorityColor())->toBe('red');
+});
+
+it('falls back to a neutral type color when a ticket has no type', function () {
+    $ticket = ItTicket::factory()->create(['type_id' => null]);
+
+    expect($ticket->getTypeColor())->toBe('#71717a');
+    expect($ticket->getTypeLabel())->toBe('No type');
 });
 
 // --- IT Request Submission (All Users) ---
@@ -63,7 +72,7 @@ it('allows students to submit IT requests', function () {
     Volt::test('it-request.create')
         ->set('title', 'Login page is broken')
         ->set('description', 'Cannot login after update')
-        ->set('type', 'bug')
+        ->set('typeId', ItTicketType::where('name', 'Bug')->value('id'))
         ->set('priority', 'high')
         ->call('submit')
         ->assertHasNoErrors()
@@ -88,7 +97,7 @@ it('allows teachers to submit IT requests', function () {
 
     Volt::test('it-request.create')
         ->set('title', 'Need grade export feature')
-        ->set('type', 'feature')
+        ->set('typeId', ItTicketType::where('name', 'Feature')->value('id'))
         ->set('priority', 'medium')
         ->call('submit')
         ->assertHasNoErrors();
@@ -124,23 +133,25 @@ it('denies non-admin users access to IT board', function () {
 
 // --- Admin Kanban Operations ---
 
-it('allows admin to create tickets via quick create', function () {
+it('allows admin to create tickets via the create modal', function () {
     $this->actingAs($this->admin);
+    $type = ItTicketType::where('name', 'Bug')->first();
 
     Volt::test('admin.it-board.index')
-        ->call('openQuickCreate', 'todo')
+        ->call('openCreate', 'todo')
         ->assertSet('showCreateModal', true)
-        ->assertSet('createInStatus', 'todo')
-        ->set('newTitle', 'Fix API endpoint')
-        ->set('newType', 'bug')
-        ->set('newPriority', 'high')
-        ->call('quickCreate')
+        ->assertSet('cStatus', 'todo')
+        ->set('cTitle', 'Fix API endpoint')
+        ->set('cTypeId', $type->id)
+        ->set('cPriority', 'high')
+        ->call('createTicket')
         ->assertSet('showCreateModal', false);
 
     $ticket = ItTicket::where('title', 'Fix API endpoint')->first();
     expect($ticket)->not->toBeNull();
     expect($ticket->status)->toBe('todo');
-    expect($ticket->type)->toBe('bug');
+    expect($ticket->type_id)->toBe($type->id);
+    expect($ticket->type->name)->toBe('Bug');
 });
 
 it('allows admin to update ticket status via drag', function () {
@@ -148,7 +159,7 @@ it('allows admin to update ticket status via drag', function () {
     $ticket = ItTicket::factory()->create(['status' => 'backlog', 'position' => 0]);
 
     Volt::test('admin.it-board.index')
-        ->call('updateTicketStatus', $ticket->id, 'in_progress', 0);
+        ->call('moveTicket', $ticket->id, 'in_progress', 0, [$ticket->id]);
 
     expect($ticket->fresh()->status)->toBe('in_progress');
 });
@@ -158,7 +169,7 @@ it('sets completed_at when moving to done', function () {
     $ticket = ItTicket::factory()->create(['status' => 'testing']);
 
     Volt::test('admin.it-board.index')
-        ->call('updateTicketStatus', $ticket->id, 'done', 0);
+        ->call('moveTicket', $ticket->id, 'done', 0, [$ticket->id]);
 
     expect($ticket->fresh()->completed_at)->not->toBeNull();
 });
@@ -168,7 +179,7 @@ it('clears completed_at when moving out of done', function () {
     $ticket = ItTicket::factory()->done()->create();
 
     Volt::test('admin.it-board.index')
-        ->call('updateTicketStatus', $ticket->id, 'review', 0);
+        ->call('moveTicket', $ticket->id, 'review', 0, [$ticket->id]);
 
     expect($ticket->fresh()->completed_at)->toBeNull();
 });
@@ -214,10 +225,12 @@ it('allows admin to create tickets with full details', function () {
     $this->actingAs($this->admin);
     $assignee = User::factory()->create(['role' => 'admin']);
 
+    $type = ItTicketType::where('name', 'Feature')->first();
+
     Volt::test('admin.it-board.create')
         ->set('title', 'Implement dark mode')
         ->set('description', 'Add dark mode support to all pages')
-        ->set('type', 'feature')
+        ->set('typeId', $type->id)
         ->set('priority', 'medium')
         ->set('status', 'todo')
         ->set('assigneeId', $assignee->id)
@@ -229,5 +242,6 @@ it('allows admin to create tickets with full details', function () {
     $ticket = ItTicket::where('title', 'Implement dark mode')->first();
     expect($ticket)->not->toBeNull();
     expect($ticket->assignee_id)->toBe($assignee->id);
+    expect($ticket->type_id)->toBe($type->id);
     expect($ticket->due_date->format('Y-m-d'))->toBe('2026-04-01');
 });

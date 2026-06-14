@@ -2,6 +2,7 @@
 
 use App\Models\ItTicket;
 use App\Models\ItTicketCategory;
+use App\Models\ItTicketType;
 use App\Models\User;
 use Livewire\Volt\Component;
 
@@ -12,7 +13,7 @@ new class extends Component
 
     // Editable fields
     public string $status;
-    public string $type;
+    public $typeId = null;
     public string $priority;
     public $categoryId = null;
     public ?int $assigneeId;
@@ -25,9 +26,9 @@ new class extends Component
 
     public function mount(ItTicket $itTicket): void
     {
-        $this->itTicket = $itTicket->load(['reporter', 'assignee', 'category', 'comments.user']);
+        $this->itTicket = $itTicket->load(['reporter', 'assignee', 'category', 'type', 'comments.user']);
         $this->status = $itTicket->status;
-        $this->type = $itTicket->type;
+        $this->typeId = $itTicket->type_id;
         $this->priority = $itTicket->priority;
         $this->categoryId = $itTicket->category_id;
         $this->assigneeId = $itTicket->assignee_id;
@@ -44,6 +45,11 @@ new class extends Component
         return ItTicketCategory::orderBy('sort_order')->orderBy('name')->get();
     }
 
+    public function getTypesProperty()
+    {
+        return ItTicketType::orderBy('sort_order')->orderBy('name')->get();
+    }
+
     public function updateField(string $field): void
     {
         $data = [$field => $this->{$field}];
@@ -58,6 +64,10 @@ new class extends Component
             $data = ['assignee_id' => $this->assigneeId];
         }
 
+        if ($field === 'typeId') {
+            $data = ['type_id' => $this->typeId ?: null];
+        }
+
         if ($field === 'categoryId') {
             $data = ['category_id' => $this->categoryId ?: null];
         }
@@ -68,7 +78,7 @@ new class extends Component
 
         $this->itTicket->update($data);
         $this->itTicket->refresh();
-        $this->itTicket->load('category');
+        $this->itTicket->load(['category', 'type']);
     }
 
     public function addComment(): void
@@ -104,7 +114,11 @@ new class extends Component
         <div>
             <div class="flex items-center gap-3">
                 <flux:heading size="xl">{{ $itTicket->title }}</flux:heading>
-                <flux:badge :color="$itTicket->getTypeColor()">{{ $itTicket->getTypeLabel() }}</flux:badge>
+                @if($itTicket->type)
+                    <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium" style="color: {{ $itTicket->type->color }}; background-color: {{ $itTicket->type->color }}1a;">
+                        <span class="size-1.5 rounded-full" style="background-color: {{ $itTicket->type->color }}"></span> {{ $itTicket->type->name }}
+                    </span>
+                @endif
             </div>
             <flux:text class="mt-1">{{ $itTicket->ticket_number }} &bull; Reported by {{ $itTicket->reporter->name }} &bull; {{ $itTicket->created_at->diffForHumans() }}</flux:text>
         </div>
@@ -198,9 +212,10 @@ new class extends Component
 
                 <div>
                     <flux:label class="mb-1.5">Type</flux:label>
-                    <flux:select wire:model="type" wire:change="updateField('type')">
-                        @foreach(ItTicket::types() as $t)
-                            <option value="{{ $t }}">{{ ucfirst($t) }}</option>
+                    <flux:select wire:model="typeId" wire:change="updateField('typeId')">
+                        <option value="">No type</option>
+                        @foreach($this->types as $t)
+                            <option value="{{ $t->id }}">{{ $t->name }}</option>
                         @endforeach
                     </flux:select>
                 </div>

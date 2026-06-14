@@ -2,6 +2,7 @@
 
 use App\Models\ItTicket;
 use App\Models\ItTicketCategory;
+use App\Models\ItTicketType;
 use App\Models\User;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
@@ -25,7 +26,7 @@ new class extends Component
     public bool $showCreateModal = false;
     public string $cTitle = '';
     public string $cDescription = '';
-    public string $cType = 'task';
+    public $cTypeId = null;
     public string $cPriority = 'medium';
     public string $cStatus = 'backlog';
     public $cCategoryId = null;
@@ -37,7 +38,7 @@ new class extends Component
     public ?int $editingId = null;
     public string $eTitle = '';
     public string $eDescription = '';
-    public string $eType = 'task';
+    public $eTypeId = null;
     public string $ePriority = 'medium';
     public string $eStatus = 'backlog';
     public $eCategoryId = null;
@@ -52,6 +53,14 @@ new class extends Component
     public ?int $editingCatId = null;
     public string $editCatName = '';
     public string $editCatColor = '#6366f1';
+
+    // Type manager
+    public bool $showTypeModal = false;
+    public string $typeName = '';
+    public string $typeColor = '#6366f1';
+    public ?int $editingTypeId = null;
+    public string $editTypeName = '';
+    public string $editTypeColor = '#6366f1';
 
     public function layout(): string
     {
@@ -79,16 +88,6 @@ new class extends Component
         ];
     }
 
-    public function typeMeta(string $type): array
-    {
-        return match ($type) {
-            'bug' => ['label' => 'Bug', 'icon' => 'bug-ant', 'classes' => 'text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400'],
-            'feature' => ['label' => 'Feature', 'icon' => 'sparkles', 'classes' => 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400'],
-            'improvement' => ['label' => 'Improvement', 'icon' => 'arrow-trending-up', 'classes' => 'text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400'],
-            default => ['label' => 'Task', 'icon' => 'check-circle', 'classes' => 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400'],
-        };
-    }
-
     public function priorityMeta(string $priority): array
     {
         return match ($priority) {
@@ -105,7 +104,7 @@ new class extends Component
     {
         return ItTicket::query()
             ->when($this->search, fn ($q) => $q->search($this->search))
-            ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
+            ->when($this->typeFilter, fn ($q) => $q->where('type_id', $this->typeFilter))
             ->when($this->priorityFilter, fn ($q) => $q->where('priority', $this->priorityFilter))
             ->when($this->categoryFilter, fn ($q) => $q->where('category_id', $this->categoryFilter))
             ->when($this->assigneeFilter, fn ($q) => $q->where('assignee_id', $this->assigneeFilter));
@@ -114,7 +113,7 @@ new class extends Component
     public function getTicketsProperty()
     {
         return $this->filteredQuery()
-            ->with(['reporter', 'assignee', 'category'])
+            ->with(['reporter', 'assignee', 'category', 'type'])
             ->orderBy('position')
             ->get()
             ->groupBy('status');
@@ -153,6 +152,11 @@ new class extends Component
         return ItTicketCategory::orderBy('sort_order')->orderBy('name')->get();
     }
 
+    public function getTypesProperty()
+    {
+        return ItTicketType::orderBy('sort_order')->orderBy('name')->get();
+    }
+
     public function getAdminUsersProperty()
     {
         return User::where('role', 'admin')->orderBy('name')->get();
@@ -164,7 +168,7 @@ new class extends Component
             return null;
         }
 
-        return ItTicket::with(['reporter', 'assignee', 'category', 'comments.user'])->find($this->editingId);
+        return ItTicket::with(['reporter', 'assignee', 'category', 'type', 'comments.user'])->find($this->editingId);
     }
 
     public function clearFilters(): void
@@ -205,7 +209,7 @@ new class extends Component
     public function openCreate(string $status = 'backlog'): void
     {
         $this->reset(['cTitle', 'cDescription', 'cCategoryId', 'cAssigneeId', 'cDueDate']);
-        $this->cType = 'task';
+        $this->cTypeId = ItTicketType::orderBy('sort_order')->value('id');
         $this->cPriority = 'medium';
         $this->cStatus = $status;
         $this->resetValidation();
@@ -214,6 +218,7 @@ new class extends Component
 
     public function createTicket(): void
     {
+        $this->cTypeId = $this->cTypeId ?: null;
         $this->cCategoryId = $this->cCategoryId ?: null;
         $this->cAssigneeId = $this->cAssigneeId ?: null;
         $this->cDueDate = $this->cDueDate ?: null;
@@ -221,7 +226,7 @@ new class extends Component
         $this->validate([
             'cTitle' => 'required|min:3|max:255',
             'cDescription' => 'nullable|max:5000',
-            'cType' => 'required|in:'.implode(',', ItTicket::types()),
+            'cTypeId' => 'nullable|exists:it_ticket_types,id',
             'cPriority' => 'required|in:'.implode(',', ItTicket::priorities()),
             'cStatus' => 'required|in:'.implode(',', ItTicket::statuses()),
             'cCategoryId' => 'nullable|exists:it_ticket_categories,id',
@@ -233,7 +238,7 @@ new class extends Component
             'ticket_number' => ItTicket::generateTicketNumber(),
             'title' => $this->cTitle,
             'description' => $this->cDescription,
-            'type' => $this->cType,
+            'type_id' => $this->cTypeId,
             'priority' => $this->cPriority,
             'category_id' => $this->cCategoryId,
             'status' => $this->cStatus,
@@ -259,7 +264,7 @@ new class extends Component
         $this->editingId = $ticket->id;
         $this->eTitle = $ticket->title;
         $this->eDescription = $ticket->description ?? '';
-        $this->eType = $ticket->type;
+        $this->eTypeId = $ticket->type_id;
         $this->ePriority = $ticket->priority;
         $this->eStatus = $ticket->status;
         $this->eCategoryId = $ticket->category_id;
@@ -278,6 +283,7 @@ new class extends Component
             return;
         }
 
+        $this->eTypeId = $this->eTypeId ?: null;
         $this->eCategoryId = $this->eCategoryId ?: null;
         $this->eAssigneeId = $this->eAssigneeId ?: null;
         $this->eDueDate = $this->eDueDate ?: null;
@@ -285,7 +291,7 @@ new class extends Component
         $this->validate([
             'eTitle' => 'required|min:3|max:255',
             'eDescription' => 'nullable|max:5000',
-            'eType' => 'required|in:'.implode(',', ItTicket::types()),
+            'eTypeId' => 'nullable|exists:it_ticket_types,id',
             'ePriority' => 'required|in:'.implode(',', ItTicket::priorities()),
             'eStatus' => 'required|in:'.implode(',', ItTicket::statuses()),
             'eCategoryId' => 'nullable|exists:it_ticket_categories,id',
@@ -296,7 +302,7 @@ new class extends Component
         $data = [
             'title' => $this->eTitle,
             'description' => $this->eDescription,
-            'type' => $this->eType,
+            'type_id' => $this->eTypeId,
             'priority' => $this->ePriority,
             'category_id' => $this->eCategoryId,
             'status' => $this->eStatus,
@@ -407,6 +413,75 @@ new class extends Component
             $this->categoryFilter = '';
         }
     }
+
+    // --- Type manager ---
+
+    public function openTypeManager(): void
+    {
+        $this->reset(['typeName', 'editingTypeId', 'editTypeName']);
+        $this->typeColor = '#6366f1';
+        $this->resetValidation();
+        $this->showTypeModal = true;
+    }
+
+    public function addType(): void
+    {
+        $this->validate([
+            'typeName' => 'required|min:2|max:50',
+            'typeColor' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
+        ItTicketType::create([
+            'name' => $this->typeName,
+            'color' => $this->typeColor,
+            'sort_order' => (ItTicketType::max('sort_order') ?? 0) + 1,
+        ]);
+
+        $this->reset(['typeName']);
+        $this->typeColor = '#6366f1';
+    }
+
+    public function startEditType(int $id): void
+    {
+        $type = ItTicketType::find($id);
+
+        if (! $type) {
+            return;
+        }
+
+        $this->editingTypeId = $id;
+        $this->editTypeName = $type->name;
+        $this->editTypeColor = $type->color;
+    }
+
+    public function updateType(): void
+    {
+        $this->validate([
+            'editTypeName' => 'required|min:2|max:50',
+            'editTypeColor' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
+        ItTicketType::where('id', $this->editingTypeId)->update([
+            'name' => $this->editTypeName,
+            'color' => $this->editTypeColor,
+        ]);
+
+        $this->editingTypeId = null;
+    }
+
+    public function cancelEditType(): void
+    {
+        $this->editingTypeId = null;
+    }
+
+    public function deleteType(int $id): void
+    {
+        ItTicketType::find($id)?->delete();
+
+        if ((int) $this->typeFilter === $id) {
+            $this->typeFilter = '';
+        }
+    }
 }; ?>
 
 <div class="text-zinc-800 dark:text-zinc-200">
@@ -422,6 +497,12 @@ new class extends Component
             </div>
         </div>
         <div class="flex items-center gap-2">
+            <flux:button variant="ghost" size="sm" wire:click="openTypeManager">
+                <div class="flex items-center">
+                    <flux:icon name="swatch" class="mr-1.5 size-4" />
+                    Types
+                </div>
+            </flux:button>
             <flux:button variant="ghost" size="sm" wire:click="openCategoryManager">
                 <div class="flex items-center">
                     <flux:icon name="tag" class="mr-1.5 size-4" />
@@ -479,8 +560,8 @@ new class extends Component
             <div class="w-32">
                 <flux:select wire:model.live="typeFilter" size="sm">
                     <option value="">All Types</option>
-                    @foreach (ItTicket::types() as $type)
-                        <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                    @foreach ($this->types as $type)
+                        <option value="{{ $type->id }}">{{ $type->name }}</option>
                     @endforeach
                 </flux:select>
             </div>
@@ -545,15 +626,19 @@ new class extends Component
                         class="kanban-col flex-1 space-y-2.5 overflow-y-auto rounded-xl border border-zinc-200/70 bg-zinc-100/40 p-2 dark:border-white/[0.05] dark:bg-white/[0.02]"
                         style="min-height: 140px; max-height: calc(100vh - 360px);">
                         @forelse ($columnTickets as $ticket)
-                            @php $tMeta = $this->typeMeta($ticket->type); $pMeta = $this->priorityMeta($ticket->priority); $dMeta = $ticket->deadlineMeta(); @endphp
+                            @php $pMeta = $this->priorityMeta($ticket->priority); $dMeta = $ticket->deadlineMeta(); @endphp
                             <div wire:key="ticket-{{ $ticket->id }}" data-ticket-id="{{ $ticket->id }}"
                                 wire:click="openEdit({{ $ticket->id }})"
                                 class="kanban-card group cursor-pointer rounded-xl border border-zinc-200/80 bg-white p-3 shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md dark:border-white/[0.06] dark:bg-zinc-800/80 dark:hover:border-white/15 {{ $ticket->priority === 'urgent' && $ticket->status !== 'done' ? 'ring-1 ring-red-500/30 dark:ring-red-500/25' : '' }}">
                                 {{-- top row: type + ticket number --}}
                                 <div class="mb-2 flex items-center justify-between gap-2">
-                                    <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium {{ $tMeta['classes'] }}">
-                                        <flux:icon name="{{ $tMeta['icon'] }}" class="size-3" /> {{ $tMeta['label'] }}
-                                    </span>
+                                    @if ($ticket->type)
+                                        <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium" style="color: {{ $ticket->type->color }}; background-color: {{ $ticket->type->color }}1a;">
+                                            <span class="size-1.5 rounded-full" style="background-color: {{ $ticket->type->color }}"></span> {{ $ticket->type->name }}
+                                        </span>
+                                    @else
+                                        <span class="text-[11px] text-zinc-400 dark:text-zinc-500">No type</span>
+                                    @endif
                                     <span class="truncate font-mono text-[10px] text-zinc-400 dark:text-zinc-500" title="{{ $ticket->ticket_number }}">{{ $ticket->ticket_number }}</span>
                                 </div>
 
@@ -623,7 +708,7 @@ new class extends Component
                     </thead>
                     <tbody class="divide-y divide-zinc-100 dark:divide-white/[0.05]">
                         @forelse ($this->listTickets as $ticket)
-                            @php $tMeta = $this->typeMeta($ticket->type); $pMeta = $this->priorityMeta($ticket->priority); $dMeta = $ticket->deadlineMeta(); $col = $this->columns[$ticket->status]; @endphp
+                            @php $pMeta = $this->priorityMeta($ticket->priority); $dMeta = $ticket->deadlineMeta(); $col = $this->columns[$ticket->status]; @endphp
                             <tr wire:key="row-{{ $ticket->id }}" wire:click="openEdit({{ $ticket->id }})"
                                 class="group cursor-pointer transition hover:bg-zinc-50 dark:hover:bg-white/[0.03]">
                                 <td class="px-4 py-3">
@@ -648,9 +733,14 @@ new class extends Component
                                     @endif
                                 </td>
                                 <td class="px-3 py-3">
-                                    <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium {{ $tMeta['classes'] }}">
-                                        <flux:icon name="{{ $tMeta['icon'] }}" class="size-3" /> {{ $tMeta['label'] }}
-                                    </span>
+                                    @if ($ticket->type)
+                                        <span class="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                                            <span class="size-2 rounded-full" style="background-color: {{ $ticket->type->color }}"></span>
+                                            {{ $ticket->type->name }}
+                                        </span>
+                                    @else
+                                        <span class="text-xs text-zinc-300 dark:text-zinc-600">—</span>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-3">
                                     <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium {{ $pMeta['classes'] }}">
@@ -702,14 +792,16 @@ new class extends Component
     {{-- ===================== EDIT MODAL ===================== --}}
     <flux:modal wire:model.self="showEditModal" class="md:w-[640px]" :dismissible="true">
         @if ($this->selectedTicket)
-            @php $st = $this->selectedTicket; $stType = $this->typeMeta($st->type); @endphp
+            @php $st = $this->selectedTicket; @endphp
             <div class="flex h-full flex-col">
                 {{-- header --}}
                 <div class="border-b border-zinc-200 pb-4 dark:border-white/[0.08]">
                     <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium {{ $stType['classes'] }}">
-                            <flux:icon name="{{ $stType['icon'] }}" class="size-3" /> {{ $stType['label'] }}
-                        </span>
+                        @if ($st->type)
+                            <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium" style="color: {{ $st->type->color }}; background-color: {{ $st->type->color }}1a;">
+                                <span class="size-1.5 rounded-full" style="background-color: {{ $st->type->color }}"></span> {{ $st->type->name }}
+                            </span>
+                        @endif
                         <span class="font-mono text-xs text-zinc-400 dark:text-zinc-500">{{ $st->ticket_number }}</span>
                         <a href="{{ route('admin.it-board.show', $st) }}" wire:navigate class="ml-auto inline-flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400">
                             Open full page <flux:icon name="arrow-top-right-on-square" class="size-3.5" />
@@ -752,9 +844,10 @@ new class extends Component
                         </flux:field>
                         <flux:field>
                             <flux:label>Type</flux:label>
-                            <flux:select wire:model="eType">
-                                @foreach (ItTicket::types() as $t)
-                                    <option value="{{ $t }}">{{ ucfirst($t) }}</option>
+                            <flux:select wire:model="eTypeId">
+                                <option value="">No type</option>
+                                @foreach ($this->types as $t)
+                                    <option value="{{ $t->id }}">{{ $t->name }}</option>
                                 @endforeach
                             </flux:select>
                         </flux:field>
@@ -872,9 +965,10 @@ new class extends Component
             <div class="grid grid-cols-2 gap-3">
                 <flux:field>
                     <flux:label>Type</flux:label>
-                    <flux:select wire:model="cType">
-                        @foreach (ItTicket::types() as $t)
-                            <option value="{{ $t }}">{{ ucfirst($t) }}</option>
+                    <flux:select wire:model="cTypeId">
+                        <option value="">No type</option>
+                        @foreach ($this->types as $t)
+                            <option value="{{ $t->id }}">{{ $t->name }}</option>
                         @endforeach
                     </flux:select>
                 </flux:field>
@@ -980,6 +1074,66 @@ new class extends Component
                     </flux:button>
                 </div>
                 <flux:error name="catName" />
+            </div>
+
+            <div class="flex justify-end border-t border-zinc-200 pt-4 dark:border-white/[0.08]">
+                <flux:modal.close>
+                    <flux:button variant="ghost">Done</flux:button>
+                </flux:modal.close>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- ===================== TYPE MANAGER ===================== --}}
+    <flux:modal wire:model.self="showTypeModal" class="md:w-[520px]">
+        <div class="space-y-5">
+            <div>
+                <flux:heading size="lg">Manage Types</flux:heading>
+                <flux:text class="mt-1">Customize the ticket types for your team. Deleting a type leaves its tickets without a type.</flux:text>
+            </div>
+
+            {{-- list --}}
+            <div class="space-y-2">
+                @forelse ($this->types as $type)
+                    <div wire:key="type-{{ $type->id }}" class="rounded-lg border border-zinc-200/80 bg-white px-3 py-2.5 dark:border-white/[0.06] dark:bg-zinc-800/50">
+                        @if ($editingTypeId === $type->id)
+                            <div class="flex items-center gap-2">
+                                <input type="color" wire:model="editTypeColor" class="size-8 shrink-0 cursor-pointer rounded border border-zinc-200 bg-transparent dark:border-white/10" />
+                                <flux:input wire:model="editTypeName" size="sm" class="flex-1" />
+                                <flux:button size="sm" variant="primary" wire:click="updateType">Save</flux:button>
+                                <flux:button size="sm" variant="ghost" wire:click="cancelEditType">Cancel</flux:button>
+                            </div>
+                            <flux:error name="editTypeName" />
+                        @else
+                            <div class="flex items-center gap-2.5">
+                                <span class="size-4 shrink-0 rounded-full" style="background-color: {{ $type->color }}"></span>
+                                <span class="flex-1 text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ $type->name }}</span>
+                                <span class="text-[11px] tabular-nums text-zinc-400">{{ $type->tickets()->count() }} tickets</span>
+                                <button type="button" wire:click="startEditType({{ $type->id }})" class="text-zinc-400 hover:text-indigo-500" aria-label="Edit type">
+                                    <flux:icon name="pencil-square" class="size-4" />
+                                </button>
+                                <button type="button" wire:click="deleteType({{ $type->id }})" wire:confirm="Delete '{{ $type->name }}'? Tickets will have no type." class="text-zinc-400 hover:text-red-500" aria-label="Delete type">
+                                    <flux:icon name="trash" class="size-4" />
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+                @empty
+                    <p class="py-2 text-sm text-zinc-400 dark:text-zinc-500">No types yet. Add one below.</p>
+                @endforelse
+            </div>
+
+            {{-- add --}}
+            <div class="border-t border-zinc-200 pt-4 dark:border-white/[0.08]">
+                <flux:label class="mb-2">Add type</flux:label>
+                <div class="flex items-center gap-2">
+                    <input type="color" wire:model="typeColor" class="size-9 shrink-0 cursor-pointer rounded border border-zinc-200 bg-transparent dark:border-white/10" />
+                    <flux:input wire:model="typeName" placeholder="Type name" size="sm" class="flex-1" />
+                    <flux:button variant="primary" size="sm" wire:click="addType">
+                        <div class="flex items-center"><flux:icon name="plus" class="mr-1 size-4" /> Add</div>
+                    </flux:button>
+                </div>
+                <flux:error name="typeName" />
             </div>
 
             <div class="flex justify-end border-t border-zinc-200 pt-4 dark:border-white/[0.08]">

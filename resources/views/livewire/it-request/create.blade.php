@@ -1,13 +1,14 @@
 <?php
 
 use App\Models\ItTicket;
+use App\Models\ItTicketType;
 use Livewire\Volt\Component;
 
 new class extends Component
 {
     public string $title = '';
     public string $description = '';
-    public string $type = 'task';
+    public $typeId = null;
     public string $priority = 'medium';
 
     public bool $submitted = false;
@@ -17,12 +18,24 @@ new class extends Component
         return 'components.layouts.app.sidebar';
     }
 
+    public function mount(): void
+    {
+        $this->typeId = ItTicketType::orderBy('sort_order')->value('id');
+    }
+
+    public function getTypesProperty()
+    {
+        return ItTicketType::orderBy('sort_order')->orderBy('name')->get();
+    }
+
     public function submit(): void
     {
+        $this->typeId = $this->typeId ?: null;
+
         $this->validate([
             'title' => 'required|min:5|max:255',
             'description' => 'nullable|max:5000',
-            'type' => 'required|in:' . implode(',', ItTicket::types()),
+            'typeId' => 'nullable|exists:it_ticket_types,id',
             'priority' => 'required|in:' . implode(',', ItTicket::priorities()),
         ]);
 
@@ -30,7 +43,7 @@ new class extends Component
             'ticket_number' => ItTicket::generateTicketNumber(),
             'title' => $this->title,
             'description' => $this->description,
-            'type' => $this->type,
+            'type_id' => $this->typeId,
             'priority' => $this->priority,
             'status' => 'backlog',
             'position' => ItTicket::where('status', 'backlog')->max('position') + 1,
@@ -42,8 +55,8 @@ new class extends Component
 
     public function submitAnother(): void
     {
-        $this->reset(['title', 'description', 'type', 'priority', 'submitted']);
-        $this->type = 'task';
+        $this->reset(['title', 'description', 'typeId', 'priority', 'submitted']);
+        $this->typeId = ItTicketType::orderBy('sort_order')->value('id');
         $this->priority = 'medium';
     }
 }; ?>
@@ -78,12 +91,12 @@ new class extends Component
                 <div class="px-6 py-5 space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <flux:label for="type" class="mb-1.5">Type *</flux:label>
-                            <flux:select wire:model="type" id="type">
-                                <option value="bug">Bug - Something is broken</option>
-                                <option value="feature">Feature - New functionality</option>
-                                <option value="task">Task - General work item</option>
-                                <option value="improvement">Improvement - Enhance existing feature</option>
+                            <flux:label for="typeId" class="mb-1.5">Type</flux:label>
+                            <flux:select wire:model="typeId" id="typeId">
+                                <option value="">No type</option>
+                                @foreach($this->types as $type)
+                                    <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                @endforeach
                             </flux:select>
                         </div>
                         <div>

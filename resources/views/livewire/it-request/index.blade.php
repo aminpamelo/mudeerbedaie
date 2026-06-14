@@ -16,6 +16,7 @@ new class extends Component
     public function getTicketsProperty()
     {
         return ItTicket::where('reporter_id', auth()->id())
+            ->with('type')
             ->orderByDesc('created_at')
             ->paginate(10);
     }
@@ -39,7 +40,11 @@ new class extends Component
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
                             <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $ticket->title }}</p>
-                            <flux:badge size="sm" :color="$ticket->getTypeColor()">{{ $ticket->getTypeLabel() }}</flux:badge>
+                            @if($ticket->type)
+                                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium" style="color: {{ $ticket->type->color }}; background-color: {{ $ticket->type->color }}1a;">
+                                    <span class="size-1.5 rounded-full" style="background-color: {{ $ticket->type->color }}"></span> {{ $ticket->type->name }}
+                                </span>
+                            @endif
                             <flux:badge size="sm" :color="$ticket->getPriorityColor()">{{ ucfirst($ticket->priority) }}</flux:badge>
                         </div>
                         <div class="flex items-center gap-3 mt-1">

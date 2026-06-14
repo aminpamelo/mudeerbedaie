@@ -2,6 +2,7 @@
 
 use App\Models\ItTicket;
 use App\Models\ItTicketCategory;
+use App\Models\ItTicketType;
 use App\Models\User;
 use Livewire\Volt\Component;
 
@@ -9,7 +10,7 @@ new class extends Component
 {
     public string $title = '';
     public string $description = '';
-    public string $type = 'task';
+    public $typeId = null;
     public string $priority = 'medium';
     public string $status = 'backlog';
     public $categoryId = null;
@@ -19,6 +20,11 @@ new class extends Component
     public function layout()
     {
         return 'components.layouts.app.sidebar';
+    }
+
+    public function mount(): void
+    {
+        $this->typeId = ItTicketType::orderBy('sort_order')->value('id');
     }
 
     public function getAdminUsersProperty()
@@ -31,14 +37,20 @@ new class extends Component
         return ItTicketCategory::orderBy('sort_order')->orderBy('name')->get();
     }
 
+    public function getTypesProperty()
+    {
+        return ItTicketType::orderBy('sort_order')->orderBy('name')->get();
+    }
+
     public function create(): void
     {
+        $this->typeId = $this->typeId ?: null;
         $this->categoryId = $this->categoryId ?: null;
 
         $this->validate([
             'title' => 'required|min:3|max:255',
             'description' => 'nullable|max:5000',
-            'type' => 'required|in:' . implode(',', ItTicket::types()),
+            'typeId' => 'nullable|exists:it_ticket_types,id',
             'priority' => 'required|in:' . implode(',', ItTicket::priorities()),
             'status' => 'required|in:' . implode(',', ItTicket::statuses()),
             'categoryId' => 'nullable|exists:it_ticket_categories,id',
@@ -50,7 +62,7 @@ new class extends Component
             'ticket_number' => ItTicket::generateTicketNumber(),
             'title' => $this->title,
             'description' => $this->description,
-            'type' => $this->type,
+            'type_id' => $this->typeId,
             'priority' => $this->priority,
             'category_id' => $this->categoryId,
             'status' => $this->status,
@@ -90,12 +102,12 @@ new class extends Component
             <div class="px-6 py-5 space-y-5">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
-                        <flux:label for="type" class="mb-1.5">Type *</flux:label>
-                        <flux:select wire:model="type" id="type">
-                            <option value="bug">Bug</option>
-                            <option value="feature">Feature</option>
-                            <option value="task">Task</option>
-                            <option value="improvement">Improvement</option>
+                        <flux:label for="typeId" class="mb-1.5">Type</flux:label>
+                        <flux:select wire:model="typeId" id="typeId">
+                            <option value="">No type</option>
+                            @foreach($this->types as $type)
+                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                            @endforeach
                         </flux:select>
                     </div>
                     <div>

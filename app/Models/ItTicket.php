@@ -16,7 +16,7 @@ class ItTicket extends Model
         'ticket_number',
         'title',
         'description',
-        'type',
+        'type_id',
         'priority',
         'category_id',
         'status',
@@ -66,6 +66,11 @@ class ItTicket extends Model
         return $this->belongsTo(ItTicketCategory::class, 'category_id');
     }
 
+    public function type(): BelongsTo
+    {
+        return $this->belongsTo(ItTicketType::class, 'type_id');
+    }
+
     public function comments(): HasMany
     {
         return $this->hasMany(ItTicketComment::class)->orderBy('created_at', 'asc');
@@ -103,11 +108,6 @@ class ItTicket extends Model
         return ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done'];
     }
 
-    public static function types(): array
-    {
-        return ['bug', 'feature', 'task', 'improvement'];
-    }
-
     public static function priorities(): array
     {
         return ['low', 'medium', 'high', 'urgent'];
@@ -128,24 +128,16 @@ class ItTicket extends Model
 
     public function getTypeLabel(): string
     {
-        return match ($this->type) {
-            'bug' => 'Bug',
-            'feature' => 'Feature',
-            'task' => 'Task',
-            'improvement' => 'Improvement',
-            default => ucfirst($this->type),
-        };
+        return $this->type?->name ?? 'No type';
     }
 
+    /**
+     * The type's hex color (custom types carry arbitrary colors), with a neutral
+     * zinc fallback when a ticket has no type.
+     */
     public function getTypeColor(): string
     {
-        return match ($this->type) {
-            'bug' => 'red',
-            'feature' => 'green',
-            'task' => 'blue',
-            'improvement' => 'yellow',
-            default => 'gray',
-        };
+        return $this->type?->color ?? '#71717a';
     }
 
     public function getPriorityColor(): string
