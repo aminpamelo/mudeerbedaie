@@ -347,8 +347,14 @@ class FunnelAutomationService
      * Handles {{contact.name}}, {{order.number}}, etc.
      * Falls back to the raw string if not a merge tag pattern.
      */
-    protected function resolveContextValue(string $value, array $context): string
+    protected function resolveContextValue(?string $value, array $context): string
     {
+        // A template variable can be configured without a merge tag (null/empty);
+        // resolve it to an empty string instead of crashing the caller.
+        if ($value === null || $value === '') {
+            return '';
+        }
+
         // Check if it's a merge tag pattern like {{contact.name}} or {{contact.name|default:"there"}}
         if (preg_match('/^\{\{(.+?)\}\}$/', trim($value), $matches)) {
             $key = $matches[1];

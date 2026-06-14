@@ -133,6 +133,52 @@ test('executeSendWhatsApp sends WABA template when provider is waba', function (
     expect($result['template_name'])->toBe('order_confirmation');
 });
 
+test('WABA template tolerates a null merge tag without crashing (COD checkout regression)', function () {
+    $template = WhatsAppTemplate::factory()->create([
+        'name' => 'order_confirmation',
+        'language' => 'ms',
+        'status' => 'APPROVED',
+        'components' => [
+            ['type' => 'BODY', 'text' => 'Terima kasih {{1}}! Pesanan {{2}}.'],
+        ],
+    ]);
+
+    $automation = FunnelAutomation::factory()->create();
+    $action = FunnelAutomationAction::factory()->create([
+        'automation_id' => $automation->id,
+        'action_type' => 'send_whatsapp',
+        'action_config' => [
+            'provider' => 'waba',
+            'template_id' => $template->id,
+            'template_name' => 'order_confirmation',
+            'template_language' => 'ms',
+            'template_variables' => [
+                'body' => [
+                    '1' => '{{contact.name}}',
+                    '2' => null, // misconfigured variable — previously raised a TypeError and 500'd the COD checkout
+                ],
+            ],
+            'phone_field' => 'contact.phone',
+        ],
+    ]);
+
+    $this->metaProvider->shouldReceive('sendTemplate')
+        ->once()
+        ->withArgs(function ($phone, $name, $lang, $components) {
+            return $components[0]['parameters'][0]['text'] === 'Ahmad'
+                && $components[0]['parameters'][1]['text'] === '';
+        })
+        ->andReturn(['success' => true, 'message_id' => 'wamid_null']);
+
+    $service = app(FunnelAutomationService::class);
+    $method = new ReflectionMethod($service, 'executeSendWhatsApp');
+    $result = $method->invoke($service, $action, [
+        'contact' => ['name' => 'Ahmad', 'phone' => '60123456789'],
+    ]);
+
+    expect($result['success'])->toBeTrue();
+});
+
 test('executeSendWhatsApp falls back to template variable_mappings when action config has no template_variables', function () {
     $template = WhatsAppTemplate::factory()->create([
         'name' => 'order_shipped',
