@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useForm } from '@inertiajs/react';
 import { Loader2, Search, Check, X, ChevronDown } from 'lucide-react';
 import Modal from './Modal';
@@ -17,15 +18,41 @@ const LABEL = 'mb-1 block text-[11px] font-medium uppercase tracking-[0.08em] te
 function MultiAssigneeSelect({ employees, value, onChange, t }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const ref = useRef(null);
+  const [menuRect, setMenuRect] = useState(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
 
-  useEffect(() => {
-    function onDocClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+  // The menu is portaled to <body> so the modal's `overflow-y-auto` can't clip
+  // it; anchor it under the trigger and keep it pinned on scroll / resize.
+  useLayoutEffect(() => {
+    if (!open) {
+      return undefined;
     }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
+
+    const place = () => {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (r) {
+        setMenuRect({ left: r.left, top: r.bottom + 4, width: r.width });
+      }
+    };
+    place();
+
+    const onPointer = (e) => {
+      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) {
+        return;
+      }
+      setOpen(false);
+    };
+
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    document.addEventListener('mousedown', onPointer);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      document.removeEventListener('mousedown', onPointer);
+    };
+  }, [open]);
 
   const selectedSet = new Set(value);
   const byId = new Map(employees.map((e) => [e.id, e.name]));
@@ -37,8 +64,9 @@ function MultiAssigneeSelect({ employees, value, onChange, t }) {
   }
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(FIELD, 'flex min-h-[38px] flex-wrap items-center gap-1.5 text-left')}
@@ -69,52 +97,59 @@ function MultiAssigneeSelect({ employees, value, onChange, t }) {
         <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-2" />
       </button>
 
-      {open && (
-        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-[rgba(15,23,42,0.12)] bg-white shadow-lg">
-          <div className="relative border-b border-[rgba(15,23,42,0.08)]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-2" />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('tasks_search_staff')}
-              className="w-full bg-transparent py-2 pl-8 pr-3 text-[13px] text-ink outline-none"
-            />
-          </div>
-          <div className="max-h-52 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-[12px] text-muted">{t('tasks_no_staff_found')}</div>
-            ) : (
-              filtered.map((e) => {
-                const on = selectedSet.has(e.id);
-                return (
-                  <button
-                    type="button"
-                    key={e.id}
-                    onClick={() => toggle(e.id)}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[rgba(15,23,42,0.04)]"
-                  >
-                    <span
-                      className={cn(
-                        'grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors',
-                        on ? 'border-transparent bg-[var(--color-brand)] text-white' : 'border-[rgba(15,23,42,0.25)]'
-                      )}
-                    >
-                      {on && <Check className="h-3 w-3" strokeWidth={3} />}
-                    </span>
-                    {e.name}
-                  </button>
-                );
-              })
-            )}
-          </div>
-          {value.length > 0 && (
-            <div className="border-t border-[rgba(15,23,42,0.08)] px-3 py-1.5 text-[11px] text-muted">
-              {t('tasks_selected_count', { count: value.length })}
+      {open &&
+        menuRect &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', left: menuRect.left, top: menuRect.top, width: menuRect.width }}
+            className="z-[70] overflow-hidden rounded-xl border border-[rgba(15,23,42,0.12)] bg-white shadow-[0_20px_50px_-15px_rgba(11,18,32,0.4)]"
+          >
+            <div className="relative border-b border-[rgba(15,23,42,0.08)]">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-2" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('tasks_search_staff')}
+                className="w-full bg-transparent py-2 pl-8 pr-3 text-[13px] text-ink outline-none"
+              />
             </div>
-          )}
-        </div>
-      )}
+            <div className="max-h-52 overflow-y-auto py-1">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-2 text-[12px] text-muted">{t('tasks_no_staff_found')}</div>
+              ) : (
+                filtered.map((e) => {
+                  const on = selectedSet.has(e.id);
+                  return (
+                    <button
+                      type="button"
+                      key={e.id}
+                      onClick={() => toggle(e.id)}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[rgba(15,23,42,0.04)]"
+                    >
+                      <span
+                        className={cn(
+                          'grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors',
+                          on ? 'border-transparent bg-[var(--color-brand)] text-white' : 'border-[rgba(15,23,42,0.25)]'
+                        )}
+                      >
+                        {on && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </span>
+                      {e.name}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {value.length > 0 && (
+              <div className="border-t border-[rgba(15,23,42,0.08)] px-3 py-1.5 text-[11px] text-muted">
+                {t('tasks_selected_count', { count: value.length })}
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

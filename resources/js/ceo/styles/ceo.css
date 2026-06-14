@@ -166,7 +166,12 @@ body::before {
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .toast-in { animation: toast-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Centered dialog (portaled to <body>) — scale + fade in, settling to an
+   identity transform so it leaves no containing block behind it. */
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+.modal-in { animation: modal-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
   body::before { animation: none; }
-  .gauge-arc, .bar-fill, .live-dot::after, .sheet-up, .scrim-in, .toast-in { animation: none; }
+  .gauge-arc, .bar-fill, .live-dot::after, .sheet-up, .scrim-in, .toast-in, .modal-in { animation: none; }
 }
