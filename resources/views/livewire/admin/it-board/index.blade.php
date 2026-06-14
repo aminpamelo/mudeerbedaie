@@ -22,6 +22,9 @@ new class extends Component
     #[Url(as: 'ticket')]
     public ?int $openTicketId = null;
 
+    #[Url(as: 'cal')]
+    public ?string $calMonth = null;
+
     // Create modal
     public bool $showCreateModal = false;
     public string $cTitle = '';
@@ -128,6 +131,87 @@ new class extends Component
             ->values();
     }
 
+    private function currentCalMonth(): \Carbon\Carbon
+    {
+        try {
+            return $this->calMonth
+                ? \Carbon\Carbon::createFromFormat('Y-m', $this->calMonth)->startOfMonth()
+                : now()->startOfMonth();
+        } catch (\Throwable $e) {
+            return now()->startOfMonth();
+        }
+    }
+
+    /**
+     * Six-week month grid of deadline-bearing tickets for the calendar view.
+     * Respects the active filters and buckets each ticket onto its due date,
+     * highest priority first.
+     *
+     * @return array{monthLabel: string, weekdays: array<int, string>, weeks: array<int, array<int, array<string, mixed>>>, total: int}
+     */
+    public function getCalendarProperty(): array
+    {
+        $month = $this->currentCalMonth();
+        $gridStart = $month->copy()->startOfWeek(\Carbon\Carbon::SUNDAY);
+        $gridEnd = $month->copy()->endOfMonth()->endOfWeek(\Carbon\Carbon::SATURDAY);
+
+        $weight = ['urgent' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+
+        $tickets = $this->filteredQuery()
+            ->whereNotNull('due_date')
+            ->whereDate('due_date', '>=', $gridStart->toDateString())
+            ->whereDate('due_date', '<=', $gridEnd->toDateString())
+            ->with(['assignee', 'category', 'type'])
+            ->get()
+            ->sortBy(fn ($t) => $weight[$t->priority] ?? 9)
+            ->values();
+
+        $byDay = $tickets->groupBy(fn ($t) => $t->due_date->toDateString());
+
+        $today = now()->toDateString();
+        $weeks = [];
+        $cursor = $gridStart->copy();
+
+        while ($cursor <= $gridEnd) {
+            $week = [];
+            for ($i = 0; $i < 7; $i++) {
+                $ds = $cursor->toDateString();
+                $week[] = [
+                    'date' => $ds,
+                    'day' => $cursor->day,
+                    'inMonth' => $cursor->month === $month->month,
+                    'isToday' => $ds === $today,
+                    'isWeekend' => $cursor->isWeekend(),
+                    'tickets' => $byDay->get($ds, collect())->values(),
+                ];
+                $cursor->addDay();
+            }
+            $weeks[] = $week;
+        }
+
+        return [
+            'monthLabel' => $month->format('F Y'),
+            'weekdays' => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+            'weeks' => $weeks,
+            'total' => $tickets->count(),
+        ];
+    }
+
+    public function calPrevMonth(): void
+    {
+        $this->calMonth = $this->currentCalMonth()->subMonthNoOverflow()->format('Y-m');
+    }
+
+    public function calNextMonth(): void
+    {
+        $this->calMonth = $this->currentCalMonth()->addMonthNoOverflow()->format('Y-m');
+    }
+
+    public function calToday(): void
+    {
+        $this->calMonth = now()->format('Y-m');
+    }
+
     public function getStatsProperty(): array
     {
         $all = $this->tickets->flatten();
@@ -214,6 +298,12 @@ new class extends Component
         $this->cStatus = $status;
         $this->resetValidation();
         $this->showCreateModal = true;
+    }
+
+    public function openCreateOn(string $date): void
+    {
+        $this->openCreate();
+        $this->cDueDate = $date;
     }
 
     public function createTicket(): void
@@ -551,6 +641,10 @@ new class extends Component
                 class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition {{ $viewMode === 'list' ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
                 <flux:icon name="list-bullet" class="size-4" /> List
             </button>
+            <button type="button" wire:click="$set('viewMode', 'calendar')"
+                class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition {{ $viewMode === 'calendar' ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
+                <flux:icon name="calendar-days" class="size-4" /> Calendar
+            </button>
         </div>
 
         <div class="ml-auto flex flex-wrap items-center gap-2">
@@ -690,7 +784,7 @@ new class extends Component
                 </div>
             @endforeach
         </div>
-    @else
+    @elseif ($viewMode === 'list')
         {{-- ===================== LIST VIEW ===================== --}}
         <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-zinc-900">
             <div class="overflow-x-auto">
@@ -785,6 +879,89 @@ new class extends Component
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+        </div>
+    @else
+        {{-- ===================== CALENDAR VIEW ===================== --}}
+        @php $cal = $this->calendar; @endphp
+        <div class="rounded-xl border border-zinc-200/80 bg-white shadow-sm dark:border-white/[0.06] dark:bg-zinc-900">
+            {{-- calendar header: month label + navigation --}}
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200/70 px-4 py-3 dark:border-white/[0.06]">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{{ $cal['monthLabel'] }}</h3>
+                    <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium tabular-nums text-zinc-500 dark:bg-zinc-700/60 dark:text-zinc-400">{{ $cal['total'] }} due</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button type="button" wire:click="calPrevMonth" aria-label="Previous month"
+                        class="flex size-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700/60 dark:hover:text-zinc-100">
+                        <flux:icon name="chevron-left" class="size-4" />
+                    </button>
+                    <button type="button" wire:click="calToday"
+                        class="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-zinc-700/60 dark:hover:text-white">
+                        Today
+                    </button>
+                    <button type="button" wire:click="calNextMonth" aria-label="Next month"
+                        class="flex size-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700/60 dark:hover:text-zinc-100">
+                        <flux:icon name="chevron-right" class="size-4" />
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <div class="min-w-[760px]">
+                    {{-- weekday header --}}
+                    <div class="grid grid-cols-7 border-b border-zinc-200/70 dark:border-white/[0.06]">
+                        @foreach ($cal['weekdays'] as $wd)
+                            <div class="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{{ $wd }}</div>
+                        @endforeach
+                    </div>
+
+                    {{-- weeks --}}
+                    @foreach ($cal['weeks'] as $week)
+                        <div class="grid grid-cols-7 border-b border-zinc-100 last:border-0 dark:border-white/[0.04]">
+                            @foreach ($week as $day)
+                                <div wire:key="day-{{ $day['date'] }}"
+                                    class="group/day flex min-h-[118px] flex-col border-r border-zinc-100 p-1.5 last:border-0 dark:border-white/[0.04]
+                                        {{ $day['inMonth'] ? '' : 'bg-zinc-50/60 dark:bg-white/[0.015]' }}
+                                        {{ $day['isWeekend'] && $day['inMonth'] ? 'bg-zinc-50/40 dark:bg-white/[0.01]' : '' }}">
+                                    {{-- day number + quick add --}}
+                                    <div class="mb-1 flex items-center justify-between px-0.5">
+                                        <span class="flex size-6 items-center justify-center rounded-full text-xs font-medium tabular-nums
+                                            {{ $day['isToday'] ? 'bg-indigo-600 text-white' : ($day['inMonth'] ? 'text-zinc-600 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-600') }}">
+                                            {{ $day['day'] }}
+                                        </span>
+                                        <button type="button" wire:click="openCreateOn('{{ $day['date'] }}')" aria-label="Add ticket on {{ $day['date'] }}"
+                                            class="flex size-5 items-center justify-center rounded text-zinc-400 opacity-0 transition hover:bg-zinc-100 hover:text-zinc-700 group-hover/day:opacity-100 focus:opacity-100 dark:hover:bg-zinc-700 dark:hover:text-zinc-200">
+                                            <flux:icon name="plus" class="size-3.5" />
+                                        </button>
+                                    </div>
+
+                                    {{-- tickets due this day (highest priority first) --}}
+                                    <div class="space-y-1">
+                                        @foreach ($day['tickets']->take(3) as $ticket)
+                                            @php $pMeta = $this->priorityMeta($ticket->priority); $overdue = $ticket->isOverdue(); @endphp
+                                            <button type="button" wire:key="cal-t-{{ $ticket->id }}" wire:click="openEdit({{ $ticket->id }})"
+                                                title="{{ $ticket->title }}"
+                                                class="flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-left transition
+                                                    {{ $overdue
+                                                        ? 'border-red-200 bg-red-50 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:hover:bg-red-500/20'
+                                                        : 'border-zinc-200/70 bg-zinc-50 hover:bg-zinc-100 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:bg-white/[0.06]' }}">
+                                                <span class="size-1.5 shrink-0 rounded-full {{ $pMeta['dot'] }}"></span>
+                                                <span class="truncate text-[11px] font-medium text-zinc-700 dark:text-zinc-200">{{ $ticket->title }}</span>
+                                            </button>
+                                        @endforeach
+                                        @if ($day['tickets']->count() > 3)
+                                            <button type="button" wire:click="openEdit({{ $day['tickets'][3]->id }})"
+                                                class="block w-full px-1.5 text-left text-[10px] font-medium text-zinc-400 transition hover:text-indigo-500 dark:text-zinc-500 dark:hover:text-indigo-400">
+                                                +{{ $day['tickets']->count() - 3 }} more
+                                            </button>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endforeach
+                </div>
             </div>
         </div>
     @endif
