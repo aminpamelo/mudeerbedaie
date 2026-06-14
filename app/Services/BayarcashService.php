@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\ProductOrder;
 use Illuminate\Support\Facades\Log;
 use Webimpian\BayarcashSdk\Bayarcash;
+use Webimpian\BayarcashSdk\Exceptions\ValidationException as BayarcashValidationException;
 
 class BayarcashService
 {
@@ -187,7 +188,9 @@ class BayarcashService
             'amount' => $amount,
             'payer_name' => $data['payer_name'],
             'payer_email' => $data['payer_email'],
-            'payer_telephone_number' => $data['payer_phone'] ?? '',
+            // Bayarcash rejects a leading "+" and other formatting — send a
+            // digits-only Malaysian number (e.g. 60123456789).
+            'payer_telephone_number' => $this->normalizePhoneNumber($data['payer_phone'] ?? ''),
             'payment_channel' => $data['payment_channel'] ?? Bayarcash::FPX,
             'callback_url' => $this->getCallbackUrl(),
             'return_url' => $this->getReturnUrl($data['order_number']),
@@ -208,7 +211,67 @@ class BayarcashService
             'payment_channel' => $paymentData['payment_channel'],
         ]);
 
-        return $this->bayarcash->createPaymentIntent($paymentData);
+        try {
+            return $this->bayarcash->createPaymentIntent($paymentData);
+        } catch (BayarcashValidationException $e) {
+            // The SDK collapses the API's 422 field errors into a generic
+            // "failed to pass validation" message; surface the real reason so
+            // the failure is diagnosable and the buyer sees why.
+            Log::error('Bayarcash payment intent rejected', [
+                'order_number' => $data['order_number'],
+                'errors' => $e->errors(),
+            ]);
+
+            throw new \RuntimeException($this->formatValidationErrors($e->errors()), 0, $e);
+        }
+    }
+
+    /**
+     * Reduce a phone number to the digits-only Malaysian format Bayarcash
+     * expects: strips "+", spaces and punctuation, and maps a local 0-prefix
+     * (0123456789) to the international 60123456789.
+     */
+    private function normalizePhoneNumber(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        if (str_starts_with($digits, '0')) {
+            $digits = '60'.substr($digits, 1);
+        }
+
+        return $digits;
+    }
+
+    /**
+     * Flatten the SDK's field-error payload into a human-readable message.
+     * Bayarcash returns either {message, errors:{field:[...]}} or {field:[...]}.
+     *
+     * @param  array<string, mixed>  $errors
+     */
+    private function formatValidationErrors(array $errors): string
+    {
+        $messages = [];
+        $fields = is_array($errors['errors'] ?? null) ? $errors['errors'] : $errors;
+
+        foreach ($fields as $fieldErrors) {
+            foreach ((array) $fieldErrors as $message) {
+                if (is_string($message) && $message !== '') {
+                    $messages[] = $message;
+                }
+            }
+        }
+
+        if ($messages === [] && is_string($errors['message'] ?? null)) {
+            $messages[] = $errors['message'];
+        }
+
+        return $messages === []
+            ? 'Payment gateway rejected the request. Please check your details and try again.'
+            : implode(' ', array_unique($messages));
     }
 
     /**
