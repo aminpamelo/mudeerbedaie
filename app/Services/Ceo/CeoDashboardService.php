@@ -9,6 +9,7 @@ use App\Services\Ceo\Reports\HrHealthReport;
 use App\Services\Ceo\Reports\LiveHostHealthReport;
 use App\Services\Ceo\Reports\MonthlyReportService;
 use App\Services\Ceo\Reports\SalesHealthReport;
+use App\Services\Ceo\Reports\StaffKpiReport;
 use App\Services\Ceo\Reports\TaskMonitoringReport;
 use Illuminate\Support\Facades\Cache;
 
@@ -55,6 +56,23 @@ class CeoDashboardService
             "ceo:monthly:{$department}:{$year}:".app()->getLocale(),
             self::CACHE_TTL,
             fn () => $this->monthlyReport->build($department, $year)
+        );
+    }
+
+    /**
+     * Staff KPI matrix (one row per employee × Jan–Dec) for a year. Shares the
+     * task cache version so task edits invalidate it; cached per year + locale.
+     *
+     * @return array<string, mixed>
+     */
+    public function staffKpi(int $year): array
+    {
+        $version = Cache::get(self::TASK_CACHE_VERSION_KEY, 0);
+
+        return Cache::remember(
+            "ceo:staffkpi:v{$version}:{$year}:".app()->getLocale(),
+            self::CACHE_TTL,
+            fn () => $this->staffKpiReport->build($year)
         );
     }
 

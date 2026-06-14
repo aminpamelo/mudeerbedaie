@@ -48,6 +48,10 @@ return [
         'monthly_nav' => 'Monthly Performance',
         'monthly_nav_ecommerce' => 'Monthly · E-commerce',
         'monthly_nav_livehost' => 'Monthly · Live Host',
+        'kpi_nav' => 'Staff KPI',
+        'kpi_subtitle' => 'Monthly task performance per staff',
+        'kpi_tasks_heading' => 'Tasks',
+        'kpi_no_tasks' => 'No tasks for this staff',
 
         // Editable task board
         'tasks_board_title' => 'Task List',
@@ -106,17 +110,12 @@ return [
         'cal_late' => 'Late',
         'cal_busiest' => 'Busiest day',
         'cal_priority' => 'Priority',
-        'cal_workload' => 'Workload',
         'cal_more' => '+:count more',
         'cal_empty_month' => 'No tasks this month',
-        'cal_no_tasks_day' => 'No tasks on this day',
-        'cal_overdue_flag' => ':count overdue',
-        'cal_late_flag' => ':count late',
         'cal_unassigned' => 'Unassigned',
         'cal_due_on' => 'Due :date',
         'cal_done_on' => 'Completed :date',
         'cal_view_list' => 'Open task list',
-        'cal_legend' => 'Legend',
     ],
 
     'status' => [
@@ -372,6 +371,17 @@ return [
         'm_gmv_avg' => 'Avg GMV / session',
         'm_hours' => 'Live hours',
         'm_replacements' => 'Replacements',
+    ],
+
+    'kpi' => [
+        'na' => '—',
+        'col_staff' => 'Staff',
+        'col_total' => 'Completed',
+        'col_ontime' => 'On-time',
+        'col_trend' => 'Trend',
+        'hero_label' => 'Tasks completed · :year',
+        'hero_ontime' => ':pct% on-time',
+        'module' => 'Open Meetings & Tasks',
     ],
 
     'matrix' => [

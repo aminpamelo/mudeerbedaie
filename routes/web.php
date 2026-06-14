@@ -291,6 +291,8 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
             ->name('tasks.destroy');
         Route::get('reports/monthly', [\App\Http\Controllers\Ceo\MonthlyReportController::class, 'index'])
             ->name('reports.monthly');
+        Route::get('kpi', [\App\Http\Controllers\Ceo\StaffKpiController::class, 'index'])
+            ->name('kpi');
         Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
             ->where('department', 'livehost|education|ecommerce|hr|sales')
             ->name('department');

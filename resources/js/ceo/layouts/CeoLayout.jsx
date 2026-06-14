@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange, Wallet, Menu, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange, Wallet, Menu, X, BarChart3 } from 'lucide-react';
 import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
@@ -15,7 +15,10 @@ const DEPARTMENTS = [
   { labelKey: 'dept_sales', href: '/ceo/sales', icon: Wallet, accent: 'brand' },
 ];
 
-const MONITORING = [{ labelKey: 'tasks_nav', href: '/ceo/tasks', icon: ListChecks, accent: 'rose' }];
+const MONITORING = [
+  { labelKey: 'tasks_nav', href: '/ceo/tasks', icon: ListChecks, accent: 'rose' },
+  { labelKey: 'kpi_nav', href: '/ceo/kpi', icon: BarChart3, accent: 'cyan' },
+];
 
 const REPORTS = [
   { labelKey: 'monthly_nav_ecommerce', dept: 'ecommerce', href: '/ceo/reports/monthly?department=ecommerce', icon: CalendarRange, accent: 'violet' },
@@ -38,6 +41,7 @@ const ACCENT_HEX = {
   amber: '#F59E0B',
   rose: '#F43F5E',
   brand: '#6366F1',
+  cyan: '#06B6D4',
 };
 
 function isOverviewActive(url) {

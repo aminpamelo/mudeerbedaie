@@ -41,6 +41,7 @@ import {
     deleteTaskCategory,
 } from '../../lib/api';
 import { cn } from '../../lib/utils';
+import { useToast } from '../../components/Toast';
 import PageHeader from '../../components/PageHeader';
 import SearchInput from '../../components/SearchInput';
 import { Badge } from '../../components/ui/badge';
@@ -960,6 +961,7 @@ function TaskFormDialog({ open, onClose, task, employees, categories, saveMut })
 
 function ManageCategoriesDialog({ open, onClose, categories }) {
     const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [form, setForm] = useState(EMPTY_CATEGORY_FORM);
     const [editingId, setEditingId] = useState(null);
     const [errors, setErrors] = useState({});
@@ -971,13 +973,25 @@ function ManageCategoriesDialog({ open, onClose, categories }) {
 
     const saveMut = useMutation({
         mutationFn: ({ id, payload }) => (id ? updateTaskCategory(id, payload) : createTaskCategory(payload)),
-        onSuccess: () => { invalidate(); resetForm(); },
-        onError: (err) => setErrors(err.response?.data?.errors || {}),
+        onSuccess: (data, variables) => {
+            invalidate();
+            resetForm();
+            toast.success(variables.id ? 'Category updated' : 'Category created');
+        },
+        onError: (err) => {
+            setErrors(err.response?.data?.errors || {});
+            toast.error('Could not save category', 'Please check the form and try again.');
+        },
     });
 
     const deleteMut = useMutation({
         mutationFn: (id) => deleteTaskCategory(id),
-        onSuccess: () => { invalidate(); if (editingId) resetForm(); },
+        onSuccess: () => {
+            invalidate();
+            if (editingId) resetForm();
+            toast.success('Category deleted');
+        },
+        onError: () => toast.error('Could not delete category', 'Please try again.'),
     });
 
     function resetForm() {
@@ -1127,6 +1141,7 @@ export default function TaskDashboard() {
     const navigate = useNavigate();
     const location = useLocation();
     const queryClient = useQueryClient();
+    const { toast } = useToast();
 
     const validViews = VIEW_MODES.map((v) => v.key);
     const hashView = location.hash.replace('#', '');
@@ -1180,7 +1195,11 @@ export default function TaskDashboard() {
 
     const statusMut = useMutation({
         mutationFn: ({ id, status }) => updateTaskStatus(id, { status }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr', 'tasks'] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'tasks'] });
+            toast.success('Task status updated');
+        },
+        onError: () => toast.error('Could not update status', 'Please try again.'),
     });
 
     const commentMut = useMutation({
@@ -1188,15 +1207,19 @@ export default function TaskDashboard() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'tasks'] });
             setCommentText('');
+            toast.success('Comment added');
         },
+        onError: () => toast.error('Could not add comment', 'Please try again.'),
     });
 
     const saveTaskMut = useMutation({
         mutationFn: ({ id, payload }) => (id ? updateMeetingTaskItem(id, payload) : createTask(payload)),
-        onSuccess: () => {
+        onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'tasks'] });
             queryClient.invalidateQueries({ queryKey: ['hr', 'task-categories'] });
+            toast.success(variables.id ? 'Task updated' : 'Task created');
         },
+        onError: () => toast.error('Could not save task', 'Please check the form and try again.'),
     });
 
     const tasks = data?.data || [];

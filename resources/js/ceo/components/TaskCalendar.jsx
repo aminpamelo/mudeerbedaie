@@ -169,37 +169,49 @@ export default function TaskCalendar({ calendar, onOpenList }) {
       </section>
 
       {/* Calendar grid */}
-      <div className={cn('glass-card rounded-[20px] p-3 transition-opacity sm:p-4', busy && 'opacity-60')}>
-        <div className="mb-2 grid grid-cols-7 gap-1.5 sm:gap-2">
-          {weekdays.map((wd, i) => (
-            <div key={i} className="px-1 pb-1 text-center font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-2">
-              {wd}
-            </div>
-          ))}
-        </div>
+      <div className={cn('glass-card rounded-[20px] p-2 transition-opacity sm:p-4', busy && 'opacity-60')}>
+        <div role="grid" aria-label={t('tasks_tab_calendar')}>
+          <div role="row" className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
+            {weekdays.map((wd) => (
+              <div key={wd} role="columnheader" className="px-1 pb-1 text-center font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-2">
+                {wd}
+              </div>
+            ))}
+          </div>
 
-        <div className="flex flex-col gap-1.5 sm:gap-2">
-          {weeks.map((week, wi) => (
-            <div key={wi} className="grid grid-cols-7 gap-1.5 sm:gap-2">
-              {week.map((cell) => {
-                const interactive = cell.total > 0;
-                const Tag2 = interactive ? 'button' : 'div';
-                return (
-                  <Tag2
-                    key={cell.date}
-                    type={interactive ? 'button' : undefined}
-                    onClick={interactive ? () => setDay(cell) : undefined}
-                    aria-label={interactive ? `${cell.dateLabel} · ${cell.total}` : cell.dateLabel}
-                    style={heatStyle(cell)}
-                    className={cn(
-                      'flex min-h-[84px] flex-col gap-1 rounded-xl border p-1.5 text-left transition-all sm:min-h-[106px]',
-                      cell.inMonth ? 'border-[rgba(15,23,42,0.06)]' : 'border-transparent opacity-45',
-                      cell.isWeekend && cell.inMonth && cell.heat <= 0 && 'bg-[rgba(15,23,42,0.02)]',
-                      interactive && 'cursor-pointer hover:-translate-y-0.5 hover:border-[var(--color-brand)] hover:shadow-md',
-                      cell.alert > 0 && 'ring-1 ring-[rgba(244,63,94,0.4)]'
-                    )}
-                  >
-                    {/* Day number + alert / count */}
+          <div className="flex flex-col gap-1 sm:gap-2">
+            {weeks.map((week, wi) => (
+              <div key={wi} role="row" className="grid grid-cols-7 gap-1 sm:gap-2">
+                {week.map((cell) => {
+                  const interactive = cell.total > 0;
+                  return (
+                    <div
+                      key={cell.date}
+                      role="gridcell"
+                      tabIndex={interactive ? 0 : undefined}
+                      onClick={interactive ? () => setDay(cell) : undefined}
+                      onKeyDown={
+                        interactive
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setDay(cell);
+                              }
+                            }
+                          : undefined
+                      }
+                      aria-label={interactive ? `${cell.dateLabel} · ${cell.total}` : cell.dateLabel}
+                      style={heatStyle(cell)}
+                      className={cn(
+                        'flex min-h-[78px] flex-col gap-1 rounded-xl border p-1.5 text-left transition-all sm:min-h-[106px]',
+                        cell.inMonth ? 'border-[rgba(15,23,42,0.06)]' : 'border-transparent opacity-45',
+                        cell.isWeekend && cell.inMonth && cell.heat <= 0 && 'bg-[rgba(15,23,42,0.02)]',
+                        interactive &&
+                          'cursor-pointer hover:-translate-y-0.5 hover:border-[var(--color-brand)] hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)]',
+                        cell.alert > 0 && 'ring-1 ring-[rgba(244,63,94,0.4)]'
+                      )}
+                    >
+                      {/* Day number + alert / count */}
                     <div className="flex items-center justify-between gap-1">
                       <span
                         className={cn(
@@ -249,11 +261,12 @@ export default function TaskCalendar({ calendar, onOpenList }) {
                         </div>
                       </>
                     )}
-                  </Tag2>
-                );
-              })}
-            </div>
-          ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
 
         {!hasTasks && (

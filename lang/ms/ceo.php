@@ -48,6 +48,10 @@ return [
         'monthly_nav' => 'Prestasi Bulanan',
         'monthly_nav_ecommerce' => 'Bulanan · E-dagang',
         'monthly_nav_livehost' => 'Bulanan · Live Host',
+        'kpi_nav' => 'KPI Kakitangan',
+        'kpi_subtitle' => 'Prestasi tugasan bulanan setiap kakitangan',
+        'kpi_tasks_heading' => 'Tugasan',
+        'kpi_no_tasks' => 'Tiada tugasan untuk kakitangan ini',
 
         // Editable task board
         'tasks_board_title' => 'Senarai Tugasan',
@@ -106,17 +110,12 @@ return [
         'cal_late' => 'Lewat',
         'cal_busiest' => 'Hari tersibuk',
         'cal_priority' => 'Keutamaan',
-        'cal_workload' => 'Beban kerja',
         'cal_more' => '+:count lagi',
         'cal_empty_month' => 'Tiada tugasan bulan ini',
-        'cal_no_tasks_day' => 'Tiada tugasan pada hari ini',
-        'cal_overdue_flag' => ':count lewat tempoh',
-        'cal_late_flag' => ':count lewat',
         'cal_unassigned' => 'Tiada penugasan',
         'cal_due_on' => 'Tamat :date',
         'cal_done_on' => 'Selesai :date',
         'cal_view_list' => 'Buka senarai tugasan',
-        'cal_legend' => 'Petunjuk',
     ],
 
     'status' => [
@@ -372,6 +371,17 @@ return [
         'm_gmv_avg' => 'Purata GMV sesi',
         'm_hours' => 'Jam siaran',
         'm_replacements' => 'Penggantian',
+    ],
+
+    'kpi' => [
+        'na' => '—',
+        'col_staff' => 'Kakitangan',
+        'col_total' => 'Selesai',
+        'col_ontime' => 'Tepat masa',
+        'col_trend' => 'Trend',
+        'hero_label' => 'Tugasan selesai · :year',
+        'hero_ontime' => ':pct% tepat masa',
+        'module' => 'Buka Mesyuarat & Tugasan',
     ],
 
     'matrix' => [

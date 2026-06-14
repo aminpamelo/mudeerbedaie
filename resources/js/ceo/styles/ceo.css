@@ -102,6 +102,7 @@ body::before {
 [data-accent="amber"]   { --accent: #F59E0B; --accent-2: #FBBF24; --accent-ink: #B45309; }
 [data-accent="rose"]    { --accent: #F43F5E; --accent-2: #FB7185; --accent-ink: #BE123C; }
 [data-accent="brand"]   { --accent: #6366F1; --accent-2: #818CF8; --accent-ink: #4338CA; }
+[data-accent="cyan"]    { --accent: #06B6D4; --accent-2: #22D3EE; --accent-ink: #0E7490; }
 
 /* Traffic-light signal tokens */
 [data-status="green"] { --signal: #10B981; --signal-2: #34D399; --signal-ink: #047857; --signal-soft: rgba(16,185,129,0.14); }
