@@ -93,6 +93,7 @@ class HrTaskController extends Controller
     {
         $task->load([
             'assignee:id,full_name',
+            'assignees:id,full_name',
             'assigner:id,full_name',
             'category:id,name,color',
             'taskable',
@@ -111,16 +112,21 @@ class HrTaskController extends Controller
     public function store(StoreTaskRequest $request): JsonResponse
     {
         $employee = $request->user()->employee;
+        $data = $request->validated();
+        $assigneeIds = $this->resolveAssigneeIds($data);
 
         $task = Task::create([
-            ...$request->validated(),
+            ...$data,
+            'assigned_to' => $assigneeIds[0],
             'taskable_type' => null,
             'taskable_id' => null,
             'assigned_by' => $employee?->id,
             'status' => 'pending',
         ]);
 
-        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
+        $task->assignees()->sync($assigneeIds);
+
+        $task->load(['assignee:id,full_name', 'assignees:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $task,
@@ -134,16 +140,21 @@ class HrTaskController extends Controller
     public function storeForMeeting(StoreTaskRequest $request, Meeting $meeting): JsonResponse
     {
         $employee = $request->user()->employee;
+        $data = $request->validated();
+        $assigneeIds = $this->resolveAssigneeIds($data);
 
         $task = Task::create([
-            ...$request->validated(),
+            ...$data,
+            'assigned_to' => $assigneeIds[0],
             'taskable_type' => Meeting::class,
             'taskable_id' => $meeting->id,
             'assigned_by' => $employee?->id,
             'status' => 'pending',
         ]);
 
-        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
+        $task->assignees()->sync($assigneeIds);
+
+        $task->load(['assignee:id,full_name', 'assignees:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $task,
@@ -157,6 +168,11 @@ class HrTaskController extends Controller
     public function update(UpdateTaskRequest $request, Task $task): JsonResponse
     {
         $validated = $request->validated();
+        $assigneeIds = $this->resolveAssigneeIds($validated, required: false);
+
+        if ($assigneeIds !== null) {
+            $validated['assigned_to'] = $assigneeIds[0];
+        }
 
         if (array_key_exists('status', $validated)) {
             if ($validated['status'] === 'completed' && ! $task->completed_at) {
@@ -168,7 +184,11 @@ class HrTaskController extends Controller
 
         $task->update($validated);
 
-        $task->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
+        if ($assigneeIds !== null) {
+            $task->assignees()->sync($assigneeIds);
+        }
+
+        $task->load(['assignee:id,full_name', 'assignees:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $task,
@@ -219,9 +239,12 @@ class HrTaskController extends Controller
     public function storeSubtask(StoreTaskRequest $request, Task $task): JsonResponse
     {
         $employee = $request->user()->employee;
+        $data = $request->validated();
+        $assigneeIds = $this->resolveAssigneeIds($data);
 
         $subtask = Task::create([
-            ...$request->validated(),
+            ...$data,
+            'assigned_to' => $assigneeIds[0],
             'taskable_type' => $task->taskable_type,
             'taskable_id' => $task->taskable_id,
             'parent_id' => $task->id,
@@ -229,7 +252,9 @@ class HrTaskController extends Controller
             'status' => 'pending',
         ]);
 
-        $subtask->load(['assignee:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
+        $subtask->assignees()->sync($assigneeIds);
+
+        $subtask->load(['assignee:id,full_name', 'assignees:id,full_name', 'assigner:id,full_name', 'category:id,name,color']);
 
         return response()->json([
             'data' => $subtask,

@@ -33,6 +33,7 @@ import {
     MoreVertical,
     AlertCircle,
 } from 'lucide-react';
+import { assigneeSummary, assigneeNames } from '../../lib/taskAssignees';
 import {
     fetchMeeting,
     updateMeetingStatus,
@@ -578,7 +579,7 @@ export default function MeetingDetail() {
                                                     <div>
                                                         <p className="text-sm font-medium text-slate-900">{task.title}</p>
                                                         <div className="mt-0.5 flex items-center gap-2">
-                                                            {task.assignee && <span className="text-xs text-slate-500">{task.assignee.full_name}</span>}
+                                                            {assigneeSummary(task) && <span className="text-xs text-slate-500" title={assigneeNames(task)}>{assigneeSummary(task)}</span>}
                                                             <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${pConfig.className}`}>{pConfig.label}</span>
                                                         </div>
                                                     </div>

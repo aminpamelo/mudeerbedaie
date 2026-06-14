@@ -160,6 +160,7 @@ class HrMeetingController extends Controller
             'agendaItems',
             'decisions.decidedBy:id,full_name',
             'tasks.assignee:id,full_name',
+            'tasks.assignees:id,full_name',
             'tasks.subtasks',
             'attachments.uploader:id,full_name',
             'recordings.uploader:id,full_name',

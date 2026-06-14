@@ -8,6 +8,7 @@ import {
     X,
 } from 'lucide-react';
 import { updateTaskStatus, addTaskComment, createSubtask } from '../../lib/api';
+import { assigneeSummary, assigneeNames } from '../../lib/taskAssignees';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -79,8 +80,8 @@ export default function TaskList({ meetingId, tasks, onUpdate }) {
                                 </button>
                                 <p className="text-sm font-medium text-slate-900">{task.title}</p>
                                 <Badge variant={pConfig.variant} className={pConfig.className}>{pConfig.label}</Badge>
-                                {task.assignee && (
-                                    <span className="text-xs text-slate-500">{task.assignee.full_name}</span>
+                                {assigneeSummary(task) && (
+                                    <span className="text-xs text-slate-500" title={assigneeNames(task)}>{assigneeSummary(task)}</span>
                                 )}
                             </div>
                             <div className="flex items-center gap-2">

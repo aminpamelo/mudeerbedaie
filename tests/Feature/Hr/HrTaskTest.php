@@ -192,3 +192,75 @@ test('create task requires title and assigned_to', function () {
 test('unauthenticated user cannot access tasks', function () {
     $this->getJson('/api/hr/tasks')->assertUnauthorized();
 });
+
+test('can create a standalone task with multiple assignees', function () {
+    [$user] = createTaskAdmin();
+    $a = Employee::factory()->create();
+    $b = Employee::factory()->create();
+
+    $response = $this->actingAs($user)->postJson('/api/hr/tasks', [
+        'title' => 'Shared task',
+        'assignee_ids' => [$a->id, $b->id],
+        'priority' => 'high',
+        'deadline' => now()->addWeek()->toDateString(),
+    ]);
+
+    $response->assertCreated();
+    $task = Task::where('title', 'Shared task')->firstOrFail();
+
+    // First selected becomes the canonical assignee; full set lives in the pivot.
+    expect($task->assigned_to)->toEqual($a->id);
+    expect($task->assignees->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$a->id, $b->id])->sort()->values()->all());
+});
+
+test('list payload includes the assignees array', function () {
+    [$user, $employee] = createTaskAdmin();
+    $a = Employee::factory()->create();
+    $b = Employee::factory()->create();
+    $task = Task::factory()->create(['assigned_by' => $employee->id, 'assigned_to' => $a->id]);
+    $task->assignees()->sync([$a->id, $b->id]);
+
+    $response = $this->actingAs($user)->getJson('/api/hr/tasks');
+
+    $response->assertSuccessful();
+    expect($response->json('data.0.assignees'))->toHaveCount(2);
+});
+
+test('can update a task to be co-owned by several employees', function () {
+    [$user, $employee] = createTaskAdmin();
+    $a = Employee::factory()->create();
+    $b = Employee::factory()->create();
+    $c = Employee::factory()->create();
+    $task = Task::factory()->create(['assigned_by' => $employee->id, 'assigned_to' => $a->id]);
+    $task->assignees()->sync([$a->id]);
+
+    $response = $this->actingAs($user)->putJson("/api/hr/tasks/{$task->id}", [
+        'assignee_ids' => [$b->id, $c->id],
+    ]);
+
+    $response->assertSuccessful();
+    $fresh = $task->fresh();
+    expect($fresh->assigned_to)->toEqual($b->id);
+    expect($fresh->assignees->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$b->id, $c->id])->sort()->values()->all());
+});
+
+test('filtering by assigned_to matches any co-owner, not just the primary', function () {
+    [$user, $employee] = createTaskAdmin();
+    $a = Employee::factory()->create();
+    $b = Employee::factory()->create();
+
+    $shared = Task::factory()->create(['assigned_by' => $employee->id, 'assigned_to' => $a->id]);
+    $shared->assignees()->sync([$a->id, $b->id]);
+
+    $solo = Task::factory()->create(['assigned_by' => $employee->id, 'assigned_to' => $a->id]);
+    $solo->assignees()->sync([$a->id]);
+
+    // b co-owns only the shared task.
+    $response = $this->actingAs($user)->getJson("/api/hr/tasks?assigned_to={$b->id}");
+
+    $response->assertSuccessful();
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.id'))->toEqual($shared->id);
+});

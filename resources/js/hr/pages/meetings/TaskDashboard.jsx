@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, Fragment } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -19,6 +19,7 @@ import {
     CalendarDays,
     GripVertical,
     User,
+    Users,
     Plus,
     Tags,
     Tag,
@@ -26,6 +27,7 @@ import {
     Trash2,
     Check,
     X,
+    Search,
     FolderTree,
 } from 'lucide-react';
 import {
@@ -41,6 +43,7 @@ import {
     deleteTaskCategory,
 } from '../../lib/api';
 import { cn } from '../../lib/utils';
+import { taskAssignees, assigneeSummary, assigneeNames } from '../../lib/taskAssignees';
 import { useToast } from '../../components/Toast';
 import PageHeader from '../../components/PageHeader';
 import SearchInput from '../../components/SearchInput';
@@ -136,7 +139,7 @@ const COLOR_SWATCHES = [
     '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#64748b',
 ];
 
-const EMPTY_TASK_FORM = { title: '', description: '', assigned_to: '', category_id: 'none', priority: 'medium', deadline: '' };
+const EMPTY_TASK_FORM = { title: '', description: '', assignee_ids: [], category_id: 'none', priority: 'medium', deadline: '' };
 const EMPTY_CATEGORY_FORM = { name: '', color: '#6366f1', description: '', is_active: true };
 
 function TaskPriorityBadge({ priority }) {
@@ -260,12 +263,14 @@ function KanbanCard({ task, index, onEdit }) {
                                 )}
                             </div>
 
-                            {task.assignee && (
-                                <div className="mt-2 flex items-center gap-1.5">
+                            {taskAssignees(task).length > 0 && (
+                                <div className="mt-2 flex items-center gap-1.5" title={assigneeNames(task)}>
                                     <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200">
-                                        <User className="h-3 w-3 text-slate-500" />
+                                        {taskAssignees(task).length > 1
+                                            ? <Users className="h-3 w-3 text-slate-500" />
+                                            : <User className="h-3 w-3 text-slate-500" />}
                                     </div>
-                                    <span className="truncate text-xs text-slate-500">{task.assignee.full_name}</span>
+                                    <span className="truncate text-xs text-slate-500">{assigneeSummary(task)}</span>
                                 </div>
                             )}
                         </div>
@@ -366,10 +371,10 @@ function TaskRow({ task, statusMut, onEdit }) {
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                     {meeting && <span className="truncate">{meeting.title}</span>}
                     {task.category && <CategoryBadge category={task.category} />}
-                    {task.assignee && (
-                        <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {task.assignee.full_name}
+                    {taskAssignees(task).length > 0 && (
+                        <span className="flex items-center gap-1" title={assigneeNames(task)}>
+                            {taskAssignees(task).length > 1 ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                            {assigneeSummary(task)}
                         </span>
                     )}
                 </div>
@@ -654,10 +659,10 @@ function CalendarView({ tasks, onEdit }) {
                                                 <TaskStatusBadge status={task.status} />
                                                 {task.category && <CategoryBadge category={task.category} />}
                                             </div>
-                                            {task.assignee && (
-                                                <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-                                                    <User className="h-3 w-3" />
-                                                    {task.assignee.full_name}
+                                            {taskAssignees(task).length > 0 && (
+                                                <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500" title={assigneeNames(task)}>
+                                                    {taskAssignees(task).length > 1 ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                                                    {assigneeSummary(task)}
                                                 </div>
                                             )}
                                         </>
@@ -738,7 +743,11 @@ function TableView({ tasks, expandedTask, setExpandedTask, commentText, setComme
                                                         <span className="text-xs text-slate-400">Standalone</span>
                                                     )}
                                                 </TableCell>
-                                                <TableCell>{task.assignee?.full_name || '-'}</TableCell>
+                                                <TableCell>
+                                                    <span title={assigneeNames(task)}>
+                                                        {assigneeSummary(task) || '-'}
+                                                    </span>
+                                                </TableCell>
                                                 <TableCell><TaskPriorityBadge priority={task.priority} /></TableCell>
                                                 <TableCell>
                                                     <span className={cn(isOverdue(task) && 'font-medium text-red-600')}>{formatDate(task.deadline)}</span>
@@ -831,6 +840,107 @@ function TableView({ tasks, expandedTask, setExpandedTask, commentText, setComme
 
 // ==================== TASK FORM DIALOG (create / edit) ====================
 
+/**
+ * Searchable multi-select of employees for the task form. A task can be co-owned
+ * by several people; the first selected becomes the canonical assignee server-side.
+ */
+function AssigneeMultiSelect({ employees, value, onChange, error }) {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const ref = useRef(null);
+
+    useEffect(() => {
+        function onDocClick(e) {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        }
+        document.addEventListener('mousedown', onDocClick);
+        return () => document.removeEventListener('mousedown', onDocClick);
+    }, []);
+
+    const selected = new Set(value);
+    const byId = new Map(employees.map((e) => [e.id, e.full_name]));
+    const needle = query.trim().toLowerCase();
+    const filtered = needle ? employees.filter((e) => e.full_name.toLowerCase().includes(needle)) : employees;
+
+    function toggle(id) {
+        onChange(selected.has(id) ? value.filter((x) => x !== id) : [...value, id]);
+    }
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className={cn(
+                    'flex min-h-[38px] w-full flex-wrap items-center gap-1.5 rounded-md border bg-white px-2.5 py-1.5 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/30',
+                    error ? 'border-red-300' : 'border-slate-200'
+                )}
+            >
+                {value.length === 0 ? (
+                    <span className="text-slate-400">Select staff...</span>
+                ) : (
+                    value.map((id) => (
+                        <span key={id} className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                            {byId.get(id) ?? id}
+                            <span
+                                role="button"
+                                tabIndex={-1}
+                                onClick={(e) => { e.stopPropagation(); toggle(id); }}
+                                className="grid h-3.5 w-3.5 cursor-pointer place-items-center rounded hover:bg-blue-100"
+                            >
+                                <X className="h-3 w-3" />
+                            </span>
+                        </span>
+                    ))
+                )}
+                <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-400" />
+            </button>
+
+            {open && (
+                <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="relative border-b border-slate-100">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                        <input
+                            autoFocus
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search staff..."
+                            className="w-full bg-transparent py-2 pl-8 pr-3 text-sm text-slate-900 outline-none"
+                        />
+                    </div>
+                    <div className="max-h-52 overflow-y-auto py-1">
+                        {filtered.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-slate-400">No staff found</div>
+                        ) : (
+                            filtered.map((e) => {
+                                const on = selected.has(e.id);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={e.id}
+                                        onClick={() => toggle(e.id)}
+                                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
+                                    >
+                                        <span className={cn('grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors', on ? 'border-transparent bg-blue-600 text-white' : 'border-slate-300')}>
+                                            {on && <Check className="h-3 w-3" strokeWidth={3} />}
+                                        </span>
+                                        {e.full_name}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                    {value.length > 0 && (
+                        <div className="border-t border-slate-100 px-3 py-1.5 text-xs text-slate-500">
+                            {value.length} selected
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function TaskFormDialog({ open, onClose, task, employees, categories, saveMut }) {
     const isEdit = Boolean(task);
     const [form, setForm] = useState(EMPTY_TASK_FORM);
@@ -839,10 +949,13 @@ function TaskFormDialog({ open, onClose, task, employees, categories, saveMut })
     useEffect(() => {
         if (!open) return;
         if (task) {
+            const assigneeIds = Array.isArray(task.assignees) && task.assignees.length
+                ? task.assignees.map((a) => a.id)
+                : task.assigned_to ? [task.assigned_to] : [];
             setForm({
                 title: task.title || '',
                 description: task.description || '',
-                assigned_to: task.assigned_to ? String(task.assigned_to) : '',
+                assignee_ids: assigneeIds,
                 category_id: task.category_id ? String(task.category_id) : 'none',
                 priority: task.priority || 'medium',
                 deadline: task.deadline ? task.deadline.split('T')[0] : '',
@@ -861,7 +974,7 @@ function TaskFormDialog({ open, onClose, task, employees, categories, saveMut })
         const payload = {
             title: form.title,
             description: form.description || null,
-            assigned_to: form.assigned_to,
+            assignee_ids: form.assignee_ids,
             category_id: form.category_id === 'none' ? null : form.category_id,
             priority: form.priority,
             deadline: form.deadline,
@@ -875,7 +988,7 @@ function TaskFormDialog({ open, onClose, task, employees, categories, saveMut })
         );
     }
 
-    const valid = form.title.trim() && form.assigned_to && form.deadline;
+    const valid = form.title.trim() && form.assignee_ids.length > 0 && form.deadline;
 
     return (
         <Dialog
@@ -901,16 +1014,16 @@ function TaskFormDialog({ open, onClose, task, employees, categories, saveMut })
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label>Assignee *</Label>
-                            <Select value={form.assigned_to} onValueChange={(v) => field('assigned_to', v)}>
-                                <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                                <SelectContent>
-                                    {employees.map((emp) => (
-                                        <SelectItem key={emp.id} value={String(emp.id)}>{emp.full_name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.assigned_to && <p className="mt-1 text-xs text-red-600">{errors.assigned_to[0]}</p>}
+                            <Label>Assignees *</Label>
+                            <AssigneeMultiSelect
+                                employees={employees}
+                                value={form.assignee_ids}
+                                onChange={(ids) => field('assignee_ids', ids)}
+                                error={Boolean(errors.assignee_ids || errors.assigned_to)}
+                            />
+                            {(errors.assignee_ids || errors.assigned_to) && (
+                                <p className="mt-1 text-xs text-red-600">{(errors.assignee_ids || errors.assigned_to)[0]}</p>
+                            )}
                         </div>
                         <div>
                             <Label>Category</Label>
