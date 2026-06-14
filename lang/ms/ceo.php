@@ -52,6 +52,10 @@ return [
         'kpi_subtitle' => 'Prestasi tugasan bulanan setiap kakitangan',
         'kpi_tasks_heading' => 'Tugasan',
         'kpi_no_tasks' => 'Tiada tugasan untuk kakitangan ini',
+        'itkpi_nav' => 'KPI IT',
+        'itkpi_subtitle' => 'Throughput tiket bulanan setiap kakitangan IT',
+        'itkpi_tickets_heading' => 'Tiket',
+        'itkpi_no_tickets' => 'Tiada tiket untuk kakitangan ini',
 
         // Editable task board
         'tasks_board_title' => 'Senarai Tugasan',
@@ -382,6 +386,23 @@ return [
         'hero_label' => 'Tugasan selesai · :year',
         'hero_ontime' => ':pct% tepat masa',
         'module' => 'Buka Mesyuarat & Tugasan',
+    ],
+
+    'itkpi' => [
+        'na' => '—',
+        'col_staff' => 'Kakitangan IT',
+        'col_total' => 'Selesai',
+        'col_ontime' => 'Tepat masa',
+        'col_trend' => 'Trend',
+        'hero_label' => 'Tiket selesai · :year',
+        'hero_ontime' => ':pct% tepat masa',
+        'module' => 'Buka IT Board',
+        'status_backlog' => 'Backlog',
+        'status_todo' => 'Untuk Buat',
+        'status_in_progress' => 'Dalam Proses',
+        'status_review' => 'Semakan',
+        'status_testing' => 'Pengujian',
+        'status_done' => 'Selesai',
     ],
 
     'matrix' => [

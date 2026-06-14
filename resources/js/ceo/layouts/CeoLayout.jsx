@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange, Wallet, Menu, X, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, LogOut, Radio, GraduationCap, ShoppingBag, Users, ListChecks, CalendarRange, Wallet, Menu, X, BarChart3, Ticket } from 'lucide-react';
 import { cn, initialsFrom } from '@/ceo/lib/utils';
 import { useT } from '@/ceo/lib/i18n';
 import LanguageSwitcher from '@/ceo/components/LanguageSwitcher';
@@ -18,6 +18,7 @@ const DEPARTMENTS = [
 const MONITORING = [
   { labelKey: 'tasks_nav', href: '/ceo/tasks', icon: ListChecks, accent: 'rose' },
   { labelKey: 'kpi_nav', href: '/ceo/kpi', icon: BarChart3, accent: 'cyan' },
+  { labelKey: 'itkpi_nav', href: '/ceo/it-kpi', icon: Ticket, accent: 'violet' },
 ];
 
 const REPORTS = [

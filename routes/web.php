@@ -293,6 +293,8 @@ Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInert
             ->name('reports.monthly');
         Route::get('kpi', [\App\Http\Controllers\Ceo\StaffKpiController::class, 'index'])
             ->name('kpi');
+        Route::get('it-kpi', [\App\Http\Controllers\Ceo\ItKpiController::class, 'index'])
+            ->name('it-kpi');
         Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
             ->where('department', 'livehost|education|ecommerce|hr|sales')
             ->name('department');

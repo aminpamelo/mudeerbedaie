@@ -6,6 +6,7 @@ use App\Models\ProductOrder;
 use App\Services\Ceo\Reports\EcommerceHealthReport;
 use App\Services\Ceo\Reports\EducationHealthReport;
 use App\Services\Ceo\Reports\HrHealthReport;
+use App\Services\Ceo\Reports\ItKpiReport;
 use App\Services\Ceo\Reports\LiveHostHealthReport;
 use App\Services\Ceo\Reports\MonthlyReportService;
 use App\Services\Ceo\Reports\SalesHealthReport;
@@ -37,6 +38,7 @@ class CeoDashboardService
         private readonly TaskMonitoringReport $taskReport,
         private readonly MonthlyReportService $monthlyReport,
         private readonly StaffKpiReport $staffKpiReport,
+        private readonly ItKpiReport $itKpiReport,
         private readonly DepartmentMatrixReport $matrixReport,
     ) {}
 
@@ -73,6 +75,21 @@ class CeoDashboardService
             "ceo:staffkpi:v{$version}:{$year}:".app()->getLocale(),
             self::CACHE_TTL,
             fn () => $this->staffKpiReport->build($year)
+        );
+    }
+
+    /**
+     * IT KPI matrix (one row per IT staff member × Jan–Dec) for a year. IT Board
+     * data is independent of the task version key, so it caches per year + locale.
+     *
+     * @return array<string, mixed>
+     */
+    public function itKpi(int $year): array
+    {
+        return Cache::remember(
+            "ceo:itkpi:{$year}:".app()->getLocale(),
+            self::CACHE_TTL,
+            fn () => $this->itKpiReport->build($year)
         );
     }
 

@@ -14,13 +14,13 @@ const MOM_TONE = {
  * Inline task list shown when a staff row is expanded — their tasks with status,
  * deadline and overdue flag (the "their task and status" drill-down).
  */
-function TaskList({ tasks }) {
+function TaskList({ tasks, emptyKey = 'kpi_no_tasks' }) {
   const t = useT();
 
   if (!tasks || tasks.length === 0) {
     return (
       <div className="grid h-16 place-items-center rounded-xl bg-[rgba(15,23,42,0.03)] text-[11.5px] text-muted">
-        {t('kpi_no_tasks')}
+        {t(emptyKey)}
       </div>
     );
   }
@@ -67,7 +67,7 @@ function TaskList({ tasks }) {
  * trend sparkline close each row. Clicking a row reveals that staff's tasks.
  * Horizontally scrollable so the 12 month columns never cramp.
  */
-export default function StaffKpiMatrix({ months = [], columns = {}, rows = [] }) {
+export default function StaffKpiMatrix({ months = [], columns = {}, rows = [], headingKey = 'kpi_tasks_heading', emptyKey = 'kpi_no_tasks' }) {
   const t = useT();
   const [openKey, setOpenKey] = useState(null);
   const colCount = 1 + months.length + 3;
@@ -153,9 +153,9 @@ export default function StaffKpiMatrix({ months = [], columns = {}, rows = [] })
                     <td colSpan={colCount} className="px-3 pb-4 pt-3">
                       <div className="flex flex-col gap-2">
                         <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-2">
-                          {t('kpi_tasks_heading')} · {row.label}
+                          {t(headingKey)} · {row.label}
                         </span>
-                        <TaskList tasks={row.tasks} />
+                        <TaskList tasks={row.tasks} emptyKey={emptyKey} />
                       </div>
                     </td>
                   </tr>

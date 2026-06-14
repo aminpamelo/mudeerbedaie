@@ -52,6 +52,10 @@ return [
         'kpi_subtitle' => 'Monthly task performance per staff',
         'kpi_tasks_heading' => 'Tasks',
         'kpi_no_tasks' => 'No tasks for this staff',
+        'itkpi_nav' => 'IT KPI',
+        'itkpi_subtitle' => 'Monthly ticket throughput per IT staff',
+        'itkpi_tickets_heading' => 'Tickets',
+        'itkpi_no_tickets' => 'No tickets for this staff',
 
         // Editable task board
         'tasks_board_title' => 'Task List',
@@ -382,6 +386,23 @@ return [
         'hero_label' => 'Tasks completed · :year',
         'hero_ontime' => ':pct% on-time',
         'module' => 'Open Meetings & Tasks',
+    ],
+
+    'itkpi' => [
+        'na' => '—',
+        'col_staff' => 'IT Staff',
+        'col_total' => 'Resolved',
+        'col_ontime' => 'On-time',
+        'col_trend' => 'Trend',
+        'hero_label' => 'Tickets resolved · :year',
+        'hero_ontime' => ':pct% on-time',
+        'module' => 'Open IT Board',
+        'status_backlog' => 'Backlog',
+        'status_todo' => 'To Do',
+        'status_in_progress' => 'In Progress',
+        'status_review' => 'Review',
+        'status_testing' => 'Testing',
+        'status_done' => 'Done',
     ],
 
     'matrix' => [
