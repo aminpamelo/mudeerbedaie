@@ -414,14 +414,20 @@ new class extends Component
 
     public function cancelJntShipment(): void
     {
-        if (! $this->order->tracking_id) {
+        // EasyParcel cancels by shipment number (the AWB may not exist yet);
+        // other providers cancel by tracking number.
+        $cancelId = $this->order->shipping_provider === 'easyparcel'
+            ? data_get($this->order->metadata, 'easyparcel_shipment_number')
+            : $this->order->tracking_id;
+
+        if (! $cancelId) {
             return;
         }
 
         try {
             $shippingManager = app(ShippingManager::class);
             $provider = $shippingManager->getProvider($this->order->shipping_provider);
-            $result = $provider->cancelShipment($this->order->tracking_id);
+            $result = $provider->cancelShipment($cancelId);
 
             if ($result->success) {
                 $oldTracking = $this->order->tracking_id;
@@ -513,7 +519,7 @@ new class extends Component
             ));
 
             if (empty($rates)) {
-                session()->flash('error', 'No EasyParcel rates returned. Check the sender/receiver postcodes and your API key.');
+                session()->flash('error', 'No EasyParcel rates returned. Check the sender/receiver postcodes and that your EasyParcel account is connected in Settings.');
 
                 return;
             }
@@ -579,6 +585,8 @@ new class extends Component
                 $metadata['shipping_label_url'] = $result->labelUrl;
                 $metadata['shipping_tracking_url'] = $result->trackingUrl;
                 $metadata['easyparcel_order_no'] = $result->providerOrderId;
+                $metadata['easyparcel_shipment_number'] = $result->shipmentNumber;
+                $metadata['easyparcel_awb_pending'] = $result->awbPending;
 
                 $this->order->update([
                     'tracking_id' => $result->trackingNumber,
@@ -590,13 +598,57 @@ new class extends Component
                 $this->orderStatus = 'shipped';
                 $this->easyParcelRates = [];
                 $this->easyParcelServiceId = null;
-                $this->order->addSystemNote("EasyParcel shipment booked. AWB: {$result->trackingNumber}");
-                session()->flash('success', "Shipment booked! AWB: {$result->trackingNumber}");
+
+                $ref = $result->shipmentNumber ?: $result->providerOrderId;
+                $this->order->addSystemNote('EasyParcel shipment booked. '.($result->awbPending ? "Ref: {$ref} (AWB pending)" : "AWB: {$result->trackingNumber}"));
+                session()->flash('success', $result->awbPending
+                    ? "Shipment booked ({$ref}). The AWB & label are generating — click \"Refresh AWB\" in a moment."
+                    : "Shipment booked! AWB: {$result->trackingNumber}");
             } else {
                 session()->flash('error', "Failed to book shipment: {$result->message}");
             }
         } catch (\Exception $e) {
             session()->flash('error', 'EasyParcel booking failed: '.$e->getMessage());
+        }
+
+        $this->order->refresh();
+    }
+
+    public function refreshEasyParcelAwb(): void
+    {
+        $shipmentNumber = data_get($this->order->metadata, 'easyparcel_shipment_number');
+
+        if (! $shipmentNumber) {
+            session()->flash('error', 'No EasyParcel shipment number on this order.');
+
+            return;
+        }
+
+        try {
+            $provider = app(ShippingManager::class)->getProvider('easyparcel');
+            $details = $provider->getShipmentDetails($shipmentNumber);
+
+            if (! $details) {
+                session()->flash('error', 'Could not fetch shipment details from EasyParcel.');
+
+                return;
+            }
+
+            $metadata = $this->order->metadata ?? [];
+            $metadata['shipping_label_url'] = $details['awb_url'] ?: ($metadata['shipping_label_url'] ?? null);
+            $metadata['shipping_tracking_url'] = $details['tracking_url'] ?: ($metadata['shipping_tracking_url'] ?? null);
+            $metadata['easyparcel_awb_pending'] = empty($details['awb_number']);
+
+            $this->order->update([
+                'tracking_id' => $details['awb_number'] ?: $this->order->tracking_id,
+                'metadata' => $metadata,
+            ]);
+
+            session()->flash('success', $details['awb_number']
+                ? "AWB updated: {$details['awb_number']}"
+                : 'AWB is still being generated. Try again shortly.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to refresh AWB: '.$e->getMessage());
         }
 
         $this->order->refresh();
@@ -1213,11 +1265,22 @@ new class extends Component
                         <flux:heading size="lg">Shipping</flux:heading>
                     </div>
 
-                    @if($order->tracking_id)
+                    @php
+                        $awbPending = (bool) data_get($order->metadata, 'easyparcel_awb_pending');
+                        $shipmentNo = data_get($order->metadata, 'easyparcel_shipment_number');
+                    @endphp
+                    @if($order->tracking_id || $order->shipping_provider)
                         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                             <div class="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-700/50">
-                                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Tracking Number</flux:text>
-                                <flux:text class="font-medium text-sm font-mono">{{ $order->tracking_id }}</flux:text>
+                                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">{{ $order->tracking_id ? 'Tracking Number (AWB)' : 'Shipment Reference' }}</flux:text>
+                                @if($order->tracking_id)
+                                    <flux:text class="font-medium text-sm font-mono">{{ $order->tracking_id }}</flux:text>
+                                @else
+                                    <flux:text class="font-medium text-sm font-mono">{{ $shipmentNo ?: '—' }}</flux:text>
+                                    @if($awbPending)
+                                        <span class="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">AWB pending</span>
+                                    @endif
+                                @endif
                             </div>
                             @if($order->shipping_provider)
                                 <div class="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-700/50">
@@ -1253,12 +1316,24 @@ new class extends Component
 
                         <div class="flex flex-wrap gap-2">
                             @if($order->shipping_provider)
-                                <flux:button variant="outline" size="sm" wire:click="viewTracking">
-                                    <div class="flex items-center justify-center">
-                                        <flux:icon name="magnifying-glass" class="w-4 h-4 mr-1" />
-                                        View Tracking
-                                    </div>
-                                </flux:button>
+                                @if($order->tracking_id)
+                                    <flux:button variant="outline" size="sm" wire:click="viewTracking">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="magnifying-glass" class="w-4 h-4 mr-1" />
+                                            View Tracking
+                                        </div>
+                                    </flux:button>
+                                @endif
+
+                                @if($order->shipping_provider === 'easyparcel' && $awbPending)
+                                    <flux:button variant="primary" size="sm" wire:click="refreshEasyParcelAwb" wire:loading.attr="disabled" wire:target="refreshEasyParcelAwb">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                                            <span wire:loading.remove wire:target="refreshEasyParcelAwb">Refresh AWB</span>
+                                            <span wire:loading wire:target="refreshEasyParcelAwb">Checking...</span>
+                                        </div>
+                                    </flux:button>
+                                @endif
 
                                 @php $labelUrl = data_get($order->metadata, 'shipping_label_url'); @endphp
                                 @if($labelUrl)
@@ -1331,7 +1406,7 @@ new class extends Component
                                                     class="flex items-center justify-between gap-3 rounded-lg border p-3 cursor-pointer transition-colors
                                                         {{ $easyParcelServiceId === $rate['service_id'] ? 'border-indigo-400 bg-white dark:bg-zinc-800 ring-1 ring-indigo-300' : 'border-zinc-200 dark:border-zinc-700 bg-white/60 dark:bg-zinc-800/60 hover:border-indigo-300' }}">
                                                     <div class="flex items-center gap-3 min-w-0">
-                                                        <flux:radio wire:model="easyParcelServiceId" value="{{ $rate['service_id'] }}" />
+                                                        <input type="radio" wire:model.live="easyParcelServiceId" value="{{ $rate['service_id'] }}" class="h-4 w-4 shrink-0 accent-indigo-600" />
                                                         <div class="min-w-0">
                                                             <flux:text class="text-sm font-medium truncate">{{ $rate['name'] }}</flux:text>
                                                             @if($rate['days'])

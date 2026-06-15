@@ -322,32 +322,68 @@ class SettingsService
     }
 
     /**
-     * Get EasyParcel shipping aggregator configuration
+     * Get EasyParcel Open API (OAuth 2.0) configuration.
      */
     public function getEasyParcelConfig(): array
     {
         return [
-            'api_key' => $this->get('easyparcel_api_key'),
+            'client_id' => $this->get('easyparcel_client_id'),
+            'client_secret' => $this->get('easyparcel_client_secret'),
             'sandbox' => (bool) $this->get('easyparcel_sandbox', true),
             'enabled' => (bool) $this->get('enable_easyparcel_shipping', false),
         ];
     }
 
     /**
-     * Check if EasyParcel shipping is configured
+     * Has the developer-hub app credentials (Client ID + Secret) been entered?
      */
     public function isEasyParcelConfigured(): bool
     {
-        return ! empty($this->get('easyparcel_api_key'));
+        return ! empty($this->get('easyparcel_client_id'))
+            && ! empty($this->get('easyparcel_client_secret'));
     }
 
     /**
-     * Check if EasyParcel shipping is enabled
+     * Has the EasyParcel account been linked via OAuth (we hold a refresh token)?
+     */
+    public function isEasyParcelConnected(): bool
+    {
+        return ! empty($this->get('easyparcel_refresh_token'));
+    }
+
+    /**
+     * Ready to ship: credentials entered, account linked, and toggle on.
      */
     public function isEasyParcelEnabled(): bool
     {
         return $this->isEasyParcelConfigured()
+            && $this->isEasyParcelConnected()
             && (bool) $this->get('enable_easyparcel_shipping', false);
+    }
+
+    /**
+     * Persist the OAuth token set returned by the EasyParcel token endpoint.
+     */
+    public function setEasyParcelTokens(string $accessToken, ?string $refreshToken, ?string $expiresAt): void
+    {
+        $this->set('easyparcel_access_token', $accessToken, 'encrypted', 'shipping');
+
+        if ($refreshToken !== null) {
+            $this->set('easyparcel_refresh_token', $refreshToken, 'encrypted', 'shipping');
+        }
+
+        $this->set('easyparcel_token_expires_at', $expiresAt ?? '', 'string', 'shipping');
+    }
+
+    /**
+     * Forget the linked EasyParcel account (disconnect).
+     */
+    public function clearEasyParcelTokens(): void
+    {
+        $this->set('easyparcel_access_token', '', 'encrypted', 'shipping');
+        $this->set('easyparcel_refresh_token', '', 'encrypted', 'shipping');
+        $this->set('easyparcel_token_expires_at', '', 'string', 'shipping');
+        $this->set('easyparcel_account_name', '', 'string', 'shipping');
     }
 
     /**

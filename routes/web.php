@@ -998,6 +998,11 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('whatsapp/costs', 'admin.whatsapp-cost-monitoring')->name('admin.whatsapp.costs');
     Volt::route('settings/shipping', 'admin.settings-shipping')->name('admin.settings.shipping');
 
+    // EasyParcel OAuth connect flow
+    Route::get('easyparcel/connect', [\App\Http\Controllers\Admin\EasyParcelOAuthController::class, 'connect'])->name('admin.easyparcel.connect');
+    Route::get('easyparcel/callback', [\App\Http\Controllers\Admin\EasyParcelOAuthController::class, 'callback'])->name('admin.easyparcel.callback');
+    Route::delete('easyparcel/disconnect', [\App\Http\Controllers\Admin\EasyParcelOAuthController::class, 'disconnect'])->name('admin.easyparcel.disconnect');
+
     // Customer Service routes
     Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
     Volt::route('customer-service/return-refunds', 'admin.customer-service.return-refunds-index')->name('admin.customer-service.return-refunds.index');

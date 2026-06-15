@@ -429,6 +429,15 @@
                     >
                         {{ __('WhatsApp') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="truck"
+                        :href="route('admin.settings.shipping')"
+                        :current="request()->routeIs('admin.settings.shipping')"
+                        wire:navigate
+                    >
+                        {{ __('Shipping') }}
+                    </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
                 

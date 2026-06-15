@@ -5,59 +5,52 @@ namespace App\Services\Shipping;
 use Illuminate\Support\Str;
 
 /**
- * Maps Malaysian state names to the short state codes EasyParcel expects for the
- * `pick_state` / `send_state` fields. Accepts common English and Malay spellings;
- * if a value is already a valid code (or unrecognised) it is passed through.
+ * Maps Malaysian state names to the ISO 3166-2 subdivision codes the EasyParcel
+ * Open API expects for `sender.subdivision_code` / `receiver.subdivision_code`
+ * (e.g. "MY-07" for Penang, "MY-10" for Selangor). Accepts common English and
+ * Malay spellings; an already-valid code (or unknown value) passes through.
  */
 class EasyParcelStateMapper
 {
-    /** @var array<string, string> */
+    /** @var array<string, string> ISO 3166-2:MY */
     private const CODES = [
-        'johor' => 'jhr',
-        'kedah' => 'kdh',
-        'kelantan' => 'ktn',
-        'melaka' => 'mlk',
-        'malacca' => 'mlk',
-        'negeri sembilan' => 'nsn',
-        'pahang' => 'phg',
-        'penang' => 'png',
-        'pulau pinang' => 'png',
-        'perak' => 'prk',
-        'perlis' => 'pls',
-        'selangor' => 'sgr',
-        'terengganu' => 'trg',
-        'sabah' => 'sbh',
-        'sarawak' => 'swk',
-        'kuala lumpur' => 'kul',
-        'wp kuala lumpur' => 'kul',
-        'labuan' => 'lbn',
-        'wp labuan' => 'lbn',
-        'putrajaya' => 'pjy',
-        'wp putrajaya' => 'pjy',
+        'johor' => 'MY-01',
+        'kedah' => 'MY-02',
+        'kelantan' => 'MY-03',
+        'melaka' => 'MY-04',
+        'malacca' => 'MY-04',
+        'negeri sembilan' => 'MY-05',
+        'pahang' => 'MY-06',
+        'penang' => 'MY-07',
+        'pulau pinang' => 'MY-07',
+        'perak' => 'MY-08',
+        'perlis' => 'MY-09',
+        'selangor' => 'MY-10',
+        'terengganu' => 'MY-11',
+        'sabah' => 'MY-12',
+        'sarawak' => 'MY-13',
+        'kuala lumpur' => 'MY-14',
+        'wp kuala lumpur' => 'MY-14',
+        'labuan' => 'MY-15',
+        'wp labuan' => 'MY-15',
+        'putrajaya' => 'MY-16',
+        'wp putrajaya' => 'MY-16',
     ];
 
-    /** Valid EasyParcel state codes, so an already-coded value passes through. */
-    private const VALID_CODES = [
-        'jhr', 'kdh', 'ktn', 'mlk', 'nsn', 'phg', 'png', 'prk',
-        'pls', 'sgr', 'trg', 'sbh', 'swk', 'kul', 'lbn', 'pjy',
-    ];
-
-    public static function getStateCode(?string $state): string
+    public static function getSubdivisionCode(?string $state): string
     {
-        $normalized = Str::of((string) $state)
+        $value = (string) $state;
+
+        if (preg_match('/^MY-\d{2}$/i', trim($value))) {
+            return strtoupper(trim($value));
+        }
+
+        $normalized = Str::of($value)
             ->lower()
             ->replace(['wilayah persekutuan', 'w.p.', 'w.p'], '')
             ->squish()
             ->value();
 
-        if ($normalized === '') {
-            return '';
-        }
-
-        if (in_array($normalized, self::VALID_CODES, true)) {
-            return $normalized;
-        }
-
-        return self::CODES[$normalized] ?? $normalized;
+        return self::CODES[$normalized] ?? '';
     }
 }

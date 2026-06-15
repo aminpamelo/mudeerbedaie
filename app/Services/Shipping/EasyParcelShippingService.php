@@ -12,26 +12,30 @@ use App\DTOs\Shipping\TrackingResult;
 use App\Services\SettingsService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
- * EasyParcel shipping aggregator (Malaysia).
+ * EasyParcel Open API (v2026-03) shipping aggregator for Malaysia.
  *
- * EasyParcel exposes a single endpoint per environment; the operation is chosen
- * with the `?ac=` query parameter and the body is form-encoded with the API key
- * plus a `bulk` array of one shipment. Booking is a two-step flow — submit the
- * order to reserve it, then pay from the account's prepaid credit, which returns
- * the AWB (tracking number) and a printable label. `createShipment()` performs
- * both steps so a single call yields a ready-to-ship parcel.
+ * Authenticates with OAuth 2.0 bearer tokens minted by {@see EasyParcelOAuthService}
+ * (the account is linked once through the hosted login). All calls are JSON.
+ * Booking via `submit_orders` charges the linked wallet immediately — there is no
+ * separate pay step — but the AWB number and printable label are generated
+ * asynchronously, so a successful booking may come back with `awbPending` set and
+ * the label fetched later via {@see getShipmentDetails()}.
  *
- * @see https://developers.easyparcel.com/
+ * @see https://easyparcel.github.io/OpenAPI/
  */
 class EasyParcelShippingService implements ShippingProvider
 {
-    private const SANDBOX_BASE_URL = 'https://demo.connect.easyparcel.my';
+    private const API_BASE = 'https://api.easyparcel.com';
 
-    private const PRODUCTION_BASE_URL = 'https://connect.easyparcel.my';
+    private const VERSION = '/open_api/2026-03';
 
-    public function __construct(private SettingsService $settingsService) {}
+    public function __construct(
+        private SettingsService $settingsService,
+        private EasyParcelOAuthService $oauth,
+    ) {}
 
     public function getProviderName(): string
     {
@@ -45,7 +49,8 @@ class EasyParcelShippingService implements ShippingProvider
 
     public function isConfigured(): bool
     {
-        return $this->settingsService->isEasyParcelConfigured();
+        return $this->settingsService->isEasyParcelConfigured()
+            && $this->settingsService->isEasyParcelConnected();
     }
 
     public function isEnabled(): bool
@@ -59,55 +64,55 @@ class EasyParcelShippingService implements ShippingProvider
     }
 
     /**
-     * Quote couriers for a parcel. EasyParcel returns one rate per available
-     * courier service; the `serviceCode` carried back is the EasyParcel
-     * `service_id`, which `createShipment()` needs to book that exact service.
+     * Quote every courier EasyParcel offers for the parcel. The `serviceCode`
+     * carried back is the EasyParcel `service_id` needed to book that service.
      *
      * @return ShippingRate[]
      */
     public function getRates(ShippingRateRequest $request): array
     {
-        $payload = [[
-            'pick_code' => $request->originPostalCode,
-            'pick_state' => EasyParcelStateMapper::getStateCode($request->originState),
-            'pick_country' => 'MY',
-            'send_code' => $request->destinationPostalCode,
-            'send_state' => EasyParcelStateMapper::getStateCode($request->destinationState),
-            'send_country' => 'MY',
-            'weight' => (string) max($request->weightKg, 0.1),
-            'width' => (string) ($request->widthCm ?? 0),
-            'length' => (string) ($request->lengthCm ?? 0),
-            'height' => (string) ($request->heightCm ?? 0),
-        ]];
+        $payload = ['shipment' => [[
+            'sender' => [
+                'postcode' => $request->originPostalCode,
+                'subdivision_code' => EasyParcelStateMapper::getSubdivisionCode($request->originState),
+                'country' => 'MY',
+            ],
+            'receiver' => [
+                'postcode' => $request->destinationPostalCode,
+                'subdivision_code' => EasyParcelStateMapper::getSubdivisionCode($request->destinationState),
+                'country' => 'MY',
+            ],
+            'weight' => max($request->weightKg, 0.1),
+            'width' => $request->widthCm ?? 5,
+            'length' => $request->lengthCm ?? 5,
+            'height' => $request->heightCm ?? 5,
+            'parcel_value' => $request->itemValue ?? 0,
+        ]]];
 
         try {
-            $response = $this->makeRequest('EPRateCheckingBulk', $payload);
+            $response = $this->apiRequest('POST', self::VERSION.'/shipment/quotations', $payload);
 
             if (! $this->ok($response)) {
-                Log::warning('EasyParcel rate checking returned error', [
-                    'request' => $payload,
-                    'response' => $response,
-                ]);
+                Log::warning('EasyParcel quotations error', ['request' => $payload, 'response' => $response]);
 
                 return [];
             }
 
             $rates = [];
-            $block = $response['result'][0] ?? [];
 
-            foreach ($block['rates'] ?? [] as $rate) {
-                $courier = $rate['courier_name'] ?? 'Courier';
-                $service = $rate['service_name'] ?? '';
+            foreach (($response['data'][0]['quotations'] ?? []) as $quote) {
+                $courier = $quote['courier'] ?? [];
+                $pricing = $quote['pricing'] ?? [];
 
                 $rates[] = new ShippingRate(
                     providerSlug: 'easyparcel',
                     providerName: 'EasyParcel',
-                    serviceName: trim($courier.($service ? ' — '.$service : '')),
-                    serviceCode: (string) ($rate['service_id'] ?? ''),
-                    cost: (float) ($rate['price'] ?? 0),
-                    currency: 'MYR',
-                    estimatedDays: $this->parseDeliveryDays($rate['delivery'] ?? null),
-                    metadata: $rate,
+                    serviceName: trim(($courier['courier_name'] ?? 'Courier').' — '.($courier['service_name'] ?? '')),
+                    serviceCode: (string) ($courier['service_id'] ?? ''),
+                    cost: (float) ($pricing['total_amount'] ?? 0),
+                    currency: $pricing['currency'] ?? 'MYR',
+                    estimatedDays: $this->parseDeliveryDays($courier['delivery_duration'] ?? null),
+                    metadata: $quote,
                 );
             }
 
@@ -128,170 +133,148 @@ class EasyParcelShippingService implements ShippingProvider
             );
         }
 
-        try {
-            // Step 1 — submit the order to reserve the chosen courier service.
-            $submitPayload = [[
-                'weight' => (string) max($request->weightKg, 0.1),
+        $payload = ['shipment' => [[
+            'reference' => $request->orderNumber,
+            'service_id' => $request->serviceCode,
+            'collection_date' => now()->addDay()->format('Y-m-d'),
+            'weight' => max($request->weightKg, 0.1),
+            'width' => 5,
+            'length' => 5,
+            'height' => 5,
+            'item' => [[
                 'content' => $request->itemDescription ?: 'General goods',
-                'value' => (string) ($request->itemValue ?? 0),
-                'service_id' => $request->serviceCode,
-                'collect_date' => now()->addDay()->format('Y-m-d'),
-                // Sender (pickup)
-                'pick_name' => $request->senderName,
-                'pick_contact' => $request->senderPhone,
-                'pick_mobile' => $request->senderPhone,
-                'pick_addr1' => $request->senderAddress,
-                'pick_city' => $request->senderCity,
-                'pick_code' => $request->senderPostalCode,
-                'pick_state' => EasyParcelStateMapper::getStateCode($request->senderState),
-                'pick_country' => 'MY',
-                // Receiver (send)
-                'send_name' => $request->receiverName,
-                'send_contact' => $request->receiverPhone,
-                'send_mobile' => $request->receiverPhone,
-                'send_addr1' => $request->receiverAddress,
-                'send_city' => $request->receiverCity,
-                'send_code' => $request->receiverPostalCode,
-                'send_state' => EasyParcelStateMapper::getStateCode($request->receiverState),
-                'send_country' => 'MY',
-            ]];
+                'weight' => max($request->weightKg, 0.1),
+                'width' => 5,
+                'length' => 5,
+                'height' => 5,
+                'currency_code' => 'MYR',
+                'value' => $request->itemValue ?? 0,
+                'quantity' => max($request->itemQuantity, 1),
+            ]],
+            'sender' => $this->party($request->senderName, $request->senderPhone, $request->senderAddress, $request->senderCity, $request->senderState, $request->senderPostalCode),
+            'receiver' => $this->party($request->receiverName, $request->receiverPhone, $request->receiverAddress, $request->receiverCity, $request->receiverState, $request->receiverPostalCode),
+            'feature' => [
+                'sms_tracking' => false,
+                'email_tracking' => true,
+                'whatsapp_tracking' => false,
+            ],
+        ]]];
 
-            $submit = $this->makeRequest('EPSubmitOrderBulk', $submitPayload);
-            $submitResult = $submit['result'][0] ?? [];
+        try {
+            // NOTE: the published docs show `submit_orders` without the version
+            // prefix, unlike every other shipment endpoint. We use the versioned
+            // path for consistency; flip to '/shipment/submit_orders' if rejected.
+            $response = $this->apiRequest('POST', self::VERSION.'/shipment/submit_orders', $payload);
 
-            if (! $this->ok($submit) || ($submitResult['status'] ?? '') !== 'Success') {
+            $first = $response['data'][0] ?? [];
+            $shipment = $first['shipments'][0] ?? [];
+
+            if (! $this->ok($response) || ($shipment['status'] ?? '') !== 'success') {
                 return new ShipmentResult(
                     success: false,
-                    message: $this->errorMessage($submit, $submitResult, 'Failed to submit EasyParcel order.'),
-                    rawResponse: ['submit' => $submit],
+                    message: $shipment['message'] ?? $response['message'] ?? 'Failed to submit EasyParcel order.',
+                    rawResponse: $response ?? [],
                 );
             }
 
-            $orderNo = $submitResult['order_number'] ?? $submitResult['orderno'] ?? null;
-
-            if (! $orderNo) {
-                return new ShipmentResult(
-                    success: false,
-                    message: 'EasyParcel did not return an order number.',
-                    rawResponse: ['submit' => $submit],
-                );
-            }
-
-            // Step 2 — pay from prepaid credit; this generates the AWB + label.
-            $pay = $this->makeRequest('EPPayOrderBulk', [['order_no' => $orderNo]]);
-            $payResult = $pay['result'][0] ?? [];
-
-            if (! $this->ok($pay)) {
-                return new ShipmentResult(
-                    success: false,
-                    message: $this->errorMessage($pay, $payResult, 'EasyParcel order submitted but payment failed.'),
-                    rawResponse: ['submit' => $submit, 'pay' => $pay],
-                    providerOrderId: $orderNo,
-                );
-            }
-
-            $parcel = $payResult['parcel'][0] ?? [];
-            $awb = $parcel['awb'] ?? null;
-
-            if (! $awb) {
-                return new ShipmentResult(
-                    success: false,
-                    message: $payResult['messagenow'] ?? 'EasyParcel did not return an AWB. Check your account credit balance.',
-                    rawResponse: ['submit' => $submit, 'pay' => $pay],
-                    providerOrderId: $orderNo,
-                );
-            }
+            $awb = ($shipment['awb_number'] ?? null) ?: null;
+            $labelUrl = ($shipment['awb_url'] ?? '') ?: (data_get($shipment, 'awb_urls_by_format.A4') ?: null);
 
             return new ShipmentResult(
                 success: true,
                 trackingNumber: $awb,
                 waybillNumber: $awb,
-                message: 'Shipment booked and paid successfully.',
-                rawResponse: ['submit' => $submit, 'pay' => $pay],
-                labelUrl: $parcel['awb_id_link'] ?? null,
-                trackingUrl: $parcel['tracking_url'] ?? null,
-                providerOrderId: $orderNo,
+                message: $awb ? 'Shipment booked and paid.' : 'Shipment booked. The AWB and label are being generated.',
+                rawResponse: $response,
+                labelUrl: $labelUrl,
+                trackingUrl: ($shipment['tracking_url'] ?? null) ?: null,
+                providerOrderId: data_get($first, 'order_details.order_number'),
+                shipmentNumber: $shipment['shipment_number'] ?? null,
+                awbPending: empty($awb),
             );
         } catch (\Exception $e) {
-            Log::error('EasyParcel create shipment failed', [
-                'error' => $e->getMessage(),
-                'order' => $request->orderNumber,
-            ]);
+            Log::error('EasyParcel create shipment failed', ['error' => $e->getMessage(), 'order' => $request->orderNumber]);
 
-            return new ShipmentResult(
-                success: false,
-                message: $e->getMessage(),
-            );
+            return new ShipmentResult(success: false, message: $e->getMessage());
         }
     }
 
     public function getTracking(string $trackingNumber): TrackingResult
     {
         try {
-            $response = $this->makeRequest('EPTrackingBulk', [['awb' => $trackingNumber]]);
+            $response = $this->apiRequest('POST', self::VERSION.'/shipment/tracking_status', [
+                'awb_numbers' => [$trackingNumber],
+            ]);
 
             if (! $this->ok($response)) {
                 return new TrackingResult(
                     success: false,
                     trackingNumber: $trackingNumber,
-                    message: $response['error_remark'] ?? 'Failed to retrieve tracking info.',
+                    message: $response['message'] ?? 'Failed to retrieve tracking info.',
                     rawResponse: $response ?? [],
                 );
             }
 
-            $block = $response['result'][0] ?? [];
+            $result = $response['data']['results'][0] ?? [];
             $events = [];
 
-            foreach ($block['latest_status'] ?? ($block['tracking'] ?? []) as $detail) {
+            foreach ($result['status_log'] ?? [] as $log) {
                 $events[] = [
-                    'status' => $detail['status'] ?? '',
-                    'datetime' => $detail['event_time'] ?? $detail['date'] ?? '',
-                    'location' => $detail['location'] ?? '',
-                    'description' => $detail['details'] ?? $detail['status'] ?? '',
+                    'status' => $log['tracking_status'] ?? '',
+                    'datetime' => $log['event_date'] ?? '',
+                    'location' => $log['location'] ?? '',
+                    'description' => $log['tracking_status'] ?? '',
                 ];
             }
 
             return new TrackingResult(
                 success: true,
                 trackingNumber: $trackingNumber,
-                currentStatus: $events[0]['status'] ?? null,
+                currentStatus: $result['latest_tracking_status'] ?? null,
                 events: $events,
                 message: 'Tracking data retrieved.',
                 rawResponse: $response,
             );
         } catch (\Exception $e) {
-            Log::error('EasyParcel tracking query failed', [
-                'error' => $e->getMessage(),
-                'tracking' => $trackingNumber,
-            ]);
+            Log::error('EasyParcel tracking failed', ['error' => $e->getMessage(), 'tracking' => $trackingNumber]);
 
-            return new TrackingResult(
-                success: false,
-                trackingNumber: $trackingNumber,
-                message: $e->getMessage(),
-            );
+            return new TrackingResult(success: false, trackingNumber: $trackingNumber, message: $e->getMessage());
         }
     }
 
     /**
-     * EasyParcel paid shipments cannot be voided through this API — cancellation
-     * and refunds are handled from the EasyParcel dashboard. Surfaced as an
-     * informative failure rather than a silent error.
+     * Cancel a shipment. EasyParcel cancels by shipment number (ES-YYMM-XXXXX),
+     * within 7 days of the collection date — pass the shipment number, not the AWB.
      */
-    public function cancelShipment(string $trackingNumber): CancelResult
+    public function cancelShipment(string $shipmentNumber): CancelResult
     {
-        return new CancelResult(
-            success: false,
-            message: 'EasyParcel shipments are cancelled/refunded from the EasyParcel dashboard, not via the API.',
-        );
+        try {
+            $response = $this->apiRequest('POST', self::VERSION.'/shipment/cancel', [
+                'cancel_list' => [[
+                    'shipment_number' => $shipmentNumber,
+                    'remark' => 'Cancelled by admin',
+                ]],
+            ]);
+
+            $result = $response['data'][0] ?? [];
+            $success = $this->ok($response) && ($result['status'] ?? '') === 'success';
+
+            return new CancelResult(
+                success: $success,
+                message: $result['message'] ?? ($success ? 'Shipment cancelled.' : 'Failed to cancel shipment.'),
+                rawResponse: $response ?? [],
+            );
+        } catch (\Exception $e) {
+            Log::error('EasyParcel cancel failed', ['error' => $e->getMessage(), 'shipment' => $shipmentNumber]);
+
+            return new CancelResult(success: false, message: $e->getMessage());
+        }
     }
 
     public function testConnection(): bool
     {
         try {
-            $response = $this->makeRequest('EPCheckCreditBalance', []);
-
-            return $this->ok($response);
+            return $this->ok($this->apiRequest('GET', self::VERSION.'/wallet'));
         } catch (\Exception $e) {
             Log::warning('EasyParcel connection test failed', ['error' => $e->getMessage()]);
 
@@ -300,19 +283,18 @@ class EasyParcelShippingService implements ShippingProvider
     }
 
     /**
-     * Current prepaid credit balance, or null when it can't be read. Used by the
-     * settings screen so the admin can confirm there is credit to pay for labels.
+     * Current linked-wallet balance, or null when it can't be read.
      */
     public function getCreditBalance(): ?float
     {
         try {
-            $response = $this->makeRequest('EPCheckCreditBalance', []);
+            $response = $this->apiRequest('GET', self::VERSION.'/wallet');
 
             if (! $this->ok($response)) {
                 return null;
             }
 
-            $balance = $response['result']['wallet'] ?? $response['wallet'] ?? $response['result'][0]['balance'] ?? null;
+            $balance = $response['data']['wallet'][0]['balance'] ?? null;
 
             return $balance !== null ? (float) $balance : null;
         } catch (\Exception $e) {
@@ -320,37 +302,69 @@ class EasyParcelShippingService implements ShippingProvider
         }
     }
 
-    private function getBaseUrl(): string
-    {
-        return $this->isSandbox() ? self::SANDBOX_BASE_URL : self::PRODUCTION_BASE_URL;
-    }
-
-    private function getApiKey(): string
-    {
-        return (string) $this->settingsService->get('easyparcel_api_key', '');
-    }
-
     /**
-     * Whether the EasyParcel response reports overall success.
+     * Fetch the AWB number, label URL and current status for a booked shipment.
+     * Used to populate the label once EasyParcel finishes generating it.
      *
-     * @param  array<string, mixed>|null  $response
+     * @return array{awb_number: ?string, awb_url: ?string, tracking_url: ?string, status: ?string}|null
      */
-    private function ok(?array $response): bool
+    public function getShipmentDetails(string $shipmentNumber): ?array
     {
-        return is_array($response)
-            && (($response['api_status'] ?? null) === 'Success' || ($response['error_code'] ?? '1') === '0');
+        try {
+            $response = $this->apiRequest('POST', self::VERSION.'/shipment/details', [
+                'shipment_number' => $shipmentNumber,
+            ]);
+
+            if (! $this->ok($response)) {
+                return null;
+            }
+
+            $details = $response['data'][0]['shipment_details'] ?? [];
+
+            return [
+                'awb_number' => $details['awb_number'] ?: null,
+                'awb_url' => $details['awb_url'] ?: null,
+                'tracking_url' => $details['tracking_url'] ?: null,
+                'status' => $details['shipment_status'] ?? null,
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     /**
-     * @param  array<string, mixed>|null  $response
-     * @param  array<string, mixed>  $result
+     * Build a sender/receiver party object for the submit_orders payload.
+     *
+     * @return array<string, mixed>
      */
-    private function errorMessage(?array $response, array $result, string $fallback): string
+    private function party(string $name, string $phone, string $address, string $city, string $state, string $postcode): array
     {
-        return $result['remarks']
-            ?? $result['error_remark']
-            ?? $response['error_remark']
-            ?? $fallback;
+        return [
+            'name' => $name ?: 'N/A',
+            'phone_number_country_code' => 'MY',
+            'phone_number' => $this->localPhone($phone),
+            'address_1' => $address ?: 'N/A',
+            'postcode' => $postcode,
+            'city' => $city ?: '',
+            'subdivision_code' => EasyParcelStateMapper::getSubdivisionCode($state),
+            'country_code' => 'MY',
+        ];
+    }
+
+    /**
+     * Normalise a Malaysian phone to the local form EasyParcel expects (no
+     * country code, no leading zero): "+60 12-345 6789" / "0123456789" -> "123456789".
+     */
+    private function localPhone(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+        $digits = Str::of($digits)->ltrim('0')->value();
+
+        if (str_starts_with($digits, '60')) {
+            $digits = substr($digits, 2);
+        }
+
+        return ltrim($digits, '0');
     }
 
     private function parseDeliveryDays(?string $delivery): ?int
@@ -359,48 +373,69 @@ class EasyParcelShippingService implements ShippingProvider
             return null;
         }
 
-        if (preg_match('/(\d+)/', $delivery, $m)) {
-            return (int) $m[1];
-        }
-
-        return null;
+        return preg_match('/(\d+)/', $delivery, $m) ? (int) $m[1] : null;
     }
 
     /**
-     * POST a single-shipment `bulk` payload to an EasyParcel action.
+     * @param  array<string, mixed>|null  $response
+     */
+    private function ok(?array $response): bool
+    {
+        return is_array($response) && (int) ($response['status_code'] ?? 0) === 200;
+    }
+
+    /**
+     * Authenticated JSON call against the Open API, refreshing the access token
+     * once on a 401.
      *
-     * @param  array<int, array<string, mixed>>  $bulk
+     * @param  array<string, mixed>  $body
      * @return array<string, mixed>|null
      */
-    private function makeRequest(string $action, array $bulk): ?array
+    private function apiRequest(string $method, string $path, array $body = []): ?array
     {
-        $body = ['api' => $this->getApiKey()];
+        $token = $this->oauth->accessToken();
 
-        if ($bulk !== []) {
-            $body['bulk'] = $bulk;
-        }
-
-        $response = Http::timeout(30)
-            ->asForm()
-            ->post($this->getBaseUrl().'/?ac='.$action, $body);
-
-        if (! $response->successful()) {
-            Log::error('EasyParcel API request failed', [
-                'action' => $action,
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
+        if (! $token) {
+            Log::warning('EasyParcel API call without a valid access token', ['path' => $path]);
 
             return null;
         }
 
+        $response = $this->send($method, $path, $token, $body);
+
+        if ($response->status() === 401 && $this->oauth->refresh()) {
+            $token = $this->oauth->accessToken();
+            $response = $this->send($method, $path, (string) $token, $body);
+        }
+
+        if (! $response->successful()) {
+            Log::error('EasyParcel API request failed', [
+                'path' => $path,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            // Surface the body when it is structured (e.g. 401 status_code envelopes).
+            $json = $response->json();
+
+            return is_array($json) ? $json : null;
+        }
+
         $data = $response->json();
 
-        Log::debug('EasyParcel API response', [
-            'action' => $action,
-            'response' => $data,
-        ]);
-
         return is_array($data) ? $data : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private function send(string $method, string $path, string $token, array $body): \Illuminate\Http\Client\Response
+    {
+        $request = Http::timeout(40)->withToken($token)->acceptJson();
+        $url = self::API_BASE.$path;
+
+        return $method === 'GET'
+            ? $request->get($url)
+            : $request->post($url, $body);
     }
 }
