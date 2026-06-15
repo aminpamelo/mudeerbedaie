@@ -11,9 +11,14 @@ new class extends Component
 {
     // Filters
     public string $search = '';
+
+    #[Url(as: 'type')]
     public string $typeFilter = '';
+
     public string $priorityFilter = '';
+
     public string $categoryFilter = '';
+
     public string $assigneeFilter = '';
 
     #[Url]
@@ -27,42 +32,70 @@ new class extends Component
 
     // Create modal
     public bool $showCreateModal = false;
+
     public string $cTitle = '';
+
     public string $cDescription = '';
+
     public $cTypeId = null;
+
     public string $cPriority = 'medium';
+
     public string $cStatus = 'backlog';
+
     public $cCategoryId = null;
+
     public $cAssigneeId = null;
+
     public ?string $cDueDate = null;
 
     // Edit flyout
     public bool $showEditModal = false;
+
     public ?int $editingId = null;
+
     public string $eTitle = '';
+
     public string $eDescription = '';
+
     public $eTypeId = null;
+
     public string $ePriority = 'medium';
+
     public string $eStatus = 'backlog';
+
     public $eCategoryId = null;
+
     public $eAssigneeId = null;
+
     public ?string $eDueDate = null;
+
     public string $commentBody = '';
 
     // Category manager
     public bool $showCategoryModal = false;
+
     public string $catName = '';
+
     public string $catColor = '#6366f1';
+
     public ?int $editingCatId = null;
+
     public string $editCatName = '';
+
     public string $editCatColor = '#6366f1';
 
     // Type manager
     public bool $showTypeModal = false;
+
     public string $typeName = '';
+
     public string $typeColor = '#6366f1';
+
     public ?int $editingTypeId = null;
+
     public string $editTypeName = '';
+
     public string $editTypeColor = '#6366f1';
 
     public function layout(): string
@@ -107,7 +140,9 @@ new class extends Component
     {
         return ItTicket::query()
             ->when($this->search, fn ($q) => $q->search($this->search))
-            ->when($this->typeFilter, fn ($q) => $q->where('type_id', $this->typeFilter))
+            ->when($this->typeFilter !== '', fn ($q) => $this->typeFilter === 'none'
+                ? $q->whereNull('type_id')
+                : $q->where('type_id', $this->typeFilter))
             ->when($this->priorityFilter, fn ($q) => $q->where('priority', $this->priorityFilter))
             ->when($this->categoryFilter, fn ($q) => $q->where('category_id', $this->categoryFilter))
             ->when($this->assigneeFilter, fn ($q) => $q->where('assignee_id', $this->assigneeFilter));
@@ -239,6 +274,51 @@ new class extends Component
     public function getTypesProperty()
     {
         return ItTicketType::orderBy('sort_order')->orderBy('name')->get();
+    }
+
+    /**
+     * Type segmentation tabs: "All", one per type, then "No type" (only when
+     * untyped tickets exist). Counts honour every active filter EXCEPT the type
+     * itself, so each tab shows how many tickets it holds for the current view.
+     *
+     * @return array<int, array{key: string, name: string, color: ?string, count: int}>
+     */
+    public function getTypeTabsProperty(): array
+    {
+        $base = fn () => ItTicket::query()
+            ->when($this->search, fn ($q) => $q->search($this->search))
+            ->when($this->priorityFilter, fn ($q) => $q->where('priority', $this->priorityFilter))
+            ->when($this->categoryFilter, fn ($q) => $q->where('category_id', $this->categoryFilter))
+            ->when($this->assigneeFilter, fn ($q) => $q->where('assignee_id', $this->assigneeFilter));
+
+        $tabs = [[
+            'key' => '',
+            'name' => 'All',
+            'color' => null,
+            'count' => $base()->count(),
+        ]];
+
+        foreach ($this->types as $type) {
+            $tabs[] = [
+                'key' => (string) $type->id,
+                'name' => $type->name,
+                'color' => $type->color,
+                'count' => $base()->where('type_id', $type->id)->count(),
+            ];
+        }
+
+        $noneCount = $base()->whereNull('type_id')->count();
+
+        if ($noneCount > 0) {
+            $tabs[] = [
+                'key' => 'none',
+                'name' => 'No type',
+                'color' => null,
+                'count' => $noneCount,
+            ];
+        }
+
+        return $tabs;
     }
 
     public function getAdminUsersProperty()
@@ -630,6 +710,28 @@ new class extends Component
         @endforeach
     </div>
 
+    {{-- Type segmentation tabs --}}
+    <div class="mb-4 flex items-center gap-0.5 overflow-x-auto border-b border-zinc-200/70 dark:border-white/[0.06]">
+        @foreach ($this->typeTabs as $tab)
+            @php $active = (string) $typeFilter === $tab['key']; $accent = $tab['color'] ?? '#6366f1'; @endphp
+            <button type="button" wire:key="ttab-{{ $tab['key'] ?: 'all' }}"
+                wire:click="$set('typeFilter', '{{ $tab['key'] }}')"
+                class="relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-xs font-medium transition
+                    {{ $active ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}">
+                @if ($tab['color'])
+                    <span class="size-2 rounded-full" style="background-color: {{ $tab['color'] }}"></span>
+                @elseif ($tab['key'] === 'none')
+                    <flux:icon name="minus-circle" class="size-3.5 opacity-50" />
+                @else
+                    <flux:icon name="squares-2x2" class="size-3.5 opacity-50" />
+                @endif
+                {{ $tab['name'] }}
+                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums {{ $active ? 'bg-zinc-900/[0.06] text-zinc-700 dark:bg-white/10 dark:text-zinc-200' : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-700/60 dark:text-zinc-500' }}">{{ $tab['count'] }}</span>
+                <span class="absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-opacity {{ $active ? 'opacity-100' : 'opacity-0' }}" style="background-color: {{ $accent }}"></span>
+            </button>
+        @endforeach
+    </div>
+
     {{-- Toolbar: view toggle + filters --}}
     <div class="mb-4 flex flex-wrap items-center gap-2">
         <div class="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-white/10 dark:bg-zinc-800/60">
@@ -650,14 +752,6 @@ new class extends Component
         <div class="ml-auto flex flex-wrap items-center gap-2">
             <div class="w-48">
                 <flux:input wire:model.live.debounce.300ms="search" placeholder="Search tickets..." icon="magnifying-glass" size="sm" />
-            </div>
-            <div class="w-32">
-                <flux:select wire:model.live="typeFilter" size="sm">
-                    <option value="">All Types</option>
-                    @foreach ($this->types as $type)
-                        <option value="{{ $type->id }}">{{ $type->name }}</option>
-                    @endforeach
-                </flux:select>
             </div>
             <div class="w-32">
                 <flux:select wire:model.live="priorityFilter" size="sm">

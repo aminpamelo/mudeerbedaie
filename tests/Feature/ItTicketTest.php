@@ -42,6 +42,27 @@ it('detects overdue tickets', function () {
     expect($done->isOverdue())->toBeFalse();
 });
 
+it('shows the explicit due date on the deadline chip for every state', function () {
+    $today = ItTicket::factory()->create(['due_date' => now(), 'status' => 'in_progress']);
+    $soon = ItTicket::factory()->create(['due_date' => now()->addDays(2), 'status' => 'in_progress']);
+    $later = ItTicket::factory()->create(['due_date' => now()->addDays(10), 'status' => 'in_progress']);
+    $overdue = ItTicket::factory()->create(['due_date' => now()->subDay(), 'status' => 'in_progress']);
+    $done = ItTicket::factory()->create(['due_date' => now()->subDay(), 'status' => 'done']);
+
+    expect($today->deadlineMeta()['short'])->toBe(now()->format('j M'));
+    expect($soon->deadlineMeta()['short'])->toBe(now()->addDays(2)->format('j M'));
+    expect($later->deadlineMeta()['short'])->toBe(now()->addDays(10)->format('j M'));
+    expect($overdue->deadlineMeta()['short'])->toBe(now()->subDay()->format('j M'));
+    expect($done->deadlineMeta()['short'])->toBe(now()->subDay()->format('j M'));
+});
+
+it('falls back to a placeholder when a ticket has no due date', function () {
+    $ticket = ItTicket::factory()->create(['due_date' => null, 'status' => 'in_progress']);
+
+    expect($ticket->deadlineMeta()['key'])->toBe('none');
+    expect($ticket->deadlineMeta()['short'])->toBe('—');
+});
+
 it('returns the type hex color and priority color', function () {
     $type = ItTicketType::factory()->create(['name' => 'Bug', 'color' => '#ef4444']);
     $ticket = ItTicket::factory()->ofType($type)->create(['priority' => 'urgent']);
@@ -162,6 +183,65 @@ it('allows admin to update ticket status via drag', function () {
         ->call('moveTicket', $ticket->id, 'in_progress', 0, [$ticket->id]);
 
     expect($ticket->fresh()->status)->toBe('in_progress');
+});
+
+it('builds type tabs with per-type counts and a No type bucket', function () {
+    $this->actingAs($this->admin);
+
+    $kelasify = ItTicketType::factory()->create(['name' => 'Kelasify']);
+    $infra = ItTicketType::factory()->create(['name' => 'INFRA']);
+
+    ItTicket::factory()->count(2)->create(['type_id' => $kelasify->id]);
+    ItTicket::factory()->create(['type_id' => $infra->id]);
+    ItTicket::factory()->create(['type_id' => null]);
+
+    $tabs = collect(Volt::test('admin.it-board.index')->instance()->typeTabs)->keyBy('name');
+
+    expect($tabs['All']['count'])->toBe(4);
+    expect($tabs['Kelasify']['count'])->toBe(2);
+    expect($tabs['INFRA']['count'])->toBe(1);
+    expect($tabs['No type']['count'])->toBe(1);
+    expect($tabs['No type']['key'])->toBe('none');
+});
+
+it('omits the No type tab when every ticket has a type', function () {
+    $this->actingAs($this->admin);
+
+    $type = ItTicketType::factory()->create(['name' => 'Kelasify']);
+    ItTicket::factory()->create(['type_id' => $type->id]);
+
+    $names = collect(Volt::test('admin.it-board.index')->instance()->typeTabs)->pluck('name');
+
+    expect($names)->toContain('All', 'Kelasify');
+    expect($names)->not->toContain('No type');
+});
+
+it('filters the board to a single type when a type tab is active', function () {
+    $this->actingAs($this->admin);
+
+    $kelasify = ItTicketType::factory()->create(['name' => 'Kelasify']);
+    $infra = ItTicketType::factory()->create(['name' => 'INFRA']);
+
+    ItTicket::factory()->create(['type_id' => $kelasify->id, 'title' => 'Kelasify ticket', 'status' => 'backlog']);
+    ItTicket::factory()->create(['type_id' => $infra->id, 'title' => 'Infra ticket', 'status' => 'backlog']);
+
+    Volt::test('admin.it-board.index')
+        ->set('typeFilter', (string) $kelasify->id)
+        ->assertSee('Kelasify ticket')
+        ->assertDontSee('Infra ticket');
+});
+
+it('filters the board to untyped tickets via the No type tab', function () {
+    $this->actingAs($this->admin);
+
+    $type = ItTicketType::factory()->create(['name' => 'Kelasify']);
+    ItTicket::factory()->create(['type_id' => $type->id, 'title' => 'Typed ticket', 'status' => 'backlog']);
+    ItTicket::factory()->create(['type_id' => null, 'title' => 'Untyped ticket', 'status' => 'backlog']);
+
+    Volt::test('admin.it-board.index')
+        ->set('typeFilter', 'none')
+        ->assertSee('Untyped ticket')
+        ->assertDontSee('Typed ticket');
 });
 
 it('sets completed_at when moving to done', function () {
