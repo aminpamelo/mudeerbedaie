@@ -423,6 +423,282 @@
         }
     </style>
 
+    <!-- Modern single-page checkout styles (Clean & Trustworthy: indigo + emerald) -->
+    <style>
+        /* Layout shell */
+        .funnel-checkout { max-width: 1080px !important; }
+        .funnel-checkout .fc-main { align-items: start !important; }
+
+        /* Extra utilities used by the modern checkout */
+        .funnel-checkout .gap-3 { gap: 12px !important; }
+        .funnel-checkout .flex-wrap { flex-wrap: wrap !important; }
+
+        /* Indigo focus ring on inputs (matches accent) */
+        .funnel-checkout input[type="text"]:focus,
+        .funnel-checkout input[type="email"]:focus,
+        .funnel-checkout input[type="tel"]:focus,
+        .funnel-checkout select:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18) !important;
+        }
+
+        /* Secure header strip */
+        .funnel-checkout .fc-topbar {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            margin: 0 0 24px !important;
+            font-size: 13px !important;
+            color: #64748b !important;
+        }
+        .funnel-checkout .fc-topbar-lock { display: inline-flex !important; color: #4f46e5 !important; }
+        .funnel-checkout .fc-topbar-text { font-weight: 600 !important; color: #334155 !important; }
+        .funnel-checkout .fc-topbar-sep { width: 4px !important; height: 4px !important; border-radius: 9999px !important; background: #cbd5e1 !important; }
+        .funnel-checkout .fc-topbar-muted { color: #94a3b8 !important; }
+
+        /* Cards & section headers */
+        .funnel-checkout .fc-card {
+            background: #ffffff !important;
+            border: 1px solid #e9edf3 !important;
+            border-radius: 16px !important;
+            padding: 24px !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 12px 28px -16px rgba(15, 23, 42, 0.12) !important;
+        }
+        .funnel-checkout .fc-section-head { display: flex !important; align-items: center !important; gap: 12px !important; margin-bottom: 20px !important; }
+        .funnel-checkout .fc-step {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 34px !important; height: 34px !important;
+            flex-shrink: 0 !important;
+            border-radius: 9999px !important;
+            background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+            color: #ffffff !important;
+            font-size: 15px !important; font-weight: 700 !important;
+            box-shadow: 0 6px 14px -6px rgba(79, 70, 229, 0.6) !important;
+        }
+        .funnel-checkout .fc-section-heading { min-width: 0 !important; }
+        .funnel-checkout .fc-section-title { font-size: 17px !important; font-weight: 700 !important; color: #0f172a !important; line-height: 1.3 !important; }
+        .funnel-checkout .fc-section-sub { font-size: 13px !important; color: #64748b !important; margin-top: 2px !important; }
+        .funnel-checkout .fc-subhead { font-size: 14px !important; font-weight: 700 !important; color: #1e293b !important; margin-bottom: 12px !important; }
+
+        /* Labels, errors, alerts */
+        .funnel-checkout .fc-label { display: block !important; font-size: 13px !important; font-weight: 600 !important; color: #334155 !important; margin-bottom: 6px !important; }
+        .funnel-checkout .fc-error { display: block !important; font-size: 13px !important; color: #dc2626 !important; margin-top: 6px !important; }
+        .funnel-checkout .fc-alert { display: flex !important; align-items: center !important; gap: 10px !important; padding: 12px 14px !important; border-radius: 12px !important; font-size: 13px !important; font-weight: 500 !important; margin-bottom: 16px !important; }
+        .funnel-checkout .fc-alert-error { background: #fef2f2 !important; border: 1px solid #fecaca !important; color: #b91c1c !important; }
+        .funnel-checkout .fc-alert-warn { background: #fffbeb !important; border: 1px solid #fde68a !important; color: #92400e !important; }
+
+        /* Package selection cards */
+        .funnel-checkout .fc-pkg {
+            position: relative !important;
+            display: flex !important;
+            gap: 14px !important;
+            padding: 16px !important;
+            background: #ffffff !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 14px !important;
+            cursor: pointer !important;
+            transition: border-color 160ms, background-color 160ms, box-shadow 160ms, transform 160ms !important;
+        }
+        .funnel-checkout .fc-pkg:hover { border-color: #c7d2fe !important; box-shadow: 0 10px 24px -16px rgba(15, 23, 42, 0.28) !important; }
+        .funnel-checkout .fc-pkg.is-active {
+            border-color: #4f46e5 !important;
+            background: #eef2ff !important;
+            box-shadow: 0 0 0 1px #4f46e5, 0 10px 24px -12px rgba(79, 70, 229, 0.4) !important;
+        }
+        .funnel-checkout .fc-badge-popular {
+            position: absolute !important;
+            top: -10px !important; right: 14px !important;
+            display: inline-flex !important; align-items: center !important; gap: 4px !important;
+            padding: 3px 10px !important;
+            background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+            color: #ffffff !important;
+            font-size: 11px !important; font-weight: 700 !important;
+            border-radius: 9999px !important;
+            box-shadow: 0 4px 10px -3px rgba(79, 70, 229, 0.5) !important;
+        }
+        .funnel-checkout .fc-pkg-select { flex-shrink: 0 !important; padding-top: 2px !important; }
+        .funnel-checkout .fc-pkg-body { flex: 1 1 0% !important; min-width: 0 !important; }
+        .funnel-checkout .fc-pkg-toprow { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 12px !important; }
+        .funnel-checkout .fc-pkg-name-wrap { min-width: 0 !important; }
+        .funnel-checkout .fc-pkg-name { font-size: 15px !important; font-weight: 700 !important; color: #0f172a !important; line-height: 1.35 !important; }
+        .funnel-checkout .fc-pkg-desc { font-size: 13px !important; color: #64748b !important; margin-top: 3px !important; }
+        .funnel-checkout .fc-pkg-pricing { text-align: right !important; flex-shrink: 0 !important; }
+        .funnel-checkout .fc-pkg-price { font-size: 18px !important; font-weight: 800 !important; color: #0f172a !important; font-variant-numeric: tabular-nums !important; }
+        .funnel-checkout .fc-pkg-compare { font-size: 13px !important; color: #94a3b8 !important; text-decoration: line-through !important; }
+        .funnel-checkout .fc-pkg-tags { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; margin-top: 10px !important; }
+        .funnel-checkout .fc-save { display: inline-flex !important; align-items: center !important; padding: 3px 10px !important; background: #ecfdf5 !important; color: #047857 !important; font-size: 12px !important; font-weight: 600 !important; border-radius: 9999px !important; }
+        .funnel-checkout .fc-tag-sub { display: inline-flex !important; align-items: center !important; padding: 3px 10px !important; background: #eef2ff !important; color: #4338ca !important; font-size: 12px !important; font-weight: 600 !important; border-radius: 9999px !important; }
+        .funnel-checkout .fc-pkg-includes { margin-top: 12px !important; padding-top: 12px !important; border-top: 1px solid #e2e8f0 !important; }
+        .funnel-checkout .fc-pkg.is-active .fc-pkg-includes { border-top-color: #c7d2fe !important; }
+        .funnel-checkout .fc-includes-label { font-size: 12px !important; font-weight: 600 !important; color: #64748b !important; margin-bottom: 6px !important; }
+        .funnel-checkout .fc-include-item { display: flex !important; align-items: center !important; gap: 8px !important; font-size: 13px !important; color: #475569 !important; }
+        .funnel-checkout .fc-include-check { color: #10b981 !important; flex-shrink: 0 !important; }
+
+        /* Selection indicators (radio / check) */
+        .funnel-checkout .fc-radio, .funnel-checkout .fc-check {
+            display: inline-flex !important; align-items: center !important; justify-content: center !important;
+            width: 22px !important; height: 22px !important;
+            border: 2px solid #cbd5e1 !important; background: #ffffff !important;
+            transition: background-color 150ms, border-color 150ms !important;
+        }
+        .funnel-checkout .fc-radio { border-radius: 9999px !important; }
+        .funnel-checkout .fc-check { border-radius: 7px !important; }
+        .funnel-checkout .fc-radio-dot { width: 10px !important; height: 10px !important; border-radius: 9999px !important; background: transparent !important; transition: background-color 150ms !important; }
+        .funnel-checkout .fc-radio.is-active { border-color: #4f46e5 !important; }
+        .funnel-checkout .fc-radio.is-active .fc-radio-dot { background: #4f46e5 !important; }
+        .funnel-checkout .fc-check svg { opacity: 0 !important; color: #ffffff !important; transition: opacity 150ms !important; }
+        .funnel-checkout .fc-check.is-active { background: #4f46e5 !important; border-color: #4f46e5 !important; }
+        .funnel-checkout .fc-check.is-active svg { opacity: 1 !important; }
+
+        /* Order bumps */
+        .funnel-checkout .fc-bump-wrap { background: #fffbeb !important; border: 2px dashed #fcd34d !important; border-radius: 16px !important; padding: 18px !important; }
+        .funnel-checkout .fc-bump-head { display: flex !important; align-items: center !important; gap: 10px !important; margin-bottom: 14px !important; }
+        .funnel-checkout .fc-bump-flag { display: inline-flex !important; align-items: center !important; padding: 4px 9px !important; background: #f59e0b !important; color: #ffffff !important; font-size: 11px !important; font-weight: 800 !important; letter-spacing: 0.04em !important; border-radius: 6px !important; animation: fc-pulse 1.8s ease-in-out infinite !important; }
+        .funnel-checkout .fc-bump-title { font-size: 16px !important; font-weight: 700 !important; color: #92400e !important; line-height: 1.3 !important; }
+        .funnel-checkout .fc-bump {
+            display: flex !important; gap: 14px !important;
+            padding: 14px !important; background: #ffffff !important;
+            border: 2px solid #e2e8f0 !important; border-radius: 12px !important;
+            cursor: pointer !important;
+            transition: border-color 160ms, background-color 160ms, box-shadow 160ms !important;
+        }
+        .funnel-checkout .fc-bump:hover { border-color: #a7f3d0 !important; }
+        .funnel-checkout .fc-bump.is-active { border-color: #10b981 !important; background: #ecfdf5 !important; box-shadow: 0 0 0 1px #10b981 !important; }
+        .funnel-checkout .fc-bump .fc-check.is-active { background: #059669 !important; border-color: #059669 !important; }
+        .funnel-checkout .fc-bump-select { flex-shrink: 0 !important; padding-top: 2px !important; }
+        .funnel-checkout .fc-bump-body { flex: 1 1 0% !important; min-width: 0 !important; }
+        .funnel-checkout .fc-bump-toprow { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 12px !important; }
+        .funnel-checkout .fc-bump-name-wrap { min-width: 0 !important; }
+        .funnel-checkout .fc-bump-kicker { display: block !important; font-size: 11px !important; font-weight: 700 !important; color: #059669 !important; text-transform: uppercase !important; letter-spacing: 0.04em !important; }
+        .funnel-checkout .fc-bump-name { font-size: 14px !important; font-weight: 700 !important; color: #0f172a !important; margin-top: 2px !important; line-height: 1.35 !important; }
+        .funnel-checkout .fc-bump-desc { font-size: 13px !important; color: #64748b !important; margin-top: 2px !important; }
+        .funnel-checkout .fc-bump-pricing { text-align: right !important; flex-shrink: 0 !important; }
+        .funnel-checkout .fc-bump-price { font-size: 16px !important; font-weight: 800 !important; color: #059669 !important; font-variant-numeric: tabular-nums !important; }
+
+        /* Shipping zone */
+        .funnel-checkout .fc-zone { display: flex !important; align-items: center !important; gap: 12px !important; padding: 14px !important; border: 2px solid #e2e8f0 !important; border-radius: 12px !important; cursor: pointer !important; transition: border-color 160ms, background-color 160ms !important; }
+        .funnel-checkout .fc-zone:hover { border-color: #c7d2fe !important; }
+        .funnel-checkout .fc-zone.is-active { border-color: #4f46e5 !important; background: #eef2ff !important; }
+        .funnel-checkout .fc-zone-radio { width: 20px !important; height: 20px !important; accent-color: #4f46e5 !important; flex-shrink: 0 !important; }
+        .funnel-checkout .fc-zone-info { flex: 1 1 0% !important; min-width: 0 !important; }
+        .funnel-checkout .fc-zone-name { font-size: 14px !important; font-weight: 600 !important; color: #0f172a !important; }
+        .funnel-checkout .fc-zone-sub { font-size: 12px !important; color: #64748b !important; }
+        .funnel-checkout .fc-zone-price { font-size: 14px !important; font-weight: 700 !important; color: #1e293b !important; flex-shrink: 0 !important; }
+
+        /* Payment methods */
+        .funnel-checkout .fc-pay { display: flex !important; align-items: center !important; gap: 12px !important; padding: 14px !important; background: #ffffff !important; border: 2px solid #e2e8f0 !important; border-radius: 12px !important; cursor: pointer !important; transition: border-color 160ms, background-color 160ms, box-shadow 160ms !important; }
+        .funnel-checkout .fc-pay:hover { border-color: #c7d2fe !important; }
+        .funnel-checkout .fc-pay.is-active { border-color: #4f46e5 !important; background: #eef2ff !important; box-shadow: 0 0 0 1px #4f46e5 !important; }
+        .funnel-checkout .fc-pay-icon { display: inline-flex !important; flex-shrink: 0 !important; color: #64748b !important; }
+        .funnel-checkout .fc-pay.is-active .fc-pay-icon { color: #4f46e5 !important; }
+        .funnel-checkout .fc-pay-body { display: flex !important; flex-direction: column !important; flex: 1 1 0% !important; min-width: 0 !important; }
+        .funnel-checkout .fc-pay-name { font-size: 14px !important; font-weight: 600 !important; color: #0f172a !important; }
+        .funnel-checkout .fc-pay-desc { font-size: 12px !important; color: #64748b !important; }
+        .funnel-checkout .fc-pay-badge { display: inline-flex !important; align-items: center !important; padding: 3px 8px !important; background: #ecfdf5 !important; color: #047857 !important; font-size: 11px !important; font-weight: 700 !important; border-radius: 9999px !important; flex-shrink: 0 !important; }
+        .funnel-checkout .fc-pay-panel { margin-top: 14px !important; padding: 16px !important; background: #f8fafc !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; }
+        .funnel-checkout .fc-card-element { padding: 12px !important; background: #ffffff !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; min-height: 44px !important; }
+        .funnel-checkout .fc-card-errors { margin-top: 8px !important; font-size: 13px !important; color: #dc2626 !important; }
+        .funnel-checkout .fc-pay-note { margin-top: 8px !important; font-size: 12px !important; color: #64748b !important; }
+        .funnel-checkout .fc-pay-notice { display: flex !important; align-items: center !important; gap: 10px !important; margin-top: 14px !important; padding: 14px !important; background: #eef2ff !important; border: 1px solid #c7d2fe !important; border-radius: 12px !important; font-size: 13px !important; color: #3730a3 !important; }
+        .funnel-checkout .fc-pay-notice svg { color: #4f46e5 !important; }
+
+        /* Trust badges */
+        .funnel-checkout .fc-trust { display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: center !important; gap: 20px !important; padding: 4px 8px !important; }
+        .funnel-checkout .fc-trust-item { display: flex !important; align-items: center !important; gap: 6px !important; font-size: 13px !important; font-weight: 500 !important; color: #64748b !important; }
+        .funnel-checkout .fc-trust-item svg { color: #10b981 !important; }
+
+        /* Sticky sidebar + order summary */
+        .funnel-checkout .fc-sticky { position: sticky !important; top: 24px !important; }
+        .funnel-checkout .fc-summary { background: #ffffff !important; border: 1px solid #e9edf3 !important; border-radius: 16px !important; padding: 22px !important; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 12px 28px -16px rgba(15, 23, 42, 0.12) !important; }
+        .funnel-checkout .fc-summary-title { font-size: 16px !important; font-weight: 700 !important; color: #0f172a !important; margin-bottom: 16px !important; padding-bottom: 14px !important; border-bottom: 1px solid #e9edf3 !important; }
+        .funnel-checkout .fc-summary-items { margin-bottom: 16px !important; }
+        .funnel-checkout .fc-summary-line { display: flex !important; align-items: flex-start !important; justify-content: space-between !important; gap: 12px !important; font-size: 14px !important; margin-bottom: 10px !important; }
+        .funnel-checkout .fc-summary-name { color: #475569 !important; }
+        .funnel-checkout .fc-summary-amount { font-weight: 600 !important; color: #0f172a !important; font-variant-numeric: tabular-nums !important; white-space: nowrap !important; }
+        .funnel-checkout .fc-summary-line.is-bump .fc-summary-name, .funnel-checkout .fc-summary-line.is-bump .fc-summary-amount { color: #047857 !important; }
+        .funnel-checkout .fc-summary-sub { margin: -4px 0 10px 4px !important; }
+        .funnel-checkout .fc-summary-subitem { display: flex !important; align-items: center !important; gap: 6px !important; font-size: 12px !important; color: #94a3b8 !important; }
+        .funnel-checkout .fc-summary-dot { width: 5px !important; height: 5px !important; border-radius: 9999px !important; flex-shrink: 0 !important; }
+        .funnel-checkout .fc-summary-dot.is-product { background: #6366f1 !important; }
+        .funnel-checkout .fc-summary-dot.is-course { background: #a855f7 !important; }
+        .funnel-checkout .fc-summary-empty { font-size: 13px !important; color: #94a3b8 !important; font-style: italic !important; }
+        .funnel-checkout .fc-summary-breakdown { padding-top: 16px !important; border-top: 1px solid #e9edf3 !important; }
+        .funnel-checkout .fc-summary-row { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; font-size: 14px !important; color: #475569 !important; margin-bottom: 8px !important; }
+        .funnel-checkout .fc-summary-row span:last-child { font-weight: 600 !important; color: #334155 !important; font-variant-numeric: tabular-nums !important; }
+        .funnel-checkout .fc-summary-row.is-bump, .funnel-checkout .fc-summary-row.is-bump span:last-child { color: #047857 !important; }
+        .funnel-checkout .fc-summary-total { display: flex !important; align-items: center !important; justify-content: space-between !important; padding-top: 12px !important; margin-top: 4px !important; border-top: 1px solid #e9edf3 !important; font-size: 16px !important; font-weight: 800 !important; color: #0f172a !important; }
+        .funnel-checkout .fc-summary-total-amount { font-size: 20px !important; font-weight: 800 !important; color: #0f172a !important; font-variant-numeric: tabular-nums !important; }
+        .funnel-checkout .fc-summary-savings { display: flex !important; align-items: center !important; gap: 6px !important; margin-top: 12px !important; padding: 8px 12px !important; background: #ecfdf5 !important; border-radius: 10px !important; font-size: 13px !important; font-weight: 600 !important; color: #047857 !important; }
+        .funnel-checkout .fc-summary-savings svg { color: #10b981 !important; flex-shrink: 0 !important; }
+
+        /* Primary CTA */
+        .funnel-checkout .fc-cta {
+            display: flex !important; align-items: center !important; justify-content: center !important;
+            width: 100% !important; padding: 15px 20px !important;
+            background: linear-gradient(135deg, #10b981, #059669) !important;
+            color: #ffffff !important; border: none !important;
+            border-radius: 12px !important;
+            font-size: 16px !important; font-weight: 700 !important; font-family: inherit !important;
+            cursor: pointer !important;
+            box-shadow: 0 10px 22px -8px rgba(5, 150, 105, 0.55) !important;
+            transition: transform 150ms, box-shadow 150ms, background-color 150ms, opacity 150ms !important;
+        }
+        .funnel-checkout .fc-cta:hover { background: linear-gradient(135deg, #059669, #047857) !important; transform: translateY(-1px) !important; box-shadow: 0 14px 26px -8px rgba(5, 150, 105, 0.6) !important; }
+        .funnel-checkout .fc-cta:active { transform: translateY(0) !important; }
+        .funnel-checkout .fc-cta:disabled { opacity: 0.55 !important; cursor: not-allowed !important; transform: none !important; box-shadow: none !important; }
+        .funnel-checkout .fc-cta-inner { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; }
+        /* Loading toggle (own CSS so it isn't defeated by the !important display rules above) */
+        .funnel-checkout .fc-cta .fc-cta-loading { display: none !important; }
+        .funnel-checkout .fc-cta.is-loading .fc-cta-default { display: none !important; }
+        .funnel-checkout .fc-cta.is-loading .fc-cta-loading { display: inline-flex !important; }
+        .funnel-checkout .fc-cta-desktop { margin-top: 16px !important; }
+        .funnel-checkout .fc-guarantee { display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; margin-top: 12px !important; font-size: 13px !important; color: #64748b !important; }
+        .funnel-checkout .fc-guarantee svg { color: #10b981 !important; }
+        .funnel-checkout .fc-spin { animation: fc-spin 0.7s linear infinite !important; }
+
+        /* Mobile sticky checkout bar */
+        .funnel-checkout .fc-mobilebar {
+            display: flex !important; align-items: center !important; gap: 12px !important;
+            position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+            z-index: 60 !important;
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) !important;
+            background: rgba(255, 255, 255, 0.96) !important;
+            border-top: 1px solid #e2e8f0 !important;
+            box-shadow: 0 -6px 20px -8px rgba(15, 23, 42, 0.18) !important;
+            backdrop-filter: blur(8px) !important;
+        }
+        .funnel-checkout .fc-mobilebar-info { display: flex !important; flex-direction: column !important; flex-shrink: 0 !important; }
+        .funnel-checkout .fc-mobilebar-label { font-size: 11px !important; color: #64748b !important; }
+        .funnel-checkout .fc-mobilebar-total { font-size: 18px !important; font-weight: 800 !important; color: #0f172a !important; font-variant-numeric: tabular-nums !important; }
+        .funnel-checkout .fc-mobilebar-cta { flex: 1 1 0% !important; padding: 13px 18px !important; }
+        .funnel-checkout .fc-mobilebar-spacer { height: 84px !important; }
+
+        @media (min-width: 1024px) {
+            .funnel-checkout .fc-mobilebar, .funnel-checkout .fc-mobilebar-spacer { display: none !important; }
+        }
+        @media (max-width: 1023px) {
+            .funnel-checkout .fc-cta-desktop { display: none !important; }
+            .funnel-checkout .fc-sticky { position: static !important; }
+        }
+        @media (max-width: 767px) {
+            .funnel-checkout .fc-card, .funnel-checkout .fc-summary { padding: 18px !important; }
+            .funnel-checkout input[type="text"],
+            .funnel-checkout input[type="email"],
+            .funnel-checkout input[type="tel"] { font-size: 16px !important; }
+        }
+
+        @keyframes fc-spin { to { transform: rotate(360deg); } }
+        @keyframes fc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+        @media (prefers-reduced-motion: reduce) {
+            .funnel-checkout .fc-spin, .funnel-checkout .fc-bump-flag { animation: none !important; }
+            .funnel-checkout .fc-pkg, .funnel-checkout .fc-bump, .funnel-checkout .fc-pay, .funnel-checkout .fc-zone, .funnel-checkout .fc-cta { transition: none !important; }
+        }
+    </style>
+
     <!-- Custom CSS -->
     @if($customCss)
         <style>{!! $customCss !!}</style>

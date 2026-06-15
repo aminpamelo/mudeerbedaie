@@ -1,90 +1,90 @@
-<div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-    <h3 class="text-lg font-semibold mb-4">Ringkasan Pesanan</h3>
+@php
+    $selectedProductModels = collect($step->products)->filter(fn ($p) => isset($selectedProducts[$p->id]));
+    $selectedBumpModels = collect($step->orderBumps)->filter(fn ($b) => isset($selectedBumps[$b->id]));
 
-    <div class="space-y-3 mb-6">
-        @foreach($step->products as $product)
-            @if(isset($selectedProducts[$product->id]))
-                <div class="flex justify-between text-sm">
-                    <span class="text-gray-600">{{ $product->name }}</span>
-                    <span class="font-medium">RM {{ number_format($product->funnel_price, 2) }}</span>
-                </div>
-                @if($product->isPackage() && $product->package)
-                    <div class="ml-4 space-y-1">
-                        @foreach($product->package->items as $pkgItem)
-                            <div class="flex items-center gap-1.5 text-xs text-gray-400">
-                                <span class="w-1 h-1 rounded-full {{ $pkgItem->isProduct() ? 'bg-blue-400' : 'bg-purple-400' }}"></span>
-                                {{ $pkgItem->quantity > 1 ? $pkgItem->quantity . 'x ' : '' }}{{ $pkgItem->getDisplayName() }}
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            @endif
-        @endforeach
+    $subtotal = $selectedProductModels->sum('funnel_price');
+    $bumpsTotal = $selectedBumpModels->sum('price');
 
-        @foreach($step->orderBumps as $bump)
-            @if(isset($selectedBumps[$bump->id]))
-                <div class="flex justify-between text-sm text-green-700">
-                    <span>+ {{ $bump->headline }}</span>
-                    <span class="font-medium">RM {{ number_format($bump->price, 2) }}</span>
+    $savings = $selectedProductModels->sum(function ($p) {
+        return ($p->compare_at_price && $p->compare_at_price > $p->funnel_price)
+            ? $p->compare_at_price - $p->funnel_price
+            : 0;
+    });
+
+    $shippingCostEnabled = $shippingCostEnabled ?? false;
+    $shippingZone = $shippingZone ?? 'semenanjung';
+    $shippingSemenanjungCost = $shippingSemenanjungCost ?? 0;
+    $shippingSabahSarawakCost = $shippingSabahSarawakCost ?? 0;
+
+    $shippingCost = 0;
+    if ($shippingCostEnabled) {
+        $shippingCost = $shippingZone === 'sabah_sarawak' ? $shippingSabahSarawakCost : $shippingSemenanjungCost;
+    }
+
+    $total = $subtotal + $bumpsTotal + $shippingCost;
+@endphp
+
+<div class="fc-summary">
+    <h3 class="fc-summary-title">Ringkasan Pesanan</h3>
+
+    <div class="fc-summary-items">
+        @forelse($selectedProductModels as $product)
+            <div class="fc-summary-line">
+                <span class="fc-summary-name">{{ $product->name }}</span>
+                <span class="fc-summary-amount">RM {{ number_format($product->funnel_price, 2) }}</span>
+            </div>
+            @if($product->isPackage() && $product->package)
+                <div class="fc-summary-sub">
+                    @foreach($product->package->items as $pkgItem)
+                        <div class="fc-summary-subitem">
+                            <span class="fc-summary-dot {{ $pkgItem->isProduct() ? 'is-product' : 'is-course' }}"></span>
+                            {{ $pkgItem->quantity > 1 ? $pkgItem->quantity . 'x ' : '' }}{{ $pkgItem->getDisplayName() }}
+                        </div>
+                    @endforeach
                 </div>
             @endif
+        @empty
+            <div class="fc-summary-empty">Belum ada item dipilih</div>
+        @endforelse
+
+        @foreach($selectedBumpModels as $bump)
+            <div class="fc-summary-line is-bump">
+                <span class="fc-summary-name">+ {{ $bump->headline }}</span>
+                <span class="fc-summary-amount">RM {{ number_format($bump->price, 2) }}</span>
+            </div>
         @endforeach
     </div>
 
-    @php
-        $subtotal = collect($step->products)
-            ->filter(fn($p) => isset($selectedProducts[$p->id]))
-            ->sum('funnel_price');
-
-        $bumpsTotal = collect($step->orderBumps)
-            ->filter(fn($b) => isset($selectedBumps[$b->id]))
-            ->sum('price');
-
-        $shippingCostEnabled = $shippingCostEnabled ?? false;
-        $shippingZone = $shippingZone ?? 'semenanjung';
-        $shippingSemenanjungCost = $shippingSemenanjungCost ?? 0;
-        $shippingSabahSarawakCost = $shippingSabahSarawakCost ?? 0;
-
-        $shippingCost = 0;
-        if ($shippingCostEnabled) {
-            $shippingCost = $shippingZone === 'sabah_sarawak' ? $shippingSabahSarawakCost : $shippingSemenanjungCost;
-        }
-
-        $total = $subtotal + $bumpsTotal + $shippingCost;
-    @endphp
-
-    <div class="border-t pt-4">
-        <div class="flex justify-between mb-2">
-            <span class="text-gray-600">Jumlah kecil</span>
-            <span class="font-medium">RM {{ number_format($subtotal, 2) }}</span>
+    <div class="fc-summary-breakdown">
+        <div class="fc-summary-row">
+            <span>Jumlah kecil</span>
+            <span>RM {{ number_format($subtotal, 2) }}</span>
         </div>
 
         @if($bumpsTotal > 0)
-            <div class="flex justify-between mb-2 text-green-700">
-                <span>Tambahan Pesanan</span>
-                <span class="font-medium">RM {{ number_format($bumpsTotal, 2) }}</span>
+            <div class="fc-summary-row is-bump">
+                <span>Tambahan pesanan</span>
+                <span>RM {{ number_format($bumpsTotal, 2) }}</span>
             </div>
         @endif
 
         @if($shippingCostEnabled)
-            <div class="flex justify-between mb-2 text-gray-600">
+            <div class="fc-summary-row">
                 <span>Penghantaran ({{ $shippingZone === 'sabah_sarawak' ? 'Sabah & Sarawak' : 'Semenanjung' }})</span>
-                <span class="font-medium">RM {{ number_format($shippingCost, 2) }}</span>
+                <span>RM {{ number_format($shippingCost, 2) }}</span>
             </div>
         @endif
 
-        <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+        <div class="fc-summary-total">
             <span>Jumlah</span>
-            <span>RM {{ number_format($total, 2) }}</span>
+            <span class="fc-summary-total-amount">RM {{ number_format($total, 2) }}</span>
         </div>
-    </div>
 
-    <div class="mt-6 pt-4 border-t">
-        <div class="flex items-center justify-center text-sm text-gray-500">
-            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
-            </svg>
-            Pembayaran Selamat
-        </div>
+        @if($savings > 0)
+            <div class="fc-summary-savings">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                Anda jimat RM {{ number_format($savings, 2) }}
+            </div>
+        @endif
     </div>
 </div>

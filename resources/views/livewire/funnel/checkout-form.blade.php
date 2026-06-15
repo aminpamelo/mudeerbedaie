@@ -46,11 +46,11 @@ new class extends Component
 
     public string $paymentMethod = '';
 
-    public string $currentStep = 'cart'; // cart, information, payment
-
     public bool $isProcessing = false;
 
     public array $availablePaymentMethods = [];
+
+    public string $stripePublishableKey = '';
 
     public bool $disableShipping = false;
 
@@ -82,6 +82,14 @@ new class extends Component
         $this->loadCart();
         $this->prefillFromSession();
         $this->loadAvailablePaymentMethods();
+
+        // Resolve the Stripe publishable key safely. The funnel can run on
+        // FPX/COD alone, so a missing/partial Stripe config must not crash the
+        // checkout — only expose the key when Stripe is fully configured.
+        $settings = app(SettingsService::class);
+        $this->stripePublishableKey = $settings->isStripeConfigured()
+            ? (string) $settings->get('stripe_publishable_key')
+            : '';
 
         // Pre-select first product if none selected
         if (empty($this->selectedProducts) && $this->step->products->isNotEmpty()) {
@@ -346,20 +354,24 @@ new class extends Component
         return $this->calculateSubtotal() + $this->calculateBumpsTotal() + $this->calculateShippingCost();
     }
 
-    public function proceedToInformation(): void
+    /**
+     * Single-page checkout validation: product selection, contact details and
+     * (when shipping is enabled) the delivery address are all checked in one
+     * pass before the order is created. Field errors render inline next to each
+     * input. Returns false only for the soft "no product" guard; hard field
+     * failures throw a ValidationException so Livewire renders the error bag.
+     */
+    private function validateCheckout(): bool
     {
         if (empty($this->selectedProducts)) {
             $this->addError('products', 'Sila pilih sekurang-kurangnya satu produk.');
+            $this->dispatch('checkout-validation-failed');
 
-            return;
+            return false;
         }
 
         $this->updateCart();
-        $this->currentStep = 'information';
-    }
 
-    public function proceedToPayment(): void
-    {
         // Trim whitespace so values that look valid in the UI (e.g. "12312 ")
         // don't fail length checks after Laravel's TrimStrings middleware.
         $this->customerData['email'] = trim($this->customerData['email'] ?? '');
@@ -404,10 +416,21 @@ new class extends Component
             'billingAddress.postal_code.min' => 'Poskod mestilah sekurang-kurangnya 5 aksara.',
         ];
 
-        $this->validate($rules, $messages);
+        try {
+            $this->validate($rules, $messages);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->dispatch('checkout-validation-failed');
 
-        // Update session with contact info
+            throw $e;
+        }
+
+        return true;
+    }
+
+    private function persistContactInfo(): void
+    {
         $fullPhone = $this->getFullPhone();
+
         if ($this->funnelSession) {
             $this->funnelSession->update([
                 'email' => $this->customerData['email'],
@@ -415,7 +438,6 @@ new class extends Component
             ]);
         }
 
-        // Update cart with contact info
         if ($this->cart) {
             $this->cart->update([
                 'email' => $this->customerData['email'],
@@ -423,26 +445,22 @@ new class extends Component
             ]);
         }
 
-        // Track event
         $this->funnelSession?->trackEvent('checkout_info_completed', [
             'email' => $this->customerData['email'],
         ], $this->step);
-
-        $this->currentStep = 'payment';
-    }
-
-    public function backToCart(): void
-    {
-        $this->currentStep = 'cart';
-    }
-
-    public function backToInformation(): void
-    {
-        $this->currentStep = 'information';
     }
 
     public function processOrder(): void
     {
+        // Single-page checkout: run product + contact + delivery validation first
+        // so any field errors surface inline before we create the order or touch
+        // the payment provider. A hard field failure throws and stops here.
+        if (! $this->validateCheckout()) {
+            return;
+        }
+
+        $this->persistContactInfo();
+
         $this->isProcessing = true;
 
         try {
@@ -889,266 +907,169 @@ new class extends Component
     }
 }; ?>
 
-<div class="funnel-checkout" data-funnel-stripe-pk="{{ app(\App\Services\StripeService::class)->getPublishableKey() }}">
-    {{-- Progress Steps --}}
-    <div class="mb-8 px-4">
-        <div class="flex items-center justify-center space-x-4">
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full {{ $currentStep === 'cart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
-                    1
-                </div>
-                <span class="ml-2 text-sm {{ $currentStep === 'cart' ? 'font-semibold' : '' }}">Troli</span>
-            </div>
-
-            <div class="flex-1 h-px bg-gray-200 max-w-16"></div>
-
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full {{ $currentStep === 'information' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
-                    2
-                </div>
-                <span class="ml-2 text-sm {{ $currentStep === 'information' ? 'font-semibold' : '' }}">Maklumat</span>
-            </div>
-
-            <div class="flex-1 h-px bg-gray-200 max-w-16"></div>
-
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full {{ $currentStep === 'payment' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
-                    3
-                </div>
-                <span class="ml-2 text-sm {{ $currentStep === 'payment' ? 'font-semibold' : '' }}">Pembayaran</span>
-            </div>
-        </div>
+<div class="funnel-checkout" data-funnel-stripe-pk="{{ $stripePublishableKey }}">
+    {{-- Secure checkout header --}}
+    <div class="fc-topbar">
+        <span class="fc-topbar-lock">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z"/></svg>
+        </span>
+        <span class="fc-topbar-text">Pembayaran selamat &amp; disulitkan SSL</span>
+        <span class="fc-topbar-sep"></span>
+        <span class="fc-topbar-muted">Lengkapkan pesanan dalam satu halaman</span>
     </div>
 
-    @if($currentStep === 'cart')
-        {{-- Cart Step --}}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-6">
-                {{-- Products Selection --}}
-                <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 class="text-lg font-semibold mb-4">Pilih Pakej Anda</h3>
-
-                    @error('products')
-                        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                            {{ $message }}
-                        </div>
-                    @enderror
-
-                    <div class="space-y-4">
-                        @forelse($step->products as $product)
-                            <div
-                                wire:click="toggleProduct({{ $product->id }})"
-                                class="border rounded-lg p-4 cursor-pointer transition-all {{ isset($selectedProducts[$product->id]) ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-600' : 'border-gray-200 hover:border-gray-300' }}"
-                            >
-                                <div class="flex items-start">
-                                    <div class="flex-shrink-0">
-                                        @if($productSelectionMode === 'single')
-                                            {{-- Radio button style for single select --}}
-                                            <div class="w-5 h-5 rounded-full border-2 {{ isset($selectedProducts[$product->id]) ? 'border-blue-600' : 'border-gray-300' }} flex items-center justify-center">
-                                                @if(isset($selectedProducts[$product->id]))
-                                                    <div class="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
-                                                @endif
-                                            </div>
-                                        @else
-                                            {{-- Checkbox style for multi select --}}
-                                            <div class="w-5 h-5 rounded-full border-2 {{ isset($selectedProducts[$product->id]) ? 'border-blue-600 bg-blue-600' : 'border-gray-300' }} flex items-center justify-center">
-                                                @if(isset($selectedProducts[$product->id]))
-                                                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                                    </svg>
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
-
-                                    <div class="ml-4 flex-1">
-                                        <div class="flex items-start justify-between">
-                                            <div>
-                                                <h4 class="font-semibold text-gray-900">{{ $product->name }}</h4>
-                                                @if($product->description)
-                                                    <p class="text-sm text-gray-600 mt-1">{{ $product->description }}</p>
-                                                @endif
-                                            </div>
-
-                                            <div class="text-right">
-                                                <div class="text-lg font-bold text-gray-900">
-                                                    RM {{ number_format($product->funnel_price, 2) }}
-                                                </div>
-                                                @if($product->compare_at_price && $product->compare_at_price > $product->funnel_price)
-                                                    <div class="text-sm text-gray-500 line-through">
-                                                        RM {{ number_format($product->compare_at_price, 2) }}
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </div>
-
-                                        @if($product->is_recurring)
-                                            <span class="inline-block mt-2 px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
-                                                Langganan {{ ucfirst($product->billing_interval) }}
-                                            </span>
-                                        @endif
-
-                                        @if($product->isPackage() && $product->package)
-                                            <div class="mt-3 pt-3 border-t border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 mb-2">Termasuk dalam pakej:</p>
-                                                <div class="space-y-1">
-                                                    @foreach($product->package->items as $pkgItem)
-                                                        <div class="flex items-center gap-2 text-sm text-gray-600">
-                                                            <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                                            </svg>
-                                                            <span>{{ $pkgItem->quantity > 1 ? $pkgItem->quantity . 'x ' : '' }}{{ $pkgItem->getDisplayName() }}</span>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="text-center py-8 text-gray-500">
-                                <p class="text-sm">Tiada produk tersedia untuk dipilih.</p>
-                            </div>
-                        @endforelse
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 fc-main">
+        {{-- LEFT: checkout sections --}}
+        <div class="lg:col-span-2 space-y-6">
+            {{-- Section 1: Package selection --}}
+            <div class="fc-card" id="fc-section-packages">
+                <div class="fc-section-head">
+                    <span class="fc-step">1</span>
+                    <div class="fc-section-heading">
+                        <h3 class="fc-section-title">Pilih Pakej Anda</h3>
+                        <p class="fc-section-sub">Pilih pakej yang paling sesuai untuk anda</p>
                     </div>
                 </div>
 
-                {{-- Order Bumps --}}
-                @if($step->orderBumps->isNotEmpty())
-                    <div class="bg-yellow-50 border-2 border-yellow-400 border-dashed rounded-lg p-6">
-                        <div class="flex items-center mb-4">
-                            <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded mr-2">TUNGGU!</span>
-                            <h3 class="text-lg font-semibold text-yellow-900">Tawaran Istimewa Sekali Sahaja</h3>
-                        </div>
+                @error('products')
+                    <div class="fc-alert fc-alert-error">{{ $message }}</div>
+                @enderror
 
-                        <div class="space-y-4">
-                            @foreach($step->orderBumps as $bump)
-                                <div
-                                    wire:click="toggleBump({{ $bump->id }})"
-                                    class="bg-white border rounded-lg p-4 cursor-pointer transition-all {{ isset($selectedBumps[$bump->id]) ? 'border-green-600 ring-2 ring-green-600' : 'border-gray-200 hover:border-gray-300' }}"
-                                >
-                                    <div class="flex items-start">
-                                        <div class="flex-shrink-0">
-                                            <input
-                                                type="checkbox"
-                                                class="w-5 h-5 text-green-600 rounded focus:ring-green-500"
-                                                {{ isset($selectedBumps[$bump->id]) ? 'checked' : '' }}
-                                                readonly
-                                            >
-                                        </div>
+                <div class="space-y-3">
+                    @forelse($step->products as $product)
+                        <div
+                            wire:key="fc-pkg-{{ $product->id }}"
+                            wire:click="toggleProduct({{ $product->id }})"
+                            class="fc-pkg {{ isset($selectedProducts[$product->id]) ? 'is-active' : '' }}"
+                        >
+                            @if($loop->first && $step->products->count() > 1)
+                                <span class="fc-badge-popular">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.42 4.37h4.6c.97 0 1.37 1.24.59 1.81l-3.72 2.7 1.42 4.37c.3.92-.75 1.69-1.54 1.12L10 14.97l-3.72 2.7c-.79.57-1.84-.2-1.54-1.12l1.42-4.37-3.72-2.7c-.78-.57-.38-1.81.59-1.81h4.6L9.05 2.93z"/></svg>
+                                    Paling Popular
+                                </span>
+                            @endif
 
-                                        <div class="ml-4 flex-1">
-                                            <div class="flex items-start justify-between">
-                                                <div>
-                                                    <span class="text-sm font-bold text-green-700 uppercase">
-                                                        {{ $bump->headline ?? 'Tambah Ini Ke Pesanan Anda' }}
-                                                    </span>
-                                                    <h4 class="font-semibold text-gray-900 mt-1">{{ $bump->headline }}</h4>
-                                                    @if($bump->description)
-                                                        <p class="text-sm text-gray-600 mt-1">{{ $bump->description }}</p>
-                                                    @endif
-                                                </div>
+                            <div class="fc-pkg-select">
+                                @if($productSelectionMode === 'single')
+                                    <span class="fc-radio {{ isset($selectedProducts[$product->id]) ? 'is-active' : '' }}">
+                                        <span class="fc-radio-dot"></span>
+                                    </span>
+                                @else
+                                    <span class="fc-check {{ isset($selectedProducts[$product->id]) ? 'is-active' : '' }}">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"/></svg>
+                                    </span>
+                                @endif
+                            </div>
 
-                                                <div class="text-right ml-4">
-                                                    <div class="text-lg font-bold text-green-700">
-                                                        +RM {{ number_format($bump->price, 2) }}
-                                                    </div>
-                                                    @if($bump->compare_at_price && $bump->compare_at_price > $bump->price)
-                                                        <div class="text-sm text-gray-500 line-through">
-                                                            RM {{ number_format($bump->compare_at_price, 2) }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
+                            <div class="fc-pkg-body">
+                                <div class="fc-pkg-toprow">
+                                    <div class="fc-pkg-name-wrap">
+                                        <h4 class="fc-pkg-name">{{ $product->name }}</h4>
+                                        @if($product->description)
+                                            <p class="fc-pkg-desc">{{ $product->description }}</p>
+                                        @endif
+                                    </div>
+                                    <div class="fc-pkg-pricing">
+                                        <div class="fc-pkg-price">RM {{ number_format($product->funnel_price, 2) }}</div>
+                                        @if($product->compare_at_price && $product->compare_at_price > $product->funnel_price)
+                                            <div class="fc-pkg-compare">RM {{ number_format($product->compare_at_price, 2) }}</div>
+                                        @endif
                                     </div>
                                 </div>
-                            @endforeach
+
+                                @if(($product->compare_at_price && $product->compare_at_price > $product->funnel_price) || $product->is_recurring)
+                                    <div class="fc-pkg-tags">
+                                        @if($product->compare_at_price && $product->compare_at_price > $product->funnel_price)
+                                            <span class="fc-save">Jimat RM {{ number_format($product->compare_at_price - $product->funnel_price, 2) }}</span>
+                                        @endif
+                                        @if($product->is_recurring)
+                                            <span class="fc-tag-sub">Langganan {{ ucfirst($product->billing_interval) }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                @if($product->isPackage() && $product->package)
+                                    <div class="fc-pkg-includes">
+                                        <p class="fc-includes-label">Termasuk dalam pakej:</p>
+                                        <div class="space-y-1">
+                                            @foreach($product->package->items as $pkgItem)
+                                                <div class="fc-include-item">
+                                                    <svg class="w-3.5 h-3.5 fc-include-check" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                                    <span>{{ $pkgItem->quantity > 1 ? $pkgItem->quantity . 'x ' : '' }}{{ $pkgItem->getDisplayName() }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
-                    </div>
-                @endif
+                    @empty
+                        <div class="fc-empty">Tiada produk tersedia untuk dipilih.</div>
+                    @endforelse
+                </div>
             </div>
 
-            {{-- Order Summary Sidebar --}}
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-                    <h3 class="text-lg font-semibold mb-4">Ringkasan Pesanan</h3>
+            {{-- Order Bumps --}}
+            @if($step->orderBumps->isNotEmpty())
+                <div class="fc-bump-wrap">
+                    <div class="fc-bump-head">
+                        <span class="fc-bump-flag">TUNGGU!</span>
+                        <h3 class="fc-bump-title">Tawaran Istimewa Sekali Sahaja</h3>
+                    </div>
 
-                    <div class="space-y-3 mb-6">
-                        @foreach($step->products as $product)
-                            @if(isset($selectedProducts[$product->id]))
-                                <div class="flex justify-between text-sm">
-                                    <span class="text-gray-600">{{ $product->name }}</span>
-                                    <span class="font-medium">RM {{ number_format($product->funnel_price, 2) }}</span>
-                                </div>
-                            @endif
-                        @endforeach
-
+                    <div class="space-y-3">
                         @foreach($step->orderBumps as $bump)
-                            @if(isset($selectedBumps[$bump->id]))
-                                <div class="flex justify-between text-sm text-green-700">
-                                    <span>+ {{ $bump->headline }}</span>
-                                    <span class="font-medium">RM {{ number_format($bump->price, 2) }}</span>
+                            <div
+                                wire:key="fc-bump-{{ $bump->id }}"
+                                wire:click="toggleBump({{ $bump->id }})"
+                                class="fc-bump {{ isset($selectedBumps[$bump->id]) ? 'is-active' : '' }}"
+                            >
+                                <div class="fc-bump-select">
+                                    <span class="fc-check {{ isset($selectedBumps[$bump->id]) ? 'is-active' : '' }}">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"/></svg>
+                                    </span>
                                 </div>
-                            @endif
-                        @endforeach
-                    </div>
-
-                    <div class="border-t pt-4">
-                        <div class="flex justify-between mb-2">
-                            <span class="text-gray-600">Jumlah kecil</span>
-                            <span class="font-medium">RM {{ number_format($this->calculateSubtotal(), 2) }}</span>
-                        </div>
-
-                        @if($this->calculateBumpsTotal() > 0)
-                            <div class="flex justify-between mb-2 text-green-700">
-                                <span>Tambahan Pesanan</span>
-                                <span class="font-medium">RM {{ number_format($this->calculateBumpsTotal(), 2) }}</span>
+                                <div class="fc-bump-body">
+                                    <div class="fc-bump-toprow">
+                                        <div class="fc-bump-name-wrap">
+                                            <span class="fc-bump-kicker">Ya, tambah ke pesanan saya</span>
+                                            <h4 class="fc-bump-name">{{ $bump->headline }}</h4>
+                                            @if($bump->description)
+                                                <p class="fc-bump-desc">{{ $bump->description }}</p>
+                                            @endif
+                                        </div>
+                                        <div class="fc-bump-pricing">
+                                            <div class="fc-bump-price">+RM {{ number_format($bump->price, 2) }}</div>
+                                            @if($bump->compare_at_price && $bump->compare_at_price > $bump->price)
+                                                <div class="fc-pkg-compare">RM {{ number_format($bump->compare_at_price, 2) }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        @endif
-
-                        <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                            <span>Jumlah</span>
-                            <span>RM {{ number_format($this->calculateSubtotal() + $this->calculateBumpsTotal(), 2) }}</span>
-                        </div>
-                    </div>
-
-                    <button
-                        wire:click="proceedToInformation"
-                        class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                    >
-                        Teruskan ke Maklumat
-                        <svg class="inline-block w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-
-                    <div class="mt-4 flex items-center justify-center text-sm text-gray-500">
-                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
-                        </svg>
-                        Pembayaran Selamat
+                        @endforeach
                     </div>
                 </div>
+            @endif
+
+    {{-- Section 2: Customer information --}}
+    <div class="fc-card" id="fc-section-info">
+        <div class="fc-section-head">
+            <span class="fc-step">2</span>
+            <div class="fc-section-heading">
+                <h3 class="fc-section-title">Maklumat Anda</h3>
+                <p class="fc-section-sub">Untuk menghantar &amp; menghubungi anda</p>
             </div>
         </div>
 
-    @elseif($currentStep === 'information')
-        {{-- Information Step --}}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 class="text-lg font-semibold mb-6">Maklumat Pelanggan</h3>
-
-                    <div class="space-y-6">
-                        {{-- Contact Information --}}
-                        <div>
-                            <h4 class="font-medium text-gray-900 mb-4">Maklumat Perhubungan</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefon *</label>
-                                    <div class="flex" x-data="{
+        <div class="space-y-6">
+            {{-- Contact Information --}}
+            <div>
+                <h4 class="fc-subhead">Maklumat Perhubungan</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="fc-label">Telefon *</label>
+                        <div class="flex" x-data="{
                                         open: false,
                                         search: '',
                                         codes: [
@@ -1249,289 +1170,275 @@ new class extends Component
                                             placeholder="12 345 6789"
                                         >
                                     </div>
-                                    @error('customerData.phone') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                    @error('customerData.phone') <span class="fc-error">{{ $message }}</span> @enderror
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
+                                    <label class="fc-label">Nama Penuh *</label>
                                     <input
                                         type="text"
                                         wire:model="customerData.name"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="John Doe"
+                                        placeholder="Cth: Nurul Aina"
                                     >
-                                    @error('customerData.name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                    @error('customerData.name') <span class="fc-error">{{ $message }}</span> @enderror
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Emel (Pilihan)</label>
+                                    <label class="fc-label">Emel (Pilihan)</label>
                                     <input
                                         type="email"
                                         wire:model="customerData.email"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="your@email.com"
+                                        placeholder="emel@contoh.com"
                                     >
-                                    @error('customerData.email') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                    @error('customerData.email') <span class="fc-error">{{ $message }}</span> @enderror
                                 </div>
                             </div>
                         </div>
 
                         {{-- Shipping Zone Selector --}}
                         @if(!$disableShipping && $shippingCostEnabled)
-                        <div>
-                            <h4 class="font-medium text-gray-900 mb-3">Zon Penghantaran</h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <label class="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors {{ $shippingZone === 'semenanjung' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}">
-                                    <input
-                                        type="radio"
-                                        wire:model.live="shippingZone"
-                                        value="semenanjung"
-                                        class="text-blue-600 focus:ring-blue-500"
-                                    >
-                                    <div class="flex-1">
-                                        <p class="font-medium text-gray-900 text-sm">Semenanjung Malaysia</p>
-                                        <p class="text-xs text-gray-500">West Malaysia</p>
-                                    </div>
-                                    <span class="font-semibold text-sm text-gray-800">RM {{ number_format($shippingSemenanjungCost, 2) }}</span>
-                                </label>
+                            <div>
+                                <h4 class="fc-subhead">Zon Penghantaran</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <label class="fc-zone {{ $shippingZone === 'semenanjung' ? 'is-active' : '' }}">
+                                        <input type="radio" wire:model.live="shippingZone" value="semenanjung" class="fc-zone-radio">
+                                        <div class="fc-zone-info">
+                                            <p class="fc-zone-name">Semenanjung Malaysia</p>
+                                            <p class="fc-zone-sub">West Malaysia</p>
+                                        </div>
+                                        <span class="fc-zone-price">RM {{ number_format($shippingSemenanjungCost, 2) }}</span>
+                                    </label>
 
-                                <label class="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors {{ $shippingZone === 'sabah_sarawak' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}">
-                                    <input
-                                        type="radio"
-                                        wire:model.live="shippingZone"
-                                        value="sabah_sarawak"
-                                        class="text-blue-600 focus:ring-blue-500"
-                                    >
-                                    <div class="flex-1">
-                                        <p class="font-medium text-gray-900 text-sm">Sabah &amp; Sarawak</p>
-                                        <p class="text-xs text-gray-500">East Malaysia</p>
-                                    </div>
-                                    <span class="font-semibold text-sm text-gray-800">RM {{ number_format($shippingSabahSarawakCost, 2) }}</span>
-                                </label>
+                                    <label class="fc-zone {{ $shippingZone === 'sabah_sarawak' ? 'is-active' : '' }}">
+                                        <input type="radio" wire:model.live="shippingZone" value="sabah_sarawak" class="fc-zone-radio">
+                                        <div class="fc-zone-info">
+                                            <p class="fc-zone-name">Sabah &amp; Sarawak</p>
+                                            <p class="fc-zone-sub">East Malaysia</p>
+                                        </div>
+                                        <span class="fc-zone-price">RM {{ number_format($shippingSabahSarawakCost, 2) }}</span>
+                                    </label>
+                                </div>
                             </div>
-                        </div>
                         @endif
 
                         {{-- Billing Address --}}
                         @if(!$disableShipping)
-                        <div>
-                            <h4 class="font-medium text-gray-900 mb-4">Alamat Surat Menyurat</h4>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Alamat *</label>
-                                    <input
-                                        type="text"
-                                        wire:model="billingAddress.address_line_1"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Alamat jalan"
-                                    >
-                                    @error('billingAddress.address_line_1') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                </div>
-
-                                <div>
-                                    <input
-                                        type="text"
-                                        wire:model="billingAddress.address_line_2"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Apartmen, suite, dll. (pilihan)"
-                                    >
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <h4 class="fc-subhead">Alamat Penghantaran</h4>
+                                <div class="space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Bandar *</label>
-                                        <input
-                                            type="text"
-                                            wire:model="billingAddress.city"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                        @error('billingAddress.city') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                        <label class="fc-label">Alamat *</label>
+                                        <input type="text" wire:model="billingAddress.address_line_1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="No. & nama jalan">
+                                        @error('billingAddress.address_line_1') <span class="fc-error">{{ $message }}</span> @enderror
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Negeri *</label>
-                                        <input
-                                            type="text"
-                                            wire:model="billingAddress.state"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                        @error('billingAddress.state') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                        <input type="text" wire:model="billingAddress.address_line_2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Apartmen, unit, dll. (pilihan)">
                                     </div>
 
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Poskod *</label>
-                                        <input
-                                            type="text"
-                                            inputmode="numeric"
-                                            maxlength="10"
-                                            wire:model="billingAddress.postal_code"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                        @error('billingAddress.postal_code') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-                    </div>
-
-                    <div class="mt-8 flex justify-between">
-                        <button
-                            wire:click="backToCart"
-                            class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                            <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                            </svg>
-                            Kembali
-                        </button>
-
-                        <button
-                            wire:click="proceedToPayment"
-                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
-                        >
-                            Teruskan ke Pembayaran
-                            <svg class="inline-block w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Order Summary Sidebar --}}
-            <div class="lg:col-span-1">
-                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingSemenanjungCost' => $shippingSemenanjungCost, 'shippingSabahSarawakCost' => $shippingSabahSarawakCost])
-            </div>
-        </div>
-
-    @elseif($currentStep === 'payment')
-        {{-- Payment Step --}}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 class="text-lg font-semibold mb-6">Kaedah Pembayaran</h3>
-
-                    @error('payment')
-                        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                            {{ $message }}
-                        </div>
-                    @enderror
-
-                    @if(empty($availablePaymentMethods))
-                        <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <div class="flex items-center text-yellow-800">
-                                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                                </svg>
-                                <span class="text-sm font-medium">Tiada kaedah pembayaran tersedia buat masa ini. Sila hubungi sokongan.</span>
-                            </div>
-                        </div>
-                    @else
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                            @foreach($availablePaymentMethods as $method)
-                                <div
-                                    wire:click="$set('paymentMethod', '{{ $method['id'] }}')"
-                                    class="border rounded-lg p-4 cursor-pointer transition-all {{ $paymentMethod === $method['id'] ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-600' : 'border-gray-200 hover:border-gray-300' }}"
-                                >
-                                    <div class="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="payment"
-                                            value="{{ $method['id'] }}"
-                                            {{ $paymentMethod === $method['id'] ? 'checked' : '' }}
-                                            class="mr-3"
-                                            readonly
-                                        >
-                                        <div class="flex-1">
-                                            <div class="font-medium">{{ $method['name'] }}</div>
-                                            <div class="text-sm text-gray-500">{{ $method['description'] }}</div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="fc-label">Bandar *</label>
+                                            <input type="text" wire:model="billingAddress.city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            @error('billingAddress.city') <span class="fc-error">{{ $message }}</span> @enderror
                                         </div>
-                                        @if($method['id'] === 'fpx')
-                                            <div class="ml-2">
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    FPX
-                                                </span>
-                                            </div>
-                                        @endif
+
+                                        <div>
+                                            <label class="fc-label">Negeri *</label>
+                                            <input type="text" wire:model="billingAddress.state" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            @error('billingAddress.state') <span class="fc-error">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div>
+                                            <label class="fc-label">Poskod *</label>
+                                            <input type="text" inputmode="numeric" maxlength="10" wire:model="billingAddress.postal_code" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                            @error('billingAddress.postal_code') <span class="fc-error">{{ $message }}</span> @enderror
+                                        </div>
                                     </div>
                                 </div>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    @if(in_array($paymentMethod, ['credit_card', 'debit_card']))
-                        <div class="p-4 bg-white border border-gray-200 rounded-lg mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Maklumat Kad</label>
-                            {{-- Stripe Card Element mounts here. See <script> block at end of view. --}}
-                            <div id="stripe-card-element" class="p-3 bg-gray-50 border border-gray-300 rounded-md min-h-[44px]"></div>
-                            <div id="stripe-card-errors" role="alert" class="mt-2 text-sm text-red-600"></div>
-                            <p class="mt-2 text-xs text-gray-500">Pembayaran diproses dengan selamat oleh Stripe. Kami tidak menyimpan butiran kad anda.</p>
-                        </div>
-                    @elseif($paymentMethod === 'fpx')
-                        <div class="p-4 bg-green-50 border border-green-200 rounded-lg mb-6">
-                            <div class="flex items-center text-green-800">
-                                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
-                                </svg>
-                                <span class="text-sm">Anda akan dialihkan ke perbankan dalam talian bank anda untuk melengkapkan pembayaran melalui FPX.</span>
                             </div>
-                        </div>
-                    @endif
-
-                    <div class="flex justify-between">
-                        <button
-                            wire:click="backToInformation"
-                            class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                            <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                            </svg>
-                            Kembali
-                        </button>
-
-                        <button
-                            wire:click="processOrder"
-                            wire:loading.attr="disabled"
-                            wire:loading.class="opacity-75 cursor-not-allowed"
-                            class="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors flex items-center"
-                            {{ $isProcessing ? 'disabled' : '' }}
-                        >
-                            <span wire:loading.remove wire:target="processOrder">
-                                Lengkapkan Pembelian - RM {{ number_format($this->calculateTotal(), 2) }}
-                            </span>
-                            <span wire:loading wire:target="processOrder">
-                                Memproses...
-                            </span>
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Trust Badges --}}
-                <div class="mt-6 flex items-center justify-center space-x-6 text-gray-500">
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
-                        </svg>
-                        <span class="text-sm">SSL Selamat</span>
-                    </div>
-
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                        </svg>
-                        <span class="text-sm">Jaminan Wang Dikembalikan</span>
-                    </div>
+                        @endif
                 </div>
             </div>
 
-            {{-- Order Summary Sidebar --}}
-            <div class="lg:col-span-1">
-                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingSemenanjungCost' => $shippingSemenanjungCost, 'shippingSabahSarawakCost' => $shippingSabahSarawakCost])
+            {{-- Section 3: Payment --}}
+            <div class="fc-card" id="fc-section-payment">
+                <div class="fc-section-head">
+                    <span class="fc-step">3</span>
+                    <div class="fc-section-heading">
+                        <h3 class="fc-section-title">Pembayaran</h3>
+                        <p class="fc-section-sub">Pilih kaedah pembayaran pilihan anda</p>
+                    </div>
+                </div>
+
+                @error('payment')
+                    <div class="fc-alert fc-alert-error">{{ $message }}</div>
+                @enderror
+
+                @if(empty($availablePaymentMethods))
+                    <div class="fc-alert fc-alert-warn">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                        <span>Tiada kaedah pembayaran tersedia buat masa ini. Sila hubungi sokongan.</span>
+                    </div>
+                @else
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        @foreach($availablePaymentMethods as $method)
+                            <div
+                                wire:key="fc-pay-{{ $method['id'] }}"
+                                wire:click="$set('paymentMethod', '{{ $method['id'] }}')"
+                                class="fc-pay {{ $paymentMethod === $method['id'] ? 'is-active' : '' }}"
+                            >
+                                <span class="fc-radio {{ $paymentMethod === $method['id'] ? 'is-active' : '' }}">
+                                    <span class="fc-radio-dot"></span>
+                                </span>
+                                <span class="fc-pay-icon">
+                                    @if(($method['icon'] ?? '') === 'building-library')
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.33A48.4 48.4 0 0012 9.75c-2.55 0-5.06.2-7.5.58V21M3 21h18"/></svg>
+                                    @elseif(($method['icon'] ?? '') === 'truck')
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8.25 18.75a1.5 1.5 0 01-3 0m9 0a1.5 1.5 0 01-3 0m-6 0H3.4a1.13 1.13 0 01-1.13-1.13V6.62c0-.62.5-1.12 1.12-1.12h9.76c.62 0 1.12.5 1.12 1.12v11.13m0 0h2.25m3 0h.38a1.13 1.13 0 001.1-1.12 17.9 17.9 0 00-3.21-9.2 2.06 2.06 0 00-1.58-.86H15"/></svg>
+                                    @else
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0022.5 17.25V6.75A2.25 2.25 0 0020.25 4.5H3.75A2.25 2.25 0 001.5 6.75v10.5A2.25 2.25 0 003.75 19.5z"/></svg>
+                                    @endif
+                                </span>
+                                <span class="fc-pay-body">
+                                    <span class="fc-pay-name">{{ $method['name'] }}</span>
+                                    <span class="fc-pay-desc">{{ $method['description'] }}</span>
+                                </span>
+                                @if($method['id'] === 'fpx')
+                                    <span class="fc-pay-badge">FPX</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if(in_array($paymentMethod, ['credit_card', 'debit_card']))
+                    <div class="fc-pay-panel">
+                        <label class="fc-label">Maklumat Kad</label>
+                        {{-- Stripe Card Element mounts here. See <script> block at end of view. --}}
+                        <div id="stripe-card-element" class="fc-card-element"></div>
+                        <div id="stripe-card-errors" role="alert" class="fc-card-errors"></div>
+                        <p class="fc-pay-note">Pembayaran diproses dengan selamat oleh Stripe. Kami tidak menyimpan butiran kad anda.</p>
+                    </div>
+                @elseif($paymentMethod === 'fpx')
+                    <div class="fc-pay-notice">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+                        <span>Anda akan dialihkan ke perbankan dalam talian bank anda untuk melengkapkan pembayaran melalui FPX.</span>
+                    </div>
+                @elseif($paymentMethod === 'cod')
+                    <div class="fc-pay-notice">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6"/></svg>
+                        <span>Bayar secara tunai semasa pesanan anda dihantar.</span>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Trust badges (desktop) --}}
+            <div class="fc-trust">
+                <div class="fc-trust-item">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z"/></svg>
+                    <span>SSL Disulitkan</span>
+                </div>
+                <div class="fc-trust-item">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M9 12.75l2.25 2.25 4.5-5.25M12 3l7.5 3v6c0 4.5-3.15 7.5-7.5 9-4.35-1.5-7.5-4.5-7.5-9V6L12 3z"/></svg>
+                    <span>Jaminan Wang Dikembalikan</span>
+                </div>
+                <div class="fc-trust-item">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 8.25h16.5"/></svg>
+                    <span>Pelbagai Kaedah Bayaran</span>
+                </div>
             </div>
         </div>
-    @endif
+
+        {{-- RIGHT: order summary + primary CTA (desktop sticky) --}}
+        <div class="lg:col-span-1">
+            <div class="fc-sticky">
+                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingSemenanjungCost' => $shippingSemenanjungCost, 'shippingSabahSarawakCost' => $shippingSabahSarawakCost])
+
+                <button
+                    type="button"
+                    wire:click="processOrder"
+                    data-checkout-submit
+                    wire:loading.attr="disabled"
+                    wire:loading.class="is-loading"
+                    wire:target="processOrder"
+                    @disabled($isProcessing || empty($availablePaymentMethods))
+                    class="fc-cta fc-cta-desktop"
+                >
+                    <span class="fc-cta-inner fc-cta-default">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z"/></svg>
+                        Lengkapkan Pembelian &bull; RM {{ number_format($this->calculateTotal(), 2) }}
+                    </span>
+                    <span class="fc-cta-inner fc-cta-loading">
+                        <svg class="fc-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                        Memproses...
+                    </span>
+                </button>
+
+                <div class="fc-guarantee">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M9 12.75l2.25 2.25 4.5-5.25M12 3l7.5 3v6c0 4.5-3.15 7.5-7.5 9-4.35-1.5-7.5-4.5-7.5-9V6L12 3z"/></svg>
+                    Jaminan wang dikembalikan 30 hari
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Mobile sticky checkout bar --}}
+    <div class="fc-mobilebar">
+        <div class="fc-mobilebar-info">
+            <span class="fc-mobilebar-label">Jumlah</span>
+            <span class="fc-mobilebar-total">RM {{ number_format($this->calculateTotal(), 2) }}</span>
+        </div>
+        <button
+            type="button"
+            wire:click="processOrder"
+            data-checkout-submit
+            wire:loading.attr="disabled"
+            wire:loading.class="is-loading"
+            wire:target="processOrder"
+            @disabled($isProcessing || empty($availablePaymentMethods))
+            class="fc-cta fc-mobilebar-cta"
+        >
+            <span class="fc-cta-inner fc-cta-default">Bayar Sekarang</span>
+            <span class="fc-cta-inner fc-cta-loading">
+                <svg class="fc-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                Memproses
+            </span>
+        </button>
+    </div>
+    <div class="fc-mobilebar-spacer"></div>
 </div>
+
+<script>
+    // Single-page checkout: when validation fails on submit, bring the first
+    // error into view so the buyer immediately sees what to fix.
+    (function () {
+        function scrollToFirstError() {
+            try {
+                var root = document.querySelector('.funnel-checkout');
+                if (!root) {
+                    return;
+                }
+                var el = root.querySelector('.fc-alert-error, .fc-error');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        document.addEventListener('livewire:init', function () {
+            if (window.Livewire && typeof Livewire.on === 'function') {
+                Livewire.on('checkout-validation-failed', function () {
+                    requestAnimationFrame(function () {
+                        setTimeout(scrollToFirstError, 60);
+                    });
+                });
+            }
+        });
+    })();
+</script>
 
 <script src="https://js.stripe.com/v3/"></script>
 <script>
