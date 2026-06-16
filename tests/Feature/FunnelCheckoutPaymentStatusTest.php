@@ -149,6 +149,38 @@ it('flips payment_status to failed when Bayarcash failed callback fires', functi
         ->payment_status->toBe('failed');
 });
 
+it('moves a COD funnel order to processing while leaving payment_status pending', function () {
+    // Mirrors the COD branch in checkout-form.blade.php: the order is created
+    // 'pending', a COD payment record is added, then the order is moved to
+    // 'processing' for fulfilment. Cash is collected on delivery, so
+    // payment_status stays 'pending'.
+    $order = ProductOrder::create([
+        'order_number' => ProductOrder::generateOrderNumber(),
+        'subtotal' => 100, 'shipping_cost' => 0, 'tax_amount' => 0,
+        'total_amount' => 100, 'discount_amount' => 0,
+        'currency' => 'MYR',
+        'order_date' => now(),
+        'status' => 'pending',
+        'payment_status' => 'pending',
+        'payment_method' => 'cod',
+        'source' => 'funnel',
+    ]);
+
+    $order->payments()->create([
+        'payment_method' => 'cod',
+        'payment_provider' => 'cod',
+        'amount' => $order->total_amount,
+        'currency' => $order->currency,
+        'status' => 'pending',
+        'transaction_id' => 'COD-TEST-001',
+    ]);
+    $order->update(['status' => 'processing']);
+
+    expect($order->fresh())
+        ->status->toBe('processing')
+        ->payment_status->toBe('pending');
+});
+
 it('leaves payment_status pending when Bayarcash pending callback fires', function () {
     $service = app(BayarcashService::class);
 

@@ -586,7 +586,8 @@ new class extends Component
                 return; // Redirect happens in processBayarcashPayment
             }
 
-            // COD: create payment record, leave order in 'pending' for team to review and confirm
+            // COD: create payment record and move the order to 'processing' so the team can
+            // prepare it for fulfilment. Payment stays 'pending' until cash is collected on delivery.
             if ($this->paymentMethod === 'cod') {
                 $productOrder->payments()->create([
                     'payment_method' => 'cod',
@@ -596,7 +597,8 @@ new class extends Component
                     'status' => 'pending',
                     'transaction_id' => 'COD-'.date('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8)),
                 ]);
-                $productOrder->addSystemNote('COD order placed — awaiting team confirmation');
+                $productOrder->update(['status' => 'processing']);
+                $productOrder->addSystemNote('COD order placed — moved to processing for fulfilment');
 
                 // Track Facebook Pixel Purchase event (server-side)
                 if ($this->funnelSession) {
