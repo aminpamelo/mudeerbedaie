@@ -388,6 +388,32 @@ class ProductOrder extends Model
         return 'No phone provided';
     }
 
+    public function hasContactablePhone(): bool
+    {
+        $phone = $this->getCustomerPhone();
+
+        if ($phone === 'No phone provided' || str_contains($phone, '*')) {
+            return false;
+        }
+
+        return strlen(preg_replace('/\D/', '', $phone)) >= 9;
+    }
+
+    public function getWhatsAppUrl(): ?string
+    {
+        if (! $this->hasContactablePhone()) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $this->getCustomerPhone());
+
+        if (str_starts_with($digits, '0')) {
+            $digits = '60'.substr($digits, 1);
+        }
+
+        return 'https://wa.me/'.$digits;
+    }
+
     // Platform order helper methods
     public function isPlatformOrder(): bool
     {

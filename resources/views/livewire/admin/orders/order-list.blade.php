@@ -305,6 +305,51 @@ new class extends Component
         };
     }
 
+    /**
+     * @return array{label: string, icon: string, classes: string, iconClasses: string}
+     */
+    public function getPaymentMethodMeta(?string $method): array
+    {
+        return match ($method) {
+            'stripe' => [
+                'label' => 'Stripe',
+                'icon' => 'credit-card',
+                'classes' => 'bg-indigo-50 text-indigo-700 ring-indigo-600/10 dark:bg-indigo-900/20 dark:text-indigo-300 dark:ring-indigo-400/20',
+                'iconClasses' => 'text-indigo-500 dark:text-indigo-400',
+            ],
+            'cash' => [
+                'label' => 'Cash',
+                'icon' => 'banknotes',
+                'classes' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-400/20',
+                'iconClasses' => 'text-emerald-500 dark:text-emerald-400',
+            ],
+            'cod' => [
+                'label' => 'COD',
+                'icon' => 'truck',
+                'classes' => 'bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-900/20 dark:text-amber-300 dark:ring-amber-400/20',
+                'iconClasses' => 'text-amber-500 dark:text-amber-400',
+            ],
+            'bank_transfer' => [
+                'label' => 'Bank Transfer',
+                'icon' => 'building-library',
+                'classes' => 'bg-blue-50 text-blue-700 ring-blue-600/10 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-400/20',
+                'iconClasses' => 'text-blue-500 dark:text-blue-400',
+            ],
+            'manual' => [
+                'label' => 'Manual',
+                'icon' => 'pencil-square',
+                'classes' => 'bg-zinc-100 text-zinc-700 ring-zinc-600/10 dark:bg-zinc-700/40 dark:text-zinc-300 dark:ring-zinc-400/20',
+                'iconClasses' => 'text-zinc-500 dark:text-zinc-400',
+            ],
+            default => [
+                'label' => ucfirst(str_replace('_', ' ', (string) $method)),
+                'icon' => 'wallet',
+                'classes' => 'bg-zinc-100 text-zinc-700 ring-zinc-600/10 dark:bg-zinc-700/40 dark:text-zinc-300 dark:ring-zinc-400/20',
+                'iconClasses' => 'text-zinc-500 dark:text-zinc-400',
+            ],
+        };
+    }
+
     public function getOrderSource(ProductOrder $order): array
     {
         if ($order->platform_id) {
@@ -520,6 +565,15 @@ new class extends Component
     {
         $this->selectedOrderId = $orderId;
         $this->showItemsModal = true;
+    }
+
+    // Order quick-view modal
+    public bool $showOrderModal = false;
+
+    public function openOrderModal(int $orderId): void
+    {
+        $this->selectedOrderId = $orderId;
+        $this->showOrderModal = true;
     }
 
     public function getSelectedOrder(): ?ProductOrder
@@ -1525,6 +1579,7 @@ new class extends Component
                         </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Class</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Payment</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Method</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Notes</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Tracking</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
@@ -1555,7 +1610,7 @@ new class extends Component
 
                             <!-- Order Number -->
                             <td class="px-5 py-3.5 whitespace-nowrap">
-                                <a href="{{ route('admin.orders.show', $order) }}" wire:navigate class="block group">
+                                <button type="button" wire:click="openOrderModal({{ $order->id }})" class="block text-left group cursor-pointer">
                                     <div class="flex items-center gap-2">
                                         <flux:text class="font-semibold text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->order_number }}</flux:text>
                                         @if($order->order_type === 'package')
@@ -1567,7 +1622,7 @@ new class extends Component
                                     @elseif($order->customer_notes)
                                         <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ Str::limit($order->customer_notes, 25) }}</flux:text>
                                     @endif
-                                </a>
+                                </button>
                             </td>
 
                             <!-- Source -->
@@ -1665,14 +1720,31 @@ new class extends Component
                                         </button>
                                     </div>
                                 @else
-                                    <button
-                                        wire:click="startEditingPhone({{ $order->id }}, {{ json_encode($order->customer_phone ?? '') }})"
-                                        class="group flex items-center gap-1 hover:text-blue-600 transition-colors"
-                                        title="Click to edit"
-                                    >
-                                        <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">{{ $order->getCustomerPhone() }}</flux:text>
-                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400" />
-                                    </button>
+                                    <div class="flex flex-col gap-1.5">
+                                        <button
+                                            wire:click="startEditingPhone({{ $order->id }}, {{ json_encode($order->customer_phone ?? '') }})"
+                                            class="group flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                            title="Click to edit"
+                                        >
+                                            <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">{{ $order->getCustomerPhone() }}</flux:text>
+                                            <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400" />
+                                        </button>
+                                        @if($whatsAppUrl = $order->getWhatsAppUrl())
+                                            <a
+                                                href="{{ $whatsAppUrl }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                aria-label="Message customer on WhatsApp"
+                                                title="Message on WhatsApp"
+                                                class="inline-flex w-fit items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition-colors"
+                                            >
+                                                <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+                                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/>
+                                                </svg>
+                                                WhatsApp
+                                            </a>
+                                        @endif
+                                    </div>
                                 @endif
                             </td>
 
@@ -1739,6 +1811,21 @@ new class extends Component
                                 <flux:badge size="sm" color="{{ $this->getPaymentStatusColor($order->payment_status) }}">
                                     {{ $this->getPaymentStatusLabel($order->payment_status) }}
                                 </flux:badge>
+                            </td>
+
+                            <!-- Payment Method -->
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                @if($order->payment_method)
+                                    @php
+                                        $methodMeta = $this->getPaymentMethodMeta($order->payment_method);
+                                    @endphp
+                                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset {{ $methodMeta['classes'] }}" title="{{ $methodMeta['label'] }}">
+                                        <flux:icon name="{{ $methodMeta['icon'] }}" class="w-3.5 h-3.5 {{ $methodMeta['iconClasses'] }}" />
+                                        {{ $methodMeta['label'] }}
+                                    </span>
+                                @else
+                                    <span class="text-zinc-300 dark:text-zinc-600">&mdash;</span>
+                                @endif
                             </td>
 
                             <!-- Notes -->
@@ -1867,7 +1954,7 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="13" class="px-6 py-16 text-center">
+                            <td colspan="14" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center">
                                     <div class="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center mb-4">
                                         <flux:icon name="shopping-bag" class="w-7 h-7 text-zinc-400 dark:text-zinc-500" />
@@ -1990,6 +2077,80 @@ new class extends Component
                         <flux:text class="font-semibold">Total</flux:text>
                         <flux:text class="text-lg font-bold tabular-nums">MYR {{ number_format($selectedOrder->total_amount, 2) }}</flux:text>
                     </div>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
+
+    <!-- Order Quick-View Modal -->
+    <flux:modal wire:model.self="showOrderModal" class="md:w-2xl">
+        @if($showOrderModal && $selectedOrderId && $quickOrder = $this->getSelectedOrder())
+            <div class="space-y-5">
+                <!-- Header -->
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <flux:heading size="lg">{{ $quickOrder->order_number }}</flux:heading>
+                            @if($quickOrder->order_type === 'package')
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">PKG</span>
+                            @endif
+                        </div>
+                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 mt-1">{{ $quickOrder->created_at->format('M j, Y g:i A') }}</flux:text>
+                    </div>
+                    <div class="flex flex-col items-end gap-1.5">
+                        <flux:badge size="sm" color="{{ $this->getStatusColor($quickOrder->status) }}">{{ $this->getOrderStatuses()[$quickOrder->status] ?? $quickOrder->status }}</flux:badge>
+                        <flux:badge size="sm" color="{{ $this->getPaymentStatusColor($quickOrder->payment_status) }}">{{ $this->getPaymentStatusLabel($quickOrder->payment_status) }}</flux:badge>
+                    </div>
+                </div>
+
+                <!-- Customer -->
+                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <flux:text class="font-medium text-zinc-900 dark:text-white">{{ $quickOrder->getCustomerName() }}</flux:text>
+                            <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ $quickOrder->getCustomerEmail() }}</flux:text>
+                        </div>
+                        @if($quickOrder->student)
+                            <flux:button :href="route('students.show', $quickOrder->student)" wire:navigate variant="ghost" size="sm">View student</flux:button>
+                        @endif
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">{{ $quickOrder->getCustomerPhone() }}</flux:text>
+                        @if($quickWhatsAppUrl = $quickOrder->getWhatsAppUrl())
+                            <a href="{{ $quickWhatsAppUrl }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition-colors">
+                                <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/>
+                                </svg>
+                                WhatsApp
+                            </a>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Items -->
+                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-700">
+                    @foreach($quickOrder->items as $item)
+                        <div class="flex items-center justify-between gap-3 px-4 py-3" wire:key="quick-item-{{ $item->id }}">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">{{ $item->quantity_ordered }}</span>
+                                <flux:text class="font-medium text-zinc-900 dark:text-white truncate">{{ $item->display_name }}</flux:text>
+                            </div>
+                            <flux:text class="font-semibold tabular-nums shrink-0">MYR {{ number_format($item->total_price, 2) }}</flux:text>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Total -->
+                <div class="flex justify-between items-center px-1">
+                    <flux:text class="font-semibold">Total</flux:text>
+                    <flux:text class="text-lg font-bold tabular-nums">MYR {{ number_format($quickOrder->total_amount, 2) }}</flux:text>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-2 pt-1">
+                    <flux:button variant="ghost" wire:click="$set('showOrderModal', false)">Close</flux:button>
+                    <flux:button :href="route('admin.orders.show', $quickOrder)" wire:navigate variant="primary">View full order</flux:button>
                 </div>
             </div>
         @endif
