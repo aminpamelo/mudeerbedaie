@@ -19,7 +19,7 @@ class StoreFunnelCategoryRequest extends FormRequest
                 'required',
                 'string',
                 'max:80',
-                Rule::unique('funnel_categories', 'name')->where('user_id', $this->user()->id),
+                Rule::unique('funnel_categories', 'name'),
             ],
             'color' => ['nullable', 'string', 'max:32'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
@@ -30,7 +30,7 @@ class StoreFunnelCategoryRequest extends FormRequest
     {
         return [
             'name.required' => 'Category name is required.',
-            'name.unique' => 'You already have a category with this name.',
+            'name.unique' => 'A category with this name already exists.',
             'name.max' => 'Category name cannot exceed 80 characters.',
         ];
     }

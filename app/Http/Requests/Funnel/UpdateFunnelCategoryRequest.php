@@ -22,7 +22,6 @@ class UpdateFunnelCategoryRequest extends FormRequest
                 'string',
                 'max:80',
                 Rule::unique('funnel_categories', 'name')
-                    ->where('user_id', $this->user()->id)
                     ->ignore($categoryId),
             ],
             'color' => ['nullable', 'string', 'max:32'],
@@ -33,7 +32,7 @@ class UpdateFunnelCategoryRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'You already have a category with this name.',
+            'name.unique' => 'A category with this name already exists.',
             'name.max' => 'Category name cannot exceed 80 characters.',
         ];
     }

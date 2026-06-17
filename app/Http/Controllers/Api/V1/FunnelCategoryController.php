@@ -14,7 +14,6 @@ class FunnelCategoryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $categories = FunnelCategory::query()
-            ->forUser($request->user()->id)
             ->withCount('funnels')
             ->ordered()
             ->get()
@@ -40,8 +39,6 @@ class FunnelCategoryController extends Controller
 
     public function update(UpdateFunnelCategoryRequest $request, FunnelCategory $category): JsonResponse
     {
-        abort_unless($category->user_id === $request->user()->id, 403);
-
         $category->fill($request->only(['name', 'color', 'sort_order']));
         $category->save();
 
@@ -53,8 +50,6 @@ class FunnelCategoryController extends Controller
 
     public function destroy(Request $request, FunnelCategory $category): JsonResponse
     {
-        abort_unless($category->user_id === $request->user()->id, 403);
-
         // Funnels keep working; their funnel_category_id is set to null via FK.
         $category->delete();
 
@@ -69,11 +64,8 @@ class FunnelCategoryController extends Controller
             'categories.*.sort_order' => ['required', 'integer', 'min:0'],
         ]);
 
-        $userId = $request->user()->id;
-
         foreach ($data['categories'] as $item) {
             FunnelCategory::where('id', $item['id'])
-                ->where('user_id', $userId)
                 ->update(['sort_order' => $item['sort_order']]);
         }
 

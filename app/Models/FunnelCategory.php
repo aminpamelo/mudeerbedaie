@@ -32,24 +32,24 @@ class FunnelCategory extends Model
     {
         static::creating(function (FunnelCategory $category) {
             if (empty($category->slug)) {
-                $category->slug = static::uniqueSlugFor($category->user_id, $category->name);
+                $category->slug = static::uniqueSlugFor($category->name);
             }
         });
 
         static::updating(function (FunnelCategory $category) {
             if ($category->isDirty('name') && ! $category->isDirty('slug')) {
-                $category->slug = static::uniqueSlugFor($category->user_id, $category->name, $category->id);
+                $category->slug = static::uniqueSlugFor($category->name, $category->id);
             }
         });
     }
 
-    public static function uniqueSlugFor(int $userId, string $name, ?int $ignoreId = null): string
+    public static function uniqueSlugFor(string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($name) ?: 'category';
         $slug = $base;
         $counter = 2;
 
-        $query = static::query()->where('user_id', $userId);
+        $query = static::query();
         if ($ignoreId !== null) {
             $query->where('id', '!=', $ignoreId);
         }
@@ -70,11 +70,6 @@ class FunnelCategory extends Model
     public function funnels(): HasMany
     {
         return $this->hasMany(Funnel::class);
-    }
-
-    public function scopeForUser($query, int $userId)
-    {
-        return $query->where('user_id', $userId);
     }
 
     public function scopeOrdered($query)
