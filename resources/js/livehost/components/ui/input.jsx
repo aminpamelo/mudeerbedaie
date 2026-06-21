@@ -12,12 +12,12 @@ function Input({
       type={type}
       data-slot="input"
       className={cn(
-        "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30",
-        // Soft, on-brand emerald focus. The shadcn `ring`/`border-ring` tokens
-        // aren't mapped into Tailwind v4's @theme, so focus collapsed to a harsh
-        // near-black 1px border with no ring; the `emerald` theme color resolves
-        // correctly and matches the rest of the Live Host UI.
-        "focus-visible:border-emerald focus-visible:ring-[3px] focus-visible:ring-emerald/20",
+        "h-9 w-full min-w-0 rounded-md border border-[#EAEAEA] bg-transparent px-3 py-1 text-base transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30",
+        // Match the rest of the Live Host UI's field focus: keep the gray #EAEAEA
+        // border in place and add a soft 2px emerald (#10B981) ring — rather than a
+        // solid emerald border + 3px ring + shadow, which visibly clashed beside the
+        // hand-rolled border-[#EAEAEA] selects/textareas used across the app.
+        "focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20",
         "aria-invalid:border-rose aria-invalid:ring-rose/20",
         className
       )}

@@ -686,7 +686,7 @@ function StageEditor({ campaign, stages: initialStages }) {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 rounded-lg"
+              className="h-8 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
               onClick={() => setAdding(true)}
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />

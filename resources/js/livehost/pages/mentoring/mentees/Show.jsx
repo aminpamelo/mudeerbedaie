@@ -619,7 +619,7 @@ function ActionBar({ mentee, stages }) {
             </Button>
 
             <div className="relative" ref={moveMenuRef}>
-              <Button type="button" variant="outline" disabled={!isActive || busy} onClick={() => setMoveMenuOpen((v) => !v)} className="gap-1.5">
+              <Button type="button" variant="outline" disabled={!isActive || busy} onClick={() => setMoveMenuOpen((v) => !v)} className="gap-1.5 shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20">
                 Move to…
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>

@@ -178,6 +178,7 @@ function CreatorFormModal({ open, onOpenChange, mode, creator, hosts, platformAc
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={processing}
+              className="shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
             >
               Cancel
             </Button>
