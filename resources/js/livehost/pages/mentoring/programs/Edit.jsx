@@ -441,7 +441,7 @@ function StageEditor({ program, stages: initialStages }) {
             <span className="font-mono text-[#0A0A0A]">{totalMentees}</span> mentee{totalMentees === 1 ? '' : 's'}
           </span>
           {!adding && (
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg" onClick={() => setAdding(true)}>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20" onClick={() => setAdding(true)}>
               <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
               Add stage
             </Button>
@@ -596,7 +596,7 @@ function ChecklistTemplateEditor({ form }) {
             </p>
           </div>
         </div>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg" onClick={addItem}>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20" onClick={addItem}>
           <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> Add task
         </Button>
       </div>
@@ -858,7 +858,7 @@ function ActivitiesSection({ program, activities, mentees }) {
             <p className="mt-0.5 text-[12px] text-[#737373]">Coaching, meetings, and training the leader runs. Drives the activity indicator.</p>
           </div>
         </div>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg" onClick={() => setLogging(true)}>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20" onClick={() => setLogging(true)}>
           <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
           Log activity
         </Button>
