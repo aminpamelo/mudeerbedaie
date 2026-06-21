@@ -32,6 +32,7 @@ class MentoringLevelController extends Controller
                     'min_hours' => $l->min_hours !== null ? (float) $l->min_hours : null,
                     'min_gmv_myr' => $l->min_gmv_myr !== null ? (float) $l->min_gmv_myr : null,
                     'min_attendance_pct' => $l->min_attendance_pct,
+                    'monthly_sales_target' => $l->monthly_sales_target,
                     'is_active' => (bool) $l->is_active,
                     'mentees_count' => (int) ($l->mentees_count ?? 0),
                 ])
@@ -112,6 +113,7 @@ class MentoringLevelController extends Controller
             'min_hours' => ['nullable', 'numeric', 'min:0'],
             'min_gmv_myr' => ['nullable', 'numeric', 'min:0'],
             'min_attendance_pct' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'monthly_sales_target' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'is_active' => ['nullable', 'boolean'],
         ]);
     }

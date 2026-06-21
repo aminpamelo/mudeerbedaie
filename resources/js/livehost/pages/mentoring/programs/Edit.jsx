@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
   Gauge,
   Layers,
   ListChecks,
-  Loader2,
   MessageSquare,
   Pause,
   Pencil,
@@ -30,6 +29,7 @@ import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 import { Label } from '@/livehost/components/ui/label';
 import ActivityLogModal from '@/livehost/components/mentoring/ActivityLogModal';
+import MenteeBoard from '@/livehost/components/mentoring/MenteeBoard';
 
 const ACTIVITY_COLOR = { green: '#10B981', amber: '#F59E0B', red: '#F43F5E', none: '#D4D4D4' };
 
@@ -41,6 +41,7 @@ const FIELD_INPUT_CLASS =
 
 const TABS = [
   { id: 'details', label: 'Details', icon: Settings2 },
+  { id: 'board', label: 'Mentee board', icon: Users },
   { id: 'stages', label: 'Stages', icon: Layers },
   { id: 'checklist', label: 'Checklist', icon: ListChecks },
   { id: 'activity', label: 'Activity', icon: MessageSquare },
@@ -84,7 +85,7 @@ function formatDateLabel(iso) {
 }
 
 export default function ProgramEdit() {
-  const { program, stages, assignableLeaders, activities, activityIndicator, mentees, performance } = usePage().props;
+  const { program, stages, assignableLeaders, activities, activityIndicator, mentees, performance, board } = usePage().props;
   const [activeTab, setActiveTab] = useState(initialTabFromUrl);
   const theme = STATUS_THEME[program.status] ?? STATUS_THEME.draft;
 
@@ -187,7 +188,7 @@ export default function ProgramEdit() {
                 )}
               </div>
             </div>
-            <LifecycleActions program={program} />
+            <LifecycleActions program={program} onOpenBoard={() => changeTab('board')} />
           </div>
         </section>
 
@@ -214,6 +215,17 @@ export default function ProgramEdit() {
         </div>
 
         {activeTab === 'details' && <ProgramDetailsForm form={form} onSubmit={submit} assignableLeaders={assignableLeaders} />}
+        {activeTab === 'board' && (
+          <MenteeBoard
+            program={program}
+            stages={board?.stages ?? []}
+            mentees={board?.mentees ?? []}
+            counts={board?.counts}
+            assignableMentors={board?.assignableMentors ?? []}
+            enrollableHosts={board?.enrollableHosts ?? []}
+            reloadOnly={['board']}
+          />
+        )}
         {activeTab === 'stages' && <StageEditor program={program} stages={stages} />}
         {activeTab === 'checklist' && <ChecklistTemplateEditor form={form} />}
         {activeTab === 'activity' && <ActivitiesSection program={program} activities={activities} mentees={mentees} />}
@@ -241,7 +253,7 @@ export default function ProgramEdit() {
 
 ProgramEdit.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
 
-function LifecycleActions({ program }) {
+function LifecycleActions({ program, onOpenBoard }) {
   const transition = (verb, confirmText) => {
     if (confirmText && !window.confirm(confirmText)) {
       return;
@@ -258,12 +270,10 @@ function LifecycleActions({ program }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link href={`/livehost/mentoring/mentees?program=${program.id}`}>
-        <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg">
-          <Users className="h-3.5 w-3.5" strokeWidth={2} />
-          Mentee board
-        </Button>
-      </Link>
+      <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20" onClick={onOpenBoard}>
+        <Users className="h-3.5 w-3.5" strokeWidth={2} />
+        Mentee board
+      </Button>
       {program.status === 'draft' && (
         <Button size="sm" className="h-9 gap-1.5 rounded-lg bg-[#059669] text-white shadow-[0_1px_3px_rgba(5,150,105,0.3)] hover:bg-[#047857]" onClick={() => transition('activate')}>
           <Play className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -643,63 +653,80 @@ function scoreTone(score) {
   return { bg: 'bg-[#FEE2E2]', text: 'text-[#B91C1C]' };
 }
 
+/** Sales KPI as a percentage of the level's monthly target (capped at 100), or null. */
+function salesPct(sales, target) {
+  if (sales === '' || sales === null || sales === undefined) return null;
+  if (!target || target <= 0) return null;
+  const n = Number(sales);
+  if (Number.isNaN(n)) return null;
+  return Math.min(100, Math.round((n / target) * 100));
+}
+
+/**
+ * Overall KPI: the mean of whichever components are present — Attitude (0–100)
+ * and Sales% (actual ÷ target). Equal weighting. Returns null when neither is set.
+ */
+function overallKpi(attitude, sales, target) {
+  const a = attitude === '' || attitude === null || attitude === undefined ? null : Math.max(0, Math.min(100, Number(attitude)));
+  const s = salesPct(sales, target);
+  const parts = [a, s].filter((v) => v !== null && !Number.isNaN(v));
+  if (parts.length === 0) return null;
+  return Math.round(parts.reduce((x, y) => x + y, 0) / parts.length);
+}
+
+/** Short column label for a month ("Jan 2026" → "Jan"). */
+function monthAbbr(mo) {
+  return (mo.label || '').split(' ')[0] || String(mo.month);
+}
+
+/** Compact, thousands-separated count for the Sales figure in a matrix cell. */
+function formatCount(n) {
+  const num = Number(n);
+  if (Number.isNaN(num)) return '–';
+  return num.toLocaleString();
+}
+
 function MonthlyPerformanceTab({ performance }) {
   const months = performance?.months ?? [];
   const mentees = performance?.mentees ?? [];
-  // Months arrive January → December, so the trend chips read left-to-right in order.
-  const chronological = months;
-  // Default to the current month if it's in range, otherwise the first month.
-  const currentMonthValue = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
-  const [selected, setSelected] = useState(() =>
-    months.some((m) => m.value === currentMonthValue) ? currentMonthValue : (months[0]?.value ?? ''),
-  );
   const [query, setQuery] = useState('');
   const visibleMentees = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return mentees;
     return mentees.filter((m) => (m.name ?? '').toLowerCase().includes(q));
   }, [mentees, query]);
-  const selMonth = months.find((m) => m.value === selected) ?? months[0] ?? null;
-  // Local copy of all scores so the trend chips reflect a save immediately.
+
+  // Local copy of every host's scores so a cell repaints the moment it's edited.
   const [localScores, setLocalScores] = useState(() => {
     const map = {};
     mentees.forEach((m) => { map[m.id] = { ...(m.scores ?? {}) }; });
     return map;
   });
-  const [edits, setEdits] = useState({});
+  const [saveState, setSaveState] = useState({}); // `${menteeId}:${monthValue}` -> 'saving' | 'saved' | 'error'
+  const [editing, setEditing] = useState(null); // { menteeId, month, rect }
 
-  useEffect(() => {
-    const init = {};
-    mentees.forEach((m) => {
-      const cell = localScores[m.id]?.[selected] ?? {};
-      init[m.id] = { score: cell.score ?? '', notes: cell.notes ?? '', state: 'idle' };
-    });
-    setEdits(init);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  const currentMonthValue = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
 
-  const setField = (id, field, val) => setEdits((p) => ({ ...p, [id]: { ...(p[id] || {}), [field]: val } }));
-
-  const save = (id) => {
-    if (!selMonth) return;
-    const e = edits[id] || {};
-    const scoreVal = e.score === '' || e.score === null ? null : Number(e.score);
-    setEdits((p) => ({ ...p, [id]: { ...p[id], state: 'saving' } }));
+  const saveCell = (menteeId, mo, draft) => {
+    const attitudeVal = draft.attitude === '' || draft.attitude === null || draft.attitude === undefined ? null : Number(draft.attitude);
+    const salesVal = draft.sales === '' || draft.sales === null || draft.sales === undefined ? null : Number(draft.sales);
+    const notesVal = draft.notes ? draft.notes : null;
+    const key = `${menteeId}:${mo.value}`;
+    // Optimistic: paint the new value straight away, then persist.
+    setLocalScores((p) => ({ ...p, [menteeId]: { ...(p[menteeId] || {}), [mo.value]: { attitude: attitudeVal, sales: salesVal, notes: notesVal } } }));
+    setSaveState((s) => ({ ...s, [key]: 'saving' }));
     router.patch(
-      `/livehost/mentoring/mentees/${id}/monthly-score`,
-      { year: selMonth.year, month: selMonth.month, score: scoreVal, notes: e.notes || null },
+      `/livehost/mentoring/mentees/${menteeId}/monthly-score`,
+      { year: mo.year, month: mo.month, attitude_score: attitudeVal, sales_quantity: salesVal, notes: notesVal },
       {
         preserveScroll: true,
         preserveState: true,
         only: ['performance'],
-        onSuccess: () => {
-          setEdits((p) => ({ ...p, [id]: { ...p[id], state: 'saved' } }));
-          setLocalScores((p) => ({ ...p, [id]: { ...(p[id] || {}), [selected]: { score: scoreVal, notes: e.notes || null } } }));
-        },
-        onError: () => setEdits((p) => ({ ...p, [id]: { ...p[id], state: 'error' } })),
+        onSuccess: () => setSaveState((s) => ({ ...s, [key]: 'saved' })),
+        onError: () => setSaveState((s) => ({ ...s, [key]: 'error' })),
       },
     );
   };
@@ -712,6 +739,8 @@ function MonthlyPerformanceTab({ performance }) {
     );
   }
 
+  const editMentee = editing ? mentees.find((m) => m.id === editing.menteeId) : null;
+
   return (
     <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -721,7 +750,7 @@ function MonthlyPerformanceTab({ performance }) {
           </div>
           <div>
             <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Monthly performance</h2>
-            <p className="mt-0.5 text-[12px] text-[#737373]">Score each mentee 1–100 for the selected month. Changes auto-save; the chips show their trend.</p>
+            <p className="mt-0.5 text-[12px] text-[#737373]">Each cell shows the host's <span className="font-semibold text-[#0A0A0A]">Sales</span> (top) and <span className="font-medium text-[#525252]">Attitude</span> below; the colour is their Overall KPI. Click a cell to edit. Auto-saves.</p>
           </div>
         </div>
         <div className="relative w-full max-w-[260px] sm:w-[240px]">
@@ -736,20 +765,12 @@ function MonthlyPerformanceTab({ performance }) {
         </div>
       </div>
 
-      <div className="mb-4 inline-flex flex-wrap gap-1 rounded-lg bg-[#F5F5F5] p-1">
-        {months.map((m) => (
-          <button
-            key={m.value}
-            type="button"
-            onClick={() => setSelected(m.value)}
-            className={[
-              'rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-all',
-              selected === m.value ? 'bg-white text-[#0A0A0A] shadow-[0_1px_2px_rgba(0,0,0,0.06)]' : 'text-[#737373] hover:text-[#404040]',
-            ].join(' ')}
-          >
-            {m.label}
-          </button>
-        ))}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#737373]">
+        <span className="font-medium text-[#525252]">Overall colour:</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#ECFDF5] ring-1 ring-[#A7F3D0]" /> 80–100</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#FEF3C7] ring-1 ring-[#FDE68A]" /> 60–79</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#FEE2E2] ring-1 ring-[#FECACA]" /> below 60</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#F5F5F5] ring-1 ring-[#EAEAEA]" /> no score</span>
       </div>
 
       {visibleMentees.length === 0 ? (
@@ -757,74 +778,234 @@ function MonthlyPerformanceTab({ performance }) {
           No host matches “{query.trim()}”.
         </div>
       ) : (
-      <ul className="divide-y divide-[#F0F0F0]">
-        {visibleMentees.map((m) => {
-          const e = edits[m.id] || { score: '', notes: '', state: 'idle' };
-          return (
-            <li key={m.id} className="py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13.5px] font-semibold text-[#0A0A0A]">{m.name}</span>
-                    {m.level && (
-                      <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: m.level.color || '#10B981' }}>
-                        {m.level.name}
-                      </span>
-                    )}
-                    {m.status === 'graduated' && (
-                      <span className="rounded-full bg-[#EEF2FF] px-1.5 py-0.5 text-[9.5px] font-medium uppercase tracking-wide text-[#4338CA]">Graduated</span>
-                    )}
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                    {chronological.map((mo) => {
-                      const sc = localScores[m.id]?.[mo.value]?.score;
-                      const tone = scoreTone(sc);
+        <div className="-mx-2 overflow-x-auto px-2">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 border-b border-r border-[#EAEAEA] bg-white px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#737373]">
+                  Host
+                </th>
+                {months.map((mo) => (
+                  <th
+                    key={mo.value}
+                    className={`border-b border-[#EAEAEA] px-1 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.04em] ${mo.value === currentMonthValue ? 'text-[#0A0A0A]' : 'text-[#A3A3A3]'}`}
+                  >
+                    {monthAbbr(mo)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleMentees.map((m) => {
+                const target = m.sales_target ?? null;
+                return (
+                  <tr key={m.id} className="group">
+                    <td className="sticky left-0 z-10 border-b border-r border-[#F0F0F0] bg-white px-2 py-2 group-hover:bg-[#FAFAFA]">
+                      <div className="flex items-center gap-2">
+                        <span className="whitespace-nowrap text-[13px] font-semibold text-[#0A0A0A]">{m.name}</span>
+                        {m.level && (
+                          <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9.5px] font-semibold text-white" style={{ backgroundColor: m.level.color || '#10B981' }}>
+                            {m.level.name}
+                          </span>
+                        )}
+                        {m.status === 'graduated' && (
+                          <span className="shrink-0 rounded-full bg-[#EEF2FF] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[#4338CA]">Grad</span>
+                        )}
+                      </div>
+                    </td>
+                    {months.map((mo) => {
+                      const cell = localScores[m.id]?.[mo.value];
+                      const sales = cell && cell.sales !== null && cell.sales !== undefined ? cell.sales : null;
+                      const attitude = cell && cell.attitude !== null && cell.attitude !== undefined ? cell.attitude : null;
+                      const ov = cell ? overallKpi(cell.attitude, cell.sales, target) : null;
+                      const tone = scoreTone(ov);
+                      const hasData = sales !== null || attitude !== null;
+                      const key = `${m.id}:${mo.value}`;
+                      const st = saveState[key];
+                      const isOpen = editing && editing.menteeId === m.id && editing.month.value === mo.value;
                       return (
-                        <span
-                          key={mo.value}
-                          title={`${mo.label}: ${sc ?? 'no score'}`}
-                          className={`inline-flex h-5 min-w-[30px] items-center justify-center rounded px-1 text-[10px] font-semibold tabular-nums ${tone.bg} ${tone.text}`}
-                        >
-                          {sc ?? '–'}
-                        </span>
+                        <td key={mo.value} className="border-b border-[#F0F0F0] p-1 text-center">
+                          <button
+                            type="button"
+                            onClick={(e) => setEditing({ menteeId: m.id, month: mo, rect: e.currentTarget.getBoundingClientRect() })}
+                            title={`${m.name} · ${mo.label} · Sales ${sales ?? '—'}${target ? ` / ${target}` : ''} · Attitude ${attitude ?? '—'} · Overall ${ov != null ? `${ov}%` : '—'}`}
+                            className={[
+                              'flex h-10 w-full min-w-[54px] flex-col items-center justify-center rounded-md leading-none transition-all',
+                              tone.bg,
+                              tone.text,
+                              'hover:ring-2 hover:ring-[#10B981]/40',
+                              st === 'saving' ? 'animate-pulse' : '',
+                              st === 'error' ? 'ring-2 ring-[#F43F5E]' : '',
+                              isOpen ? 'ring-2 ring-[#0A0A0A]' : '',
+                            ].join(' ')}
+                          >
+                            {hasData ? (
+                              <>
+                                <span className="text-[12.5px] font-bold tabular-nums">{sales !== null ? formatCount(sales) : '–'}</span>
+                                <span className="mt-[3px] text-[9px] font-semibold uppercase tracking-[0.04em] tabular-nums opacity-70">A {attitude !== null ? attitude : '–'}</span>
+                              </>
+                            ) : (
+                              <span className="text-[12px] font-bold">–</span>
+                            )}
+                          </button>
+                        </td>
                       );
                     })}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={e.score}
-                      onChange={(ev) => setField(m.id, 'score', ev.target.value)}
-                      onBlur={() => save(m.id)}
-                      placeholder="–"
-                      className="h-9 w-16 rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-                    />
-                    <span className="text-[12px] text-[#A3A3A3]">/100</span>
-                  </div>
-                  <span className="inline-flex w-14 justify-start text-[11px]">
-                    {e.state === 'saving' && <Loader2 className="h-3.5 w-3.5 animate-spin text-[#737373]" />}
-                    {e.state === 'saved' && <span className="inline-flex items-center gap-1 text-[#047857]"><Check className="h-3 w-3" strokeWidth={3} /> Saved</span>}
-                    {e.state === 'error' && <span className="text-[#B91C1C]">Error</span>}
-                  </span>
-                </div>
-              </div>
-              <input
-                value={e.notes}
-                onChange={(ev) => setField(m.id, 'notes', ev.target.value)}
-                onBlur={() => save(m.id)}
-                placeholder="Optional note for this month…"
-                className="mt-2 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-1.5 text-[12.5px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-              />
-            </li>
-          );
-        })}
-      </ul>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {editing && editMentee && (
+        <CellEditor
+          key={`${editing.menteeId}:${editing.month.value}`}
+          mentee={editMentee}
+          month={editing.month}
+          rect={editing.rect}
+          target={editMentee.sales_target ?? null}
+          initial={localScores[editing.menteeId]?.[editing.month.value] ?? {}}
+          onSave={(draft) => saveCell(editing.menteeId, editing.month, draft)}
+          onClose={() => setEditing(null)}
+        />
       )}
     </section>
+  );
+}
+
+/**
+ * Floating editor for one matrix cell. Records Attitude + Sales + an optional note
+ * for the host/month and commits once — on Done, Esc, outside-click, or switching
+ * cells (unmount) — but only when something actually changed.
+ */
+function CellEditor({ mentee, month, rect, target, initial, onSave, onClose }) {
+  const [draft, setDraft] = useState({
+    attitude: initial.attitude ?? '',
+    sales: initial.sales ?? '',
+    notes: initial.notes ?? '',
+  });
+  const popRef = useRef(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const dirtyRef = useRef(false);
+  const savedRef = useRef(false);
+
+  const commit = () => {
+    if (savedRef.current) return;
+    savedRef.current = true;
+    if (dirtyRef.current) onSave(draftRef.current);
+  };
+
+  // Commit any pending edit when the popover unmounts (covers Done, outside-click,
+  // Esc, and clicking straight onto another cell).
+  useEffect(() => () => commit(), []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') onClose();
+    };
+    const onDown = (e) => {
+      if (popRef.current && !popRef.current.contains(e.target)) onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [onClose]);
+
+  const change = (field, val) => {
+    dirtyRef.current = true;
+    setDraft((d) => ({ ...d, [field]: val }));
+  };
+
+  const overall = overallKpi(draft.attitude, draft.sales, target);
+  const overallTone = scoreTone(overall);
+
+  // Anchor under the clicked cell, clamped to the viewport (flips above if low).
+  const W = 248;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const left = Math.max(12, Math.min(rect.left, vw - W - 12));
+  const estH = 240;
+  const top = rect.bottom + 6 + estH > vh - 12 ? Math.max(12, rect.top - estH - 6) : rect.bottom + 6;
+
+  return (
+    <div
+      ref={popRef}
+      style={{ position: 'fixed', left, top, width: W, zIndex: 60 }}
+      className="rounded-[14px] border border-[#EAEAEA] bg-white p-4 shadow-[0_16px_48px_rgba(0,0,0,0.16)]"
+    >
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-[13px] font-semibold text-[#0A0A0A]">{mentee.name}</span>
+            {mentee.level && (
+              <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-white" style={{ backgroundColor: mentee.level.color || '#10B981' }}>
+                {mentee.level.name}
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-[#A3A3A3]">{month.label}</div>
+        </div>
+        <div className="flex flex-col items-center leading-none">
+          <span className="mb-1 text-[8.5px] font-semibold uppercase tracking-[0.06em] text-[#A3A3A3]">Overall</span>
+          <span className={`inline-flex h-7 min-w-[48px] items-center justify-center rounded-md px-1.5 text-[12.5px] font-bold tabular-nums ${overallTone.bg} ${overallTone.text}`}>
+            {overall != null ? `${overall}%` : '–'}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        <label className="flex items-center justify-between gap-2">
+          <span className="text-[11.5px] font-medium text-[#525252]">Attitude</span>
+          <span className="flex items-center gap-1">
+            <input
+              type="number"
+              min="1"
+              max="100"
+              autoFocus
+              value={draft.attitude}
+              onChange={(e) => change('attitude', e.target.value)}
+              placeholder="–"
+              className="h-9 w-20 rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            />
+            <span className="w-12 text-[11px] text-[#A3A3A3]">/ 100</span>
+          </span>
+        </label>
+        <label className="flex items-center justify-between gap-2">
+          <span className="text-[11.5px] font-medium text-[#525252]">Sales</span>
+          <span className="flex items-center gap-1">
+            <input
+              type="number"
+              min="0"
+              value={draft.sales}
+              onChange={(e) => change('sales', e.target.value)}
+              placeholder="–"
+              className="h-9 w-20 rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            />
+            <span className="w-12 text-[11px] text-[#A3A3A3]">{target ? `/ ${target}` : 'units'}</span>
+          </span>
+        </label>
+        <input
+          value={draft.notes}
+          onChange={(e) => change('notes', e.target.value)}
+          placeholder="Optional note…"
+          className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-1.5 text-[12px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+        />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-[10.5px] text-[#A3A3A3]">{target ? `Sales target ${target}/mo` : 'No sales target on this level'}</span>
+        <Button type="button" size="sm" onClick={onClose} className="h-8 gap-1.5 rounded-lg bg-[#0A0A0A] px-3 text-white hover:bg-[#262626]">
+          <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> Done
+        </Button>
+      </div>
+    </div>
   );
 }
 

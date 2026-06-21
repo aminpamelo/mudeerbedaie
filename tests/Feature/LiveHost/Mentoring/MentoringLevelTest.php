@@ -86,6 +86,17 @@ it('creates a new level at the end of the ladder', function () {
         ->and($level->position)->toBe(6);
 });
 
+it('saves a monthly sales target on a level', function () {
+    $this->actingAs(levelPic())
+        ->post('/livehost/mentoring/levels', [
+            'name' => 'Closer',
+            'monthly_sales_target' => 250,
+        ])
+        ->assertRedirect();
+
+    expect(LiveHostMentoringLevel::where('name', 'Closer')->first()->monthly_sales_target)->toBe(250);
+});
+
 it('enforces a single top-host level', function () {
     $pic = levelPic();
     $this->actingAs($pic)->post('/livehost/mentoring/levels', ['name' => 'Apex', 'is_top' => true])->assertRedirect();

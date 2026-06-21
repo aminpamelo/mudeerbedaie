@@ -1,6 +1,27 @@
 import { Head, usePage } from '@inertiajs/react';
-import { CheckCircle2, Circle, Crown, GraduationCap, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Circle, Crown, GraduationCap, MessageSquare, Minus, PartyPopper, TrendingDown, TrendingUp } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
+import { MONTH_SHORT_MS } from '@/livehost-pocket/lib/format';
+
+/** Colour tone for a 0-100 KPI score — mirrors the PIC desk's score bands. */
+function kpiTone(score) {
+  if (score === null || score === undefined) {
+    return { text: 'var(--fg-3)', bar: 'var(--hair-2)', soft: 'var(--app-bg)' };
+  }
+  if (score >= 80) {
+    return { text: '#047857', bar: '#10B981', soft: '#ECFDF5' };
+  }
+  if (score >= 60) {
+    return { text: '#B45309', bar: '#F59E0B', soft: '#FEF7E6' };
+  }
+  return { text: '#B91C1C', bar: '#E11D48', soft: '#FEECEF' };
+}
+
+/** "Jun" or "Jun 2026" from 1-based month + year. */
+function monthLabel(year, month, withYear = false) {
+  const m = MONTH_SHORT_MS[(Number(month) || 1) - 1] ?? '';
+  return withYear ? `${m} ${year}` : m;
+}
 
 function SectionTitle({ children }) {
   return (
@@ -27,9 +48,20 @@ function EmptyState() {
   );
 }
 
-function StageStepper({ stages }) {
+function StageStepper({ stages, progress }) {
   return (
     <div className="overflow-hidden rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[16px]">
+      {progress && progress.total > 0 && (
+        <div className="mb-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[12px] font-semibold text-[var(--fg)]">Stage {progress.current_position} of {progress.total}</span>
+            <span className="font-mono text-[11px] font-bold text-[var(--fg-2)]">{progress.pct}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--app-bg)]">
+            <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${progress.pct}%` }} />
+          </div>
+        </div>
+      )}
       <ol className="space-y-0">
         {stages.map((s, i) => {
           const isLast = i === stages.length - 1;
@@ -117,19 +149,155 @@ function ChecklistCard({ checklist }) {
   );
 }
 
+function StatusBanner({ status }) {
+  if (status === 'graduated') {
+    return (
+      <div className="mt-2 flex items-center gap-2.5 rounded-[14px] border border-[#10B98140] bg-[#ECFDF5] px-3.5 py-3">
+        <PartyPopper className="h-[18px] w-[18px] shrink-0 text-[#047857]" strokeWidth={2} />
+        <div className="text-[13px] font-semibold text-[#047857]">Congratulations — you&rsquo;ve graduated!</div>
+      </div>
+    );
+  }
+  if (status === 'dropped') {
+    return (
+      <div className="mt-2 flex items-center gap-2.5 rounded-[14px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3.5 py-3">
+        <Circle className="h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
+        <div className="text-[13px] font-medium text-[var(--fg-2)]">Your participation in this program has ended.</div>
+      </div>
+    );
+  }
+  return null;
+}
+
+function DeltaPill({ delta }) {
+  if (delta === null || delta === undefined) {
+    return null;
+  }
+  if (delta > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-[3px] text-[11px] font-bold text-[#047857]">
+        <TrendingUp className="h-3 w-3" strokeWidth={2.5} /> +{delta}
+      </span>
+    );
+  }
+  if (delta < 0) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#FEECEF] px-2 py-[3px] text-[11px] font-bold text-[#B91C1C]">
+        <TrendingDown className="h-3 w-3" strokeWidth={2.5} /> {delta}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--app-bg)] px-2 py-[3px] text-[11px] font-bold text-[var(--fg-3)]">
+      <Minus className="h-3 w-3" strokeWidth={2.5} /> 0
+    </span>
+  );
+}
+
+function ScoreTrend({ trend }) {
+  const withData = trend.filter((t) => t.overall !== null);
+  if (withData.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-4 border-t border-[var(--hair)] pt-3">
+      <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Last {trend.length} month{trend.length === 1 ? '' : 's'}</div>
+      <div className="flex items-end justify-between gap-1.5" style={{ height: '76px' }}>
+        {trend.map((t) => {
+          const tone = kpiTone(t.overall);
+          const h = t.overall === null ? 4 : Math.max(6, Math.round((t.overall / 100) * 56));
+          return (
+            <div key={t.period} className="flex flex-1 flex-col items-center gap-1">
+              <div className="text-[9.5px] font-bold tabular-nums text-[var(--fg-2)]" style={{ minHeight: '12px' }}>
+                {t.overall === null ? '' : t.overall}
+              </div>
+              <div
+                className="w-full max-w-[26px] rounded-[5px] transition-all"
+                style={{ height: `${h}px`, backgroundColor: tone.bar, opacity: t.overall === null ? 0.4 : 1 }}
+              />
+              <div className="font-mono text-[9px] uppercase tracking-wide text-[var(--fg-3)]">{monthLabel(t.year, t.month)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MonthlyPerformance({ performance }) {
+  if (!performance || !performance.has_scores) {
+    return (
+      <div className="rounded-[16px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-6 text-center">
+        <div className="text-[13px] font-medium text-[var(--fg-2)]">No monthly score yet</div>
+        <p className="mt-1 text-[12px] leading-relaxed text-[var(--fg-3)]">
+          Your mentor records your attitude &amp; sales score each month. It will show up here.
+        </p>
+      </div>
+    );
+  }
+
+  const { latest, trend, delta_overall: delta, sales_target: target } = performance;
+  const tone = kpiTone(latest.overall);
+
+  return (
+    <div className="rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[16px]">
+      {/* Overall score */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Overall score</div>
+          <div className="mt-1 flex items-end gap-2">
+            <span className="font-display text-[34px] font-medium leading-none tracking-[-0.04em] tabular-nums" style={{ color: tone.text }}>
+              {latest.overall === null ? '—' : latest.overall}
+            </span>
+            {latest.overall !== null && <span className="pb-1 text-[14px] font-semibold text-[var(--fg-3)]">%</span>}
+            <span className="pb-1"><DeltaPill delta={delta} /></span>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: tone.soft, color: tone.text }}>
+          {monthLabel(latest.year, latest.month, true)}
+        </span>
+      </div>
+
+      {/* Attitude + Sales breakdown */}
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <div className="rounded-[12px] bg-[var(--app-bg)] px-3 py-2.5">
+          <div className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--fg-3)]">Attitude</div>
+          <div className="mt-1 font-display text-[18px] font-medium tabular-nums text-[var(--fg)]">
+            {latest.attitude === null ? '—' : <>{latest.attitude}<span className="text-[12px] text-[var(--fg-3)]">/100</span></>}
+          </div>
+        </div>
+        <div className="rounded-[12px] bg-[var(--app-bg)] px-3 py-2.5">
+          <div className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--fg-3)]">Sales</div>
+          <div className="mt-1 font-display text-[18px] font-medium tabular-nums text-[var(--fg)]">
+            {latest.sales === null ? '—' : latest.sales}
+            {latest.sales !== null && target ? <span className="text-[12px] text-[var(--fg-3)]"> / {target}</span> : null}
+          </div>
+          {latest.sales_pct !== null && (
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--hair)]">
+              <div className="h-full rounded-full" style={{ width: `${latest.sales_pct}%`, backgroundColor: kpiTone(latest.sales_pct).bar }} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ScoreTrend trend={trend} />
+    </div>
+  );
+}
+
 export default function MyPath() {
   const { enrollment } = usePage().props;
 
   return (
     <>
-      <Head title="My Path" />
+      <Head title="My Performance" />
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
         <div className="px-1 pt-3 pb-2">
           <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
             Mentoring
           </div>
           <h1 className="font-display text-[22px] font-medium leading-[1.08] tracking-[-0.03em] text-[var(--fg)]">
-            My Path
+            My Performance
           </h1>
         </div>
 
@@ -137,6 +305,8 @@ export default function MyPath() {
           <EmptyState />
         ) : (
           <>
+            {enrollment.status !== 'active' && <StatusBanner status={enrollment.status} />}
+
             {/* Hero */}
             <div className="mt-2 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[16px]">
               <div className="flex items-start justify-between gap-3">
@@ -163,11 +333,14 @@ export default function MyPath() {
               </div>
             </div>
 
+            <SectionTitle>Monthly performance</SectionTitle>
+            <MonthlyPerformance performance={enrollment.performance} />
+
             <SectionTitle>Path to top host</SectionTitle>
             <LevelLadder ladder={enrollment.ladder} />
 
             <SectionTitle>Journey</SectionTitle>
-            <StageStepper stages={enrollment.stages} />
+            <StageStepper stages={enrollment.stages} progress={enrollment.stage_progress} />
 
             <SectionTitle>My tasks</SectionTitle>
             <ChecklistCard checklist={enrollment.checklist} />

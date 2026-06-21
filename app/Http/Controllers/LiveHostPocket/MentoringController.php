@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveHostMentee;
 use App\Models\LiveHostMentoringLevel;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,17 +22,24 @@ class MentoringController extends Controller
     {
         $user = $request->user();
 
-        $mentee = $user->activeMenteeEnrollment()
-            ->with([
-                'program.stages' => fn ($q) => $q->orderBy('position'),
-                'program.leader:id,name',
-                'mentor:id,name',
-                'currentStage',
-                'level',
-                'checklistItems' => fn ($q) => $q->orderBy('position'),
-                'activities' => fn ($q) => $q->latest('occurred_at')->limit(10),
-            ])
-            ->first();
+        $eagerLoad = [
+            'program.stages' => fn ($q) => $q->orderBy('position'),
+            'program.leader:id,name',
+            'mentor:id,name',
+            'currentStage',
+            'level',
+            'checklistItems' => fn ($q) => $q->orderBy('position'),
+            'activities' => fn ($q) => $q->latest('occurred_at')->limit(10),
+            'monthlyScores' => fn ($q) => $q->orderBy('year')->orderBy('month'),
+        ];
+
+        // Prefer the active enrollment; fall back to the most recent graduated one
+        // so a host who finished the program still sees their performance history.
+        $mentee = $user->activeMenteeEnrollment()->with($eagerLoad)->first()
+            ?? $user->menteeEnrollments()->with($eagerLoad)
+                ->where('status', 'graduated')
+                ->latest('enrolled_at')
+                ->first();
 
         if ($mentee === null) {
             return Inertia::render('MyPath', ['enrollment' => null]);
@@ -44,6 +52,15 @@ class MentoringController extends Controller
             'is_final' => (bool) $s->is_final,
             'state' => $s->position < $currentPosition ? 'done' : ($s->position === $currentPosition ? 'current' : 'upcoming'),
         ])->values();
+
+        $stageTotal = $stages->count();
+        $stageProgress = [
+            'current_position' => $currentPosition,
+            'total' => $stageTotal,
+            'pct' => $stageTotal > 0 ? (int) round(($currentPosition / $stageTotal) * 100) : 0,
+        ];
+
+        $performance = $this->performanceData($mentee);
 
         $checklist = $mentee->checklistItems;
         $done = $checklist->where('status', 'done')->count();
@@ -85,6 +102,8 @@ class MentoringController extends Controller
                 ] : null,
                 'level' => $currentLevel ? ['name' => $currentLevel->name, 'color' => $currentLevel->color] : null,
                 'stages' => $stages,
+                'stage_progress' => $stageProgress,
+                'performance' => $performance,
                 'ladder' => $ladder,
                 'checklist' => [
                     'done' => $done,
@@ -103,5 +122,53 @@ class MentoringController extends Controller
                 ])->values(),
             ],
         ]);
+    }
+
+    /**
+     * The host's monthly performance: latest score, a 6-month trend, and the
+     * change vs the previous month. The Overall KPI mirrors the PIC-side
+     * formula exactly — the mean of Attitude (0-100) and Sales% (sales ÷ the
+     * level's monthly target, capped at 100) — so host and PIC see the same number.
+     *
+     * @return array{has_scores: bool, sales_target: int|null, latest: array<string, mixed>|null, trend: list<array<string, mixed>>, delta_overall: int|null}
+     */
+    private function performanceData(LiveHostMentee $mentee): array
+    {
+        $target = $mentee->level?->monthly_sales_target;
+
+        $scores = $mentee->monthlyScores->map(function ($s) use ($target): array {
+            $attitude = $s->attitude_score !== null ? max(0, min(100, (int) $s->attitude_score)) : null;
+            $sales = $s->sales_quantity;
+            $salesPct = ($sales !== null && $target && $target > 0)
+                ? min(100, (int) round(($sales / $target) * 100))
+                : null;
+
+            $parts = array_values(array_filter([$attitude, $salesPct], fn ($v) => $v !== null));
+            $overall = $parts !== [] ? (int) round(array_sum($parts) / count($parts)) : null;
+
+            return [
+                'period' => sprintf('%04d-%02d', $s->year, $s->month),
+                'year' => (int) $s->year,
+                'month' => (int) $s->month,
+                'attitude' => $attitude,
+                'sales' => $sales,
+                'sales_pct' => $salesPct,
+                'overall' => $overall,
+            ];
+        })->values();
+
+        $latest = $scores->last();
+        $previous = $scores->count() >= 2 ? $scores->slice(-2, 1)->first() : null;
+        $delta = ($latest && $previous && $latest['overall'] !== null && $previous['overall'] !== null)
+            ? $latest['overall'] - $previous['overall']
+            : null;
+
+        return [
+            'has_scores' => $scores->isNotEmpty(),
+            'sales_target' => $target !== null ? (int) $target : null,
+            'latest' => $latest,
+            'trend' => $scores->slice(-6)->values()->all(),
+            'delta_overall' => $delta,
+        ];
     }
 }

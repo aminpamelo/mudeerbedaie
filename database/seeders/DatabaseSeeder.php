@@ -50,6 +50,7 @@ class DatabaseSeeder extends Seeder
             PlatformSeeder::class,
             TikTokMultiChannelAppSeeder::class,
             LiveHostSeeder::class,
+            LiveHostMentoringSeeder::class,
             CmsPlatformSeeder::class,
         ]);
 

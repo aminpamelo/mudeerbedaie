@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -123,4 +124,25 @@ it('blocks non-PIC roles from creating programs', function () {
     $this->actingAs(User::factory()->create(['role' => 'live_host']))
         ->get('/livehost/mentoring/programs')
         ->assertForbidden();
+});
+
+it('exposes the mentee board on the program editor', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $mentee = LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => User::factory()->create(['role' => 'live_host'])->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs(mentoringPic())
+        ->get("/livehost/mentoring/programs/{$program->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('board.stages')
+            ->has('board.mentees', 1)
+            ->where('board.mentees.0.id', $mentee->id)
+            ->where('board.counts.active', 1)
+            ->has('board.assignableMentors')
+            ->has('board.enrollableHosts')
+        );
 });

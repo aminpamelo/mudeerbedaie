@@ -7,6 +7,7 @@ use App\Http\Requests\LiveHost\Mentoring\MentoringProgramRequest;
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
+use App\Services\Mentoring\MenteeBoardPresenter;
 use App\Services\Mentoring\MentorActivityIndicator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -144,20 +145,22 @@ class MentoringProgramController extends Controller
                 ->map(fn ($m) => ['id' => $m->id, 'name' => $m->menteeUser?->name])
                 ->values(),
             'performance' => $this->performanceData($program),
+            'board' => app(MenteeBoardPresenter::class)->forProgram($program),
         ]);
     }
 
     /**
-     * Monthly-performance grid data: the last 6 months and every active/graduated
-     * mentee with their recorded scores keyed by 'YYYY-MM'.
+     * Monthly-performance grid data: every month of the current calendar year
+     * (January → December, ascending) and every active/graduated mentee with
+     * their recorded scores keyed by 'YYYY-MM'.
      *
      * @return array<string, mixed>
      */
     private function performanceData(LiveHostMentoringProgram $program): array
     {
-        $now = now();
-        $months = collect(range(0, 5))
-            ->map(fn ($i) => $now->copy()->startOfMonth()->subMonths($i))
+        $startOfYear = now()->startOfYear();
+        $months = collect(range(0, 11))
+            ->map(fn ($i) => $startOfYear->copy()->addMonths($i))
             ->map(fn ($d) => [
                 'value' => $d->format('Y-m'),
                 'year' => (int) $d->format('Y'),
@@ -167,7 +170,7 @@ class MentoringProgramController extends Controller
 
         $mentees = $program->mentees()
             ->whereIn('status', ['active', 'graduated'])
-            ->with(['menteeUser:id,name', 'level:id,name,color', 'monthlyScores'])
+            ->with(['menteeUser:id,name', 'level:id,name,color,monthly_sales_target', 'monthlyScores'])
             ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderByDesc('enrolled_at')
             ->get()
@@ -176,8 +179,15 @@ class MentoringProgramController extends Controller
                 'name' => $m->menteeUser?->name,
                 'status' => $m->status,
                 'level' => $m->level ? ['name' => $m->level->name, 'color' => $m->level->color] : null,
+                // The mentee's monthly sales target comes from their level; the Sales
+                // KPI is actual ÷ target, and feeds the computed Overall on the client.
+                'sales_target' => $m->level?->monthly_sales_target,
                 'scores' => $m->monthlyScores->mapWithKeys(fn ($s) => [
-                    $s->periodKey() => ['score' => $s->score, 'notes' => $s->notes],
+                    $s->periodKey() => [
+                        'attitude' => $s->attitude_score,
+                        'sales' => $s->sales_quantity,
+                        'notes' => $s->notes,
+                    ],
                 ]),
             ])->values();
 

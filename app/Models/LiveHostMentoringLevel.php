@@ -13,7 +13,7 @@ class LiveHostMentoringLevel extends Model
 
     protected $fillable = [
         'name', 'slug', 'color', 'position', 'is_top', 'description',
-        'min_sessions', 'min_hours', 'min_gmv_myr', 'min_attendance_pct', 'is_active',
+        'min_sessions', 'min_hours', 'min_gmv_myr', 'min_attendance_pct', 'monthly_sales_target', 'is_active',
     ];
 
     protected function casts(): array
@@ -26,6 +26,7 @@ class LiveHostMentoringLevel extends Model
             'min_hours' => 'decimal:2',
             'min_gmv_myr' => 'decimal:2',
             'min_attendance_pct' => 'integer',
+            'monthly_sales_target' => 'integer',
         ];
     }
 

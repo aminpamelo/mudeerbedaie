@@ -13,7 +13,7 @@ class LiveHostMenteeMonthlyScore extends Model
     protected $table = 'live_host_mentee_monthly_scores';
 
     protected $fillable = [
-        'mentee_id', 'year', 'month', 'score', 'notes', 'recorded_by',
+        'mentee_id', 'year', 'month', 'attitude_score', 'sales_quantity', 'notes', 'recorded_by',
     ];
 
     protected function casts(): array
@@ -21,7 +21,8 @@ class LiveHostMenteeMonthlyScore extends Model
         return [
             'year' => 'integer',
             'month' => 'integer',
-            'score' => 'integer',
+            'attitude_score' => 'integer',
+            'sales_quantity' => 'integer',
         ];
     }
 

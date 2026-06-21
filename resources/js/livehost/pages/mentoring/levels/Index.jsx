@@ -15,6 +15,7 @@ const EMPTY = {
   min_hours: '',
   min_gmv_myr: '',
   min_attendance_pct: '',
+  monthly_sales_target: '',
   is_active: true,
 };
 
@@ -40,6 +41,7 @@ function LevelModal({ level, onClose }) {
           min_hours: level.min_hours ?? '',
           min_gmv_myr: level.min_gmv_myr ?? '',
           min_attendance_pct: level.min_attendance_pct ?? '',
+          monthly_sales_target: level.monthly_sales_target ?? '',
           is_active: level.is_active ?? true,
         }
       : { ...EMPTY },
@@ -58,6 +60,7 @@ function LevelModal({ level, onClose }) {
     min_hours: draft.min_hours === '' ? null : Number(draft.min_hours),
     min_gmv_myr: draft.min_gmv_myr === '' ? null : Number(draft.min_gmv_myr),
     min_attendance_pct: draft.min_attendance_pct === '' ? null : Number(draft.min_attendance_pct),
+    monthly_sales_target: draft.monthly_sales_target === '' ? null : Number(draft.monthly_sales_target),
     is_active: draft.is_active,
   });
 
@@ -115,6 +118,21 @@ function LevelModal({ level, onClose }) {
               <NumField label="Min GMV (RM)" value={draft.min_gmv_myr} onChange={(v) => set('min_gmv_myr', v)} error={errors.min_gmv_myr} />
               <NumField label="Min attendance %" value={draft.min_attendance_pct} onChange={(v) => set('min_attendance_pct', v)} error={errors.min_attendance_pct} max="100" />
             </div>
+          </div>
+
+          <div className="rounded-[12px] border border-[#F0F0F0] bg-[#FAFAFA] p-4">
+            <Label className="text-[12px] font-medium text-[#0A0A0A]">
+              Monthly sales target <span className="font-normal text-[#A3A3A3]">(units — drives the Sales KPI on the monthly performance grid)</span>
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              value={draft.monthly_sales_target}
+              onChange={(e) => set('monthly_sales_target', e.target.value)}
+              className="mt-1 bg-white tabular-nums"
+              placeholder="e.g. 120"
+            />
+            {errors.monthly_sales_target && <p className="mt-1 text-xs text-[#F43F5E]">{errors.monthly_sales_target}</p>}
           </div>
 
           <div className="flex items-center gap-4">
@@ -245,7 +263,14 @@ export default function LevelsIndex() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-[12px] text-[#525252]">{thresholdSummary(level)}</td>
+                    <td className="px-5 py-3.5 text-[12px] text-[#525252]">
+                      {thresholdSummary(level)}
+                      {level.monthly_sales_target != null && (
+                        <div className="mt-0.5 text-[11px] text-[#737373]">
+                          Sales KPI target: <span className="font-medium tabular-nums text-[#0A0A0A]">{level.monthly_sales_target}</span>/mo
+                        </div>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-right tabular-nums text-[#525252]">{level.mentees_count}</td>
                     <td className="px-5 py-3.5 text-center">
                       {level.is_active ? (

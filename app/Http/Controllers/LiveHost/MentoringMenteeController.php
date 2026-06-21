@@ -12,11 +12,12 @@ use App\Models\LiveHostMenteeStage;
 use App\Models\LiveHostMentoringLevel;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\LiveHostMentoringStage;
-use App\Models\User;
 use App\Services\Mentoring\LevelSuggester;
+use App\Services\Mentoring\MenteeBoardPresenter;
 use App\Services\Mentoring\MenteeKpiReport;
 use App\Services\Mentoring\MenteeStageTransition;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -40,34 +41,17 @@ class MentoringMenteeController extends Controller
             $statusTab = 'active';
         }
 
-        $mentees = $program
-            ? LiveHostMentee::query()
-                ->where('program_id', $program->id)
-                ->where('status', $statusTab)
-                ->with(['currentStageRow.assignee', 'menteeUser', 'level'])
-                ->orderByDesc('enrolled_at')
-                ->get()
-            : collect();
-
-        $stages = $program
-            ? $program->stages()->orderBy('position')->get(['id', 'name', 'position', 'is_final'])
-                ->map(fn (LiveHostMentoringStage $s) => [
-                    'id' => $s->id,
-                    'name' => $s->name,
-                    'position' => (int) $s->position,
-                    'is_final' => (bool) $s->is_final,
-                ])
-            : collect();
-
-        $counts = $program
-            ? [
-                'active' => LiveHostMentee::where('program_id', $program->id)->where('status', 'active')->count(),
-                'graduated' => LiveHostMentee::where('program_id', $program->id)->where('status', 'graduated')->count(),
-                'dropped' => LiveHostMentee::where('program_id', $program->id)->where('status', 'dropped')->count(),
-            ]
-            : ['active' => 0, 'graduated' => 0, 'dropped' => 0];
-
         $program?->loadMissing('leader:id,name');
+
+        $board = $program
+            ? app(MenteeBoardPresenter::class)->forProgram($program)
+            : [
+                'stages' => collect(),
+                'mentees' => collect(),
+                'counts' => ['active' => 0, 'graduated' => 0, 'dropped' => 0],
+                'assignableMentors' => collect(),
+                'enrollableHosts' => collect(),
+            ];
 
         return Inertia::render('mentoring/mentees/Index', [
             'program' => $program ? [
@@ -85,9 +69,9 @@ class MentoringMenteeController extends Controller
                 'starts_at' => $program->starts_at?->toIso8601String(),
                 'ends_at' => $program->ends_at?->toIso8601String(),
             ] : null,
-            'counts' => $counts,
-            'stages' => $stages->values(),
-            'mentees' => $mentees->map(fn (LiveHostMentee $m) => $this->cardData($m))->values(),
+            'counts' => $board['counts'],
+            'stages' => collect($board['stages'])->values(),
+            'mentees' => collect($board['mentees'])->values(),
             'programs' => LiveHostMentoringProgram::orderByDesc('created_at')
                 ->get(['id', 'title', 'status'])
                 ->map(fn (LiveHostMentoringProgram $p) => [
@@ -96,49 +80,13 @@ class MentoringMenteeController extends Controller
                     'status' => $p->status,
                 ])
                 ->values(),
-            'assignableMentors' => $this->assignableMentors(),
-            'enrollableHosts' => $program ? $this->enrollableHosts($program) : collect(),
+            'assignableMentors' => $board['assignableMentors'],
+            'enrollableHosts' => $board['enrollableHosts'],
             'filters' => [
                 'program' => $program?->id,
                 'status' => $statusTab,
             ],
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function cardData(LiveHostMentee $m): array
-    {
-        $row = $m->currentStageRow;
-
-        return [
-            'id' => $m->id,
-            'mentee_number' => $m->mentee_number,
-            'full_name' => $m->menteeUser?->name,
-            'email' => $m->menteeUser?->email,
-            'phone' => $m->menteeUser?->phone,
-            'current_stage_id' => $m->current_stage_id,
-            'status' => $m->status,
-            'mentor_user_id' => $m->mentor_user_id,
-            'level' => $m->level ? [
-                'id' => $m->level->id,
-                'name' => $m->level->name,
-                'color' => $m->level->color,
-            ] : null,
-            'enrolled_at' => $m->enrolled_at?->toIso8601String(),
-            'enrolled_at_human' => $m->enrolled_at?->diffForHumans(),
-            'assignment' => $row ? [
-                'assignee' => $row->assignee ? [
-                    'id' => $row->assignee->id,
-                    'name' => $row->assignee->name,
-                    'initials' => self::initials($row->assignee->name),
-                ] : null,
-                'due_at' => $row->due_at?->toIso8601String(),
-                'is_overdue' => $row->is_overdue,
-                'stage_notes' => $row->stage_notes,
-            ] : null,
-        ];
     }
 
     public function show(Request $request, LiveHostMentee $mentee): Response
@@ -255,7 +203,73 @@ class MentoringMenteeController extends Controller
                     'completed_at' => $c->completed_at?->toIso8601String(),
                     'completed_at_human' => $c->completed_at?->diffForHumans(),
                 ])->values(),
-            'assignableMentors' => $this->assignableMentors(),
+            'assignableMentors' => app(MenteeBoardPresenter::class)->assignableMentors(),
+        ]);
+    }
+
+    /**
+     * Rich detail for the mentee-hub modal: activity log, checklist, stage
+     * history and a 30-day KPI snapshot — loaded on demand so the kanban board
+     * payload stays lightweight.
+     */
+    public function detail(LiveHostMentee $mentee): JsonResponse
+    {
+        $mentee->load([
+            'history' => fn ($q) => $q->latest(),
+            'history.fromStage',
+            'history.toStage',
+            'history.changedByUser',
+        ]);
+
+        $to = CarbonImmutable::now();
+        $from = $to->subDays(30);
+
+        return response()->json([
+            'program_id' => $mentee->program_id,
+            'current_stage_id' => $mentee->current_stage_id,
+            'kpis' => app(MenteeKpiReport::class)->forUser($mentee->mentee_user_id, $from, $to),
+            'history' => $mentee->history->map(fn ($h) => [
+                'id' => $h->id,
+                'action' => $h->action,
+                'notes' => $h->notes,
+                'from_stage' => $h->fromStage ? ['id' => $h->fromStage->id, 'name' => $h->fromStage->name] : null,
+                'to_stage' => $h->toStage ? ['id' => $h->toStage->id, 'name' => $h->toStage->name] : null,
+                'changed_by' => $h->changedByUser ? ['id' => $h->changedByUser->id, 'name' => $h->changedByUser->name] : null,
+                'created_at_human' => $h->created_at?->diffForHumans(),
+            ])->values(),
+            'activities' => $mentee->activities()
+                ->with('creator:id,name')
+                ->limit(50)
+                ->get()
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'type' => $a->type,
+                    'title' => $a->title,
+                    'notes' => $a->notes,
+                    'occurred_at_human' => $a->occurred_at?->diffForHumans(),
+                    'created_by' => $a->creator?->name,
+                ])->values(),
+            'checklist' => $mentee->checklistItems()->orderBy('position')->get()
+                ->map(fn (LiveHostMenteeChecklistItem $c) => [
+                    'id' => $c->id,
+                    'title' => $c->title,
+                    'description' => $c->description,
+                    'is_required' => (bool) $c->is_required,
+                    'status' => $c->status,
+                    'completed_at_human' => $c->completed_at?->diffForHumans(),
+                ])->values(),
+            'monthlyScores' => $mentee->monthlyScores()
+                ->orderByDesc('year')
+                ->orderByDesc('month')
+                ->limit(12)
+                ->get()
+                ->map(fn ($s) => [
+                    'id' => $s->id,
+                    'period' => CarbonImmutable::create($s->year, $s->month, 1)->format('M Y'),
+                    'attitude_score' => $s->attitude_score,
+                    'sales_quantity' => $s->sales_quantity,
+                    'notes' => $s->notes,
+                ])->values(),
         ]);
     }
 
@@ -559,54 +573,6 @@ class MentoringMenteeController extends Controller
         });
 
         return back()->with('success', 'Mentee restored to active.');
-    }
-
-    /**
-     * Live hosts who can be assigned as a mentee's mentor.
-     *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
-     */
-    private function assignableMentors(): \Illuminate\Support\Collection
-    {
-        return User::query()
-            ->where('role', 'live_host')
-            ->orderByDesc('is_top_host_eligible')
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_top_host_eligible'])
-            ->map(fn (User $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'initials' => self::initials($u->name),
-                'is_top_host_eligible' => (bool) $u->is_top_host_eligible,
-            ])
-            ->values();
-    }
-
-    /**
-     * Live hosts not currently an active mentee anywhere — enforces the
-     * "one active program at a time" rule at the enrollment picker.
-     *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
-     */
-    private function enrollableHosts(LiveHostMentoringProgram $program): \Illuminate\Support\Collection
-    {
-        $activeMenteeUserIds = LiveHostMentee::query()
-            ->where('status', 'active')
-            ->pluck('mentee_user_id')
-            ->all();
-
-        return User::query()
-            ->where('role', 'live_host')
-            ->whereNotIn('id', $activeMenteeUserIds)
-            ->orderBy('name')
-            ->get(['id', 'name', 'email'])
-            ->map(fn (User $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'email' => $u->email,
-                'initials' => self::initials($u->name),
-            ])
-            ->values();
     }
 
     private static function initials(?string $name): string
