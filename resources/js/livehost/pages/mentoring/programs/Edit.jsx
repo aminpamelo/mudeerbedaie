@@ -16,6 +16,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Search,
   Settings2,
   Star,
   Trash2,
@@ -46,6 +47,15 @@ const TABS = [
   { id: 'performance', label: 'Monthly Performance', icon: Gauge },
 ];
 
+const TAB_IDS = TABS.map((tab) => tab.id);
+
+/** Read the active tab from the URL (?tab=) so it survives a reload or a shared link. */
+function initialTabFromUrl() {
+  if (typeof window === 'undefined') return 'details';
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return TAB_IDS.includes(tab) ? tab : 'details';
+}
+
 const STATUS_THEME = {
   draft: { pill: 'bg-[#F5F5F5] text-[#525252] border-[#EAEAEA]', dot: '#A3A3A3', live: false },
   active: { pill: 'bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]', dot: '#10B981', live: true },
@@ -75,8 +85,22 @@ function formatDateLabel(iso) {
 
 export default function ProgramEdit() {
   const { program, stages, assignableLeaders, activities, activityIndicator, mentees, performance } = usePage().props;
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState(initialTabFromUrl);
   const theme = STATUS_THEME[program.status] ?? STATUS_THEME.draft;
+
+  // Persist the active tab in the URL (?tab=stages) without a server round-trip, so a
+  // reload or a shared link reopens the same tab instead of snapping back to Details.
+  const changeTab = (id) => {
+    setActiveTab(id);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (id === 'details') {
+      url.searchParams.delete('tab');
+    } else {
+      url.searchParams.set('tab', id);
+    }
+    window.history.replaceState(window.history.state, '', url);
+  };
   const startsLabel = formatDateLabel(program.starts_at);
   const endsLabel = formatDateLabel(program.ends_at);
 
@@ -176,7 +200,7 @@ export default function ProgramEdit() {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => changeTab(tab.id)}
                 className={[
                   '-mb-px inline-flex items-center gap-1.5 border-b-2 px-1 pb-3 text-sm font-medium transition-colors',
                   isActive ? 'border-[#0A0A0A] text-[#0A0A0A]' : 'border-transparent text-[#737373] hover:text-[#0A0A0A]',
@@ -622,8 +646,22 @@ function scoreTone(score) {
 function MonthlyPerformanceTab({ performance }) {
   const months = performance?.months ?? [];
   const mentees = performance?.mentees ?? [];
-  const chronological = useMemo(() => [...months].reverse(), [months]);
-  const [selected, setSelected] = useState(months[0]?.value ?? '');
+  // Months arrive January → December, so the trend chips read left-to-right in order.
+  const chronological = months;
+  // Default to the current month if it's in range, otherwise the first month.
+  const currentMonthValue = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [selected, setSelected] = useState(() =>
+    months.some((m) => m.value === currentMonthValue) ? currentMonthValue : (months[0]?.value ?? ''),
+  );
+  const [query, setQuery] = useState('');
+  const visibleMentees = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return mentees;
+    return mentees.filter((m) => (m.name ?? '').toLowerCase().includes(q));
+  }, [mentees, query]);
   const selMonth = months.find((m) => m.value === selected) ?? months[0] ?? null;
   // Local copy of all scores so the trend chips reflect a save immediately.
   const [localScores, setLocalScores] = useState(() => {
@@ -656,6 +694,7 @@ function MonthlyPerformanceTab({ performance }) {
       {
         preserveScroll: true,
         preserveState: true,
+        only: ['performance'],
         onSuccess: () => {
           setEdits((p) => ({ ...p, [id]: { ...p[id], state: 'saved' } }));
           setLocalScores((p) => ({ ...p, [id]: { ...(p[id] || {}), [selected]: { score: scoreVal, notes: e.notes || null } } }));
@@ -675,13 +714,25 @@ function MonthlyPerformanceTab({ performance }) {
 
   return (
     <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="mb-5 flex items-center gap-2.5">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F5F5] text-[#525252]">
-          <Gauge className="h-4 w-4" strokeWidth={2} />
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F5F5] text-[#525252]">
+            <Gauge className="h-4 w-4" strokeWidth={2} />
+          </div>
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Monthly performance</h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">Score each mentee 1–100 for the selected month. Changes auto-save; the chips show their trend.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Monthly performance</h2>
-          <p className="mt-0.5 text-[12px] text-[#737373]">Score each mentee 1–100 for the selected month. Changes auto-save; the chips show their trend.</p>
+        <div className="relative w-full max-w-[260px] sm:w-[240px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#A3A3A3]" strokeWidth={2} />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search host name…"
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-[13px] text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+          />
         </div>
       </div>
 
@@ -701,8 +752,13 @@ function MonthlyPerformanceTab({ performance }) {
         ))}
       </div>
 
+      {visibleMentees.length === 0 ? (
+        <div className="rounded-[12px] border border-dashed border-[#E5E5E5] bg-[#FAFAFA] py-10 text-center text-[12.5px] text-[#A3A3A3]">
+          No host matches “{query.trim()}”.
+        </div>
+      ) : (
       <ul className="divide-y divide-[#F0F0F0]">
-        {mentees.map((m) => {
+        {visibleMentees.map((m) => {
           const e = edits[m.id] || { score: '', notes: '', state: 'idle' };
           return (
             <li key={m.id} className="py-4">
@@ -719,7 +775,7 @@ function MonthlyPerformanceTab({ performance }) {
                       <span className="rounded-full bg-[#EEF2FF] px-1.5 py-0.5 text-[9.5px] font-medium uppercase tracking-wide text-[#4338CA]">Graduated</span>
                     )}
                   </div>
-                  <div className="mt-1.5 flex items-center gap-1">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {chronological.map((mo) => {
                       const sc = localScores[m.id]?.[mo.value]?.score;
                       const tone = scoreTone(sc);
@@ -767,6 +823,7 @@ function MonthlyPerformanceTab({ performance }) {
           );
         })}
       </ul>
+      )}
     </section>
   );
 }
