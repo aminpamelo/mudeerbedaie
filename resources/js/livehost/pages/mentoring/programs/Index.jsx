@@ -75,7 +75,7 @@ export default function ProgramsIndex() {
   const newProgramAction = (
     <div className="flex items-center gap-2">
       <Link href="/livehost/mentoring/levels">
-        <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg">
+        <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20">
           <SlidersHorizontal className="h-[13px] w-[13px]" strokeWidth={2.25} />
           Levels
         </Button>

@@ -214,7 +214,7 @@ export default function PayrollIndex() {
                     resetForm();
                     setShowForm(false);
                   }}
-                  className="h-9 rounded-lg border-[#EAEAEA] bg-white text-[#404040] hover:bg-[#F5F5F5]"
+                  className="h-9 rounded-lg border-[#EAEAEA] bg-white text-[#404040] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
                 >
                   Cancel
                 </Button>

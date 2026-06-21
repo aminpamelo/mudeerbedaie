@@ -226,7 +226,7 @@ export default function CommissionIndex() {
             <Button
               size="sm"
               variant="outline"
-              className="h-9 gap-1.5 rounded-lg border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5]"
+              className="h-9 gap-1.5 rounded-lg border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
             >
               <Download className="h-[13px] w-[13px]" strokeWidth={2.5} />
               Export CSV

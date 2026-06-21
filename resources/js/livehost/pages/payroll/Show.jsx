@@ -380,7 +380,7 @@ export default function PayrollShow() {
                     variant="outline"
                     disabled={actionPending !== null}
                     onClick={() => performAction(`/livehost/payroll/${run.id}/recompute`)}
-                    className="h-9 gap-1.5 rounded-lg border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5]"
+                    className="h-9 gap-1.5 rounded-lg border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
                   >
                     {actionPending === `/livehost/payroll/${run.id}/recompute` ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -435,7 +435,7 @@ export default function PayrollShow() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-9 gap-1.5 rounded-lg border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5]"
+                  className="h-9 gap-1.5 rounded-lg border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
                 >
                   <Download className="h-3.5 w-3.5" strokeWidth={2} />
                   Export CSV

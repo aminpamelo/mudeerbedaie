@@ -470,7 +470,7 @@ function ProposedAdjustmentsTable({ rows }) {
                         variant="outline"
                         disabled={pendingId !== null}
                         onClick={() => action(row, 'reject')}
-                        className="h-8 gap-1.5 rounded-md border-[#EAEAEA] bg-white text-[#404040] hover:bg-[#F5F5F5]"
+                        className="h-8 gap-1.5 rounded-md border-[#EAEAEA] bg-white text-[#404040] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
                       >
                         {pendingId === rejectKey ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
