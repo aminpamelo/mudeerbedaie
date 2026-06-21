@@ -5,6 +5,12 @@ import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 import { Label } from '@/livehost/components/ui/label';
 
+// Overrides the shared Input component to the lighter Live Host field style
+// (#EAEAEA border + soft green focus ring) used by the select/textarea fields,
+// so every field on the form shares one consistent outline.
+const FIELD_INPUT_CLASS =
+  'h-10 rounded-lg border-[#EAEAEA] bg-white shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20';
+
 export default function ProgramCreate() {
   const { assignableLeaders } = usePage().props;
   const form = useForm({
@@ -63,6 +69,7 @@ export default function ProgramCreate() {
               onChange={(e) => form.setData('title', e.target.value)}
               autoFocus
               placeholder="New Host Mentoring — Cohort June 2026"
+              className={FIELD_INPUT_CLASS}
             />
           </Field>
 
@@ -104,6 +111,7 @@ export default function ProgramCreate() {
                 name="starts_at"
                 value={form.data.starts_at}
                 onChange={(e) => form.setData('starts_at', e.target.value)}
+                className={FIELD_INPUT_CLASS}
               />
             </Field>
             <Field label="Ends at" error={form.errors.ends_at}>
@@ -112,6 +120,7 @@ export default function ProgramCreate() {
                 name="ends_at"
                 value={form.data.ends_at}
                 onChange={(e) => form.setData('ends_at', e.target.value)}
+                className={FIELD_INPUT_CLASS}
               />
             </Field>
           </div>

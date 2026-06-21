@@ -32,6 +32,12 @@ import ActivityLogModal from '@/livehost/components/mentoring/ActivityLogModal';
 
 const ACTIVITY_COLOR = { green: '#10B981', amber: '#F59E0B', red: '#F43F5E', none: '#D4D4D4' };
 
+// Overrides the shared Input component to the lighter Live Host field style
+// (#EAEAEA border + soft green focus ring) used by the select/textarea fields,
+// so every field on the form shares one consistent outline.
+const FIELD_INPUT_CLASS =
+  'h-10 rounded-lg border-[#EAEAEA] bg-white shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20';
+
 const TABS = [
   { id: 'details', label: 'Details', icon: Settings2 },
   { id: 'stages', label: 'Stages', icon: Layers },
@@ -286,7 +292,7 @@ function ProgramDetailsForm({ form, onSubmit, assignableLeaders }) {
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Program title" error={form.errors.title}>
-            <Input name="title" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} />
+            <Input name="title" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} className={FIELD_INPUT_CLASS} />
           </Field>
           <Field label="Program leader (top host)" error={form.errors.leader_user_id}>
             <select
@@ -319,10 +325,10 @@ function ProgramDetailsForm({ form, onSubmit, assignableLeaders }) {
 
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="Starts at" error={form.errors.starts_at}>
-            <Input type="date" name="starts_at" value={form.data.starts_at} onChange={(e) => form.setData('starts_at', e.target.value)} />
+            <Input type="date" name="starts_at" value={form.data.starts_at} onChange={(e) => form.setData('starts_at', e.target.value)} className={FIELD_INPUT_CLASS} />
           </Field>
           <Field label="Ends at" error={form.errors.ends_at}>
-            <Input type="date" name="ends_at" value={form.data.ends_at} onChange={(e) => form.setData('ends_at', e.target.value)} />
+            <Input type="date" name="ends_at" value={form.data.ends_at} onChange={(e) => form.setData('ends_at', e.target.value)} className={FIELD_INPUT_CLASS} />
           </Field>
         </div>
       </section>
