@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Hr\HrPwaSettingController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
@@ -21,8 +22,13 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         return redirect()->route('dashboard');
     }
 
-    return redirect()->route('login');
+    // Guests land on the public storefront homepage.
+    return app(StorefrontController::class)->home();
 })->name('home');
+
+// Public storefront (open to guests + authenticated users)
+Route::get('shop', [StorefrontController::class, 'shop'])->name('shop');
+Route::get('lang/{locale}', [StorefrontController::class, 'setLocale'])->name('locale.switch');
 
 Route::get('dashboard', function () {
     $user = auth()->user();
@@ -624,6 +630,8 @@ Route::middleware(['auth'])
                     ->name('mentees.index');
                 Route::get('mentees/{mentee}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'show'])
                     ->name('mentees.show');
+                Route::get('mentees/{mentee}/detail', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'detail'])
+                    ->name('mentees.detail');
                 Route::patch('mentees/{mentee}/stage', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'moveStage'])
                     ->name('mentees.stage');
                 Route::patch('mentees/{mentee}/current-stage', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateCurrentStage'])

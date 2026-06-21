@@ -16,12 +16,14 @@ class SetLocale
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Get locale from authenticated user
+        // A session locale (set by the storefront language toggle) always wins so
+        // the toggle works for everyone without mutating a user's saved profile.
+        // Authenticated users otherwise fall back to their profile locale; guests
+        // default to Malay (the public storefront's primary language).
         if ($request->user()) {
-            $locale = $request->user()->locale ?? config('app.locale');
+            $locale = session('locale', $request->user()->locale ?? config('app.locale'));
         } else {
-            // For guests, use session or default
-            $locale = session('locale', config('app.locale'));
+            $locale = session('locale', 'ms');
         }
 
         // Validate locale is supported
