@@ -12,6 +12,9 @@ export default function HostEdit() {
     email: host.email ?? '',
     phone: host.phone ?? '',
     status: host.status ?? 'active',
+    role: host.role ?? 'live_host',
+    password: '',
+    password_confirmation: '',
   });
 
   const submit = (e) => {
@@ -72,18 +75,60 @@ export default function HostEdit() {
             </Field>
           </div>
 
-          <Field label="Status" error={form.errors.status}>
-            <select
-              name="status"
-              value={form.data.status}
-              onChange={(e) => form.setData('status', e.target.value)}
-              className="h-9 w-full px-3 rounded-lg border border-[#EAEAEA] bg-white text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="suspended">Suspended</option>
-            </select>
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Status" error={form.errors.status}>
+              <select
+                name="status"
+                value={form.data.status}
+                onChange={(e) => form.setData('status', e.target.value)}
+                className="h-9 w-full px-3 rounded-lg border border-[#EAEAEA] bg-white text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </Field>
+            <Field label="Role" error={form.errors.role}>
+              <select
+                name="role"
+                value={form.data.role}
+                onChange={(e) => form.setData('role', e.target.value)}
+                className="h-9 w-full px-3 rounded-lg border border-[#EAEAEA] bg-white text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              >
+                <option value="live_host">Live Host</option>
+                <option value="livehost_assistant">Live Host Assistant</option>
+              </select>
+            </Field>
+          </div>
+
+          <div className="pt-4 border-t border-[#F0F0F0]">
+            <p className="text-[13px] font-medium text-[#0A0A0A]">Password</p>
+            <p className="mt-0.5 mb-3 text-xs text-[#737373]">
+              Set a new password for this host. Leave blank to keep their current password.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="New password" error={form.errors.password}>
+                <Input
+                  type="password"
+                  name="password"
+                  autoComplete="new-password"
+                  value={form.data.password}
+                  onChange={(e) => form.setData('password', e.target.value)}
+                  placeholder="••••••••"
+                />
+              </Field>
+              <Field label="Confirm password" error={form.errors.password_confirmation}>
+                <Input
+                  type="password"
+                  name="password_confirmation"
+                  autoComplete="new-password"
+                  value={form.data.password_confirmation}
+                  onChange={(e) => form.setData('password_confirmation', e.target.value)}
+                  placeholder="••••••••"
+                />
+              </Field>
+            </div>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#F0F0F0]">
             <Link href={`/livehost/hosts/${host.id}`}>

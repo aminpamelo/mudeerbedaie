@@ -32,7 +32,7 @@ class HostController extends Controller
         $hasUpline = $request->string('has_upline')->toString();
 
         $hosts = User::query()
-            ->where('role', 'live_host')
+            ->whereIn('role', ['live_host', 'livehost_assistant'])
             ->with([
                 'commissionProfile.upline:id,name',
                 'platformCommissionRates.platform:id,slug,name',
@@ -74,6 +74,7 @@ class HostController extends Controller
                 'email' => $u->email,
                 'phone' => $u->phone,
                 'status' => $u->status,
+                'role' => $u->role,
                 'accounts' => (int) ($u->platform_accounts_count ?? 0),
                 'sessions' => (int) ($u->hosted_sessions_count ?? 0),
                 'createdAt' => $u->created_at?->toIso8601String(),
@@ -112,7 +113,7 @@ class HostController extends Controller
 
     public function show(Request $request, User $host): Response
     {
-        abort_unless($host->role === 'live_host', 404);
+        abort_unless(in_array($host->role, ['live_host', 'livehost_assistant'], true), 404);
 
         $viewer = $request->user();
         $canSeeFinancials = $viewer && in_array($viewer->role, ['admin', 'admin_livehost'], true);
@@ -351,7 +352,7 @@ class HostController extends Controller
     public function edit(Request $request, User $host): Response
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-        abort_unless($host->role === 'live_host', 404);
+        abort_unless(in_array($host->role, ['live_host', 'livehost_assistant'], true), 404);
 
         return Inertia::render('hosts/Edit', [
             'host' => [
@@ -360,6 +361,7 @@ class HostController extends Controller
                 'email' => $host->email,
                 'phone' => $host->phone,
                 'status' => $host->status,
+                'role' => $host->role,
             ],
         ]);
     }
@@ -367,9 +369,24 @@ class HostController extends Controller
     public function update(UpdateHostRequest $request, User $host): RedirectResponse
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-        abort_unless($host->role === 'live_host', 404);
+        abort_unless(in_array($host->role, ['live_host', 'livehost_assistant'], true), 404);
 
-        $host->update($request->validated());
+        $validated = $request->validated();
+
+        $host->name = $validated['name'];
+        $host->email = $validated['email'];
+        $host->phone = $validated['phone'];
+        $host->status = $validated['status'];
+
+        if (array_key_exists('role', $validated)) {
+            $host->role = $validated['role'];
+        }
+
+        if (filled($validated['password'] ?? null)) {
+            $host->password = $validated['password'];
+        }
+
+        $host->save();
 
         return redirect()
             ->route('livehost.hosts.show', $host)
@@ -379,7 +396,7 @@ class HostController extends Controller
     public function destroy(Request $request, User $host): RedirectResponse
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
-        abort_unless($host->role === 'live_host', 404);
+        abort_unless(in_array($host->role, ['live_host', 'livehost_assistant'], true), 404);
 
         if (! $request->user()?->can('livehost.delete', $host)) {
             abort(403);

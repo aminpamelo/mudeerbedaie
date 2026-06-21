@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 
 use function Pest\Laravel\actingAs;
@@ -283,4 +284,116 @@ it('forbids non-PIC from deleting hosts', function () {
     $this->actingAs($regular)
         ->delete("/livehost/hosts/{$host->id}")
         ->assertForbidden();
+});
+
+it('lets the PIC set a new password for a host', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+            'password' => 'NewSecret123!',
+            'password_confirmation' => 'NewSecret123!',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Hash::check('NewSecret123!', $host->fresh()->password))->toBeTrue();
+});
+
+it('keeps the existing password when the password field is blank', function () {
+    $host = User::factory()->create(['role' => 'live_host', 'password' => 'OldSecret123!']);
+    $originalHash = $host->password;
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => 'Renamed',
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+            'password' => '',
+            'password_confirmation' => '',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($host->fresh())
+        ->name->toBe('Renamed')
+        ->password->toBe($originalHash);
+});
+
+it('rejects a password that does not match its confirmation', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+            'password' => 'NewSecret123!',
+            'password_confirmation' => 'Mismatch123!',
+        ])
+        ->assertSessionHasErrors('password');
+});
+
+it('can assign the livehost_assistant role to a host', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+            'role' => 'livehost_assistant',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($host->fresh()->role)->toBe('livehost_assistant');
+});
+
+it('rejects assigning a role outside the livehost set', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+            'role' => 'admin',
+        ])
+        ->assertSessionHasErrors('role');
+
+    expect($host->fresh()->role)->toBe('live_host');
+});
+
+it('keeps edit and view reachable after a host becomes an assistant', function () {
+    $host = User::factory()->create(['role' => 'livehost_assistant']);
+
+    actingAs($this->pic)
+        ->get("/livehost/hosts/{$host->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p
+            ->component('hosts/Edit', false)
+            ->where('host.role', 'livehost_assistant'));
+
+    actingAs($this->pic)
+        ->get("/livehost/hosts/{$host->id}")
+        ->assertOk();
+});
+
+it('includes livehost_assistant users in the hosts list with their role', function () {
+    User::factory()->create(['role' => 'live_host']);
+    User::factory()->create(['role' => 'livehost_assistant']);
+
+    actingAs($this->pic)
+        ->get('/livehost/hosts')
+        ->assertInertia(fn (Assert $p) => $p
+            ->has('hosts.data', 2)
+            ->has('hosts.data.0.role'));
 });

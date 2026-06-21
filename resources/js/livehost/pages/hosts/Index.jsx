@@ -163,8 +163,15 @@ export default function HostsIndex() {
                           {host.initials ?? deriveInitials(host.name)}
                         </div>
                         <div className="min-w-0">
-                          <div className="truncate text-[13.5px] font-semibold tracking-[-0.01em]">
-                            {host.name}
+                          <div className="flex items-center gap-2">
+                            <div className="truncate text-[13.5px] font-semibold tracking-[-0.01em]">
+                              {host.name}
+                            </div>
+                            {host.role === 'livehost_assistant' && (
+                              <span className="shrink-0 rounded-md bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-medium text-[#4F46E5]">
+                                Assistant
+                              </span>
+                            )}
                           </div>
                           <div className="mt-0.5 truncate text-[11.5px] text-[#737373]">
                             {host.email} · ID {host.id}

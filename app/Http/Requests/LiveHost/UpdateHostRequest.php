@@ -4,6 +4,7 @@ namespace App\Http\Requests\LiveHost;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class UpdateHostRequest extends FormRequest
 {
@@ -32,6 +33,8 @@ class UpdateHostRequest extends FormRequest
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($hostId)],
             'phone' => ['required', 'string', 'max:32', Rule::unique('users', 'phone')->ignore($hostId)],
             'status' => ['required', 'in:active,inactive,suspended'],
+            'role' => ['sometimes', 'in:live_host,livehost_assistant'],
+            'password' => ['nullable', 'confirmed', Password::defaults()],
         ];
     }
 
@@ -45,6 +48,8 @@ class UpdateHostRequest extends FormRequest
         return [
             'email.unique' => 'Another user already has this email address.',
             'phone.unique' => 'Another user already has this phone number.',
+            'role.in' => 'You can only assign the Live Host or Live Host Assistant role here.',
+            'password.confirmed' => 'The password confirmation does not match.',
         ];
     }
 }
