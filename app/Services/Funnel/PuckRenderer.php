@@ -313,10 +313,18 @@ class PuckRenderer
             $bodyContent = preg_replace('/<head[^>]*>.*?<\/head>/si', '', $bodyContent);
         }
 
+        // Preserve the Tailwind Play CDN loader and its inline `tailwind.config` so pasted
+        // standalone pages keep their custom colors, fonts, and animations. Every other
+        // script is removed below to prevent external JS frameworks from interfering.
+        $preservedScripts = $this->extractTailwindScripts($trimmed);
+
         // Remove <script> tags to prevent external JS frameworks from interfering with page rendering
         $bodyContent = preg_replace('/<script\b[^>]*>.*?<\/script>/si', '', $bodyContent);
 
         $extracted = '';
+        if (! empty($preservedScripts)) {
+            $extracted .= implode("\n", $preservedScripts);
+        }
         if ($styles !== '') {
             $extracted .= "<style>{$styles}</style>";
         }
@@ -329,6 +337,34 @@ class PuckRenderer
         );
 
         return $extracted;
+    }
+
+    /**
+     * Extract the Tailwind Play CDN loader (`<script src="...tailwindcss...">`) and any inline
+     * `tailwind.config` script from a pasted document, preserving their original document order.
+     * These are the only scripts a standalone Tailwind page needs to render its theme.
+     *
+     * @return list<string>
+     */
+    protected function extractTailwindScripts(string $document): array
+    {
+        $preserved = [];
+
+        if (! preg_match_all('/<script\b[^>]*>.*?<\/script>/si', $document, $matches)) {
+            return $preserved;
+        }
+
+        foreach ($matches[0] as $script) {
+            $hasSrc = (bool) preg_match('/\bsrc\s*=/i', $script);
+            $isTailwindCdn = $hasSrc && preg_match('/\bsrc\s*=\s*["\'][^"\']*tailwindcss[^"\']*["\']/i', $script);
+            $isTailwindConfig = ! $hasSrc && stripos($script, 'tailwind.config') !== false;
+
+            if ($isTailwindCdn || $isTailwindConfig) {
+                $preserved[] = $script;
+            }
+        }
+
+        return $preserved;
     }
 
     /**

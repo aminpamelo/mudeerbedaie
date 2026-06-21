@@ -57,6 +57,56 @@ it('removes script tags from body content', function () {
         ->not->toContain('framework.js');
 });
 
+it('preserves the Tailwind CDN loader and inline config while stripping other scripts', function () {
+    $html = '<!DOCTYPE html><html><head>'
+        .'<script src="https://cdn.tailwindcss.com"></script>'
+        .'<script>tailwind.config = { theme: { extend: { colors: { maroon: { 700: "#881337" } } } } }</script>'
+        .'</head><body><p>Hello</p>'
+        .'<script>alert("xss")</script>'
+        .'<script src="https://example.com/framework.js"></script>'
+        .'</body></html>';
+
+    $result = ($this->sanitize)($html);
+
+    expect($result)
+        ->toContain('cdn.tailwindcss.com')
+        ->toContain('tailwind.config')
+        ->toContain('#881337')
+        ->toContain('<p>Hello</p>')
+        ->not->toContain('alert("xss")')
+        ->not->toContain('framework.js');
+});
+
+it('keeps custom theme colors working through the render method for multi-component funnels', function () {
+    $puckContent = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => [
+                    'content' => '<!DOCTYPE html><html><head>'
+                        .'<script src="https://cdn.tailwindcss.com"></script>'
+                        .'<script>tailwind.config = { theme: { extend: { colors: { maroon: { 700: "#881337" } }, animation: { "pulse-slow": "pulse 2.5s infinite" } } } }</script>'
+                        .'</head><body><a class="bg-maroon-700 animate-pulse-slow">CTA</a>'
+                        .'<script>console.log("tracking")</script>'
+                        .'</body></html>',
+                ],
+            ],
+            [
+                'type' => 'CheckoutForm',
+                'props' => [],
+            ],
+        ],
+    ];
+
+    $result = (string) $this->renderer->render($puckContent);
+
+    expect($result)
+        ->toContain('cdn.tailwindcss.com')
+        ->toContain('pulse-slow')
+        ->toContain('class="bg-maroon-700 animate-pulse-slow"')
+        ->not->toContain('console.log("tracking")');
+});
+
 it('scopes CSS selectors with container class', function () {
     $html = '<!DOCTYPE html><html><head><style>body { color: red; } .test { font-size: 14px; }</style></head><body><p>Styled</p></body></html>';
 
