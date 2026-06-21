@@ -178,7 +178,7 @@ new class extends Component {
 
     public function getEasyparcelCallbackUrlProperty(): string
     {
-        return route('admin.easyparcel.callback');
+        return app(\App\Services\Shipping\EasyParcelOAuthService::class)->redirectUri();
     }
 
     public function switchTab(string $tab): void
@@ -312,7 +312,7 @@ new class extends Component {
             <button
                 type="button"
                 wire:click="switchTab('jnt')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'jnt') border-indigo-500 text-indigo-600 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 @endif"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'jnt') border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:border-zinc-600 @endif"
                 role="tab"
                 aria-selected="{{ $activeTab === 'jnt' ? 'true' : 'false' }}"
             >
@@ -325,7 +325,7 @@ new class extends Component {
             <button
                 type="button"
                 wire:click="switchTab('easyparcel')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'easyparcel') border-indigo-500 text-indigo-600 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 @endif"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'easyparcel') border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:border-zinc-600 @endif"
                 role="tab"
                 aria-selected="{{ $activeTab === 'easyparcel' ? 'true' : 'false' }}"
             >
@@ -338,7 +338,7 @@ new class extends Component {
             <button
                 type="button"
                 wire:click="switchTab('sender')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'sender') border-indigo-500 text-indigo-600 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 @endif"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'sender') border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:border-zinc-600 @endif"
                 role="tab"
                 aria-selected="{{ $activeTab === 'sender' ? 'true' : 'false' }}"
             >
@@ -355,18 +355,18 @@ new class extends Component {
         @if($activeTab === 'jnt')
         <div role="tabpanel" class="space-y-6">
             <!-- JNT Settings Card -->
-            <div class="rounded-lg border border-zinc-200 bg-white p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-zinc-900">
                 <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900">J&T Express Configuration</h3>
-                    <p class="mt-1 text-sm text-gray-500">Configure your J&T Express API credentials and preferences.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">J&T Express Configuration</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-zinc-400">Configure your J&T Express API credentials and preferences.</p>
                 </div>
 
                 <form wire:submit="saveJnt" class="space-y-6">
                     <!-- Enable Toggle -->
-                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 p-4">
+                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-white/10">
                         <div>
-                            <h4 class="text-sm font-medium text-gray-900">Enable J&T Express Shipping</h4>
-                            <p class="text-sm text-gray-500">Allow J&T Express as a shipping option for orders.</p>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white">Enable J&T Express Shipping</h4>
+                            <p class="text-sm text-gray-500 dark:text-zinc-400">Allow J&T Express as a shipping option for orders.</p>
                         </div>
                         <flux:switch wire:model="enable_jnt_shipping" />
                     </div>
@@ -419,7 +419,7 @@ new class extends Component {
                     </flux:field>
 
                     <!-- Action Buttons -->
-                    <div class="flex items-center justify-between border-t border-zinc-200 pt-4">
+                    <div class="flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-white/10">
                         <flux:button
                             type="button"
                             variant="outline"
@@ -442,12 +442,12 @@ new class extends Component {
             </div>
 
             <!-- Help Info -->
-            <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
                 <div class="flex">
-                    <flux:icon name="information-circle" class="w-5 h-5 text-blue-400 mr-3 shrink-0" />
-                    <div class="text-sm text-blue-700">
+                    <flux:icon name="information-circle" class="w-5 h-5 text-blue-400 dark:text-blue-300 mr-3 shrink-0" />
+                    <div class="text-sm text-blue-700 dark:text-blue-300">
                         <p class="font-medium mb-1">J&T Malaysia Open Platform API</p>
-                        <ul class="list-disc list-inside space-y-1 text-blue-600">
+                        <ul class="list-disc list-inside space-y-1 text-blue-600 dark:text-blue-400">
                             <li>This integration uses the <a href="https://ylopen.jtexpress.my/" target="_blank" class="underline">J&T Malaysia Open Platform</a>.</li>
                             <li>Use sandbox mode for testing. Sandbox credentials are shown in field descriptions.</li>
                             <li>Contact J&T Malaysia to register and obtain production credentials.</li>
@@ -462,28 +462,28 @@ new class extends Component {
         @if($activeTab === 'easyparcel')
         <div role="tabpanel" class="space-y-6">
             @if(session('success'))
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
                     <div class="flex items-center"><flux:icon name="check-circle" class="w-4 h-4 mr-2" /> {{ session('success') }}</div>
                 </div>
             @endif
             @if(session('error'))
-                <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
                     <div class="flex items-center"><flux:icon name="x-circle" class="w-4 h-4 mr-2" /> {{ session('error') }}</div>
                 </div>
             @endif
 
             <!-- Step 1: App Credentials -->
-            <div class="rounded-lg border border-zinc-200 bg-white p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-zinc-900">
                 <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900">EasyParcel Open API</h3>
-                    <p class="mt-1 text-sm text-gray-500">Step 1 — enter the app credentials from your EasyParcel <a href="https://developer.easyparcel.com" target="_blank" class="text-indigo-600 underline">Developer Hub</a> (Configuration → Client ID &amp; Client Secret).</p>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">EasyParcel Open API</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-zinc-400">Step 1 — enter the app credentials from your EasyParcel <a href="https://developer.easyparcel.com" target="_blank" class="text-indigo-600 underline dark:text-indigo-400">Developer Hub</a> (Configuration → Client ID &amp; Client Secret).</p>
                 </div>
 
                 <form wire:submit="saveEasyParcel" class="space-y-6">
-                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 p-4">
+                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-white/10">
                         <div>
-                            <h4 class="text-sm font-medium text-gray-900">Enable EasyParcel Shipping</h4>
-                            <p class="text-sm text-gray-500">Allow EasyParcel rate-shopping and booking on orders.</p>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white">Enable EasyParcel Shipping</h4>
+                            <p class="text-sm text-gray-500 dark:text-zinc-400">Allow EasyParcel rate-shopping and booking on orders.</p>
                         </div>
                         <flux:switch wire:model="enable_easyparcel_shipping" />
                     </div>
@@ -512,7 +512,7 @@ new class extends Component {
                         <flux:error name="easyparcel_client_secret" />
                     </flux:field>
 
-                    <div class="flex justify-end border-t border-zinc-200 pt-4">
+                    <div class="flex justify-end border-t border-zinc-200 pt-4 dark:border-white/10">
                         <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
                             <span wire:loading.remove wire:target="saveEasyParcel">Save Credentials</span>
                             <span wire:loading wire:target="saveEasyParcel">Saving...</span>
@@ -522,25 +522,25 @@ new class extends Component {
             </div>
 
             <!-- Step 2: Connect Account (OAuth) -->
-            <div class="rounded-lg border border-zinc-200 bg-white p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-zinc-900">
                 <div class="mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Step 2 — Connect your account</h3>
-                    <p class="mt-1 text-sm text-gray-500">Authorize the app to ship on behalf of your EasyParcel account. You'll log in on EasyParcel and pick a Demo or Live account.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Step 2 — Connect your account</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-zinc-400">Authorize the app to ship on behalf of your EasyParcel account. You'll log in on EasyParcel and pick a Demo or Live account.</p>
                 </div>
 
                 <!-- Redirect URI to register in the Developer Hub -->
-                <div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                    <p class="text-sm font-medium text-amber-800">Before connecting, add this exact Redirect URI to your app in the Developer Hub (Configuration → Redirect URIs):</p>
-                    <code class="mt-2 block break-all rounded bg-white/70 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">{{ $this->easyparcelCallbackUrl }}</code>
+                <div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
+                    <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Before connecting, add this exact Redirect URI to your app in the Developer Hub (Configuration → Redirect URIs):</p>
+                    <code class="mt-2 block break-all rounded bg-white/70 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200 dark:bg-white/5 dark:text-amber-200 dark:ring-amber-500/20">{{ $this->easyparcelCallbackUrl }}</code>
                 </div>
 
                 @if($easyparcel_connected)
-                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                        <div class="flex items-center gap-2 text-sm font-medium text-emerald-800">
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                        <div class="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-200">
                             <flux:icon name="check-badge" class="w-5 h-5" />
                             Account connected
                             @if($easyparcel_balance !== null)
-                                <span class="ml-2 rounded-full bg-white px-2 py-0.5 text-xs text-emerald-700 ring-1 ring-emerald-200">Wallet: MYR {{ number_format($easyparcel_balance, 2) }}</span>
+                                <span class="ml-2 rounded-full bg-white px-2 py-0.5 text-xs text-emerald-700 ring-1 ring-emerald-200 dark:bg-white/10 dark:text-emerald-300 dark:ring-emerald-500/20">Wallet: MYR {{ number_format($easyparcel_balance, 2) }}</span>
                             @endif
                         </div>
                         <div class="flex items-center gap-2">
@@ -551,12 +551,12 @@ new class extends Component {
                                     <span wire:loading wire:target="testEasyParcelConnection">Testing...</span>
                                 </div>
                             </flux:button>
-                            <a href="{{ route('admin.easyparcel.connect') }}" class="inline-flex items-center rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-zinc-50">
+                            <a href="{{ route('admin.easyparcel.connect') }}" class="inline-flex items-center rounded-lg border border-zinc-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
                                 <flux:icon name="arrow-path" class="w-4 h-4 mr-1" /> Reconnect
                             </a>
                             <form method="POST" action="{{ route('admin.easyparcel.disconnect') }}" onsubmit="return confirm('Disconnect this EasyParcel account?')">
                                 @csrf @method('DELETE')
-                                <button type="submit" class="inline-flex items-center rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50">
+                                <button type="submit" class="inline-flex items-center rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10">
                                     <flux:icon name="x-mark" class="w-4 h-4 mr-1" /> Disconnect
                                 </button>
                             </form>
@@ -566,17 +566,17 @@ new class extends Component {
                     <a href="{{ route('admin.easyparcel.connect') }}" class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
                         <flux:icon name="link" class="w-4 h-4 mr-2" /> Connect EasyParcel account
                     </a>
-                    <p class="mt-2 text-xs text-gray-500">Save your Client ID &amp; Secret above first, then connect.</p>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-zinc-400">Save your Client ID &amp; Secret above first, then connect.</p>
                 @endif
             </div>
 
             <!-- Help Info -->
-            <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
                 <div class="flex">
-                    <flux:icon name="information-circle" class="w-5 h-5 text-blue-400 mr-3 shrink-0" />
-                    <div class="text-sm text-blue-700">
+                    <flux:icon name="information-circle" class="w-5 h-5 text-blue-400 dark:text-blue-300 mr-3 shrink-0" />
+                    <div class="text-sm text-blue-700 dark:text-blue-300">
                         <p class="font-medium mb-1">EasyParcel Open API (OAuth 2.0)</p>
-                        <ul class="list-disc list-inside space-y-1 text-blue-600">
+                        <ul class="list-disc list-inside space-y-1 text-blue-600 dark:text-blue-400">
                             <li>EasyParcel compares many couriers (J&T, Poslaju, DHL, etc.) in one integration. See the <a href="https://easyparcel.github.io/OpenAPI/" target="_blank" class="underline">API docs</a>.</li>
                             <li>Booking charges your prepaid EasyParcel credit; the AWB &amp; label are generated moments after booking.</li>
                             <li>Set the sender address under the <button type="button" wire:click="switchTab('sender')" class="underline">Sender Defaults</button> tab.</li>
@@ -591,10 +591,10 @@ new class extends Component {
         @if($activeTab === 'sender')
         <div role="tabpanel" class="space-y-6">
             <!-- Sender Defaults Card -->
-            <div class="rounded-lg border border-zinc-200 bg-white p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6 dark:border-white/10 dark:bg-zinc-900">
                 <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900">Default Sender Information</h3>
-                    <p class="mt-1 text-sm text-gray-500">Set the default origin/sender address used for all shipments.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Default Sender Information</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-zinc-400">Set the default origin/sender address used for all shipments.</p>
                 </div>
 
                 <form wire:submit="saveSenderDefaults" class="space-y-6">
@@ -649,7 +649,7 @@ new class extends Component {
                         </flux:field>
                     </div>
 
-                    <div class="flex justify-end border-t border-zinc-200 pt-4">
+                    <div class="flex justify-end border-t border-zinc-200 pt-4 dark:border-white/10">
                         <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
                             <span wire:loading.remove wire:target="saveSenderDefaults">Save Sender Defaults</span>
                             <span wire:loading wire:target="saveSenderDefaults">Saving...</span>

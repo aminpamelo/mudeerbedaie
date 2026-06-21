@@ -80,11 +80,11 @@ class EasyParcelOAuthController extends Controller
     }
 
     /**
-     * The exact Redirect URI EasyParcel must be configured to call back. Kept as
-     * a single source of truth so authorize and exchange use an identical value.
+     * The exact Redirect URI EasyParcel must be configured to call back —
+     * resolved by the OAuth service (honours the EASYPARCEL_REDIRECT_URI override).
      */
     private function callbackUrl(): string
     {
-        return route('admin.easyparcel.callback');
+        return $this->oauth->redirectUri();
     }
 }

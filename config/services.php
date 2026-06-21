@@ -139,4 +139,11 @@ return [
         'application_id' => env('SERVERAVATAR_APPLICATION_ID'),
     ],
 
+    'easyparcel' => [
+        // Optional override for the OAuth callback URL. Use it when testing
+        // through a tunnel (ngrok / `herd share`) so the redirect URI is a
+        // public host. Leave empty to use the app's own /admin/easyparcel/callback.
+        'redirect_uri' => env('EASYPARCEL_REDIRECT_URI'),
+    ],
+
 ];

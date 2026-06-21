@@ -27,6 +27,18 @@ class EasyParcelOAuthService
     public function __construct(private SettingsService $settings) {}
 
     /**
+     * The exact callback URL EasyParcel must redirect back to — and which must
+     * be registered as a Redirect URI on the Developer Hub app. Honours the
+     * `EASYPARCEL_REDIRECT_URI` override (for tunnelled local testing), else the
+     * app's own callback route. Single source of truth for both the authorize
+     * redirect and the token exchange so they stay byte-identical.
+     */
+    public function redirectUri(): string
+    {
+        return config('services.easyparcel.redirect_uri') ?: route('admin.easyparcel.callback');
+    }
+
+    /**
      * The EasyParcel hosted-login URL to redirect the admin to so they can
      * authorize (and pick a Demo or Live account).
      */

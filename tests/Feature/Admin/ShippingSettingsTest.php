@@ -25,6 +25,18 @@ test('admin can access shipping settings page', function () {
         ->assertSuccessful();
 });
 
+test('shipping settings cards carry dark-mode variants', function () {
+    $user = User::factory()->admin()->create();
+    $this->actingAs($user);
+
+    Volt::test('admin.settings-shipping')
+        ->set('activeTab', 'easyparcel')
+        ->assertSee('dark:bg-zinc-900', escape: false)
+        ->assertSee('dark:border-white/10', escape: false)
+        ->assertSee('dark:text-white', escape: false)
+        ->assertSee('dark:bg-amber-500/10', escape: false);
+});
+
 test('admin can save JNT settings', function () {
     $user = User::factory()->admin()->create();
     $this->actingAs($user);
