@@ -463,7 +463,7 @@ function StageEditor({ program, stages: initialStages }) {
                     <div className="grid grid-cols-3 gap-3">
                       <div className="col-span-2">
                         <Label className="text-[12px] font-medium text-[#0A0A0A]">Name</Label>
-                        <Input value={editingDraft.name} onChange={(e) => setEditingDraft((d) => ({ ...d, name: e.target.value }))} autoFocus />
+                        <Input value={editingDraft.name} onChange={(e) => setEditingDraft((d) => ({ ...d, name: e.target.value }))} autoFocus className={FIELD_INPUT_CLASS} />
                       </div>
                       <div className="flex items-end">
                         <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[12.5px] text-[#0A0A0A] hover:bg-[#F9FAFB]">
@@ -537,7 +537,7 @@ function StageEditor({ program, stages: initialStages }) {
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <Label className="text-[12px] font-medium text-[#0A0A0A]">Name</Label>
-                  <Input value={addDraft.name} onChange={(e) => setAddDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Shadow live" autoFocus />
+                  <Input value={addDraft.name} onChange={(e) => setAddDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Shadow live" autoFocus className={FIELD_INPUT_CLASS} />
                 </div>
                 <div className="flex items-end">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[12.5px] text-[#0A0A0A] hover:bg-[#F9FAFB]">
@@ -617,7 +617,7 @@ function ChecklistTemplateEditor({ form }) {
                   <ArrowDown className="h-3 w-3" strokeWidth={2} />
                 </button>
               </div>
-              <Input value={item.title} onChange={(e) => updateTitle(i, e.target.value)} placeholder="Task title" className="flex-1" />
+              <Input value={item.title} onChange={(e) => updateTitle(i, e.target.value)} placeholder="Task title" className={`flex-1 ${FIELD_INPUT_CLASS}`} />
               <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#EAEAEA] bg-white px-2.5 py-2 text-[11.5px] text-[#0A0A0A] hover:bg-[#F9FAFB]">
                 <input type="checkbox" checked={!!item.is_required} onChange={() => toggleReq(i)} className="h-3.5 w-3.5 rounded border-[#D4D4D4] accent-[#059669]" />
                 Required
