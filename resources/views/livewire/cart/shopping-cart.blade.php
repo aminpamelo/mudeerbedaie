@@ -2,9 +2,10 @@
 
 use App\Models\ProductCart;
 use App\Models\ProductCartItem;
+use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new class extends Component
+new #[Layout('components.layouts.store')] class extends Component
 {
     public ?ProductCart $cart = null;
     public array $quantities = [];
@@ -102,7 +103,7 @@ new class extends Component
     }
 }; ?>
 
-<div class="max-w-4xl mx-auto py-8">
+<div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
     <div class="mb-6">
         <flux:heading size="xl">Shopping Cart</flux:heading>
         <flux:text class="mt-2">Review your items and proceed to checkout</flux:text>
@@ -189,7 +190,7 @@ new class extends Component
                                 Clear Cart
                             </flux:button>
 
-                            <flux:button variant="outline" href="{{ route('products.index') }}">
+                            <flux:button variant="outline" href="{{ route('shop') }}">
                                 <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
                                 Continue Shopping
                             </flux:button>
@@ -248,7 +249,7 @@ new class extends Component
             <flux:heading size="lg" class="mb-4">Your cart is empty</flux:heading>
             <flux:text class="text-gray-600 mb-6">Start shopping to add items to your cart</flux:text>
 
-            <flux:button variant="primary" href="{{ route('products.index') }}">
+            <flux:button variant="primary" href="{{ route('shop') }}">
                 Browse Products
             </flux:button>
         </div>

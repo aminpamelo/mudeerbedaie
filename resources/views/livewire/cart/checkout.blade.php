@@ -7,9 +7,10 @@ use App\Services\BayarcashService;
 use App\Services\SettingsService;
 use App\Services\Shipping\ShippingManager;
 use App\DTOs\Shipping\ShippingRateRequest;
+use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new class extends Component
+new #[Layout('components.layouts.store')] class extends Component
 {
     public ?ProductCart $cart = null;
     public array $customerData = [
@@ -384,7 +385,7 @@ new class extends Component
     }
 }; ?>
 
-<div class="max-w-6xl mx-auto py-8">
+<div class="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
     @if($currentStep === 'confirmation')
         <!-- Order Confirmation -->
         <div class="text-center py-12">
@@ -397,7 +398,7 @@ new class extends Component
             <flux:text class="font-semibold text-lg">Order #{{ session('order_number') }}</flux:text>
 
             <div class="mt-8 space-y-4">
-                <flux:button variant="primary" href="{{ route('products.index') }}">
+                <flux:button variant="primary" href="{{ route('shop') }}">
                     Continue Shopping
                 </flux:button>
 
