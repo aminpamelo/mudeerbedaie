@@ -85,7 +85,7 @@ export default function ProgramCreate() {
             <select
               value={form.data.leader_user_id}
               onChange={(e) => form.setData('leader_user_id', e.target.value)}
-              className="h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 text-sm text-[#0A0A0A] shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-emerald focus-visible:ring-[3px] focus-visible:ring-emerald/20"
+              className="h-10 w-full appearance-none rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             >
               <option value="">— No leader yet —</option>
               {(assignableLeaders ?? []).map((u) => (
