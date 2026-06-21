@@ -81,21 +81,7 @@ class ExportProductOrders implements ShouldQueue
             $quantities = $order->items->map(fn ($item) => $item->quantity_ordered)->implode('; ');
             $unitPrices = $order->items->map(fn ($item) => number_format($item->unit_price, 2))->implode('; ');
 
-            $shippingAddress = '';
-            if (is_array($order->shipping_address)) {
-                $addr = $order->shipping_address;
-                if (! empty($addr['full_address'])) {
-                    $shippingAddress = $addr['full_address'];
-                } else {
-                    $shippingAddress = implode(', ', array_filter([
-                        $addr['address'] ?? $addr['address_line1'] ?? '',
-                        $addr['city'] ?? '',
-                        $addr['state'] ?? '',
-                        $addr['postcode'] ?? $addr['zip'] ?? '',
-                        $addr['country'] ?? '',
-                    ]));
-                }
-            }
+            $shippingAddress = $this->formatShippingAddress($order->shipping_address);
 
             fputcsv($handle, [
                 $order->order_number,
@@ -201,6 +187,73 @@ class ExportProductOrders implements ShouldQueue
         if (! empty($filters['dateTo'])) {
             $query->whereDate('created_at', '<=', $filters['dateTo']);
         }
+    }
+
+    /**
+     * Build a single-line shipping address from the order's address payload.
+     *
+     * Different order sources store address parts under different keys
+     * (funnel: address_line_1 / postal_code; TikTok: address_line1 / postal_code
+     * with city & state nested in district_info), so every component is resolved
+     * from a list of known aliases to avoid dropping fields in the export.
+     */
+    protected function formatShippingAddress(mixed $address): string
+    {
+        if (is_string($address)) {
+            $decoded = json_decode($address, true);
+            $address = is_array($decoded) ? $decoded : null;
+        }
+
+        if (! is_array($address)) {
+            return '';
+        }
+
+        if (! empty($address['full_address'])) {
+            return $address['full_address'];
+        }
+
+        $pick = function (array $keys) use ($address) {
+            foreach ($keys as $key) {
+                if (filled($address[$key] ?? null)) {
+                    return $address[$key];
+                }
+            }
+
+            return null;
+        };
+
+        $line1 = $pick(['address_line_1', 'address_line1', 'address', 'street', 'line1']);
+        $line2 = $pick(['address_line_2', 'address_line2', 'line2']);
+        $city = $pick(['city', 'district']);
+        $state = $pick(['state']);
+        $postcode = $pick(['postal_code', 'postcode', 'zip', 'postal']);
+        $country = $pick(['country']);
+
+        // TikTok Shop nests the real state/district inside district_info when the
+        // flat city/state fields are null.
+        if (is_array($address['district_info'] ?? null)) {
+            foreach ($address['district_info'] as $level) {
+                $levelName = strtolower($level['address_level_name'] ?? '');
+                $value = $level['address_name'] ?? null;
+
+                if (! filled($value)) {
+                    continue;
+                }
+
+                if (! $state && $levelName === 'state') {
+                    $state = $value;
+                }
+
+                if (! $city && $levelName === 'district') {
+                    $city = $value;
+                }
+            }
+        }
+
+        return implode(', ', array_filter(
+            [$line1, $line2, $city, $state, $postcode, $country],
+            fn ($value) => filled($value)
+        ));
     }
 
     protected function getOrderSource(ProductOrder $order): array
