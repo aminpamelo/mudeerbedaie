@@ -166,11 +166,12 @@ it('updates the mentor override and stage row assignee together', function () {
     $newMentor = liveHost();
 
     $this->actingAs(pic())
+        ->from("/livehost/mentoring/programs/{$program->id}/edit")
         ->patch("/livehost/mentoring/mentees/{$mentee->id}/current-stage", [
             'mentor_user_id' => $newMentor->id,
             'stage_notes' => 'Pair with senior host',
         ])
-        ->assertNoContent();
+        ->assertRedirect();
 
     expect($mentee->fresh()->mentor_user_id)->toBe($newMentor->id);
     $openRow = LiveHostMenteeStage::where('mentee_id', $mentee->id)->whereNull('exited_at')->first();

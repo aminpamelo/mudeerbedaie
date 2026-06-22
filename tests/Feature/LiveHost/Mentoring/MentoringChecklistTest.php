@@ -50,15 +50,19 @@ it('toggles a checklist item done and back', function () {
     $item = LiveHostMenteeChecklistItem::factory()->create(['mentee_id' => $mentee->id]);
     $pic = checklistPic();
 
+    // Redirect (not 204): the board toggles via Inertia's router.patch, and a 204
+    // makes Inertia render a blank white modal instead of applying the change.
     $this->actingAs($pic)
+        ->from("/livehost/mentoring/programs/{$program->id}/edit")
         ->patch("/livehost/mentoring/mentees/{$mentee->id}/checklist/{$item->id}/toggle")
-        ->assertNoContent();
+        ->assertRedirect();
     $item->refresh();
     expect($item->status)->toBe('done')->and($item->completed_at)->not->toBeNull();
 
     $this->actingAs($pic)
+        ->from("/livehost/mentoring/programs/{$program->id}/edit")
         ->patch("/livehost/mentoring/mentees/{$mentee->id}/checklist/{$item->id}/toggle")
-        ->assertNoContent();
+        ->assertRedirect();
     $item->refresh();
     expect($item->status)->toBe('pending')->and($item->completed_at)->toBeNull();
 });

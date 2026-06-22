@@ -290,7 +290,7 @@ class MentoringMenteeController extends Controller
         return back()->with('success', 'Task added.');
     }
 
-    public function toggleChecklistItem(Request $request, LiveHostMentee $mentee, LiveHostMenteeChecklistItem $item): HttpResponse
+    public function toggleChecklistItem(Request $request, LiveHostMentee $mentee, LiveHostMenteeChecklistItem $item): RedirectResponse
     {
         abort_unless($item->mentee_id === $mentee->id, 404);
 
@@ -301,7 +301,10 @@ class MentoringMenteeController extends Controller
             'completed_by' => $done ? $request->user()?->id : null,
         ]);
 
-        return response()->noContent();
+        // Redirect back rather than 204: the board/Show toggle via Inertia's
+        // router.patch, and a 204 has no Inertia payload — Inertia treats it as
+        // an invalid response and renders a blank white modal.
+        return back();
     }
 
     public function destroyChecklistItem(Request $request, LiveHostMentee $mentee, LiveHostMenteeChecklistItem $item): RedirectResponse
@@ -443,7 +446,7 @@ class MentoringMenteeController extends Controller
     public function updateCurrentStage(
         UpdateMenteeCurrentStageRequest $request,
         LiveHostMentee $mentee,
-    ): HttpResponse {
+    ): RedirectResponse {
         $data = $request->validated();
 
         $mentee->loadMissing('program');
@@ -464,10 +467,10 @@ class MentoringMenteeController extends Controller
                 ]);
         });
 
-        return response()->noContent();
+        return back();
     }
 
-    public function updateNotes(Request $request, LiveHostMentee $mentee): HttpResponse
+    public function updateNotes(Request $request, LiveHostMentee $mentee): RedirectResponse
     {
         $data = $request->validate([
             'notes' => ['nullable', 'string', 'max:10000'],
@@ -475,7 +478,7 @@ class MentoringMenteeController extends Controller
 
         $mentee->update(['notes' => $data['notes'] ?? null]);
 
-        return response()->noContent();
+        return back();
     }
 
     public function graduate(Request $request, LiveHostMentee $mentee): RedirectResponse
