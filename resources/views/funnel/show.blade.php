@@ -660,28 +660,7 @@
         .funnel-checkout .fc-guarantee svg { color: #10b981 !important; }
         .funnel-checkout .fc-spin { animation: fc-spin 0.7s linear infinite !important; }
 
-        /* Mobile sticky checkout bar */
-        .funnel-checkout .fc-mobilebar {
-            display: flex !important; align-items: center !important; gap: 12px !important;
-            position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-            z-index: 60 !important;
-            padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) !important;
-            background: rgba(255, 255, 255, 0.96) !important;
-            border-top: 1px solid #e2e8f0 !important;
-            box-shadow: 0 -6px 20px -8px rgba(15, 23, 42, 0.18) !important;
-            backdrop-filter: blur(8px) !important;
-        }
-        .funnel-checkout .fc-mobilebar-info { display: flex !important; flex-direction: column !important; flex-shrink: 0 !important; }
-        .funnel-checkout .fc-mobilebar-label { font-size: 11px !important; color: #64748b !important; }
-        .funnel-checkout .fc-mobilebar-total { font-size: 18px !important; font-weight: 800 !important; color: #0f172a !important; font-variant-numeric: tabular-nums !important; }
-        .funnel-checkout .fc-mobilebar-cta { flex: 1 1 0% !important; padding: 13px 18px !important; }
-        .funnel-checkout .fc-mobilebar-spacer { height: 84px !important; }
-
-        @media (min-width: 1024px) {
-            .funnel-checkout .fc-mobilebar, .funnel-checkout .fc-mobilebar-spacer { display: none !important; }
-        }
         @media (max-width: 1023px) {
-            .funnel-checkout .fc-cta-desktop { display: none !important; }
             .funnel-checkout .fc-sticky { position: static !important; }
         }
         @media (max-width: 767px) {

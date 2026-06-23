@@ -1386,31 +1386,6 @@ new class extends Component
             </div>
         </div>
     </div>
-
-    {{-- Mobile sticky checkout bar --}}
-    <div class="fc-mobilebar">
-        <div class="fc-mobilebar-info">
-            <span class="fc-mobilebar-label">Jumlah</span>
-            <span class="fc-mobilebar-total">RM {{ number_format($this->calculateTotal(), 2) }}</span>
-        </div>
-        <button
-            type="button"
-            wire:click="processOrder"
-            data-checkout-submit
-            wire:loading.attr="disabled"
-            wire:loading.class="is-loading"
-            wire:target="processOrder"
-            @disabled($isProcessing || empty($availablePaymentMethods))
-            class="fc-cta fc-mobilebar-cta"
-        >
-            <span class="fc-cta-inner fc-cta-default">Bayar Sekarang</span>
-            <span class="fc-cta-inner fc-cta-loading">
-                <svg class="fc-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-                Memproses
-            </span>
-        </button>
-    </div>
-    <div class="fc-mobilebar-spacer"></div>
 </div>
 
 <script>
