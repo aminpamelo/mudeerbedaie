@@ -23,28 +23,48 @@ class TemplateService
     {
         ['wabaId' => $wabaId, 'accessToken' => $accessToken, 'apiVersion' => $apiVersion] = $this->getMetaCredentials();
 
-        $response = Http::withToken($accessToken)
-            ->get("https://graph.facebook.com/{$apiVersion}/{$wabaId}/message_templates");
+        // Request the fields explicitly so status/components always come back, and a
+        // larger page size to cut the number of round-trips.
+        $url = "https://graph.facebook.com/{$apiVersion}/{$wabaId}/message_templates";
+        $params = [
+            'fields' => 'name,status,category,language,components,id',
+            'limit' => 100,
+        ];
 
-        if (! $response->successful()) {
-            throw new \RuntimeException('Failed to sync templates: '.($response->json('error.message') ?? 'Unknown error'));
-        }
-
-        $templates = $response->json('data', []);
         $count = 0;
 
-        foreach ($templates as $template) {
-            WhatsAppTemplate::updateOrCreate(
-                ['name' => $template['name'], 'language' => $template['language']],
-                [
-                    'category' => strtolower($template['category']),
-                    'status' => $template['status'],
-                    'components' => $template['components'] ?? [],
-                    'meta_template_id' => $template['id'] ?? null,
-                    'last_synced_at' => now(),
-                ]
-            );
-            $count++;
+        // Meta paginates this edge (~25 per page by default). Follow paging.next
+        // until it runs out — otherwise approved templates sitting on page 2+ never
+        // sync and the funnel builder shows "No approved templates found".
+        while ($url) {
+            $response = Http::withToken($accessToken)->get($url, $params);
+
+            if (! $response->successful()) {
+                throw new \RuntimeException('Failed to sync templates: '.($response->json('error.message') ?? 'Unknown error'));
+            }
+
+            foreach ($response->json('data', []) as $template) {
+                if (empty($template['name']) || empty($template['language'])) {
+                    continue;
+                }
+
+                WhatsAppTemplate::updateOrCreate(
+                    ['name' => $template['name'], 'language' => $template['language']],
+                    [
+                        'category' => strtolower($template['category'] ?? 'utility'),
+                        // Normalise to uppercase so approved() (== 'APPROVED') always matches.
+                        'status' => strtoupper($template['status'] ?? 'PENDING'),
+                        'components' => $template['components'] ?? [],
+                        'meta_template_id' => $template['id'] ?? null,
+                        'last_synced_at' => now(),
+                    ]
+                );
+                $count++;
+            }
+
+            // The next-page URL already carries fields/limit/after in its query string.
+            $url = $response->json('paging.next');
+            $params = [];
         }
 
         return $count;
