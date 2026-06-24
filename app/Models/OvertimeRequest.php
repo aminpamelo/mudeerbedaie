@@ -28,6 +28,9 @@ class OvertimeRequest extends Model
         'replacement_hours_earned',
         'replacement_hours_used',
         'current_approval_tier',
+        'adjusted_by',
+        'adjusted_at',
+        'adjustment_reason',
     ];
 
     /**
@@ -40,6 +43,7 @@ class OvertimeRequest extends Model
         return [
             'requested_date' => 'date',
             'approved_at' => 'datetime',
+            'adjusted_at' => 'datetime',
             'estimated_hours' => 'decimal:1',
             'actual_hours' => 'decimal:1',
             'replacement_hours_earned' => 'decimal:1',
@@ -61,6 +65,14 @@ class OvertimeRequest extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Get the user who last manually adjusted this overtime request.
+     */
+    public function adjuster(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'adjusted_by');
     }
 
     /**

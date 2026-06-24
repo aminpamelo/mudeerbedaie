@@ -4,10 +4,15 @@ namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceLog;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class HrOvertimeController extends Controller
 {
@@ -23,6 +28,10 @@ class HrOvertimeController extends Controller
             $query->where('status', $status);
         }
 
+        if ($employeeId = $request->get('employee_id')) {
+            $query->where('employee_id', $employeeId);
+        }
+
         if ($departmentId = $request->get('department_id')) {
             $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
         }
@@ -35,9 +44,216 @@ class HrOvertimeController extends Controller
             $query->whereDate('requested_date', '<=', $dateTo);
         }
 
-        $requests = $query->orderByDesc('requested_date')->paginate(15);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 15)));
+        $requests = $query->orderByDesc('requested_date')->paginate($perPage);
 
         return response()->json($requests);
+    }
+
+    /**
+     * System-wide overtime overview: headline totals, status breakdown,
+     * per-department hours, and a 6-month trend, scoped by period + department.
+     */
+    public function overview(Request $request): JsonResponse
+    {
+        [$from, $to, $period] = $this->resolvePeriod($request);
+        $departmentId = $request->get('department_id');
+
+        $statusCounts = $this->filteredQuery($from, $to, $departmentId)
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        $statusBreakdown = collect(['pending', 'approved', 'completed', 'rejected', 'cancelled'])
+            ->mapWithKeys(fn ($s) => [$s => (int) ($statusCounts[$s] ?? 0)]);
+
+        $completedHours = (float) $this->filteredQuery($from, $to, $departmentId)
+            ->where('status', 'completed')->sum('actual_hours');
+        $pendingHours = (float) $this->filteredQuery($from, $to, $departmentId)
+            ->where('status', 'pending')->sum('estimated_hours');
+        $replacementEarned = (float) $this->filteredQuery($from, $to, $departmentId)
+            ->where('status', 'completed')->sum('replacement_hours_earned');
+        $replacementUsed = (float) $this->filteredQuery($from, $to, $departmentId)
+            ->sum('replacement_hours_used');
+        $employeesOnOt = (int) $this->filteredQuery($from, $to, $departmentId)
+            ->distinct('employee_id')->count('employee_id');
+
+        $byDepartment = $this->filteredQuery($from, $to, $departmentId)
+            ->where('overtime_requests.status', 'completed')
+            ->join('employees', 'overtime_requests.employee_id', '=', 'employees.id')
+            ->join('departments', 'employees.department_id', '=', 'departments.id')
+            ->groupBy('departments.id', 'departments.name')
+            ->orderByDesc('hours')
+            ->get([
+                'departments.id',
+                'departments.name',
+                DB::raw('ROUND(SUM(overtime_requests.actual_hours), 1) as hours'),
+                DB::raw('COUNT(*) as requests'),
+            ]);
+
+        $trend = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $month = Carbon::now()->subMonthsNoOverflow($i);
+            $monthQuery = OvertimeRequest::query()
+                ->where('status', 'completed')
+                ->whereYear('requested_date', $month->year)
+                ->whereMonth('requested_date', $month->month);
+
+            if ($departmentId) {
+                $monthQuery->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+            }
+
+            $trend[] = [
+                'label' => $month->format('M'),
+                'hours' => round((float) $monthQuery->sum('actual_hours'), 1),
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'period' => $period,
+                'stats' => [
+                    'total_requests' => $statusBreakdown->sum(),
+                    'total_ot_hours' => round($completedHours, 1),
+                    'pending_count' => $statusBreakdown['pending'],
+                    'pending_hours' => round($pendingHours, 1),
+                    'completed_count' => $statusBreakdown['completed'],
+                    'employees_on_ot' => $employeesOnOt,
+                    'replacement_earned' => round($replacementEarned, 1),
+                    'replacement_used' => round($replacementUsed, 1),
+                    'replacement_balance' => round($replacementEarned - $replacementUsed, 1),
+                ],
+                'status_breakdown' => $statusBreakdown,
+                'by_department' => $byDepartment,
+                'trend' => $trend,
+                'departments' => Department::orderBy('name')->get(['id', 'name']),
+            ],
+        ]);
+    }
+
+    /**
+     * Per-employee overtime aggregation for the overview table.
+     */
+    public function byEmployee(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->resolvePeriod($request);
+        $departmentId = $request->get('department_id');
+
+        $aggregates = $this->filteredQuery($from, $to, $departmentId)
+            ->groupBy('employee_id')
+            ->get([
+                'employee_id',
+                DB::raw('COUNT(*) as total_requests'),
+                DB::raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count"),
+                DB::raw("SUM(CASE WHEN status = 'completed' THEN actual_hours ELSE 0 END) as completed_hours"),
+                DB::raw("SUM(CASE WHEN status = 'completed' THEN replacement_hours_earned ELSE 0 END) as replacement_earned"),
+                DB::raw('SUM(replacement_hours_used) as replacement_used'),
+                DB::raw('MAX(requested_date) as last_date'),
+            ]);
+
+        $employees = Employee::with('department')
+            ->whereIn('id', $aggregates->pluck('employee_id'))
+            ->get()
+            ->keyBy('id');
+
+        $rows = $aggregates->map(function ($row) use ($employees) {
+            $employee = $employees->get($row->employee_id);
+
+            return [
+                'employee_id' => $row->employee_id,
+                'full_name' => $employee?->full_name ?? 'Unknown',
+                'department' => $employee?->department?->name,
+                'total_requests' => (int) $row->total_requests,
+                'pending_count' => (int) $row->pending_count,
+                'completed_hours' => round((float) $row->completed_hours, 1),
+                'replacement_balance' => round((float) $row->replacement_earned - (float) $row->replacement_used, 1),
+                'last_date' => $row->last_date,
+            ];
+        });
+
+        if ($search = trim((string) $request->get('search'))) {
+            $needle = mb_strtolower($search);
+            $rows = $rows->filter(fn ($r) => str_contains(mb_strtolower($r['full_name']), $needle));
+        }
+
+        $rows = $rows->sortByDesc('completed_hours')->values();
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /**
+     * Manually adjust an overtime request's recorded hours (HR override).
+     * Keeps an audit trail of who changed it, when, and why.
+     */
+    public function adjust(Request $request, OvertimeRequest $overtimeRequest): JsonResponse
+    {
+        if (! in_array($overtimeRequest->status, ['approved', 'completed'], true)) {
+            return response()->json([
+                'message' => 'Only approved or completed overtime can be adjusted.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'actual_hours' => ['required', 'numeric', 'min:0', 'max:24'],
+            'adjustment_reason' => ['required', 'string', 'min:3'],
+        ]);
+
+        $overtimeRequest->update([
+            'status' => 'completed',
+            'actual_hours' => $validated['actual_hours'],
+            'replacement_hours_earned' => $validated['actual_hours'],
+            'adjusted_by' => $request->user()->id,
+            'adjusted_at' => now(),
+            'adjustment_reason' => $validated['adjustment_reason'],
+        ]);
+
+        return response()->json([
+            'data' => $overtimeRequest->fresh(['employee.department']),
+            'message' => 'Overtime adjusted successfully.',
+        ]);
+    }
+
+    /**
+     * Resolve the requested reporting window.
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon, 2: string}
+     */
+    private function resolvePeriod(Request $request): array
+    {
+        $period = $request->get('period', 'this_month');
+
+        return match ($period) {
+            'last_month' => [
+                Carbon::now()->subMonthNoOverflow()->startOfMonth(),
+                Carbon::now()->subMonthNoOverflow()->endOfMonth(),
+                'last_month',
+            ],
+            'this_year' => [Carbon::now()->startOfYear(), Carbon::now()->endOfYear(), 'this_year'],
+            'all' => [null, null, 'all'],
+            default => [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth(), 'this_month'],
+        };
+    }
+
+    /**
+     * Base overtime query scoped to a date window and optional department.
+     */
+    private function filteredQuery(?Carbon $from, ?Carbon $to, $departmentId): Builder
+    {
+        $query = OvertimeRequest::query();
+
+        if ($from) {
+            $query->whereDate('requested_date', '>=', $from->toDateString());
+        }
+
+        if ($to) {
+            $query->whereDate('requested_date', '<=', $to->toDateString());
+        }
+
+        if ($departmentId) {
+            $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+        }
+
+        return $query;
     }
 
     /**

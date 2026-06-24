@@ -27,6 +27,7 @@ const AttendanceMonthlyView = lazy(() => import('./pages/attendance/AttendanceMo
 const WorkSchedules = lazy(() => import('./pages/attendance/WorkSchedules'));
 const ScheduleAssignments = lazy(() => import('./pages/attendance/ScheduleAssignments'));
 const OvertimeManagement = lazy(() => import('./pages/attendance/OvertimeManagement'));
+const OvertimeOverview = lazy(() => import('./pages/attendance/OvertimeOverview'));
 const HolidayCalendar = lazy(() => import('./pages/attendance/HolidayCalendar'));
 const AttendanceAnalytics = lazy(() => import('./pages/attendance/AttendanceAnalytics'));
 const DepartmentApprovers = lazy(() => import('./pages/attendance/DepartmentApprovers'));
@@ -189,6 +190,7 @@ function AdminRoutes() {
             <Route path="attendance/schedules" element={<WorkSchedules />} />
             <Route path="attendance/assignments" element={<ScheduleAssignments />} />
             <Route path="attendance/overtime" element={<OvertimeManagement />} />
+            <Route path="attendance/overtime/overview" element={<OvertimeOverview />} />
             <Route path="attendance/holidays" element={<HolidayCalendar />} />
             <Route path="attendance/analytics" element={<AttendanceAnalytics />} />
             <Route path="attendance/approvers" element={<DepartmentApprovers />} />

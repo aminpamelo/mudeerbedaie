@@ -163,6 +163,9 @@ export const fetchOvertimeRequest = (id) => api.get(`/overtime/${id}`).then(r =>
 export const approveOvertime = (id) => api.patch(`/overtime/${id}/approve`).then(r => r.data);
 export const rejectOvertime = (id, data) => api.patch(`/overtime/${id}/reject`, data).then(r => r.data);
 export const completeOvertime = (id, data) => api.patch(`/overtime/${id}/complete`, data).then(r => r.data);
+export const adjustOvertime = (id, data) => api.patch(`/overtime/${id}/adjust`, data).then(r => r.data);
+export const fetchOvertimeOverview = (params) => api.get('/overtime/overview', { params }).then(r => r.data.data);
+export const fetchOvertimeByEmployee = (params) => api.get('/overtime/by-employee', { params }).then(r => r.data.data);
 export const fetchOvertimeClaims = (params) => api.get('/overtime/claims', { params }).then(r => r.data);
 export const approveOvertimeClaim = (id) => api.patch(`/overtime/claims/${id}/approve`).then(r => r.data);
 export const rejectOvertimeClaim = (id, data) => api.patch(`/overtime/claims/${id}/reject`, data).then(r => r.data);
