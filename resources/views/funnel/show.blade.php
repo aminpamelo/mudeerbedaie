@@ -575,7 +575,7 @@
         .funnel-checkout .fc-bump-name-wrap { min-width: 0 !important; }
         .funnel-checkout .fc-bump-kicker { display: block !important; font-size: 11px !important; font-weight: 700 !important; color: #059669 !important; text-transform: uppercase !important; letter-spacing: 0.04em !important; }
         .funnel-checkout .fc-bump-name { font-size: 14px !important; font-weight: 700 !important; color: #0f172a !important; margin-top: 2px !important; line-height: 1.35 !important; }
-        .funnel-checkout .fc-bump-desc { font-size: 13px !important; color: #64748b !important; margin-top: 2px !important; }
+        .funnel-checkout .fc-bump-desc { font-size: 13px !important; color: #64748b !important; margin-top: 2px !important; white-space: pre-line !important; }
         .funnel-checkout .fc-bump-pricing { text-align: right !important; flex-shrink: 0 !important; }
         .funnel-checkout .fc-bump-price { font-size: 16px !important; font-weight: 800 !important; color: #059669 !important; font-variant-numeric: tabular-nums !important; }
 

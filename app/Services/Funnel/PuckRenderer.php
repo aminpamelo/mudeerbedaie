@@ -982,7 +982,7 @@ class PuckRenderer
                     <input type="checkbox" name="order_bump_%s" value="%s" style="width: 20px; height: 20px; margin-top: 4px;">
                     <div>
                         <div style="font-weight: 600; color: #92400e; margin-bottom: 4px;">%s</div>
-                        <p style="color: #78350f; font-size: 14px; margin-bottom: 8px;">%s</p>
+                        <p style="color: #78350f; font-size: 14px; margin-bottom: 8px; white-space: pre-line;">%s</p>
                         <div>
                             %s
                             <span style="font-weight: 700; color: #92400e;">%s%s</span>

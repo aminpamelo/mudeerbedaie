@@ -728,7 +728,7 @@ new class extends Component
                                     @endif
                                     <h4 class="font-semibold text-gray-900">{{ $bump->name }}</h4>
                                     @if($bump->description)
-                                        <p class="text-sm text-gray-500 mt-0.5">{{ $bump->description }}</p>
+                                        <p class="text-sm text-gray-500 mt-0.5 whitespace-pre-line">{{ $bump->description }}</p>
                                     @endif
                                 </div>
 

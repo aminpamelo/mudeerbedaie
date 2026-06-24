@@ -559,7 +559,7 @@ const OrderBump = ({ bumpId, headline, description, price, comparePrice, checkbo
                         <h4 className="text-lg font-semibold text-gray-800 mt-2">
                             {headline || 'Bonus Product Name'}
                         </h4>
-                        <p className="text-gray-600 text-sm mt-1">
+                        <p className="text-gray-600 text-sm mt-1 whitespace-pre-line">
                             {description || 'Get this exclusive add-on at a special discounted price only available with your purchase today!'}
                         </p>
                         <div className="flex items-baseline gap-2 mt-3">
