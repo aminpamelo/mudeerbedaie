@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceLog;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\OvertimeAdjustment;
 use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,6 +79,8 @@ class HrOvertimeController extends Controller
         $employeesOnOt = (int) $this->filteredQuery($from, $to, $departmentId)
             ->distinct('employee_id')->count('employee_id');
 
+        $adjustmentTotal = (float) $this->filteredAdjustments($from, $to, $departmentId)->sum('hours');
+
         $byDepartment = $this->filteredQuery($from, $to, $departmentId)
             ->where('overtime_requests.status', 'completed')
             ->join('employees', 'overtime_requests.employee_id', '=', 'employees.id')
@@ -114,7 +117,8 @@ class HrOvertimeController extends Controller
                 'period' => $period,
                 'stats' => [
                     'total_requests' => $statusBreakdown->sum(),
-                    'total_ot_hours' => round($completedHours, 1),
+                    'total_ot_hours' => round($completedHours + $adjustmentTotal, 1),
+                    'adjustment_total' => round($adjustmentTotal, 1),
                     'pending_count' => $statusBreakdown['pending'],
                     'pending_hours' => round($pendingHours, 1),
                     'completed_count' => $statusBreakdown['completed'],
@@ -149,34 +153,54 @@ class HrOvertimeController extends Controller
                 DB::raw("SUM(CASE WHEN status = 'completed' THEN replacement_hours_earned ELSE 0 END) as replacement_earned"),
                 DB::raw('SUM(replacement_hours_used) as replacement_used'),
                 DB::raw('MAX(requested_date) as last_date'),
-            ]);
+            ])
+            ->keyBy('employee_id');
+
+        // Signed admin adjustments per employee within the same window.
+        $adjustments = $this->filteredAdjustments($from, $to, $departmentId)
+            ->groupBy('employee_id')
+            ->get([
+                'employee_id',
+                DB::raw('SUM(hours) as adjustment_hours'),
+                DB::raw('MAX(effective_date) as last_adjustment'),
+            ])
+            ->keyBy('employee_id');
+
+        $employeeIds = $aggregates->keys()->merge($adjustments->keys())->unique();
 
         $employees = Employee::with('department')
-            ->whereIn('id', $aggregates->pluck('employee_id'))
+            ->whereIn('id', $employeeIds)
             ->get()
             ->keyBy('id');
 
-        $rows = $aggregates->map(function ($row) use ($employees) {
-            $employee = $employees->get($row->employee_id);
+        $rows = $employeeIds->map(function ($employeeId) use ($aggregates, $adjustments, $employees) {
+            $agg = $aggregates->get($employeeId);
+            $adj = $adjustments->get($employeeId);
+            $employee = $employees->get($employeeId);
+
+            $completedHours = round((float) ($agg->completed_hours ?? 0), 1);
+            $adjustmentHours = round((float) ($adj->adjustment_hours ?? 0), 1);
 
             return [
-                'employee_id' => $row->employee_id,
+                'employee_id' => $employeeId,
                 'full_name' => $employee?->full_name ?? 'Unknown',
                 'department' => $employee?->department?->name,
-                'total_requests' => (int) $row->total_requests,
-                'pending_count' => (int) $row->pending_count,
-                'completed_hours' => round((float) $row->completed_hours, 1),
-                'replacement_balance' => round((float) $row->replacement_earned - (float) $row->replacement_used, 1),
-                'last_date' => $row->last_date,
+                'total_requests' => (int) ($agg->total_requests ?? 0),
+                'pending_count' => (int) ($agg->pending_count ?? 0),
+                'completed_hours' => $completedHours,
+                'adjustment_hours' => $adjustmentHours,
+                'ot_hours' => round($completedHours + $adjustmentHours, 1),
+                'replacement_balance' => round((float) ($agg->replacement_earned ?? 0) - (float) ($agg->replacement_used ?? 0), 1),
+                'last_date' => $agg->last_date ?? ($adj->last_adjustment ?? null),
             ];
-        });
+        })->values();
 
         if ($search = trim((string) $request->get('search'))) {
             $needle = mb_strtolower($search);
             $rows = $rows->filter(fn ($r) => str_contains(mb_strtolower($r['full_name']), $needle));
         }
 
-        $rows = $rows->sortByDesc('completed_hours')->values();
+        $rows = $rows->sortByDesc('ot_hours')->values();
 
         return response()->json(['data' => $rows]);
     }
@@ -214,6 +238,60 @@ class HrOvertimeController extends Controller
     }
 
     /**
+     * List the standalone admin OT adjustments for one employee (full history).
+     */
+    public function adjustments(Request $request): JsonResponse
+    {
+        $request->validate(['employee_id' => ['required', 'exists:employees,id']]);
+
+        $adjustments = OvertimeAdjustment::query()
+            ->with('adjuster:id,name')
+            ->where('employee_id', $request->get('employee_id'))
+            ->orderByDesc('effective_date')
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json(['data' => $adjustments]);
+    }
+
+    /**
+     * Record a standalone admin adjustment that adds (+) or deducts (-) OT
+     * hours for a staff member, independent of any single overtime request.
+     */
+    public function storeAdjustment(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'employee_id' => ['required', 'exists:employees,id'],
+            'hours' => ['required', 'numeric', 'not_in:0', 'min:-24', 'max:24'],
+            'reason' => ['required', 'string', 'min:3'],
+            'effective_date' => ['nullable', 'date'],
+        ]);
+
+        $adjustment = OvertimeAdjustment::create([
+            'employee_id' => $validated['employee_id'],
+            'hours' => $validated['hours'],
+            'reason' => $validated['reason'],
+            'effective_date' => $validated['effective_date'] ?? now()->toDateString(),
+            'adjusted_by' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'data' => $adjustment->load('adjuster:id,name'),
+            'message' => 'Adjustment recorded successfully.',
+        ], 201);
+    }
+
+    /**
+     * Remove an admin OT adjustment.
+     */
+    public function destroyAdjustment(OvertimeAdjustment $overtimeAdjustment): JsonResponse
+    {
+        $overtimeAdjustment->delete();
+
+        return response()->json(['message' => 'Adjustment removed.']);
+    }
+
+    /**
      * Resolve the requested reporting window.
      *
      * @return array{0: ?Carbon, 1: ?Carbon, 2: string}
@@ -247,6 +325,28 @@ class HrOvertimeController extends Controller
 
         if ($to) {
             $query->whereDate('requested_date', '<=', $to->toDateString());
+        }
+
+        if ($departmentId) {
+            $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+        }
+
+        return $query;
+    }
+
+    /**
+     * Admin OT adjustments scoped to a date window and optional department.
+     */
+    private function filteredAdjustments(?Carbon $from, ?Carbon $to, $departmentId): Builder
+    {
+        $query = OvertimeAdjustment::query();
+
+        if ($from) {
+            $query->whereDate('effective_date', '>=', $from->toDateString());
+        }
+
+        if ($to) {
+            $query->whereDate('effective_date', '<=', $to->toDateString());
         }
 
         if ($departmentId) {

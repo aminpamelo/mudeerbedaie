@@ -13,6 +13,9 @@ import {
     Loader2,
     Search,
     AlertCircle,
+    Plus,
+    Minus,
+    Trash2,
 } from 'lucide-react';
 import {
     fetchOvertimeOverview,
@@ -22,6 +25,9 @@ import {
     rejectOvertime,
     completeOvertime,
     adjustOvertime,
+    fetchOvertimeAdjustments,
+    createOvertimeAdjustment,
+    deleteOvertimeAdjustment,
 } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import PageHeader from '../../components/PageHeader';
@@ -128,6 +134,9 @@ export default function OvertimeOverview() {
     const [actionTarget, setActionTarget] = useState(null); // { type, entry }
     const [actualHours, setActualHours] = useState('');
     const [reason, setReason] = useState('');
+    const [adjSign, setAdjSign] = useState('add'); // 'add' | 'minus'
+    const [adjHours, setAdjHours] = useState('');
+    const [adjReason, setAdjReason] = useState('');
 
     const filters = { period, department_id: departmentId || undefined };
 
@@ -144,6 +153,12 @@ export default function OvertimeOverview() {
     const { data: entriesData, isLoading: entriesLoading } = useQuery({
         queryKey: ['hr', 'ot', 'employee-entries', selectedEmployee?.employee_id],
         queryFn: () => fetchOvertimeRequests({ employee_id: selectedEmployee.employee_id, per_page: 100 }),
+        enabled: !!selectedEmployee,
+    });
+
+    const { data: adjustments = [], isLoading: adjustmentsLoading } = useQuery({
+        queryKey: ['hr', 'ot', 'adjustments', selectedEmployee?.employee_id],
+        queryFn: () => fetchOvertimeAdjustments({ employee_id: selectedEmployee.employee_id }),
         enabled: !!selectedEmployee,
     });
 
@@ -194,6 +209,33 @@ export default function OvertimeOverview() {
         onSuccess: () => { invalidateAll(); closePanel(); },
         onError: (e) => alert(e?.response?.data?.message || 'Failed to adjust'),
     });
+
+    const createAdjustmentMutation = useMutation({
+        mutationFn: (data) => createOvertimeAdjustment(data),
+        onSuccess: () => {
+            invalidateAll();
+            setAdjHours('');
+            setAdjReason('');
+            setAdjSign('add');
+        },
+        onError: (e) => alert(e?.response?.data?.message || 'Failed to record adjustment'),
+    });
+
+    const deleteAdjustmentMutation = useMutation({
+        mutationFn: (id) => deleteOvertimeAdjustment(id),
+        onSuccess: () => invalidateAll(),
+        onError: (e) => alert(e?.response?.data?.message || 'Failed to remove adjustment'),
+    });
+
+    function submitAdjustment() {
+        const magnitude = parseFloat(adjHours);
+        if (!magnitude || magnitude <= 0) return;
+        createAdjustmentMutation.mutate({
+            employee_id: selectedEmployee.employee_id,
+            hours: adjSign === 'minus' ? -magnitude : magnitude,
+            reason: adjReason,
+        });
+    }
 
     const savingPanel = completeMutation.isPending || adjustMutation.isPending || rejectMutation.isPending;
 
@@ -268,7 +310,9 @@ export default function OvertimeOverview() {
                     <StatCard
                         label="Total OT Hours"
                         value={formatHours(stats?.total_ot_hours)}
-                        sub={`${stats?.employees_on_ot || 0} staff on overtime`}
+                        sub={stats?.adjustment_total
+                            ? `${stats?.employees_on_ot || 0} staff · incl. ${stats.adjustment_total > 0 ? '+' : ''}${stats.adjustment_total}h adj`
+                            : `${stats?.employees_on_ot || 0} staff on overtime`}
                         icon={Timer}
                         accent="sky"
                     />
@@ -373,8 +417,15 @@ export default function OvertimeOverview() {
                                                         <span className="text-sm text-slate-400">0</span>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="text-right text-sm font-semibold text-slate-900 tabular-nums">
-                                                    {formatHours(row.completed_hours)}
+                                                <TableCell className="text-right tabular-nums">
+                                                    <span className="text-sm font-semibold text-slate-900">
+                                                        {formatHours(row.ot_hours ?? row.completed_hours)}
+                                                    </span>
+                                                    {!!row.adjustment_hours && (
+                                                        <span className={cn('block text-[11px] font-medium', row.adjustment_hours > 0 ? 'text-emerald-600' : 'text-red-500')}>
+                                                            {row.adjustment_hours > 0 ? '+' : ''}{row.adjustment_hours}h adj
+                                                        </span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="text-right text-sm text-slate-600 tabular-nums">
                                                     {formatHours(row.replacement_balance)}
@@ -464,7 +515,7 @@ export default function OvertimeOverview() {
                     <div className="grid grid-cols-3 gap-3">
                         {[
                             { label: 'Requests', value: liveRow?.total_requests ?? 0 },
-                            { label: 'OT Hours', value: formatHours(liveRow?.completed_hours) },
+                            { label: 'OT Hours', value: formatHours(liveRow?.ot_hours ?? liveRow?.completed_hours) },
                             { label: 'Repl. Balance', value: formatHours(liveRow?.replacement_balance) },
                         ].map((m) => (
                             <div key={m.label} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
@@ -619,6 +670,110 @@ export default function OvertimeOverview() {
                                 </TableBody>
                             </Table>
                         )}
+                    </div>
+
+                    {/* Admin Adjustment — separate add / minus ledger */}
+                    <div className="rounded-xl border border-slate-200 p-4">
+                        <div className="mb-1 flex items-center gap-2">
+                            <SlidersHorizontal className="h-4 w-4 text-indigo-500" />
+                            <h4 className="text-sm font-semibold text-slate-900">Admin Adjustment</h4>
+                        </div>
+                        <p className="mb-3 text-xs text-slate-500">
+                            Add or deduct OT hours for this staff as a separate record — independent of the entries above.
+                        </p>
+
+                        <div className="flex flex-wrap items-end gap-2">
+                            <div>
+                                <Label>Type</Label>
+                                <div className="mt-1 flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdjSign('add')}
+                                        className={cn(
+                                            'flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                                            adjSign === 'add' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                        )}
+                                    >
+                                        <Plus className="h-3.5 w-3.5" /> Add
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdjSign('minus')}
+                                        className={cn(
+                                            'flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                                            adjSign === 'minus' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                        )}
+                                    >
+                                        <Minus className="h-3.5 w-3.5" /> Minus
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <Label>Hours</Label>
+                                <Input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="24"
+                                    value={adjHours}
+                                    onChange={(e) => setAdjHours(e.target.value)}
+                                    placeholder="e.g. 1.5"
+                                    className="mt-1 w-24"
+                                />
+                            </div>
+                            <div className="min-w-[160px] flex-1">
+                                <Label>Reason</Label>
+                                <Input
+                                    value={adjReason}
+                                    onChange={(e) => setAdjReason(e.target.value)}
+                                    placeholder="Why this adjustment?"
+                                    className="mt-1"
+                                />
+                            </div>
+                            <Button
+                                onClick={submitAdjustment}
+                                disabled={createAdjustmentMutation.isPending || !adjHours || parseFloat(adjHours) <= 0 || adjReason.trim().length < 3}
+                            >
+                                {createAdjustmentMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                                Add
+                            </Button>
+                        </div>
+
+                        <div className="mt-4">
+                            {adjustmentsLoading ? (
+                                <div className="h-10 animate-pulse rounded bg-slate-100" />
+                            ) : adjustments.length === 0 ? (
+                                <p className="text-xs text-slate-400">No admin adjustments recorded.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {adjustments.map((a) => {
+                                        const h = Number(a.hours);
+                                        return (
+                                            <div key={a.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                                                <div className="min-w-0">
+                                                    <span className={cn('text-sm font-semibold tabular-nums', h > 0 ? 'text-emerald-600' : 'text-red-500')}>
+                                                        {h > 0 ? '+' : ''}{h.toFixed(1)}h
+                                                    </span>
+                                                    <span className="ml-2 text-sm text-slate-600">{a.reason}</span>
+                                                    <p className="text-xs text-slate-400">
+                                                        {formatDate(a.effective_date)}{a.adjuster?.name ? ` · by ${a.adjuster.name}` : ''}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-slate-400 hover:text-red-600"
+                                                    onClick={() => { if (window.confirm('Remove this adjustment?')) { deleteAdjustmentMutation.mutate(a.id); } }}
+                                                    title="Remove adjustment"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
