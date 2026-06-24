@@ -642,10 +642,20 @@ class ProductOrder extends Model
 
     public static function createFromCart(ProductCart $cart, array $customerData, array $addresses): self
     {
+        // Capture the buyer's name/phone directly on the order (not just the
+        // address rows) so admin lists, exports and shipping read them reliably.
+        $billing = $addresses['billing'] ?? [];
+        $customerName = trim((string) ($customerData['name']
+            ?? trim(($billing['first_name'] ?? '').' '.($billing['last_name'] ?? '')))) ?: null;
+        $customerPhone = $customerData['phone'] ?? ($billing['phone'] ?? null) ?: null;
+
         $order = self::create([
             'order_number' => self::generateOrderNumber(),
             'customer_id' => $cart->user_id,
             'guest_email' => $customerData['email'] ?? null,
+            'customer_name' => $customerName,
+            'customer_phone' => $customerPhone,
+            'source' => 'storefront',
             'subtotal' => $cart->subtotal,
             'tax_amount' => $cart->tax_amount,
             'total_amount' => $cart->total_amount,

@@ -214,8 +214,9 @@ new class extends Component
             ->when($this->sourceTab !== 'all', function ($query) {
                 match ($this->sourceTab) {
                     'platform' => $query->whereNotNull('platform_id'),
+                    'storefront' => $query->where('source', 'storefront'),
                     'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                        $q->whereNotIn('source', ['funnel', 'pos'])
+                        $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
                             ->orWhereNull('source');
                     }),
                     'funnel' => $query->where('source', 'funnel'),
@@ -388,6 +389,15 @@ new class extends Component
             ];
         }
 
+        if ($order->source === 'storefront') {
+            return [
+                'type' => 'storefront',
+                'label' => 'Storefront',
+                'color' => 'emerald',
+                'icon' => 'shopping-bag',
+            ];
+        }
+
         return [
             'type' => 'company',
             'label' => 'Company',
@@ -449,8 +459,9 @@ new class extends Component
         if ($this->sourceTab !== 'all') {
             match ($this->sourceTab) {
                 'platform' => $query->whereNotNull('platform_id'),
+                'storefront' => $query->where('source', 'storefront'),
                 'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                    $q->whereNotIn('source', ['funnel', 'pos'])
+                    $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
                         ->orWhereNull('source');
                 }),
                 'funnel' => $query->where('source', 'funnel'),
@@ -544,12 +555,14 @@ new class extends Component
             SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform,
             SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel,
             SUM(CASE WHEN source = 'pos' THEN 1 ELSE 0 END) as pos,
-            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN 1 ELSE 0 END) as agent_company
+            SUM(CASE WHEN source = 'storefront' THEN 1 ELSE 0 END) as storefront,
+            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos', 'storefront')) THEN 1 ELSE 0 END) as agent_company
         ")->first();
 
         return [
             'all' => $counts->total ?? 0,
             'platform' => $counts->platform ?? 0,
+            'storefront' => $counts->storefront ?? 0,
             'agent_company' => $counts->agent_company ?? 0,
             'funnel' => $counts->funnel ?? 0,
             'pos' => $counts->pos ?? 0,
@@ -1284,6 +1297,7 @@ new class extends Component
                     $sourceTabs = [
                         'all' => ['label' => 'All', 'icon' => 'squares-2x2', 'count' => $sourceCounts['all'], 'color' => 'zinc'],
                         'platform' => ['label' => 'Platform', 'icon' => 'globe-alt', 'count' => $sourceCounts['platform'], 'color' => 'purple'],
+                        'storefront' => ['label' => 'Storefront', 'icon' => 'shopping-bag', 'count' => $sourceCounts['storefront'], 'color' => 'emerald'],
                         'agent_company' => ['label' => 'Agent & Co', 'icon' => 'building-office', 'count' => $sourceCounts['agent_company'], 'color' => 'blue'],
                         'funnel' => ['label' => 'Funnel', 'icon' => 'funnel', 'count' => $sourceCounts['funnel'], 'color' => 'green'],
                         'pos' => ['label' => 'POS', 'icon' => 'calculator', 'count' => $sourceCounts['pos'], 'color' => 'orange'],
@@ -1296,6 +1310,7 @@ new class extends Component
                             'blue' => 'bg-blue-600 text-white dark:bg-blue-500 shadow-sm',
                             'green' => 'bg-green-600 text-white dark:bg-green-500 shadow-sm',
                             'orange' => 'bg-orange-500 text-white dark:bg-orange-500 shadow-sm',
+                            'emerald' => 'bg-emerald-600 text-white dark:bg-emerald-500 shadow-sm',
                             default => 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm',
                         };
                         $sourceInactiveStyles = match($tab['color']) {
@@ -1303,6 +1318,7 @@ new class extends Component
                             'blue' => 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30',
                             'green' => 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30',
                             'orange' => 'bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/30',
+                            'emerald' => 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30',
                             default => 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-600',
                         };
                         $sourceCountStyles = match($tab['color']) {
@@ -1310,6 +1326,7 @@ new class extends Component
                             'blue' => $sourceTab === $key ? 'text-blue-200' : 'text-blue-400 dark:text-blue-500',
                             'green' => $sourceTab === $key ? 'text-green-200' : 'text-green-400 dark:text-green-500',
                             'orange' => $sourceTab === $key ? 'text-orange-200' : 'text-orange-400 dark:text-orange-500',
+                            'emerald' => $sourceTab === $key ? 'text-emerald-200' : 'text-emerald-400 dark:text-emerald-500',
                             default => $sourceTab === $key ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-400 dark:text-zinc-500',
                         };
                     @endphp

@@ -26,7 +26,7 @@ class ProductOrderFactory extends Factory
             'order_date' => fake()->dateTimeBetween('-1 year', 'now'),
             'status' => fake()->randomElement(['pending', 'processing', 'shipped', 'delivered']),
             'order_type' => 'product',
-            'source' => 'website',
+            'source' => 'storefront',
             'currency' => 'MYR',
             'subtotal' => $subtotal = fake()->randomFloat(2, 50, 500),
             'shipping_cost' => $shipping = fake()->randomFloat(2, 5, 20),

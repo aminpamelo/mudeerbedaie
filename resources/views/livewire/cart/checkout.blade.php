@@ -107,7 +107,8 @@ new #[Layout('components.layouts.store')] class extends Component
     {
         // Validate customer information
         $this->validate([
-            'customerData.email' => 'required|email',
+            'customerData.phone' => 'required|string|max:30',
+            'customerData.email' => 'nullable|email',
             'billingAddress.first_name' => 'required|min:2',
             'billingAddress.last_name' => 'required|min:2',
             'billingAddress.address_line_1' => 'required|min:5',
@@ -461,14 +462,15 @@ new #[Layout('components.layouts.store')] class extends Component
                                 <flux:heading size="sm" class="mb-4">Contact Information</flux:heading>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <flux:field>
-                                        <flux:label>Email</flux:label>
-                                        <flux:input wire:model="customerData.email" type="email" placeholder="john@example.com" />
-                                        <flux:error name="customerData.email" />
+                                        <flux:label>Phone</flux:label>
+                                        <flux:input wire:model="customerData.phone" placeholder="+60123456789" />
+                                        <flux:error name="customerData.phone" />
                                     </flux:field>
 
                                     <flux:field>
-                                        <flux:label>Phone (Optional)</flux:label>
-                                        <flux:input wire:model="customerData.phone" placeholder="+60123456789" />
+                                        <flux:label>Email (Optional)</flux:label>
+                                        <flux:input wire:model="customerData.email" type="email" placeholder="john@example.com" />
+                                        <flux:error name="customerData.email" />
                                     </flux:field>
                                 </div>
                             </div>
@@ -692,36 +694,54 @@ new #[Layout('components.layouts.store')] class extends Component
                         <div class="space-y-4">
                             <!-- Payment Methods -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'credit_card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="credit_card" label="Credit Card" />
-                                    <flux:text size="sm" class="text-gray-600 mt-1">Visa, Mastercard</flux:text>
-                                </div>
+                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'credit_card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <input type="radio" wire:model.live="paymentMethod" value="credit_card" class="mt-0.5 h-4 w-4 accent-blue-600" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-900">Credit Card</span>
+                                        <flux:text size="sm" class="text-gray-600">Visa, Mastercard</flux:text>
+                                    </span>
+                                </label>
 
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'debit_card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="debit_card" label="Debit Card" />
-                                    <flux:text size="sm" class="text-gray-600 mt-1">Visa, Mastercard</flux:text>
-                                </div>
+                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'debit_card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <input type="radio" wire:model.live="paymentMethod" value="debit_card" class="mt-0.5 h-4 w-4 accent-blue-600" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-900">Debit Card</span>
+                                        <flux:text size="sm" class="text-gray-600">Visa, Mastercard</flux:text>
+                                    </span>
+                                </label>
 
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'fpx' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="fpx" label="FPX Online Banking" />
-                                    <flux:text size="sm" class="text-gray-600 mt-1">Malaysian Banks</flux:text>
-                                </div>
+                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'fpx' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <input type="radio" wire:model.live="paymentMethod" value="fpx" class="mt-0.5 h-4 w-4 accent-blue-600" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-900">FPX Online Banking</span>
+                                        <flux:text size="sm" class="text-gray-600">Malaysian Banks</flux:text>
+                                    </span>
+                                </label>
 
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'grabpay' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="grabpay" label="GrabPay" />
-                                    <flux:text size="sm" class="text-gray-600 mt-1">Digital Wallet</flux:text>
-                                </div>
+                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'grabpay' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <input type="radio" wire:model.live="paymentMethod" value="grabpay" class="mt-0.5 h-4 w-4 accent-blue-600" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-900">GrabPay</span>
+                                        <flux:text size="sm" class="text-gray-600">Digital Wallet</flux:text>
+                                    </span>
+                                </label>
 
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'boost' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="boost" label="Boost" />
-                                    <flux:text size="sm" class="text-gray-600 mt-1">Digital Wallet</flux:text>
-                                </div>
+                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'boost' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <input type="radio" wire:model.live="paymentMethod" value="boost" class="mt-0.5 h-4 w-4 accent-blue-600" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-900">Boost</span>
+                                        <flux:text size="sm" class="text-gray-600">Digital Wallet</flux:text>
+                                    </span>
+                                </label>
 
                                 @if(app(\App\Services\SettingsService::class)->isCodEnabled())
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'cod' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="cod" label="Cash on Delivery" />
-                                    <flux:text size="sm" class="text-gray-600 mt-1">Pay when you receive</flux:text>
-                                </div>
+                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'cod' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <input type="radio" wire:model.live="paymentMethod" value="cod" class="mt-0.5 h-4 w-4 accent-blue-600" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-900">Cash on Delivery</span>
+                                        <flux:text size="sm" class="text-gray-600">Pay when you receive</flux:text>
+                                    </span>
+                                </label>
                                 @endif
                             </div>
 
