@@ -578,6 +578,28 @@ class MentoringMenteeController extends Controller
         return back()->with('success', 'Mentee restored to active.');
     }
 
+    /**
+     * Permanently remove a mentee enrollment from the program — used to clean up
+     * test enrollments. Deletes the mentee and all of its mentoring data (stage
+     * rows, history, checklist, monthly scores, mentee-scoped activities). The
+     * host's user account is left untouched.
+     */
+    public function destroy(Request $request, LiveHostMentee $mentee): RedirectResponse
+    {
+        $name = $mentee->menteeUser?->name ?? 'Mentee';
+
+        DB::transaction(function () use ($mentee): void {
+            $mentee->activities()->delete();
+            $mentee->checklistItems()->delete();
+            $mentee->history()->delete();
+            $mentee->stageRows()->delete();
+            $mentee->monthlyScores()->delete();
+            $mentee->delete();
+        });
+
+        return back()->with('success', "{$name} removed from the program.");
+    }
+
     private static function initials(?string $name): string
     {
         if (! $name) {

@@ -1,7 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
-import { GraduationCap, GripVertical, Inbox, Plus, UserPlus, X } from 'lucide-react';
+import { GraduationCap, GripVertical, Inbox, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 import MentorAssignmentModal from '@/livehost/components/mentoring/MentorAssignmentModal';
 
@@ -26,6 +26,17 @@ export default function MenteeBoard({
   const [stageOverrides, setStageOverrides] = useState({});
   const [openMenteeId, setOpenMenteeId] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    router.delete(`/livehost/mentoring/mentees/${deleteTarget.id}`, {
+      ...visitOpts,
+      onFinish: () => { setDeleting(false); setDeleteTarget(null); },
+    });
+  };
 
   const visitOpts = useMemo(
     () => (reloadOnly ? { preserveScroll: true, preserveState: true, only: reloadOnly } : { preserveScroll: true, preserveState: true }),
@@ -119,16 +130,16 @@ export default function MenteeBoard({
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="flex gap-4 overflow-x-auto pb-2">
               {(stages ?? []).map((stage) => (
-                <StageColumn key={stage.id} stage={stage} mentees={menteesByStage.get(stage.id) ?? []} onOpen={(m) => setOpenMenteeId(m.id)} />
+                <StageColumn key={stage.id} stage={stage} mentees={menteesByStage.get(stage.id) ?? []} onOpen={(m) => setOpenMenteeId(m.id)} onDelete={(m) => setDeleteTarget(m)} />
               ))}
               {ungrouped.length > 0 && (
-                <StageColumn stage={{ id: 0, name: 'Unassigned', is_final: false }} mentees={ungrouped} isDropDisabled onOpen={(m) => setOpenMenteeId(m.id)} />
+                <StageColumn stage={{ id: 0, name: 'Unassigned', is_final: false }} mentees={ungrouped} isDropDisabled onOpen={(m) => setOpenMenteeId(m.id)} onDelete={(m) => setDeleteTarget(m)} />
               )}
             </div>
           </DragDropContext>
         )
       ) : (
-        <MenteeList mentees={statusMentees} title={statusTab === 'graduated' ? 'Graduated' : 'Dropped'} />
+        <MenteeList mentees={statusMentees} title={statusTab === 'graduated' ? 'Graduated' : 'Dropped'} onDelete={(m) => setDeleteTarget(m)} />
       )}
 
       {openMentee && (
@@ -151,6 +162,14 @@ export default function MenteeBoard({
           onClose={() => setEnrolling(false)}
         />
       )}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          mentee={deleteTarget}
+          busy={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => { if (!deleting) setDeleteTarget(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -164,7 +183,7 @@ function LevelBadge({ level }) {
   );
 }
 
-function MenteeCard({ mentee, index, isDragDisabled = false, onOpen }) {
+function MenteeCard({ mentee, index, isDragDisabled = false, onOpen, onDelete }) {
   return (
     <Draggable draggableId={String(mentee.id)} index={index} isDragDisabled={isDragDisabled}>
       {(provided, snapshot) => (
@@ -215,6 +234,17 @@ function MenteeCard({ mentee, index, isDragDisabled = false, onOpen }) {
                 </div>
               )}
             </button>
+            {typeof onDelete === 'function' && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onDelete(mentee); }}
+                aria-label={`Remove ${mentee.full_name}`}
+                title="Remove from program"
+                className="mt-0.5 -mr-1 rounded p-0.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#FEE2E2] hover:text-[#B91C1C] group-hover:opacity-100"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -222,7 +252,7 @@ function MenteeCard({ mentee, index, isDragDisabled = false, onOpen }) {
   );
 }
 
-function StageColumn({ stage, mentees, isDropDisabled = false, dragDisabled = false, onOpen }) {
+function StageColumn({ stage, mentees, isDropDisabled = false, dragDisabled = false, onOpen, onDelete }) {
   return (
     <div className="flex w-[280px] shrink-0 flex-col rounded-[12px] bg-[#F5F5F5]">
       <div className="flex items-center justify-between border-b border-[#EAEAEA] px-3 py-2.5">
@@ -242,7 +272,7 @@ function StageColumn({ stage, mentees, isDropDisabled = false, dragDisabled = fa
                 {snapshot.isDraggingOver && !isDropDisabled ? 'Drop to move here' : 'Nothing here yet'}
               </div>
             ) : (
-              mentees.map((m, i) => <MenteeCard key={m.id} mentee={m} index={i} isDragDisabled={dragDisabled} onOpen={onOpen} />)
+              mentees.map((m, i) => <MenteeCard key={m.id} mentee={m} index={i} isDragDisabled={dragDisabled} onOpen={onOpen} onDelete={onDelete} />)
             )}
             {provided.placeholder}
           </div>
@@ -252,7 +282,7 @@ function StageColumn({ stage, mentees, isDropDisabled = false, dragDisabled = fa
   );
 }
 
-function MenteeList({ mentees, title }) {
+function MenteeList({ mentees, title, onDelete }) {
   if (mentees.length === 0) {
     return (
       <div className="grid place-items-center rounded-[16px] border border-dashed border-[#EAEAEA] bg-white px-8 py-16 text-center">
@@ -266,8 +296,8 @@ function MenteeList({ mentees, title }) {
       <div className="border-b border-[#F0F0F0] px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#525252]">{title} · {mentees.length}</div>
       <ul className="divide-y divide-[#F0F0F0]">
         {mentees.map((m) => (
-          <li key={m.id}>
-            <Link href={`/livehost/mentoring/mentees/${m.id}`} className="flex items-center justify-between gap-4 px-5 py-3 transition-colors hover:bg-[#FAFAFA]">
+          <li key={m.id} className="group flex items-center transition-colors hover:bg-[#FAFAFA]">
+            <Link href={`/livehost/mentoring/mentees/${m.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-4 px-5 py-3">
               <div className="min-w-0">
                 <div className="truncate text-[13.5px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">{m.full_name}</div>
                 <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-[#737373]">
@@ -281,6 +311,17 @@ function MenteeList({ mentees, title }) {
                 {m.enrolled_at_human && <div className="shrink-0 text-[11px] text-[#A3A3A3]">{m.enrolled_at_human}</div>}
               </div>
             </Link>
+            {typeof onDelete === 'function' && (
+              <button
+                type="button"
+                onClick={() => onDelete(m)}
+                aria-label={`Remove ${m.full_name}`}
+                title="Remove from program"
+                className="mr-3 shrink-0 rounded-md p-1.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#FEE2E2] hover:text-[#B91C1C] group-hover:opacity-100"
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={2} />
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -300,6 +341,29 @@ function HeroEmpty({ onEnrol, hasHosts }) {
         <UserPlus className="h-3.5 w-3.5" strokeWidth={2} />
         {hasHosts ? 'Enrol your first mentee' : 'No hosts available'}
       </Button>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ mentee, busy, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="w-full max-w-sm rounded-[16px] bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+        <div className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
+          <Trash2 className="h-4 w-4 text-[#B91C1C]" strokeWidth={2.25} />
+          Remove mentee
+        </div>
+        <p className="mt-2 text-[13px] leading-relaxed text-[#737373]">
+          Permanently remove <span className="font-medium text-[#0A0A0A]">{mentee.full_name}</span> and all their mentoring
+          data (scores, checklist, history) from this program. The host&rsquo;s account is kept. This cannot be undone.
+        </p>
+        <div className="mt-5 flex justify-end gap-2 border-t border-[#F0F0F0] pt-4">
+          <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>Cancel</Button>
+          <Button type="button" disabled={busy} onClick={onConfirm} className="bg-[#B91C1C] text-white hover:bg-[#991B1B] disabled:opacity-50">
+            {busy ? 'Removing…' : 'Remove'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

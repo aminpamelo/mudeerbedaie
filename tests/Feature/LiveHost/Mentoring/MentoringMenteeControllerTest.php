@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeMonthlyScore;
 use App\Models\LiveHostMenteeStage;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
+use App\Services\Mentoring\MenteeStageTransition;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -203,4 +205,43 @@ it('loads a mentee detail page with KPI and level data', function () {
     ]);
 
     $this->actingAs(pic())->get("/livehost/mentoring/mentees/{$mentee->id}")->assertOk();
+});
+
+it('lets a PIC permanently remove a mentee but keeps the host account', function () {
+    $program = programWithLeader();
+    $host = liveHost();
+    $mentee = LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $host->id,
+        'current_stage_id' => $program->stages()->orderBy('position')->first()->id,
+        'status' => 'active',
+    ]);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
+    LiveHostMenteeMonthlyScore::create(['mentee_id' => $mentee->id, 'year' => 2026, 'month' => 5, 'attitude_score' => 80, 'sales_quantity' => 100]);
+    $mentee->checklistItems()->create(['title' => 'Task', 'is_required' => true, 'position' => 0, 'status' => 'pending']);
+    $mentee->history()->create(['from_stage_id' => null, 'to_stage_id' => $mentee->current_stage_id, 'action' => 'enrolled']);
+
+    $this->actingAs(pic())
+        ->delete("/livehost/mentoring/mentees/{$mentee->id}")
+        ->assertRedirect();
+
+    expect(LiveHostMentee::find($mentee->id))->toBeNull()
+        ->and(LiveHostMenteeMonthlyScore::where('mentee_id', $mentee->id)->count())->toBe(0)
+        ->and(LiveHostMenteeStage::where('mentee_id', $mentee->id)->count())->toBe(0)
+        ->and(User::find($host->id))->not->toBeNull();
+});
+
+it('blocks non-PIC roles from deleting a mentee', function () {
+    $program = programWithLeader();
+    $mentee = LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => liveHost()->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs(liveHost())
+        ->delete("/livehost/mentoring/mentees/{$mentee->id}")
+        ->assertForbidden();
+
+    expect(LiveHostMentee::find($mentee->id))->not->toBeNull();
 });
