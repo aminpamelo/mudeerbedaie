@@ -115,3 +115,49 @@ it('blocks a checklist item toggle across mentees', function () {
         ->patch("/livehost/mentoring/mentees/{$menteeA->id}/checklist/{$itemB->id}/toggle")
         ->assertNotFound();
 });
+
+it('tags a mentor-added task as a custom individual task with due date, note and required', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $mentee = LiveHostMentee::factory()->create(['program_id' => $program->id, 'mentee_user_id' => User::factory()->create(['role' => 'live_host'])->id]);
+
+    $this->actingAs(checklistPic())
+        ->post("/livehost/mentoring/mentees/{$mentee->id}/checklist", [
+            'title' => 'Practice TikTok hooks',
+            'description' => '3 reps before next live',
+            'is_required' => true,
+            'due_at' => now()->addDays(3)->toDateString(),
+        ])->assertRedirect();
+
+    $item = $mentee->checklistItems()->where('title', 'Practice TikTok hooks')->first();
+    expect($item->source)->toBe('custom')
+        ->and($item->is_required)->toBeTrue()
+        ->and($item->description)->toBe('3 reps before next live')
+        ->and($item->due_at)->not->toBeNull();
+});
+
+it('tags template-copied tasks with the template source at enrolment', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create([
+        'checklist_template' => [['title' => 'Task A', 'is_required' => true]],
+    ]);
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    $this->actingAs(checklistPic())
+        ->post("/livehost/mentoring/programs/{$program->id}/mentees", ['mentee_user_id' => $host->id])
+        ->assertRedirect();
+
+    $mentee = LiveHostMentee::where('mentee_user_id', $host->id)->first();
+    expect($mentee->checklistItems()->first()->source)->toBe('template');
+});
+
+it('exposes checklist source, due date and overdue flag via the mentee detail endpoint', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $mentee = LiveHostMentee::factory()->create(['program_id' => $program->id, 'mentee_user_id' => User::factory()->create(['role' => 'live_host'])->id]);
+    LiveHostMenteeChecklistItem::factory()->create(['mentee_id' => $mentee->id, 'source' => 'custom', 'due_at' => now()->subDay(), 'status' => 'pending']);
+
+    $res = $this->actingAs(checklistPic())->getJson("/livehost/mentoring/mentees/{$mentee->id}/detail");
+
+    $res->assertOk();
+    $custom = collect($res->json('checklist'))->firstWhere('source', 'custom');
+    expect($custom)->not->toBeNull()
+        ->and($custom['is_overdue'])->toBeTrue();
+});

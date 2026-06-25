@@ -380,64 +380,128 @@ function ActivityTab({ detail, loading, menteeId, programId, onChanged }) {
 }
 
 function ChecklistTab({ detail, loading, menteeId, onChanged }) {
-  const [newTitle, setNewTitle] = useState('');
-  const [busy, setBusy] = useState(false);
-
   if (loading && !detail) return <TabLoading />;
   const items = detail?.checklist ?? [];
   const total = items.length;
   const done = items.filter((c) => c.status === 'done').length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
+  const programTasks = items.filter((c) => c.source !== 'custom');
+  const individualTasks = items.filter((c) => c.source === 'custom');
+
   const toggle = (item) => router.patch(`/livehost/mentoring/mentees/${menteeId}/checklist/${item.id}/toggle`, {}, { preserveScroll: true, preserveState: true, onFinish: onChanged });
   const remove = (item) => { if (window.confirm('Remove this task?')) router.delete(`/livehost/mentoring/mentees/${menteeId}/checklist/${item.id}`, { preserveScroll: true, preserveState: true, onFinish: onChanged }); };
+
+  return (
+    <div className="space-y-4">
+      {/* Overall progress */}
+      <div className="rounded-[12px] border border-[#EAEAEA] bg-white p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[13px] font-semibold text-[#0A0A0A]"><ListChecks className="h-4 w-4 text-[#10B981]" strokeWidth={2.25} /> {done} of {total} done</div>
+          <span className="text-[12px] font-medium tabular-nums text-[#737373]">{pct}%</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-[#F0F0F0]"><div className="h-full rounded-full bg-[#10B981] transition-all" style={{ width: `${pct}%` }} /></div>
+      </div>
+
+      {/* Program tasks (from the template) */}
+      <div className="rounded-[12px] border border-[#EAEAEA] bg-white p-4">
+        <div className="flex items-baseline gap-2 text-[12px] font-semibold uppercase tracking-wide text-[#737373]">
+          Program tasks <span className="text-[#A3A3A3]">· {programTasks.length}</span>
+        </div>
+        <p className="mb-1 text-[11px] text-[#A3A3A3]">Standard tasks copied from the program checklist template.</p>
+        {programTasks.length === 0 ? (
+          <div className="py-4 text-center text-[12.5px] text-[#A3A3A3]">No program tasks.</div>
+        ) : (
+          <ul className="divide-y divide-[#F0F0F0]">
+            {programTasks.map((item) => <ChecklistRow key={item.id} item={item} onToggle={toggle} onRemove={remove} />)}
+          </ul>
+        )}
+      </div>
+
+      {/* Individual tasks (for this mentee only) */}
+      <div className="rounded-[12px] border border-[#10B981]/30 bg-[#ECFDF5]/40 p-4">
+        <div className="flex items-baseline gap-2 text-[12px] font-semibold uppercase tracking-wide text-[#047857]">
+          Individual tasks <span className="text-[#10B981]/70">· {individualTasks.length}</span>
+        </div>
+        <p className="mb-1 text-[11px] text-[#737373]">Personalised by the mentor for this mentee only.</p>
+        {individualTasks.length > 0 && (
+          <ul className="divide-y divide-[#10B981]/15">
+            {individualTasks.map((item) => <ChecklistRow key={item.id} item={item} onToggle={toggle} onRemove={remove} />)}
+          </ul>
+        )}
+        <AddIndividualTask menteeId={menteeId} onChanged={onChanged} hasItems={individualTasks.length > 0} />
+      </div>
+    </div>
+  );
+}
+
+function ChecklistRow({ item, onToggle, onRemove }) {
+  const isDone = item.status === 'done';
+  return (
+    <li className="group flex items-start gap-3 py-2.5">
+      <button type="button" onClick={() => onToggle(item)} className="mt-0.5 shrink-0" aria-label={isDone ? 'Mark not done' : 'Mark done'}>
+        {isDone ? <CheckCircle2 className="h-5 w-5 text-[#10B981]" strokeWidth={2} /> : <Circle className="h-5 w-5 text-[#D4D4D4] hover:text-[#10B981]" strokeWidth={2} />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className={['flex flex-wrap items-center gap-1.5 text-[13.5px]', isDone ? 'text-[#A3A3A3] line-through' : 'text-[#0A0A0A]'].join(' ')}>
+          <span>{item.title}</span>
+          {item.is_required && <span className="rounded bg-[#FEF3C7] px-1 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-[#B45309]">Required</span>}
+          {!isDone && item.due_at_human && (
+            <span className={['inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium', item.is_overdue ? 'bg-[#FEE2E2] text-[#B91C1C]' : 'bg-[#F5F5F5] text-[#525252]'].join(' ')}>
+              {item.is_overdue ? 'Overdue' : 'Due'} {item.due_at_human}
+            </span>
+          )}
+        </div>
+        {item.description && <div className="mt-0.5 text-[11.5px] text-[#737373]">{item.description}</div>}
+        {isDone && item.completed_at_human && <div className="mt-0.5 text-[11px] text-[#A3A3A3]">Done {item.completed_at_human}</div>}
+      </div>
+      <button type="button" onClick={() => onRemove(item)} className="shrink-0 rounded-md p-1.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#FFF1F2] hover:text-[#F43F5E] group-hover:opacity-100" title="Remove">
+        <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+      </button>
+    </li>
+  );
+}
+
+function AddIndividualTask({ menteeId, onChanged, hasItems }) {
+  const [title, setTitle] = useState('');
+  const [dueAt, setDueAt] = useState('');
+  const [note, setNote] = useState('');
+  const [required, setRequired] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   const add = () => {
-    if (!newTitle.trim()) return;
+    if (!title.trim()) return;
     setBusy(true);
-    router.post(`/livehost/mentoring/mentees/${menteeId}/checklist`, { title: newTitle, is_required: false }, {
-      preserveScroll: true,
-      preserveState: true,
-      onSuccess: () => setNewTitle(''),
-      onFinish: () => { setBusy(false); onChanged(); },
-    });
+    router.post(
+      `/livehost/mentoring/mentees/${menteeId}/checklist`,
+      { title, description: note || null, is_required: required, due_at: dueAt || null },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => { setTitle(''); setDueAt(''); setNote(''); setRequired(false); },
+        onFinish: () => { setBusy(false); onChanged(); },
+      },
+    );
   };
 
   return (
-    <div className="rounded-[12px] border border-[#EAEAEA] bg-white p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#0A0A0A]"><ListChecks className="h-4 w-4 text-[#10B981]" strokeWidth={2.25} /> {done} of {total} done</div>
-        <span className="text-[12px] font-medium tabular-nums text-[#737373]">{pct}%</span>
+    <div className={['rounded-lg border border-[#10B981]/25 bg-white p-3', hasItems ? 'mt-3' : 'mt-2'].join(' ')}>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#047857]">Add individual task</div>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="Task title…" className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-0.5 block text-[10.5px] font-medium uppercase tracking-wide text-[#A3A3A3]">Due (optional)</label>
+          <input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="w-full rounded-lg border border-[#EAEAEA] bg-white px-2.5 py-1.5 text-[12.5px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 self-end pb-1.5 text-[12.5px] text-[#0A0A0A]">
+          <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="h-4 w-4 accent-[#10B981]" />
+          Required
+        </label>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-[#F0F0F0]"><div className="h-full rounded-full bg-[#10B981] transition-all" style={{ width: `${pct}%` }} /></div>
-
-      <ul className="mt-4 divide-y divide-[#F0F0F0]">
-        {items.length === 0 && <li className="py-6 text-center text-[13px] text-[#A3A3A3]">No tasks yet.</li>}
-        {items.map((item) => {
-          const isDone = item.status === 'done';
-          return (
-            <li key={item.id} className="group flex items-center gap-3 py-2.5">
-              <button type="button" onClick={() => toggle(item)} className="shrink-0" aria-label={isDone ? 'Mark not done' : 'Mark done'}>
-                {isDone ? <CheckCircle2 className="h-5 w-5 text-[#10B981]" strokeWidth={2} /> : <Circle className="h-5 w-5 text-[#D4D4D4] hover:text-[#10B981]" strokeWidth={2} />}
-              </button>
-              <div className="min-w-0 flex-1">
-                <div className={['text-[13.5px]', isDone ? 'text-[#A3A3A3] line-through' : 'text-[#0A0A0A]'].join(' ')}>
-                  {item.title}
-                  {item.is_required && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#F59E0B]">Required</span>}
-                </div>
-                {isDone && item.completed_at_human && <div className="text-[11px] text-[#A3A3A3]">Done {item.completed_at_human}</div>}
-              </div>
-              <button type="button" onClick={() => remove(item)} className="shrink-0 rounded-md p-1.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#FFF1F2] hover:text-[#F43F5E] group-hover:opacity-100" title="Remove">
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="mt-4 flex items-center gap-2 border-t border-[#F0F0F0] pt-4">
-        <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="Add a task…" className="flex-1 rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
-        <Button type="button" disabled={busy || !newTitle.trim()} onClick={add} className="gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-50">
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> Add
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)…" className="mt-2 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[12.5px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+      <div className="mt-2 flex justify-end">
+        <Button type="button" size="sm" disabled={busy || !title.trim()} onClick={add} className="gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-50">
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> Add task
         </Button>
       </div>
     </div>

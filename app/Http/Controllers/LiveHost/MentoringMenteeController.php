@@ -252,10 +252,14 @@ class MentoringMenteeController extends Controller
             'checklist' => $mentee->checklistItems()->orderBy('position')->get()
                 ->map(fn (LiveHostMenteeChecklistItem $c) => [
                     'id' => $c->id,
+                    'source' => $c->source,
                     'title' => $c->title,
                     'description' => $c->description,
                     'is_required' => (bool) $c->is_required,
                     'status' => $c->status,
+                    'due_at' => $c->due_at?->toIso8601String(),
+                    'due_at_human' => $c->due_at?->diffForHumans(),
+                    'is_overdue' => $c->due_at && $c->due_at->isPast() && $c->status !== 'done',
                     'completed_at_human' => $c->completed_at?->diffForHumans(),
                 ])->values(),
             'monthlyScores' => $mentee->monthlyScores()
@@ -277,17 +281,23 @@ class MentoringMenteeController extends Controller
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'is_required' => ['nullable', 'boolean'],
+            'due_at' => ['nullable', 'date'],
         ]);
 
+        // Tasks added here are personalised for this mentee — not the program template.
         $mentee->checklistItems()->create([
+            'source' => 'custom',
             'title' => $data['title'],
+            'description' => $data['description'] ?? null,
             'is_required' => (bool) ($data['is_required'] ?? false),
+            'due_at' => $data['due_at'] ?? null,
             'position' => ((int) $mentee->checklistItems()->max('position')) + 1,
             'status' => 'pending',
         ]);
 
-        return back()->with('success', 'Task added.');
+        return back()->with('success', 'Individual task added.');
     }
 
     public function toggleChecklistItem(Request $request, LiveHostMentee $mentee, LiveHostMenteeChecklistItem $item): RedirectResponse
@@ -394,6 +404,7 @@ class MentoringMenteeController extends Controller
                     continue;
                 }
                 $mentee->checklistItems()->create([
+                    'source' => 'template',
                     'title' => $item['title'],
                     'is_required' => (bool) ($item['is_required'] ?? true),
                     'position' => $i,

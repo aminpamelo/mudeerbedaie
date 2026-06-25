@@ -13,7 +13,7 @@ class LiveHostMenteeChecklistItem extends Model
     protected $table = 'live_host_mentee_checklist_items';
 
     protected $fillable = [
-        'mentee_id', 'title', 'description', 'is_required',
+        'mentee_id', 'source', 'title', 'description', 'is_required',
         'status', 'position', 'due_at', 'completed_at', 'completed_by',
     ];
 
