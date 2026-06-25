@@ -1,5 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
-import { CheckCircle2, Circle, Crown, GraduationCap, MessageSquare, Minus, PartyPopper, TrendingDown, TrendingUp } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Circle, Crown, GraduationCap, MessageSquare, Minus, PartyPopper, Star, TrendingDown, TrendingUp } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { MONTH_SHORT_MS } from '@/livehost-pocket/lib/format';
 
@@ -125,7 +125,31 @@ function LevelLadder({ ladder }) {
   );
 }
 
+function TaskRow({ item }) {
+  const isDone = item.status === 'done';
+  return (
+    <li className="flex items-start gap-2.5">
+      {isDone ? <CheckCircle2 className="mt-px h-[18px] w-[18px] shrink-0 text-[var(--accent)]" strokeWidth={2} /> : <Circle className="mt-px h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <span className={`text-[13px] ${isDone ? 'text-[var(--fg-3)] line-through' : 'text-[var(--fg)]'}`}>{item.title}</span>
+          {item.is_required && !isDone && <span className="font-mono text-[9px] font-bold uppercase tracking-wide text-[var(--hot)]">Required</span>}
+          {item.due_at_human && (
+            <span className={`inline-flex items-center gap-1 text-[10.5px] ${item.is_overdue ? 'font-bold text-[var(--hot)]' : 'text-[var(--fg-3)]'}`}>
+              <CalendarClock className="h-3 w-3" strokeWidth={2} />{item.is_overdue ? `Overdue · ${item.due_at_human}` : item.due_at_human}
+            </span>
+          )}
+        </div>
+        {item.description && <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--fg-2)]">{item.description}</p>}
+      </div>
+    </li>
+  );
+}
+
 function ChecklistCard({ checklist }) {
+  const program = checklist.program ?? [];
+  const individual = checklist.individual ?? [];
+
   return (
     <div className="rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[16px]">
       <div className="mb-2 flex items-center justify-between">
@@ -135,21 +159,29 @@ function ChecklistCard({ checklist }) {
       <div className="h-2 overflow-hidden rounded-full bg-[var(--app-bg)]">
         <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${checklist.pct}%` }} />
       </div>
-      <ul className="mt-3 space-y-2">
-        {checklist.items.length === 0 && <li className="py-2 text-center text-[12.5px] text-[var(--fg-3)]">No tasks yet.</li>}
-        {checklist.items.map((item, i) => {
-          const isDone = item.status === 'done';
-          return (
-            <li key={i} className="flex items-center gap-2.5">
-              {isDone ? <CheckCircle2 className="h-[18px] w-[18px] shrink-0 text-[var(--accent)]" strokeWidth={2} /> : <Circle className="h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />}
-              <span className={`text-[13px] ${isDone ? 'text-[var(--fg-3)] line-through' : 'text-[var(--fg)]'}`}>
-                {item.title}
-                {item.is_required && !isDone && <span className="ml-1.5 font-mono text-[9px] font-bold uppercase tracking-wide text-[var(--hot)]">Required</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+
+      {checklist.total === 0 && <div className="py-4 text-center text-[12.5px] text-[var(--fg-3)]">No tasks yet.</div>}
+
+      {program.length > 0 && (
+        <>
+          <div className="mb-2 mt-4 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--fg-3)]">Program tasks</div>
+          <ul className="space-y-2.5">
+            {program.map((item, i) => <TaskRow key={i} item={item} />)}
+          </ul>
+        </>
+      )}
+
+      {individual.length > 0 && (
+        <>
+          <div className="mb-2 mt-4 flex items-center gap-1.5 border-t border-[var(--hair)] pt-3 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[#047857]">
+            <Star className="h-3 w-3" strokeWidth={2.5} />
+            Just for you · {checklist.individual_done}/{checklist.individual_total}
+          </div>
+          <ul className="space-y-2.5">
+            {individual.map((item, i) => <TaskRow key={i} item={item} />)}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

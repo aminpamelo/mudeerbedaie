@@ -66,6 +66,18 @@ class MentoringController extends Controller
         $done = $checklist->where('status', 'done')->count();
         $total = $checklist->count();
 
+        $mapTask = fn ($c) => [
+            'title' => $c->title,
+            'description' => $c->description,
+            'is_required' => (bool) $c->is_required,
+            'status' => $c->status,
+            'due_at_human' => $c->due_at?->diffForHumans(),
+            'is_overdue' => $c->due_at && $c->due_at->isPast() && $c->status !== 'done',
+        ];
+
+        $programTasks = $checklist->where('source', '!=', 'custom');
+        $individualTasks = $checklist->where('source', 'custom');
+
         // Level ladder — every active level with the mentee's progress marked.
         $currentLevel = $mentee->level;
         $ladder = LiveHostMentoringLevel::query()->active()->orderBy('position')->get()
@@ -109,11 +121,10 @@ class MentoringController extends Controller
                     'done' => $done,
                     'total' => $total,
                     'pct' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
-                    'items' => $checklist->map(fn ($c) => [
-                        'title' => $c->title,
-                        'is_required' => (bool) $c->is_required,
-                        'status' => $c->status,
-                    ])->values(),
+                    'program' => $programTasks->map($mapTask)->values(),
+                    'individual' => $individualTasks->map($mapTask)->values(),
+                    'individual_done' => $individualTasks->where('status', 'done')->count(),
+                    'individual_total' => $individualTasks->count(),
                 ],
                 'activities' => $mentee->activities->map(fn ($a) => [
                     'type' => $a->type,

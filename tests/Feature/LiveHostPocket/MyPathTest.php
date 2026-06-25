@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeChecklistItem;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
 use App\Services\Mentoring\MenteeStageTransition;
@@ -29,6 +30,37 @@ it('renders My Path with the enrollment for an enrolled host', function () {
             ->where('enrollment.program.title', $program->title)
             ->has('enrollment.stages', 5)
             ->has('enrollment.checklist')
+        );
+});
+
+it('splits the host checklist into program and individual tasks with overdue flags', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $mentee = LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $host->id,
+        'current_stage_id' => $program->stages()->orderBy('position')->first()->id,
+        'status' => 'active',
+    ]);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
+
+    LiveHostMenteeChecklistItem::factory()->create([
+        'mentee_id' => $mentee->id, 'source' => 'template', 'title' => 'Program step', 'status' => 'pending',
+    ]);
+    LiveHostMenteeChecklistItem::factory()->create([
+        'mentee_id' => $mentee->id, 'source' => 'custom', 'title' => 'Personal coaching', 'status' => 'pending',
+        'due_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($host)
+        ->get('/live-host/my-path')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('enrollment.checklist.program', 1)
+            ->has('enrollment.checklist.individual', 1)
+            ->where('enrollment.checklist.individual.0.title', 'Personal coaching')
+            ->where('enrollment.checklist.individual.0.is_overdue', true)
+            ->where('enrollment.checklist.individual_total', 1)
         );
 });
 
