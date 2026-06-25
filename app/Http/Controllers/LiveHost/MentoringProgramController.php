@@ -9,6 +9,7 @@ use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
 use App\Services\Mentoring\MenteeBoardPresenter;
 use App\Services\Mentoring\MentorActivityIndicator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,68 @@ class MentoringProgramController extends Controller
                 ->values(),
             'performance' => $this->performanceData($program),
             'board' => app(MenteeBoardPresenter::class)->forProgram($program),
+        ]);
+    }
+
+    /**
+     * Per-mentee checklist monitoring matrix for a program: the template task
+     * titles become the columns; every active mentee is a row showing which of
+     * those tasks they've completed, plus their own individual-task progress and
+     * an overall completion percentage.
+     */
+    public function checklistOverview(LiveHostMentoringProgram $program): JsonResponse
+    {
+        $columns = collect($program->checklist_template ?? [])
+            ->pluck('title')
+            ->filter()
+            ->values();
+
+        $mentees = $program->mentees()
+            ->where('status', 'active')
+            ->with(['menteeUser:id,name', 'currentStage:id,name', 'checklistItems'])
+            ->get()
+            ->map(function (LiveHostMentee $m) use ($columns) {
+                $items = $m->checklistItems;
+                $templateByTitle = $items->where('source', '!=', 'custom')->keyBy('title');
+                $custom = $items->where('source', 'custom');
+
+                $cells = $columns->mapWithKeys(function ($title) use ($templateByTitle) {
+                    $item = $templateByTitle->get($title);
+
+                    return [$title => $item ? ['id' => $item->id, 'status' => $item->status] : null];
+                });
+
+                $done = $items->where('status', 'done')->count();
+                $total = $items->count();
+
+                return [
+                    'id' => $m->id,
+                    'name' => $m->menteeUser?->name,
+                    'mentee_number' => $m->mentee_number,
+                    'stage' => $m->currentStage?->name,
+                    'done' => $done,
+                    'total' => $total,
+                    'pct' => $total ? (int) round($done / $total * 100) : 0,
+                    'cells' => $cells,
+                    'custom_done' => $custom->where('status', 'done')->count(),
+                    'custom_total' => $custom->count(),
+                    'custom_tasks' => $custom->sortBy('position')->values()->map(fn ($c) => [
+                        'id' => $c->id,
+                        'title' => $c->title,
+                        'description' => $c->description,
+                        'is_required' => (bool) $c->is_required,
+                        'status' => $c->status,
+                        'due_at' => $c->due_at?->format('Y-m-d'),
+                        'due_at_human' => $c->due_at?->diffForHumans(),
+                        'is_overdue' => $c->due_at && $c->due_at->isPast() && $c->status !== 'done',
+                    ])->all(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'columns' => $columns,
+            'mentees' => $mentees,
         ]);
     }
 

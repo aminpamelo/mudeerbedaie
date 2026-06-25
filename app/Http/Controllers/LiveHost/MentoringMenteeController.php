@@ -300,6 +300,27 @@ class MentoringMenteeController extends Controller
         return back()->with('success', 'Individual task added.');
     }
 
+    public function updateChecklistItem(Request $request, LiveHostMentee $mentee, LiveHostMenteeChecklistItem $item): RedirectResponse
+    {
+        abort_unless($item->mentee_id === $mentee->id, 404);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'is_required' => ['nullable', 'boolean'],
+            'due_at' => ['nullable', 'date'],
+        ]);
+
+        $item->update([
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'is_required' => (bool) ($data['is_required'] ?? false),
+            'due_at' => $data['due_at'] ?? null,
+        ]);
+
+        return back()->with('success', 'Individual task updated.');
+    }
+
     public function toggleChecklistItem(Request $request, LiveHostMentee $mentee, LiveHostMenteeChecklistItem $item): RedirectResponse
     {
         abort_unless($item->mentee_id === $mentee->id, 404);

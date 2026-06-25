@@ -87,6 +87,42 @@ it('adds and removes a per-mentee checklist item', function () {
     expect(LiveHostMenteeChecklistItem::find($item->id))->toBeNull();
 });
 
+it('updates an existing individual checklist item in place', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $mentee = LiveHostMentee::factory()->create(['program_id' => $program->id, 'mentee_user_id' => User::factory()->create(['role' => 'live_host'])->id]);
+    $item = LiveHostMenteeChecklistItem::factory()->create([
+        'mentee_id' => $mentee->id,
+        'source' => 'custom',
+        'title' => 'Old title',
+        'is_required' => false,
+    ]);
+
+    $this->actingAs(checklistPic())
+        ->patch("/livehost/mentoring/mentees/{$mentee->id}/checklist/{$item->id}", [
+            'title' => 'New title',
+            'description' => 'Updated note',
+            'is_required' => true,
+            'due_at' => now()->addDays(5)->toDateString(),
+        ])->assertRedirect();
+
+    $item->refresh();
+    expect($item->title)->toBe('New title')
+        ->and($item->description)->toBe('Updated note')
+        ->and($item->is_required)->toBeTrue()
+        ->and($item->due_at)->not->toBeNull();
+});
+
+it('blocks updating a checklist item across mentees', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $menteeA = LiveHostMentee::factory()->create(['program_id' => $program->id, 'mentee_user_id' => User::factory()->create(['role' => 'live_host'])->id]);
+    $menteeB = LiveHostMentee::factory()->create(['program_id' => $program->id, 'mentee_user_id' => User::factory()->create(['role' => 'live_host'])->id]);
+    $itemB = LiveHostMenteeChecklistItem::factory()->create(['mentee_id' => $menteeB->id]);
+
+    $this->actingAs(checklistPic())
+        ->patch("/livehost/mentoring/mentees/{$menteeA->id}/checklist/{$itemB->id}", ['title' => 'Hijack'])
+        ->assertNotFound();
+});
+
 it('persists an edited checklist template on the program', function () {
     $program = LiveHostMentoringProgram::factory()->create();
 

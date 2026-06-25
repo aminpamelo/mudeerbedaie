@@ -1,11 +1,13 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
   Calendar,
   Check,
+  ChevronDown,
+  ChevronRight,
   Flag,
   Gauge,
   Layers,
@@ -227,7 +229,7 @@ export default function ProgramEdit() {
           />
         )}
         {activeTab === 'stages' && <StageEditor program={program} stages={stages} />}
-        {activeTab === 'checklist' && <ChecklistTemplateEditor form={form} />}
+        {activeTab === 'checklist' && <ChecklistOverview program={program} form={form} />}
         {activeTab === 'activity' && <ActivitiesSection program={program} activities={activities} mentees={mentees} />}
         {activeTab === 'performance' && <MonthlyPerformanceTab performance={performance} />}
 
@@ -576,7 +578,348 @@ function StageEditor({ program, stages: initialStages }) {
   );
 }
 
-function ChecklistTemplateEditor({ form }) {
+/**
+ * The Checklist tab: a monitoring matrix of every active mentee × the program's
+ * template tasks (done / pending / not-on-their-list), with each mentee's
+ * individual-task progress and an overall percentage. The template itself is
+ * edited from a modal behind the "Edit template" button.
+ */
+function ChecklistOverview({ program, form }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(() => new Set());
+  const [drafts, setDrafts] = useState({});
+  const [editingTask, setEditingTask] = useState(null);
+  const [editDraft, setEditDraft] = useState({ title: '', due_at: '', is_required: false, description: '' });
+
+  const fetchMatrix = useCallback(() => {
+    fetch(`/livehost/mentoring/programs/${program.id}/checklist-overview`, {
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setData(d); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [program.id]);
+
+  useEffect(() => { fetchMatrix(); }, [fetchMatrix]);
+
+  const saveTemplate = () => {
+    form.transform((d) => ({ ...d, leader_user_id: d.leader_user_id || null, starts_at: d.starts_at || null, ends_at: d.ends_at || null }));
+    form.put(`/livehost/mentoring/programs/${program.id}`, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => { setEditing(false); fetchMatrix(); },
+    });
+  };
+
+  const toggleExpand = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const inertiaOpts = { preserveScroll: true, preserveState: true, onFinish: fetchMatrix };
+
+  const toggleItem = (menteeId, itemId) => {
+    if (!itemId) { return; }
+    router.patch(`/livehost/mentoring/mentees/${menteeId}/checklist/${itemId}/toggle`, {}, inertiaOpts);
+  };
+
+  const deleteCustom = (menteeId, itemId) => {
+    router.delete(`/livehost/mentoring/mentees/${menteeId}/checklist/${itemId}`, inertiaOpts);
+  };
+
+  const startEdit = (t) => {
+    setEditingTask(t.id);
+    setEditDraft({
+      title: t.title ?? '',
+      due_at: t.due_at ?? '',
+      is_required: !!t.is_required,
+      description: t.description ?? '',
+    });
+  };
+
+  const cancelEdit = () => { setEditingTask(null); };
+
+  const saveEdit = (menteeId, itemId) => {
+    if (!editDraft.title.trim()) { return; }
+    router.patch(`/livehost/mentoring/mentees/${menteeId}/checklist/${itemId}`, {
+      title: editDraft.title.trim(),
+      description: editDraft.description.trim() || null,
+      due_at: editDraft.due_at || null,
+      is_required: editDraft.is_required,
+    }, {
+      ...inertiaOpts,
+      onSuccess: () => setEditingTask(null),
+    });
+  };
+
+  const draftFor = (id) => drafts[id] ?? { title: '', due_at: '', is_required: false, description: '' };
+  const setDraft = (id, patch) => setDrafts((prev) => ({ ...prev, [id]: { ...draftFor(id), ...patch } }));
+
+  const addCustom = (menteeId) => {
+    const draft = draftFor(menteeId);
+    if (!draft.title.trim()) { return; }
+    router.post(`/livehost/mentoring/mentees/${menteeId}/checklist`, {
+      title: draft.title.trim(),
+      description: draft.description.trim() || null,
+      due_at: draft.due_at || null,
+      is_required: draft.is_required,
+    }, {
+      ...inertiaOpts,
+      onSuccess: () => setDrafts((prev) => ({ ...prev, [menteeId]: { title: '', due_at: '', is_required: false, description: '' } })),
+    });
+  };
+
+  const columns = data?.columns ?? [];
+  const mentees = data?.mentees ?? [];
+  const colSpan = columns.length + 3;
+
+  return (
+    <section className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#F0F0F0] p-5">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F5F5] text-[#525252]"><ListChecks className="h-4 w-4" strokeWidth={2} /></div>
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Checklist monitoring</h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">Every active mentee and the tasks they've completed.</p>
+          </div>
+        </div>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20" onClick={() => setEditing(true)}>
+          <Pencil className="h-3.5 w-3.5" strokeWidth={2} /> Edit template
+        </Button>
+      </div>
+
+      {loading && !data ? (
+        <div className="grid place-items-center py-16"><div className="h-5 w-5 animate-spin rounded-full border-2 border-[#E5E5E5] border-t-[#10B981]" /></div>
+      ) : mentees.length === 0 ? (
+        <div className="py-16 text-center text-[13px] text-[#A3A3A3]">No active mentees to monitor yet.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#F0F0F0]">
+                <th className="sticky left-0 z-10 bg-white px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-[#737373]">Mentee</th>
+                {columns.map((title) => (
+                  <th key={title} className="px-2 py-3 text-center text-[11px] font-medium text-[#737373]" title={title}>
+                    <div className="mx-auto max-w-[72px] truncate">{title}</div>
+                  </th>
+                ))}
+                <th className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-[#047857]" title="Individual (custom) tasks for this mentee">Individual</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-[#737373]">Progress</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F5F5F5]">
+              {mentees.map((m) => {
+                const isOpen = expanded.has(m.id);
+                const draft = draftFor(m.id);
+                return (
+                <Fragment key={m.id}>
+                <tr className={`group ${isOpen ? 'bg-[#FAFAFA]' : 'hover:bg-[#FAFAFA]'}`}>
+                  <td className={`sticky left-0 z-10 px-4 py-3 ${isOpen ? 'bg-[#FAFAFA]' : 'bg-white group-hover:bg-[#FAFAFA]'}`}>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(m.id)}
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[#A3A3A3] hover:bg-[#EFEFEF] hover:text-[#525252]"
+                        aria-label={isOpen ? 'Collapse individual checklist' : 'Expand individual checklist'}
+                      >
+                        {isOpen ? <ChevronDown className="h-4 w-4" strokeWidth={2.25} /> : <ChevronRight className="h-4 w-4" strokeWidth={2.25} />}
+                      </button>
+                      <Link href={`/livehost/mentoring/mentees/${m.id}`} className="block min-w-0">
+                        <div className="truncate text-[13px] font-semibold text-[#0A0A0A] hover:underline">{m.name}</div>
+                        <div className="text-[11px] text-[#A3A3A3]">{m.stage ?? '—'}</div>
+                      </Link>
+                    </div>
+                  </td>
+                  {columns.map((title) => {
+                    const cell = m.cells?.[title];
+                    const status = cell?.status ?? 'na';
+                    if (!cell) {
+                      return <td key={title} className="px-2 py-3 text-center"><span className="text-[#E5E5E5]">–</span></td>;
+                    }
+                    return (
+                      <td key={title} className="px-2 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => toggleItem(m.id, cell.id)}
+                          title={status === 'done' ? 'Mark as not done' : 'Mark as done'}
+                          className={`mx-auto grid h-6 w-6 place-items-center rounded-md transition-colors ${status === 'done' ? 'bg-[#ECFDF5] text-[#10B981] hover:bg-[#D1FAE5]' : 'text-[#D4D4D4] hover:bg-[#F0F0F0] hover:text-[#10B981]'}`}
+                        >
+                          {status === 'done'
+                            ? <Check className="h-4 w-4" strokeWidth={2.5} />
+                            : <span className="block h-2.5 w-2.5 rounded-full border border-current" />}
+                        </button>
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-3 text-center">
+                    {m.custom_total > 0 ? (
+                      <button type="button" onClick={() => toggleExpand(m.id)} className="inline-flex items-center rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#047857] hover:bg-[#D1FAE5]">{m.custom_done}/{m.custom_total}</button>
+                    ) : (
+                      <span className="text-[11px] text-[#D4D4D4]">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[#F0F0F0]"><div className="h-full rounded-full bg-[#10B981]" style={{ width: `${m.pct}%` }} /></div>
+                      <span className="w-9 text-right text-[12px] font-medium tabular-nums text-[#525252]">{m.pct}%</span>
+                    </div>
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr className="bg-[#FBFBFB]">
+                    <td colSpan={colSpan} className="px-4 pb-5 pt-1">
+                      <div className="ml-8 rounded-[12px] border border-[#EDEDED] bg-white p-4">
+                        <div className="mb-3 flex items-center gap-1.5">
+                          <Star className="h-3.5 w-3.5 text-[#047857]" strokeWidth={2} />
+                          <span className="text-[12px] font-semibold text-[#0A0A0A]">Individual checklist</span>
+                          <span className="text-[11px] text-[#A3A3A3]">· tasks unique to {m.name?.split(' ')[0] ?? 'this mentee'}</span>
+                        </div>
+
+                        {(m.custom_tasks?.length ?? 0) > 0 ? (
+                          <ul className="mb-3 space-y-1.5">
+                            {m.custom_tasks.map((t) => (
+                              editingTask === t.id ? (
+                              <li key={t.id} className="rounded-lg border border-[#10B981]/40 bg-[#F0FDF9] p-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                  <div className="flex-1">
+                                    <Label className="mb-1 block text-[11px] text-[#737373]">Task</Label>
+                                    <Input
+                                      value={editDraft.title}
+                                      onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(m.id, t.id); } }}
+                                      autoFocus
+                                      className="h-9"
+                                    />
+                                  </div>
+                                  <div className="sm:w-40">
+                                    <Label className="mb-1 block text-[11px] text-[#737373]">Due date</Label>
+                                    <Input type="date" value={editDraft.due_at} onChange={(e) => setEditDraft((d) => ({ ...d, due_at: e.target.value }))} className="h-9" />
+                                  </div>
+                                  <label className="flex h-9 items-center gap-1.5 text-[12px] text-[#525252]">
+                                    <input type="checkbox" checked={editDraft.is_required} onChange={(e) => setEditDraft((d) => ({ ...d, is_required: e.target.checked }))} className="h-3.5 w-3.5 rounded border-[#D4D4D4] text-[#10B981] focus:ring-[#10B981]/30" />
+                                    Required
+                                  </label>
+                                </div>
+                                <Input
+                                  value={editDraft.description}
+                                  onChange={(e) => setEditDraft((d) => ({ ...d, description: e.target.value }))}
+                                  placeholder="Note (optional)"
+                                  className="mt-2 h-9"
+                                />
+                                <div className="mt-2 flex justify-end gap-2">
+                                  <Button type="button" size="sm" variant="ghost" onClick={cancelEdit} className="h-8">Cancel</Button>
+                                  <Button type="button" size="sm" onClick={() => saveEdit(m.id, t.id)} disabled={!editDraft.title.trim()} className="h-8 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-40">
+                                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> Save
+                                  </Button>
+                                </div>
+                              </li>
+                              ) : (
+                              <li key={t.id} className="group/task flex items-start gap-2.5 rounded-lg border border-[#F0F0F0] px-3 py-2 hover:border-[#E5E5E5]">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleItem(m.id, t.id)}
+                                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${t.status === 'done' ? 'border-[#10B981] bg-[#10B981] text-white' : 'border-[#D4D4D4] text-transparent hover:border-[#10B981]'}`}
+                                  aria-label={t.status === 'done' ? 'Mark as not done' : 'Mark as done'}
+                                >
+                                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className={`text-[12.5px] font-medium ${t.status === 'done' ? 'text-[#A3A3A3] line-through' : 'text-[#0A0A0A]'}`}>{t.title}</span>
+                                    {t.is_required && <span className="rounded bg-[#FEF2F2] px-1.5 py-0.5 text-[10px] font-semibold text-[#DC2626]">Required</span>}
+                                    {t.due_at_human && <span className={`inline-flex items-center gap-1 text-[10.5px] ${t.is_overdue ? 'font-semibold text-[#DC2626]' : 'text-[#A3A3A3]'}`}><Calendar className="h-3 w-3" strokeWidth={2} />{t.due_at_human}</span>}
+                                  </div>
+                                  {t.description && <p className="mt-0.5 text-[11.5px] text-[#737373]">{t.description}</p>}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-0.5">
+                                  <button type="button" onClick={() => startEdit(t)} className="mt-0.5 rounded-md p-1 text-[#C4C4C4] hover:bg-[#F0F0F0] hover:text-[#525252]" aria-label="Edit task">
+                                    <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+                                  </button>
+                                  <button type="button" onClick={() => deleteCustom(m.id, t.id)} className="mt-0.5 rounded-md p-1 text-[#C4C4C4] hover:bg-[#FEF2F2] hover:text-[#DC2626]" aria-label="Delete task">
+                                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                                  </button>
+                                </div>
+                              </li>
+                              )
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mb-3 text-[12px] text-[#A3A3A3]">No individual tasks yet. Add one below.</p>
+                        )}
+
+                        <div className="rounded-lg border border-dashed border-[#E0E0E0] bg-[#FAFAFA] p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="flex-1">
+                              <Label className="mb-1 block text-[11px] text-[#737373]">Task</Label>
+                              <Input
+                                value={draft.title}
+                                onChange={(e) => setDraft(m.id, { title: e.target.value })}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(m.id); } }}
+                                placeholder="e.g. Practice TikTok hooks"
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="sm:w-40">
+                              <Label className="mb-1 block text-[11px] text-[#737373]">Due date</Label>
+                              <Input type="date" value={draft.due_at} onChange={(e) => setDraft(m.id, { due_at: e.target.value })} className="h-9" />
+                            </div>
+                            <label className="flex h-9 items-center gap-1.5 text-[12px] text-[#525252]">
+                              <input type="checkbox" checked={draft.is_required} onChange={(e) => setDraft(m.id, { is_required: e.target.checked })} className="h-3.5 w-3.5 rounded border-[#D4D4D4] text-[#10B981] focus:ring-[#10B981]/30" />
+                              Required
+                            </label>
+                            <Button type="button" size="sm" onClick={() => addCustom(m.id)} disabled={!draft.title.trim()} className="h-9 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-40">
+                              <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Add
+                            </Button>
+                          </div>
+                          <Input
+                            value={draft.description}
+                            onChange={(e) => setDraft(m.id, { description: e.target.value })}
+                            placeholder="Note (optional)"
+                            className="mt-2 h-9"
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget && !form.processing) setEditing(false); }}>
+          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+            <div className="flex items-center justify-between border-b border-[#F0F0F0] px-5 py-4">
+              <div className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">Edit checklist template</div>
+              <button type="button" onClick={() => setEditing(false)} className="rounded-md p-1 text-[#737373] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]" aria-label="Close"><X className="h-4 w-4" strokeWidth={2} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5"><ChecklistTemplateEditor form={form} embedded /></div>
+            <div className="flex items-center justify-between gap-2 border-t border-[#F0F0F0] px-5 py-4">
+              <p className="text-[11.5px] text-[#A3A3A3]">Edits apply to mentees enrolled from now on.</p>
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" disabled={form.processing} onClick={() => setEditing(false)}>Cancel</Button>
+                <Button type="button" disabled={form.processing} onClick={saveTemplate} className="bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-50">{form.processing ? 'Saving…' : 'Save template'}</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ChecklistTemplateEditor({ form, embedded = false }) {
   const items = form.data.checklist_template ?? [];
   const setItems = (next) => form.setData('checklist_template', next);
   const addItem = () => setItems([...items, { title: '', is_required: true }]);
@@ -590,6 +933,49 @@ function ChecklistTemplateEditor({ form }) {
     [next[i], next[target]] = [next[target], next[i]];
     setItems(next);
   };
+
+  const list = items.length === 0 ? (
+    <div className="rounded-[12px] border border-dashed border-[#E5E5E5] bg-[#FAFAFA] py-10 text-center text-[12.5px] text-[#A3A3A3]">
+      No template tasks. Mentees will start with an empty checklist.
+    </div>
+  ) : (
+    <ul className="space-y-2">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-center gap-2 rounded-[10px] border border-[#EAEAEA] bg-white p-2">
+          <div className="flex flex-col">
+            <button type="button" onClick={() => move(i, 'up')} disabled={i === 0} className="inline-flex h-5 w-5 items-center justify-center rounded text-[#737373] hover:bg-[#F0F0F0] disabled:opacity-30">
+              <ArrowUp className="h-3 w-3" strokeWidth={2} />
+            </button>
+            <button type="button" onClick={() => move(i, 'down')} disabled={i === items.length - 1} className="inline-flex h-5 w-5 items-center justify-center rounded text-[#737373] hover:bg-[#F0F0F0] disabled:opacity-30">
+              <ArrowDown className="h-3 w-3" strokeWidth={2} />
+            </button>
+          </div>
+          <Input value={item.title} onChange={(e) => updateTitle(i, e.target.value)} placeholder="Task title" className={`flex-1 ${FIELD_INPUT_CLASS}`} />
+          <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#EAEAEA] bg-white px-2.5 py-2 text-[11.5px] text-[#0A0A0A] hover:bg-[#F9FAFB]">
+            <input type="checkbox" checked={!!item.is_required} onChange={() => toggleReq(i)} className="h-3.5 w-3.5 rounded border-[#D4D4D4] accent-[#059669]" />
+            Required
+          </label>
+          <button type="button" onClick={() => remove(i)} className="shrink-0 rounded-md p-1.5 text-[#A3A3A3] hover:bg-[#FFF1F2] hover:text-[#F43F5E]" title="Remove">
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
+  if (embedded) {
+    return (
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-[12px] text-[#737373]">Tasks copied onto each mentee when they're enrolled.</p>
+          <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 rounded-lg shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20" onClick={addItem}>
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> Add task
+          </Button>
+        </div>
+        {list}
+      </div>
+    );
+  }
 
   return (
     <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -610,35 +996,7 @@ function ChecklistTemplateEditor({ form }) {
           <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> Add task
         </Button>
       </div>
-
-      {items.length === 0 ? (
-        <div className="rounded-[12px] border border-dashed border-[#E5E5E5] bg-[#FAFAFA] py-10 text-center text-[12.5px] text-[#A3A3A3]">
-          No template tasks. Mentees will start with an empty checklist.
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((item, i) => (
-            <li key={i} className="flex items-center gap-2 rounded-[10px] border border-[#EAEAEA] bg-white p-2">
-              <div className="flex flex-col">
-                <button type="button" onClick={() => move(i, 'up')} disabled={i === 0} className="inline-flex h-5 w-5 items-center justify-center rounded text-[#737373] hover:bg-[#F0F0F0] disabled:opacity-30">
-                  <ArrowUp className="h-3 w-3" strokeWidth={2} />
-                </button>
-                <button type="button" onClick={() => move(i, 'down')} disabled={i === items.length - 1} className="inline-flex h-5 w-5 items-center justify-center rounded text-[#737373] hover:bg-[#F0F0F0] disabled:opacity-30">
-                  <ArrowDown className="h-3 w-3" strokeWidth={2} />
-                </button>
-              </div>
-              <Input value={item.title} onChange={(e) => updateTitle(i, e.target.value)} placeholder="Task title" className={`flex-1 ${FIELD_INPUT_CLASS}`} />
-              <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#EAEAEA] bg-white px-2.5 py-2 text-[11.5px] text-[#0A0A0A] hover:bg-[#F9FAFB]">
-                <input type="checkbox" checked={!!item.is_required} onChange={() => toggleReq(i)} className="h-3.5 w-3.5 rounded border-[#D4D4D4] accent-[#059669]" />
-                Required
-              </label>
-              <button type="button" onClick={() => remove(i)} className="shrink-0 rounded-md p-1.5 text-[#A3A3A3] hover:bg-[#FFF1F2] hover:text-[#F43F5E]" title="Remove">
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {list}
     </section>
   );
 }

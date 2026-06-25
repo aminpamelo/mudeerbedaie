@@ -593,6 +593,8 @@ Route::middleware(['auth'])
                     ->name('programs.show');
                 Route::get('programs/{program}/edit', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'edit'])
                     ->name('programs.edit');
+                Route::get('programs/{program}/checklist-overview', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'checklistOverview'])
+                    ->name('programs.checklist-overview');
                 Route::put('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'update'])
                     ->name('programs.update');
                 Route::patch('programs/{program}/activate', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'activate'])
@@ -658,6 +660,8 @@ Route::middleware(['auth'])
                     ->name('mentees.checklist.store');
                 Route::patch('mentees/{mentee}/checklist/{item}/toggle', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'toggleChecklistItem'])
                     ->name('mentees.checklist.toggle');
+                Route::patch('mentees/{mentee}/checklist/{item}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateChecklistItem'])
+                    ->name('mentees.checklist.update');
                 Route::delete('mentees/{mentee}/checklist/{item}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'destroyChecklistItem'])
                     ->name('mentees.checklist.destroy');
 
