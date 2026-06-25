@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import {
   CheckCircle2,
+  Copy,
   Flag,
   GraduationCap,
   Pause,
@@ -70,6 +71,13 @@ export default function ProgramsIndex() {
       return;
     }
     router.delete(`/livehost/mentoring/programs/${program.id}`, { preserveScroll: true });
+  };
+
+  const handleDuplicate = (program) => {
+    if (!window.confirm(`Duplicate "${program.title}"? A new draft copy is created with the same stages and checklist (no mentees).`)) {
+      return;
+    }
+    router.post(`/livehost/mentoring/programs/${program.id}/duplicate`, {}, { preserveScroll: true });
   };
 
   const newProgramAction = (
@@ -181,6 +189,14 @@ export default function ProgramsIndex() {
                         >
                           <Users className="h-[12px] w-[12px]" strokeWidth={2.25} /> Mentees
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicate(program)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                          title="Duplicate program"
+                        >
+                          <Copy className="h-[14px] w-[14px]" strokeWidth={2} />
+                        </button>
                         {program.status === 'draft' && (
                           <button
                             type="button"

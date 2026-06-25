@@ -11,6 +11,7 @@ use App\Services\Mentoring\MenteeBoardPresenter;
 use App\Services\Mentoring\MentorActivityIndicator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -185,7 +186,7 @@ class MentoringProgramController extends Controller
                 'scores' => $m->monthlyScores->mapWithKeys(fn ($s) => [
                     $s->periodKey() => [
                         'attitude' => $s->attitude_score,
-                        'sales' => $s->sales_quantity,
+                        'sales' => $s->sales_quantity !== null ? (float) $s->sales_quantity : null,
                         'notes' => $s->notes,
                     ],
                 ]),
@@ -256,6 +257,48 @@ class MentoringProgramController extends Controller
         return redirect()
             ->route('livehost.mentoring.programs.index')
             ->with('success', "Program \"{$title}\" deleted.");
+    }
+
+    /**
+     * Clone a program's template (stages + checklist) into a fresh draft copy.
+     * Instance data (mentees, activities, leader runtime, dates) is not copied.
+     */
+    public function duplicate(Request $request, LiveHostMentoringProgram $program): RedirectResponse
+    {
+        $copy = DB::transaction(function () use ($program, $request) {
+            $title = $program->title.' (Copy)';
+
+            $new = LiveHostMentoringProgram::create([
+                'title' => $title,
+                'slug' => $this->uniqueSlugFor($title),
+                'description' => $program->description,
+                'status' => 'draft',
+                'leader_user_id' => $program->leader_user_id,
+                'starts_at' => null,
+                'ends_at' => null,
+                'created_by' => $request->user()->id,
+                'checklist_template' => $program->checklist_template,
+            ]);
+
+            // Creating a program auto-seeds the default stages; replace them with
+            // the source program's actual stages so customisations carry over.
+            $new->stages()->delete();
+
+            foreach ($program->stages()->orderBy('position')->get() as $stage) {
+                $new->stages()->create([
+                    'position' => $stage->position,
+                    'name' => $stage->name,
+                    'description' => $stage->description,
+                    'is_final' => $stage->is_final,
+                ]);
+            }
+
+            return $new;
+        });
+
+        return redirect()
+            ->route('livehost.mentoring.programs.edit', $copy)
+            ->with('success', "Program duplicated as \"{$copy->title}\". Review the copy, then activate when ready.");
     }
 
     /**

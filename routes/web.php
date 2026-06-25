@@ -601,6 +601,8 @@ Route::middleware(['auth'])
                     ->name('programs.pause');
                 Route::patch('programs/{program}/complete', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'complete'])
                     ->name('programs.complete');
+                Route::post('programs/{program}/duplicate', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'duplicate'])
+                    ->name('programs.duplicate');
                 Route::delete('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'destroy'])
                     ->name('programs.destroy');
 
@@ -642,6 +644,8 @@ Route::middleware(['auth'])
                     ->name('mentees.drop');
                 Route::patch('mentees/{mentee}/restore', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'restore'])
                     ->name('mentees.restore');
+                Route::delete('mentees/{mentee}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'destroy'])
+                    ->name('mentees.destroy');
                 Route::post('mentees/{mentee}/graduate', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'graduate'])
                     ->name('mentees.graduate');
                 Route::patch('mentees/{mentee}/level', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'assignLevel'])
