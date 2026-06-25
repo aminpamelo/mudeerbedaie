@@ -125,7 +125,7 @@ class HrOvertimeController extends Controller
                     'employees_on_ot' => $employeesOnOt,
                     'replacement_earned' => round($replacementEarned, 1),
                     'replacement_used' => round($replacementUsed, 1),
-                    'replacement_balance' => round($replacementEarned - $replacementUsed, 1),
+                    'replacement_balance' => round($replacementEarned - $replacementUsed + $adjustmentTotal, 1),
                 ],
                 'status_breakdown' => $statusBreakdown,
                 'by_department' => $byDepartment,
@@ -190,7 +190,7 @@ class HrOvertimeController extends Controller
                 'completed_hours' => $completedHours,
                 'adjustment_hours' => $adjustmentHours,
                 'ot_hours' => round($completedHours + $adjustmentHours, 1),
-                'replacement_balance' => round((float) ($agg->replacement_earned ?? 0) - (float) ($agg->replacement_used ?? 0), 1),
+                'replacement_balance' => round((float) ($agg->replacement_earned ?? 0) - (float) ($agg->replacement_used ?? 0) + $adjustmentHours, 1),
                 'last_date' => $agg->last_date ?? ($adj->last_adjustment ?? null),
             ];
         })->values();
