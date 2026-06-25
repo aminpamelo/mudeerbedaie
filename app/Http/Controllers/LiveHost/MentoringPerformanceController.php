@@ -11,7 +11,7 @@ class MentoringPerformanceController extends Controller
 {
     /**
      * Record (or clear) a mentee's monthly KPI metrics — Attitude (0–100) and
-     * Sales (raw monthly quantity). Upserts on the unique (mentee, year, month)
+     * Sales (monthly RM value). Upserts on the unique (mentee, year, month)
      * so re-saving the same month just updates it. The Overall KPI is computed
      * from these against the mentee's level target, never stored.
      */
@@ -21,7 +21,7 @@ class MentoringPerformanceController extends Controller
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
             'month' => ['required', 'integer', 'min:1', 'max:12'],
             'attitude_score' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'sales_quantity' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'sales_quantity' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 

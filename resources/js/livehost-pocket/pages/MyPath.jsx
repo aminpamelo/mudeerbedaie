@@ -23,6 +23,11 @@ function monthLabel(year, month, withYear = false) {
   return withYear ? `${m} ${year}` : m;
 }
 
+/** Ringgit value with 2 decimals, e.g. "RM 2,909.00". */
+function rm(n) {
+  return `RM ${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function SectionTitle({ children }) {
   return (
     <div className="mb-2 mt-5 px-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
@@ -269,8 +274,8 @@ function MonthlyPerformance({ performance }) {
         <div className="rounded-[12px] bg-[var(--app-bg)] px-3 py-2.5">
           <div className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--fg-3)]">Sales</div>
           <div className="mt-1 font-display text-[18px] font-medium tabular-nums text-[var(--fg)]">
-            {latest.sales === null ? '—' : latest.sales}
-            {latest.sales !== null && target ? <span className="text-[12px] text-[var(--fg-3)]"> / {target}</span> : null}
+            {latest.sales === null ? '—' : rm(latest.sales)}
+            {latest.sales !== null && target ? <span className="text-[12px] text-[var(--fg-3)]"> / {rm(target)}</span> : null}
           </div>
           {latest.sales_pct !== null && (
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--hair)]">

@@ -41,8 +41,21 @@ it('records monthly KPI metrics for a mentee', function () {
         ->and($row->year)->toBe(2026)
         ->and($row->month)->toBe(5)
         ->and($row->attitude_score)->toBe(82)
-        ->and($row->sales_quantity)->toBe(140)
+        ->and((float) $row->sales_quantity)->toBe(140.0)
         ->and($row->notes)->toBe('Strong month');
+});
+
+it('stores the sales RM value with sen (2 decimals)', function () {
+    $mentee = perfMentee();
+
+    $this->actingAs(perfPic())
+        ->patch("/livehost/mentoring/mentees/{$mentee->id}/monthly-score", [
+            'year' => 2026, 'month' => 6, 'sales_quantity' => 2909.50,
+        ])
+        ->assertRedirect();
+
+    $row = LiveHostMenteeMonthlyScore::where('mentee_id', $mentee->id)->first();
+    expect((float) $row->sales_quantity)->toBe(2909.50);
 });
 
 it('redirects back instead of returning 204 so Inertia does not show a blank modal', function () {

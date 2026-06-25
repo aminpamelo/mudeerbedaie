@@ -122,7 +122,7 @@ function LevelModal({ level, onClose }) {
 
           <div className="rounded-[12px] border border-[#F0F0F0] bg-[#FAFAFA] p-4">
             <Label className="text-[12px] font-medium text-[#0A0A0A]">
-              Monthly sales target <span className="font-normal text-[#A3A3A3]">(units — drives the Sales KPI on the monthly performance grid)</span>
+              Monthly sales target <span className="font-normal text-[#A3A3A3]">(RM — drives the Sales KPI on the monthly performance grid)</span>
             </Label>
             <Input
               type="number"
@@ -130,7 +130,7 @@ function LevelModal({ level, onClose }) {
               value={draft.monthly_sales_target}
               onChange={(e) => set('monthly_sales_target', e.target.value)}
               className="mt-1 bg-white tabular-nums"
-              placeholder="e.g. 120"
+              placeholder="e.g. 3000"
             />
             {errors.monthly_sales_target && <p className="mt-1 text-xs text-[#F43F5E]">{errors.monthly_sales_target}</p>}
           </div>
@@ -267,7 +267,7 @@ export default function LevelsIndex() {
                       {thresholdSummary(level)}
                       {level.monthly_sales_target != null && (
                         <div className="mt-0.5 text-[11px] text-[#737373]">
-                          Sales KPI target: <span className="font-medium tabular-nums text-[#0A0A0A]">{level.monthly_sales_target}</span>/mo
+                          Sales KPI target: <span className="font-medium tabular-nums text-[#0A0A0A]">RM {Number(level.monthly_sales_target).toLocaleString()}</span>/mo
                         </div>
                       )}
                     </td>

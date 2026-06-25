@@ -679,11 +679,19 @@ function monthAbbr(mo) {
   return (mo.label || '').split(' ')[0] || String(mo.month);
 }
 
-/** Compact, thousands-separated count for the Sales figure in a matrix cell. */
-function formatCount(n) {
+/** Full Ringgit value with 2 decimals, e.g. "RM 2,909.00" (editor + tooltips). */
+function formatRM(n) {
   const num = Number(n);
   if (Number.isNaN(num)) return '–';
-  return num.toLocaleString();
+  return `RM ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Compact Ringgit for the dense matrix cell: whole RM stays short, sen shown only when present. */
+function formatRMCompact(n) {
+  const num = Number(n);
+  if (Number.isNaN(num)) return '–';
+  const hasSen = Math.round(num) !== num;
+  return `RM ${num.toLocaleString(undefined, { minimumFractionDigits: hasSen ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
 function MonthlyPerformanceTab({ performance }) {
@@ -750,7 +758,7 @@ function MonthlyPerformanceTab({ performance }) {
           </div>
           <div>
             <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Monthly performance</h2>
-            <p className="mt-0.5 text-[12px] text-[#737373]">Each cell shows the host's <span className="font-semibold text-[#0A0A0A]">Sales</span> (top) and <span className="font-medium text-[#525252]">Attitude</span> below; the colour is their Overall KPI. Click a cell to edit. Auto-saves.</p>
+            <p className="mt-0.5 text-[12px] text-[#737373]">Each cell shows the host's <span className="font-semibold text-[#0A0A0A]">Sales (RM)</span> (top) and <span className="font-medium text-[#525252]">Attitude</span> below; the colour is their Overall KPI. Click a cell to edit. Auto-saves.</p>
           </div>
         </div>
         <div className="relative w-full max-w-[260px] sm:w-[240px]">
@@ -828,7 +836,7 @@ function MonthlyPerformanceTab({ performance }) {
                           <button
                             type="button"
                             onClick={(e) => setEditing({ menteeId: m.id, month: mo, rect: e.currentTarget.getBoundingClientRect() })}
-                            title={`${m.name} · ${mo.label} · Sales ${sales ?? '—'}${target ? ` / ${target}` : ''} · Attitude ${attitude ?? '—'} · Overall ${ov != null ? `${ov}%` : '—'}`}
+                            title={`${m.name} · ${mo.label} · Sales ${sales !== null ? formatRM(sales) : '—'}${target ? ` / ${formatRM(target)}` : ''} · Attitude ${attitude ?? '—'} · Overall ${ov != null ? `${ov}%` : '—'}`}
                             className={[
                               'flex h-10 w-full min-w-[54px] flex-col items-center justify-center rounded-md leading-none transition-all',
                               tone.bg,
@@ -841,7 +849,7 @@ function MonthlyPerformanceTab({ performance }) {
                           >
                             {hasData ? (
                               <>
-                                <span className="text-[12.5px] font-bold tabular-nums">{sales !== null ? formatCount(sales) : '–'}</span>
+                                <span className="text-[12.5px] font-bold tabular-nums">{sales !== null ? formatRMCompact(sales) : '–'}</span>
                                 <span className="mt-[3px] text-[9px] font-semibold uppercase tracking-[0.04em] tabular-nums opacity-70">A {attitude !== null ? attitude : '–'}</span>
                               </>
                             ) : (
@@ -978,17 +986,18 @@ function CellEditor({ mentee, month, rect, target, initial, onSave, onClose }) {
           </span>
         </label>
         <label className="flex items-center justify-between gap-2">
-          <span className="text-[11.5px] font-medium text-[#525252]">Sales</span>
+          <span className="text-[11.5px] font-medium text-[#525252]">Sales (RM)</span>
           <span className="flex items-center gap-1">
             <input
               type="number"
               min="0"
+              step="0.01"
               value={draft.sales}
               onChange={(e) => change('sales', e.target.value)}
               placeholder="–"
-              className="h-9 w-20 rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-24 rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             />
-            <span className="w-12 text-[11px] text-[#A3A3A3]">{target ? `/ ${target}` : 'units'}</span>
+            <span className="w-16 whitespace-nowrap text-[11px] text-[#A3A3A3]">{target ? `/ ${formatRM(target)}` : 'RM'}</span>
           </span>
         </label>
         <input
@@ -1000,7 +1009,7 @@ function CellEditor({ mentee, month, rect, target, initial, onSave, onClose }) {
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-[10.5px] text-[#A3A3A3]">{target ? `Sales target ${target}/mo` : 'No sales target on this level'}</span>
+        <span className="text-[10.5px] text-[#A3A3A3]">{target ? `Sales target ${formatRM(target)}/mo` : 'No sales target on this level'}</span>
         <Button type="button" size="sm" onClick={onClose} className="h-8 gap-1.5 rounded-lg bg-[#0A0A0A] px-3 text-white hover:bg-[#262626]">
           <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> Done
         </Button>

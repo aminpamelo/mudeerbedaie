@@ -22,7 +22,7 @@ class LiveHostMenteeMonthlyScore extends Model
             'year' => 'integer',
             'month' => 'integer',
             'attitude_score' => 'integer',
-            'sales_quantity' => 'integer',
+            'sales_quantity' => 'decimal:2',
         ];
     }
 

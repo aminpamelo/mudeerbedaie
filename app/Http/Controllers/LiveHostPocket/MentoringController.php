@@ -138,7 +138,7 @@ class MentoringController extends Controller
 
         $scores = $mentee->monthlyScores->map(function ($s) use ($target): array {
             $attitude = $s->attitude_score !== null ? max(0, min(100, (int) $s->attitude_score)) : null;
-            $sales = $s->sales_quantity;
+            $sales = $s->sales_quantity !== null ? (float) $s->sales_quantity : null;
             $salesPct = ($sales !== null && $target && $target > 0)
                 ? min(100, (int) round(($sales / $target) * 100))
                 : null;
