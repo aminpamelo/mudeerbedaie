@@ -173,7 +173,18 @@ new class extends Component
             if ($this->cart) {
                 $cartData = $this->cart->cart_data ?? [];
                 $this->selectedProducts = $cartData['products'] ?? [];
-                $this->selectedBumps = $cartData['bumps'] ?? [];
+            }
+        }
+
+        // Order bumps start ticked only when the merchant turned on "Pre-checked
+        // by default". This setting is authoritative on every page load — we do
+        // NOT restore bump ticks from a persisted cart, so an unchecked-by-default
+        // bump can never be silently re-ticked by stale cart data. In-session
+        // toggles still persist via toggleBump()/saveCart() while the page is open.
+        $this->selectedBumps = [];
+        foreach ($this->step->orderBumps as $bump) {
+            if ($bump->is_checked_by_default) {
+                $this->selectedBumps[$bump->id] = true;
             }
         }
     }
