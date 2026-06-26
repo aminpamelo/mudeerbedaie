@@ -25,6 +25,7 @@ class FunnelController extends Controller
             ->with([
                 'steps' => fn ($q) => $q->orderBy('sort_order'),
                 'category',
+                'customDomain',
             ])
             ->withCount('steps')
             ->latest();
@@ -123,6 +124,7 @@ class FunnelController extends Controller
                 'steps.products',
                 'steps.orderBumps',
                 'category',
+                'customDomain',
             ])
             ->withCount(['sessions', 'orders'])
             ->firstOrFail();

@@ -138,9 +138,10 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
         }
     };
 
-    // Copy funnel URL
+    // Copy funnel URL — prefer the live custom domain / subdomain (funnel.url) so the
+    // shared link opens on the branded address; fall back to the platform /f/ path.
     const copyFunnelUrl = () => {
-        const url = `${window.location.origin}/f/${funnel.slug}`;
+        const url = funnel.url || `${window.location.origin}/f/${funnel.slug}`;
         navigator.clipboard.writeText(url);
         alert('Funnel URL copied to clipboard!');
     };
@@ -208,7 +209,7 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
                             </button>
                         )}
                         <a
-                            href={`/f/${funnel.slug}`}
+                            href={funnel.url || `/f/${funnel.slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium flex items-center gap-2"

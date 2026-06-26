@@ -8,6 +8,7 @@ use App\Models\Funnel;
 use App\Models\User;
 use App\Services\CloudflareCustomHostnameService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -97,6 +98,125 @@ test('user cannot add duplicate domain', function () {
 
     $response->assertUnprocessable()
         ->assertJsonValidationErrors('domain');
+});
+
+test('duplicate domain error names the owning funnel for its owner', function () {
+    $owned = Funnel::factory()->published()->create(['user_id' => $this->user->id, 'name' => 'Untuk Muslimah']);
+    $target = Funnel::factory()->published()->create(['user_id' => $this->user->id]);
+
+    CustomDomain::create([
+        'funnel_id' => $owned->id,
+        'user_id' => $this->user->id,
+        'domain' => 'untukmuwanita',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    $response = $this->actingAs($this->user, 'sanctum')
+        ->postJson("/api/v1/funnels/{$target->uuid}/custom-domain", [
+            'domain' => 'untukmuwanita',
+            'type' => 'subdomain',
+        ]);
+
+    $response->assertUnprocessable()->assertJsonValidationErrors('domain');
+    $message = $response->json('errors.domain.0');
+    expect($message)->toContain('Untuk Muslimah')
+        ->and($message)->toContain($owned->uuid);
+});
+
+test('duplicate domain owned by another account is not named for a non-admin', function () {
+    $other = User::factory()->create();
+    $otherFunnel = Funnel::factory()->published()->create(['user_id' => $other->id, 'name' => 'Secret Brand']);
+    $mine = Funnel::factory()->published()->create(['user_id' => $this->user->id]);
+
+    CustomDomain::create([
+        'funnel_id' => $otherFunnel->id,
+        'user_id' => $other->id,
+        'domain' => 'takenname',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    $response = $this->actingAs($this->user, 'sanctum')
+        ->postJson("/api/v1/funnels/{$mine->uuid}/custom-domain", [
+            'domain' => 'takenname',
+            'type' => 'subdomain',
+        ]);
+
+    $response->assertUnprocessable()->assertJsonValidationErrors('domain');
+    $message = $response->json('errors.domain.0');
+    expect($message)->not->toContain('Secret Brand')
+        ->and($message)->toContain('another account');
+});
+
+test('admin sees the owning funnel name even across accounts', function () {
+    $admin = User::factory()->admin()->create();
+    $other = User::factory()->create();
+    $otherFunnel = Funnel::factory()->published()->create(['user_id' => $other->id, 'name' => 'Cross Acct']);
+    $adminFunnel = Funnel::factory()->published()->create(['user_id' => $admin->id]);
+
+    CustomDomain::create([
+        'funnel_id' => $otherFunnel->id,
+        'user_id' => $other->id,
+        'domain' => 'crosstaken',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    $response = $this->actingAs($admin, 'sanctum')
+        ->postJson("/api/v1/funnels/{$adminFunnel->uuid}/custom-domain", [
+            'domain' => 'crosstaken',
+            'type' => 'subdomain',
+        ]);
+
+    $response->assertUnprocessable();
+    expect($response->json('errors.domain.0'))->toContain('Cross Acct');
+});
+
+test('soft-deleting a funnel releases its custom domain', function () {
+    $funnel = Funnel::factory()->published()->create(['user_id' => $this->user->id]);
+    $domain = CustomDomain::create([
+        'funnel_id' => $funnel->id,
+        'user_id' => $this->user->id,
+        'domain' => 'releaseme',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    $funnel->delete();
+
+    $this->assertSoftDeleted('custom_domains', ['id' => $domain->id]);
+});
+
+test('a subdomain orphaned by a deleted funnel can be reclaimed', function () {
+    $ghost = Funnel::factory()->published()->create();
+    CustomDomain::create([
+        'funnel_id' => $ghost->id,
+        'user_id' => $ghost->user_id,
+        'domain' => 'reclaimme',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    // Simulate a legacy orphan (funnel soft-deleted before the release fix existed):
+    // soft-delete the funnel directly so its still-live domain row is left behind.
+    DB::table('funnels')->where('id', $ghost->id)->update(['deleted_at' => now()]);
+
+    $newFunnel = Funnel::factory()->published()->create(['user_id' => $this->user->id]);
+
+    $response = $this->actingAs($this->user, 'sanctum')
+        ->postJson("/api/v1/funnels/{$newFunnel->uuid}/custom-domain", [
+            'domain' => 'reclaimme',
+            'type' => 'subdomain',
+        ]);
+
+    $response->assertCreated()->assertJsonPath('data.domain', 'reclaimme');
+    $this->assertDatabaseHas('custom_domains', ['funnel_id' => $newFunnel->id, 'domain' => 'reclaimme']);
 });
 
 test('user cannot add domain to funnel that already has one', function () {
@@ -233,6 +353,78 @@ test('user gets null when funnel has no domain', function () {
 
     $response->assertOk()
         ->assertJsonPath('data', null);
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Public URL — preview/copy use the live custom domain
+// ─────────────────────────────────────────────────────────────────
+
+test('public url uses an active subdomain for a published funnel', function () {
+    config(['services.cloudflare.subdomain_base' => 'kelasify.com']);
+    $funnel = Funnel::factory()->published()->create(['user_id' => $this->user->id, 'slug' => 'haid']);
+
+    CustomDomain::create([
+        'funnel_id' => $funnel->id,
+        'user_id' => $this->user->id,
+        'domain' => 'untukmuwanita',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    expect($funnel->fresh()->getPublicUrl())->toBe('https://untukmuwanita.kelasify.com');
+});
+
+test('public url falls back to /f/slug without an active domain', function () {
+    $funnel = Funnel::factory()->published()->create(['user_id' => $this->user->id, 'slug' => 'plainfunnel']);
+
+    expect($funnel->getPublicUrl())->toBe(url('/f/plainfunnel'));
+});
+
+test('public url ignores a pending domain and a draft funnel', function () {
+    config(['services.cloudflare.subdomain_base' => 'kelasify.com']);
+
+    $pending = Funnel::factory()->published()->create(['user_id' => $this->user->id, 'slug' => 'pendingfunnel']);
+    CustomDomain::create([
+        'funnel_id' => $pending->id,
+        'user_id' => $this->user->id,
+        'domain' => 'pendingbrand.com',
+        'type' => 'custom',
+        'cloudflare_hostname_id' => 'cf-x',
+        'verification_status' => 'pending',
+        'ssl_status' => 'pending',
+    ]);
+    expect($pending->fresh()->getPublicUrl())->toBe(url('/f/pendingfunnel'));
+
+    $draft = Funnel::factory()->draft()->create(['user_id' => $this->user->id, 'slug' => 'draftfunnel']);
+    CustomDomain::create([
+        'funnel_id' => $draft->id,
+        'user_id' => $this->user->id,
+        'domain' => 'draftbrand',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+    expect($draft->fresh()->getPublicUrl())->toBe(url('/f/draftfunnel'));
+});
+
+test('funnel api url reflects the active custom subdomain', function () {
+    config(['services.cloudflare.subdomain_base' => 'kelasify.com']);
+    $funnel = Funnel::factory()->published()->create(['user_id' => $this->user->id]);
+
+    CustomDomain::create([
+        'funnel_id' => $funnel->id,
+        'user_id' => $this->user->id,
+        'domain' => 'apibrand',
+        'type' => 'subdomain',
+        'verification_status' => 'active',
+        'ssl_status' => 'active',
+    ]);
+
+    $this->actingAs($this->user, 'sanctum')
+        ->getJson("/api/v1/funnels/{$funnel->uuid}")
+        ->assertOk()
+        ->assertJsonPath('data.url', 'https://apibrand.kelasify.com');
 });
 
 // ─────────────────────────────────────────────────────────────────

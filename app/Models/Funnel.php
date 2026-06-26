@@ -59,6 +59,15 @@ class Funnel extends Model
             $funnel->uuid = $funnel->uuid ?? Str::uuid()->toString();
             $funnel->slug = $funnel->slug ?? Str::slug($funnel->name).'-'.Str::random(6);
         });
+
+        static::deleted(function (Funnel $funnel) {
+            // The custom_domains FK cascades only on a hard delete. On a soft delete
+            // the row would survive and keep the subdomain/custom domain reserved
+            // forever, so release it explicitly to free the address for reuse.
+            if (! $funnel->isForceDeleting()) {
+                $funnel->customDomain()->delete();
+            }
+        });
     }
 
     // Relationships
@@ -192,6 +201,13 @@ class Funnel extends Model
     // URL helpers
     public function getPublicUrl(): string
     {
+        // Prefer the funnel's own custom domain / platform subdomain once it's live,
+        // so previews and shared links open on the branded address instead of /f/slug.
+        $domain = $this->customDomain;
+        if ($this->isPublished() && $domain && $domain->isActive()) {
+            return 'https://'.$domain->full_domain;
+        }
+
         return url("/f/{$this->slug}");
     }
 

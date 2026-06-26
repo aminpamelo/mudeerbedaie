@@ -63,13 +63,58 @@ class CustomDomainController extends Controller
             ], 422);
         }
 
+        // Reclaim any address left behind by a soft-deleted (or otherwise missing)
+        // funnel. The funnel_id cascade only fires on a hard delete, so these orphans
+        // can hold an address hostage with no funnel able to release it.
+        $requestedDomain = (string) $request->input('domain', '');
+        if ($requestedDomain !== '') {
+            CustomDomain::where('domain', $requestedDomain)
+                ->whereDoesntHave('funnel')
+                ->forceDelete();
+        }
+
+        $user = $request->user();
+
         $validated = $request->validate([
             'domain' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('custom_domains', 'domain')->whereNull('deleted_at'),
                 'regex:/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*[a-zA-Z0-9]$/',
+                // Replaces a plain unique rule so the "already taken" error can point
+                // the user to the exact funnel that holds the address.
+                function (string $attribute, mixed $value, \Closure $fail) use ($funnel, $user): void {
+                    $existing = CustomDomain::with('funnel:id,uuid,name,user_id')
+                        ->where('domain', $value)
+                        ->first();
+
+                    if (! $existing || $existing->funnel_id === $funnel->id) {
+                        return;
+                    }
+
+                    $owner = $existing->funnel;
+
+                    // Orphaned row whose funnel was deleted — the user can't free it via the UI.
+                    if (! $owner) {
+                        $fail('This address is held by a leftover record from a deleted funnel. Please contact an admin to release it.');
+
+                        return;
+                    }
+
+                    // Only reveal the owning funnel to its owner or an admin, so other
+                    // accounts' funnel names/links aren't leaked by probing subdomains.
+                    if ($owner->user_id === $user->id || $user->isAdmin()) {
+                        $fail(sprintf(
+                            'Already in use by the funnel "%s". Open it at /funnel-builder/%s?tab=settings → Custom Domain to remove it, or choose a different name.',
+                            $owner->name,
+                            $owner->uuid,
+                        ));
+
+                        return;
+                    }
+
+                    $fail('This address is already taken by another account. Please choose a different name.');
+                },
             ],
             'type' => ['required', Rule::in(['custom', 'subdomain'])],
         ]);

@@ -85,6 +85,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
             setCustomDomain(response.data);
             setDomainInput('');
             showToast('Domain added successfully. Please configure your DNS records.', 'success');
+            // Refresh the funnel so the header's Preview/Copy URL point at the new address.
+            onRefresh?.();
         } catch (err) {
             console.error('Failed to add domain:', err);
             setDomainError(err.message || 'Failed to add domain.');
@@ -100,6 +102,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
             setCustomDomain(response.data);
             if (response.data?.verification_status === 'active') {
                 showToast('Domain verified and active!', 'success');
+                // Now live — point the header's Preview/Copy URL at the branded address.
+                onRefresh?.();
             } else {
                 showToast('Domain verification still pending.', 'info');
             }
@@ -123,6 +127,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
             setDomainInput('');
             setDomainType('custom');
             showToast('Domain removed successfully.', 'success');
+            // Revert the header's Preview/Copy URL back to the platform /f/ address.
+            onRefresh?.();
         } catch (err) {
             console.error('Failed to remove domain:', err);
             showToast('Failed to remove domain.', 'error');
