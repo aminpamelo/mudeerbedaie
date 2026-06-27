@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Clock,
@@ -7,6 +7,9 @@ import {
     AlertCircle,
     Timer,
     Eye,
+    Users,
+    ChevronDown,
+    ChevronRight,
 } from 'lucide-react';
 import {
     Card,
@@ -90,6 +93,24 @@ function formatDuration(minutes) {
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
+function groupByEmployee(items) {
+    const groups = new Map();
+    for (const item of items) {
+        const key = item.employee?.id ?? item.employee_id ?? 'unknown';
+        if (!groups.has(key)) {
+            groups.set(key, { key, employee: item.employee, items: [] });
+        }
+        groups.get(key).items.push(item);
+    }
+    return Array.from(groups.values()).sort((a, b) =>
+        (a.employee?.full_name || '').localeCompare(b.employee?.full_name || '')
+    );
+}
+
+function sumHours(items, field) {
+    return items.reduce((total, item) => total + (Number(item[field]) || 0), 0);
+}
+
 function SkeletonTable() {
     return (
         <div className="space-y-3">
@@ -118,15 +139,29 @@ export default function OvertimeManagement() {
     const [actualHours, setActualHours] = useState('');
     const [claimRejectTarget, setClaimRejectTarget] = useState(null);
     const [claimRejectReason, setClaimRejectReason] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [groupByStaff, setGroupByStaff] = useState(true);
+    const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
 
     const { data, isLoading } = useQuery({
-        queryKey: ['hr', 'attendance', 'overtime', activeTab],
-        queryFn: () => fetchOvertimeRequests({ status: activeTab !== 'all' ? activeTab : undefined }),
+        queryKey: ['hr', 'attendance', 'overtime', activeTab, dateFrom, dateTo],
+        queryFn: () => fetchOvertimeRequests({
+            status: activeTab !== 'all' ? activeTab : undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            per_page: 100,
+        }),
     });
 
     const { data: claimsData, isLoading: claimsLoading } = useQuery({
-        queryKey: ['hr', 'attendance', 'overtime-claims', claimsTab],
-        queryFn: () => fetchOvertimeClaims({ status: claimsTab !== 'all' ? claimsTab : undefined }),
+        queryKey: ['hr', 'attendance', 'overtime-claims', claimsTab, dateFrom, dateTo],
+        queryFn: () => fetchOvertimeClaims({
+            status: claimsTab !== 'all' ? claimsTab : undefined,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+            per_page: 100,
+        }),
         enabled: mainView === 'claims',
     });
 
@@ -200,6 +235,191 @@ export default function OvertimeManagement() {
 
     const claims = claimsData?.data || [];
 
+    const hasFilters = dateFrom || dateTo;
+
+    function clearFilters() {
+        setDateFrom('');
+        setDateTo('');
+    }
+
+    function toggleGroup(key) {
+        setCollapsedGroups((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    }
+
+    function renderGroupHeader(group, colSpan, summary) {
+        const collapsed = collapsedGroups.has(group.key);
+        return (
+            <TableRow
+                className="cursor-pointer bg-slate-50 hover:bg-slate-100"
+                onClick={() => toggleGroup(group.key)}
+            >
+                <TableCell colSpan={colSpan} className="py-2">
+                    <div className="flex items-center gap-2">
+                        {collapsed ? (
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                        ) : (
+                            <ChevronDown className="h-4 w-4 text-slate-400" />
+                        )}
+                        <span className="text-sm font-semibold text-slate-900">
+                            {group.employee?.full_name || 'Unknown'}
+                        </span>
+                        {group.employee?.department?.name && (
+                            <span className="text-xs text-slate-500">
+                                {group.employee.department.name}
+                            </span>
+                        )}
+                        <Badge variant="secondary">{group.items.length}</Badge>
+                        <span className="ml-auto text-xs text-slate-500">{summary}</span>
+                    </div>
+                </TableCell>
+            </TableRow>
+        );
+    }
+
+    function renderRequestRow(request, grouped = false) {
+        return (
+            <TableRow key={request.id}>
+                <TableCell>
+                    {grouped ? (
+                        <span className="pl-6 text-xs text-slate-400">#{request.id}</span>
+                    ) : (
+                        <div>
+                            <p className="text-sm font-medium text-slate-900">
+                                {request.employee?.full_name || 'Unknown'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                {request.employee?.department?.name || ''}
+                            </p>
+                        </div>
+                    )}
+                </TableCell>
+                <TableCell className="text-sm text-slate-900">
+                    {formatDate(request.requested_date)}
+                </TableCell>
+                <TableCell className="text-sm text-slate-600">
+                    {formatHours(request.planned_hours)}
+                </TableCell>
+                <TableCell className="text-sm text-slate-600">
+                    {formatHours(request.actual_hours)}
+                </TableCell>
+                <TableCell>
+                    <p className="max-w-[200px] truncate text-sm text-slate-600">
+                        {request.reason || '-'}
+                    </p>
+                </TableCell>
+                <TableCell>
+                    <OTStatusBadge status={request.status} />
+                </TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setViewTarget(request)}
+                            className="text-slate-500 hover:text-slate-700"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                        {request.status === 'pending' && (
+                            <>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleApprove(request.id)}
+                                    disabled={approveMutation.isPending}
+                                    className="text-emerald-600 hover:text-emerald-700"
+                                >
+                                    <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openReject(request)}
+                                    className="text-red-500 hover:text-red-700"
+                                >
+                                    <XCircle className="h-4 w-4" />
+                                </Button>
+                            </>
+                        )}
+                        {request.status === 'approved' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openComplete(request)}
+                            >
+                                Complete
+                            </Button>
+                        )}
+                    </div>
+                </TableCell>
+            </TableRow>
+        );
+    }
+
+    function renderClaimRow(claim, grouped = false) {
+        return (
+            <TableRow key={claim.id}>
+                <TableCell>
+                    {grouped ? (
+                        <span className="pl-6 text-xs text-slate-400">#{claim.id}</span>
+                    ) : (
+                        <div>
+                            <p className="text-sm font-medium text-slate-900">
+                                {claim.employee?.full_name || 'Unknown'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                {claim.employee?.department?.name || ''}
+                            </p>
+                        </div>
+                    )}
+                </TableCell>
+                <TableCell className="text-sm text-slate-900">
+                    {formatDate(claim.claim_date)}
+                </TableCell>
+                <TableCell className="text-sm text-slate-600">
+                    {claim.start_time ? claim.start_time.slice(0, 5) : '-'}
+                </TableCell>
+                <TableCell className="text-sm text-slate-600">
+                    {formatDuration(claim.duration_minutes)}
+                </TableCell>
+                <TableCell>
+                    <OTStatusBadge status={claim.status} />
+                </TableCell>
+                <TableCell>
+                    {claim.status === 'pending' && (
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => claimApproveMutation.mutate(claim.id)}
+                                disabled={claimApproveMutation.isPending}
+                                className="text-emerald-600 hover:text-emerald-700"
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => { setClaimRejectTarget(claim); setClaimRejectReason(''); }}
+                                className="text-red-500 hover:text-red-700"
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
+                </TableCell>
+            </TableRow>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -231,6 +451,46 @@ export default function OvertimeManagement() {
                     OT Claims
                 </button>
             </div>
+
+            <Card>
+                <CardContent className="p-4">
+                    <div className="flex flex-wrap items-end gap-3">
+                        <div>
+                            <Label className="mb-1 block text-xs text-slate-500">From</Label>
+                            <Input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="w-40"
+                            />
+                        </div>
+                        <div>
+                            <Label className="mb-1 block text-xs text-slate-500">To</Label>
+                            <Input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="w-40"
+                            />
+                        </div>
+                        {hasFilters && (
+                            <Button variant="ghost" size="sm" onClick={clearFilters}>
+                                Clear
+                            </Button>
+                        )}
+                        <div className="ml-auto">
+                            <Button
+                                variant={groupByStaff ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setGroupByStaff((value) => !value)}
+                            >
+                                <Users className="mr-2 h-4 w-4" />
+                                Group by staff
+                            </Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {mainView === 'claims' ? (
                 <>
@@ -266,55 +526,19 @@ export default function OvertimeManagement() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {claims.map((claim) => (
-                                        <TableRow key={claim.id}>
-                                            <TableCell>
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-900">
-                                                        {claim.employee?.full_name || 'Unknown'}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500">
-                                                        {claim.employee?.department?.name || ''}
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-sm text-slate-900">
-                                                {formatDate(claim.claim_date)}
-                                            </TableCell>
-                                            <TableCell className="text-sm text-slate-600">
-                                                {claim.start_time ? claim.start_time.slice(0, 5) : '-'}
-                                            </TableCell>
-                                            <TableCell className="text-sm text-slate-600">
-                                                {formatDuration(claim.duration_minutes)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <OTStatusBadge status={claim.status} />
-                                            </TableCell>
-                                            <TableCell>
-                                                {claim.status === 'pending' && (
-                                                    <div className="flex items-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => claimApproveMutation.mutate(claim.id)}
-                                                            disabled={claimApproveMutation.isPending}
-                                                            className="text-emerald-600 hover:text-emerald-700"
-                                                        >
-                                                            <CheckCircle className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => { setClaimRejectTarget(claim); setClaimRejectReason(''); }}
-                                                            className="text-red-500 hover:text-red-700"
-                                                        >
-                                                            <XCircle className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
+                                    {groupByStaff
+                                        ? groupByEmployee(claims).map((group) => (
+                                            <Fragment key={group.key}>
+                                                {renderGroupHeader(
+                                                    group,
+                                                    6,
+                                                    `${formatDuration(sumHours(group.items, 'duration_minutes'))} total`
                                                 )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                                {!collapsedGroups.has(group.key) &&
+                                                    group.items.map((claim) => renderClaimRow(claim, true))}
+                                            </Fragment>
+                                        ))
+                                        : claims.map((claim) => renderClaimRow(claim, false))}
                                 </TableBody>
                             </Table>
                         )}
@@ -364,79 +588,19 @@ export default function OvertimeManagement() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {requests.map((request) => (
-                                            <TableRow key={request.id}>
-                                                <TableCell>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-slate-900">
-                                                            {request.employee?.full_name || 'Unknown'}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500">
-                                                            {request.employee?.department?.name || ''}
-                                                        </p>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-sm text-slate-900">
-                                                    {formatDate(request.requested_date)}
-                                                </TableCell>
-                                                <TableCell className="text-sm text-slate-600">
-                                                    {formatHours(request.planned_hours)}
-                                                </TableCell>
-                                                <TableCell className="text-sm text-slate-600">
-                                                    {formatHours(request.actual_hours)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <p className="max-w-[200px] truncate text-sm text-slate-600">
-                                                        {request.reason || '-'}
-                                                    </p>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <OTStatusBadge status={request.status} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => setViewTarget(request)}
-                                                            className="text-slate-500 hover:text-slate-700"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-                                                        {request.status === 'pending' && (
-                                                            <>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleApprove(request.id)}
-                                                                    disabled={approveMutation.isPending}
-                                                                    className="text-emerald-600 hover:text-emerald-700"
-                                                                >
-                                                                    <CheckCircle className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => openReject(request)}
-                                                                    className="text-red-500 hover:text-red-700"
-                                                                >
-                                                                    <XCircle className="h-4 w-4" />
-                                                                </Button>
-                                                            </>
-                                                        )}
-                                                        {request.status === 'approved' && (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => openComplete(request)}
-                                                            >
-                                                                Complete
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {groupByStaff
+                                            ? groupByEmployee(requests).map((group) => (
+                                                <Fragment key={group.key}>
+                                                    {renderGroupHeader(
+                                                        group,
+                                                        7,
+                                                        `${formatHours(sumHours(group.items, 'planned_hours'))} planned · ${formatHours(sumHours(group.items, 'actual_hours'))} actual`
+                                                    )}
+                                                    {!collapsedGroups.has(group.key) &&
+                                                        group.items.map((request) => renderRequestRow(request, true))}
+                                                </Fragment>
+                                            ))
+                                            : requests.map((request) => renderRequestRow(request, false))}
                                     </TableBody>
                                 </Table>
                             )}

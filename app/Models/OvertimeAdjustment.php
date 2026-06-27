@@ -9,7 +9,7 @@ class OvertimeAdjustment extends Model
 {
     protected $fillable = [
         'employee_id',
-        'hours',
+        'minutes',
         'effective_date',
         'reason',
         'adjusted_by',
@@ -23,7 +23,7 @@ class OvertimeAdjustment extends Model
     protected function casts(): array
     {
         return [
-            'hours' => 'decimal:1',
+            'minutes' => 'integer',
             'effective_date' => 'date',
         ];
     }

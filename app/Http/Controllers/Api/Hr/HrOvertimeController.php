@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\OvertimeAdjustment;
 use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
+use App\Services\Hr\OvertimeBalanceService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,14 +73,16 @@ class HrOvertimeController extends Controller
             ->where('status', 'completed')->sum('actual_hours');
         $pendingHours = (float) $this->filteredQuery($from, $to, $departmentId)
             ->where('status', 'pending')->sum('estimated_hours');
-        $replacementEarned = (float) $this->filteredQuery($from, $to, $departmentId)
-            ->where('status', 'completed')->sum('replacement_hours_earned');
-        $replacementUsed = (float) $this->filteredQuery($from, $to, $departmentId)
-            ->sum('replacement_hours_used');
         $employeesOnOt = (int) $this->filteredQuery($from, $to, $departmentId)
             ->distinct('employee_id')->count('employee_id');
 
-        $adjustmentTotal = (float) $this->filteredAdjustments($from, $to, $departmentId)->sum('hours');
+        // Period-scoped adjustment total feeds the "Total OT Hours" headline.
+        $adjustmentTotal = (float) $this->filteredAdjustments($from, $to, $departmentId)->sum('minutes') / 60;
+
+        // The replacement balance is a running, cumulative figure (a bank
+        // balance), so it is computed all-time — never period-scoped — to match
+        // the "available" balance each employee sees on their own dashboard.
+        $replacement = $this->allTimeReplacement($departmentId);
 
         $byDepartment = $this->filteredQuery($from, $to, $departmentId)
             ->where('overtime_requests.status', 'completed')
@@ -123,9 +126,9 @@ class HrOvertimeController extends Controller
                     'pending_hours' => round($pendingHours, 1),
                     'completed_count' => $statusBreakdown['completed'],
                     'employees_on_ot' => $employeesOnOt,
-                    'replacement_earned' => round($replacementEarned, 1),
-                    'replacement_used' => round($replacementUsed, 1),
-                    'replacement_balance' => round($replacementEarned - $replacementUsed + $adjustmentTotal, 1),
+                    'replacement_earned' => $replacement['earned_hours'],
+                    'replacement_used' => $replacement['used_hours'],
+                    'replacement_balance' => $replacement['balance_hours'],
                 ],
                 'status_breakdown' => $statusBreakdown,
                 'by_department' => $byDepartment,
@@ -150,8 +153,6 @@ class HrOvertimeController extends Controller
                 DB::raw('COUNT(*) as total_requests'),
                 DB::raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count"),
                 DB::raw("SUM(CASE WHEN status = 'completed' THEN actual_hours ELSE 0 END) as completed_hours"),
-                DB::raw("SUM(CASE WHEN status = 'completed' THEN replacement_hours_earned ELSE 0 END) as replacement_earned"),
-                DB::raw('SUM(replacement_hours_used) as replacement_used'),
                 DB::raw('MAX(requested_date) as last_date'),
             ])
             ->keyBy('employee_id');
@@ -161,7 +162,7 @@ class HrOvertimeController extends Controller
             ->groupBy('employee_id')
             ->get([
                 'employee_id',
-                DB::raw('SUM(hours) as adjustment_hours'),
+                DB::raw('SUM(minutes) as adjustment_minutes'),
                 DB::raw('MAX(effective_date) as last_adjustment'),
             ])
             ->keyBy('employee_id');
@@ -173,13 +174,18 @@ class HrOvertimeController extends Controller
             ->get()
             ->keyBy('id');
 
-        $rows = $employeeIds->map(function ($employeeId) use ($aggregates, $adjustments, $employees) {
+        // Running replacement balance (all-time, all channels) per employee, so
+        // each row's "Repl. Balance" equals the employee's own "available".
+        $balances = app(OvertimeBalanceService::class)->forEmployees($employeeIds->all());
+
+        $rows = $employeeIds->map(function ($employeeId) use ($aggregates, $adjustments, $employees, $balances) {
             $agg = $aggregates->get($employeeId);
             $adj = $adjustments->get($employeeId);
             $employee = $employees->get($employeeId);
 
             $completedHours = round((float) ($agg->completed_hours ?? 0), 1);
-            $adjustmentHours = round((float) ($adj->adjustment_hours ?? 0), 1);
+            $adjustmentHours = round((int) ($adj->adjustment_minutes ?? 0) / 60, 1);
+            $availableMinutes = $balances[$employeeId]['available_minutes'] ?? 0;
 
             return [
                 'employee_id' => $employeeId,
@@ -189,8 +195,9 @@ class HrOvertimeController extends Controller
                 'pending_count' => (int) ($agg->pending_count ?? 0),
                 'completed_hours' => $completedHours,
                 'adjustment_hours' => $adjustmentHours,
+                'adjustment_minutes' => (int) ($adj->adjustment_minutes ?? 0),
                 'ot_hours' => round($completedHours + $adjustmentHours, 1),
-                'replacement_balance' => round((float) ($agg->replacement_earned ?? 0) - (float) ($agg->replacement_used ?? 0) + $adjustmentHours, 1),
+                'replacement_balance' => round($availableMinutes / 60, 1),
                 'last_date' => $agg->last_date ?? ($adj->last_adjustment ?? null),
             ];
         })->values();
@@ -262,14 +269,14 @@ class HrOvertimeController extends Controller
     {
         $validated = $request->validate([
             'employee_id' => ['required', 'exists:employees,id'],
-            'hours' => ['required', 'numeric', 'not_in:0', 'min:-24', 'max:24'],
+            'minutes' => ['required', 'integer', 'not_in:0', 'min:-1440', 'max:1440'],
             'reason' => ['required', 'string', 'min:3'],
             'effective_date' => ['nullable', 'date'],
         ]);
 
         $adjustment = OvertimeAdjustment::create([
             'employee_id' => $validated['employee_id'],
-            'hours' => $validated['hours'],
+            'minutes' => $validated['minutes'],
             'reason' => $validated['reason'],
             'effective_date' => $validated['effective_date'] ?? now()->toDateString(),
             'adjusted_by' => $request->user()->id,
@@ -354,6 +361,45 @@ class HrOvertimeController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * All-time replacement balance summary, optionally scoped to a department.
+     * Mirrors OvertimeBalanceService but aggregated across every employee in
+     * scope, for the overview headline card.
+     *
+     * @return array{earned_hours: float, used_hours: float, balance_hours: float}
+     */
+    private function allTimeReplacement($departmentId): array
+    {
+        $scopeDept = fn (Builder $query): Builder => $departmentId
+            ? $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId))
+            : $query;
+
+        $earnedMinutes = (int) round((float) $scopeDept(
+            OvertimeRequest::query()->where('status', 'completed')
+        )->sum('replacement_hours_earned') * 60);
+
+        $leaveUsedMinutes = (int) round((float) $scopeDept(
+            OvertimeRequest::query()
+        )->sum('replacement_hours_used') * 60);
+
+        $claimUsedMinutes = (int) $scopeDept(
+            OvertimeClaimRequest::query()->where('status', 'approved')
+        )->sum('duration_minutes');
+
+        $adjustmentMinutes = (int) $scopeDept(
+            OvertimeAdjustment::query()
+        )->sum('minutes');
+
+        $usedMinutes = $claimUsedMinutes + $leaveUsedMinutes;
+        $availableMinutes = $earnedMinutes + $adjustmentMinutes - $usedMinutes;
+
+        return [
+            'earned_hours' => round($earnedMinutes / 60, 1),
+            'used_hours' => round($usedMinutes / 60, 1),
+            'balance_hours' => round($availableMinutes / 60, 1),
+        ];
     }
 
     /**
@@ -451,7 +497,9 @@ class HrOvertimeController extends Controller
             $query->whereDate('claim_date', '<=', $dateTo);
         }
 
-        return response()->json($query->orderByDesc('claim_date')->paginate(15));
+        $perPage = min(100, max(1, (int) $request->get('per_page', 15)));
+
+        return response()->json($query->orderByDesc('claim_date')->paginate($perPage));
     }
 
     /**

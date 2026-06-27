@@ -366,6 +366,32 @@ test('admin can list overtime requests', function () {
         ->assertJsonPath('total', 3);
 });
 
+test('admin can filter overtime requests by date range', function () {
+    $admin = createAttendanceAdminUser();
+    $data = createEmployeeWithSchedule();
+
+    OvertimeRequest::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'requested_date' => '2026-06-10',
+    ]);
+    OvertimeRequest::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'requested_date' => '2026-06-20',
+    ]);
+    OvertimeRequest::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'requested_date' => '2026-07-05',
+    ]);
+
+    $response = $this->actingAs($admin)->getJson('/api/hr/overtime?date_from=2026-06-15&date_to=2026-06-30');
+
+    $response->assertSuccessful()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('data.0.employee_id', $data['employee']->id);
+
+    expect($response->json('data.0.requested_date'))->toContain('2026-06-19');
+});
+
 test('admin can approve overtime request', function () {
     $admin = createAttendanceAdminUser();
     $data = createEmployeeWithSchedule();

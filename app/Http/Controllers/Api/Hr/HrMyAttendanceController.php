@@ -16,6 +16,7 @@ use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\Hr\OvertimeBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -497,13 +498,14 @@ class HrMyAttendanceController extends Controller
         }
 
         $balance = $this->computeOvertimeBalance($employee);
-        $totalUsed = round($balance['total_used_minutes'] / 60, 1);
 
         return response()->json([
             'data' => [
-                'total_earned' => $balance['total_earned'],
-                'total_used' => $totalUsed,
-                'available' => round($balance['total_earned'] - $totalUsed, 1),
+                'total_earned' => round($balance['earned_minutes'] / 60, 2),
+                'total_used' => round($balance['used_minutes'] / 60, 2),
+                'total_adjustment' => round($balance['adjustment_minutes'] / 60, 2),
+                'available' => round($balance['available_minutes'] / 60, 2),
+                'available_minutes' => $balance['available_minutes'],
             ],
         ]);
     }
@@ -657,25 +659,11 @@ class HrMyAttendanceController extends Controller
     /**
      * Compute overtime replacement balance for an employee.
      *
-     * @return array{total_earned: float, total_used_minutes: int, available_minutes: int}
+     * @return array{earned_minutes:int, used_minutes:int, adjustment_minutes:int, available_minutes:int}
      */
     private function computeOvertimeBalance(Employee $employee): array
     {
-        $totalEarned = (float) OvertimeRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'completed')
-            ->sum('replacement_hours_earned');
-
-        $totalUsedMinutes = (int) OvertimeClaimRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'approved')
-            ->sum('duration_minutes');
-
-        return [
-            'total_earned' => $totalEarned,
-            'total_used_minutes' => $totalUsedMinutes,
-            'available_minutes' => (int) round(($totalEarned * 60) - $totalUsedMinutes),
-        ];
+        return app(OvertimeBalanceService::class)->forEmployee($employee->id);
     }
 
     /**

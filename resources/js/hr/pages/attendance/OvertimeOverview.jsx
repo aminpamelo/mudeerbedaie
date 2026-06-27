@@ -91,6 +91,17 @@ function formatHours(value) {
     return `${Number(value).toFixed(1)}h`;
 }
 
+/** Render a signed minutes value as "+1h 30min" / "-45min". */
+function formatSignedMinutes(value) {
+    const total = Number(value) || 0;
+    const sign = total < 0 ? '-' : '+';
+    const abs = Math.abs(total);
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    const body = h === 0 ? `${m}min` : m === 0 ? `${h}h` : `${h}h ${m}min`;
+    return `${sign}${body}`;
+}
+
 function SkeletonCards() {
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -127,7 +138,7 @@ function TrendChart({ data }) {
 
 export default function OvertimeOverview() {
     const queryClient = useQueryClient();
-    const [period, setPeriod] = useState('this_month');
+    const [period, setPeriod] = useState('this_year');
     const [departmentId, setDepartmentId] = useState('');
     const [search, setSearch] = useState('');
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -135,7 +146,7 @@ export default function OvertimeOverview() {
     const [actualHours, setActualHours] = useState('');
     const [reason, setReason] = useState('');
     const [adjSign, setAdjSign] = useState('add'); // 'add' | 'minus'
-    const [adjHours, setAdjHours] = useState('');
+    const [adjMinutes, setAdjMinutes] = useState('');
     const [adjReason, setAdjReason] = useState('');
 
     const filters = { period, department_id: departmentId || undefined };
@@ -214,7 +225,7 @@ export default function OvertimeOverview() {
         mutationFn: (data) => createOvertimeAdjustment(data),
         onSuccess: () => {
             invalidateAll();
-            setAdjHours('');
+            setAdjMinutes('');
             setAdjReason('');
             setAdjSign('add');
         },
@@ -228,11 +239,11 @@ export default function OvertimeOverview() {
     });
 
     function submitAdjustment() {
-        const magnitude = parseFloat(adjHours);
+        const magnitude = parseInt(adjMinutes, 10);
         if (!magnitude || magnitude <= 0) return;
         createAdjustmentMutation.mutate({
             employee_id: selectedEmployee.employee_id,
-            hours: adjSign === 'minus' ? -magnitude : magnitude,
+            minutes: adjSign === 'minus' ? -magnitude : magnitude,
             reason: adjReason,
         });
     }
@@ -421,9 +432,9 @@ export default function OvertimeOverview() {
                                                     <span className="text-sm font-semibold text-slate-900">
                                                         {formatHours(row.ot_hours ?? row.completed_hours)}
                                                     </span>
-                                                    {!!row.adjustment_hours && (
-                                                        <span className={cn('block text-[11px] font-medium', row.adjustment_hours > 0 ? 'text-emerald-600' : 'text-red-500')}>
-                                                            {row.adjustment_hours > 0 ? '+' : ''}{row.adjustment_hours}h adj
+                                                    {!!row.adjustment_minutes && (
+                                                        <span className={cn('block text-[11px] font-medium', row.adjustment_minutes > 0 ? 'text-emerald-600' : 'text-red-500')}>
+                                                            {formatSignedMinutes(row.adjustment_minutes)} adj
                                                         </span>
                                                     )}
                                                 </TableCell>
@@ -709,15 +720,15 @@ export default function OvertimeOverview() {
                                 </div>
                             </div>
                             <div>
-                                <Label>Hours</Label>
+                                <Label>Minutes</Label>
                                 <Input
                                     type="number"
-                                    step="0.5"
+                                    step="5"
                                     min="0"
-                                    max="24"
-                                    value={adjHours}
-                                    onChange={(e) => setAdjHours(e.target.value)}
-                                    placeholder="e.g. 1.5"
+                                    max="1440"
+                                    value={adjMinutes}
+                                    onChange={(e) => setAdjMinutes(e.target.value)}
+                                    placeholder="e.g. 30"
                                     className="mt-1 w-24"
                                 />
                             </div>
@@ -732,7 +743,7 @@ export default function OvertimeOverview() {
                             </div>
                             <Button
                                 onClick={submitAdjustment}
-                                disabled={createAdjustmentMutation.isPending || !adjHours || parseFloat(adjHours) <= 0 || adjReason.trim().length < 3}
+                                disabled={createAdjustmentMutation.isPending || !adjMinutes || parseInt(adjMinutes, 10) <= 0 || adjReason.trim().length < 3}
                             >
                                 {createAdjustmentMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                                 Add
@@ -747,12 +758,12 @@ export default function OvertimeOverview() {
                             ) : (
                                 <div className="space-y-2">
                                     {adjustments.map((a) => {
-                                        const h = Number(a.hours);
+                                        const mins = Number(a.minutes);
                                         return (
                                             <div key={a.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
                                                 <div className="min-w-0">
-                                                    <span className={cn('text-sm font-semibold tabular-nums', h > 0 ? 'text-emerald-600' : 'text-red-500')}>
-                                                        {h > 0 ? '+' : ''}{h.toFixed(1)}h
+                                                    <span className={cn('text-sm font-semibold tabular-nums', mins > 0 ? 'text-emerald-600' : 'text-red-500')}>
+                                                        {formatSignedMinutes(mins)}
                                                     </span>
                                                     <span className="ml-2 text-sm text-slate-600">{a.reason}</span>
                                                     <p className="text-xs text-slate-400">
