@@ -503,8 +503,21 @@ new class extends Component
             return;
         }
 
+        if (blank($shippingAddress->postal_code)) {
+            session()->flash('error', 'This order has no shipping postcode. Edit the order address and add the delivery postcode/city/state before fetching rates.');
+
+            return;
+        }
+
         try {
             $sender = app(SettingsService::class)->getShippingSenderDefaults();
+
+            if (blank($sender['postal_code'] ?? null)) {
+                session()->flash('error', 'No sender postcode configured. Set your store/sender address in Settings → Shipping before fetching rates.');
+
+                return;
+            }
+
             $provider = app(ShippingManager::class)->getProvider('easyparcel');
 
             $rates = $provider->getRates(new ShippingRateRequest(
@@ -519,7 +532,7 @@ new class extends Component
             ));
 
             if (empty($rates)) {
-                session()->flash('error', 'No EasyParcel rates returned. Check the sender/receiver postcodes and that your EasyParcel account is connected in Settings.');
+                session()->flash('error', 'EasyParcel returned no rates for this route (sender '.$sender['postal_code'].' → receiver '.$shippingAddress->postal_code.'). No courier may serve this lane, or your EasyParcel account/connection needs checking in Settings.');
 
                 return;
             }
