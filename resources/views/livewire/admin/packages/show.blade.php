@@ -227,6 +227,16 @@ new class extends Component
                              class="w-full h-48 object-cover rounded-lg mb-4">
                     @endif
 
+                    @if(!empty($package->gallery_images))
+                        <div class="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                            @foreach($package->gallery_images as $galleryUrl)
+                                <a href="{{ $galleryUrl }}" target="_blank" wire:key="show-gallery-{{ $loop->index }}" class="group block aspect-square overflow-hidden rounded-lg ring-1 ring-gray-200 dark:ring-zinc-700">
+                                    <img src="{{ $galleryUrl }}" alt="{{ $package->name }} gallery image" class="h-full w-full object-cover transition group-hover:scale-105">
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
+
                     <div class="space-y-4">
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Description</dt>

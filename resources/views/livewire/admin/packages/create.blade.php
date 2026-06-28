@@ -1,44 +1,64 @@
 <?php
 
+use App\Models\ClassModel;
+use App\Models\Course;
 use App\Models\Package;
 use App\Models\Product;
-use App\Models\Course;
-use App\Models\ClassModel;
 use App\Models\Warehouse;
-use Livewire\Volt\Component;
-use Livewire\WithFileUploads;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
+use Livewire\Volt\Component;
 
-new class extends Component {
-    use WithFileUploads;
-
+new class extends Component
+{
     public $name = '';
+
     public $slug = '';
+
     public $description = '';
+
     public $short_description = '';
+
     public $price = '';
+
     public $discount_type = 'fixed';
+
     public $discount_value = 0;
+
     public $status = 'draft';
+
     public $start_date = '';
+
     public $end_date = '';
+
     public $max_purchases = '';
+
     public $track_stock = true;
+
     public $default_warehouse_id = '';
+
     public $meta_title = '';
+
     public $meta_description = '';
 
-    // Featured image
-    public $featured_image;
+    // Media (selected from the Media Library)
+    public ?string $featuredImageUrl = null;
+
+    public array $galleryImages = [];
 
     // Package items
     public $selectedProducts = [];
+
     public $selectedCourses = [];
+
     public $selectedClasses = [];
+
     public $productQuantities = [];
+
     public $productCustomPrices = [];
+
     public $courseCustomPrices = [];
+
     public $classCustomPrices = [];
 
     public function rules(): array
@@ -57,7 +77,6 @@ new class extends Component {
             'max_purchases' => 'nullable|integer|min:1',
             'track_stock' => 'boolean',
             'default_warehouse_id' => 'nullable|exists:warehouses,id',
-            'featured_image' => 'nullable|image|max:5120',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'selectedProducts' => 'array',
@@ -73,6 +92,28 @@ new class extends Component {
     public function mount(): void
     {
         $this->default_warehouse_id = Warehouse::first()?->id;
+    }
+
+    #[On('media-picker:selected')]
+    public function onMediaPicked(string $name, array $media): void
+    {
+        if ($name === 'package-featured') {
+            $this->featuredImageUrl = $media[0]['url'] ?? null;
+        } elseif ($name === 'package-gallery') {
+            $urls = collect($media)->pluck('url')->filter()->all();
+            $this->galleryImages = collect($this->galleryImages)->merge($urls)->unique()->values()->all();
+        }
+    }
+
+    public function removeFeaturedImage(): void
+    {
+        $this->featuredImageUrl = null;
+    }
+
+    public function removeGalleryImage(int $index): void
+    {
+        unset($this->galleryImages[$index]);
+        $this->galleryImages = array_values($this->galleryImages);
     }
 
     public function with(): array
@@ -94,8 +135,8 @@ new class extends Component {
 
     public function addProduct($productId): void
     {
-        if ($productId && !in_array($productId, $this->selectedProducts)) {
-            $this->selectedProducts[] = (int)$productId;
+        if ($productId && ! in_array($productId, $this->selectedProducts)) {
+            $this->selectedProducts[] = (int) $productId;
             $this->productQuantities[$productId] = 1;
             $this->productCustomPrices[$productId] = '';
         }
@@ -103,36 +144,36 @@ new class extends Component {
 
     public function removeProduct($productId): void
     {
-        $this->selectedProducts = array_values(array_filter($this->selectedProducts, fn($id) => $id != $productId));
+        $this->selectedProducts = array_values(array_filter($this->selectedProducts, fn ($id) => $id != $productId));
         unset($this->productQuantities[$productId]);
         unset($this->productCustomPrices[$productId]);
     }
 
     public function addCourse($courseId): void
     {
-        if ($courseId && !in_array($courseId, $this->selectedCourses)) {
-            $this->selectedCourses[] = (int)$courseId;
+        if ($courseId && ! in_array($courseId, $this->selectedCourses)) {
+            $this->selectedCourses[] = (int) $courseId;
             $this->courseCustomPrices[$courseId] = '';
         }
     }
 
     public function removeCourse($courseId): void
     {
-        $this->selectedCourses = array_values(array_filter($this->selectedCourses, fn($id) => $id != $courseId));
+        $this->selectedCourses = array_values(array_filter($this->selectedCourses, fn ($id) => $id != $courseId));
         unset($this->courseCustomPrices[$courseId]);
     }
 
     public function addClass($classId): void
     {
-        if ($classId && !in_array($classId, $this->selectedClasses)) {
-            $this->selectedClasses[] = (int)$classId;
+        if ($classId && ! in_array($classId, $this->selectedClasses)) {
+            $this->selectedClasses[] = (int) $classId;
             $this->classCustomPrices[$classId] = '';
         }
     }
 
     public function removeClass($classId): void
     {
-        $this->selectedClasses = array_values(array_filter($this->selectedClasses, fn($id) => $id != $classId));
+        $this->selectedClasses = array_values(array_filter($this->selectedClasses, fn ($id) => $id != $classId));
         unset($this->classCustomPrices[$classId]);
     }
 
@@ -144,8 +185,8 @@ new class extends Component {
         foreach ($this->selectedProducts as $productId) {
             $product = Product::find($productId);
             if ($product) {
-                $customPrice = (float)($this->productCustomPrices[$productId] ?? 0);
-                $price = $customPrice ?: (float)$product->base_price;
+                $customPrice = (float) ($this->productCustomPrices[$productId] ?? 0);
+                $price = $customPrice ?: (float) $product->base_price;
                 $quantity = $this->productQuantities[$productId] ?? 1;
                 $total += $price * $quantity;
             }
@@ -155,8 +196,8 @@ new class extends Component {
         foreach ($this->selectedCourses as $courseId) {
             $course = Course::find($courseId);
             if ($course) {
-                $customPrice = (float)($this->courseCustomPrices[$courseId] ?? 0);
-                $price = $customPrice ?: (float)($course->feeSettings->fee_amount ?? 0);
+                $customPrice = (float) ($this->courseCustomPrices[$courseId] ?? 0);
+                $price = $customPrice ?: (float) ($course->feeSettings->fee_amount ?? 0);
                 $total += $price;
             }
         }
@@ -165,8 +206,8 @@ new class extends Component {
         foreach ($this->selectedClasses as $classId) {
             $class = ClassModel::with('course.feeSettings')->find($classId);
             if ($class) {
-                $customPrice = (float)($this->classCustomPrices[$classId] ?? 0);
-                $price = $customPrice ?: (float)($class->course?->feeSettings->fee_amount ?? 0);
+                $customPrice = (float) ($this->classCustomPrices[$classId] ?? 0);
+                $price = $customPrice ?: (float) ($class->course?->feeSettings->fee_amount ?? 0);
                 $total += $price;
             }
         }
@@ -180,14 +221,8 @@ new class extends Component {
 
         if (empty($this->selectedProducts) && empty($this->selectedCourses) && empty($this->selectedClasses)) {
             $this->addError('items', 'Please add at least one product, course, or class to the package.');
-            return;
-        }
 
-        // Handle featured image upload
-        $featuredImageUrl = null;
-        if ($this->featured_image) {
-            $path = $this->featured_image->store('packages', 'public');
-            $featuredImageUrl = Storage::url($path);
+            return;
         }
 
         // Create the package
@@ -206,7 +241,8 @@ new class extends Component {
             'max_purchases' => $this->max_purchases ?: null,
             'track_stock' => $this->track_stock,
             'default_warehouse_id' => $this->default_warehouse_id,
-            'featured_image' => $featuredImageUrl,
+            'featured_image' => $this->featuredImageUrl,
+            'gallery_images' => $this->galleryImages ?: null,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
             'created_by' => auth()->id(),
@@ -306,31 +342,74 @@ new class extends Component {
             </div>
         </div>
 
-        <!-- Featured Image -->
+        <!-- Media -->
         <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Featured Image</h3>
+            <div class="px-4 py-5 sm:p-6 space-y-8">
+                <!-- Featured Image -->
+                <div>
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Featured Image</h3>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick from the Media Library or upload a new image.</p>
+                        </div>
+                        <livewire:admin.media.picker
+                            key="pkg-create-featured"
+                            name="package-featured"
+                            type="image"
+                            :multiple="false"
+                            trigger-label="Select Image"
+                            trigger-icon="photo"
+                            trigger-variant="outline"
+                        />
+                    </div>
 
-                <div class="space-y-4">
-                    @if($featured_image)
+                    @if($featuredImageUrl)
                         <div class="relative inline-block">
-                            <img src="{{ $featured_image->temporaryUrl() }}" alt="Preview" class="h-48 w-48 rounded-lg object-cover">
-                            <button type="button" wire:click="$set('featured_image', null)" class="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-sm hover:bg-red-600">
+                            <img src="{{ $featuredImageUrl }}" alt="Featured image" class="h-48 w-48 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-zinc-700">
+                            <button type="button" wire:click="removeFeaturedImage" class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-sm hover:bg-red-600">
                                 <flux:icon name="x-mark" class="h-4 w-4" />
                             </button>
                         </div>
+                    @else
+                        <div class="flex h-48 w-48 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 dark:border-zinc-600 dark:text-zinc-500">
+                            <flux:icon name="photo" class="h-8 w-8" />
+                            <span class="text-xs">No image selected</span>
+                        </div>
                     @endif
+                </div>
 
-                    <flux:field>
-                        <flux:label>Upload Image</flux:label>
-                        <input type="file" wire:model="featured_image" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
-                        <flux:error name="featured_image" />
-                        <p class="mt-1 text-xs text-gray-500">Max file size: 5MB. Supported formats: JPG, PNG, GIF, WebP</p>
-                    </flux:field>
-
-                    <div wire:loading wire:target="featured_image" class="text-sm text-blue-600">
-                        Uploading image...
+                <!-- Gallery -->
+                <div>
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Gallery</h3>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Additional images shown on the package page.</p>
+                        </div>
+                        <livewire:admin.media.picker
+                            key="pkg-create-gallery"
+                            name="package-gallery"
+                            type="image"
+                            :multiple="true"
+                            trigger-label="Add Images"
+                            trigger-icon="squares-plus"
+                            trigger-variant="outline"
+                        />
                     </div>
+
+                    @if(count($galleryImages) > 0)
+                        <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                            @foreach($galleryImages as $index => $galleryUrl)
+                                <div wire:key="gallery-{{ $index }}" class="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-gray-200 dark:ring-zinc-700">
+                                    <img src="{{ $galleryUrl }}" alt="Gallery image" class="h-full w-full object-cover">
+                                    <button type="button" wire:click="removeGalleryImage({{ $index }})" class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-600">
+                                        <flux:icon name="x-mark" class="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-500 dark:text-gray-400">No gallery images yet.</p>
+                    @endif
                 </div>
             </div>
         </div>

@@ -355,6 +355,15 @@
                 {{-- HR Module link hidden from main sidebar - accessible via /hr directly --}}
 
                 <flux:navlist.item
+                    icon="photo"
+                    :href="route('admin.media.index')"
+                    :current="request()->routeIs('admin.media.*')"
+                    wire:navigate
+                >
+                    {{ __('Media Library') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item
                     icon="film"
                     href="/cms"
                 >

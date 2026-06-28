@@ -775,6 +775,9 @@ Route::middleware(['auth', 'role:admin,employee,class_admin'])->prefix('admin')-
     // Master Timetable route
     Volt::route('master-timetable', 'admin.master-timetable')->name('admin.master-timetable');
 
+    // Media Library
+    Volt::route('media', 'admin.media.index')->name('admin.media.index');
+
     // Session routes
     Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
     Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');

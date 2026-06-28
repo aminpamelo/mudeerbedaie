@@ -5,16 +5,13 @@ use App\Models\Course;
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\Warehouse;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 use Livewire\Volt\Component;
-use Livewire\WithFileUploads;
 
 new class extends Component
 {
-    use WithFileUploads;
-
     public Package $package;
 
     public $name = '';
@@ -47,12 +44,10 @@ new class extends Component
 
     public $meta_description = '';
 
-    // Featured image
-    public $featured_image;
+    // Media (selected from the Media Library)
+    public ?string $featuredImageUrl = null;
 
-    public $existing_featured_image = '';
-
-    public $remove_featured_image = false;
+    public array $galleryImages = [];
 
     // Package items
     public $selectedProducts = [];
@@ -91,7 +86,8 @@ new class extends Component
         $this->default_warehouse_id = $package->default_warehouse_id;
         $this->meta_title = $package->meta_title;
         $this->meta_description = $package->meta_description;
-        $this->existing_featured_image = $package->featured_image;
+        $this->featuredImageUrl = $package->featured_image;
+        $this->galleryImages = $package->gallery_images ?? [];
 
         // Load products
         foreach ($package->products as $product) {
@@ -130,7 +126,6 @@ new class extends Component
             'max_purchases' => 'nullable|integer|min:1',
             'track_stock' => 'boolean',
             'default_warehouse_id' => 'nullable|exists:warehouses,id',
-            'featured_image' => 'nullable|image|max:5120',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'selectedProducts' => 'array',
@@ -245,10 +240,26 @@ new class extends Component
         return $total;
     }
 
+    #[On('media-picker:selected')]
+    public function onMediaPicked(string $name, array $media): void
+    {
+        if ($name === 'package-featured') {
+            $this->featuredImageUrl = $media[0]['url'] ?? null;
+        } elseif ($name === 'package-gallery') {
+            $urls = collect($media)->pluck('url')->filter()->all();
+            $this->galleryImages = collect($this->galleryImages)->merge($urls)->unique()->values()->all();
+        }
+    }
+
     public function removeFeaturedImage(): void
     {
-        $this->existing_featured_image = '';
-        $this->remove_featured_image = true;
+        $this->featuredImageUrl = null;
+    }
+
+    public function removeGalleryImage(int $index): void
+    {
+        unset($this->galleryImages[$index]);
+        $this->galleryImages = array_values($this->galleryImages);
     }
 
     public function save(): void
@@ -263,25 +274,6 @@ new class extends Component
 
         // Check if package has completed purchases before making certain changes
         $hasCompletedPurchases = $this->package->completedPurchases()->exists();
-
-        // Handle featured image
-        $featuredImageUrl = $this->package->featured_image;
-        if ($this->featured_image) {
-            // Delete old image if exists
-            if ($this->package->featured_image) {
-                $oldPath = str_replace('/storage/', '', $this->package->featured_image);
-                Storage::disk('public')->delete($oldPath);
-            }
-            $path = $this->featured_image->store('packages', 'public');
-            $featuredImageUrl = Storage::url($path);
-        } elseif ($this->remove_featured_image) {
-            // Remove existing image
-            if ($this->package->featured_image) {
-                $oldPath = str_replace('/storage/', '', $this->package->featured_image);
-                Storage::disk('public')->delete($oldPath);
-            }
-            $featuredImageUrl = null;
-        }
 
         // Update the package
         $this->package->update([
@@ -299,7 +291,8 @@ new class extends Component
             'max_purchases' => $this->max_purchases ?: null,
             'track_stock' => $this->track_stock,
             'default_warehouse_id' => $this->default_warehouse_id,
-            'featured_image' => $featuredImageUrl,
+            'featured_image' => $this->featuredImageUrl,
+            'gallery_images' => $this->galleryImages ?: null,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
         ]);
@@ -457,38 +450,74 @@ new class extends Component
             </div>
         </div>
 
-        <!-- Featured Image -->
+        <!-- Media -->
         <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Featured Image</h3>
+            <div class="px-4 py-5 sm:p-6 space-y-8">
+                <!-- Featured Image -->
+                <div>
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Featured Image</h3>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick from the Media Library or upload a new image.</p>
+                        </div>
+                        <livewire:admin.media.picker
+                            key="pkg-edit-featured"
+                            name="package-featured"
+                            type="image"
+                            :multiple="false"
+                            trigger-label="Select Image"
+                            trigger-icon="photo"
+                            trigger-variant="outline"
+                        />
+                    </div>
 
-                <div class="space-y-4">
-                    @if($featured_image)
+                    @if($featuredImageUrl)
                         <div class="relative inline-block">
-                            <img src="{{ $featured_image->temporaryUrl() }}" alt="New image preview" class="h-48 w-48 rounded-lg object-cover">
-                            <button type="button" wire:click="$set('featured_image', null)" class="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-sm hover:bg-red-600">
+                            <img src="{{ $featuredImageUrl }}" alt="{{ $package->name }}" class="h-48 w-48 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-zinc-700">
+                            <button type="button" wire:click="removeFeaturedImage" class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-sm hover:bg-red-600">
                                 <flux:icon name="x-mark" class="h-4 w-4" />
                             </button>
                         </div>
-                    @elseif($existing_featured_image)
-                        <div class="relative inline-block">
-                            <img src="{{ $existing_featured_image }}" alt="{{ $package->name }}" class="h-48 w-48 rounded-lg object-cover">
-                            <button type="button" wire:click="removeFeaturedImage" class="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-sm hover:bg-red-600">
-                                <flux:icon name="x-mark" class="h-4 w-4" />
-                            </button>
+                    @else
+                        <div class="flex h-48 w-48 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 dark:border-zinc-600 dark:text-zinc-500">
+                            <flux:icon name="photo" class="h-8 w-8" />
+                            <span class="text-xs">No image selected</span>
                         </div>
                     @endif
+                </div>
 
-                    <flux:field>
-                        <flux:label>{{ $existing_featured_image && !$remove_featured_image ? 'Replace Image' : 'Upload Image' }}</flux:label>
-                        <input type="file" wire:model="featured_image" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
-                        <flux:error name="featured_image" />
-                        <p class="mt-1 text-xs text-gray-500">Max file size: 5MB. Supported formats: JPG, PNG, GIF, WebP</p>
-                    </flux:field>
-
-                    <div wire:loading wire:target="featured_image" class="text-sm text-blue-600">
-                        Uploading image...
+                <!-- Gallery -->
+                <div>
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Gallery</h3>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Additional images shown on the package page.</p>
+                        </div>
+                        <livewire:admin.media.picker
+                            key="pkg-edit-gallery"
+                            name="package-gallery"
+                            type="image"
+                            :multiple="true"
+                            trigger-label="Add Images"
+                            trigger-icon="squares-plus"
+                            trigger-variant="outline"
+                        />
                     </div>
+
+                    @if(count($galleryImages) > 0)
+                        <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                            @foreach($galleryImages as $index => $galleryUrl)
+                                <div wire:key="gallery-{{ $index }}" class="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-gray-200 dark:ring-zinc-700">
+                                    <img src="{{ $galleryUrl }}" alt="Gallery image" class="h-full w-full object-cover">
+                                    <button type="button" wire:click="removeGalleryImage({{ $index }})" class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-600">
+                                        <flux:icon name="x-mark" class="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-500 dark:text-gray-400">No gallery images yet.</p>
+                    @endif
                 </div>
             </div>
         </div>
