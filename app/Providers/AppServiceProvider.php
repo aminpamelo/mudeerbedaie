@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Observers\LiveSessionVerifiedObserver;
 use App\Policies\LiveHostPolicy;
 use App\Policies\ProductOrderPolicy;
+use App\Services\Ai\LaravelAiSalesPageGenerator;
+use App\Services\Ai\SalesPageGenerator;
 use App\Services\Shipping\EasyParcelShippingService;
 use App\Services\Shipping\JntShippingService;
 use App\Services\Shipping\ShippingManager;
@@ -34,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
 
             return $manager;
         });
+
+        $this->app->bind(SalesPageGenerator::class, LaravelAiSalesPageGenerator::class);
     }
 
     /**
