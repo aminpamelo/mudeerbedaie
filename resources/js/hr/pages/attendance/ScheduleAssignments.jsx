@@ -71,6 +71,21 @@ function formatDate(dateString) {
 }
 
 /**
+ * Convert an API date/ISO value to the YYYY-MM-DD a <input type="date"> needs,
+ * in local time so the calendar day matches what the timeline displays.
+ */
+function toDateInputValue(value) {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return typeof value === 'string' ? value.slice(0, 10) : '';
+    }
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+/**
  * Classify an assignment for the timeline: 'past' (ended), 'upcoming' (starts in
  * the future) or 'current' (in effect now).
  */
@@ -104,7 +119,7 @@ function SkeletonTable() {
 
 export default function ScheduleAssignments() {
     const queryClient = useQueryClient();
-    const [viewMode, setViewMode] = useState('table');
+    const [viewMode, setViewMode] = useState('timeline');
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [scheduleFilter, setScheduleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -314,9 +329,9 @@ export default function ScheduleAssignments() {
         setEditTarget(assignment);
         setEditForm({
             work_schedule_id: String(assignment.work_schedule_id || ''),
-            custom_start_time: assignment.custom_start_time || '',
-            custom_end_time: assignment.custom_end_time || '',
-            effective_from: assignment.effective_from || '',
+            custom_start_time: (assignment.custom_start_time || '').slice(0, 5),
+            custom_end_time: (assignment.custom_end_time || '').slice(0, 5),
+            effective_from: toDateInputValue(assignment.effective_from),
         });
         setShowEditDialog(true);
     }
@@ -642,12 +657,34 @@ export default function ScheduleAssignments() {
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <span className="text-xs text-slate-500">
-                                                                        {formatDate(assignment.effective_from)} →{' '}
-                                                                        {assignment.effective_to
-                                                                            ? formatDate(assignment.effective_to)
-                                                                            : 'ongoing'}
-                                                                    </span>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="whitespace-nowrap text-xs text-slate-500">
+                                                                            {formatDate(assignment.effective_from)} →{' '}
+                                                                            {assignment.effective_to
+                                                                                ? formatDate(assignment.effective_to)
+                                                                                : 'ongoing'}
+                                                                        </span>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                                                                            onClick={() => openEdit(assignment)}
+                                                                            aria-label={`Edit ${assignment.work_schedule?.name || 'schedule'} assignment`}
+                                                                            title="Edit assignment"
+                                                                        >
+                                                                            <Pencil className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+                                                                            onClick={() => setDeleteTarget(assignment)}
+                                                                            aria-label={`Remove ${assignment.work_schedule?.name || 'schedule'} assignment`}
+                                                                            title="Remove assignment"
+                                                                        >
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
                                                             </li>
                                                         );
