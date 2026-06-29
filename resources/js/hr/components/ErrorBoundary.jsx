@@ -25,7 +25,13 @@ export class ErrorBoundary extends Component {
     render() {
         if (!this.state.hasError) return this.props.children;
 
-        const message = this.state.error?.message || 'Something unexpected happened.';
+        const rawMessage = this.state.error?.message || 'Something unexpected happened.';
+        const isStaleChunk = /dynamically imported module|importing a module script failed|ChunkLoadError/i.test(rawMessage);
+
+        const heading = isStaleChunk ? 'A new version is available' : 'Something went wrong';
+        const message = isStaleChunk
+            ? 'The app was updated since this tab was opened. Reload to load the latest version.'
+            : rawMessage;
 
         return (
             <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 py-12 text-center">
@@ -35,9 +41,11 @@ export class ErrorBoundary extends Component {
                         <AlertTriangle className="h-12 w-12 text-rose-500" strokeWidth={1.75} />
                     </div>
                 </div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900">Something went wrong</h1>
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">{heading}</h1>
                 <p className="mt-2 max-w-md text-sm text-slate-600">{message}</p>
-                <p className="mt-1 text-xs text-slate-400">The error has been logged.</p>
+                {!isStaleChunk && (
+                    <p className="mt-1 text-xs text-slate-400">The error has been logged.</p>
+                )}
 
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                     <button

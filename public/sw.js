@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mudeer-hr-v3';
+const CACHE_NAME = 'mudeer-hr-v4';
 const STATIC_ASSETS = [
     '/hr/clock',
     '/manifest.json',
@@ -44,8 +44,7 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(event.request)
                 .then((response) => {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                    cachePut(event.request, response);
                     return response;
                 })
                 .catch(() => caches.match(event.request))
@@ -57,13 +56,22 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                const clone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                cachePut(event.request, response);
                 return response;
             })
             .catch(() => caches.match(event.request))
     );
 });
+
+// Only cache successful, basic responses. Caching 404s or opaque error
+// responses would poison the cache and serve a missing chunk forever.
+function cachePut(request, response) {
+    if (!response || !response.ok || response.type === 'opaque') {
+        return;
+    }
+    const clone = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+}
 
 // Background Sync for offline clock-in/out
 self.addEventListener('sync', (event) => {
