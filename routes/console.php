@@ -107,3 +107,7 @@ Schedule::command('livehost:send-session-reminders')->everyFiveMinutes()->withou
 
 // Live Host Pocket - Remind hosts to submit overdue session recaps
 Schedule::command('livehost:send-recap-reminders')->hourly()->withoutOverlapping();
+
+// EasyParcel - Reconcile in-flight shipments with courier tracking status
+// (fallback to the push webhook; auto-marks orders delivered)
+Schedule::command('easyparcel:sync-tracking')->everyThirtyMinutes()->withoutOverlapping();

@@ -1,21 +1,85 @@
 <?php
 
+use App\Http\Controllers\Admin\EasyParcelOAuthController;
+use App\Http\Controllers\Admin\ProductOrderReceiptController;
 use App\Http\Controllers\Api\Hr\HrPwaSettingController;
+use App\Http\Controllers\BayarcashWebhookController;
+use App\Http\Controllers\Ceo\CeoPwaController;
+use App\Http\Controllers\Ceo\CeoTaskController;
+use App\Http\Controllers\Ceo\DepartmentController;
+use App\Http\Controllers\Ceo\ItKpiController;
+use App\Http\Controllers\Ceo\MonthlyReportController;
+use App\Http\Controllers\Ceo\StaffKpiController;
+use App\Http\Controllers\Ceo\TaskMonitoringController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\FunnelEmbedController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\LiveHost\CommissionOverviewController;
+use App\Http\Controllers\LiveHost\CreatorController;
+use App\Http\Controllers\LiveHost\HostController;
+use App\Http\Controllers\LiveHost\HostPlatformAccountController;
+use App\Http\Controllers\LiveHost\LiveAccountController;
+use App\Http\Controllers\LiveHost\LiveHostCommissionProfileController;
+use App\Http\Controllers\LiveHost\LiveHostPayrollRunController;
+use App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController;
+use App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController;
+use App\Http\Controllers\LiveHost\MentoringActivityController;
+use App\Http\Controllers\LiveHost\MentoringLevelController;
+use App\Http\Controllers\LiveHost\MentoringMenteeController;
+use App\Http\Controllers\LiveHost\MentoringPerformanceController;
+use App\Http\Controllers\LiveHost\MentoringProgramController;
+use App\Http\Controllers\LiveHost\MentoringStageController;
+use App\Http\Controllers\LiveHost\PlatformAccountController;
+use App\Http\Controllers\LiveHost\PlatformOrderController;
+use App\Http\Controllers\LiveHost\PublicRecruitmentController;
+use App\Http\Controllers\LiveHost\RecruitmentApplicantController;
+use App\Http\Controllers\LiveHost\RecruitmentCampaignController;
+use App\Http\Controllers\LiveHost\RecruitmentStageController;
+use App\Http\Controllers\LiveHost\Reports\CoverageController;
+use App\Http\Controllers\LiveHost\Reports\GmvController;
+use App\Http\Controllers\LiveHost\Reports\HostScorecardController;
+use App\Http\Controllers\LiveHost\Reports\ReplacementsController;
+use App\Http\Controllers\LiveHost\Reports\ReportsController;
+use App\Http\Controllers\LiveHost\SessionController;
+use App\Http\Controllers\LiveHost\SessionDataController;
+use App\Http\Controllers\LiveHost\SessionSlotController;
+use App\Http\Controllers\LiveHost\TiktokReportImportController;
+use App\Http\Controllers\LiveHost\TimeSlotController;
+use App\Http\Controllers\LiveHostPocket\DashboardController;
+use App\Http\Controllers\LiveHostPocket\GoLiveController;
+use App\Http\Controllers\LiveHostPocket\MentorController;
+use App\Http\Controllers\LiveHostPocket\MentoringController;
+use App\Http\Controllers\LiveHostPocket\PocketPwaController;
+use App\Http\Controllers\LiveHostPocket\ProfileController;
+use App\Http\Controllers\LiveHostPocket\PushSubscriptionController;
+use App\Http\Controllers\LiveHostPocket\ReplacementRequestController;
+use App\Http\Controllers\LiveHostPocket\ScheduleController;
+use App\Http\Controllers\LiveHostPocket\SessionDetailController;
+use App\Http\Controllers\LiveHostPocket\SessionsController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PublicFunnelController;
+use App\Http\Controllers\Shipping\EasyParcelWebhookController;
 use App\Http\Controllers\StorefrontController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\TikTok\TikTokAuthController;
+use App\Http\Controllers\TikTok\TikTokWebhookController;
+use App\Http\Middleware\AffiliateSessionLifetime;
+use App\Http\Middleware\HandleCeoInertiaRequests;
+use App\Http\Middleware\HandlePocketInertiaRequests;
+use App\Models\CertificateIssue;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Livewire\Volt\Volt;
 
-Route::get('/', function (\Illuminate\Http\Request $request) {
+Route::get('/', function (Request $request) {
     // Check for custom domain - serve funnel if detected
     $customDomain = $request->attributes->get('custom_domain');
     if ($customDomain) {
-        return app(App\Http\Controllers\PublicFunnelController::class)->showFromCustomDomain($request);
+        return app(PublicFunnelController::class)->showFromCustomDomain($request);
     }
 
     if (auth()->check()) {
@@ -177,83 +241,83 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
 // Pocket PWA manifest — public (no sensitive data) so the browser can fetch it
 // for install without an auth round-trip. The companion service worker is the
 // static file public/pocket-sw.js (scope /live-host).
-Route::get('live-host/manifest.json', [\App\Http\Controllers\LiveHostPocket\PocketPwaController::class, 'manifest'])
+Route::get('live-host/manifest.json', [PocketPwaController::class, 'manifest'])
     ->name('live-host.manifest');
 
-Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketInertiaRequests::class])
+Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class])
     ->prefix('live-host')
     ->name('live-host.')
     ->group(function () {
-        Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
+        Route::get('/', [DashboardController::class, 'index'])
             ->name('dashboard');
 
         // Web Push subscription lifecycle for the installed Pocket PWA. The
         // React opt-in flow POSTs the browser PushSubscription here; DELETE on
         // unsubscribe / permission revoke.
-        Route::post('push-subscriptions', [\App\Http\Controllers\LiveHostPocket\PushSubscriptionController::class, 'store'])
+        Route::post('push-subscriptions', [PushSubscriptionController::class, 'store'])
             ->name('push-subscriptions.store');
-        Route::delete('push-subscriptions', [\App\Http\Controllers\LiveHostPocket\PushSubscriptionController::class, 'destroy'])
+        Route::delete('push-subscriptions', [PushSubscriptionController::class, 'destroy'])
             ->name('push-subscriptions.destroy');
 
-        Route::get('schedule', [\App\Http\Controllers\LiveHostPocket\ScheduleController::class, 'index'])
+        Route::get('schedule', [ScheduleController::class, 'index'])
             ->name('schedule');
 
-        Route::get('go-live', [\App\Http\Controllers\LiveHostPocket\GoLiveController::class, 'show'])
+        Route::get('go-live', [GoLiveController::class, 'show'])
             ->name('go-live');
 
-        Route::post('go-live/start', [\App\Http\Controllers\LiveHostPocket\GoLiveController::class, 'start'])
+        Route::post('go-live/start', [GoLiveController::class, 'start'])
             ->name('go-live.start');
 
-        Route::get('sessions', [\App\Http\Controllers\LiveHostPocket\SessionsController::class, 'index'])
+        Route::get('sessions', [SessionsController::class, 'index'])
             ->name('sessions.index');
 
-        Route::get('sessions/{session}', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'show'])
+        Route::get('sessions/{session}', [SessionDetailController::class, 'show'])
             ->name('sessions.show');
 
-        Route::post('sessions/{session}/recap', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'saveRecap'])
+        Route::post('sessions/{session}/recap', [SessionDetailController::class, 'saveRecap'])
             ->name('sessions.recap');
 
-        Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'addAttachment'])
+        Route::post('sessions/{session}/attachments', [SessionDetailController::class, 'addAttachment'])
             ->name('sessions.attachments.store');
 
-        Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'deleteAttachment'])
+        Route::delete('sessions/{session}/attachments/{attachment}', [SessionDetailController::class, 'deleteAttachment'])
             ->name('sessions.attachments.destroy');
 
-        Route::post('sessions/{session}/end', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'endSession'])
+        Route::post('sessions/{session}/end', [DashboardController::class, 'endSession'])
             ->name('sessions.end');
 
-        Route::post('replacement-requests', [\App\Http\Controllers\LiveHostPocket\ReplacementRequestController::class, 'store'])
+        Route::post('replacement-requests', [ReplacementRequestController::class, 'store'])
             ->name('replacement-requests.store');
 
-        Route::delete('replacement-requests/{replacementRequest}', [\App\Http\Controllers\LiveHostPocket\ReplacementRequestController::class, 'destroy'])
+        Route::delete('replacement-requests/{replacementRequest}', [ReplacementRequestController::class, 'destroy'])
             ->name('replacement-requests.destroy');
 
-        Route::get('my-path', [\App\Http\Controllers\LiveHostPocket\MentoringController::class, 'show'])
+        Route::get('my-path', [MentoringController::class, 'show'])
             ->name('my-path');
 
         // My Mentees — top-host self-service cockpit (scoped to mentees they lead).
-        Route::get('mentees', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'index'])
+        Route::get('mentees', [MentorController::class, 'index'])
             ->name('mentees.index');
-        Route::get('mentees/{mentee}', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'show'])
+        Route::get('mentees/{mentee}', [MentorController::class, 'show'])
             ->name('mentees.show');
-        Route::post('mentees/{mentee}/activities', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'logActivity'])
+        Route::post('mentees/{mentee}/activities', [MentorController::class, 'logActivity'])
             ->name('mentees.activities.store');
-        Route::patch('mentees/{mentee}/checklist/{item}/toggle', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'toggleChecklistItem'])
+        Route::patch('mentees/{mentee}/checklist/{item}/toggle', [MentorController::class, 'toggleChecklistItem'])
             ->name('mentees.checklist.toggle');
-        Route::patch('mentees/{mentee}/level', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'assignLevel'])
+        Route::patch('mentees/{mentee}/level', [MentorController::class, 'assignLevel'])
             ->name('mentees.level');
-        Route::patch('mentees/{mentee}/stage', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'moveStage'])
+        Route::patch('mentees/{mentee}/stage', [MentorController::class, 'moveStage'])
             ->name('mentees.stage');
-        Route::post('mentees/{mentee}/graduate', [\App\Http\Controllers\LiveHostPocket\MentorController::class, 'graduate'])
+        Route::post('mentees/{mentee}/graduate', [MentorController::class, 'graduate'])
             ->name('mentees.graduate');
 
-        Route::get('me', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'show'])
+        Route::get('me', [ProfileController::class, 'show'])
             ->name('me');
 
-        Route::post('me/avatar', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'uploadAvatar'])
+        Route::post('me/avatar', [ProfileController::class, 'uploadAvatar'])
             ->name('me.avatar.upload');
 
-        Route::delete('me/avatar', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'destroyAvatar'])
+        Route::delete('me/avatar', [ProfileController::class, 'destroyAvatar'])
             ->name('me.avatar.destroy');
     });
 
@@ -273,35 +337,35 @@ Route::middleware(['auth', 'role:live_host'])
 // CEO PWA manifest — public (no sensitive data) so the browser can fetch it for
 // install without an auth round-trip. The companion service worker is the static
 // file public/ceo-sw.js (scope /ceo).
-Route::get('ceo/manifest.json', [\App\Http\Controllers\Ceo\CeoPwaController::class, 'manifest'])
+Route::get('ceo/manifest.json', [CeoPwaController::class, 'manifest'])
     ->name('ceo.manifest');
 
 // CEO Overview (Inertia) — read-only executive dashboard aggregating operational
 // health across every department/module. Mirrors the Live Host Desk Inertia
 // setup; HandleCeoInertiaRequests overrides the root view to `ceo.app`.
-Route::middleware(['auth', 'role:admin,ceo', \App\Http\Middleware\HandleCeoInertiaRequests::class])
+Route::middleware(['auth', 'role:admin,ceo', HandleCeoInertiaRequests::class])
     ->prefix('ceo')
     ->name('ceo.')
     ->group(function () {
-        Route::get('/', [\App\Http\Controllers\Ceo\DashboardController::class, 'index'])
+        Route::get('/', [App\Http\Controllers\Ceo\DashboardController::class, 'index'])
             ->name('dashboard');
-        Route::post('locale', [\App\Http\Controllers\Ceo\DashboardController::class, 'setLocale'])
+        Route::post('locale', [App\Http\Controllers\Ceo\DashboardController::class, 'setLocale'])
             ->name('locale');
-        Route::get('tasks', [\App\Http\Controllers\Ceo\TaskMonitoringController::class, 'index'])
+        Route::get('tasks', [TaskMonitoringController::class, 'index'])
             ->name('tasks');
-        Route::post('tasks', [\App\Http\Controllers\Ceo\CeoTaskController::class, 'store'])
+        Route::post('tasks', [CeoTaskController::class, 'store'])
             ->name('tasks.store');
-        Route::patch('tasks/{task}', [\App\Http\Controllers\Ceo\CeoTaskController::class, 'update'])
+        Route::patch('tasks/{task}', [CeoTaskController::class, 'update'])
             ->name('tasks.update');
-        Route::delete('tasks/{task}', [\App\Http\Controllers\Ceo\CeoTaskController::class, 'destroy'])
+        Route::delete('tasks/{task}', [CeoTaskController::class, 'destroy'])
             ->name('tasks.destroy');
-        Route::get('reports/monthly', [\App\Http\Controllers\Ceo\MonthlyReportController::class, 'index'])
+        Route::get('reports/monthly', [MonthlyReportController::class, 'index'])
             ->name('reports.monthly');
-        Route::get('kpi', [\App\Http\Controllers\Ceo\StaffKpiController::class, 'index'])
+        Route::get('kpi', [StaffKpiController::class, 'index'])
             ->name('kpi');
-        Route::get('it-kpi', [\App\Http\Controllers\Ceo\ItKpiController::class, 'index'])
+        Route::get('it-kpi', [ItKpiController::class, 'index'])
             ->name('it-kpi');
-        Route::get('{department}', [\App\Http\Controllers\Ceo\DepartmentController::class, 'show'])
+        Route::get('{department}', [DepartmentController::class, 'show'])
             ->where('department', 'livehost|education|ecommerce|hr|sales')
             ->name('department');
     });
@@ -323,185 +387,185 @@ Route::middleware(['auth'])
         // Assistants act as front-line dispatchers: they triage requests and assign
         // replacements alongside admins, so they need the same read + write surface.
         Route::middleware('role:admin,admin_livehost,livehost_assistant')->group(function () {
-            Route::get('replacements', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'index'])
+            Route::get('replacements', [App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'index'])
                 ->name('replacements.index');
-            Route::get('replacements/{replacementRequest}', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'show'])
+            Route::get('replacements/{replacementRequest}', [App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'show'])
                 ->name('replacements.show');
-            Route::post('replacements/{replacementRequest}/assign', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'assign'])
+            Route::post('replacements/{replacementRequest}/assign', [App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'assign'])
                 ->name('replacements.assign');
-            Route::post('replacements/{replacementRequest}/reject', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'reject'])
+            Route::post('replacements/{replacementRequest}/reject', [App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'reject'])
                 ->name('replacements.reject');
         });
 
         // Admin-only: everything outside the shared scheduling surface (admin, admin_livehost).
         Route::middleware('role:admin,admin_livehost')->group(function () {
-            Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
+            Route::get('live-now', [App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
                 ->name('live-now');
 
             Route::prefix('reports')->name('reports.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\LiveHost\Reports\ReportsController::class, 'index'])
+                Route::get('/', [ReportsController::class, 'index'])
                     ->name('index');
-                Route::get('host-scorecard', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'index'])
+                Route::get('host-scorecard', [HostScorecardController::class, 'index'])
                     ->name('host-scorecard.index');
-                Route::get('host-scorecard/export', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'export'])
+                Route::get('host-scorecard/export', [HostScorecardController::class, 'export'])
                     ->name('host-scorecard.export');
 
-                Route::get('gmv', [\App\Http\Controllers\LiveHost\Reports\GmvController::class, 'index'])
+                Route::get('gmv', [GmvController::class, 'index'])
                     ->name('gmv.index');
-                Route::get('gmv/export', [\App\Http\Controllers\LiveHost\Reports\GmvController::class, 'export'])
+                Route::get('gmv/export', [GmvController::class, 'export'])
                     ->name('gmv.export');
 
-                Route::get('coverage', [\App\Http\Controllers\LiveHost\Reports\CoverageController::class, 'index'])
+                Route::get('coverage', [CoverageController::class, 'index'])
                     ->name('coverage.index');
-                Route::get('coverage/export', [\App\Http\Controllers\LiveHost\Reports\CoverageController::class, 'export'])
+                Route::get('coverage/export', [CoverageController::class, 'export'])
                     ->name('coverage.export');
 
-                Route::get('replacements', [\App\Http\Controllers\LiveHost\Reports\ReplacementsController::class, 'index'])
+                Route::get('replacements', [ReplacementsController::class, 'index'])
                     ->name('replacements.index');
-                Route::get('replacements/export', [\App\Http\Controllers\LiveHost\Reports\ReplacementsController::class, 'export'])
+                Route::get('replacements/export', [ReplacementsController::class, 'export'])
                     ->name('replacements.export');
             });
 
-            Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
+            Route::get('hosts/create', [HostController::class, 'create'])
                 ->name('hosts.create');
-            Route::post('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'store'])
+            Route::post('hosts', [HostController::class, 'store'])
                 ->name('hosts.store');
-            Route::get('hosts/{host}/edit', [\App\Http\Controllers\LiveHost\HostController::class, 'edit'])
+            Route::get('hosts/{host}/edit', [HostController::class, 'edit'])
                 ->name('hosts.edit');
-            Route::put('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'update'])
+            Route::put('hosts/{host}', [HostController::class, 'update'])
                 ->name('hosts.update');
-            Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
+            Route::delete('hosts/{host}', [HostController::class, 'destroy'])
                 ->name('hosts.destroy');
 
-            Route::post('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'store'])
+            Route::post('hosts/{host}/commission-profile', [LiveHostCommissionProfileController::class, 'store'])
                 ->name('hosts.commission-profile.store');
-            Route::put('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'update'])
+            Route::put('hosts/{host}/commission-profile', [LiveHostCommissionProfileController::class, 'update'])
                 ->name('hosts.commission-profile.update');
 
-            Route::post('hosts/{host}/platform-rates', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'store'])
+            Route::post('hosts/{host}/platform-rates', [LiveHostPlatformCommissionRateController::class, 'store'])
                 ->name('hosts.platform-rates.store');
-            Route::put('hosts/{host}/platform-rates/{rate}', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'update'])
+            Route::put('hosts/{host}/platform-rates/{rate}', [LiveHostPlatformCommissionRateController::class, 'update'])
                 ->name('hosts.platform-rates.update');
 
-            Route::post('hosts/{host}/platforms/{platform:id}/tiers', [\App\Http\Controllers\LiveHost\HostController::class, 'storeTierSchedule'])
+            Route::post('hosts/{host}/platforms/{platform:id}/tiers', [HostController::class, 'storeTierSchedule'])
                 ->name('hosts.tiers.store')
                 ->withoutScopedBindings();
-            Route::patch('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'updateTier'])
+            Route::patch('hosts/{host}/tiers/{tier}', [HostController::class, 'updateTier'])
                 ->name('hosts.tiers.update');
-            Route::delete('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroyTier'])
+            Route::delete('hosts/{host}/tiers/{tier}', [HostController::class, 'destroyTier'])
                 ->name('hosts.tiers.destroy');
 
             // Task 24: pivot CRUD for (host, platform_account) with creator identity.
-            Route::post('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'attach'])
+            Route::post('hosts/{host}/platform-accounts/{platformAccount}', [HostPlatformAccountController::class, 'attach'])
                 ->name('hosts.platform-accounts.attach');
-            Route::patch('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'update'])
+            Route::patch('hosts/{host}/platform-accounts/{platformAccount}', [HostPlatformAccountController::class, 'update'])
                 ->name('hosts.platform-accounts.update');
-            Route::delete('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'detach'])
+            Route::delete('hosts/{host}/platform-accounts/{platformAccount}', [HostPlatformAccountController::class, 'detach'])
                 ->name('hosts.platform-accounts.detach');
 
-            Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
+            Route::resource('schedules', App\Http\Controllers\LiveHost\ScheduleController::class);
 
             // Platform accounts — write verbs only; index + show live in the shared group above.
-            Route::get('platform-accounts/create', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'create'])
+            Route::get('platform-accounts/create', [PlatformAccountController::class, 'create'])
                 ->name('platform-accounts.create');
-            Route::post('platform-accounts', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'store'])
+            Route::post('platform-accounts', [PlatformAccountController::class, 'store'])
                 ->name('platform-accounts.store');
-            Route::get('platform-accounts/{platformAccount}/edit', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'edit'])
+            Route::get('platform-accounts/{platformAccount}/edit', [PlatformAccountController::class, 'edit'])
                 ->name('platform-accounts.edit');
-            Route::match(['put', 'patch'], 'platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'update'])
+            Route::match(['put', 'patch'], 'platform-accounts/{platformAccount}', [PlatformAccountController::class, 'update'])
                 ->name('platform-accounts.update');
-            Route::delete('platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'destroy'])
+            Route::delete('platform-accounts/{platformAccount}', [PlatformAccountController::class, 'destroy'])
                 ->name('platform-accounts.destroy');
 
-            Route::post('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'store'])
+            Route::post('creators', [CreatorController::class, 'store'])
                 ->name('creators.store');
-            Route::put('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'update'])
+            Route::put('creators/{creator}', [CreatorController::class, 'update'])
                 ->name('creators.update');
-            Route::delete('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'destroy'])
+            Route::delete('creators/{creator}', [CreatorController::class, 'destroy'])
                 ->name('creators.destroy');
 
             // Live accounts (creator nicknames) — the scheduling punca kuasa.
-            Route::post('live-accounts', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'store'])
+            Route::post('live-accounts', [LiveAccountController::class, 'store'])
                 ->name('live-accounts.store');
-            Route::put('live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'update'])
+            Route::put('live-accounts/{liveAccount}', [LiveAccountController::class, 'update'])
                 ->name('live-accounts.update');
-            Route::delete('live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'destroy'])
+            Route::delete('live-accounts/{liveAccount}', [LiveAccountController::class, 'destroy'])
                 ->name('live-accounts.destroy');
-            Route::post('hosts/{host}/live-accounts', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'attachHost'])
+            Route::post('hosts/{host}/live-accounts', [LiveAccountController::class, 'attachHost'])
                 ->name('hosts.live-accounts.attach');
-            Route::delete('hosts/{host}/live-accounts/{liveAccount}', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'detachHost'])
+            Route::delete('hosts/{host}/live-accounts/{liveAccount}', [LiveAccountController::class, 'detachHost'])
                 ->name('hosts.live-accounts.detach');
 
             // Combined "Session Data" view: live sessions merged with their linked
             // TikTok actual records (GMV/viewers/items/creator). Distinct base path
             // so it doesn't collide with the sessions/{session} wildcard below.
-            Route::get('session-data', [\App\Http\Controllers\LiveHost\SessionDataController::class, 'index'])
+            Route::get('session-data', [SessionDataController::class, 'index'])
                 ->name('session-data.index');
 
-            Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
+            Route::get('sessions', [SessionController::class, 'index'])
                 ->name('sessions.index');
-            Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
+            Route::get('sessions/{session}', [SessionController::class, 'show'])
                 ->name('sessions.show');
-            Route::put('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'update'])
+            Route::put('sessions/{session}', [SessionController::class, 'update'])
                 ->name('sessions.update');
-            Route::post('sessions/{session}/verify', [\App\Http\Controllers\LiveHost\SessionController::class, 'verify'])
+            Route::post('sessions/{session}/verify', [SessionController::class, 'verify'])
                 ->name('sessions.verify');
-            Route::post('sessions/{session}/verify-link', [\App\Http\Controllers\LiveHost\SessionController::class, 'verifyLink'])
+            Route::post('sessions/{session}/verify-link', [SessionController::class, 'verifyLink'])
                 ->name('sessions.verify-link');
-            Route::get('sessions/{session}/candidates', [\App\Http\Controllers\LiveHost\SessionController::class, 'candidates'])
+            Route::get('sessions/{session}/candidates', [SessionController::class, 'candidates'])
                 ->name('sessions.candidates');
-            Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHost\SessionController::class, 'storeAttachment'])
+            Route::post('sessions/{session}/attachments', [SessionController::class, 'storeAttachment'])
                 ->name('sessions.attachments.store');
-            Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])
+            Route::delete('sessions/{session}/attachments/{attachment}', [SessionController::class, 'destroyAttachment'])
                 ->name('sessions.attachments.destroy');
-            Route::post('sessions/{session}/adjustments', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'store'])
+            Route::post('sessions/{session}/adjustments', [LiveSessionGmvAdjustmentController::class, 'store'])
                 ->name('sessions.adjustments.store');
-            Route::delete('sessions/{session}/adjustments/{adjustment}', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'destroy'])
+            Route::delete('sessions/{session}/adjustments/{adjustment}', [LiveSessionGmvAdjustmentController::class, 'destroy'])
                 ->name('sessions.adjustments.destroy');
-            Route::post('sessions/{session}/adjustments/{adjustment}/approve', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'approve'])
+            Route::post('sessions/{session}/adjustments/{adjustment}/approve', [LiveSessionGmvAdjustmentController::class, 'approve'])
                 ->name('sessions.adjustments.approve');
-            Route::post('sessions/{session}/adjustments/{adjustment}/reject', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'reject'])
+            Route::post('sessions/{session}/adjustments/{adjustment}/reject', [LiveSessionGmvAdjustmentController::class, 'reject'])
                 ->name('sessions.adjustments.reject');
 
             // Commission Overview matrix (Task 22) — one-page inline-editable view
             // of every active host's commission plan.
-            Route::get('commission/export', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'export'])
+            Route::get('commission/export', [CommissionOverviewController::class, 'export'])
                 ->name('commission.export');
-            Route::get('commission', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'index'])
+            Route::get('commission', [CommissionOverviewController::class, 'index'])
                 ->name('commission.index');
 
             // Payroll runs (Task 27) — bi-monthly payroll lifecycle + CSV export.
-            Route::get('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'index'])
+            Route::get('payroll', [LiveHostPayrollRunController::class, 'index'])
                 ->name('payroll.index');
-            Route::post('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'store'])
+            Route::post('payroll', [LiveHostPayrollRunController::class, 'store'])
                 ->name('payroll.store');
-            Route::get('payroll/{run}', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'show'])
+            Route::get('payroll/{run}', [LiveHostPayrollRunController::class, 'show'])
                 ->name('payroll.show');
-            Route::post('payroll/{run}/recompute', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'recompute'])
+            Route::post('payroll/{run}/recompute', [LiveHostPayrollRunController::class, 'recompute'])
                 ->name('payroll.recompute');
-            Route::post('payroll/{run}/lock', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'lock'])
+            Route::post('payroll/{run}/lock', [LiveHostPayrollRunController::class, 'lock'])
                 ->name('payroll.lock');
-            Route::post('payroll/{run}/mark-paid', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'markPaid'])
+            Route::post('payroll/{run}/mark-paid', [LiveHostPayrollRunController::class, 'markPaid'])
                 ->name('payroll.mark-paid');
-            Route::get('payroll/{run}/export', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'export'])
+            Route::get('payroll/{run}/export', [LiveHostPayrollRunController::class, 'export'])
                 ->name('payroll.export');
 
             // TikTok Report Imports (Task 36) — PIC uploads Live Analysis / All Order
             // xlsx exports; a queued job parses and matches them to live sessions.
-            Route::get('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'index'])
+            Route::get('tiktok-imports', [TiktokReportImportController::class, 'index'])
                 ->name('tiktok-imports.index');
-            Route::get('tiktok-imports/create', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'create'])
+            Route::get('tiktok-imports/create', [TiktokReportImportController::class, 'create'])
                 ->name('tiktok-imports.create');
-            Route::post('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'store'])
+            Route::post('tiktok-imports', [TiktokReportImportController::class, 'store'])
                 ->name('tiktok-imports.store');
-            Route::get('tiktok-imports/{import}', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'show'])
+            Route::get('tiktok-imports/{import}', [TiktokReportImportController::class, 'show'])
                 ->name('tiktok-imports.show');
-            Route::post('tiktok-imports/{import}/apply', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'apply'])
+            Route::post('tiktok-imports/{import}/apply', [TiktokReportImportController::class, 'apply'])
                 ->name('tiktok-imports.apply');
 
             // Platform Orders (Task 6) — Inertia listing of tiktok_shop ProductOrders
             // with shop / status / matching / date filters for the PIC reconciliation UI.
-            Route::get('orders', [\App\Http\Controllers\LiveHost\PlatformOrderController::class, 'index'])
+            Route::get('orders', [PlatformOrderController::class, 'index'])
                 ->name('orders.index');
 
         });
@@ -514,62 +578,62 @@ Route::middleware(['auth'])
             ->prefix('recruitment')
             ->name('recruitment.')
             ->group(function () {
-                Route::get('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'index'])
+                Route::get('campaigns', [RecruitmentCampaignController::class, 'index'])
                     ->name('campaigns.index');
-                Route::get('campaigns/create', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'create'])
+                Route::get('campaigns/create', [RecruitmentCampaignController::class, 'create'])
                     ->name('campaigns.create');
-                Route::post('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'store'])
+                Route::post('campaigns', [RecruitmentCampaignController::class, 'store'])
                     ->name('campaigns.store');
-                Route::get('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'show'])
+                Route::get('campaigns/{campaign}', [RecruitmentCampaignController::class, 'show'])
                     ->name('campaigns.show');
-                Route::get('campaigns/{campaign}/edit', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'edit'])
+                Route::get('campaigns/{campaign}/edit', [RecruitmentCampaignController::class, 'edit'])
                     ->name('campaigns.edit');
-                Route::put('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'update'])
+                Route::put('campaigns/{campaign}', [RecruitmentCampaignController::class, 'update'])
                     ->name('campaigns.update');
-                Route::patch('campaigns/{campaign}/publish', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'publish'])
+                Route::patch('campaigns/{campaign}/publish', [RecruitmentCampaignController::class, 'publish'])
                     ->name('campaigns.publish');
-                Route::patch('campaigns/{campaign}/pause', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'pause'])
+                Route::patch('campaigns/{campaign}/pause', [RecruitmentCampaignController::class, 'pause'])
                     ->name('campaigns.pause');
-                Route::patch('campaigns/{campaign}/resume', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'resume'])
+                Route::patch('campaigns/{campaign}/resume', [RecruitmentCampaignController::class, 'resume'])
                     ->name('campaigns.resume');
-                Route::patch('campaigns/{campaign}/close', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'close'])
+                Route::patch('campaigns/{campaign}/close', [RecruitmentCampaignController::class, 'close'])
                     ->name('campaigns.close');
-                Route::delete('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'destroy'])
+                Route::delete('campaigns/{campaign}', [RecruitmentCampaignController::class, 'destroy'])
                     ->name('campaigns.destroy');
-                Route::post('campaigns/{campaign}/duplicate', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'duplicate'])
+                Route::post('campaigns/{campaign}/duplicate', [RecruitmentCampaignController::class, 'duplicate'])
                     ->name('campaigns.duplicate');
 
                 // Stage editor endpoints (note: reorder must come before the {stage} routes).
-                Route::post('campaigns/{campaign}/stages', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'store'])
+                Route::post('campaigns/{campaign}/stages', [RecruitmentStageController::class, 'store'])
                     ->name('campaigns.stages.store');
-                Route::put('campaigns/{campaign}/stages/reorder', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'reorder'])
+                Route::put('campaigns/{campaign}/stages/reorder', [RecruitmentStageController::class, 'reorder'])
                     ->name('campaigns.stages.reorder');
-                Route::put('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'update'])
+                Route::put('campaigns/{campaign}/stages/{stage}', [RecruitmentStageController::class, 'update'])
                     ->name('campaigns.stages.update');
-                Route::delete('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'destroy'])
+                Route::delete('campaigns/{campaign}/stages/{stage}', [RecruitmentStageController::class, 'destroy'])
                     ->name('campaigns.stages.destroy');
 
                 // Applicant review — kanban board, detail page, stage moves, reject, notes.
-                Route::get('applicants', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'index'])
+                Route::get('applicants', [RecruitmentApplicantController::class, 'index'])
                     ->name('applicants.index');
-                Route::get('applicants/{applicant}', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'show'])
+                Route::get('applicants/{applicant}', [RecruitmentApplicantController::class, 'show'])
                     ->name('applicants.show');
-                Route::patch('applicants/{applicant}/stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'moveStage'])
+                Route::patch('applicants/{applicant}/stage', [RecruitmentApplicantController::class, 'moveStage'])
                     ->name('applicants.stage');
-                Route::patch('applicants/{applicant}/reject', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'reject'])
+                Route::patch('applicants/{applicant}/reject', [RecruitmentApplicantController::class, 'reject'])
                     ->name('applicants.reject');
-                Route::patch('applicants/{applicant}/restore', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'restore'])
+                Route::patch('applicants/{applicant}/restore', [RecruitmentApplicantController::class, 'restore'])
                     ->name('applicants.restore');
-                Route::patch('applicants/{applicant}/notes', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateNotes'])
+                Route::patch('applicants/{applicant}/notes', [RecruitmentApplicantController::class, 'updateNotes'])
                     ->name('applicants.notes');
-                Route::patch('applicants/{applicant}/current-stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateCurrentStage'])
+                Route::patch('applicants/{applicant}/current-stage', [RecruitmentApplicantController::class, 'updateCurrentStage'])
                     ->name('applicants.current-stage');
 
                 // Hire + password-reset-link affect user accounts; PIC-only.
                 Route::middleware('role:admin,admin_livehost')->group(function () {
-                    Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
+                    Route::post('applicants/{applicant}/hire', [RecruitmentApplicantController::class, 'hire'])
                         ->name('applicants.hire');
-                    Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
+                    Route::post('applicants/{applicant}/password-reset-link', [RecruitmentApplicantController::class, 'passwordResetLink'])
                         ->name('applicants.password-reset-link');
                 });
             });
@@ -583,98 +647,98 @@ Route::middleware(['auth'])
             ->name('mentoring.')
             ->group(function () {
                 // Programs
-                Route::get('programs', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'index'])
+                Route::get('programs', [MentoringProgramController::class, 'index'])
                     ->name('programs.index');
-                Route::get('programs/create', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'create'])
+                Route::get('programs/create', [MentoringProgramController::class, 'create'])
                     ->name('programs.create');
-                Route::post('programs', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'store'])
+                Route::post('programs', [MentoringProgramController::class, 'store'])
                     ->name('programs.store');
-                Route::get('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'show'])
+                Route::get('programs/{program}', [MentoringProgramController::class, 'show'])
                     ->name('programs.show');
-                Route::get('programs/{program}/edit', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'edit'])
+                Route::get('programs/{program}/edit', [MentoringProgramController::class, 'edit'])
                     ->name('programs.edit');
-                Route::get('programs/{program}/checklist-overview', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'checklistOverview'])
+                Route::get('programs/{program}/checklist-overview', [MentoringProgramController::class, 'checklistOverview'])
                     ->name('programs.checklist-overview');
-                Route::put('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'update'])
+                Route::put('programs/{program}', [MentoringProgramController::class, 'update'])
                     ->name('programs.update');
-                Route::patch('programs/{program}/activate', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'activate'])
+                Route::patch('programs/{program}/activate', [MentoringProgramController::class, 'activate'])
                     ->name('programs.activate');
-                Route::patch('programs/{program}/pause', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'pause'])
+                Route::patch('programs/{program}/pause', [MentoringProgramController::class, 'pause'])
                     ->name('programs.pause');
-                Route::patch('programs/{program}/complete', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'complete'])
+                Route::patch('programs/{program}/complete', [MentoringProgramController::class, 'complete'])
                     ->name('programs.complete');
-                Route::post('programs/{program}/duplicate', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'duplicate'])
+                Route::post('programs/{program}/duplicate', [MentoringProgramController::class, 'duplicate'])
                     ->name('programs.duplicate');
-                Route::delete('programs/{program}', [\App\Http\Controllers\LiveHost\MentoringProgramController::class, 'destroy'])
+                Route::delete('programs/{program}', [MentoringProgramController::class, 'destroy'])
                     ->name('programs.destroy');
 
                 // Stage editor (reorder must precede the {stage} routes).
-                Route::post('programs/{program}/stages', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'store'])
+                Route::post('programs/{program}/stages', [MentoringStageController::class, 'store'])
                     ->name('programs.stages.store');
-                Route::put('programs/{program}/stages/reorder', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'reorder'])
+                Route::put('programs/{program}/stages/reorder', [MentoringStageController::class, 'reorder'])
                     ->name('programs.stages.reorder');
-                Route::put('programs/{program}/stages/{stage}', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'update'])
+                Route::put('programs/{program}/stages/{stage}', [MentoringStageController::class, 'update'])
                     ->name('programs.stages.update');
-                Route::delete('programs/{program}/stages/{stage}', [\App\Http\Controllers\LiveHost\MentoringStageController::class, 'destroy'])
+                Route::delete('programs/{program}/stages/{stage}', [MentoringStageController::class, 'destroy'])
                     ->name('programs.stages.destroy');
 
                 // Enrolment is nested under a program (carries program context).
-                Route::post('programs/{program}/mentees', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'enroll'])
+                Route::post('programs/{program}/mentees', [MentoringMenteeController::class, 'enroll'])
                     ->name('programs.mentees.enroll');
 
                 // Coaching / meeting / training activity log (drives the leader
                 // activity indicator). Logged against a program, optionally a mentee.
-                Route::post('programs/{program}/activities', [\App\Http\Controllers\LiveHost\MentoringActivityController::class, 'store'])
+                Route::post('programs/{program}/activities', [MentoringActivityController::class, 'store'])
                     ->name('programs.activities.store');
-                Route::delete('activities/{activity}', [\App\Http\Controllers\LiveHost\MentoringActivityController::class, 'destroy'])
+                Route::delete('activities/{activity}', [MentoringActivityController::class, 'destroy'])
                     ->name('activities.destroy');
 
                 // Mentee board, detail, stage moves, lifecycle.
-                Route::get('mentees', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'index'])
+                Route::get('mentees', [MentoringMenteeController::class, 'index'])
                     ->name('mentees.index');
-                Route::get('mentees/{mentee}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'show'])
+                Route::get('mentees/{mentee}', [MentoringMenteeController::class, 'show'])
                     ->name('mentees.show');
-                Route::get('mentees/{mentee}/detail', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'detail'])
+                Route::get('mentees/{mentee}/detail', [MentoringMenteeController::class, 'detail'])
                     ->name('mentees.detail');
-                Route::patch('mentees/{mentee}/stage', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'moveStage'])
+                Route::patch('mentees/{mentee}/stage', [MentoringMenteeController::class, 'moveStage'])
                     ->name('mentees.stage');
-                Route::patch('mentees/{mentee}/current-stage', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateCurrentStage'])
+                Route::patch('mentees/{mentee}/current-stage', [MentoringMenteeController::class, 'updateCurrentStage'])
                     ->name('mentees.current-stage');
-                Route::patch('mentees/{mentee}/notes', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateNotes'])
+                Route::patch('mentees/{mentee}/notes', [MentoringMenteeController::class, 'updateNotes'])
                     ->name('mentees.notes');
-                Route::patch('mentees/{mentee}/drop', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'drop'])
+                Route::patch('mentees/{mentee}/drop', [MentoringMenteeController::class, 'drop'])
                     ->name('mentees.drop');
-                Route::patch('mentees/{mentee}/restore', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'restore'])
+                Route::patch('mentees/{mentee}/restore', [MentoringMenteeController::class, 'restore'])
                     ->name('mentees.restore');
-                Route::delete('mentees/{mentee}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'destroy'])
+                Route::delete('mentees/{mentee}', [MentoringMenteeController::class, 'destroy'])
                     ->name('mentees.destroy');
-                Route::post('mentees/{mentee}/graduate', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'graduate'])
+                Route::post('mentees/{mentee}/graduate', [MentoringMenteeController::class, 'graduate'])
                     ->name('mentees.graduate');
-                Route::patch('mentees/{mentee}/level', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'assignLevel'])
+                Route::patch('mentees/{mentee}/level', [MentoringMenteeController::class, 'assignLevel'])
                     ->name('mentees.level');
-                Route::patch('mentees/{mentee}/monthly-score', [\App\Http\Controllers\LiveHost\MentoringPerformanceController::class, 'store'])
+                Route::patch('mentees/{mentee}/monthly-score', [MentoringPerformanceController::class, 'store'])
                     ->name('mentees.monthly-score');
 
                 // Per-mentee task checklist.
-                Route::post('mentees/{mentee}/checklist', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'storeChecklistItem'])
+                Route::post('mentees/{mentee}/checklist', [MentoringMenteeController::class, 'storeChecklistItem'])
                     ->name('mentees.checklist.store');
-                Route::patch('mentees/{mentee}/checklist/{item}/toggle', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'toggleChecklistItem'])
+                Route::patch('mentees/{mentee}/checklist/{item}/toggle', [MentoringMenteeController::class, 'toggleChecklistItem'])
                     ->name('mentees.checklist.toggle');
-                Route::patch('mentees/{mentee}/checklist/{item}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'updateChecklistItem'])
+                Route::patch('mentees/{mentee}/checklist/{item}', [MentoringMenteeController::class, 'updateChecklistItem'])
                     ->name('mentees.checklist.update');
-                Route::delete('mentees/{mentee}/checklist/{item}', [\App\Http\Controllers\LiveHost\MentoringMenteeController::class, 'destroyChecklistItem'])
+                Route::delete('mentees/{mentee}/checklist/{item}', [MentoringMenteeController::class, 'destroyChecklistItem'])
                     ->name('mentees.checklist.destroy');
 
                 // Customizable performance-level catalog (reorder before {level}).
-                Route::get('levels', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'index'])
+                Route::get('levels', [MentoringLevelController::class, 'index'])
                     ->name('levels.index');
-                Route::post('levels', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'store'])
+                Route::post('levels', [MentoringLevelController::class, 'store'])
                     ->name('levels.store');
-                Route::put('levels/reorder', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'reorder'])
+                Route::put('levels/reorder', [MentoringLevelController::class, 'reorder'])
                     ->name('levels.reorder');
-                Route::put('levels/{level}', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'update'])
+                Route::put('levels/{level}', [MentoringLevelController::class, 'update'])
                     ->name('levels.update');
-                Route::delete('levels/{level}', [\App\Http\Controllers\LiveHost\MentoringLevelController::class, 'destroy'])
+                Route::delete('levels/{level}', [MentoringLevelController::class, 'destroy'])
                     ->name('levels.destroy');
             });
 
@@ -683,41 +747,41 @@ Route::middleware(['auth'])
         // hosts/create, platform-accounts/create) get first-match priority over the
         // shared parameterized routes (hosts/{host}, platform-accounts/{platformAccount}).
         Route::middleware('role:admin,admin_livehost,livehost_assistant')->group(function () {
-            Route::get('/', [\App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
+            Route::get('/', [App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
                 ->name('dashboard');
 
-            Route::get('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'index'])
+            Route::get('hosts', [HostController::class, 'index'])
                 ->name('hosts.index');
-            Route::get('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'show'])
+            Route::get('hosts/{host}', [HostController::class, 'show'])
                 ->name('hosts.show');
 
-            Route::get('platform-accounts', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'index'])
+            Route::get('platform-accounts', [PlatformAccountController::class, 'index'])
                 ->name('platform-accounts.index');
-            Route::get('platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'show'])
+            Route::get('platform-accounts/{platformAccount}', [PlatformAccountController::class, 'show'])
                 ->name('platform-accounts.show');
 
-            Route::get('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'index'])
+            Route::get('creators', [CreatorController::class, 'index'])
                 ->name('creators.index');
 
-            Route::get('live-accounts', [\App\Http\Controllers\LiveHost\LiveAccountController::class, 'index'])
+            Route::get('live-accounts', [LiveAccountController::class, 'index'])
                 ->name('live-accounts.index');
 
-            Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
+            Route::resource('time-slots', TimeSlotController::class)
                 ->except(['show'])
                 ->parameters(['time-slots' => 'timeSlot']);
 
             // Literal-path session-slot routes must come BEFORE Route::resource to avoid
             // the resource's {sessionSlot} show route swallowing "/calendar", "/table", "/preview".
-            Route::get('session-slots/calendar', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+            Route::get('session-slots/calendar', [SessionSlotController::class, 'calendar'])
                 ->name('session-slots.calendar');
-            Route::get('session-slots/table', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'index'])
+            Route::get('session-slots/table', [SessionSlotController::class, 'index'])
                 ->name('session-slots.table');
-            Route::get('session-slots/preview', fn () => \Inertia\Inertia::render('session-slots/CalendarPreview'))
+            Route::get('session-slots/preview', fn () => Inertia::render('session-slots/CalendarPreview'))
                 ->name('session-slots.preview');
-            Route::get('session-slots', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+            Route::get('session-slots', [SessionSlotController::class, 'calendar'])
                 ->name('session-slots.index');
 
-            Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
+            Route::resource('session-slots', SessionSlotController::class)
                 ->except(['index'])
                 ->parameters(['session-slots' => 'sessionSlot']);
         });
@@ -832,7 +896,7 @@ Route::middleware(['auth', 'role:admin,employee,accountant'])->prefix('admin')->
     Volt::route('product-orders/report', 'admin.orders.order-report')->name('admin.orders.report');
     Volt::route('product-orders/{order}', 'admin.orders.order-show')->name('admin.orders.show');
     Volt::route('product-orders/{order}/receipt', 'admin.orders.order-receipt')->name('admin.orders.receipt');
-    Route::get('product-orders/{order}/receipt-pdf', [\App\Http\Controllers\Admin\ProductOrderReceiptController::class, 'download'])
+    Route::get('product-orders/{order}/receipt-pdf', [ProductOrderReceiptController::class, 'download'])
         ->name('admin.orders.receipt-pdf');
 });
 
@@ -960,12 +1024,12 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
 
     // TikTok Shop OAuth routes
     Route::prefix('tiktok')->name('tiktok.')->group(function () {
-        Route::get('connect', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'redirect'])->name('connect');
-        Route::get('callback', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'callback'])->name('callback');
-        Route::get('select-shop', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'selectShop'])->name('select-shop');
-        Route::post('confirm-shop', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'confirmShop'])->name('confirm-shop');
-        Route::post('disconnect/{account}', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'disconnect'])->name('disconnect');
-        Route::post('refresh-tokens/{account}', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'refreshTokens'])->name('refresh-tokens');
+        Route::get('connect', [TikTokAuthController::class, 'redirect'])->name('connect');
+        Route::get('callback', [TikTokAuthController::class, 'callback'])->name('callback');
+        Route::get('select-shop', [TikTokAuthController::class, 'selectShop'])->name('select-shop');
+        Route::post('confirm-shop', [TikTokAuthController::class, 'confirmShop'])->name('confirm-shop');
+        Route::post('disconnect/{account}', [TikTokAuthController::class, 'disconnect'])->name('disconnect');
+        Route::post('refresh-tokens/{account}', [TikTokAuthController::class, 'refreshTokens'])->name('refresh-tokens');
     });
 
     // Certificate Management routes
@@ -977,12 +1041,12 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('certificates/issue', 'admin.certificates.certificate-issue')->name('certificates.issue');
     Volt::route('certificates/issued', 'admin.certificates.certificate-issued-list')->name('certificates.issued');
     Volt::route('certificates/bulk-issue', 'admin.certificates.certificate-bulk-issue')->name('certificates.bulk-issue');
-    Route::get('certificates/{certificateIssue}/download', function (\App\Models\CertificateIssue $certificateIssue) {
+    Route::get('certificates/{certificateIssue}/download', function (CertificateIssue $certificateIssue) {
         if (! $certificateIssue->hasFile()) {
             abort(404, 'Certificate file not found');
         }
 
-        return \Storage::disk('public')->download($certificateIssue->file_path, $certificateIssue->getDownloadFilename());
+        return Storage::disk('public')->download($certificateIssue->file_path, $certificateIssue->getDownloadFilename());
     })->name('certificates.download');
 
     // CRM & Automation routes
@@ -1015,12 +1079,14 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('whatsapp/templates', 'admin.whatsapp-templates')->name('admin.whatsapp.templates');
     Volt::route('settings/whatsapp', 'admin.settings-whatsapp')->name('admin.settings.whatsapp');
     Volt::route('whatsapp/costs', 'admin.whatsapp-cost-monitoring')->name('admin.whatsapp.costs');
+    Volt::route('whatsapp/campaigns', 'admin.whatsapp-campaigns')->name('admin.whatsapp.campaigns');
+    Volt::route('whatsapp/campaigns/{campaign}', 'admin.whatsapp-campaign-show')->name('admin.whatsapp.campaigns.show');
     Volt::route('settings/shipping', 'admin.settings-shipping')->name('admin.settings.shipping');
 
     // EasyParcel OAuth connect flow
-    Route::get('easyparcel/connect', [\App\Http\Controllers\Admin\EasyParcelOAuthController::class, 'connect'])->name('admin.easyparcel.connect');
-    Route::get('easyparcel/callback', [\App\Http\Controllers\Admin\EasyParcelOAuthController::class, 'callback'])->name('admin.easyparcel.callback');
-    Route::delete('easyparcel/disconnect', [\App\Http\Controllers\Admin\EasyParcelOAuthController::class, 'disconnect'])->name('admin.easyparcel.disconnect');
+    Route::get('easyparcel/connect', [EasyParcelOAuthController::class, 'connect'])->name('admin.easyparcel.connect');
+    Route::get('easyparcel/callback', [EasyParcelOAuthController::class, 'callback'])->name('admin.easyparcel.callback');
+    Route::delete('easyparcel/disconnect', [EasyParcelOAuthController::class, 'disconnect'])->name('admin.easyparcel.disconnect');
 
     // Customer Service routes
     Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
@@ -1138,7 +1204,7 @@ Route::middleware(['auth', 'role:admin,employee'])->group(function () {
 // ============================================================================
 Route::get('affiliate/{any?}', fn () => view('affiliate-dashboard.index'))
     ->where('any', '.*')
-    ->middleware(\App\Http\Middleware\AffiliateSessionLifetime::class)
+    ->middleware(AffiliateSessionLifetime::class)
     ->name('affiliate.spa');
 
 // ============================================================================
@@ -1146,43 +1212,43 @@ Route::get('affiliate/{any?}', fn () => view('affiliate-dashboard.index'))
 // ============================================================================
 Route::prefix('f')->name('funnel.')->group(function () {
     // Affiliate ref tracking (path-based)
-    Route::get('{slug}/ref/{refCode}', [App\Http\Controllers\PublicFunnelController::class, 'showWithRef'])->name('showWithRef');
-    Route::get('{slug}/{stepSlug}/ref/{refCode}', [App\Http\Controllers\PublicFunnelController::class, 'showStepWithRef'])->name('stepWithRef');
+    Route::get('{slug}/ref/{refCode}', [PublicFunnelController::class, 'showWithRef'])->name('showWithRef');
+    Route::get('{slug}/{stepSlug}/ref/{refCode}', [PublicFunnelController::class, 'showStepWithRef'])->name('stepWithRef');
 
     // Funnel landing page (first step)
-    Route::get('{slug}', [App\Http\Controllers\PublicFunnelController::class, 'show'])->name('show');
+    Route::get('{slug}', [PublicFunnelController::class, 'show'])->name('show');
 
     // Specific funnel step
-    Route::get('{slug}/{stepSlug}', [App\Http\Controllers\PublicFunnelController::class, 'showStep'])->name('step');
+    Route::get('{slug}/{stepSlug}', [PublicFunnelController::class, 'showStep'])->name('step');
 
     // Opt-in form submission
-    Route::post('{slug}/optin', [App\Http\Controllers\PublicFunnelController::class, 'submitOptin'])->name('optin');
+    Route::post('{slug}/optin', [PublicFunnelController::class, 'submitOptin'])->name('optin');
 
     // Cart recovery link
-    Route::get('{slug}/recover/{sessionUuid}', [App\Http\Controllers\PublicFunnelController::class, 'recoverCart'])->name('recover');
+    Route::get('{slug}/recover/{sessionUuid}', [PublicFunnelController::class, 'recoverCart'])->name('recover');
 });
 
 // ============================================================================
 // FUNNEL EMBED - Embeddable checkout forms for external websites
 // ============================================================================
 // Public embed routes (no auth required)
-Route::get('embed/funnel.js', [App\Http\Controllers\FunnelEmbedController::class, 'script'])->name('funnel.embed.script');
-Route::get('embed/{embedKey}', [App\Http\Controllers\FunnelEmbedController::class, 'show'])->name('funnel.embed');
+Route::get('embed/funnel.js', [FunnelEmbedController::class, 'script'])->name('funnel.embed.script');
+Route::get('embed/{embedKey}', [FunnelEmbedController::class, 'show'])->name('funnel.embed');
 
 // Admin embed management routes
 Route::middleware(['auth', 'role:admin,employee'])->prefix('api/v1')->group(function () {
-    Route::post('funnels/{funnel}/embed/code', [App\Http\Controllers\FunnelEmbedController::class, 'generateEmbedCode'])->name('api.funnels.embed.code');
-    Route::post('funnels/{funnel}/embed/toggle', [App\Http\Controllers\FunnelEmbedController::class, 'toggleEmbed'])->name('api.funnels.embed.toggle');
-    Route::put('funnels/{funnel}/embed/settings', [App\Http\Controllers\FunnelEmbedController::class, 'updateSettings'])->name('api.funnels.embed.settings');
-    Route::post('funnels/{funnel}/embed/regenerate-key', [App\Http\Controllers\FunnelEmbedController::class, 'regenerateKey'])->name('api.funnels.embed.regenerate');
+    Route::post('funnels/{funnel}/embed/code', [FunnelEmbedController::class, 'generateEmbedCode'])->name('api.funnels.embed.code');
+    Route::post('funnels/{funnel}/embed/toggle', [FunnelEmbedController::class, 'toggleEmbed'])->name('api.funnels.embed.toggle');
+    Route::put('funnels/{funnel}/embed/settings', [FunnelEmbedController::class, 'updateSettings'])->name('api.funnels.embed.settings');
+    Route::post('funnels/{funnel}/embed/regenerate-key', [FunnelEmbedController::class, 'regenerateKey'])->name('api.funnels.embed.regenerate');
 });
 
 // Stripe webhook route - no auth middleware needed
-Route::post('stripe/webhook', [App\Http\Controllers\StripeWebhookController::class, 'handle'])->name('stripe.webhook');
+Route::post('stripe/webhook', [StripeWebhookController::class, 'handle'])->name('stripe.webhook');
 
 // Bayarcash webhook routes - no auth middleware needed
-Route::post('bayarcash/callback', [App\Http\Controllers\BayarcashWebhookController::class, 'callback'])->name('bayarcash.callback');
-Route::get('bayarcash/return', [App\Http\Controllers\BayarcashWebhookController::class, 'return'])->name('bayarcash.return');
+Route::post('bayarcash/callback', [BayarcashWebhookController::class, 'callback'])->name('bayarcash.callback');
+Route::get('bayarcash/return', [BayarcashWebhookController::class, 'return'])->name('bayarcash.return');
 
 // Payment failed fallback page - no auth middleware needed
 Route::get('payment/failed', function () {
@@ -1192,28 +1258,31 @@ Route::get('payment/failed', function () {
 })->name('payment.failed');
 
 // TikTok Shop webhook route - no auth middleware needed
-Route::match(['get', 'post'], 'webhooks/tiktok', [App\Http\Controllers\TikTok\TikTokWebhookController::class, 'handle'])->name('tiktok.webhook');
+Route::match(['get', 'post'], 'webhooks/tiktok', [TikTokWebhookController::class, 'handle'])->name('tiktok.webhook');
+
+// EasyParcel tracking-status webhook - no auth middleware needed (external push)
+Route::post('webhooks/easyparcel', [EasyParcelWebhookController::class, 'handle'])->name('easyparcel.webhook');
 
 // TikTok OAuth callback - outside auth middleware to work with Expose/external redirects
-Route::get('tiktok/callback', [App\Http\Controllers\TikTok\TikTokAuthController::class, 'callback'])->name('tiktok.callback.public');
+Route::get('tiktok/callback', [TikTokAuthController::class, 'callback'])->name('tiktok.callback.public');
 
 // Payment processing routes - requires auth
 Route::middleware(['auth'])->group(function () {
     // Payment creation and processing
-    Route::post('invoices/{invoice}/create-payment', [App\Http\Controllers\PaymentController::class, 'createPayment'])->name('payments.create');
-    Route::post('invoices/{invoice}/confirm-payment', [App\Http\Controllers\PaymentController::class, 'confirmPayment'])->name('payments.confirm');
+    Route::post('invoices/{invoice}/create-payment', [PaymentController::class, 'createPayment'])->name('payments.create');
+    Route::post('invoices/{invoice}/confirm-payment', [PaymentController::class, 'confirmPayment'])->name('payments.confirm');
 
     // Payment method management
-    Route::post('payment-methods', [App\Http\Controllers\PaymentController::class, 'storePaymentMethod'])->name('payment-methods.store');
-    Route::delete('payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'deletePaymentMethod'])->name('payment-methods.delete');
-    Route::patch('payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
+    Route::post('payment-methods', [PaymentController::class, 'storePaymentMethod'])->name('payment-methods.store');
+    Route::delete('payment-methods/{paymentMethod}', [PaymentController::class, 'deletePaymentMethod'])->name('payment-methods.delete');
+    Route::patch('payment-methods/{paymentMethod}/default', [PaymentController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
 
     // Admin payment method management (for managing student payment methods) - accessible by admin and class_admin
     Route::middleware(['role:admin,employee,class_admin'])->group(function () {
-        Route::post('admin/students/{student}/payment-methods', [App\Http\Controllers\PaymentController::class, 'adminStorePaymentMethod'])->name('admin.students.payment-methods.store');
-        Route::delete('admin/students/{student}/payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'adminDeletePaymentMethod'])->name('admin.students.payment-methods.delete');
-        Route::patch('admin/students/{student}/payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'adminSetDefaultPaymentMethod'])->name('admin.students.payment-methods.default');
-        Route::post('admin/students/{student}/payment-methods/generate-magic-link', [App\Http\Controllers\PaymentController::class, 'generateMagicLink'])->name('admin.students.payment-methods.generate-magic-link');
+        Route::post('admin/students/{student}/payment-methods', [PaymentController::class, 'adminStorePaymentMethod'])->name('admin.students.payment-methods.store');
+        Route::delete('admin/students/{student}/payment-methods/{paymentMethod}', [PaymentController::class, 'adminDeletePaymentMethod'])->name('admin.students.payment-methods.delete');
+        Route::patch('admin/students/{student}/payment-methods/{paymentMethod}/default', [PaymentController::class, 'adminSetDefaultPaymentMethod'])->name('admin.students.payment-methods.default');
+        Route::post('admin/students/{student}/payment-methods/generate-magic-link', [PaymentController::class, 'generateMagicLink'])->name('admin.students.payment-methods.generate-magic-link');
     });
 });
 
@@ -1221,11 +1290,11 @@ Route::middleware(['auth'])->group(function () {
 // PUBLIC LIVE HOST RECRUITMENT ROUTES (unauthenticated)
 // ============================================================================
 Route::prefix('recruitment')->name('recruitment.')->group(function () {
-    Route::get('{slug}', [\App\Http\Controllers\LiveHost\PublicRecruitmentController::class, 'show'])
+    Route::get('{slug}', [PublicRecruitmentController::class, 'show'])
         ->name('show');
-    Route::post('{slug}', [\App\Http\Controllers\LiveHost\PublicRecruitmentController::class, 'apply'])
+    Route::post('{slug}', [PublicRecruitmentController::class, 'apply'])
         ->name('apply');
-    Route::get('{slug}/thank-you', [\App\Http\Controllers\LiveHost\PublicRecruitmentController::class, 'thankYou'])
+    Route::get('{slug}/thank-you', [PublicRecruitmentController::class, 'thankYou'])
         ->name('thank-you');
 });
 
@@ -1238,9 +1307,9 @@ require __DIR__.'/auth.php';
 // activate when a custom domain is detected.
 // Note: The root '/' route is handled in the home route above.
 // ============================================================================
-Route::post('/optin', [App\Http\Controllers\PublicFunnelController::class, 'submitOptinFromCustomDomain'])
+Route::post('/optin', [PublicFunnelController::class, 'submitOptinFromCustomDomain'])
     ->name('funnel.custom-domain.optin');
 
-Route::get('/{stepSlug}', [App\Http\Controllers\PublicFunnelController::class, 'showStepFromCustomDomain'])
+Route::get('/{stepSlug}', [PublicFunnelController::class, 'showStepFromCustomDomain'])
     ->name('funnel.custom-domain.step')
     ->where('stepSlug', '^(?!f$|api|admin|livewire|embed|stripe|webhooks|login|register|logout|verify-email|forgot-password|reset-password|confirm-password|dashboard|settings|teacher|funnel-builder|hr|pos|cms|affiliate|_).*');

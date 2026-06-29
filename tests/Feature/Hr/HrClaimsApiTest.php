@@ -1023,3 +1023,139 @@ test('bulk pay returns zero when no approved claims exist for the employee', fun
         ->assertJsonPath('count', 0)
         ->assertJsonPath('total', 0);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Admin Claim Request Update (Edit) Tests
+|--------------------------------------------------------------------------
+*/
+
+test('admin can edit a pending claim request', function () {
+    Notification::fake();
+
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+    $claim = ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 50.00,
+        'description' => 'Original description',
+    ]);
+
+    $response = $this->actingAs($admin)->putJson("/api/hr/claims/requests/{$claim->id}", [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 88.25,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Updated by admin',
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('message', 'Claim request updated successfully.')
+        ->assertJsonPath('data.status', 'pending');
+
+    $claim->refresh();
+    expect((float) $claim->amount)->toBe(88.25)
+        ->and($claim->description)->toBe('Updated by admin');
+});
+
+test('admin edit recomputes amount for a mileage claim', function () {
+    Notification::fake();
+
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true, 'requires_receipt' => false]);
+    $vehicleRate = ClaimTypeVehicleRate::factory()->create([
+        'claim_type_id' => $claimType->id,
+        'rate_per_km' => 0.50,
+    ]);
+    $claim = ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 10.00,
+    ]);
+
+    $response = $this->actingAs($admin)->putJson("/api/hr/claims/requests/{$claim->id}", [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'vehicle_rate_id' => $vehicleRate->id,
+        'distance_km' => 30,
+        'origin' => 'KL',
+        'destination' => 'PJ',
+        'trip_purpose' => 'Client visit',
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Updated mileage trip',
+    ]);
+
+    $response->assertSuccessful();
+
+    $claim->refresh();
+    expect((float) $claim->amount)->toBe(15.00)
+        ->and((float) $claim->distance_km)->toBe(30.0)
+        ->and($claim->origin)->toBe('KL');
+});
+
+test('admin cannot edit an approved claim', function () {
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+    $claim = ClaimRequest::factory()->approved()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $this->actingAs($admin)->putJson("/api/hr/claims/requests/{$claim->id}", [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 5.00,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Should be blocked',
+    ])->assertStatus(422)
+        ->assertJsonPath('message', 'Only draft or pending claims can be edited.');
+});
+
+test('non-admin user cannot edit a claim via the admin endpoint', function () {
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+    $claim = ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $this->actingAs($data['user'])->putJson("/api/hr/claims/requests/{$claim->id}", [
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 5.00,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Should be blocked',
+    ])->assertForbidden();
+});
+
+test('admin edit replaces the receipt via method spoofing', function () {
+    Storage::fake('public');
+    Notification::fake();
+
+    $admin = createClaimsAdminUser();
+    $data = createClaimsEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create(['requires_receipt' => false]);
+    $claim = ClaimRequest::factory()->pending()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $response = $this->actingAs($admin)->post("/api/hr/claims/requests/{$claim->id}", [
+        '_method' => 'PUT',
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 120.00,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'With a new receipt',
+        'receipt' => UploadedFile::fake()->image('updated-receipt.jpg'),
+    ]);
+
+    $response->assertSuccessful();
+
+    $claim->refresh();
+    expect($claim->receipt_path)->toStartWith("claim-receipts/{$data['employee']->id}/");
+});

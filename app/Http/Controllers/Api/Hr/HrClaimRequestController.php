@@ -228,6 +228,71 @@ class HrClaimRequestController extends Controller
     }
 
     /**
+     * Update an existing claim request (admin only).
+     *
+     * Only draft or pending claims can be edited. The owning employee is never
+     * changed; mileage amounts are recomputed from the selected vehicle rate and
+     * mileage-only fields are cleared when switching to a non-mileage type.
+     */
+    public function update(StoreAdminClaimRequestRequest $request, ClaimRequest $claimRequest): JsonResponse
+    {
+        if (! in_array($claimRequest->status, ['draft', 'pending'], true)) {
+            return response()->json(['message' => 'Only draft or pending claims can be edited.'], 422);
+        }
+
+        $validated = $request->validated();
+
+        return DB::transaction(function () use ($request, $validated, $claimRequest) {
+            $employee = $claimRequest->employee;
+            $claimType = ClaimType::findOrFail($validated['claim_type_id']);
+
+            $amount = $validated['amount'] ?? null;
+            $vehicleRateId = null;
+            $distanceKm = null;
+            $origin = null;
+            $destination = null;
+            $tripPurpose = null;
+
+            if ($claimType->is_mileage_type) {
+                $vehicleRate = ClaimTypeVehicleRate::where('id', $validated['vehicle_rate_id'])
+                    ->where('claim_type_id', $claimType->id)
+                    ->where('is_active', true)
+                    ->firstOrFail();
+
+                $amount = round($validated['distance_km'] * $vehicleRate->rate_per_km, 2);
+                $vehicleRateId = $vehicleRate->id;
+                $distanceKm = $validated['distance_km'];
+                $origin = $validated['origin'] ?? null;
+                $destination = $validated['destination'] ?? null;
+                $tripPurpose = $validated['trip_purpose'] ?? null;
+            }
+
+            $receiptPath = $claimRequest->receipt_path;
+            if ($request->hasFile('receipt')) {
+                $receiptPath = $request->file('receipt')->store("claim-receipts/{$employee->id}", 'public');
+            }
+
+            $claimRequest->update([
+                'claim_type_id' => $claimType->id,
+                'amount' => $amount,
+                'claim_date' => $validated['claim_date'],
+                'description' => $validated['description'],
+                'receipt_path' => $receiptPath,
+                'vehicle_rate_id' => $vehicleRateId,
+                'distance_km' => $distanceKm,
+                'origin' => $origin,
+                'destination' => $destination,
+                'trip_purpose' => $tripPurpose,
+            ]);
+
+            return response()->json([
+                'data' => $claimRequest->fresh(['employee.department', 'claimType', 'vehicleRate']),
+                'message' => 'Claim request updated successfully.',
+            ]);
+        });
+    }
+
+    /**
      * Approve a claim request.
      */
     public function approve(Request $request, ClaimRequest $claimRequest): JsonResponse

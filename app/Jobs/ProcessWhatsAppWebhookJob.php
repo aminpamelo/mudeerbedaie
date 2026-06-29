@@ -4,10 +4,12 @@ namespace App\Jobs;
 
 use App\Models\NotificationLog;
 use App\Models\Student;
+use App\Models\WhatsAppCampaignRecipient;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -19,6 +21,17 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
      * @param  array<string, mixed>  $payload  The raw webhook payload from Meta.
      */
     public function __construct(public array $payload) {}
+
+    /**
+     * Serialize webhook processing so concurrent status events for the same
+     * message can't race on read-modify-write status/counter updates.
+     */
+    public function middleware(): array
+    {
+        return [
+            new WithoutOverlapping('whatsapp-webhook'),
+        ];
+    }
 
     /**
      * Process the Meta WhatsApp webhook payload.
@@ -100,6 +113,89 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     ]);
                 }
             }
+
+            // Update WhatsApp blast campaign recipient (matched by wamid)
+            $this->updateCampaignRecipient($messageId, $statusValue, $status['errors'] ?? []);
+        }
+    }
+
+    /**
+     * Reflect a Meta delivery status onto a blast campaign recipient (matched by
+     * wamid) and keep the campaign's funnel counters in sync.
+     *
+     * @param  array<int, array<string, mixed>>  $errors
+     */
+    private function updateCampaignRecipient(string $wamid, string $statusValue, array $errors = []): void
+    {
+        $recipient = WhatsAppCampaignRecipient::with('campaign')->where('wamid', $wamid)->first();
+
+        if (! $recipient || ! $recipient->campaign) {
+            return;
+        }
+
+        $campaign = $recipient->campaign;
+        $current = $recipient->status;
+
+        switch ($statusValue) {
+            case 'sent':
+                if ($current === 'pending') {
+                    $recipient->update(['status' => 'sent', 'sent_at' => now()]);
+                    $campaign->increment('sent_count');
+                }
+                break;
+
+            case 'delivered':
+                if (in_array($current, ['pending', 'sent'], true)) {
+                    $recipient->update([
+                        'status' => 'delivered',
+                        'sent_at' => $recipient->sent_at ?? now(),
+                        'delivered_at' => now(),
+                    ]);
+                    if ($current === 'pending') {
+                        $campaign->increment('sent_count');
+                    }
+                    $campaign->increment('delivered_count');
+                }
+                break;
+
+            case 'read':
+                if (in_array($current, ['pending', 'sent', 'delivered'], true)) {
+                    $recipient->update([
+                        'status' => 'read',
+                        'sent_at' => $recipient->sent_at ?? now(),
+                        'delivered_at' => $recipient->delivered_at ?? now(),
+                        'read_at' => now(),
+                    ]);
+                    if ($current === 'pending') {
+                        $campaign->increment('sent_count');
+                    }
+                    if (in_array($current, ['pending', 'sent'], true)) {
+                        $campaign->increment('delivered_count');
+                    }
+                    $campaign->increment('read_count');
+                }
+                break;
+
+            case 'failed':
+                if ($current !== 'failed') {
+                    $recipient->update([
+                        'status' => 'failed',
+                        'error_message' => collect($errors)->map(fn (array $e) => '['.($e['code'] ?? 'unknown').'] '.($e['title'] ?? 'Unknown error'))->implode('; ') ?: 'Unknown error',
+                    ]);
+                    // Roll back any funnel buckets this recipient had already entered
+                    // so sent >= delivered >= read stays consistent.
+                    if (in_array($current, ['sent', 'delivered', 'read'], true)) {
+                        $campaign->decrement('sent_count');
+                    }
+                    if (in_array($current, ['delivered', 'read'], true)) {
+                        $campaign->decrement('delivered_count');
+                    }
+                    if ($current === 'read') {
+                        $campaign->decrement('read_count');
+                    }
+                    $campaign->increment('failed_count');
+                }
+                break;
         }
     }
 

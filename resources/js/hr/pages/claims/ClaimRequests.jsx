@@ -17,6 +17,7 @@ import {
     MapPin,
     Route,
     Plus,
+    Pencil,
     Upload,
     Users,
     Wallet,
@@ -33,6 +34,7 @@ import {
     fetchDepartments,
     fetchEmployees,
     createAdminClaimRequest,
+    updateAdminClaimRequest,
 } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import PageHeader from '../../components/PageHeader';
@@ -126,6 +128,7 @@ export default function ClaimRequests() {
     const [actionError, setActionError] = useState('');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
+    const [editingClaim, setEditingClaim] = useState(null);
     const [createForm, setCreateForm] = useState({
         employee_id: '',
         claim_type_id: '',
@@ -233,6 +236,21 @@ export default function ClaimRequests() {
         },
     });
 
+    const updateMutation = useMutation({
+        mutationFn: ({ id, formData }) => updateAdminClaimRequest(id, formData),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'requests'] });
+            closeCreateDialog();
+        },
+        onError: (err) => {
+            if (err?.response?.data?.errors) {
+                setCreateErrors(err.response.data.errors);
+            } else {
+                setCreateErrors({ _: [err?.response?.data?.message || 'Failed to update claim.'] });
+            }
+        },
+    });
+
     const exportMutation = useMutation({
         mutationFn: () => exportClaimRequests({
             search: search || undefined,
@@ -307,6 +325,29 @@ export default function ClaimRequests() {
             destination: '',
             trip_purpose: '',
         });
+        setEditingClaim(null);
+        setCreateErrors({});
+        setCreateWarning('');
+        setCreateOpen(true);
+    }
+
+    function openEditDialog(claim) {
+        setCreateForm({
+            employee_id: String(claim.employee?.id ?? claim.employee_id ?? ''),
+            claim_type_id: String(claim.claim_type?.id ?? claim.claim_type_id ?? ''),
+            amount: claim.amount != null ? String(claim.amount) : '',
+            claim_date: claim.claim_date
+                ? String(claim.claim_date).split('T')[0]
+                : new Date().toISOString().split('T')[0],
+            description: claim.description ?? '',
+            receipt: null,
+            vehicle_rate_id: claim.vehicle_rate_id != null ? String(claim.vehicle_rate_id) : '',
+            distance_km: claim.distance_km != null ? String(claim.distance_km) : '',
+            origin: claim.origin ?? '',
+            destination: claim.destination ?? '',
+            trip_purpose: claim.trip_purpose ?? '',
+        });
+        setEditingClaim(claim);
         setCreateErrors({});
         setCreateWarning('');
         setCreateOpen(true);
@@ -314,6 +355,7 @@ export default function ClaimRequests() {
 
     function closeCreateDialog() {
         setCreateOpen(false);
+        setEditingClaim(null);
         setCreateErrors({});
         setCreateWarning('');
     }
@@ -356,7 +398,12 @@ export default function ClaimRequests() {
         if (createForm.receipt) {
             fd.append('receipt', createForm.receipt);
         }
-        createMutation.mutate(fd);
+        if (editingClaim) {
+            fd.append('_method', 'PUT');
+            updateMutation.mutate({ id: editingClaim.id, formData: fd });
+        } else {
+            createMutation.mutate(fd);
+        }
     }
 
     const handleSearch = useCallback((val) => {
@@ -602,6 +649,11 @@ export default function ClaimRequests() {
                                                                     <Button variant="ghost" size="sm" onClick={() => viewDetail(request)}>
                                                                         <Eye className="h-4 w-4" />
                                                                     </Button>
+                                                                    {(request.status === 'draft' || request.status === 'pending') && (
+                                                                        <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-900" aria-label="Edit claim" title="Edit claim" onClick={() => openEditDialog(request)}>
+                                                                            <Pencil className="h-4 w-4" />
+                                                                        </Button>
+                                                                    )}
                                                                     {request.status === 'pending' && (
                                                                         <>
                                                                             <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700" onClick={() => handleAction('approve', request)}>
@@ -703,6 +755,18 @@ export default function ClaimRequests() {
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
+                                                        {(request.status === 'draft' || request.status === 'pending') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-slate-600 hover:text-slate-900"
+                                                                aria-label="Edit claim"
+                                                                title="Edit claim"
+                                                                onClick={() => openEditDialog(request)}
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
                                                         {request.status === 'pending' && (
                                                             <>
                                                                 <Button
@@ -944,9 +1008,11 @@ export default function ClaimRequests() {
             <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { closeCreateDialog(); } }}>
                 <DialogContent className="max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>New Claim Request</DialogTitle>
+                        <DialogTitle>{editingClaim ? 'Edit Claim Request' : 'New Claim Request'}</DialogTitle>
                         <DialogDescription>
-                            File a claim on behalf of an employee. The claim will be submitted for approval.
+                            {editingClaim
+                                ? `Update the details for claim ${editingClaim.claim_number}.`
+                                : 'File a claim on behalf of an employee. The claim will be submitted for approval.'}
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={submitCreateForm} className="space-y-4">
@@ -955,26 +1021,37 @@ export default function ClaimRequests() {
                             <label className="mb-1 block text-sm font-medium text-slate-700">
                                 Employee <span className="text-red-500">*</span>
                             </label>
-                            <Select
-                                value={createForm.employee_id ? String(createForm.employee_id) : ''}
-                                onValueChange={(v) => updateCreateForm('employee_id', v)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select an employee..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {employees.map((emp) => (
-                                        <SelectItem key={emp.id} value={String(emp.id)}>
-                                            {emp.full_name}
-                                            {emp.department?.name && (
-                                                <span className="ml-2 text-xs text-slate-400">
-                                                    · {emp.department.name}
-                                                </span>
-                                            )}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {editingClaim ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                                    {editingClaim.employee?.full_name || '-'}
+                                    {editingClaim.employee?.department?.name && (
+                                        <span className="ml-2 text-xs text-slate-400">
+                                            · {editingClaim.employee.department.name}
+                                        </span>
+                                    )}
+                                </div>
+                            ) : (
+                                <Select
+                                    value={createForm.employee_id ? String(createForm.employee_id) : ''}
+                                    onValueChange={(v) => updateCreateForm('employee_id', v)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select an employee..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {employees.map((emp) => (
+                                            <SelectItem key={emp.id} value={String(emp.id)}>
+                                                {emp.full_name}
+                                                {emp.department?.name && (
+                                                    <span className="ml-2 text-xs text-slate-400">
+                                                        · {emp.department.name}
+                                                    </span>
+                                                )}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
                             {createErrors.employee_id && (
                                 <p className="mt-1 text-xs text-red-600">{createErrors.employee_id[0]}</p>
                             )}
@@ -1210,9 +1287,14 @@ export default function ClaimRequests() {
                                 {createWarning ? 'Close' : 'Cancel'}
                             </Button>
                             {!createWarning && (
-                                <Button type="submit" disabled={createMutation.isPending}>
-                                    {createMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                                    Create Claim
+                                <Button
+                                    type="submit"
+                                    disabled={editingClaim ? updateMutation.isPending : createMutation.isPending}
+                                >
+                                    {(editingClaim ? updateMutation.isPending : createMutation.isPending) && (
+                                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                                    )}
+                                    {editingClaim ? 'Save Changes' : 'Create Claim'}
                                 </Button>
                             )}
                         </DialogFooter>

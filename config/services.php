@@ -144,6 +144,11 @@ return [
         // through a tunnel (ngrok / `herd share`) so the redirect URI is a
         // public host. Leave empty to use the app's own /admin/easyparcel/callback.
         'redirect_uri' => env('EASYPARCEL_REDIRECT_URI'),
+
+        // Optional shared secret for the tracking webhook (/webhooks/easyparcel).
+        // When set, callbacks must present it via the X-EasyParcel-Signature
+        // header or a ?secret= query param. Leave empty to accept all callbacks.
+        'webhook_secret' => env('EASYPARCEL_WEBHOOK_SECRET'),
     ],
 
 ];

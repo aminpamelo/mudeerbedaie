@@ -1,8 +1,21 @@
 <?php
 
 use App\Jobs\ExportProductOrders;
+use App\Models\ClassAssignmentApproval;
+use App\Models\ClassModel;
+use App\Models\Package;
+use App\Models\Product;
 use App\Models\ProductOrder;
+use App\Models\ProductOrderItem;
+use App\Models\Student;
+use App\Models\User;
+use App\Models\WhatsAppTemplate;
+use App\Services\WhatsApp\WhatsAppBlastService;
+use App\Services\WhatsApp\WhatsAppManager;
+use App\Services\WhatsAppService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -34,6 +47,19 @@ new class extends Component
     public string $sortBy = 'created_at';
 
     public string $sortDirection = 'desc';
+
+    public int $perPage = 30;
+
+    /** @var array<int, int> */
+    public array $perPageOptions = [30, 50, 100, 200, 300, 500];
+
+    /**
+     * Per-request memo caches so repeated calls within a single render
+     * don't re-run the same heavy queries.
+     */
+    protected mixed $ordersCache = null;
+
+    protected ?array $statusCountsCache = null;
 
     // Inline phone editing
     public ?int $editingPhoneOrderId = null;
@@ -145,6 +171,12 @@ new class extends Component
         $this->selectedOrderIds = [];
     }
 
+    public function updatingPerPage(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
+    }
+
     public function setSortBy(string $field): void
     {
         if ($this->sortBy === $field) {
@@ -178,7 +210,13 @@ new class extends Component
 
     public function getOrders()
     {
-        return ProductOrder::query()
+        if ($this->ordersCache !== null) {
+            return $this->ordersCache;
+        }
+
+        $perPage = in_array($this->perPage, $this->perPageOptions, true) ? $this->perPage : 30;
+
+        return $this->ordersCache = ProductOrder::query()
             ->visibleInAdmin()
             ->with([
                 'customer',
@@ -250,7 +288,7 @@ new class extends Component
             ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
             ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
             ->orderBy($this->sortBy, $this->sortDirection)
-            ->paginate(20);
+            ->paginate($perPage);
     }
 
     public function getOrderStatuses(): array
@@ -411,12 +449,12 @@ new class extends Component
         $items = [];
 
         // Get only products that have been ordered
-        $productIds = \App\Models\ProductOrderItem::query()
+        $productIds = ProductOrderItem::query()
             ->whereNotNull('product_id')
             ->distinct()
             ->pluck('product_id');
 
-        $products = \App\Models\Product::query()
+        $products = Product::query()
             ->whereIn('id', $productIds)
             ->orderBy('name')
             ->get(['id', 'name', 'sku']);
@@ -430,12 +468,12 @@ new class extends Component
         }
 
         // Get only packages that have been ordered
-        $packageIds = \App\Models\ProductOrderItem::query()
+        $packageIds = ProductOrderItem::query()
             ->whereNotNull('package_id')
             ->distinct()
             ->pluck('package_id');
 
-        $packages = \App\Models\Package::query()
+        $packages = Package::query()
             ->whereIn('id', $packageIds)
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -451,8 +489,19 @@ new class extends Component
         return $items;
     }
 
-    public function getStatusCount(string $status): int
+    /**
+     * Counts per status (plus an `all` total) for the current source tab,
+     * computed in a single grouped query and memoized per request so the
+     * status tab bar doesn't fire one COUNT query per tab.
+     *
+     * @return array<string, int>
+     */
+    public function getStatusCounts(): array
     {
+        if ($this->statusCountsCache !== null) {
+            return $this->statusCountsCache;
+        }
+
         $query = ProductOrder::query()->visibleInAdmin();
 
         // Apply source filter based on current sourceTab
@@ -470,12 +519,19 @@ new class extends Component
             };
         }
 
-        // Apply status filter
-        if ($status !== 'all') {
-            $query->where('status', $status);
-        }
+        $byStatus = $query
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status')
+            ->map(fn ($count) => (int) $count)
+            ->toArray();
 
-        return $query->count();
+        return $this->statusCountsCache = ['all' => array_sum($byStatus)] + $byStatus;
+    }
+
+    public function getStatusCount(string $status): int
+    {
+        return $this->getStatusCounts()[$status] ?? 0;
     }
 
     public function getActionNeededStats(): array
@@ -624,6 +680,24 @@ new class extends Component
 
     public string $newStudentPhone = '';
 
+    // WhatsApp blast (bulk)
+    public bool $showWhatsAppModal = false;
+
+    public array $whatsAppOrderIds = [];
+
+    public ?int $waTemplateId = null;
+
+    /** @var array<string, array<int, array{source: string, field: string, value: string}>> */
+    public array $waVariableMapping = ['body' => []];
+
+    // Recipient preview, computed once when the modal opens (selection is fixed
+    // for the life of the modal) so variable-mapping keystrokes don't re-query.
+    public int $waRecipientCount = 0;
+
+    public int $waSkippedCount = 0;
+
+    public ?int $waSampleOrderId = null;
+
     public function openClassAssignModal(int $orderId): void
     {
         $this->classAssignBulkMode = false;
@@ -668,6 +742,149 @@ new class extends Component
         $this->bulkStudentPlans = [];
     }
 
+    // ───────────────────────── WhatsApp blast ─────────────────────────
+
+    protected function ensureCanBlast(): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403, 'Only admins can send WhatsApp blasts.');
+    }
+
+    public function openBulkWhatsAppModal(): void
+    {
+        $this->ensureCanBlast();
+
+        if (empty($this->selectedOrderIds)) {
+            return;
+        }
+
+        $this->whatsAppOrderIds = array_values(array_unique(array_map('intval', $this->selectedOrderIds)));
+
+        // Compute reachable recipients once — the selection is fixed while the
+        // modal is open, so the variable-mapping controls won't re-query orders.
+        $preview = app(WhatsAppBlastService::class)->previewRecipients($this->whatsAppOrderIds);
+        $this->waRecipientCount = $preview['recipients'];
+        $this->waSkippedCount = $preview['skipped'];
+        $this->waSampleOrderId = $preview['sample']?->id;
+
+        $this->waTemplateId = optional($this->approvedWaTemplates->first())->id;
+        $this->initWaVariableMapping();
+        $this->showWhatsAppModal = true;
+    }
+
+    public function updatedWaTemplateId(): void
+    {
+        $this->initWaVariableMapping();
+    }
+
+    protected function initWaVariableMapping(): void
+    {
+        $this->waVariableMapping = ['body' => []];
+
+        $template = $this->selectedWaTemplate;
+        if (! $template) {
+            return;
+        }
+
+        $count = app(WhatsAppBlastService::class)->variableCount($template, 'BODY');
+        $defaults = ['customer_name', 'order_number', 'order_total', 'order_status', 'store_name'];
+
+        for ($i = 1; $i <= $count; $i++) {
+            $this->waVariableMapping['body'][$i] = [
+                'source' => 'order_field',
+                'field' => $defaults[$i - 1] ?? 'customer_name',
+                'value' => '',
+            ];
+        }
+    }
+
+    public function sendWhatsAppBlast(): void
+    {
+        $this->ensureCanBlast();
+
+        $template = $this->selectedWaTemplate;
+
+        if (! $template || empty($this->whatsAppOrderIds)) {
+            $this->dispatch('order-updated', message: 'Pick a template before sending.');
+
+            return;
+        }
+
+        if (! $this->whatsAppBlastReady) {
+            $this->dispatch('order-updated', message: 'Enable the official Meta provider in Settings → WhatsApp first.');
+
+            return;
+        }
+
+        // Re-validate reachable recipients server-side (the disabled button is
+        // only a client hint).
+        $preview = app(WhatsAppBlastService::class)->previewRecipients($this->whatsAppOrderIds);
+        if ($preview['recipients'] < 1) {
+            $this->dispatch('order-updated', message: 'None of the selected orders have a contactable WhatsApp number.');
+
+            return;
+        }
+
+        $campaign = app(WhatsAppBlastService::class)->createFromOrders(
+            $this->whatsAppOrderIds,
+            $template,
+            $this->waVariableMapping,
+            auth()->id(),
+        );
+
+        $this->showWhatsAppModal = false;
+        $this->selectedOrderIds = [];
+
+        $this->redirect(route('admin.whatsapp.campaigns.show', $campaign), navigate: true);
+    }
+
+    public function getApprovedWaTemplatesProperty()
+    {
+        return WhatsAppTemplate::approved()->orderBy('name')->get();
+    }
+
+    public function getSelectedWaTemplateProperty(): ?WhatsAppTemplate
+    {
+        return $this->waTemplateId
+            ? $this->approvedWaTemplates->firstWhere('id', $this->waTemplateId)
+            : null;
+    }
+
+    public function getWhatsAppBlastReadyProperty(): bool
+    {
+        return app(WhatsAppManager::class)->getProviderName() === 'meta'
+            && app(WhatsAppService::class)->isEnabled();
+    }
+
+    /**
+     * @return array{recipients: int, skipped: int, body: string, cost: float}
+     */
+    public function getWhatsAppPreviewProperty(): array
+    {
+        $template = $this->selectedWaTemplate;
+
+        if (! $template) {
+            return ['recipients' => 0, 'skipped' => 0, 'body' => '', 'cost' => 0.0];
+        }
+
+        $service = app(WhatsAppBlastService::class);
+        // Recipient counts were computed once when the modal opened; only the
+        // body preview depends on the (changing) variable mapping, so fetch just
+        // the single sample order here rather than re-querying the whole set.
+        $sample = $this->waSampleOrderId ? ProductOrder::find($this->waSampleOrderId) : null;
+
+        return [
+            'recipients' => $this->waRecipientCount,
+            'skipped' => $this->waSkippedCount,
+            'body' => $service->renderBodyPreview($template, $this->waVariableMapping, $sample),
+            'cost' => $service->estimateCost($template, $this->waRecipientCount),
+        ];
+    }
+
+    public function waOrderFields(): array
+    {
+        return WhatsAppBlastService::ORDER_FIELDS;
+    }
+
     public function clearOrderSelection(): void
     {
         $this->selectedOrderIds = [];
@@ -693,7 +910,7 @@ new class extends Component
             return collect();
         }
 
-        return \App\Models\Student::query()
+        return Student::query()
             ->whereHas('user', fn ($q) => $q->where('phone', $phone))
             ->orWhere('phone', $phone)
             ->with('user')
@@ -708,7 +925,7 @@ new class extends Component
             return;
         }
 
-        $student = \App\Models\Student::with('user')->find($studentId);
+        $student = Student::with('user')->find($studentId);
         if (! $student) {
             return;
         }
@@ -740,14 +957,14 @@ new class extends Component
 
         // Check if a user with this phone already exists
         if ($phone) {
-            $existingUser = \App\Models\User::where('phone', $phone)->first();
+            $existingUser = User::where('phone', $phone)->first();
             if ($existingUser) {
                 $this->addError('newStudentPhone', 'A user with this phone number already exists. Please use the matching student above to link them instead.');
 
                 return;
             }
 
-            $existingStudent = \App\Models\Student::where('phone', $phone)->first();
+            $existingStudent = Student::where('phone', $phone)->first();
             if ($existingStudent) {
                 $this->addError('newStudentPhone', 'A student with this phone number already exists. Please use the matching student above to link them instead.');
 
@@ -758,23 +975,23 @@ new class extends Component
         // Create new user
         $baseEmail = $phone
             ? preg_replace('/[^0-9]/', '', $phone).'@student.local'
-            : \Illuminate\Support\Str::slug($this->newStudentName).'-'.\Illuminate\Support\Str::random(4).'@student.local';
+            : Str::slug($this->newStudentName).'-'.Str::random(4).'@student.local';
 
         // Ensure unique email
-        while (\App\Models\User::where('email', $baseEmail)->exists()) {
-            $baseEmail = \Illuminate\Support\Str::slug($this->newStudentName).'-'.\Illuminate\Support\Str::random(6).'@student.local';
+        while (User::where('email', $baseEmail)->exists()) {
+            $baseEmail = Str::slug($this->newStudentName).'-'.Str::random(6).'@student.local';
         }
 
         try {
-            $user = \App\Models\User::create([
+            $user = User::create([
                 'name' => $this->newStudentName,
                 'email' => $baseEmail,
-                'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                'password' => bcrypt(Str::random(16)),
                 'role' => 'student',
                 'phone' => $phone,
             ]);
 
-            $student = \App\Models\Student::create([
+            $student = Student::create([
                 'user_id' => $user->id,
                 'phone' => $phone,
                 'status' => 'active',
@@ -786,7 +1003,7 @@ new class extends Component
             $this->newStudentName = '';
             $this->newStudentPhone = '';
             $this->dispatch('order-updated', message: "Student '{$user->name}' created and linked to order.");
-        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+        } catch (UniqueConstraintViolationException $e) {
             if (str_contains($e->getMessage(), 'phone')) {
                 $this->addError('newStudentPhone', 'This phone number is already registered. Please link the existing student instead.');
             } elseif (str_contains($e->getMessage(), 'email')) {
@@ -833,7 +1050,7 @@ new class extends Component
 
         // Hide classes already assigned to EVERY selected order (intersection).
         // For single-row mode this matches the previous behaviour exactly.
-        $assignmentsPerOrder = \App\Models\ClassAssignmentApproval::query()
+        $assignmentsPerOrder = ClassAssignmentApproval::query()
             ->whereIn('product_order_id', $orderIds)
             ->whereIn('status', ['pending', 'approved'])
             ->get(['product_order_id', 'class_id'])
@@ -847,7 +1064,7 @@ new class extends Component
             $alreadyAssignedClassIds = array_values(array_intersect(...$perOrderClassIds));
         }
 
-        $query = \App\Models\ClassModel::query()
+        $query = ClassModel::query()
             ->where('status', 'active')
             ->whereNotIn('id', $alreadyAssignedClassIds)
             ->with('course');
@@ -871,14 +1088,14 @@ new class extends Component
         }
     }
 
-    public function resolveStudentForOrder(ProductOrder $order): ?\App\Models\Student
+    public function resolveStudentForOrder(ProductOrder $order): ?Student
     {
         if ($order->student_id) {
             return $order->student;
         }
 
         if ($order->customer_id) {
-            return \App\Models\Student::where('user_id', $order->customer_id)->first();
+            return Student::where('user_id', $order->customer_id)->first();
         }
 
         return null;
@@ -889,7 +1106,7 @@ new class extends Component
      * action (if any) is needed before classes can be assigned.
      *
      * @param  array<int>  $orderIds
-     * @return array{ready: array<int, array{order: ProductOrder, student: \App\Models\Student}>, creatable: array<int, array<string, mixed>>, skipped: array<int, array{order: ProductOrder, reason: string}>}
+     * @return array{ready: array<int, array{order: ProductOrder, student: Student}>, creatable: array<int, array<string, mixed>>, skipped: array<int, array{order: ProductOrder, reason: string}>}
      */
     public function prepareBulkStudentPlans(array $orderIds): array
     {
@@ -920,7 +1137,7 @@ new class extends Component
                 continue;
             }
 
-            $existingStudent = \App\Models\Student::query()
+            $existingStudent = Student::query()
                 ->where(function ($q) use ($phone) {
                     $q->where('phone', $phone)
                         ->orWhereHas('user', fn ($uq) => $uq->where('phone', $phone));
@@ -942,7 +1159,7 @@ new class extends Component
                 continue;
             }
 
-            $existingUser = \App\Models\User::where('phone', $phone)->first();
+            $existingUser = User::where('phone', $phone)->first();
             if ($existingUser) {
                 $creatable[] = [
                     'order' => $order,
@@ -976,14 +1193,14 @@ new class extends Component
      *
      * @param  array<string, mixed>  $item
      */
-    private function executeBulkStudentPlan(array $item): ?\App\Models\Student
+    private function executeBulkStudentPlan(array $item): ?Student
     {
         /** @var ProductOrder $order */
         $order = $item['order'];
         $action = $item['action'];
 
         if ($action === 'link_student') {
-            $student = \App\Models\Student::find($item['student_id']);
+            $student = Student::find($item['student_id']);
             if (! $student) {
                 return null;
             }
@@ -993,7 +1210,7 @@ new class extends Component
         }
 
         if ($action === 'link_user') {
-            $student = \App\Models\Student::firstOrCreate(
+            $student = Student::firstOrCreate(
                 ['user_id' => $item['user_id']],
                 ['phone' => $item['phone'], 'status' => 'active']
             );
@@ -1007,20 +1224,20 @@ new class extends Component
         $phone = $item['phone'];
 
         $baseEmail = preg_replace('/[^0-9]/', '', $phone).'@student.local';
-        while (\App\Models\User::where('email', $baseEmail)->exists()) {
-            $baseEmail = \Illuminate\Support\Str::slug($name).'-'.\Illuminate\Support\Str::random(6).'@student.local';
+        while (User::where('email', $baseEmail)->exists()) {
+            $baseEmail = Str::slug($name).'-'.Str::random(6).'@student.local';
         }
 
         try {
-            $user = \App\Models\User::create([
+            $user = User::create([
                 'name' => $name,
                 'email' => $baseEmail,
-                'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                'password' => bcrypt(Str::random(16)),
                 'role' => 'student',
                 'phone' => $phone,
             ]);
 
-            $student = \App\Models\Student::create([
+            $student = Student::create([
                 'user_id' => $user->id,
                 'phone' => $phone,
                 'status' => 'active',
@@ -1029,10 +1246,10 @@ new class extends Component
             $order->update(['student_id' => $student->id]);
 
             return $student;
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException) {
             // Race: someone created a matching user/student between plan and execute.
             // Retry by re-resolving.
-            $existing = \App\Models\Student::query()
+            $existing = Student::query()
                 ->where(function ($q) use ($phone) {
                     $q->where('phone', $phone)
                         ->orWhereHas('user', fn ($uq) => $uq->where('phone', $phone));
@@ -1105,7 +1322,7 @@ new class extends Component
 
             foreach ($assignTargets as $target) {
                 foreach ($this->classAssignSelectedIds as $classId) {
-                    \App\Models\ClassAssignmentApproval::firstOrCreate(
+                    ClassAssignmentApproval::firstOrCreate(
                         [
                             'class_id' => $classId,
                             'student_id' => $target['student']->id,
@@ -1159,7 +1376,7 @@ new class extends Component
             }
 
             foreach ($this->classAssignSelectedIds as $classId) {
-                \App\Models\ClassAssignmentApproval::firstOrCreate(
+                ClassAssignmentApproval::firstOrCreate(
                     [
                         'class_id' => $classId,
                         'student_id' => $student->id,
@@ -1186,7 +1403,7 @@ new class extends Component
 
     public function removeClassAssignment(int $approvalId): void
     {
-        $approval = \App\Models\ClassAssignmentApproval::find($approvalId);
+        $approval = ClassAssignmentApproval::find($approvalId);
         if ($approval && $approval->product_order_id === $this->classAssignOrderId) {
             $approval->delete();
         }
@@ -1524,23 +1741,51 @@ new class extends Component
 
     <!-- Bulk Action Bar -->
     @if(count($selectedOrderIds) > 0)
-        <div class="mb-3 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-900/20">
-            <div class="flex items-center gap-2 text-sm text-blue-900 dark:text-blue-100">
-                <flux:icon name="check-circle" class="w-4 h-4" />
-                <span class="font-medium">{{ count($selectedOrderIds) }} order{{ count($selectedOrderIds) === 1 ? '' : 's' }} selected</span>
+        <div wire:transition.opacity.duration.200ms
+            class="mb-3 flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-blue-800 dark:bg-blue-900/20">
+            <div class="flex items-center gap-2.5 text-sm text-blue-900 dark:text-blue-100">
+                <flux:icon name="check-circle" class="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <span class="inline-flex items-center gap-1.5">
+                    <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-semibold tabular-nums text-white dark:bg-blue-500">
+                        {{ count($selectedOrderIds) }}
+                    </span>
+                    <span class="font-medium">order{{ count($selectedOrderIds) === 1 ? '' : 's' }} selected</span>
+                </span>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center justify-end gap-2">
                 <flux:button size="sm" variant="ghost" wire:click="clearOrderSelection">Clear selection</flux:button>
-                <flux:button size="sm" variant="primary" wire:click="openBulkClassAssignModal">
-                    <flux:icon name="academic-cap" class="w-4 h-4 mr-1.5" />
-                    Assign to Class
+                @if(auth()->user()?->isAdmin())
+                <flux:button size="sm" variant="outline" wire:click="openBulkWhatsAppModal"
+                    wire:target="openBulkWhatsAppModal" wire:loading.attr="disabled">
+                    <div class="flex items-center justify-center text-emerald-700 dark:text-emerald-400">
+                        <flux:icon name="chat-bubble-left-right" class="w-4 h-4 mr-1.5" wire:loading.remove wire:target="openBulkWhatsAppModal" />
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1.5 animate-spin" wire:loading wire:target="openBulkWhatsAppModal" />
+                        Send WhatsApp
+                    </div>
+                </flux:button>
+                @endif
+                <flux:button size="sm" variant="primary" wire:click="openBulkClassAssignModal"
+                    wire:target="openBulkClassAssignModal" wire:loading.attr="disabled">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="academic-cap" class="w-4 h-4 mr-1.5" wire:loading.remove wire:target="openBulkClassAssignModal" />
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1.5 animate-spin" wire:loading wire:target="openBulkClassAssignModal" />
+                        Assign to Class
+                    </div>
                 </flux:button>
             </div>
         </div>
     @endif
 
     <!-- Orders Table -->
-    <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+    <div class="relative bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+        <!-- Loading overlay -->
+        <div wire:loading.delay.long wire:target="perPage, search, activeTab, sourceTab, productFilter, paymentStatusFilter, dateFilter, dateFrom, dateTo, gotoPage, nextPage, previousPage, setSortBy"
+            class="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-zinc-800/60 backdrop-blur-[1px]">
+            <div class="flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-zinc-200 dark:bg-zinc-700 dark:ring-zinc-600">
+                <flux:icon name="arrow-path" class="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                <flux:text size="sm" class="text-zinc-600 dark:text-zinc-300">Loading…</flux:text>
+            </div>
+        </div>
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
                 <thead>
@@ -1550,7 +1795,7 @@ new class extends Component
                         $allOnPageSelected = ! empty($visibleOrderIds) && $selectedOnPageCount === count($visibleOrderIds);
                     @endphp
                     <tr class="border-b border-zinc-200 dark:border-zinc-700">
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-50/50 dark:bg-zinc-800 w-10">
+                        <th class="w-10 border-l-2 border-transparent pl-4 pr-2 py-3 text-left bg-zinc-50/50 dark:bg-zinc-800">
                             <input
                                 type="checkbox"
                                 aria-label="Select all on this page"
@@ -1559,7 +1804,7 @@ new class extends Component
                                 class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
                             />
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
                             <button wire:click="setSortBy('order_number')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Order
                                 @if($sortBy === 'order_number')
@@ -1567,8 +1812,7 @@ new class extends Component
                                 @endif
                             </button>
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Source</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
                             <button wire:click="setSortBy('customer_name')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Customer
                                 @if($sortBy === 'customer_name')
@@ -1576,9 +1820,7 @@ new class extends Component
                                 @endif
                             </button>
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Phone</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Items</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
                             <button wire:click="setSortBy('total_amount')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Total
                                 @if($sortBy === 'total_amount')
@@ -1586,7 +1828,7 @@ new class extends Component
                                 @endif
                             </button>
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
                             <button wire:click="setSortBy('status')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Status
                                 @if($sortBy === 'status')
@@ -1594,12 +1836,8 @@ new class extends Component
                                 @endif
                             </button>
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Class</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Payment</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Method</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Notes</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Tracking</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Payment</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
                             <button wire:click="setSortBy('created_at')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Date
                                 @if($sortBy === 'created_at')
@@ -1607,105 +1845,118 @@ new class extends Component
                                 @endif
                             </button>
                         </th>
-                        <th class="px-5 py-3 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800"></th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800"></th>
                     </tr>
                 </thead>
-                <tbody>
-                    @php $orders = $this->getOrders(); @endphp
-                    @forelse($orders as $order)
-                        <tr class="border-b border-zinc-100 dark:border-zinc-700/50 hover:bg-zinc-50/70 dark:hover:bg-zinc-700/30 transition-colors {{ in_array((int) $order->id, array_map('intval', $selectedOrderIds), true) ? 'bg-blue-50/40 dark:bg-blue-900/10' : '' }}" wire:key="order-{{ $order->id }}">
-                            <!-- Bulk select checkbox -->
-                            <td class="px-3 py-3.5 align-middle">
+                @php $orders = $this->getOrders(); @endphp
+                @forelse($orders as $order)
+                    @php
+                        $isSelected = in_array((int) $order->id, array_map('intval', $selectedOrderIds), true);
+                        $rowState = $isSelected
+                            ? 'bg-blue-100/60 dark:bg-blue-900/30'
+                            : 'group-hover:bg-zinc-50/70 dark:group-hover:bg-zinc-700/30';
+                        $accent = $isSelected
+                            ? 'border-blue-500'
+                            : match ($this->getStatusColor($order->status)) {
+                                'yellow' => 'border-amber-400 group-hover:border-amber-500',
+                                'blue' => 'border-blue-400 group-hover:border-blue-500',
+                                'purple' => 'border-purple-400 group-hover:border-purple-500',
+                                'cyan' => 'border-cyan-400 group-hover:border-cyan-500',
+                                'orange' => 'border-orange-400 group-hover:border-orange-500',
+                                'green' => 'border-emerald-400 group-hover:border-emerald-500',
+                                'red' => 'border-red-400 group-hover:border-red-500',
+                                default => 'border-zinc-300 dark:border-zinc-600 group-hover:border-zinc-400 dark:group-hover:border-zinc-500',
+                            };
+                        $source = $this->getOrderSource($order);
+                        $detailNotes = $order->internal_notes ?: $order->customer_notes;
+                    @endphp
+                    <tbody wire:key="order-{{ $order->id }}" class="group border-b border-zinc-200/70 dark:border-zinc-700/60">
+                        {{-- Primary line: identity, money, state --}}
+                        <tr class="transition-colors {{ $rowState }}">
+                            <td class="w-10 border-l-2 {{ $accent }} pl-4 pr-2 pt-4 pb-1 align-top transition-colors">
                                 <input
                                     type="checkbox"
                                     aria-label="Select order {{ $order->order_number }}"
                                     wire:model.live="selectedOrderIds"
                                     value="{{ $order->id }}"
-                                    class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    class="mt-0.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                 />
                             </td>
 
-                            <!-- Order Number -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
-                                <button type="button" wire:click="openOrderModal({{ $order->id }})" class="block text-left group cursor-pointer">
+                            {{-- Order + Source --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap align-top">
+                                <button type="button" wire:click="openOrderModal({{ $order->id }})" class="block text-left group/order cursor-pointer">
                                     <div class="flex items-center gap-2">
-                                        <flux:text class="font-semibold text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->order_number }}</flux:text>
+                                        <flux:text class="text-base font-semibold text-zinc-900 dark:text-white group-hover/order:text-blue-600 dark:group-hover/order:text-blue-400 transition-colors">{{ $order->order_number }}</flux:text>
                                         @if($order->order_type === 'package')
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">PKG</span>
                                         @endif
                                     </div>
                                     @if($order->order_type === 'package' && isset($order->metadata['package_name']))
-                                        <flux:text size="sm" class="text-purple-600 dark:text-purple-400">{{ Str::limit($order->metadata['package_name'], 25) }}</flux:text>
-                                    @elseif($order->customer_notes)
-                                        <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ Str::limit($order->customer_notes, 25) }}</flux:text>
+                                        <flux:text size="sm" class="text-purple-600 dark:text-purple-400">{{ Str::limit($order->metadata['package_name'], 28) }}</flux:text>
                                     @endif
                                 </button>
-                            </td>
-
-                            <!-- Source -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
-                                @php
-                                    $source = $this->getOrderSource($order);
-                                @endphp
-                                @if($order->platform_id && $order->platformAccount)
-                                    <a href="{{ route('platforms.accounts.show', ['platform' => $order->platform, 'account' => $order->platformAccount]) }}?tab=orders" class="block group">
-                                        <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
-                                            <div class="flex items-center justify-center">
-                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                {{ $source['label'] }}
-                                            </div>
-                                        </flux:badge>
-                                        <flux:text size="xs" class="text-zinc-400 mt-0.5 group-hover:text-blue-600 transition-colors">{{ $order->platformAccount->name }}</flux:text>
-                                    </a>
-                                @elseif($order->agent_id && $order->agent)
-                                    <a href="{{ route('agents.show', $order->agent) }}" class="block group">
-                                        <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
-                                            <div class="flex items-center justify-center">
-                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                {{ $source['label'] }}
-                                            </div>
-                                        </flux:badge>
-                                        <flux:text size="xs" class="text-zinc-400 mt-0.5 group-hover:text-blue-600 transition-colors">{{ $order->agent->name }}</flux:text>
-                                    </a>
-                                @elseif($order->source === 'funnel')
-                                    <div>
-                                        <flux:badge size="sm" color="{{ $source['color'] }}">
-                                            <div class="flex items-center justify-center">
-                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                {{ $source['label'] }}
-                                            </div>
-                                        </flux:badge>
-                                        @if($order->source_reference)
-                                            <flux:text size="xs" class="text-zinc-400 mt-0.5">{{ $order->source_reference }}</flux:text>
-                                        @endif
-                                    </div>
-                                @elseif($order->source === 'pos')
-                                    <div>
-                                        <flux:badge size="sm" color="{{ $source['color'] }}">
-                                            <div class="flex items-center justify-center">
-                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                {{ $source['label'] }}
-                                            </div>
-                                        </flux:badge>
-                                        @if($order->metadata['salesperson_name'] ?? null)
-                                            <flux:text size="xs" class="text-zinc-400 mt-0.5">{{ $order->metadata['salesperson_name'] }}</flux:text>
-                                        @endif
-                                    </div>
-                                @else
-                                    <flux:badge size="sm" color="{{ $source['color'] }}">
-                                        <div class="flex items-center justify-center">
-                                            <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                            {{ $source['label'] }}
+                                <div class="mt-1.5">
+                                    @if($order->platform_id && $order->platformAccount)
+                                        <a href="{{ route('platforms.accounts.show', ['platform' => $order->platform, 'account' => $order->platformAccount]) }}?tab=orders" class="inline-flex items-center gap-1.5 group/src">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover/src:opacity-80 transition-opacity">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                            <flux:text size="xs" class="text-zinc-400 group-hover/src:text-blue-600 transition-colors">{{ $order->platformAccount->name }}</flux:text>
+                                        </a>
+                                    @elseif($order->agent_id && $order->agent)
+                                        <a href="{{ route('agents.show', $order->agent) }}" class="inline-flex items-center gap-1.5 group/src">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover/src:opacity-80 transition-opacity">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                            <flux:text size="xs" class="text-zinc-400 group-hover/src:text-blue-600 transition-colors">{{ $order->agent->name }}</flux:text>
+                                        </a>
+                                    @elseif($order->source === 'funnel')
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                            @if($order->source_reference)
+                                                <flux:text size="xs" class="text-zinc-400">{{ $order->source_reference }}</flux:text>
+                                            @endif
                                         </div>
-                                    </flux:badge>
-                                @endif
+                                    @elseif($order->source === 'pos')
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                            @if($order->metadata['salesperson_name'] ?? null)
+                                                <flux:text size="xs" class="text-zinc-400">{{ $order->metadata['salesperson_name'] }}</flux:text>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <flux:badge size="sm" color="{{ $source['color'] }}">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                {{ $source['label'] }}
+                                            </div>
+                                        </flux:badge>
+                                    @endif
+                                </div>
                             </td>
 
-                            <!-- Customer -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
+                            {{-- Customer --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap align-top">
                                 @if($order->student)
-                                    <a href="{{ route('students.show', $order->student) }}" class="block group">
-                                        <flux:text class="font-medium text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->getCustomerName() }}</flux:text>
+                                    <a href="{{ route('students.show', $order->student) }}" class="block group/cust">
+                                        <flux:text class="font-medium text-zinc-900 dark:text-white group-hover/cust:text-blue-600 dark:group-hover/cust:text-blue-400 transition-colors">{{ $order->getCustomerName() }}</flux:text>
                                         <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ $order->getCustomerEmail() }}</flux:text>
                                     </a>
                                 @else
@@ -1716,196 +1967,39 @@ new class extends Component
                                 @endif
                             </td>
 
-                            <!-- Phone -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
-                                @if($editingPhoneOrderId === $order->id)
-                                    <div class="flex items-center gap-1">
-                                        <input
-                                            type="text"
-                                            wire:model="editingPhoneValue"
-                                            wire:keydown.enter="savePhone"
-                                            wire:keydown.escape="cancelEditingPhone"
-                                            class="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
-                                            placeholder="Phone number"
-                                            autofocus
-                                        />
-                                        <button wire:click="savePhone" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
-                                            <flux:icon name="check" class="w-3.5 h-3.5" />
-                                        </button>
-                                        <button wire:click="cancelEditingPhone" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
-                                            <flux:icon name="x-mark" class="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                @else
-                                    <div class="flex flex-col gap-1.5">
-                                        <button
-                                            wire:click="startEditingPhone({{ $order->id }}, {{ json_encode($order->customer_phone ?? '') }})"
-                                            class="group flex items-center gap-1 hover:text-blue-600 transition-colors"
-                                            title="Click to edit"
-                                        >
-                                            <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">{{ $order->getCustomerPhone() }}</flux:text>
-                                            <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400" />
-                                        </button>
-                                        @if($whatsAppUrl = $order->getWhatsAppUrl())
-                                            <a
-                                                href="{{ $whatsAppUrl }}"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                aria-label="Message customer on WhatsApp"
-                                                title="Message on WhatsApp"
-                                                class="inline-flex w-fit items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition-colors"
-                                            >
-                                                <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
-                                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/>
-                                                </svg>
-                                                WhatsApp
-                                            </a>
-                                        @endif
-                                    </div>
-                                @endif
-                            </td>
-
-                            <!-- Items -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
-                                <button
-                                    wire:click="openItemsModal({{ $order->id }})"
-                                    class="group text-left cursor-pointer"
-                                    title="Click to view items"
-                                >
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-zinc-100 dark:bg-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-400 group-hover:bg-blue-100 group-hover:text-blue-600 dark:group-hover:bg-blue-900/30 dark:group-hover:text-blue-400 transition-colors">
-                                            {{ $order->items->count() }}
-                                        </span>
-                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                            item{{ $order->items->count() !== 1 ? 's' : '' }}
-                                        </flux:text>
-                                    </div>
-                                </button>
-                            </td>
-
-                            <!-- Total -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
+                            {{-- Total --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap align-top">
                                 <flux:text class="font-semibold text-zinc-900 dark:text-white tabular-nums">MYR {{ number_format($order->total_amount, 2) }}</flux:text>
                                 @if($order->discount_amount > 0)
                                     <flux:text size="sm" class="text-emerald-600 dark:text-emerald-400 tabular-nums">-{{ number_format($order->discount_amount, 2) }}</flux:text>
                                 @endif
                             </td>
 
-                            <!-- Status -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
+                            {{-- Status --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap align-top">
                                 <flux:badge size="sm" color="{{ $this->getStatusColor($order->status) }}">
                                     {{ $this->getOrderStatuses()[$order->status] ?? $order->status }}
                                 </flux:badge>
                             </td>
 
-                            <!-- Class Assignment -->
-                            <td class="px-5 py-3.5">
-                                <button wire:click="openClassAssignModal({{ $order->id }})" class="group text-left w-full cursor-pointer">
-                                    @if($order->classAssignmentApprovals->isNotEmpty())
-                                        <div class="flex flex-col gap-1">
-                                            @foreach($order->classAssignmentApprovals->take(2) as $assignment)
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ match($assignment->status) { 'approved' => 'bg-emerald-500', 'rejected' => 'bg-red-500', default => 'bg-amber-500' } }}"></span>
-                                                    <span class="text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate max-w-[120px] transition-colors" title="{{ $assignment->class->title }}">
-                                                        {{ Str::limit($assignment->class->title, 18) }}
-                                                    </span>
-                                                </div>
-                                            @endforeach
-                                            @if($order->classAssignmentApprovals->count() > 2)
-                                                <span class="text-xs text-zinc-400 dark:text-zinc-500">+{{ $order->classAssignmentApprovals->count() - 2 }} more</span>
-                                            @endif
-                                        </div>
-                                    @else
-                                        <span class="text-xs text-zinc-400 dark:text-zinc-500 group-hover:text-blue-500 transition-colors">
-                                            <flux:icon name="plus-circle" class="w-4 h-4 inline" /> Assign
-                                        </span>
-                                    @endif
-                                </button>
-                            </td>
-
-                            <!-- Payment Status -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
+                            {{-- Payment Status --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap align-top">
                                 <flux:badge size="sm" color="{{ $this->getPaymentStatusColor($order->payment_status) }}">
                                     {{ $this->getPaymentStatusLabel($order->payment_status) }}
                                 </flux:badge>
                             </td>
 
-                            <!-- Payment Method -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
-                                @if($order->payment_method)
-                                    @php
-                                        $methodMeta = $this->getPaymentMethodMeta($order->payment_method);
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset {{ $methodMeta['classes'] }}" title="{{ $methodMeta['label'] }}">
-                                        <flux:icon name="{{ $methodMeta['icon'] }}" class="w-3.5 h-3.5 {{ $methodMeta['iconClasses'] }}" />
-                                        {{ $methodMeta['label'] }}
-                                    </span>
-                                @else
-                                    <span class="text-zinc-300 dark:text-zinc-600">&mdash;</span>
-                                @endif
-                            </td>
-
-                            <!-- Notes -->
-                            <td class="px-5 py-3.5">
-                                @php
-                                    $notes = $order->internal_notes ?: $order->customer_notes;
-                                @endphp
-                                @if($notes)
-                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 max-w-[180px] truncate" title="{{ $notes }}">
-                                        {{ Str::limit($notes, 35) }}
-                                    </flux:text>
-                                @else
-                                    <span class="text-zinc-300 dark:text-zinc-600">&mdash;</span>
-                                @endif
-                            </td>
-
-                            <!-- Tracking Number -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
-                                @if($editingTrackingOrderId === $order->id)
-                                    <div class="flex items-center gap-1">
-                                        <input
-                                            type="text"
-                                            wire:model="editingTrackingValue"
-                                            wire:keydown.enter="saveTracking"
-                                            wire:keydown.escape="cancelEditingTracking"
-                                            class="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
-                                            placeholder="Tracking number"
-                                            autofocus
-                                        />
-                                        <button wire:click="saveTracking" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
-                                            <flux:icon name="check" class="w-3.5 h-3.5" />
-                                        </button>
-                                        <button wire:click="cancelEditingTracking" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
-                                            <flux:icon name="x-mark" class="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                @else
-                                    <button
-                                        wire:click="startEditingTracking({{ $order->id }}, {{ json_encode($order->tracking_id ?? '') }})"
-                                        class="group flex items-center gap-1 hover:text-blue-600 transition-colors"
-                                        title="Click to edit"
-                                    >
-                                        @if($order->tracking_id)
-                                            <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400 font-mono">{{ $order->tracking_id }}</flux:text>
-                                        @else
-                                            <flux:text size="sm" class="text-zinc-300 dark:text-zinc-600 italic">Add tracking</flux:text>
-                                        @endif
-                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400" />
-                                    </button>
-                                @endif
-                            </td>
-
-                            <!-- Date -->
-                            <td class="px-5 py-3.5 whitespace-nowrap">
+                            {{-- Date --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap align-top">
                                 <flux:text size="sm" class="text-zinc-700 dark:text-zinc-300">{{ $order->created_at->format('M j, Y') }}</flux:text>
                                 <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ $order->created_at->format('g:i A') }}</flux:text>
                             </td>
 
-                            <!-- Actions -->
-                            <td class="px-5 py-3.5 whitespace-nowrap text-right">
-                                <div class="flex items-center justify-end gap-1">
+                            {{-- Actions --}}
+                            <td class="px-4 pt-4 pb-1 whitespace-nowrap text-right align-top">
+                                <div class="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                     <a href="{{ route('admin.orders.show', $order) }}" wire:navigate
-                                       class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors">
+                                       class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors" title="View order">
                                         <flux:icon name="eye" class="w-4 h-4" />
                                     </a>
 
@@ -1969,9 +2063,145 @@ new class extends Component
                                 </div>
                             </td>
                         </tr>
-                    @empty
+
+                        {{-- Secondary line: logistics & meta detail strip --}}
+                        <tr class="transition-colors {{ $rowState }}">
+                            <td colspan="8" class="border-l-2 {{ $accent }} pl-4 pr-5 pt-1 pb-4 transition-colors">
+                                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 text-sm">
+                                    {{-- Phone --}}
+                                    @if($editingPhoneOrderId === $order->id)
+                                        <div class="inline-flex items-center gap-1">
+                                            <input
+                                                type="text"
+                                                wire:model="editingPhoneValue"
+                                                wire:keydown.enter="savePhone"
+                                                wire:keydown.escape="cancelEditingPhone"
+                                                class="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                                placeholder="Phone number"
+                                                autofocus
+                                            />
+                                            <button wire:click="savePhone" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
+                                                <flux:icon name="check" class="w-3.5 h-3.5" />
+                                            </button>
+                                            <button wire:click="cancelEditingPhone" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+                                                <flux:icon name="x-mark" class="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    @else
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <flux:icon name="phone" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                                            <button
+                                                wire:click="startEditingPhone({{ $order->id }}, {{ json_encode($order->customer_phone ?? '') }})"
+                                                class="group/phone inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                                title="Click to edit phone"
+                                            >
+                                                <span>{{ $order->getCustomerPhone() }}</span>
+                                                <flux:icon name="pencil" class="w-3 h-3 opacity-50 group-hover/phone:opacity-100 transition-opacity text-zinc-400" />
+                                            </button>
+                                            @if($whatsAppUrl = $order->getWhatsAppUrl())
+                                                <a
+                                                    href="{{ $whatsAppUrl }}"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    aria-label="Message customer on WhatsApp"
+                                                    title="Message on WhatsApp"
+                                                    class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition-colors"
+                                                >
+                                                    <svg viewBox="0 0 24 24" class="w-3 h-3" fill="currentColor" aria-hidden="true">
+                                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/>
+                                                    </svg>
+                                                    WhatsApp
+                                                </a>
+                                            @endif
+                                        </div>
+                                    @endif
+
+                                    {{-- Items --}}
+                                    <button
+                                        wire:click="openItemsModal({{ $order->id }})"
+                                        class="group/items inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                        title="View items"
+                                    >
+                                        <flux:icon name="cube" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover/items:text-blue-500 transition-colors" />
+                                        <span>{{ $order->items->count() }} item{{ $order->items->count() !== 1 ? 's' : '' }}</span>
+                                    </button>
+
+                                    {{-- Class assignment --}}
+                                    <button wire:click="openClassAssignModal({{ $order->id }})" class="group/class inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer" title="Assign to class">
+                                        <flux:icon name="academic-cap" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover/class:text-blue-500 transition-colors shrink-0" />
+                                        @if($order->classAssignmentApprovals->isNotEmpty())
+                                            @php $firstAssignment = $order->classAssignmentApprovals->first(); @endphp
+                                            <span class="inline-flex items-center gap-1.5">
+                                                <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ match($firstAssignment->status) { 'approved' => 'bg-emerald-500', 'rejected' => 'bg-red-500', default => 'bg-amber-500' } }}"></span>
+                                                <span class="truncate max-w-[140px] text-zinc-700 dark:text-zinc-300" title="{{ $firstAssignment->class->title }}">{{ Str::limit($firstAssignment->class->title, 20) }}</span>
+                                                @if($order->classAssignmentApprovals->count() > 1)
+                                                    <span class="text-zinc-400 dark:text-zinc-500">+{{ $order->classAssignmentApprovals->count() - 1 }}</span>
+                                                @endif
+                                            </span>
+                                        @else
+                                            <span>Assign class</span>
+                                        @endif
+                                    </button>
+
+                                    {{-- Payment method --}}
+                                    @if($order->payment_method)
+                                        @php $methodMeta = $this->getPaymentMethodMeta($order->payment_method); @endphp
+                                        <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $methodMeta['classes'] }}" title="Payment method: {{ $methodMeta['label'] }}">
+                                            <flux:icon name="{{ $methodMeta['icon'] }}" class="w-3 h-3 {{ $methodMeta['iconClasses'] }}" />
+                                            {{ $methodMeta['label'] }}
+                                        </span>
+                                    @endif
+
+                                    {{-- Notes --}}
+                                    @if($detailNotes)
+                                        <span class="inline-flex items-center gap-1.5 max-w-[240px] text-zinc-600 dark:text-zinc-400" title="{{ $detailNotes }}">
+                                            <flux:icon name="document-text" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                                            <span class="truncate">{{ Str::limit($detailNotes, 40) }}</span>
+                                        </span>
+                                    @endif
+
+                                    {{-- Tracking --}}
+                                    @if($editingTrackingOrderId === $order->id)
+                                        <div class="inline-flex items-center gap-1">
+                                            <input
+                                                type="text"
+                                                wire:model="editingTrackingValue"
+                                                wire:keydown.enter="saveTracking"
+                                                wire:keydown.escape="cancelEditingTracking"
+                                                class="w-36 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                                placeholder="Tracking number"
+                                                autofocus
+                                            />
+                                            <button wire:click="saveTracking" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
+                                                <flux:icon name="check" class="w-3.5 h-3.5" />
+                                            </button>
+                                            <button wire:click="cancelEditingTracking" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+                                                <flux:icon name="x-mark" class="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    @else
+                                        <button
+                                            wire:click="startEditingTracking({{ $order->id }}, {{ json_encode($order->tracking_id ?? '') }})"
+                                            class="group/track inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                            title="Click to edit tracking"
+                                        >
+                                            <flux:icon name="truck" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover/track:text-blue-500 transition-colors shrink-0" />
+                                            @if($order->tracking_id)
+                                                <span class="font-mono text-zinc-600 dark:text-zinc-300">{{ $order->tracking_id }}</span>
+                                            @else
+                                                <span class="italic text-zinc-400 dark:text-zinc-500">Add tracking</span>
+                                            @endif
+                                            <flux:icon name="pencil" class="w-3 h-3 opacity-50 group-hover/track:opacity-100 transition-opacity text-zinc-400" />
+                                        </button>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                @empty
+                    <tbody>
                         <tr>
-                            <td colspan="14" class="px-6 py-16 text-center">
+                            <td colspan="8" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center">
                                     <div class="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center mb-4">
                                         <flux:icon name="shopping-bag" class="w-7 h-7 text-zinc-400 dark:text-zinc-500" />
@@ -1986,15 +2216,33 @@ new class extends Component
                                 </div>
                             </td>
                         </tr>
-                    @endforelse
-                </tbody>
+                    </tbody>
+                @endforelse
             </table>
         </div>
 
         <!-- Pagination -->
-        @if($orders->hasPages())
-            <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800">
-                {{ $orders->links() }}
+        @if($orders->total() > 0)
+            <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 whitespace-nowrap">Rows per page</flux:text>
+                        <select wire:model.live="perPage"
+                            class="px-2.5 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer">
+                            @foreach($perPageOptions as $option)
+                                <option value="{{ $option }}">{{ $option }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                        Showing {{ number_format($orders->firstItem() ?? 0) }}–{{ number_format($orders->lastItem() ?? 0) }} of {{ number_format($orders->total()) }}
+                    </flux:text>
+                </div>
+                @if($orders->hasPages())
+                    <div>
+                        {{ $orders->links() }}
+                    </div>
+                @endif
             </div>
         @endif
     </div>
@@ -2513,6 +2761,124 @@ new class extends Component
                 </div>
             </div>
         @endif
+    </flux:modal>
+
+    {{-- WhatsApp blast modal --}}
+    <flux:modal wire:model.self="showWhatsAppModal" class="md:w-2xl">
+        @php
+            $waReady = $this->whatsAppBlastReady;
+            $waTemplates = $this->approvedWaTemplates;
+            $waTemplate = $this->selectedWaTemplate;
+            $waPreview = $this->whatsAppPreview;
+            $usdToMyr = (float) config('whatsapp-pricing.usd_to_myr', 4.50);
+        @endphp
+        <div class="space-y-5">
+            <div>
+                <flux:heading size="lg" class="flex items-center gap-2">
+                    <flux:icon name="chat-bubble-left-right" class="w-5 h-5 text-emerald-600" />
+                    Send WhatsApp blast
+                </flux:heading>
+                <flux:text size="sm" class="mt-1 text-zinc-500 dark:text-zinc-400">
+                    {{ count($whatsAppOrderIds) }} order{{ count($whatsAppOrderIds) === 1 ? '' : 's' }} selected ·
+                    blasts use approved WhatsApp templates sent via the official API.
+                </flux:text>
+            </div>
+
+            @if(! $waReady)
+                <flux:callout variant="warning" icon="exclamation-triangle">
+                    <flux:callout.heading>Official WhatsApp API not active</flux:callout.heading>
+                    <flux:callout.text>
+                        Set the provider to <strong>Meta (official)</strong>, add your credentials and enable WhatsApp in
+                        <a href="{{ route('admin.settings.whatsapp') }}" class="underline" wire:navigate>Settings → WhatsApp</a> to send blasts.
+                    </flux:callout.text>
+                </flux:callout>
+            @endif
+
+            @if($waTemplates->isEmpty())
+                <flux:callout variant="secondary" icon="document-text">
+                    <flux:callout.heading>No approved templates</flux:callout.heading>
+                    <flux:callout.text>
+                        Create and approve at least one template in
+                        <a href="{{ route('admin.whatsapp.templates') }}" class="underline" wire:navigate>WhatsApp Templates</a> before blasting.
+                    </flux:callout.text>
+                </flux:callout>
+            @else
+                <div>
+                    <flux:select wire:model.live="waTemplateId" label="Template">
+                        @foreach($waTemplates as $t)
+                            <flux:select.option value="{{ $t->id }}">
+                                {{ $t->name }} ({{ strtoupper($t->language) }} · {{ ucfirst($t->category ?: 'marketing') }})
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                @if($waTemplate)
+                    {{-- Message preview --}}
+                    <div>
+                        <flux:text size="sm" class="mb-1.5 font-medium text-zinc-600 dark:text-zinc-300">Preview</flux:text>
+                        <div class="rounded-xl bg-emerald-50 p-3 text-sm leading-relaxed whitespace-pre-line text-zinc-800 ring-1 ring-emerald-100 dark:bg-emerald-900/20 dark:text-zinc-100 dark:ring-emerald-900/40">
+                            {{ $waPreview['body'] !== '' ? $waPreview['body'] : 'This template has no body text.' }}
+                        </div>
+                    </div>
+
+                    {{-- Variable mapping --}}
+                    @if(!empty($waVariableMapping['body']))
+                        <div class="space-y-2.5">
+                            <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Fill template variables</flux:text>
+                            @foreach($waVariableMapping['body'] as $index => $var)
+                                <div wire:key="wavar-{{ $index }}" class="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
+                                    <span class="inline-flex h-7 min-w-9 items-center justify-center rounded-md bg-zinc-100 px-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">{{ '{'.'{'.$index.'}'.'}' }}</span>
+                                    <div class="w-36">
+                                        <flux:select size="sm" wire:model.live="waVariableMapping.body.{{ $index }}.source">
+                                            <flux:select.option value="order_field">Order field</flux:select.option>
+                                            <flux:select.option value="static">Custom text</flux:select.option>
+                                        </flux:select>
+                                    </div>
+                                    <div class="min-w-44 flex-1">
+                                        @if(($var['source'] ?? 'order_field') === 'order_field')
+                                            <flux:select size="sm" wire:model.live="waVariableMapping.body.{{ $index }}.field">
+                                                @foreach($this->waOrderFields() as $fieldKey => $fieldLabel)
+                                                    <flux:select.option value="{{ $fieldKey }}">{{ $fieldLabel }}</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                        @else
+                                            <flux:input size="sm" wire:model.live.debounce.400ms="waVariableMapping.body.{{ $index }}.value" placeholder="Type a value…" />
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Recipients summary --}}
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-800/50">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span class="font-medium text-zinc-800 dark:text-zinc-100">
+                                {{ number_format($waPreview['recipients']) }} will receive
+                            </span>
+                            @if($waPreview['skipped'] > 0)
+                                <span class="text-amber-600 dark:text-amber-400">{{ number_format($waPreview['skipped']) }} skipped (no phone / duplicates)</span>
+                            @endif
+                        </div>
+                        <span class="text-zinc-500 dark:text-zinc-400">Est. cost ~ RM {{ number_format($waPreview['cost'] * $usdToMyr, 2) }}</span>
+                    </div>
+                @endif
+            @endif
+
+            <div class="flex items-center justify-end gap-2 pt-1">
+                <flux:button variant="ghost" wire:click="$set('showWhatsAppModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="sendWhatsAppBlast"
+                    wire:target="sendWhatsAppBlast" wire:loading.attr="disabled"
+                    :disabled="! $waReady || ! $waTemplate || $waPreview['recipients'] < 1">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="paper-airplane" class="w-4 h-4 mr-1.5" wire:loading.remove wire:target="sendWhatsAppBlast" />
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1.5 animate-spin" wire:loading wire:target="sendWhatsAppBlast" />
+                        Send to {{ number_format($waPreview['recipients']) }}
+                    </div>
+                </flux:button>
+            </div>
+        </div>
     </flux:modal>
 
     <!-- Toast Notification -->

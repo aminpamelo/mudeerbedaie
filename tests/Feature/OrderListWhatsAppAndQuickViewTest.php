@@ -11,13 +11,12 @@ beforeEach(function () {
     $this->actingAs($this->admin);
 });
 
-it('displays the payment method column', function () {
+it('displays the payment method in the orders list', function () {
     ProductOrder::factory()->create([
         'payment_method' => 'bank_transfer',
     ]);
 
     Volt::test('admin.orders.order-list')
-        ->assertSee('Method')
         ->assertSee('Bank Transfer');
 });
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\WhatsAppInboxController;
 use App\Http\Controllers\Api\Cms\CmsAdCampaignController;
 use App\Http\Controllers\Api\Cms\CmsAffiliateController;
 use App\Http\Controllers\Api\Cms\CmsContentController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Api\Cms\CmsDashboardController;
 use App\Http\Controllers\Api\Cms\CmsPerformanceReportController;
 use App\Http\Controllers\Api\Cms\CmsPlatformController;
 use App\Http\Controllers\Api\ContactActivityController;
+use App\Http\Controllers\Api\FunnelEventController;
 use App\Http\Controllers\Api\Hr\HrApplicantController;
 use App\Http\Controllers\Api\Hr\HrAssetAssignmentController;
 use App\Http\Controllers\Api\Hr\HrAssetCategoryController;
@@ -113,6 +115,7 @@ use App\Http\Controllers\Api\Hr\HrTrainingProgramController;
 use App\Http\Controllers\Api\Hr\HrTrainingReportController;
 use App\Http\Controllers\Api\Hr\HrVehicleRateController;
 use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
+use App\Http\Controllers\Api\PosController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\V1\AffiliateDashboardController;
@@ -122,6 +125,7 @@ use App\Http\Controllers\Api\V1\FunnelAutomationController;
 use App\Http\Controllers\Api\V1\FunnelCategoryController;
 use App\Http\Controllers\Api\V1\FunnelCheckoutController;
 use App\Http\Controllers\Api\V1\FunnelController;
+use App\Http\Controllers\Api\V1\FunnelEmailTemplateController;
 use App\Http\Controllers\Api\V1\FunnelMediaController;
 use App\Http\Controllers\Api\V1\FunnelOrderController;
 use App\Http\Controllers\Api\V1\FunnelPixelController;
@@ -129,7 +133,14 @@ use App\Http\Controllers\Api\V1\FunnelProductController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Http\Controllers\WhatsAppWebhookController;
+use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\VerifyWhatsAppWebhook;
+use App\Models\ClassModel;
+use App\Models\Course;
+use App\Models\FunnelTemplate;
+use App\Models\Setting;
+use App\Models\WhatsAppTemplate;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -163,7 +174,7 @@ Route::middleware(['auth:sanctum'])->prefix('crm')->group(function () {
     // Courses (for workflow builder)
     Route::get('courses', function () {
         return response()->json([
-            'data' => \App\Models\Course::select('id', 'name', 'code')
+            'data' => Course::select('id', 'name', 'code')
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -172,7 +183,7 @@ Route::middleware(['auth:sanctum'])->prefix('crm')->group(function () {
     // Classes (for workflow builder)
     Route::get('classes', function () {
         return response()->json([
-            'data' => \App\Models\ClassModel::select('id', 'title', 'code')
+            'data' => ClassModel::select('id', 'title', 'code')
                 ->orderBy('title')
                 ->get(),
         ]);
@@ -226,7 +237,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     // WhatsApp Templates for Funnel Builder
     Route::get('funnel-builder/whatsapp-templates', function () {
         return response()->json([
-            'data' => \App\Models\WhatsAppTemplate::approved()
+            'data' => WhatsAppTemplate::approved()
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($t) => [
@@ -243,12 +254,12 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 
     // Funnel Email Templates (admin only)
     Route::middleware('role:admin,employee')->group(function () {
-        Route::get('funnel-email-templates', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'index'])->name('api.funnel-email-templates.index');
-        Route::get('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'show'])->name('api.funnel-email-templates.show');
-        Route::post('funnel-email-templates', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'store'])->name('api.funnel-email-templates.store');
-        Route::put('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'update'])->name('api.funnel-email-templates.update');
-        Route::delete('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'destroy'])->name('api.funnel-email-templates.destroy');
-        Route::post('funnel-email-templates/{id}/duplicate', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'duplicate'])->name('api.funnel-email-templates.duplicate');
+        Route::get('funnel-email-templates', [FunnelEmailTemplateController::class, 'index'])->name('api.funnel-email-templates.index');
+        Route::get('funnel-email-templates/{id}', [FunnelEmailTemplateController::class, 'show'])->name('api.funnel-email-templates.show');
+        Route::post('funnel-email-templates', [FunnelEmailTemplateController::class, 'store'])->name('api.funnel-email-templates.store');
+        Route::put('funnel-email-templates/{id}', [FunnelEmailTemplateController::class, 'update'])->name('api.funnel-email-templates.update');
+        Route::delete('funnel-email-templates/{id}', [FunnelEmailTemplateController::class, 'destroy'])->name('api.funnel-email-templates.destroy');
+        Route::post('funnel-email-templates/{id}/duplicate', [FunnelEmailTemplateController::class, 'duplicate'])->name('api.funnel-email-templates.duplicate');
     });
 
     // Funnel Steps
@@ -286,7 +297,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     // Templates
     Route::get('funnel-templates', function () {
         return response()->json([
-            'data' => \App\Models\FunnelTemplate::query()
+            'data' => FunnelTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('usage_count', 'desc')
                 ->get(),
@@ -296,7 +307,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     // Alias for templates (frontend compatibility)
     Route::get('templates', function () {
         return response()->json([
-            'data' => \App\Models\FunnelTemplate::query()
+            'data' => FunnelTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('usage_count', 'desc')
                 ->get(),
@@ -333,7 +344,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 | Affiliate Dashboard API Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('v1/affiliate')->middleware(\App\Http\Middleware\AffiliateSessionLifetime::class)->group(function () {
+Route::prefix('v1/affiliate')->middleware(AffiliateSessionLifetime::class)->group(function () {
     // Public (no auth)
     Route::post('login', [AffiliateDashboardController::class, 'login'])->name('api.affiliate.login');
     Route::post('register', [AffiliateDashboardController::class, 'register'])->name('api.affiliate.register');
@@ -387,7 +398,7 @@ Route::prefix('v1/funnel')->group(function () {
 | Funnel Event Tracking API Routes (Public - No Auth Required)
 |--------------------------------------------------------------------------
 */
-Route::post('funnel-events/button-click', [\App\Http\Controllers\Api\FunnelEventController::class, 'trackButtonClick'])
+Route::post('funnel-events/button-click', [FunnelEventController::class, 'trackButtonClick'])
     ->name('api.funnel-events.button-click');
 
 // Pixel test connection (authenticated)
@@ -401,26 +412,26 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:web'])->prefix('pos')->group(function () {
-    Route::get('sales-sources', [\App\Http\Controllers\Api\PosController::class, 'salesSources'])->name('api.pos.sales-sources');
-    Route::get('products', [\App\Http\Controllers\Api\PosController::class, 'products'])->name('api.pos.products');
-    Route::get('packages', [\App\Http\Controllers\Api\PosController::class, 'packages'])->name('api.pos.packages');
-    Route::get('courses', [\App\Http\Controllers\Api\PosController::class, 'courses'])->name('api.pos.courses');
-    Route::get('classes/{course}', [\App\Http\Controllers\Api\PosController::class, 'courseClasses'])->name('api.pos.classes');
-    Route::get('customers', [\App\Http\Controllers\Api\PosController::class, 'customers'])->name('api.pos.customers');
-    Route::get('upsell-sessions', [\App\Http\Controllers\Api\PosController::class, 'upsellSessions'])->name('api.pos.upsell-sessions');
-    Route::get('upsell-sessions/{id}', [\App\Http\Controllers\Api\PosController::class, 'upsellSessionDetail'])->name('api.pos.upsell-sessions.show');
-    Route::post('sales', [\App\Http\Controllers\Api\PosController::class, 'createSale'])->name('api.pos.sales.store');
-    Route::get('sales/export', [\App\Http\Controllers\Api\PosController::class, 'exportSales'])->name('api.pos.sales.export');
-    Route::get('sales', [\App\Http\Controllers\Api\PosController::class, 'salesHistory'])->name('api.pos.sales.index');
-    Route::get('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'saleDetail'])->name('api.pos.sales.show');
-    Route::put('sales/{sale}/status', [\App\Http\Controllers\Api\PosController::class, 'updateSaleStatus'])->name('api.pos.sales.update-status');
-    Route::put('sales/{sale}/details', [\App\Http\Controllers\Api\PosController::class, 'updateSaleDetails'])->name('api.pos.sales.update-details');
-    Route::put('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'updateSale'])->name('api.pos.sales.update');
-    Route::delete('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'deleteSale'])->name('api.pos.sales.destroy');
-    Route::get('sales/{sale}/receipt-pdf', [\App\Http\Controllers\Api\PosController::class, 'receiptPdf'])->name('api.pos.sales.receipt-pdf');
-    Route::get('dashboard', [\App\Http\Controllers\Api\PosController::class, 'dashboard'])->name('api.pos.dashboard');
-    Route::get('reports/monthly', [\App\Http\Controllers\Api\PosController::class, 'reportMonthly'])->name('api.pos.reports.monthly');
-    Route::get('reports/daily', [\App\Http\Controllers\Api\PosController::class, 'reportDaily'])->name('api.pos.reports.daily');
+    Route::get('sales-sources', [PosController::class, 'salesSources'])->name('api.pos.sales-sources');
+    Route::get('products', [PosController::class, 'products'])->name('api.pos.products');
+    Route::get('packages', [PosController::class, 'packages'])->name('api.pos.packages');
+    Route::get('courses', [PosController::class, 'courses'])->name('api.pos.courses');
+    Route::get('classes/{course}', [PosController::class, 'courseClasses'])->name('api.pos.classes');
+    Route::get('customers', [PosController::class, 'customers'])->name('api.pos.customers');
+    Route::get('upsell-sessions', [PosController::class, 'upsellSessions'])->name('api.pos.upsell-sessions');
+    Route::get('upsell-sessions/{id}', [PosController::class, 'upsellSessionDetail'])->name('api.pos.upsell-sessions.show');
+    Route::post('sales', [PosController::class, 'createSale'])->name('api.pos.sales.store');
+    Route::get('sales/export', [PosController::class, 'exportSales'])->name('api.pos.sales.export');
+    Route::get('sales', [PosController::class, 'salesHistory'])->name('api.pos.sales.index');
+    Route::get('sales/{sale}', [PosController::class, 'saleDetail'])->name('api.pos.sales.show');
+    Route::put('sales/{sale}/status', [PosController::class, 'updateSaleStatus'])->name('api.pos.sales.update-status');
+    Route::put('sales/{sale}/details', [PosController::class, 'updateSaleDetails'])->name('api.pos.sales.update-details');
+    Route::put('sales/{sale}', [PosController::class, 'updateSale'])->name('api.pos.sales.update');
+    Route::delete('sales/{sale}', [PosController::class, 'deleteSale'])->name('api.pos.sales.destroy');
+    Route::get('sales/{sale}/receipt-pdf', [PosController::class, 'receiptPdf'])->name('api.pos.sales.receipt-pdf');
+    Route::get('dashboard', [PosController::class, 'dashboard'])->name('api.pos.dashboard');
+    Route::get('reports/monthly', [PosController::class, 'reportMonthly'])->name('api.pos.reports.monthly');
+    Route::get('reports/daily', [PosController::class, 'reportDaily'])->name('api.pos.reports.daily');
 });
 
 /*
@@ -445,13 +456,13 @@ Route::middleware(['auth:sanctum'])->prefix('workflows')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum'])->prefix('admin/whatsapp')->group(function () {
-    Route::get('conversations', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'index'])->name('api.admin.whatsapp.conversations');
-    Route::get('conversations/{conversation}', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'show'])->name('api.admin.whatsapp.conversations.show');
-    Route::post('conversations/{conversation}/reply', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'reply'])->name('api.admin.whatsapp.conversations.reply');
-    Route::post('conversations/{conversation}/template', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'sendTemplate'])->name('api.admin.whatsapp.conversations.template');
-    Route::post('conversations/{conversation}/archive', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'archive'])->name('api.admin.whatsapp.conversations.archive');
-    Route::get('templates', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'templates'])->name('api.admin.whatsapp.templates');
-    Route::post('templates/sync', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'syncTemplates'])->name('api.admin.whatsapp.templates.sync');
+    Route::get('conversations', [WhatsAppInboxController::class, 'index'])->name('api.admin.whatsapp.conversations');
+    Route::get('conversations/{conversation}', [WhatsAppInboxController::class, 'show'])->name('api.admin.whatsapp.conversations.show');
+    Route::post('conversations/{conversation}/reply', [WhatsAppInboxController::class, 'reply'])->name('api.admin.whatsapp.conversations.reply');
+    Route::post('conversations/{conversation}/template', [WhatsAppInboxController::class, 'sendTemplate'])->name('api.admin.whatsapp.conversations.template');
+    Route::post('conversations/{conversation}/archive', [WhatsAppInboxController::class, 'archive'])->name('api.admin.whatsapp.conversations.archive');
+    Route::get('templates', [WhatsAppInboxController::class, 'templates'])->name('api.admin.whatsapp.templates');
+    Route::post('templates/sync', [WhatsAppInboxController::class, 'syncTemplates'])->name('api.admin.whatsapp.templates.sync');
 });
 
 /*
@@ -528,15 +539,15 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('settings/office-location', function () {
         return response()->json([
             'data' => [
-                'latitude' => (float) \App\Models\Setting::getValue('hr_office_latitude', 0),
-                'longitude' => (float) \App\Models\Setting::getValue('hr_office_longitude', 0),
-                'radius_meters' => (float) \App\Models\Setting::getValue('hr_office_radius_meters', 200),
-                'require_location' => (bool) \App\Models\Setting::getValue('hr_require_location_office', false),
+                'latitude' => (float) Setting::getValue('hr_office_latitude', 0),
+                'longitude' => (float) Setting::getValue('hr_office_longitude', 0),
+                'radius_meters' => (float) Setting::getValue('hr_office_radius_meters', 200),
+                'require_location' => (bool) Setting::getValue('hr_require_location_office', false),
             ],
         ]);
     })->name('api.hr.settings.office-location');
 
-    Route::put('settings/office-location', function (\Illuminate\Http\Request $request) {
+    Route::put('settings/office-location', function (Request $request) {
         $validated = $request->validate([
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
@@ -552,7 +563,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
         ];
 
         foreach ($settings as $key => $value) {
-            \App\Models\Setting::updateOrCreate(
+            Setting::updateOrCreate(
                 ['key' => $key],
                 ['value' => (string) $value]
             );
@@ -816,6 +827,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('claims/requests', [HrClaimRequestController::class, 'index'])->name('api.hr.claims.requests.index');
     Route::post('claims/requests', [HrClaimRequestController::class, 'store'])->name('api.hr.claims.requests.store');
     Route::get('claims/requests/{claimRequest}', [HrClaimRequestController::class, 'show'])->name('api.hr.claims.requests.show');
+    Route::put('claims/requests/{claimRequest}', [HrClaimRequestController::class, 'update'])->name('api.hr.claims.requests.update');
     Route::post('claims/requests/{claimRequest}/approve', [HrClaimRequestController::class, 'approve'])->name('api.hr.claims.requests.approve');
     Route::post('claims/requests/{claimRequest}/reject', [HrClaimRequestController::class, 'reject'])->name('api.hr.claims.requests.reject');
     Route::post('claims/requests/{claimRequest}/mark-paid', [HrClaimRequestController::class, 'markPaid'])->name('api.hr.claims.requests.mark-paid');

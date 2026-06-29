@@ -15,5 +15,6 @@ class TrackingResult
         public readonly ?string $estimatedDelivery = null,
         public readonly string $message = '',
         public readonly array $rawResponse = [],
+        public readonly ?int $currentStatusCode = null,
     ) {}
 }

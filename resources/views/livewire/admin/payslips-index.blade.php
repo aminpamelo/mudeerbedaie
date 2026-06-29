@@ -1,123 +1,137 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
 use App\Models\Payslip;
 use App\Models\User;
 use App\Services\PayslipGenerationService;
-use Carbon\Carbon;
+use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
-    
+
     public string $monthFilter = '';
+
     public string $teacherFilter = 'all';
+
     public string $statusFilter = 'all';
+
     public string $search = '';
+
     public bool $showGenerateModal = false;
+
     public bool $showPreviewModal = false;
+
     public bool $showResultsModal = false;
+
     public bool $isGenerating = false;
+
     public string $generateMonth = '';
+
     public array $selectedTeachers = [];
+
     public array $generationPreview = [];
+
     public array $generationResults = [];
-    
+
     protected $queryString = [
         'search' => ['except' => ''],
         'monthFilter' => ['except' => ''],
         'teacherFilter' => ['except' => 'all'],
         'statusFilter' => ['except' => 'all'],
     ];
-    
+
     public function with()
     {
         // Get all teachers and available months for filters
         $teachers = User::whereHas('teacher')->orderBy('name')->get();
         $availableMonths = app(PayslipGenerationService::class)->getAvailableMonthsForPayslips();
-        
-        // Build payslips query
-        $query = Payslip::with(['teacher', 'generatedBy']);
-        
+
+        // Eager load with trashed so payslips for soft-deleted teachers/admins still render
+        $query = Payslip::with([
+            'teacher' => fn ($q) => $q->withTrashed(),
+            'generatedBy' => fn ($q) => $q->withTrashed(),
+        ]);
+
         // Apply filters
         if ($this->monthFilter) {
             $query->where('month', $this->monthFilter);
         }
-        
+
         if ($this->teacherFilter !== 'all') {
             $query->where('teacher_id', $this->teacherFilter);
         }
-        
+
         if ($this->statusFilter !== 'all') {
             $query->where('status', $this->statusFilter);
         }
-        
+
         // Apply search
         if ($this->search) {
-            $query->whereHas('teacher', function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%');
+            $query->whereHas('teacher', function ($q) {
+                $q->where('name', 'like', '%'.$this->search.'%');
             });
         }
-        
+
         $payslips = $query->orderBy('year', 'desc')
-                         ->orderBy('month', 'desc')
-                         ->orderBy('created_at', 'desc')
-                         ->paginate(15);
-        
-        // Calculate statistics
-        $totalPayslips = Payslip::count();
-        $draftPayslips = Payslip::where('status', 'draft')->count();
-        $finalizedPayslips = Payslip::where('status', 'finalized')->count();
-        $paidPayslips = Payslip::where('status', 'paid')->count();
-        
+            ->orderBy('month', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        // Calculate statistics in a single grouped query instead of four COUNT(*) queries
+        $statusCounts = Payslip::query()
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
         $statistics = [
-            'total_payslips' => $totalPayslips,
-            'draft_payslips' => $draftPayslips,
-            'finalized_payslips' => $finalizedPayslips,
-            'paid_payslips' => $paidPayslips,
+            'total_payslips' => (int) $statusCounts->sum(),
+            'draft_payslips' => (int) ($statusCounts['draft'] ?? 0),
+            'finalized_payslips' => (int) ($statusCounts['finalized'] ?? 0),
+            'paid_payslips' => (int) ($statusCounts['paid'] ?? 0),
         ];
-        
+
         return [
             'payslips' => $payslips,
             'teachers' => $teachers,
             'availableMonths' => $availableMonths,
-            'statistics' => $statistics
+            'statistics' => $statistics,
         ];
     }
-    
+
     public function updatedMonthFilter()
     {
         $this->resetPage();
     }
-    
+
     public function updatedTeacherFilter()
     {
         $this->resetPage();
     }
-    
+
     public function updatedStatusFilter()
     {
         $this->resetPage();
     }
-    
+
     public function updatedSearch()
     {
         $this->resetPage();
     }
-    
+
     public function clearSearch()
     {
         $this->search = '';
         $this->resetPage();
     }
-    
+
     public function openGenerateModal()
     {
         $this->showGenerateModal = true;
         $this->generateMonth = now()->format('Y-m');
         $this->selectedTeachers = [];
     }
-    
+
     public function closeGenerateModal()
     {
         $this->showGenerateModal = false;
@@ -129,18 +143,18 @@ new class extends Component {
         $this->generationResults = [];
         $this->isGenerating = false;
     }
-    
+
     public function selectAllTeachers()
     {
         $teachers = User::whereHas('teacher')->orderBy('name')->get();
         $this->selectedTeachers = $teachers->pluck('id')->toArray();
     }
-    
+
     public function deselectAllTeachers()
     {
         $this->selectedTeachers = [];
     }
-    
+
     public function generatePreview()
     {
         $this->validate([
@@ -151,14 +165,16 @@ new class extends Component {
 
         $service = app(PayslipGenerationService::class);
         $this->generationPreview = [];
-        
+
         foreach ($this->selectedTeachers as $teacherId) {
             $teacher = User::find($teacherId);
-            if (!$teacher) continue;
-            
+            if (! $teacher) {
+                continue;
+            }
+
             $canGenerate = $service->canGeneratePayslipForTeacher($teacher, $this->generateMonth);
             $eligibleSessions = $service->getEligibleSessionsForTeacherAndMonth($teacher, $this->generateMonth);
-            
+
             $this->generationPreview[] = [
                 'teacher_id' => $teacher->id,
                 'teacher_name' => $teacher->name,
@@ -169,11 +185,11 @@ new class extends Component {
                 'existing_payslip_id' => $canGenerate['existing_payslip_id'] ?? null,
             ];
         }
-        
+
         $this->showGenerateModal = false;
         $this->showPreviewModal = true;
     }
-    
+
     public function confirmGeneration()
     {
         $this->showPreviewModal = false;
@@ -182,72 +198,73 @@ new class extends Component {
             'successful' => [],
             'failed' => [],
             'total_amount' => 0,
-            'total_sessions' => 0
+            'total_sessions' => 0,
         ];
-        
+
         $service = app(PayslipGenerationService::class);
-        
+
         foreach ($this->generationPreview as $preview) {
-            if (!$preview['can_generate']) {
+            if (! $preview['can_generate']) {
                 $this->generationResults['failed'][] = [
                     'teacher_name' => $preview['teacher_name'],
                     'error' => $this->getReadableError($preview['reason']),
-                    'details' => $preview['reason']
+                    'details' => $preview['reason'],
                 ];
+
                 continue;
             }
-            
+
             try {
                 $teacher = User::find($preview['teacher_id']);
                 $payslip = $service->generateForTeacher($teacher, $this->generateMonth, auth()->user());
-                
+
                 $this->generationResults['successful'][] = [
                     'teacher_name' => $teacher->name,
                     'sessions_count' => $payslip->total_sessions,
                     'amount' => $payslip->total_amount,
-                    'payslip_id' => $payslip->id
+                    'payslip_id' => $payslip->id,
                 ];
-                
+
                 $this->generationResults['total_amount'] += $payslip->total_amount;
                 $this->generationResults['total_sessions'] += $payslip->total_sessions;
-                
-            } catch (\Exception $e) {
+
+            } catch (Exception $e) {
                 $this->generationResults['failed'][] = [
                     'teacher_name' => $preview['teacher_name'],
                     'error' => $this->getReadableError($e->getMessage()),
-                    'details' => $e->getMessage()
+                    'details' => $e->getMessage(),
                 ];
             }
         }
-        
+
         $this->isGenerating = false;
         $this->showResultsModal = true;
     }
-    
+
     public function getReadableError(string $error): string
     {
         if (str_contains($error, 'already exists')) {
             return 'Payslip already exists for this month';
         }
-        
+
         if (str_contains($error, 'No eligible sessions')) {
             return 'No eligible sessions found for this teacher this month';
         }
-        
+
         if (str_contains($error, 'teacher.teacher')) {
             return 'Teacher profile not properly configured';
         }
-        
+
         return 'An unexpected error occurred';
     }
-    
+
     public function closePreviewModal()
     {
         $this->showPreviewModal = false;
         $this->generationPreview = [];
         $this->showGenerateModal = true;
     }
-    
+
     public function closeResultsModal()
     {
         $this->showResultsModal = false;
@@ -391,7 +408,7 @@ new class extends Component {
                                 <div class="flex-1">
                                     <div class="flex items-start justify-between">
                                         <div>
-                                            <flux:heading size="sm" class="mb-2">{{ $payslip->teacher->name }}</flux:heading>
+                                            <flux:heading size="sm" class="mb-2">{{ $payslip->teacher?->name ?? 'Unknown teacher' }}</flux:heading>
                                             <flux:text size="sm" class="text-gray-600  mb-2">
                                                 {{ $payslip->formatted_month }}
                                             </flux:text>
@@ -423,11 +440,11 @@ new class extends Component {
                                 </div>
                                 <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="user" class="w-4 h-4 mr-2 text-gray-400" />
-                                    <span>By {{ $payslip->generatedBy->name }}</span>
+                                    <span>By {{ $payslip->generatedBy?->name ?? 'System' }}</span>
                                 </div>
                                 <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="clock" class="w-4 h-4 mr-2 text-gray-400" />
-                                    <span>{{ $payslip->generated_at->format('M d, Y') }}</span>
+                                    <span>{{ $payslip->generated_at?->format('M d, Y') ?? '—' }}</span>
                                 </div>
                             </div>
                         </div>
@@ -452,9 +469,11 @@ new class extends Component {
                                         </flux:menu.item>
                                     @endif
                                     
-                                    <flux:menu.item icon="user" href="{{ route('teachers.show', $payslip->teacher) }}" wire:navigate>
-                                        View Teacher
-                                    </flux:menu.item>
+                                    @if($payslip->teacher)
+                                        <flux:menu.item icon="user" href="{{ route('teachers.show', $payslip->teacher) }}" wire:navigate>
+                                            View Teacher
+                                        </flux:menu.item>
+                                    @endif
                                 </flux:menu>
                             </flux:dropdown>
                         </div>

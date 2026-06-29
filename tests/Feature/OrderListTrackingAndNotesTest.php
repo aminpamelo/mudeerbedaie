@@ -11,13 +11,12 @@ beforeEach(function () {
     $this->actingAs($this->admin);
 });
 
-it('displays notes column in orders list', function () {
+it('displays notes in orders list', function () {
     $order = ProductOrder::factory()->create([
         'internal_notes' => 'Test POS note',
     ]);
 
     Volt::test('admin.orders.order-list')
-        ->assertSee('Notes')
         ->assertSee('Test POS note');
 });
 
@@ -31,13 +30,12 @@ it('displays customer notes when internal notes are empty', function () {
         ->assertSee('Customer said something');
 });
 
-it('displays tracking number column in orders list', function () {
+it('displays tracking number in orders list', function () {
     $order = ProductOrder::factory()->create([
         'tracking_id' => 'TRACK123456',
     ]);
 
     Volt::test('admin.orders.order-list')
-        ->assertSee('Tracking No.')
         ->assertSee('TRACK123456');
 });
 

@@ -53,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
             'webhooks/tiktok',
+            'webhooks/easyparcel',
             'api/workflows',
             'api/workflows/*',
             'api/crm/*',

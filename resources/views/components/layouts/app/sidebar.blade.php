@@ -28,7 +28,7 @@
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
                     'itBoard': ['admin.it-board.*'],
-                    'whatsappMgmt': ['admin.whatsapp-inbox', 'admin.whatsapp.templates'],
+                    'whatsappMgmt': ['admin.whatsapp-inbox', 'admin.whatsapp.templates', 'admin.whatsapp.campaigns', 'admin.whatsapp.costs'],
                     'hr': ['hr.*'],  // React SPA - just for highlight
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
@@ -340,6 +340,15 @@
                         wire:navigate
                     >
                         {{ __('WhatsApp Templates') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="megaphone"
+                        :href="route('admin.whatsapp.campaigns')"
+                        :current="request()->routeIs('admin.whatsapp.campaigns*')"
+                        wire:navigate
+                    >
+                        {{ __('Campaigns') }}
                     </flux:navlist.item>
 
                     <flux:navlist.item

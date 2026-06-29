@@ -152,10 +152,13 @@ class PayslipGenerationService
 
     public function getAvailableMonthsForPayslips(): Collection
     {
-        // Get months that have completed and verified sessions
+        // Get months that have completed and verified sessions.
+        // distinct() pushes deduplication to the database so we hydrate only the
+        // distinct session dates instead of every eligible session row on each render.
         $sessions = ClassSession::whereNotNull('verified_at')
             ->where('status', 'completed')
             ->whereNotNull('allowance_amount')
+            ->distinct()
             ->orderBy('session_date', 'desc')
             ->get(['session_date']);
 

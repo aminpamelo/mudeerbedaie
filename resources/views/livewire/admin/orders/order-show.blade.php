@@ -2,9 +2,12 @@
 
 use App\DTOs\Shipping\ShipmentRequest;
 use App\DTOs\Shipping\ShippingRateRequest;
+use App\Models\ClassAssignmentApproval;
+use App\Models\ClassModel;
 use App\Models\ProductOrder;
 use App\Models\StockLevel;
 use App\Models\StockMovement;
+use App\Models\Student;
 use App\Services\SettingsService;
 use App\Services\Shipping\ShippingManager;
 use App\Services\TikTok\OrderItemLinker;
@@ -27,11 +30,14 @@ new class extends Component
 
     // Shipping
     public bool $showTrackingModal = false;
+
     public array $trackingInfo = [];
+
     public string $manualTrackingId = '';
 
     // EasyParcel rate-shopping
     public array $easyParcelRates = [];
+
     public ?string $easyParcelServiceId = null;
 
     public function mount(ProductOrder $order): void
@@ -179,7 +185,7 @@ new class extends Component
         foreach ($this->order->items as $item) {
             // Skip items without warehouse assignment
             if (! $item->warehouse_id) {
-                \Log::warning('Cannot deduct stock - no warehouse assigned', [
+                Log::warning('Cannot deduct stock - no warehouse assigned', [
                     'order_id' => $this->order->id,
                     'item_id' => $item->id,
                     'product_id' => $item->product_id,
@@ -216,7 +222,7 @@ new class extends Component
 
             // Log warning if stock goes negative
             if ($quantityAfter < 0) {
-                \Log::warning('Stock level is now NEGATIVE', [
+                Log::warning('Stock level is now NEGATIVE', [
                     'order_id' => $this->order->id,
                     'product_id' => $item->product_id,
                     'warehouse_id' => $item->warehouse_id,
@@ -348,6 +354,7 @@ new class extends Component
 
             if (! $shippingAddress) {
                 session()->flash('error', 'No shipping address found for this order.');
+
                 return;
             }
 
@@ -387,7 +394,7 @@ new class extends Component
             } else {
                 session()->flash('error', "Failed to create shipment: {$result->message}");
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Shipment creation failed: '.$e->getMessage());
         }
 
@@ -407,7 +414,7 @@ new class extends Component
 
             $this->trackingInfo = $result->events;
             $this->showTrackingModal = true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to fetch tracking: '.$e->getMessage());
         }
     }
@@ -443,7 +450,7 @@ new class extends Component
             } else {
                 session()->flash('error', "Failed to cancel shipment: {$result->message}");
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Shipment cancellation failed: '.$e->getMessage());
         }
 
@@ -547,7 +554,7 @@ new class extends Component
             // Pre-select the cheapest option.
             $cheapest = collect($this->easyParcelRates)->sortBy('price')->first();
             $this->easyParcelServiceId = $cheapest['service_id'] ?? null;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to fetch EasyParcel rates: '.$e->getMessage());
         }
     }
@@ -620,7 +627,7 @@ new class extends Component
             } else {
                 session()->flash('error', "Failed to book shipment: {$result->message}");
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'EasyParcel booking failed: '.$e->getMessage());
         }
 
@@ -660,7 +667,7 @@ new class extends Component
             session()->flash('success', $details['awb_number']
                 ? "AWB updated: {$details['awb_number']}"
                 : 'AWB is still being generated. Try again shortly.');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to refresh AWB: '.$e->getMessage());
         }
 
@@ -669,8 +676,16 @@ new class extends Component
 
     // Class Assignment
     public bool $showAssignClassModal = false;
+
     public string $classSearch = '';
+
     public array $selectedClassIds = [];
+
+    // Inline WhatsApp group link editing (keyed per assignment row, not per
+    // class — the same class can legitimately appear in more than one row).
+    public ?int $editingWhatsappApprovalId = null;
+
+    public string $whatsappLinkInput = '';
 
     public function openAssignClassModal(): void
     {
@@ -686,7 +701,7 @@ new class extends Component
             ->pluck('class_id')
             ->toArray();
 
-        $query = \App\Models\ClassModel::query()
+        $query = ClassModel::query()
             ->where('status', 'active')
             ->whereNotIn('id', $alreadyAssignedClassIds)
             ->with('course');
@@ -694,7 +709,7 @@ new class extends Component
         if ($this->classSearch) {
             $query->where(function ($q) {
                 $q->where('title', 'like', "%{$this->classSearch}%")
-                  ->orWhereHas('course', fn ($cq) => $cq->where('name', 'like', "%{$this->classSearch}%"));
+                    ->orWhereHas('course', fn ($cq) => $cq->where('name', 'like', "%{$this->classSearch}%"));
             });
         }
 
@@ -709,13 +724,13 @@ new class extends Component
             return [];
         }
 
-        return \App\Models\ClassModel::whereIn('shipment_product_id', $productIds)
+        return ClassModel::whereIn('shipment_product_id', $productIds)
             ->where('status', 'active')
             ->pluck('id')
             ->toArray();
     }
 
-    public function resolveStudent(): ?\App\Models\Student
+    public function resolveStudent(): ?Student
     {
         // 1. Direct student link
         if ($this->order->student_id) {
@@ -724,7 +739,7 @@ new class extends Component
 
         // 2. Find student via customer user
         if ($this->order->customer_id) {
-            $student = \App\Models\Student::where('user_id', $this->order->customer_id)->first();
+            $student = Student::where('user_id', $this->order->customer_id)->first();
             if ($student) {
                 return $student;
             }
@@ -743,13 +758,14 @@ new class extends Component
 
         if (! $student) {
             session()->flash('error', 'No student could be found for this order. Please link a student or customer first.');
+
             return;
         }
 
         $count = count($this->selectedClassIds);
 
         foreach ($this->selectedClassIds as $classId) {
-            \App\Models\ClassAssignmentApproval::firstOrCreate(
+            ClassAssignmentApproval::firstOrCreate(
                 [
                     'class_id' => $classId,
                     'student_id' => $student->id,
@@ -764,7 +780,7 @@ new class extends Component
 
         $this->showAssignClassModal = false;
         $this->selectedClassIds = [];
-        session()->flash('success', 'Order assigned to ' . $count . ' class(es) for approval.');
+        session()->flash('success', 'Order assigned to '.$count.' class(es) for approval.');
     }
 
     public function toggleClassSelection(int $classId): void
@@ -777,6 +793,7 @@ new class extends Component
     }
 
     public bool $showRemoveAssignmentModal = false;
+
     public ?int $removingAssignmentId = null;
 
     public function confirmRemoveAssignment(int $approvalId): void
@@ -791,7 +808,7 @@ new class extends Component
             return;
         }
 
-        $approval = \App\Models\ClassAssignmentApproval::where('id', $this->removingAssignmentId)
+        $approval = ClassAssignmentApproval::where('id', $this->removingAssignmentId)
             ->where('product_order_id', $this->order->id)
             ->first();
 
@@ -808,6 +825,61 @@ new class extends Component
     {
         $this->showRemoveAssignmentModal = false;
         $this->removingAssignmentId = null;
+    }
+
+    public function startEditClassWhatsapp(int $approvalId): void
+    {
+        $approval = $this->order->classAssignmentApprovals()->with('class')->find($approvalId);
+
+        if (! $approval?->class) {
+            return;
+        }
+
+        $this->editingWhatsappApprovalId = $approvalId;
+        $this->whatsappLinkInput = $approval->class->whatsapp_group_link ?? '';
+        $this->resetErrorBag('whatsappLinkInput');
+    }
+
+    public function cancelEditClassWhatsapp(): void
+    {
+        $this->editingWhatsappApprovalId = null;
+        $this->whatsappLinkInput = '';
+        $this->resetErrorBag('whatsappLinkInput');
+    }
+
+    public function saveClassWhatsapp(): void
+    {
+        if (! $this->editingWhatsappApprovalId) {
+            return;
+        }
+
+        $this->validate([
+            'whatsappLinkInput' => ['nullable', 'url:http,https', 'max:2048'],
+        ], [
+            'whatsappLinkInput.url' => 'Please enter a valid link starting with https:// (e.g. https://chat.whatsapp.com/...).',
+        ]);
+
+        $approval = $this->order->classAssignmentApprovals()->with('class')->find($this->editingWhatsappApprovalId);
+
+        if (! $approval?->class) {
+            $this->cancelEditClassWhatsapp();
+
+            return;
+        }
+
+        $class = $approval->class;
+        $link = trim($this->whatsappLinkInput);
+
+        $class->update([
+            'whatsapp_group_link' => $link !== '' ? $link : null,
+        ]);
+
+        $this->editingWhatsappApprovalId = null;
+        $this->whatsappLinkInput = '';
+
+        session()->flash('success', $link !== ''
+            ? "WhatsApp group link saved for {$class->title}."
+            : "WhatsApp group link removed for {$class->title}.");
     }
 }; ?>
 
@@ -1617,18 +1689,67 @@ new class extends Component
                 @if($assignments->isNotEmpty())
                     <div class="space-y-3">
                         @foreach($assignments as $assignment)
-                            <div class="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg" wire:key="assignment-{{ $assignment->id }}">
-                                <div>
+                            <div class="flex items-start justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg" wire:key="assignment-{{ $assignment->id }}">
+                                <div class="min-w-0 flex-1">
                                     <p class="text-sm font-medium text-zinc-900 dark:text-white">
                                         {{ $assignment->class->title }}
                                     </p>
                                     <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                         {{ $assignment->class->course?->name ?? 'No Course' }}
-                                        &middot; Assigned by {{ $assignment->assignedByUser->name }}
+                                        &middot; Assigned by {{ $assignment->assignedByUser?->name ?? 'Unknown User' }}
                                         &middot; {{ $assignment->created_at->diffForHumans() }}
                                     </p>
+
+                                    {{-- WhatsApp group link indicator + inline editor --}}
+                                    <div class="mt-2">
+                                        @if($editingWhatsappApprovalId === $assignment->id)
+                                            <div wire:key="wa-edit-{{ $assignment->id }}" class="flex flex-col gap-1.5">
+                                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                    <flux:input
+                                                        wire:model="whatsappLinkInput"
+                                                        wire:keydown.enter="saveClassWhatsapp"
+                                                        wire:keydown.escape="cancelEditClassWhatsapp"
+                                                        type="url"
+                                                        size="sm"
+                                                        autofocus
+                                                        aria-label="WhatsApp group link"
+                                                        placeholder="https://chat.whatsapp.com/..."
+                                                        class="w-full sm:max-w-xs"
+                                                    />
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:button size="sm" variant="primary" icon="check" wire:click="saveClassWhatsapp" wire:loading.attr="disabled" wire:target="saveClassWhatsapp">Save</flux:button>
+                                                        <flux:button size="sm" variant="ghost" wire:click="cancelEditClassWhatsapp">Cancel</flux:button>
+                                                    </div>
+                                                </div>
+                                                <flux:error name="whatsappLinkInput" />
+                                            </div>
+                                        @elseif($assignment->class->whatsapp_group_link)
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/10 dark:ring-emerald-400/20">
+                                                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/></svg>
+                                                    WhatsApp group linked
+                                                </span>
+                                                <a href="{{ $assignment->class->whatsapp_group_link }}" target="_blank" class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
+                                                    <flux:icon name="arrow-top-right-on-square" class="w-3.5 h-3.5" />
+                                                    Open
+                                                </a>
+                                                <button type="button" wire:click="startEditClassWhatsapp({{ $assignment->id }})" class="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors">
+                                                    <flux:icon name="pencil-square" class="w-3.5 h-3.5" />
+                                                    Edit
+                                                </button>
+                                            </div>
+                                        @else
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 ring-1 ring-inset ring-zinc-500/10 dark:ring-zinc-400/20">
+                                                    <flux:icon name="minus-circle" class="w-3.5 h-3.5" />
+                                                    No WhatsApp group
+                                                </span>
+                                                <flux:button size="xs" variant="ghost" icon="plus" wire:click="startEditClassWhatsapp({{ $assignment->id }})">Add Link</flux:button>
+                                            </div>
+                                        @endif
+                                    </div>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 shrink-0 ml-2">
                                     <flux:badge
                                         :variant="match($assignment->status) {
                                             'pending' => 'warning',

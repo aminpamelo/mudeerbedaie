@@ -10,6 +10,7 @@ use App\DTOs\Shipping\ShippingRate;
 use App\DTOs\Shipping\ShippingRateRequest;
 use App\DTOs\Shipping\TrackingResult;
 use App\Services\SettingsService;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -234,6 +235,9 @@ class EasyParcelShippingService implements ShippingProvider
                 events: $events,
                 message: 'Tracking data retrieved.',
                 rawResponse: $response,
+                currentStatusCode: isset($result['latest_shipment_status_code'])
+                    ? (int) $result['latest_shipment_status_code']
+                    : null,
             );
         } catch (\Exception $e) {
             Log::error('EasyParcel tracking failed', ['error' => $e->getMessage(), 'tracking' => $trackingNumber]);
@@ -429,7 +433,7 @@ class EasyParcelShippingService implements ShippingProvider
     /**
      * @param  array<string, mixed>  $body
      */
-    private function send(string $method, string $path, string $token, array $body): \Illuminate\Http\Client\Response
+    private function send(string $method, string $path, string $token, array $body): Response
     {
         $request = Http::timeout(40)->withToken($token)->acceptJson();
         $url = self::API_BASE.$path;

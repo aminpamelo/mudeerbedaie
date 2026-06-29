@@ -1,13 +1,36 @@
 <?php
 
+use App\AcademicStatus;
+use App\Jobs\ProcessShipmentImport;
+use App\Jobs\ProcessStudentImportToClass;
+use App\Models\ClassAssignmentApproval;
+use App\Models\ClassDocumentShipment;
+use App\Models\ClassDocumentShipmentItem;
 use App\Models\ClassModel;
 use App\Models\ClassSession;
+use App\Models\ClassStudent;
+use App\Models\ClassSyllabus;
+use App\Models\Enrollment;
+use App\Models\Funnel;
+use App\Models\FunnelOrder;
+use App\Models\FunnelSession;
+use App\Models\Order;
+use App\Models\PaymentMethodToken;
+use App\Models\Student;
+use App\Models\StudentImportProgress;
+use App\Models\User;
 use App\Services\StripeService;
+use Carbon\Carbon;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new class extends Component
 {
@@ -19,6 +42,10 @@ new class extends Component
     private ?array $cachedSessionStats = null;
 
     private ?array $cachedAttendanceStats = null;
+
+    public bool $editingWhatsappLink = false;
+
+    public string $whatsappLinkInput = '';
 
     public function mount(ClassModel $class): void
     {
@@ -209,7 +236,7 @@ new class extends Component
                 return [
                     'year' => $year,
                     'month' => $month,
-                    'month_name' => \Carbon\Carbon::createFromFormat('m', $month)->format('F'),
+                    'month_name' => Carbon::createFromFormat('m', $month)->format('F'),
                     'sessions' => $sessions,
                     'stats' => [
                         'total' => $sessions->count(),
@@ -483,7 +510,7 @@ new class extends Component
         $countryCode = ltrim($this->newStudentCountryCode, '+');
         $fullPhone = $countryCode.$this->newStudentPhone;
 
-        $existingStudent = \App\Models\Student::where('phone', $fullPhone)->first();
+        $existingStudent = Student::where('phone', $fullPhone)->first();
         if ($existingStudent) {
             $this->addError('newStudentPhone', 'This phone number is already registered to another student.');
 
@@ -492,7 +519,7 @@ new class extends Component
 
         try {
             // Create user first
-            $user = \App\Models\User::create([
+            $user = User::create([
                 'name' => $this->newStudentName,
                 'email' => $this->newStudentEmail ?: null,
                 'password' => bcrypt($this->newStudentPassword),
@@ -500,7 +527,7 @@ new class extends Component
             ]);
 
             // Create student profile (using $fullPhone from validation check above)
-            $student = \App\Models\Student::create([
+            $student = Student::create([
                 'user_id' => $user->id,
                 'ic_number' => $this->newStudentIcNumber ?: null,
                 'phone' => $fullPhone,
@@ -538,7 +565,7 @@ new class extends Component
                 'sessions.attendances.student.user',
                 'activeStudents.student.user',
             ]);
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Handle database errors (like unique constraint violations)
             if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
                 if (str_contains($e->getMessage(), 'phone')) {
@@ -553,7 +580,7 @@ new class extends Component
             } else {
                 $this->addError('newStudentName', 'Database error: '.$e->getMessage());
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->addError('newStudentName', 'Failed to create student: '.$e->getMessage());
         }
     }
@@ -594,7 +621,7 @@ new class extends Component
         ]);
 
         try {
-            \App\Models\ClassSession::create([
+            ClassSession::create([
                 'class_id' => $this->class->id,
                 'session_date' => $this->sessionDate,
                 'session_time' => $this->sessionTime,
@@ -613,7 +640,7 @@ new class extends Component
                 'sessions.attendances.student.user',
                 'activeStudents.student.user',
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to create session. Please try again.');
         }
     }
@@ -641,7 +668,7 @@ new class extends Component
             ->pluck('student_id')
             ->toArray();
 
-        $query = \App\Models\Student::whereNotIn('id', $classStudentIds)
+        $query = Student::whereNotIn('id', $classStudentIds)
             ->with('user');
 
         // Apply search filter
@@ -682,7 +709,7 @@ new class extends Component
         }
 
         try {
-            $student = \App\Models\Student::find($studentId);
+            $student = Student::find($studentId);
             if ($student) {
                 $orderId = $this->enrollOrderIds[$studentId] ?? null;
                 $this->class->addStudent($student, $orderId ?: null);
@@ -697,7 +724,7 @@ new class extends Component
                     'activeStudents.student.user',
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to enroll student. They may already be enrolled.');
         }
     }
@@ -725,13 +752,13 @@ new class extends Component
         $enrolled = 0;
         foreach ($this->selectedStudents as $studentId) {
             try {
-                $student = \App\Models\Student::find($studentId);
+                $student = Student::find($studentId);
                 if ($student) {
                     $orderId = $this->enrollOrderIds[$studentId] ?? null;
                     $this->class->addStudent($student, $orderId ?: null);
                     $enrolled++;
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Skip if student already enrolled or other error
                 continue;
             }
@@ -810,12 +837,12 @@ new class extends Component
 
         foreach ($this->selectedEligibleStudents as $enrollmentId) {
             try {
-                $enrollment = \App\Models\Enrollment::with('student')->find($enrollmentId);
+                $enrollment = Enrollment::with('student')->find($enrollmentId);
                 if ($enrollment && $enrollment->student) {
                     $this->class->addStudent($enrollment->student);
                     $enrolled++;
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $errors[] = $e->getMessage();
 
                 continue;
@@ -842,7 +869,7 @@ new class extends Component
     // Student Actions Methods
     public function viewStudent($classStudentId): void
     {
-        $this->selectedClassStudent = \App\Models\ClassStudent::with([
+        $this->selectedClassStudent = ClassStudent::with([
             'student.user',
             'class.course',
         ])->find($classStudentId);
@@ -854,7 +881,7 @@ new class extends Component
 
     public function editStudent($classStudentId): void
     {
-        $this->selectedClassStudent = \App\Models\ClassStudent::find($classStudentId);
+        $this->selectedClassStudent = ClassStudent::find($classStudentId);
 
         if ($this->selectedClassStudent) {
             $this->editNotes = $this->selectedClassStudent->notes ?? '';
@@ -889,7 +916,7 @@ new class extends Component
 
     public function updateStudentOrderId($classStudentId, $orderId): void
     {
-        $classStudent = \App\Models\ClassStudent::find($classStudentId);
+        $classStudent = ClassStudent::find($classStudentId);
 
         if ($classStudent) {
             $classStudent->update([
@@ -922,7 +949,7 @@ new class extends Component
 
     public function confirmUnenroll($classStudentId): void
     {
-        $this->selectedClassStudent = \App\Models\ClassStudent::with(['student.user'])->find($classStudentId);
+        $this->selectedClassStudent = ClassStudent::with(['student.user'])->find($classStudentId);
 
         if ($this->selectedClassStudent) {
             $this->showUnenrollConfirmModal = true;
@@ -962,7 +989,7 @@ new class extends Component
 
     public function markSessionAsOngoing($sessionId): void
     {
-        $session = \App\Models\ClassSession::find($sessionId);
+        $session = ClassSession::find($sessionId);
         if ($session && $session->isScheduled()) {
             $session->markAsOngoing();
             session()->flash('success', 'Session marked as ongoing.');
@@ -971,7 +998,7 @@ new class extends Component
 
     public function openCompletionModal($sessionId): void
     {
-        $this->completingSession = \App\Models\ClassSession::find($sessionId);
+        $this->completingSession = ClassSession::find($sessionId);
         if ($this->completingSession && ($this->completingSession->isScheduled() || $this->completingSession->isOngoing())) {
             $this->completionBookmark = $this->completingSession->bookmark ?? '';
             $this->showCompletionModal = true;
@@ -1019,7 +1046,7 @@ new class extends Component
 
     public function markSessionAsNoShow($sessionId): void
     {
-        $session = \App\Models\ClassSession::find($sessionId);
+        $session = ClassSession::find($sessionId);
         if ($session && ($session->isScheduled() || $session->isOngoing())) {
             $session->markAsNoShow('Student did not attend');
             session()->flash('success', 'Session marked as no-show.');
@@ -1028,7 +1055,7 @@ new class extends Component
 
     public function markSessionAsCancelled($sessionId): void
     {
-        $session = \App\Models\ClassSession::find($sessionId);
+        $session = ClassSession::find($sessionId);
         if ($session && ($session->isScheduled() || $session->isOngoing())) {
             $session->cancel();
             session()->flash('success', 'Session cancelled.');
@@ -1051,7 +1078,7 @@ new class extends Component
 
     public function openSessionModal($sessionId): void
     {
-        $this->currentSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($sessionId);
+        $this->currentSession = ClassSession::with(['attendances.student.user'])->find($sessionId);
         if ($this->currentSession && $this->currentSession->isOngoing()) {
             $this->bookmarkText = $this->currentSession->bookmark ?? '';
             $this->showSessionModal = true;
@@ -1066,7 +1093,7 @@ new class extends Component
 
     public function openAttendanceViewModal($sessionId): void
     {
-        $this->viewingSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($sessionId);
+        $this->viewingSession = ClassSession::with(['attendances.student.user'])->find($sessionId);
         if ($this->viewingSession && $this->viewingSession->isCompleted()) {
             $this->showAttendanceViewModal = true;
         }
@@ -1088,7 +1115,7 @@ new class extends Component
 
         if ($success) {
             // Refresh the current session data
-            $this->currentSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($this->currentSession->id);
+            $this->currentSession = ClassSession::with(['attendances.student.user'])->find($this->currentSession->id);
 
             // Refresh the class data to update statistics
             $this->class->refresh();
@@ -1116,7 +1143,7 @@ new class extends Component
         $this->currentSession->updateBookmark($this->bookmarkText);
 
         // Refresh the current session data
-        $this->currentSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($this->currentSession->id);
+        $this->currentSession = ClassSession::with(['attendances.student.user'])->find($this->currentSession->id);
 
         // Refresh the class data
         $this->class->refresh();
@@ -1134,6 +1161,42 @@ new class extends Component
     {
         $this->bookmarkText = $template;
         $this->updateSessionBookmark();
+    }
+
+    public function startEditWhatsappLink(): void
+    {
+        $this->whatsappLinkInput = $this->class->whatsapp_group_link ?? '';
+        $this->resetErrorBag('whatsappLinkInput');
+        $this->editingWhatsappLink = true;
+    }
+
+    public function cancelEditWhatsappLink(): void
+    {
+        $this->editingWhatsappLink = false;
+        $this->whatsappLinkInput = '';
+        $this->resetErrorBag('whatsappLinkInput');
+    }
+
+    public function saveWhatsappLink(): void
+    {
+        $this->validate([
+            'whatsappLinkInput' => ['nullable', 'url:http,https', 'max:2048'],
+        ], [
+            'whatsappLinkInput.url' => 'Please enter a valid link starting with https:// (e.g. https://chat.whatsapp.com/...).',
+        ]);
+
+        $link = trim($this->whatsappLinkInput);
+
+        $this->class->update([
+            'whatsapp_group_link' => $link !== '' ? $link : null,
+        ]);
+
+        $this->editingWhatsappLink = false;
+        $this->whatsappLinkInput = '';
+
+        session()->flash('success', $link !== ''
+            ? 'WhatsApp group link saved.'
+            : 'WhatsApp group link removed.');
     }
 
     public function setActiveTab($tab): void
@@ -1341,7 +1404,7 @@ new class extends Component
 
         $studentIds = $this->class_students_for_payment_report->pluck('student.id')->filter()->all();
 
-        $enrollments = \App\Models\Enrollment::where('course_id', $this->class->course_id)
+        $enrollments = Enrollment::where('course_id', $this->class->course_id)
             ->whereIn('student_id', $studentIds)
             ->whereNotNull('stripe_subscription_id')
             ->where('stripe_subscription_id', 'not like', 'INTERNAL-%')
@@ -1359,8 +1422,8 @@ new class extends Component
         }
 
         try {
-            $stripeService = app(\App\Services\StripeService::class);
-        } catch (\Throwable $e) {
+            $stripeService = app(StripeService::class);
+        } catch (Throwable $e) {
             $this->reconcileResult = [
                 'status' => 'error',
                 'message' => 'Could not connect to Stripe.',
@@ -1380,11 +1443,11 @@ new class extends Component
             try {
                 $result = $stripeService->reconcileSubscriptionOrders($enrollment);
                 $created += $result['created'];
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $name = $enrollment->student?->user?->name ?? ('Enrollment #'.$enrollment->id);
                 $errors[] = $name.': '.$e->getMessage();
 
-                \Log::warning('Reconcile from payment report failed', [
+                Log::warning('Reconcile from payment report failed', [
                     'enrollment_id' => $enrollment->id,
                     'subscription_id' => $enrollment->stripe_subscription_id,
                     'error' => $e->getMessage(),
@@ -1481,9 +1544,9 @@ new class extends Component
             // Default to monthly
             return collect(range(1, 12))->map(function ($month) {
                 return [
-                    'label' => \Carbon\Carbon::create()->month($month)->format('M'),
-                    'period_start' => \Carbon\Carbon::create($this->paymentYear, $month, 1)->startOfMonth(),
-                    'period_end' => \Carbon\Carbon::create($this->paymentYear, $month, 1)->endOfMonth(),
+                    'label' => Carbon::create()->month($month)->format('M'),
+                    'period_start' => Carbon::create($this->paymentYear, $month, 1)->startOfMonth(),
+                    'period_end' => Carbon::create($this->paymentYear, $month, 1)->endOfMonth(),
                 ];
             });
         }
@@ -1495,8 +1558,8 @@ new class extends Component
                 return collect([
                     [
                         'label' => (string) $this->paymentYear,
-                        'period_start' => \Carbon\Carbon::create($this->paymentYear, 1, 1)->startOfYear(),
-                        'period_end' => \Carbon\Carbon::create($this->paymentYear, 12, 31)->endOfYear(),
+                        'period_start' => Carbon::create($this->paymentYear, 1, 1)->startOfYear(),
+                        'period_end' => Carbon::create($this->paymentYear, 12, 31)->endOfYear(),
                     ],
                 ]);
 
@@ -1504,32 +1567,32 @@ new class extends Component
                 return collect([
                     [
                         'label' => 'Q1',
-                        'period_start' => \Carbon\Carbon::create($this->paymentYear, 1, 1)->startOfQuarter(),
-                        'period_end' => \Carbon\Carbon::create($this->paymentYear, 3, 31)->endOfQuarter(),
+                        'period_start' => Carbon::create($this->paymentYear, 1, 1)->startOfQuarter(),
+                        'period_end' => Carbon::create($this->paymentYear, 3, 31)->endOfQuarter(),
                     ],
                     [
                         'label' => 'Q2',
-                        'period_start' => \Carbon\Carbon::create($this->paymentYear, 4, 1)->startOfQuarter(),
-                        'period_end' => \Carbon\Carbon::create($this->paymentYear, 6, 30)->endOfQuarter(),
+                        'period_start' => Carbon::create($this->paymentYear, 4, 1)->startOfQuarter(),
+                        'period_end' => Carbon::create($this->paymentYear, 6, 30)->endOfQuarter(),
                     ],
                     [
                         'label' => 'Q3',
-                        'period_start' => \Carbon\Carbon::create($this->paymentYear, 7, 1)->startOfQuarter(),
-                        'period_end' => \Carbon\Carbon::create($this->paymentYear, 9, 30)->endOfQuarter(),
+                        'period_start' => Carbon::create($this->paymentYear, 7, 1)->startOfQuarter(),
+                        'period_end' => Carbon::create($this->paymentYear, 9, 30)->endOfQuarter(),
                     ],
                     [
                         'label' => 'Q4',
-                        'period_start' => \Carbon\Carbon::create($this->paymentYear, 10, 1)->startOfQuarter(),
-                        'period_end' => \Carbon\Carbon::create($this->paymentYear, 12, 31)->endOfQuarter(),
+                        'period_start' => Carbon::create($this->paymentYear, 10, 1)->startOfQuarter(),
+                        'period_end' => Carbon::create($this->paymentYear, 12, 31)->endOfQuarter(),
                     ],
                 ]);
 
             default: // monthly
                 return collect(range(1, 12))->map(function ($month) {
                     return [
-                        'label' => \Carbon\Carbon::create()->month($month)->format('M'),
-                        'period_start' => \Carbon\Carbon::create($this->paymentYear, $month, 1)->startOfMonth(),
-                        'period_end' => \Carbon\Carbon::create($this->paymentYear, $month, 1)->endOfMonth(),
+                        'label' => Carbon::create()->month($month)->format('M'),
+                        'period_start' => Carbon::create($this->paymentYear, $month, 1)->startOfMonth(),
+                        'period_end' => Carbon::create($this->paymentYear, $month, 1)->endOfMonth(),
                     ];
                 });
         }
@@ -1559,22 +1622,22 @@ new class extends Component
         $studentIds = $classStudents->pluck('student.id')->toArray();
 
         // Query all orders for these students in this year
-        $orders = \App\Models\Order::whereIn('student_id', $studentIds)
+        $orders = Order::whereIn('student_id', $studentIds)
             ->where('course_id', $course->id)
             ->whereYear('period_start', $this->paymentYear)
             ->get();
 
         // Query first paid order date for each student (across all years) to determine billing start
-        $firstPaidOrders = \App\Models\Order::whereIn('student_id', $studentIds)
+        $firstPaidOrders = Order::whereIn('student_id', $studentIds)
             ->where('course_id', $course->id)
-            ->where('status', \App\Models\Order::STATUS_PAID)
+            ->where('status', Order::STATUS_PAID)
             ->selectRaw('student_id, MIN(period_start) as first_payment_date')
             ->groupBy('student_id')
             ->pluck('first_payment_date', 'student_id')
-            ->map(fn ($date) => $date ? \Carbon\Carbon::parse($date) : null);
+            ->map(fn ($date) => $date ? Carbon::parse($date) : null);
 
         // Query all document shipments for this class in the selected year
-        $shipments = \App\Models\ClassDocumentShipment::where('class_id', $this->class->id)
+        $shipments = ClassDocumentShipment::where('class_id', $this->class->id)
             ->whereYear('period_start_date', $this->paymentYear)
             ->with(['items' => function ($query) use ($studentIds) {
                 $query->whereIn('student_id', $studentIds);
@@ -1600,8 +1663,8 @@ new class extends Component
                            $order->period_start <= $period['period_end'];
                 });
 
-                $paidOrders = $periodOrders->where('status', \App\Models\Order::STATUS_PAID);
-                $pendingOrders = $periodOrders->where('status', \App\Models\Order::STATUS_PENDING);
+                $paidOrders = $periodOrders->where('status', Order::STATUS_PAID);
+                $pendingOrders = $periodOrders->where('status', Order::STATUS_PENDING);
 
                 $enrollment = $student->enrollments()
                     ->where('course_id', $course->id)
@@ -1820,7 +1883,7 @@ new class extends Component
 
         // If unpaid amount is 0, use enrollment fee as default
         if ($unpaidAmount <= 0) {
-            $student = \App\Models\Student::find($studentId);
+            $student = Student::find($studentId);
             $enrollment = $student?->enrollments->first();
 
             // Use enrollment fee if available, otherwise use course fee
@@ -1856,14 +1919,14 @@ new class extends Component
 
     public function openOrderBreakdownModal($studentId, $periodLabel, $periodStart, $periodEnd): void
     {
-        $student = \App\Models\Student::with('user:id,name')->find($studentId);
+        $student = Student::with('user:id,name')->find($studentId);
 
-        $orders = \App\Models\Order::query()
+        $orders = Order::query()
             ->where('student_id', $studentId)
             ->where('course_id', $this->class->course_id)
             ->whereDate('period_start', '>=', $periodStart)
             ->whereDate('period_start', '<=', $periodEnd)
-            ->where('status', \App\Models\Order::STATUS_PAID)
+            ->where('status', Order::STATUS_PAID)
             ->with('items')
             ->orderBy('paid_at')
             ->get();
@@ -1872,7 +1935,7 @@ new class extends Component
             ->map(fn ($order) => $order->metadata['processed_by'] ?? null)
             ->filter()
             ->unique();
-        $processors = \App\Models\User::whereIn('id', $processorIds)->pluck('name', 'id');
+        $processors = User::whereIn('id', $processorIds)->pluck('name', 'id');
 
         $this->breakdownOrders = $orders->map(function ($order) use ($processors) {
             $meta = $order->metadata ?? [];
@@ -1889,9 +1952,9 @@ new class extends Component
                 'receipt_url' => $order->receipt_url,
                 'stripe_invoice_id' => $order->stripe_invoice_id,
                 'notes' => $meta['notes'] ?? null,
-                'is_manual' => ($meta['manual_payment'] ?? false) || $order->payment_method === \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                'is_manual' => ($meta['manual_payment'] ?? false) || $order->payment_method === Order::PAYMENT_METHOD_MANUAL,
                 'processed_by' => isset($meta['processed_by']) ? ($processors[$meta['processed_by']] ?? null) : null,
-                'processed_at' => isset($meta['processed_at']) ? \Carbon\Carbon::parse($meta['processed_at'])->format('M j, Y · g:i A') : null,
+                'processed_at' => isset($meta['processed_at']) ? Carbon::parse($meta['processed_at'])->format('M j, Y · g:i A') : null,
                 'items' => $order->items->map(fn ($item) => [
                     'description' => $item->description,
                     'quantity' => (int) $item->quantity,
@@ -1904,7 +1967,7 @@ new class extends Component
 
         $this->breakdownStudentName = $student?->user?->name ?? 'Unknown student';
         $this->breakdownPeriodLabel = $periodLabel;
-        $this->breakdownPeriodRange = \Carbon\Carbon::parse($periodStart)->format('M j').' - '.\Carbon\Carbon::parse($periodEnd)->format('M j, Y');
+        $this->breakdownPeriodRange = Carbon::parse($periodStart)->format('M j').' - '.Carbon::parse($periodEnd)->format('M j, Y');
         $this->breakdownTotal = (float) $orders->sum('amount');
         $this->showOrderBreakdownModal = true;
     }
@@ -1935,7 +1998,7 @@ new class extends Component
 
         try {
             // Get student and enrollment
-            $student = \App\Models\Student::find($this->selectedStudent);
+            $student = Student::find($this->selectedStudent);
             $enrollment = $student->enrollments()
                 ->where('course_id', $this->class->course_id)
                 ->first();
@@ -1950,11 +2013,11 @@ new class extends Component
             $receiptUrl = null;
             if ($this->receiptFile) {
                 $receiptPath = $this->receiptFile->store('receipts', 'public');
-                $receiptUrl = \Storage::url($receiptPath);
+                $receiptUrl = Storage::url($receiptPath);
             }
 
             // Check if order already exists for this period
-            $existingOrder = \App\Models\Order::where('enrollment_id', $enrollment->id)
+            $existingOrder = Order::where('enrollment_id', $enrollment->id)
                 ->where('student_id', $student->id)
                 ->where('course_id', $this->class->course_id)
                 ->where('period_start', $this->selectedPeriod['start'])
@@ -1965,8 +2028,8 @@ new class extends Component
                 // Update existing order
                 $existingOrder->update([
                     'amount' => $this->paymentAmount,
-                    'status' => \App\Models\Order::STATUS_PAID,
-                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'status' => Order::STATUS_PAID,
+                    'payment_method' => Order::PAYMENT_METHOD_MANUAL,
                     'paid_at' => now(),
                     'receipt_url' => $receiptUrl ?? $existingOrder->receipt_url,
                     'metadata' => array_merge($existingOrder->metadata ?? [], [
@@ -1980,17 +2043,17 @@ new class extends Component
                 session()->flash('message', 'Payment updated successfully!');
             } else {
                 // Create new order
-                \App\Models\Order::create([
+                Order::create([
                     'enrollment_id' => $enrollment->id,
                     'student_id' => $student->id,
                     'course_id' => $this->class->course_id,
                     'amount' => $this->paymentAmount,
                     'currency' => 'MYR',
-                    'status' => \App\Models\Order::STATUS_PAID,
+                    'status' => Order::STATUS_PAID,
                     'period_start' => $this->selectedPeriod['start'],
                     'period_end' => $this->selectedPeriod['end'],
-                    'billing_reason' => \App\Models\Order::REASON_MANUAL,
-                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'billing_reason' => Order::REASON_MANUAL,
+                    'payment_method' => Order::PAYMENT_METHOD_MANUAL,
                     'paid_at' => now(),
                     'receipt_url' => $receiptUrl,
                     'metadata' => [
@@ -2005,7 +2068,7 @@ new class extends Component
             }
 
             $this->closeManualPaymentModal();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->addError('general', 'Failed to create payment: '.$e->getMessage());
         }
     }
@@ -2013,7 +2076,7 @@ new class extends Component
     // Edit Enrollment Methods
     public function openEditEnrollmentModal($enrollmentId)
     {
-        $this->editingEnrollment = \App\Models\Enrollment::find($enrollmentId);
+        $this->editingEnrollment = Enrollment::find($enrollmentId);
 
         if ($this->editingEnrollment) {
             $this->editEnrollmentDate = $this->editingEnrollment->enrollment_date->format('Y-m-d');
@@ -2045,22 +2108,22 @@ new class extends Component
     protected function fetchStripeBillingInfo()
     {
         try {
-            $stripeService = app(\App\Services\StripeService::class);
+            $stripeService = app(StripeService::class);
             $subscription = $stripeService->getStripe()->subscriptions->retrieve(
                 $this->editingEnrollment->stripe_subscription_id,
                 ['expand' => ['latest_invoice']]
             );
 
-            $trialEnd = $subscription->trial_end ? \Carbon\Carbon::createFromTimestamp($subscription->trial_end) : null;
-            $currentPeriodEnd = $subscription->current_period_end ? \Carbon\Carbon::createFromTimestamp($subscription->current_period_end) : null;
+            $trialEnd = $subscription->trial_end ? Carbon::createFromTimestamp($subscription->trial_end) : null;
+            $currentPeriodEnd = $subscription->current_period_end ? Carbon::createFromTimestamp($subscription->current_period_end) : null;
 
             $this->editStripeBillingInfo = [
                 'status' => $subscription->status,
-                'current_period_start' => $subscription->current_period_start ? \Carbon\Carbon::createFromTimestamp($subscription->current_period_start) : null,
+                'current_period_start' => $subscription->current_period_start ? Carbon::createFromTimestamp($subscription->current_period_start) : null,
                 'current_period_end' => $currentPeriodEnd,
                 'trial_end' => $trialEnd,
-                'cancel_at' => $subscription->cancel_at ? \Carbon\Carbon::createFromTimestamp($subscription->cancel_at) : null,
-                'canceled_at' => $subscription->canceled_at ? \Carbon\Carbon::createFromTimestamp($subscription->canceled_at) : null,
+                'cancel_at' => $subscription->cancel_at ? Carbon::createFromTimestamp($subscription->cancel_at) : null,
+                'canceled_at' => $subscription->canceled_at ? Carbon::createFromTimestamp($subscription->canceled_at) : null,
             ];
 
             // Sync the next payment date to the enrollment for display in tables
@@ -2071,8 +2134,8 @@ new class extends Component
                     'trial_end_at' => $trialEnd,
                 ]);
             }
-        } catch (\Exception $e) {
-            \Log::warning('Failed to fetch Stripe billing info', [
+        } catch (Exception $e) {
+            Log::warning('Failed to fetch Stripe billing info', [
                 'enrollment_id' => $this->editingEnrollment->id,
                 'subscription_id' => $this->editingEnrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
@@ -2137,12 +2200,12 @@ new class extends Component
                 ]);
 
                 // If fee changed and has Stripe subscription, update the subscription price
-                $stripeService = app(\App\Services\StripeService::class);
+                $stripeService = app(StripeService::class);
 
                 if ($feeChanged && $hasStripeSubscription) {
                     $stripeService->updateSubscriptionFee($this->editingEnrollment, (float) $this->editEnrollmentFee);
 
-                    \Log::info('Updated Stripe subscription price due to enrollment fee change', [
+                    Log::info('Updated Stripe subscription price due to enrollment fee change', [
                         'enrollment_id' => $this->editingEnrollment->id,
                         'old_fee' => $this->editOriginalEnrollmentFee,
                         'new_fee' => $this->editEnrollmentFee,
@@ -2167,7 +2230,7 @@ new class extends Component
 
                         // Parse the new billing date with time (use 7:23 AM Malaysia time for consistency)
                         $timezone = 'Asia/Kuala_Lumpur';
-                        $newBillingDateTime = \Carbon\Carbon::parse($this->editNextBillingDate.' 07:23:00', $timezone);
+                        $newBillingDateTime = Carbon::parse($this->editNextBillingDate.' 07:23:00', $timezone);
 
                         // Update subscription schedule in Stripe
                         $stripeService->updateSubscriptionSchedule(
@@ -2180,7 +2243,7 @@ new class extends Component
                             'next_payment_date' => $newBillingDateTime,
                         ]);
 
-                        \Log::info('Updated next billing date via admin edit', [
+                        Log::info('Updated next billing date via admin edit', [
                             'enrollment_id' => $this->editingEnrollment->id,
                             'subscription_id' => $this->editingEnrollment->stripe_subscription_id,
                             'old_billing_date' => $originalDateString,
@@ -2202,7 +2265,7 @@ new class extends Component
                 session()->flash('message', $message);
                 $this->closeEditEnrollmentModal();
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->addError('general', 'Failed to update enrollment: '.$e->getMessage());
         }
     }
@@ -2218,15 +2281,15 @@ new class extends Component
             ?? $user->paymentMethods()->active()->first();
 
         if (! $paymentMethod) {
-            throw new \Exception('Student must have an active payment method before switching to automatic payments.');
+            throw new Exception('Student must have an active payment method before switching to automatic payments.');
         }
 
         // Check if course has Stripe price ID
         if (! $enrollment->course->feeSettings?->stripe_price_id) {
-            throw new \Exception('Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+            throw new Exception('Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
         }
 
-        $stripeService = app(\App\Services\StripeService::class);
+        $stripeService = app(StripeService::class);
 
         // Create subscription with the specified next payment date
         $result = $stripeService->createSubscriptionWithOptions($enrollment, $paymentMethod, [
@@ -2242,7 +2305,7 @@ new class extends Component
             'manual_payment_required' => false,
         ]);
 
-        \Log::info('Switched enrollment to automatic payment with scheduled start date', [
+        Log::info('Switched enrollment to automatic payment with scheduled start date', [
             'enrollment_id' => $enrollment->id,
             'subscription_id' => $result['subscription']->id,
             'next_payment_date' => $this->editNextPaymentDate,
@@ -2253,7 +2316,7 @@ new class extends Component
     public function activateEnrollment($enrollmentId)
     {
         try {
-            $enrollment = \App\Models\Enrollment::find($enrollmentId);
+            $enrollment = Enrollment::find($enrollmentId);
 
             if ($enrollment) {
                 $enrollment->update([
@@ -2263,7 +2326,7 @@ new class extends Component
 
                 session()->flash('message', 'Enrollment activated successfully!');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to activate enrollment: '.$e->getMessage());
         }
     }
@@ -2272,7 +2335,7 @@ new class extends Component
     public function generateMagicLinkForStudent($studentId, $forceRegenerate = false)
     {
         try {
-            $student = \App\Models\Student::find($studentId);
+            $student = Student::find($studentId);
 
             if (! $student) {
                 session()->flash('error', 'Student not found.');
@@ -2290,9 +2353,9 @@ new class extends Component
                 return;
             }
 
-            $token = \App\Models\PaymentMethodToken::generateForStudent($student);
+            $token = PaymentMethodToken::generateForStudent($student);
 
-            \Log::info('Admin generated magic link for student from payment reports', [
+            Log::info('Admin generated magic link for student from payment reports', [
                 'admin_id' => auth()->user()->id,
                 'admin_name' => auth()->user()->name,
                 'student_id' => $student->id,
@@ -2302,7 +2365,7 @@ new class extends Component
             ]);
 
             session()->flash('message', 'Magic link generated! Click the copy button to copy the link.');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to generate magic link: '.$e->getMessage());
         }
     }
@@ -2316,7 +2379,7 @@ new class extends Component
     // Get Magic Link URL for Student
     public function getMagicLinkUrl($studentId): ?string
     {
-        $student = \App\Models\Student::find($studentId);
+        $student = Student::find($studentId);
 
         if (! $student) {
             return null;
@@ -2355,25 +2418,25 @@ new class extends Component
         ]);
 
         try {
-            $student = \App\Models\Student::find($this->creatingEnrollmentForStudentId);
+            $student = Student::find($this->creatingEnrollmentForStudentId);
 
             if (! $student) {
-                throw new \Exception('Student not found');
+                throw new Exception('Student not found');
             }
 
             // Create the enrollment
-            $enrollment = \App\Models\Enrollment::create([
+            $enrollment = Enrollment::create([
                 'student_id' => $student->id,
                 'course_id' => $this->class->course_id,
                 'enrolled_by' => auth()->id(),
                 'status' => 'enrolled',
-                'academic_status' => \App\AcademicStatus::ACTIVE,
+                'academic_status' => AcademicStatus::ACTIVE,
                 'enrollment_date' => $this->newEnrollmentDate,
                 'start_date' => $this->newEnrollmentDate,
                 'enrollment_fee' => $this->newEnrollmentFee,
                 'payment_method_type' => $this->newPaymentMethodType,
                 'subscription_status' => 'active',
-                'stripe_subscription_id' => 'INTERNAL-'.\Illuminate\Support\Str::uuid(),
+                'stripe_subscription_id' => 'INTERNAL-'.Str::uuid(),
             ]);
 
             session()->flash('message', 'First enrollment created successfully for '.$student->user->name.'!');
@@ -2381,7 +2444,7 @@ new class extends Component
 
             // Refresh the class to show updated data
             $this->class->refresh();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->addError('general', 'Failed to create enrollment: '.$e->getMessage());
         }
     }
@@ -2389,7 +2452,7 @@ new class extends Component
     // Cancel Subscription Methods
     public function openCancelSubscriptionModal($enrollmentId)
     {
-        $this->cancelingEnrollment = \App\Models\Enrollment::find($enrollmentId);
+        $this->cancelingEnrollment = Enrollment::find($enrollmentId);
 
         if ($this->cancelingEnrollment) {
             // Default to today's date
@@ -2413,7 +2476,7 @@ new class extends Component
 
         try {
             if ($this->cancelingEnrollment) {
-                $cancellationDate = \Carbon\Carbon::parse($this->cancellationDate);
+                $cancellationDate = Carbon::parse($this->cancellationDate);
 
                 // Check if enrollment has a subscription
                 if (empty($this->cancelingEnrollment->stripe_subscription_id)) {
@@ -2464,7 +2527,7 @@ new class extends Component
                 // Refresh the class data
                 $this->class->refresh();
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->addError('general', 'Failed to cancel subscription: '.$e->getMessage());
         }
     }
@@ -2582,21 +2645,21 @@ new class extends Component
     {
         $this->initializeCalendar();
 
-        return \Carbon\Carbon::create($this->currentYear, $this->currentMonth, 1)->format('F Y');
+        return Carbon::create($this->currentYear, $this->currentMonth, 1)->format('F Y');
     }
 
     public function getMonthlyCalendarDataProperty(): array
     {
         $this->initializeCalendar();
 
-        $firstDayOfMonth = \Carbon\Carbon::create($this->currentYear, $this->currentMonth, 1);
+        $firstDayOfMonth = Carbon::create($this->currentYear, $this->currentMonth, 1);
         $lastDayOfMonth = $firstDayOfMonth->copy()->endOfMonth();
 
         // Start from Monday of the week containing the first day
-        $startDate = $firstDayOfMonth->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $startDate = $firstDayOfMonth->copy()->startOfWeek(Carbon::MONDAY);
 
         // End on Sunday of the week containing the last day
-        $endDate = $lastDayOfMonth->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        $endDate = $lastDayOfMonth->copy()->endOfWeek(Carbon::SUNDAY);
 
         $calendar = [];
         $currentDate = $startDate->copy();
@@ -2647,7 +2710,7 @@ new class extends Component
 
     public function generateShipment(): void
     {
-        $periodStart = \Carbon\Carbon::create($this->shipmentYear, $this->shipmentMonth, 1)->startOfMonth();
+        $periodStart = Carbon::create($this->shipmentYear, $this->shipmentMonth, 1)->startOfMonth();
         $periodEnd = $periodStart->copy()->endOfMonth();
         $periodLabel = $periodStart->format('F Y');
 
@@ -2659,7 +2722,7 @@ new class extends Component
 
         if ($existingShipment) {
             // Update existing shipment with new subscribed students
-            $result = \App\Models\ClassDocumentShipment::updateShipmentStudents($existingShipment, $this->class);
+            $result = ClassDocumentShipment::updateShipmentStudents($existingShipment, $this->class);
 
             if ($result['success']) {
                 $message = "Shipment for {$periodLabel} updated successfully! ";
@@ -2700,7 +2763,7 @@ new class extends Component
 
     public function markShipmentAsProcessing($shipmentId): void
     {
-        $shipment = \App\Models\ClassDocumentShipment::findOrFail($shipmentId);
+        $shipment = ClassDocumentShipment::findOrFail($shipmentId);
         $shipment->markAsProcessing();
         session()->flash('success', 'Shipment marked as processing.');
         $this->class->refresh();
@@ -2708,7 +2771,7 @@ new class extends Component
 
     public function markShipmentAsShipped($shipmentId): void
     {
-        $shipment = \App\Models\ClassDocumentShipment::findOrFail($shipmentId);
+        $shipment = ClassDocumentShipment::findOrFail($shipmentId);
         $shipment->markAsShipped();
         session()->flash('success', 'Shipment marked as shipped.');
         $this->class->refresh();
@@ -2716,7 +2779,7 @@ new class extends Component
 
     public function markShipmentAsDelivered($shipmentId): void
     {
-        $shipment = \App\Models\ClassDocumentShipment::findOrFail($shipmentId);
+        $shipment = ClassDocumentShipment::findOrFail($shipmentId);
         $shipment->markAsDelivered();
         session()->flash('success', 'Shipment marked as delivered.');
         $this->class->refresh();
@@ -2743,7 +2806,7 @@ new class extends Component
 
         $count = 0;
         foreach ($this->selectedShipmentIds as $shipmentId) {
-            $shipment = \App\Models\ClassDocumentShipment::find($shipmentId);
+            $shipment = ClassDocumentShipment::find($shipmentId);
             if ($shipment && $shipment->status === 'pending') {
                 $shipment->markAsProcessing();
                 $count++;
@@ -2765,7 +2828,7 @@ new class extends Component
 
         $count = 0;
         foreach ($this->selectedShipmentIds as $shipmentId) {
-            $shipment = \App\Models\ClassDocumentShipment::find($shipmentId);
+            $shipment = ClassDocumentShipment::find($shipmentId);
             if ($shipment && $shipment->status === 'processing') {
                 $shipment->markAsShipped();
                 $count++;
@@ -2787,7 +2850,7 @@ new class extends Component
 
         $count = 0;
         foreach ($this->selectedShipmentIds as $shipmentId) {
-            $shipment = \App\Models\ClassDocumentShipment::find($shipmentId);
+            $shipment = ClassDocumentShipment::find($shipmentId);
             if ($shipment && $shipment->status === 'shipped') {
                 $shipment->markAsDelivered();
                 $count++;
@@ -2833,7 +2896,7 @@ new class extends Component
         $count = 0;
         $failed = 0;
         foreach ($this->selectedShipmentItemIds as $itemId) {
-            $item = \App\Models\ClassDocumentShipmentItem::find($itemId);
+            $item = ClassDocumentShipmentItem::find($itemId);
             if ($item && $item->status === 'pending') {
                 // Use markAsShipped() to ensure stock is deducted
                 $item->markAsShipped();
@@ -2864,7 +2927,7 @@ new class extends Component
         $count = 0;
         $failed = 0;
         foreach ($this->selectedShipmentItemIds as $itemId) {
-            $item = \App\Models\ClassDocumentShipmentItem::find($itemId);
+            $item = ClassDocumentShipmentItem::find($itemId);
             if ($item && $item->status === 'shipped') {
                 // Use markAsDelivered() to maintain consistency
                 $item->markAsDelivered();
@@ -2978,7 +3041,7 @@ new class extends Component
 
     public function getFilteredShipmentItems($shipmentId)
     {
-        $shipment = \App\Models\ClassDocumentShipment::findOrFail($shipmentId);
+        $shipment = ClassDocumentShipment::findOrFail($shipmentId);
 
         $query = $shipment->items()->with('student.user');
 
@@ -2999,7 +3062,7 @@ new class extends Component
 
     public function exportShipmentItems($shipmentId)
     {
-        $shipment = \App\Models\ClassDocumentShipment::findOrFail($shipmentId);
+        $shipment = ClassDocumentShipment::findOrFail($shipmentId);
 
         $query = $shipment->items()->with('student.user');
 
@@ -3049,7 +3112,7 @@ new class extends Component
 
     public function markItemAsShipped($itemId): void
     {
-        $item = \App\Models\ClassDocumentShipmentItem::findOrFail($itemId);
+        $item = ClassDocumentShipmentItem::findOrFail($itemId);
         $item->markAsShipped();
         session()->flash('success', 'Item marked as shipped.');
         $this->class->refresh();
@@ -3062,7 +3125,7 @@ new class extends Component
 
     public function markItemAsDelivered($itemId): void
     {
-        $item = \App\Models\ClassDocumentShipmentItem::findOrFail($itemId);
+        $item = ClassDocumentShipmentItem::findOrFail($itemId);
         $item->markAsDelivered();
         session()->flash('success', 'Item marked as delivered.');
         $this->class->refresh();
@@ -3120,7 +3183,7 @@ new class extends Component
         $this->importStudentResult = [];
     }
 
-    public function downloadImportStudentSample(): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function downloadImportStudentSample(): StreamedResponse
     {
         $csvContent = "phone,name,email,order_id\n";
         $csvContent .= "60123456789,Ahmad Ali,ahmad@example.com,ORD-2024-001\n";
@@ -3156,40 +3219,40 @@ new class extends Component
             // CRITICAL: Read file contents IMMEDIATELY before temp file can be cleaned up
             // On shared hosting, Livewire temp files may be deleted very quickly
             $tempPath = $this->importStudentFile->getRealPath();
-            \Illuminate\Support\Facades\Log::info("Student import - Temp file path: {$tempPath}");
+            Illuminate\Support\Facades\Log::info("Student import - Temp file path: {$tempPath}");
 
             if (! $tempPath || ! file_exists($tempPath)) {
-                throw new \Exception('Temporary upload file not found. Please try uploading again.');
+                throw new Exception('Temporary upload file not found. Please try uploading again.');
             }
 
             $fileContents = file_get_contents($tempPath);
-            \Illuminate\Support\Facades\Log::info('Student import - Read '.strlen($fileContents).' bytes from temp file');
+            Illuminate\Support\Facades\Log::info('Student import - Read '.strlen($fileContents).' bytes from temp file');
 
             if ($fileContents === false || empty($fileContents)) {
-                throw new \Exception('Failed to read uploaded file contents.');
+                throw new Exception('Failed to read uploaded file contents.');
             }
 
             // Store using Storage facade with the contents we already read
-            $stored = \Illuminate\Support\Facades\Storage::disk('local')->put($relativePath, $fileContents);
-            \Illuminate\Support\Facades\Log::info('Student import - Storage put result: '.($stored ? 'SUCCESS' : 'FAILED'));
+            $stored = Illuminate\Support\Facades\Storage::disk('local')->put($relativePath, $fileContents);
+            Illuminate\Support\Facades\Log::info('Student import - Storage put result: '.($stored ? 'SUCCESS' : 'FAILED'));
 
             if (! $stored) {
-                throw new \Exception('Failed to store the uploaded CSV file.');
+                throw new Exception('Failed to store the uploaded CSV file.');
             }
 
             // Verify file was actually stored
-            $fileExists = \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath);
-            \Illuminate\Support\Facades\Log::info('Student import - File exists after storage: '.($fileExists ? 'YES' : 'NO'));
+            $fileExists = Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath);
+            Illuminate\Support\Facades\Log::info('Student import - File exists after storage: '.($fileExists ? 'YES' : 'NO'));
 
             if (! $fileExists) {
-                throw new \Exception('File storage verification failed - file does not exist after upload.');
+                throw new Exception('File storage verification failed - file does not exist after upload.');
             }
 
-            $storedSize = \Illuminate\Support\Facades\Storage::disk('local')->size($relativePath);
-            \Illuminate\Support\Facades\Log::info("Student import - Stored file size: {$storedSize} bytes");
+            $storedSize = Illuminate\Support\Facades\Storage::disk('local')->size($relativePath);
+            Illuminate\Support\Facades\Log::info("Student import - Stored file size: {$storedSize} bytes");
 
             // Create import progress record with relative path
-            $importProgress = \App\Models\StudentImportProgress::create([
+            $importProgress = StudentImportProgress::create([
                 'class_id' => $this->class->id,
                 'user_id' => auth()->id(),
                 'file_path' => $relativePath,
@@ -3199,12 +3262,12 @@ new class extends Component
                 'default_password' => $this->createMissingStudents ? $this->importStudentPassword : null,
             ]);
 
-            \Illuminate\Support\Facades\Log::info("Student import - Created progress record ID: {$importProgress->id} with file_path: {$importProgress->file_path}");
+            Illuminate\Support\Facades\Log::info("Student import - Created progress record ID: {$importProgress->id} with file_path: {$importProgress->file_path}");
 
             $this->currentStudentImportProgressId = $importProgress->id;
 
             // Dispatch the job
-            \App\Jobs\ProcessStudentImportToClass::dispatch($importProgress->id);
+            ProcessStudentImportToClass::dispatch($importProgress->id);
 
             // Close the import modal and show progress
             $this->closeImportStudentModal();
@@ -3212,7 +3275,7 @@ new class extends Component
             // Start polling for progress
             $this->dispatch('start-student-import-polling');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Import failed: '.$e->getMessage());
             $this->importStudentProcessing = false;
         }
@@ -3227,7 +3290,7 @@ new class extends Component
             return;
         }
 
-        $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
+        $progress = StudentImportProgress::find($this->currentStudentImportProgressId);
 
         if (! $progress) {
             $this->importStudentProcessing = false;
@@ -3283,7 +3346,7 @@ new class extends Component
     public function cancelStudentImport(): void
     {
         if ($this->currentStudentImportProgressId) {
-            $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
+            $progress = StudentImportProgress::find($this->currentStudentImportProgressId);
             if ($progress && ! $progress->isCompleted() && ! $progress->isFailed()) {
                 $progress->update(['status' => 'cancelled', 'error_message' => 'Cancelled by user']);
                 if ($progress->file_path && file_exists($progress->file_path)) {
@@ -3300,7 +3363,7 @@ new class extends Component
 
     public function viewStudentShipmentDetails($itemId): void
     {
-        $this->selectedShipmentItem = \App\Models\ClassDocumentShipmentItem::with([
+        $this->selectedShipmentItem = ClassDocumentShipmentItem::with([
             'student.user',
             'student.enrollments.course',
             'shipment.product',
@@ -3317,7 +3380,7 @@ new class extends Component
 
     public function editShipmentItem($itemId): void
     {
-        $this->editingShipmentItem = \App\Models\ClassDocumentShipmentItem::with([
+        $this->editingShipmentItem = ClassDocumentShipmentItem::with([
             'student',
             'shipment',
         ])->findOrFail($itemId);
@@ -3392,7 +3455,7 @@ new class extends Component
             session()->flash('success', 'Shipment item and address updated successfully.');
             $this->class->refresh();
             $this->closeEditShipmentItemModal();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to update shipment item: '.$e->getMessage());
         }
     }
@@ -3420,21 +3483,21 @@ new class extends Component
             $fileContents = file_get_contents($this->importFile->getRealPath());
 
             if ($fileContents === false) {
-                throw new \Exception('Failed to read uploaded file');
+                throw new Exception('Failed to read uploaded file');
             }
 
             // Write the file synchronously to permanent storage
             if (file_put_contents($absolutePath, $fileContents) === false) {
-                throw new \Exception('Failed to write file to permanent storage');
+                throw new Exception('Failed to write file to permanent storage');
             }
 
             // Verify the file was written successfully
             if (! file_exists($absolutePath)) {
-                throw new \Exception('File verification failed after writing');
+                throw new Exception('File verification failed after writing');
             }
 
             // Dispatch the job with matchBy parameter
-            \App\Jobs\ProcessShipmentImport::dispatch(
+            ProcessShipmentImport::dispatch(
                 $this->selectedShipmentId,
                 $absolutePath,
                 (int) auth()->id(),
@@ -3451,11 +3514,11 @@ new class extends Component
 
             // Show success message
             session()->flash('message', 'CSV import started successfully. Processing in background...');
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             // Re-throw validation exceptions so they display properly
             throw $e;
-        } catch (\Exception $e) {
-            \Log::error('CSV Import Error: '.$e->getMessage(), [
+        } catch (Exception $e) {
+            Log::error('CSV Import Error: '.$e->getMessage(), [
                 'shipment_id' => $this->selectedShipmentId,
                 'user_id' => auth()->id(),
                 'exception' => $e,
@@ -3472,7 +3535,7 @@ new class extends Component
         $shipmentId = $this->selectedShipmentId ?? request()->query('shipmentId');
 
         // Check for final result first
-        $result = \Illuminate\Support\Facades\Cache::get("shipment_import_{$shipmentId}_{$userId}_result");
+        $result = Cache::get("shipment_import_{$shipmentId}_{$userId}_result");
 
         if ($result) {
             $this->importProcessing = false;
@@ -3491,8 +3554,8 @@ new class extends Component
                 ];
 
                 // Clear the cache
-                \Illuminate\Support\Facades\Cache::forget("shipment_import_{$shipmentId}_{$userId}_result");
-                \Illuminate\Support\Facades\Cache::forget("shipment_import_{$shipmentId}_{$userId}_progress");
+                Cache::forget("shipment_import_{$shipmentId}_{$userId}_result");
+                Cache::forget("shipment_import_{$shipmentId}_{$userId}_progress");
 
                 $this->class->refresh();
                 $this->dispatch('stop-import-polling');
@@ -3506,7 +3569,7 @@ new class extends Component
                     'error' => $result['error'] ?? 'Unknown error occurred',
                 ];
 
-                \Illuminate\Support\Facades\Cache::forget("shipment_import_{$shipmentId}_{$userId}_result");
+                Cache::forget("shipment_import_{$shipmentId}_{$userId}_result");
                 $this->dispatch('stop-import-polling');
 
                 // Show result modal
@@ -3514,7 +3577,7 @@ new class extends Component
             }
         } else {
             // Check progress
-            $progress = \Illuminate\Support\Facades\Cache::get("shipment_import_{$shipmentId}_{$userId}_progress");
+            $progress = Cache::get("shipment_import_{$shipmentId}_{$userId}_progress");
             if ($progress) {
                 $this->importProgress = $progress;
             }
@@ -3531,7 +3594,7 @@ new class extends Component
         }
 
         // Get student IDs in this class
-        $studentIds = \App\Models\ClassStudent::where('class_id', $this->class->id)
+        $studentIds = ClassStudent::where('class_id', $this->class->id)
             ->pluck('student_id')
             ->toArray();
 
@@ -3540,7 +3603,7 @@ new class extends Component
         }
 
         // Get all enrollments for students in this class
-        $enrollments = \App\Models\Enrollment::with(['student.user', 'enrolledBy', 'orders'])
+        $enrollments = Enrollment::with(['student.user', 'enrolledBy', 'orders'])
             ->where('course_id', $course->id)
             ->whereIn('student_id', $studentIds)
             ->get();
@@ -3776,7 +3839,7 @@ new class extends Component
 
     public function getPendingApprovalsProperty()
     {
-        return \App\Models\ClassAssignmentApproval::where('class_id', $this->class->id)
+        return ClassAssignmentApproval::where('class_id', $this->class->id)
             ->pending()
             ->with(['student.user', 'productOrder', 'assignedByUser'])
             ->when($this->approvalSearch, function ($query) {
@@ -3800,7 +3863,7 @@ new class extends Component
 
     public function approveAssignment(int $approvalId): void
     {
-        $approval = \App\Models\ClassAssignmentApproval::findOrFail($approvalId);
+        $approval = ClassAssignmentApproval::findOrFail($approvalId);
         $enrollWithSubscription = $this->approvalSubscriptionToggles[$approvalId] ?? false;
         $approval->approve(auth()->user(), $enrollWithSubscription);
         session()->flash('message', 'Student enrolled successfully.');
@@ -3808,7 +3871,7 @@ new class extends Component
 
     public function rejectAssignment(int $approvalId, ?string $notes = null): void
     {
-        $approval = \App\Models\ClassAssignmentApproval::findOrFail($approvalId);
+        $approval = ClassAssignmentApproval::findOrFail($approvalId);
         $approval->reject(auth()->user(), $notes);
         session()->flash('message', 'Assignment rejected.');
     }
@@ -3816,7 +3879,7 @@ new class extends Component
     public function bulkApproveAssignments(): void
     {
         foreach ($this->selectedApprovalIds as $id) {
-            $approval = \App\Models\ClassAssignmentApproval::find($id);
+            $approval = ClassAssignmentApproval::find($id);
             if ($approval && $approval->status === 'pending') {
                 $enrollWithSubscription = $this->approvalSubscriptionToggles[$id] ?? false;
                 $approval->approve(auth()->user(), $enrollWithSubscription);
@@ -3829,7 +3892,7 @@ new class extends Component
     public function bulkRejectAssignments(): void
     {
         foreach ($this->selectedApprovalIds as $id) {
-            $approval = \App\Models\ClassAssignmentApproval::find($id);
+            $approval = ClassAssignmentApproval::find($id);
             if ($approval && $approval->status === 'pending') {
                 $approval->reject(auth()->user());
             }
@@ -3856,14 +3919,14 @@ new class extends Component
 
     public function getAvailableFunnelsProperty()
     {
-        return \App\Models\Funnel::where('status', 'published')
+        return Funnel::where('status', 'published')
             ->orderBy('name')
             ->get(['id', 'name', 'slug']);
     }
 
     public function getUpsellAvailablePicsProperty()
     {
-        return \App\Models\User::whereIn('role', ['admin', 'class_admin', 'sales', 'employee'])
+        return User::whereIn('role', ['admin', 'class_admin', 'sales', 'employee'])
             ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -3927,7 +3990,7 @@ new class extends Component
 
     public function getUpsellAvailableTeachersProperty()
     {
-        return \App\Models\User::where('status', 'active')
+        return User::where('status', 'active')
             ->where(function ($q) {
                 $q->whereHas('teacher')
                     ->orWhereIn('role', ['admin', 'class_admin']);
@@ -4000,7 +4063,7 @@ new class extends Component
                 'description' => $this->syllabusDescription ?: null,
             ]);
         } else {
-            \App\Models\ClassSyllabus::create([
+            ClassSyllabus::create([
                 'class_id' => $this->class->id,
                 'title' => $this->syllabusTitle,
                 'description' => $this->syllabusDescription ?: null,
@@ -4158,7 +4221,7 @@ new class extends Component
             'upsellSessionDuration.min' => 'Duration must be at least 15 minutes.',
         ]);
 
-        $session = \App\Models\ClassSession::create([
+        $session = ClassSession::create([
             'class_id' => $this->class->id,
             'session_date' => $this->upsellSessionDate,
             'session_time' => $this->upsellSessionTime,
@@ -4237,9 +4300,9 @@ new class extends Component
 
         $sessionIds = $sessions->clone()->pluck('id');
 
-        $totalVisitors = \App\Models\FunnelSession::whereIn('class_session_id', $sessionIds)->count();
+        $totalVisitors = FunnelSession::whereIn('class_session_id', $sessionIds)->count();
 
-        $orders = \App\Models\FunnelOrder::whereNotNull('class_session_id')
+        $orders = FunnelOrder::whereNotNull('class_session_id')
             ->whereIn('class_session_id', $sessionIds)
             ->get();
 
@@ -4267,12 +4330,12 @@ new class extends Component
             return [];
         }
 
-        $grouped = $sessions->groupBy(fn ($s) => \Carbon\Carbon::parse($s->session_date)->format('Y-m'));
+        $grouped = $sessions->groupBy(fn ($s) => Carbon::parse($s->session_date)->format('Y-m'));
 
         // Determine the year to display (use current year, or the year of first session)
         $year = now()->year;
         if ($sessions->isNotEmpty()) {
-            $year = \Carbon\Carbon::parse($sessions->first()->session_date)->year;
+            $year = Carbon::parse($sessions->first()->session_date)->year;
         }
 
         $months = [];
@@ -4289,9 +4352,9 @@ new class extends Component
             if ($monthSessions->isNotEmpty()) {
                 $sessionIds = $monthSessions->pluck('id');
 
-                $visitors = \App\Models\FunnelSession::whereIn('class_session_id', $sessionIds)->count();
+                $visitors = FunnelSession::whereIn('class_session_id', $sessionIds)->count();
 
-                $orders = \App\Models\FunnelOrder::whereNotNull('class_session_id')
+                $orders = FunnelOrder::whereNotNull('class_session_id')
                     ->whereIn('class_session_id', $sessionIds)
                     ->get();
 
@@ -4309,7 +4372,7 @@ new class extends Component
 
             $months[] = [
                 'key' => $key,
-                'label' => \Carbon\Carbon::createFromFormat('Y-m', $key)->format('F Y'),
+                'label' => Carbon::createFromFormat('Y-m', $key)->format('F Y'),
                 'sessions' => $monthSessions->count(),
                 'visitors' => $visitors,
                 'orders' => $totalOrders,
@@ -4569,17 +4632,52 @@ new class extends Component
                             </div>
                         @endif
 
-                        @if($class->whatsapp_group_link)
-                            <div>
-                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">WhatsApp Group</dt>
-                                <dd class="mt-0.5">
-                                    <a href="{{ $class->whatsapp_group_link }}" target="_blank" class="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
-                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/></svg>
-                                        Join WhatsApp
-                                    </a>
-                                </dd>
-                            </div>
-                        @endif
+                        {{-- Always rendered (unlike Meeting URL above) so admins can add/edit the
+                             group link inline and see a clear "no link" indicator when it's empty. --}}
+                        <div>
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">WhatsApp Group</dt>
+                            <dd class="mt-0.5">
+                                @if($editingWhatsappLink)
+                                    <div wire:key="whatsapp-link-edit" class="flex flex-col gap-1.5">
+                                        <div class="flex items-center gap-2">
+                                            <flux:input
+                                                wire:model="whatsappLinkInput"
+                                                wire:keydown.enter="saveWhatsappLink"
+                                                wire:keydown.escape="cancelEditWhatsappLink"
+                                                type="url"
+                                                size="sm"
+                                                autofocus
+                                                aria-label="WhatsApp group link"
+                                                placeholder="https://chat.whatsapp.com/..."
+                                                class="w-full max-w-xs"
+                                            />
+                                            <flux:button size="sm" variant="primary" icon="check" wire:click="saveWhatsappLink" wire:loading.attr="disabled" wire:target="saveWhatsappLink">Save</flux:button>
+                                            <flux:button size="sm" variant="ghost" wire:click="cancelEditWhatsappLink">Cancel</flux:button>
+                                        </div>
+                                        <flux:error name="whatsappLinkInput" />
+                                    </div>
+                                @elseif($class->whatsapp_group_link)
+                                    <div class="flex items-center gap-2">
+                                        <a href="{{ $class->whatsapp_group_link }}" target="_blank" class="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/></svg>
+                                            Join WhatsApp
+                                        </a>
+                                        <button type="button" wire:click="startEditWhatsappLink" class="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors">
+                                            <flux:icon name="pencil-square" class="w-3.5 h-3.5" />
+                                            Edit
+                                        </button>
+                                    </div>
+                                @else
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center gap-1 text-sm italic text-zinc-400 dark:text-zinc-500">
+                                            <flux:icon name="minus-circle" class="w-3.5 h-3.5" />
+                                            No link added yet
+                                        </span>
+                                        <flux:button size="xs" variant="ghost" icon="plus" wire:click="startEditWhatsappLink">Add Link</flux:button>
+                                    </div>
+                                @endif
+                            </dd>
+                        </div>
 
                         @if($class->description)
                             <div class="sm:col-span-2">
