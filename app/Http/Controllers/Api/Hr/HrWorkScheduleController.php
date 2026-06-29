@@ -13,13 +13,16 @@ class HrWorkScheduleController extends Controller
 {
     /**
      * List all work schedules with employee count.
+     *
+     * "Assigned" counts every assignment that has not ended yet (current or
+     * upcoming), regardless of a future start date, so the badge matches the
+     * Schedule Assignments list. Terminated/resigned staff are excluded.
      */
     public function index(): JsonResponse
     {
         $schedules = WorkSchedule::query()
             ->withCount(['employeeSchedules' => function ($query) {
-                $query->where('effective_from', '<=', now())
-                    ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()))
+                $query->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()))
                     ->whereHas('employee', fn ($q) => $q->whereNotIn('status', ['terminated', 'resigned']));
             }])
             ->orderBy('name')
@@ -100,16 +103,16 @@ class HrWorkScheduleController extends Controller
     }
 
     /**
-     * List the employees actively assigned to this schedule.
+     * List the employees assigned to this schedule.
      *
-     * Mirrors the active-assignment count shown in index() so the management
-     * modal and the badge never disagree: only assignments whose effective
-     * window covers today and whose employee is still employed are returned.
+     * Mirrors the count shown in index() so the management modal and the badge
+     * never disagree: every not-yet-ended assignment (current or upcoming) for a
+     * still-employed staff member is returned.
      */
     public function employees(WorkSchedule $workSchedule): JsonResponse
     {
         $assignments = $workSchedule->employeeSchedules()
-            ->active()
+            ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()))
             ->whereHas('employee', fn ($q) => $q->whereNotIn('status', ['terminated', 'resigned']))
             ->with(['employee.department'])
             ->get()

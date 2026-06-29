@@ -10,6 +10,9 @@ import {
     ChevronDown,
     ChevronRight,
     Search,
+    List,
+    History,
+    Clock,
 } from 'lucide-react';
 import {
     Card,
@@ -67,6 +70,21 @@ function formatDate(dateString) {
     });
 }
 
+/**
+ * Classify an assignment for the timeline: 'past' (ended), 'upcoming' (starts in
+ * the future) or 'current' (in effect now).
+ */
+function assignmentPhase(assignment) {
+    const now = new Date();
+    if (assignment.effective_to && new Date(assignment.effective_to) < now) {
+        return 'past';
+    }
+    if (assignment.effective_from && new Date(assignment.effective_from) > now) {
+        return 'upcoming';
+    }
+    return 'current';
+}
+
 function SkeletonTable() {
     return (
         <div className="space-y-3">
@@ -86,6 +104,7 @@ function SkeletonTable() {
 
 export default function ScheduleAssignments() {
     const queryClient = useQueryClient();
+    const [viewMode, setViewMode] = useState('table');
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [scheduleFilter, setScheduleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -177,6 +196,22 @@ export default function ScheduleAssignments() {
     const assignments = assignmentsData?.data || [];
     const schedules = schedulesData?.data || [];
     const employees = employeesData?.data || [];
+
+    // Full assignment history per employee (newest first) for the timeline view.
+    const historyByEmployee = useMemo(() => {
+        const map = {};
+        assignments.forEach((a) => {
+            const empId = a.employee_id ?? a.employee?.id;
+            if (!empId) {
+                return;
+            }
+            (map[empId] = map[empId] || []).push(a);
+        });
+        Object.values(map).forEach((list) =>
+            list.sort((x, y) => new Date(y.effective_from) - new Date(x.effective_from)),
+        );
+        return map;
+    }, [assignments]);
 
     // Build merged rows: all active employees with their assignment (if any)
     const employeeRows = useMemo(() => {
@@ -330,28 +365,55 @@ export default function ScheduleAssignments() {
                 }
             />
 
-            {/* Summary badges */}
-            {!isLoading && unassignedCount > 0 && (
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setStatusFilter('unassigned')}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                    >
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        {unassignedCount} employee{unassignedCount !== 1 ? 's' : ''} without a schedule
-                    </button>
-                    {statusFilter === 'unassigned' && (
-                        <button
-                            type="button"
-                            onClick={() => setStatusFilter('all')}
-                            className="text-xs text-slate-400 hover:text-slate-600"
-                        >
-                            Show all
-                        </button>
+            {/* Summary badges + view toggle */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    {!isLoading && unassignedCount > 0 && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setStatusFilter('unassigned')}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                            >
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                {unassignedCount} employee{unassignedCount !== 1 ? 's' : ''} without a schedule
+                            </button>
+                            {statusFilter === 'unassigned' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setStatusFilter('all')}
+                                    className="text-xs text-slate-400 hover:text-slate-600"
+                                >
+                                    Show all
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
-            )}
+
+                <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+                    {[
+                        { key: 'table', label: 'Table', icon: List },
+                        { key: 'timeline', label: 'Timeline', icon: History },
+                    ].map(({ key, label, icon: Icon }) => (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() => setViewMode(key)}
+                            aria-pressed={viewMode === key}
+                            className={cn(
+                                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1',
+                                viewMode === key
+                                    ? 'bg-slate-900 text-white'
+                                    : 'text-slate-600 hover:text-slate-900',
+                            )}
+                        >
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             {/* Filters */}
             <Card>
@@ -414,6 +476,7 @@ export default function ScheduleAssignments() {
             </Card>
 
             {/* Employees Table */}
+            {viewMode === 'table' && (
             <Card>
                 <CardContent className="p-0">
                     {isLoading ? (
@@ -504,6 +567,101 @@ export default function ScheduleAssignments() {
                     )}
                 </CardContent>
             </Card>
+            )}
+
+            {/* Schedule Timeline */}
+            {viewMode === 'timeline' && (
+                <Card>
+                    <CardContent className="p-0">
+                        {isLoading ? (
+                            <SkeletonTable />
+                        ) : filteredRows.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <History className="mb-3 h-10 w-10 text-slate-300" />
+                                <p className="text-sm font-medium text-slate-500">No employees found</p>
+                                <p className="text-xs text-slate-400">Try adjusting your filters</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {filteredRows.map((row) => {
+                                    const history = historyByEmployee[row.id] || [];
+                                    return (
+                                        <div key={row.id} className="px-4 py-4">
+                                            <div className="mb-3 flex items-center justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-slate-900">{row.full_name}</p>
+                                                    <p className="truncate text-xs text-slate-500">
+                                                        {row.employee_id}
+                                                        {row.department?.name ? ` · ${row.department.name}` : ''}
+                                                    </p>
+                                                </div>
+                                                <span className="shrink-0 text-xs text-slate-400">
+                                                    {history.length} schedule{history.length !== 1 ? 's' : ''}
+                                                </span>
+                                            </div>
+
+                                            {history.length === 0 ? (
+                                                <p className="pl-1 text-xs text-slate-400">No schedule history yet</p>
+                                            ) : (
+                                                <ol className="relative ml-1 space-y-3 border-l border-slate-200 pl-5">
+                                                    {history.map((assignment) => {
+                                                        const phase = assignmentPhase(assignment);
+                                                        const hasCustom =
+                                                            assignment.custom_start_time && assignment.custom_end_time;
+                                                        return (
+                                                            <li key={assignment.id} className="relative">
+                                                                <span
+                                                                    className={cn(
+                                                                        'absolute top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white',
+                                                                        '-left-[1.55rem]',
+                                                                        phase === 'current'
+                                                                            ? 'bg-emerald-500'
+                                                                            : phase === 'upcoming'
+                                                                              ? 'bg-amber-400'
+                                                                              : 'bg-slate-300',
+                                                                    )}
+                                                                />
+                                                                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <Badge variant="secondary">
+                                                                            {assignment.work_schedule?.name || '—'}
+                                                                        </Badge>
+                                                                        {phase === 'current' && (
+                                                                            <Badge variant="success">Current</Badge>
+                                                                        )}
+                                                                        {phase === 'upcoming' && (
+                                                                            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+                                                                                Upcoming
+                                                                            </span>
+                                                                        )}
+                                                                        {hasCustom && (
+                                                                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                                                                                <Clock className="h-3 w-3" />
+                                                                                {assignment.custom_start_time.slice(0, 5)}–
+                                                                                {assignment.custom_end_time.slice(0, 5)}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-xs text-slate-500">
+                                                                        {formatDate(assignment.effective_from)} →{' '}
+                                                                        {assignment.effective_to
+                                                                            ? formatDate(assignment.effective_to)
+                                                                            : 'ongoing'}
+                                                                    </span>
+                                                                </div>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ol>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Quick Assign Dialog */}
             <Dialog open={showQuickAssignDialog} onOpenChange={() => { setShowQuickAssignDialog(false); setQuickAssignEmployee(null); }}>

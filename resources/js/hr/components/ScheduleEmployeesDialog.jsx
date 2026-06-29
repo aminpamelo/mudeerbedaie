@@ -67,12 +67,9 @@ function isAssignmentActive(assignment) {
     if (!assignment) {
         return false;
     }
-    const now = new Date();
-    // Mirror the server's active() scope: started on/before today, not yet ended.
-    if (assignment.effective_from && new Date(assignment.effective_from) > now) {
-        return false;
-    }
-    return !assignment.effective_to || new Date(assignment.effective_to) >= now;
+    // "Assigned" = not yet ended (current or upcoming), matching the badge count
+    // and the Schedule Assignments list. A future start date still counts.
+    return !assignment.effective_to || new Date(assignment.effective_to) >= new Date();
 }
 
 function EmployeeIdentity({ employee }) {
@@ -286,12 +283,6 @@ export default function ScheduleEmployeesDialog({ schedule, open, onOpenChange }
         if (!selectedIds.length || !effectiveFrom) {
             return;
         }
-        // A future "effective from" would create a row the badge/list don't yet
-        // show (active scope requires it to have started) — block it outright.
-        if (effectiveFrom > todayIso()) {
-            toast.error('Pick a start date of today or earlier', 'Future-dated assignments are not supported here.');
-            return;
-        }
         assignMutation.mutate({
             employee_ids: selectedIds,
             work_schedule_id: scheduleId,
@@ -466,7 +457,6 @@ export default function ScheduleEmployeesDialog({ schedule, open, onOpenChange }
                                 <Input
                                     type="date"
                                     value={effectiveFrom}
-                                    max={todayIso()}
                                     onChange={(e) => setEffectiveFrom(e.target.value)}
                                 />
                             </div>
