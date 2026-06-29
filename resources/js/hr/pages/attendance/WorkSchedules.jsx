@@ -7,6 +7,7 @@ import {
     Clock,
     Star,
     Users,
+    UserCog,
 } from 'lucide-react';
 import {
     Card,
@@ -42,6 +43,7 @@ import {
 } from '../../components/ui/select';
 import PageHeader from '../../components/PageHeader';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import ScheduleEmployeesDialog from '../../components/ScheduleEmployeesDialog';
 import { cn } from '../../lib/utils';
 import {
     fetchSchedules,
@@ -101,6 +103,7 @@ export default function WorkSchedules() {
     const [editingSchedule, setEditingSchedule] = useState(null);
     const [form, setForm] = useState({ ...EMPTY_FORM });
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [manageTarget, setManageTarget] = useState(null);
     const [formErrors, setFormErrors] = useState({});
 
     const { data, isLoading } = useQuery({
@@ -311,10 +314,17 @@ export default function WorkSchedules() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-sm text-slate-600">
-                                            <div className="flex items-center gap-1">
-                                                <Users className="h-3.5 w-3.5 text-slate-400" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setManageTarget(schedule)}
+                                                title="Manage employees on this schedule"
+                                                aria-label={`Manage ${schedule.employee_schedules_count ?? 0} employees on ${schedule.name}`}
+                                                className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                                            >
+                                                <Users className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500" />
                                                 {schedule.employee_schedules_count ?? 0}
-                                            </div>
+                                                <UserCog className="h-3.5 w-3.5 text-slate-300 group-hover:text-indigo-500" />
+                                            </button>
                                         </TableCell>
                                         <TableCell>
                                             {schedule.is_default ? (
@@ -508,6 +518,13 @@ export default function WorkSchedules() {
                 variant="destructive"
                 loading={deleteMutation.isPending}
                 onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+            />
+
+            {/* Manage employees on a schedule */}
+            <ScheduleEmployeesDialog
+                schedule={manageTarget}
+                open={!!manageTarget}
+                onOpenChange={(open) => { if (!open) { setManageTarget(null); } }}
             />
         </div>
     );

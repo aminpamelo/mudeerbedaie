@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\StoreWorkScheduleRequest;
+use App\Models\EmployeeSchedule;
 use App\Models\WorkSchedule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -99,14 +100,22 @@ class HrWorkScheduleController extends Controller
     }
 
     /**
-     * List employees on this schedule.
+     * List the employees actively assigned to this schedule.
+     *
+     * Mirrors the active-assignment count shown in index() so the management
+     * modal and the badge never disagree: only assignments whose effective
+     * window covers today and whose employee is still employed are returned.
      */
     public function employees(WorkSchedule $workSchedule): JsonResponse
     {
-        $employees = $workSchedule->employeeSchedules()
-            ->with('employee.department')
-            ->get();
+        $assignments = $workSchedule->employeeSchedules()
+            ->active()
+            ->whereHas('employee', fn ($q) => $q->whereNotIn('status', ['terminated', 'resigned']))
+            ->with(['employee.department'])
+            ->get()
+            ->sortBy(fn (EmployeeSchedule $assignment) => $assignment->employee?->full_name ?? '')
+            ->values();
 
-        return response()->json(['data' => $employees]);
+        return response()->json(['data' => $assignments]);
     }
 }
