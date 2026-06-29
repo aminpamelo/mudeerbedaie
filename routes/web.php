@@ -778,6 +778,10 @@ Route::middleware(['auth', 'role:admin,employee,class_admin'])->prefix('admin')-
     // Media Library
     Volt::route('media', 'admin.media.index')->name('admin.media.index');
 
+    // AI Sales Page Builder
+    Volt::route('ai-sales-pages', 'admin.ai-sales-pages.index')->name('admin.ai-sales-pages.index');
+    Volt::route('ai-sales-pages/{page}', 'admin.ai-sales-pages.edit')->name('admin.ai-sales-pages.edit');
+
     // Session routes
     Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
     Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');
@@ -1190,6 +1194,10 @@ Route::get('payment/failed', function () {
 
     return response()->view('errors.payment-failed', ['error' => $error], 200);
 })->name('payment.failed');
+
+// Public AI sales pages - no auth middleware needed
+Route::get(config('ai_sales_pages.public_prefix', 'p').'/{slug}', [App\Http\Controllers\PublicAiSalesPageController::class, 'show'])
+    ->name('ai-sales-page.show');
 
 // TikTok Shop webhook route - no auth middleware needed
 Route::match(['get', 'post'], 'webhooks/tiktok', [App\Http\Controllers\TikTok\TikTokWebhookController::class, 'handle'])->name('tiktok.webhook');

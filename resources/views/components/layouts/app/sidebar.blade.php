@@ -18,6 +18,7 @@
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*', 'admin.funnel-email-templates*'],
                     'funnels': ['admin.funnels*', 'workflows.*', 'funnel-builder.*', 'admin.funnel-email-templates*'],
+                    'aiSalesPages': ['admin.ai-sales-pages.*'],
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
@@ -189,6 +190,15 @@
                     <flux:navlist.item icon="plus-circle" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*')" wire:navigate>{{ __('Create Funnel') }}</flux:navlist.item>
                     <flux:navlist.item icon="bolt" :href="route('workflows.index')" :current="request()->routeIs('workflows.*')" wire:navigate>{{ __('Workflows') }}</flux:navlist.item>
                     <flux:navlist.item icon="envelope" :href="route('admin.funnel-email-templates')" :current="request()->routeIs('admin.funnel-email-templates*')" wire:navigate>{{ __('Email Templates') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('AI Sales Pages')"
+                    data-section='aiSalesPages' x-init="if (!isExpanded('aiSalesPages')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('aiSalesPages', $event)"
+                >
+                    <flux:navlist.item icon="sparkles" :href="route('admin.ai-sales-pages.index')" :current="request()->routeIs('admin.ai-sales-pages.*')" wire:navigate>{{ __('Sales Page Builder') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
