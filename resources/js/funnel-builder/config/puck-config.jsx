@@ -162,7 +162,7 @@ const TextBlock = ({ content, alignment }) => (
  * Scripts are stripped in the builder so embeds/pixels/widgets don't execute while
  * editing; they run on the published page (handled server-side by PuckRenderer).
  */
-const CustomHtmlBlock = ({ html, maxWidth, align, padding }) => {
+const CustomHtmlBlock = ({ html, maxWidth, align, padding, backgroundColor }) => {
     if (!html || html.trim() === '') {
         return (
             <div className="my-2 mx-auto max-w-2xl border-2 border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-400">
@@ -182,7 +182,7 @@ const CustomHtmlBlock = ({ html, maxWidth, align, padding }) => {
                 HTML
             </span>
             <div
-                style={{ maxWidth: maxWidth || '100%', margin, padding: padding || '0px' }}
+                style={{ maxWidth: maxWidth || '100%', margin, padding: padding || '0px', backgroundColor: backgroundColor || '#ffffff' }}
                 dangerouslySetInnerHTML={{ __html: preview }}
             />
         </div>
@@ -765,6 +765,7 @@ export const puckConfig = {
                     label: 'HTML / CSS / Script Code',
                     render: CodeField,
                 },
+                backgroundColor: { type: 'text', label: 'Background Color (e.g., #ffffff, transparent)' },
                 maxWidth: { type: 'text', label: 'Max Width (e.g., 100%, 800px)' },
                 align: {
                     type: 'select',
@@ -779,6 +780,7 @@ export const puckConfig = {
             },
             defaultProps: {
                 html: '<div style="padding:24px;text-align:center;border:1px dashed #cbd5e1;border-radius:12px;">\n  <h2 style="margin:0 0 8px;font-size:20px;">Custom HTML Block</h2>\n  <p style="margin:0;color:#64748b;">Edit this code in the right panel. Supports HTML, CSS &amp; scripts.</p>\n</div>',
+                backgroundColor: '#ffffff',
                 maxWidth: '100%',
                 align: 'center',
                 padding: '0px',

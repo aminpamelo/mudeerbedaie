@@ -567,6 +567,7 @@ class PuckRenderer
         $maxWidth = $props['maxWidth'] ?? '100%';
         $padding = $props['padding'] ?? '0px';
         $align = $props['align'] ?? 'left';
+        $backgroundColor = $props['backgroundColor'] ?? '#ffffff';
 
         $margin = match ($align) {
             'center' => '0 auto',
@@ -575,10 +576,11 @@ class PuckRenderer
         };
 
         return sprintf(
-            '<div class="puck-custom-html" style="max-width: %s; margin: %s; padding: %s;">%s</div>',
+            '<div class="puck-custom-html" style="max-width: %s; margin: %s; padding: %s; background-color: %s;">%s</div>',
             e($maxWidth),
             $margin,
             e($padding),
+            e($backgroundColor),
             $html // Raw, intentional: scripts/styles preserved for embeds & pixels.
         );
     }

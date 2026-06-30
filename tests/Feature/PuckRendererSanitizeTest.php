@@ -303,7 +303,28 @@ it('renders CustomHtml verbatim through the render method, preserving scripts an
         ->toContain('<script>track();</script>')
         ->toContain('max-width: 800px')
         ->toContain('margin: 0 auto')
-        ->toContain('padding: 20px');
+        ->toContain('padding: 20px')
+        ->toContain('background-color: #ffffff');
+});
+
+it('defaults CustomHtml background to white and respects a custom background color', function () {
+    $default = (string) $this->renderer->render([
+        'content' => [[
+            'type' => 'CustomHtml',
+            'props' => ['html' => '<div>a</div>'],
+        ]],
+    ]);
+
+    expect($default)->toContain('background-color: #ffffff');
+
+    $custom = (string) $this->renderer->render([
+        'content' => [[
+            'type' => 'CustomHtml',
+            'props' => ['html' => '<div>a</div>', 'backgroundColor' => 'transparent'],
+        ]],
+    ]);
+
+    expect($custom)->toContain('background-color: transparent');
 });
 
 it('renders CustomHtml when nested alongside another component (not the sole block)', function () {
