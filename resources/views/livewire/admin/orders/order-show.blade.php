@@ -514,8 +514,58 @@ new class extends Component
 
     private function orderShippingAddress()
     {
-        return $this->order->addresses()->where('type', 'shipping')->first()
+        $row = $this->order->addresses()->where('type', 'shipping')->first()
             ?? $this->order->addresses()->where('type', 'billing')->first();
+
+        if ($row) {
+            return $row;
+        }
+
+        // Platform orders (TikTok Shop, POS, some funnel flows) keep the address
+        // in the `shipping_address` JSON column with varied key names instead of
+        // as address rows. Normalise it to the shape the rate/booking code reads.
+        return $this->normalizeJsonShippingAddress($this->order->shipping_address ?? []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function normalizeJsonShippingAddress(array $data): ?object
+    {
+        if (empty($data)) {
+            return null;
+        }
+
+        $pick = fn (array $keys) => collect($keys)
+            ->map(fn ($key) => $data[$key] ?? null)
+            ->first(fn ($value) => filled($value));
+
+        $postal = $pick(['postal_code', 'postcode', 'zipcode', 'zip']);
+        $line1 = $pick(['address_line_1', 'address_line1', 'address_1', 'full_address', 'address']);
+
+        // Nothing usable to ship with — treat as no address.
+        if (blank($postal) && blank($line1)) {
+            return null;
+        }
+
+        $name = (string) ($pick(['name', 'full_name', 'recipient_name']) ?? '');
+        $first = (string) ($pick(['first_name']) ?? '');
+        $last = (string) ($pick(['last_name']) ?? '');
+
+        if ($name === '') {
+            $name = trim($first.' '.$last);
+        }
+
+        return (object) [
+            'first_name' => $name !== '' ? $name : $first,
+            'last_name' => $name !== '' ? '' : $last,
+            'phone' => (string) ($pick(['phone', 'phone_number', 'mobile']) ?? ''),
+            'address_line_1' => (string) ($line1 ?? ''),
+            'address_line_2' => (string) ($pick(['address_line_2', 'address_line2', 'address_2']) ?? ''),
+            'city' => (string) ($pick(['city', 'town']) ?? ''),
+            'state' => (string) ($pick(['state', 'region', 'province']) ?? ''),
+            'postal_code' => (string) ($postal ?? ''),
+        ];
     }
 
     public function getEasyParcelRates(): void

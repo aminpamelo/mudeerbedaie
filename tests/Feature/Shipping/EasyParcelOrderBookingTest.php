@@ -119,3 +119,69 @@ it('refuses to book without a selected service', function () {
     expect($order->fresh()->shipping_provider)->toBeNull();
     Http::assertNothingSent();
 });
+
+it('resolves the address from the shipping_address JSON column for TikTok orders (no address rows)', function () {
+    connectEasyParcel();
+    fakeEasyParcelApi();
+
+    $order = ProductOrder::factory()->create([
+        'status' => 'processing',
+        'weight_kg' => 1.0,
+        'source' => 'tiktok_shop',
+        'shipping_address' => [
+            'name' => 'Siti Aminah',
+            'phone' => '0198765432',
+            'address_line1' => '12 Jalan Mawar',
+            'city' => 'George Town',
+            'state' => 'Penang',
+            'postal_code' => '10000',
+            'country' => 'MY',
+        ],
+    ]);
+
+    expect($order->addresses()->count())->toBe(0);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order])
+        ->call('getEasyParcelRates')
+        ->assertCount('easyParcelRates', 2)
+        ->assertSet('easyParcelServiceId', 'EP-CS096');
+});
+
+it('resolves POS-style JSON address keys (postcode / address_1)', function () {
+    connectEasyParcel();
+    fakeEasyParcelApi();
+
+    $order = ProductOrder::factory()->create([
+        'status' => 'processing',
+        'source' => 'pos',
+        'shipping_address' => [
+            'first_name' => 'Ahmad',
+            'last_name' => 'Bakar',
+            'phone' => '0123334444',
+            'address_1' => '5 Lorong Kedai',
+            'city' => 'Ipoh',
+            'state' => 'Perak',
+            'postcode' => '30000',
+        ],
+    ]);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order])
+        ->call('getEasyParcelRates')
+        ->assertCount('easyParcelRates', 2);
+});
+
+it('still reports no address when the order has neither rows nor JSON', function () {
+    connectEasyParcel();
+    Http::fake();
+
+    $order = ProductOrder::factory()->create(['status' => 'processing', 'shipping_address' => null]);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order])
+        ->call('getEasyParcelRates')
+        ->assertCount('easyParcelRates', 0);
+
+    Http::assertNothingSent();
+});
