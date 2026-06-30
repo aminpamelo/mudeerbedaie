@@ -120,6 +120,39 @@ const CodeField = ({ value, onChange, field }) => {
 };
 
 /**
+ * Color Field — a native color swatch paired with a text input so values like
+ * hex codes and keywords ("transparent") are both supported.
+ */
+const ColorField = ({ value, onChange, field }) => {
+    const val = value ?? '';
+    const isHex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(val.trim());
+    const swatch = isHex ? val.trim() : '#ffffff';
+
+    return (
+        <div className="mb-4">
+            <label className="block text-xs font-medium text-gray-500 mb-1">{field.label}</label>
+            <div className="flex items-center gap-2">
+                <input
+                    type="color"
+                    value={swatch}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="h-9 w-10 shrink-0 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
+                    aria-label="Pick a color"
+                />
+                <input
+                    type="text"
+                    value={val}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder="#ffffff"
+                    spellCheck={false}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+                />
+            </div>
+        </div>
+    );
+};
+
+/**
  * Hero Section Component
  */
 const HeroSection = ({ headline, subheadline, ctaText, ctaUrl, backgroundImage, alignment }) => (
@@ -765,7 +798,11 @@ export const puckConfig = {
                     label: 'HTML / CSS / Script Code',
                     render: CodeField,
                 },
-                backgroundColor: { type: 'text', label: 'Background Color (e.g., #ffffff, transparent)' },
+                backgroundColor: {
+                    type: 'custom',
+                    label: 'Background Color (e.g., #ffffff, transparent)',
+                    render: ColorField,
+                },
                 maxWidth: { type: 'text', label: 'Max Width (e.g., 100%, 800px)' },
                 align: {
                     type: 'select',
