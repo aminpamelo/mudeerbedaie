@@ -491,6 +491,27 @@ new class extends Component
         return app(SettingsService::class)->isEasyParcelEnabled();
     }
 
+    /**
+     * When EasyParcel is partially set up (so the store clearly intends to use
+     * it) but not fully enabled, return a short reason explaining why the rate
+     * box is hidden. Returns null when fully enabled, or when nothing has been
+     * configured at all (so we don't nag stores that don't use EasyParcel).
+     */
+    private function easyParcelHint(): ?string
+    {
+        $settings = app(SettingsService::class);
+
+        if ($settings->isEasyParcelEnabled() || ! $settings->isEasyParcelConfigured()) {
+            return null;
+        }
+
+        if (! $settings->isEasyParcelConnected()) {
+            return 'Account not connected. Link your EasyParcel account in Settings → Shipping to fetch courier rates.';
+        }
+
+        return 'Switched off. Turn on "Enable EasyParcel Shipping" in Settings → Shipping to fetch courier rates.';
+    }
+
     private function orderShippingAddress()
     {
         return $this->order->addresses()->where('type', 'shipping')->first()
@@ -1515,6 +1536,24 @@ new class extends Component
                                             </div>
                                         </div>
                                     @endif
+                                </div>
+                            @endif
+
+                            @if(! $this->isEasyParcelEnabled() && in_array($order->status, ['confirmed', 'processing']) && ($easyParcelHint = $this->easyParcelHint()))
+                                <div class="p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+                                    <div class="flex items-start gap-3">
+                                        <div class="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                                            <flux:icon name="globe-alt" class="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <flux:text class="text-sm font-medium text-amber-900 dark:text-amber-200">EasyParcel not available</flux:text>
+                                            <flux:text class="text-xs text-amber-700 dark:text-amber-300">{{ $easyParcelHint }}</flux:text>
+                                            <a href="{{ route('admin.settings.shipping') }}" wire:navigate class="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-amber-800 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200 transition-colors">
+                                                Open Settings → Shipping
+                                                <flux:icon name="arrow-right" class="w-3 h-3" />
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
                             @endif
 
