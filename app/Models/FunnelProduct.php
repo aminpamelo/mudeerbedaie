@@ -23,6 +23,8 @@ class FunnelProduct extends Model
         'image_url',
         'funnel_price',
         'compare_at_price',
+        'is_popular',
+        'popular_label',
         'is_recurring',
         'billing_interval',
         'sort_order',
@@ -34,6 +36,7 @@ class FunnelProduct extends Model
         return [
             'funnel_price' => 'decimal:2',
             'compare_at_price' => 'decimal:2',
+            'is_popular' => 'boolean',
             'is_recurring' => 'boolean',
             'settings' => 'array',
         ];

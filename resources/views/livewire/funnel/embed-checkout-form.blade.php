@@ -660,6 +660,12 @@ new class extends Component
                         </div>
 
                         <div class="pr-10">
+                            @if($product->is_popular)
+                                <span class="inline-flex items-center gap-1 mb-2 px-2.5 py-1 bg-indigo-600 text-white text-xs font-semibold rounded-full">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.42 4.37h4.6c.97 0 1.37 1.24.59 1.81l-3.72 2.7 1.42 4.37c.3.92-.75 1.69-1.54 1.12L10 14.97l-3.72 2.7c-.79.57-1.84-.2-1.54-1.12l1.42-4.37-3.72-2.7c-.78-.57-.38-1.81.59-1.81h4.6L9.05 2.93z"/></svg>
+                                    {{ $product->popular_label ?: 'Paling Popular' }}
+                                </span>
+                            @endif
                             <div class="flex items-start justify-between">
                                 <div>
                                     <h4 class="font-semibold text-gray-900">{{ $product->name }}</h4>

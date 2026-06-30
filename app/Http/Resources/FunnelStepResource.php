@@ -57,6 +57,8 @@ class FunnelStepResource extends JsonResource
                     'image_url' => $p->image_url,
                     'funnel_price' => $p->funnel_price,
                     'compare_at_price' => $p->compare_at_price,
+                    'is_popular' => $p->is_popular,
+                    'popular_label' => $p->popular_label,
                     'is_recurring' => $p->is_recurring,
                     'billing_interval' => $p->billing_interval,
                 ])

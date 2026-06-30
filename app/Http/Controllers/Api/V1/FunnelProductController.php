@@ -49,6 +49,8 @@ class FunnelProductController extends Controller
             'image_url' => ['nullable', 'string', 'url', 'max:2048'],
             'funnel_price' => ['required', 'numeric', 'min:0'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
+            'is_popular' => ['nullable', 'boolean'],
+            'popular_label' => ['nullable', 'string', 'max:50'],
             'is_recurring' => ['nullable', 'boolean'],
             'billing_interval' => ['nullable', 'string', 'in:monthly,yearly,weekly'],
         ]);
@@ -101,6 +103,8 @@ class FunnelProductController extends Controller
             'image_url' => $request->image_url,
             'funnel_price' => $request->funnel_price,
             'compare_at_price' => $request->compare_at_price,
+            'is_popular' => $request->boolean('is_popular'),
+            'popular_label' => $request->boolean('is_popular') ? ($request->input('popular_label') ?: 'Paling Popular') : null,
             'is_recurring' => $request->is_recurring ?? false,
             'billing_interval' => $request->billing_interval,
             'sort_order' => $maxSortOrder + 1,
@@ -124,6 +128,8 @@ class FunnelProductController extends Controller
             'image_url' => ['nullable', 'string', 'url', 'max:2048'],
             'funnel_price' => ['nullable', 'numeric', 'min:0'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
+            'is_popular' => ['nullable', 'boolean'],
+            'popular_label' => ['nullable', 'string', 'max:50'],
             'is_recurring' => ['nullable', 'boolean'],
             'billing_interval' => ['nullable', 'string', 'in:monthly,yearly,weekly'],
         ]);
@@ -132,7 +138,7 @@ class FunnelProductController extends Controller
         $step = $funnel->steps()->findOrFail($stepId);
         $funnelProduct = $step->products()->findOrFail($productId);
 
-        $funnelProduct->update($request->only([
+        $data = $request->only([
             'type',
             'name',
             'description',
@@ -141,7 +147,16 @@ class FunnelProductController extends Controller
             'compare_at_price',
             'is_recurring',
             'billing_interval',
-        ]));
+        ]);
+
+        if ($request->has('is_popular')) {
+            $data['is_popular'] = $request->boolean('is_popular');
+            $data['popular_label'] = $request->boolean('is_popular')
+                ? ($request->input('popular_label') ?: 'Paling Popular')
+                : null;
+        }
+
+        $funnelProduct->update($data);
 
         return response()->json([
             'message' => 'Product updated successfully',
@@ -448,6 +463,8 @@ class FunnelProductController extends Controller
             'formatted_compare_at_price' => $product->compare_at_price ? $product->getFormattedCompareAtPrice() : null,
             'has_discount' => $product->hasDiscount(),
             'discount_percentage' => $product->getDiscountPercentage(),
+            'is_popular' => $product->is_popular,
+            'popular_label' => $product->popular_label,
             'is_recurring' => $product->is_recurring,
             'billing_interval' => $product->billing_interval,
             'sort_order' => $product->sort_order,

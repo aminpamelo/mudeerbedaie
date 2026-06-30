@@ -352,6 +352,14 @@ function ProductCard({ product, onEdit, onDelete }) {
                                 Package
                             </span>
                         )}
+                        {product.is_popular && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.42 4.37h4.6c.97 0 1.37 1.24.59 1.81l-3.72 2.7 1.42 4.37c.3.92-.75 1.69-1.54 1.12L10 14.97l-3.72 2.7c-.79.57-1.84-.2-1.54-1.12l1.42-4.37-3.72-2.7c-.78-.57-.38-1.81.59-1.81h4.6L9.05 2.93z" />
+                                </svg>
+                                {product.popular_label || 'Popular'}
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-3 mt-1">
                         <span className="font-bold text-gray-900">{product.formatted_price}</span>
@@ -479,6 +487,8 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
         description: product?.description || '',
         funnel_price: product?.funnel_price || '',
         compare_at_price: product?.compare_at_price || '',
+        is_popular: product?.is_popular || false,
+        popular_label: product?.popular_label || 'Paling Popular',
         is_recurring: product?.is_recurring || false,
         billing_interval: product?.billing_interval || 'monthly',
     });
@@ -542,6 +552,8 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                 description: form.description || null,
                 funnel_price: parseFloat(form.funnel_price) || 0,
                 compare_at_price: form.compare_at_price ? parseFloat(form.compare_at_price) : null,
+                is_popular: form.is_popular,
+                popular_label: form.is_popular ? (form.popular_label?.trim() || 'Paling Popular') : null,
                 is_recurring: form.is_recurring,
                 billing_interval: form.is_recurring ? form.billing_interval : null,
             };
@@ -797,6 +809,38 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                             </div>
+                        </div>
+
+                        {/* Popular Badge */}
+                        <div className="mb-4 p-3 bg-indigo-50/60 border border-indigo-100 rounded-lg">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={form.is_popular}
+                                    onChange={(e) => setForm({ ...form, is_popular: e.target.checked })}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">Tunjuk badge "Paling Popular"</span>
+                            </label>
+
+                            {form.is_popular && (
+                                <div className="mt-3">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Teks badge
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={form.popular_label}
+                                        onChange={(e) => setForm({ ...form, popular_label: e.target.value })}
+                                        maxLength={50}
+                                        placeholder="Paling Popular"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Contoh: Paling Popular, Pilihan Terbaik, Jimat Terbaik
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Recurring Option (hidden for packages) */}
