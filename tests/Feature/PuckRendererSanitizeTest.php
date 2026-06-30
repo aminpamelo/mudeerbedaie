@@ -269,3 +269,148 @@ it('injects tracking scripts before closing body tag', function () {
         ->toContain('<script>window.funnelConfig = {};</script>')
         ->toContain('</body>');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Custom HTML block
+|--------------------------------------------------------------------------
+| Unlike TextBlock, the Custom HTML block renders the author's markup
+| verbatim — scripts and styles are intentionally preserved so embeds and
+| tracking pixels work on the published page.
+*/
+
+it('renders CustomHtml verbatim through the render method, preserving scripts and styles', function () {
+    $puckContent = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => [
+                    'html' => '<style>.x{color:red}</style><div class="x">Hi</div><script>track();</script>',
+                    'maxWidth' => '800px',
+                    'align' => 'center',
+                    'padding' => '20px',
+                ],
+            ],
+        ],
+    ];
+
+    $result = (string) $this->renderer->render($puckContent);
+
+    expect($result)
+        ->toContain('class="puck-custom-html"')
+        ->toContain('<style>.x{color:red}</style>')
+        ->toContain('<div class="x">Hi</div>')
+        ->toContain('<script>track();</script>')
+        ->toContain('max-width: 800px')
+        ->toContain('margin: 0 auto')
+        ->toContain('padding: 20px');
+});
+
+it('renders CustomHtml when nested alongside another component (not the sole block)', function () {
+    $puckContent = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => '<div>embed here</div>'],
+            ],
+            [
+                'type' => 'ButtonBlock',
+                'props' => ['text' => 'Click'],
+            ],
+        ],
+    ];
+
+    $result = (string) $this->renderer->render($puckContent);
+
+    expect($result)
+        ->toContain('class="puck-custom-html"')
+        ->toContain('<div>embed here</div>')
+        ->toContain('puck-button');
+});
+
+it('suppresses output for a blank CustomHtml block', function () {
+    $puckContent = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => '   '],
+            ],
+        ],
+    ];
+
+    expect((string) $this->renderer->render($puckContent))
+        ->not->toContain('puck-custom-html');
+});
+
+it('maps CustomHtml alignment to the same margins as the editor preview', function () {
+    $render = function (string $align): string {
+        return (string) $this->renderer->render([
+            'content' => [[
+                'type' => 'CustomHtml',
+                'props' => ['html' => '<div>a</div>', 'maxWidth' => '600px', 'align' => $align],
+            ]],
+        ]);
+    };
+
+    expect($render('left'))->toContain('margin: 0 auto 0 0');
+    expect($render('center'))->toContain('margin: 0 auto;');
+    expect($render('right'))->toContain('margin: 0 0 0 auto');
+});
+
+it('detects full page HTML when a single CustomHtml has a DOCTYPE', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => '<!DOCTYPE html><html><head></head><body><p>Full page</p></body></html>'],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeTrue();
+});
+
+it('does not detect full page HTML for a CustomHtml fragment', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => '<div>hello</div>'],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeFalse();
+});
+
+it('extracts and preserves raw HTML from a full-page CustomHtml block', function () {
+    $fullHtml = '<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script></head><body><p>Hello</p><script>alert(1)</script></body></html>';
+    $content = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => $fullHtml],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->extractFullPageHtml($content))
+        ->toBe($fullHtml)
+        ->toContain('cdn.tailwindcss.com')
+        ->toContain('<script>alert(1)</script>');
+});
+
+it('injects tracking scripts before </body> for a full-page CustomHtml block', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => '<!DOCTYPE html><html><body><p>Page</p></body></html>'],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->extractFullPageHtml($content, ['<script>window.funnelConfig = {};</script>']))
+        ->toContain('<script>window.funnelConfig = {};</script>')
+        ->toContain('</body>');
+});

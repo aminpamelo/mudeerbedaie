@@ -18,14 +18,26 @@ class PuckRenderer
             return false;
         }
 
-        $component = $components[0];
-        if (($component['type'] ?? '') !== 'TextBlock') {
+        $textContent = trim($this->extractRawHtmlProp($components[0]) ?? '');
+
+        if ($textContent === '') {
             return false;
         }
 
-        $textContent = trim($component['props']['content'] ?? '');
-
         return (bool) preg_match('/^<!DOCTYPE\s|^<html[\s>]/i', $textContent);
+    }
+
+    /**
+     * Read the raw HTML prop from a TextBlock (content) or a Custom HTML block (html).
+     * Returns null for any other component type.
+     */
+    protected function extractRawHtmlProp(array $component): ?string
+    {
+        return match ($component['type'] ?? '') {
+            'TextBlock' => $component['props']['content'] ?? '',
+            'CustomHtml' => $component['props']['html'] ?? '',
+            default => null,
+        };
     }
 
     /**
@@ -35,7 +47,7 @@ class PuckRenderer
     public function extractFullPageHtml(array $content, array $trackingScripts = []): string
     {
         $components = $content['content'] ?? [];
-        $html = $components[0]['props']['content'] ?? '';
+        $html = $this->extractRawHtmlProp($components[0] ?? []) ?? '';
 
         // Inject tracking scripts before </body> if provided
         if (! empty($trackingScripts)) {
@@ -104,6 +116,7 @@ class PuckRenderer
             'Divider' => $this->renderDivider($props),
             'HeroSection' => $this->renderHeroSection($props),
             'TextBlock' => $this->renderTextBlock($props),
+            'CustomHtml' => $this->renderCustomHtml($props),
             'ImageBlock' => $this->renderImageBlock($props),
             'VideoBlock' => $this->renderVideoBlock($props),
             'ButtonBlock' => $this->renderButtonBlock($props, $context),
@@ -533,6 +546,41 @@ class PuckRenderer
         }
 
         return $result;
+    }
+
+    /**
+     * Render CustomHtml component.
+     *
+     * Unlike TextBlock, this block renders the author's markup verbatim — including
+     * <style> and <script> tags — so embeds, tracking pixels, and third-party widgets
+     * work on the published page. Content is admin-authored, so it is intentionally
+     * not escaped or sanitized. Only a positioning wrapper is added.
+     */
+    protected function renderCustomHtml(array $props): string
+    {
+        $html = $props['html'] ?? '';
+
+        if (trim($html) === '') {
+            return '';
+        }
+
+        $maxWidth = $props['maxWidth'] ?? '100%';
+        $padding = $props['padding'] ?? '0px';
+        $align = $props['align'] ?? 'left';
+
+        $margin = match ($align) {
+            'center' => '0 auto',
+            'right' => '0 0 0 auto',
+            default => '0 auto 0 0',
+        };
+
+        return sprintf(
+            '<div class="puck-custom-html" style="max-width: %s; margin: %s; padding: %s;">%s</div>',
+            e($maxWidth),
+            $margin,
+            e($padding),
+            $html // Raw, intentional: scripts/styles preserved for embeds & pixels.
+        );
     }
 
     /**

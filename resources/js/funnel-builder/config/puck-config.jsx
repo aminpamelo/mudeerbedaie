@@ -73,6 +73,53 @@ const ImageField = ({ value, onChange, field }) => {
 };
 
 /**
+ * Custom HTML Code Field — a monospace code editor with live size feedback and
+ * tab-to-indent support. Used by the Custom HTML block.
+ */
+const CodeField = ({ value, onChange, field }) => {
+    const code = value ?? '';
+
+    const handleKeyDown = (e) => {
+        if (e.key !== 'Tab') {
+            return;
+        }
+        e.preventDefault();
+        const el = e.target;
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        const next = code.slice(0, start) + '  ' + code.slice(end);
+        onChange(next);
+        requestAnimationFrame(() => {
+            el.selectionStart = el.selectionEnd = start + 2;
+        });
+    };
+
+    return (
+        <div className="mb-4">
+            <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-gray-500">{field.label}</label>
+                <span className="text-[10px] text-gray-400 tabular-nums">{code.length.toLocaleString()} chars</span>
+            </div>
+            <textarea
+                value={code}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                wrap="off"
+                placeholder={'<!-- Paste HTML, CSS or <script> here -->'}
+                className="w-full h-72 p-3 font-mono text-xs leading-relaxed text-slate-100 bg-slate-900 border border-slate-700 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                style={{ tabSize: 2, whiteSpace: 'pre', overflowX: 'auto' }}
+            />
+            <p className="mt-1 text-[11px] text-gray-400 leading-snug">
+                Renders exactly as written on the live page. Scripts run on the published page (not in this preview).
+            </p>
+        </div>
+    );
+};
+
+/**
  * Hero Section Component
  */
 const HeroSection = ({ headline, subheadline, ctaText, ctaUrl, backgroundImage, alignment }) => (
@@ -109,6 +156,38 @@ const TextBlock = ({ content, alignment }) => (
         dangerouslySetInnerHTML={{ __html: content }}
     />
 );
+
+/**
+ * Custom HTML Block — editor preview.
+ * Scripts are stripped in the builder so embeds/pixels/widgets don't execute while
+ * editing; they run on the published page (handled server-side by PuckRenderer).
+ */
+const CustomHtmlBlock = ({ html, maxWidth, align, padding }) => {
+    if (!html || html.trim() === '') {
+        return (
+            <div className="my-2 mx-auto max-w-2xl border-2 border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-400">
+                <div className="font-mono text-lg mb-1">&lt;/&gt;</div>
+                <p className="text-sm font-medium text-gray-500">Custom HTML</p>
+                <p className="text-xs">Add your HTML, CSS or scripts in the right panel.</p>
+            </div>
+        );
+    }
+
+    const preview = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    const margin = align === 'center' ? '0 auto' : align === 'right' ? '0 0 0 auto' : '0 auto 0 0';
+
+    return (
+        <div className="relative group">
+            <span className="absolute top-1 right-1 z-10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-indigo-600 text-white rounded opacity-0 group-hover:opacity-80 transition-opacity pointer-events-none">
+                HTML
+            </span>
+            <div
+                style={{ maxWidth: maxWidth || '100%', margin, padding: padding || '0px' }}
+                dangerouslySetInnerHTML={{ __html: preview }}
+            />
+        </div>
+    );
+};
 
 /**
  * Image Component
@@ -621,6 +700,10 @@ export const puckConfig = {
             title: 'Conversion',
             components: ['OptinForm', 'ProductCard', 'CheckoutForm', 'OrderBump'],
         },
+        advanced: {
+            title: 'Advanced',
+            components: ['CustomHtml'],
+        },
     },
     components: {
         HeroSection: {
@@ -673,6 +756,34 @@ export const puckConfig = {
                 alignment: 'left',
             },
             render: TextBlock,
+        },
+        CustomHtml: {
+            label: 'Custom HTML',
+            fields: {
+                html: {
+                    type: 'custom',
+                    label: 'HTML / CSS / Script Code',
+                    render: CodeField,
+                },
+                maxWidth: { type: 'text', label: 'Max Width (e.g., 100%, 800px)' },
+                align: {
+                    type: 'select',
+                    label: 'Alignment',
+                    options: [
+                        { label: 'Left', value: 'left' },
+                        { label: 'Center', value: 'center' },
+                        { label: 'Right', value: 'right' },
+                    ],
+                },
+                padding: { type: 'text', label: 'Padding (e.g., 0px, 20px)' },
+            },
+            defaultProps: {
+                html: '<div style="padding:24px;text-align:center;border:1px dashed #cbd5e1;border-radius:12px;">\n  <h2 style="margin:0 0 8px;font-size:20px;">Custom HTML Block</h2>\n  <p style="margin:0;color:#64748b;">Edit this code in the right panel. Supports HTML, CSS &amp; scripts.</p>\n</div>',
+                maxWidth: '100%',
+                align: 'center',
+                padding: '0px',
+            },
+            render: CustomHtmlBlock,
         },
         ImageBlock: {
             label: 'Image',
