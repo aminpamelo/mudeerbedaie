@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Save, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, AlertCircle, Link2 } from 'lucide-react';
 import {
     fetchEmployee,
     updateEmployee,
     fetchDepartments,
     fetchPositions,
     fetchEmployees,
+    fetchUnlinkedUsers,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -122,6 +123,8 @@ const FIELD_TAB_MAP = {
 
 function getDefaultForm() {
     return {
+        // Linked user account
+        user_id: '',
         // Personal
         full_name: '',
         ic_number: '',
@@ -166,6 +169,11 @@ export default function EmployeeEdit() {
     const [originalValues, setOriginalValues] = useState({});
     const [trackedChanges, setTrackedChanges] = useState({});
     const [errors, setErrors] = useState({});
+
+    // Linked user account
+    const [linkedUser, setLinkedUser] = useState(null);
+    const [userSearch, setUserSearch] = useState('');
+    const [showUserSearch, setShowUserSearch] = useState(false);
 
     // Queries
     const { data: employee, isLoading } = useQuery({
@@ -214,6 +222,7 @@ export default function EmployeeEdit() {
         if (!emp?.id) return;
 
         const values = {
+            user_id: emp.user_id ? String(emp.user_id) : '',
             full_name: emp.full_name || '',
             ic_number: emp.ic_number || '',
             date_of_birth: emp.date_of_birth || '',
@@ -248,9 +257,26 @@ export default function EmployeeEdit() {
         };
         setForm(values);
         setOriginalValues(values);
+        setLinkedUser(emp.user || null);
+        setShowUserSearch(false);
         setTrackedChanges({});
         setFormReady(true);
     }, [employee]);
+
+    // Unlinked users for the "change linked user" search
+    const { data: unlinkedUsersData } = useQuery({
+        queryKey: ['hr', 'employees', 'unlinked-users', userSearch],
+        queryFn: () => fetchUnlinkedUsers({ search: userSearch || undefined }),
+        enabled: showUserSearch && userSearch.length >= 2,
+    });
+    const unlinkedUsers = unlinkedUsersData?.data || [];
+
+    function handleLinkUser(user) {
+        setLinkedUser(user);
+        setField('user_id', String(user.id));
+        setUserSearch('');
+        setShowUserSearch(false);
+    }
 
     const [errorBanner, setErrorBanner] = useState(null);
 
@@ -463,6 +489,83 @@ export default function EmployeeEdit() {
                             <CardTitle>Personal Information</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            {/* Linked User Account */}
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                                    <Link2 className="h-4 w-4" />
+                                    Linked User Account
+                                </div>
+                                <p className="mb-3 text-xs text-slate-500">
+                                    The user account this employee signs in with. Assign or change the linked account here.
+                                </p>
+                                {linkedUser && !showUserSearch ? (
+                                    <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
+                                                {linkedUser.name?.charAt(0)?.toUpperCase() || 'U'}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-900">{linkedUser.name}</p>
+                                                <p className="text-xs text-slate-500">{linkedUser.email}</p>
+                                            </div>
+                                        </div>
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => { setShowUserSearch(true); setUserSearch(''); }}>
+                                            Change
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="relative">
+                                            <Input
+                                                value={userSearch}
+                                                onChange={(e) => { setUserSearch(e.target.value); setShowUserSearch(true); }}
+                                                onFocus={() => setShowUserSearch(true)}
+                                                placeholder="Search by name or email..."
+                                            />
+                                            {showUserSearch && userSearch.length >= 2 && unlinkedUsers.length > 0 && (
+                                                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                                                    {unlinkedUsers.map((user) => (
+                                                        <button
+                                                            key={user.id}
+                                                            type="button"
+                                                            onClick={() => handleLinkUser(user)}
+                                                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50"
+                                                        >
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+                                                                {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                                                                <p className="text-xs text-slate-500">{user.email}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {showUserSearch && userSearch.length >= 2 && unlinkedUsers.length === 0 && (
+                                                <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-500 shadow-lg">
+                                                    No unlinked users found
+                                                </div>
+                                            )}
+                                        </div>
+                                        {linkedUser && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowUserSearch(false); setUserSearch(''); }}
+                                                className="mt-2 text-xs text-slate-500 underline hover:text-slate-700"
+                                            >
+                                                Cancel — keep {linkedUser.name}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                {errors.user_id && (
+                                    <p className="mt-2 text-xs text-red-600">
+                                        {Array.isArray(errors.user_id) ? errors.user_id[0] : errors.user_id}
+                                    </p>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
                                     <FormField

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Hr;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateEmployeeRequest extends FormRequest
 {
@@ -17,11 +19,18 @@ class UpdateEmployeeRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
+            'user_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                'exists:users,id',
+                Rule::unique('employees', 'user_id')->ignore($this->route('employee')),
+            ],
             'full_name' => ['sometimes', 'string', 'max:255'],
             'ic_number' => ['sometimes', 'nullable', 'string', 'regex:/^\d{6}-\d{2}-\d{4}$/'],
             'date_of_birth' => ['sometimes', 'nullable', 'date', 'before:today'],
@@ -66,6 +75,8 @@ class UpdateEmployeeRequest extends FormRequest
             'ic_number.regex' => 'IC number must be in format XXXXXX-XX-XXXX.',
             'postcode.regex' => 'Postcode must be 5 digits.',
             'ic_number.unique' => 'An employee with this IC number already exists.',
+            'user_id.unique' => 'That user account is already linked to another employee.',
+            'user_id.exists' => 'The selected user account no longer exists.',
         ];
     }
 }

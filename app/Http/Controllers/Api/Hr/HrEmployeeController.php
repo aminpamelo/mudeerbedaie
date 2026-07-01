@@ -273,7 +273,7 @@ class HrEmployeeController extends Controller
         }
 
         $employee->update($validated);
-        $employee->load(['department', 'position']);
+        $employee->load(['department', 'position', 'user:id,name,email']);
 
         return response()->json([
             'data' => $employee,
