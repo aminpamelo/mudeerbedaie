@@ -195,6 +195,11 @@ class ProductOrder extends Model
         return $this->hasMany(ClassAssignmentApproval::class);
     }
 
+    public function whatsAppCampaignRecipients(): HasMany
+    {
+        return $this->hasMany(WhatsAppCampaignRecipient::class, 'product_order_id');
+    }
+
     public function salesSource(): BelongsTo
     {
         return $this->belongsTo(SalesSource::class);

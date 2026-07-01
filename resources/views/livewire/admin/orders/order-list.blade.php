@@ -228,6 +228,7 @@ new class extends Component
                 'platform',
                 'platformAccount',
                 'classAssignmentApprovals.class',
+                'whatsAppCampaignRecipients:id,product_order_id,whatsapp_campaign_id,status,created_at',
             ])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -1418,6 +1419,12 @@ new class extends Component
             <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">Manage customer orders including product purchases and package sales</flux:text>
         </div>
         <div class="flex items-center gap-3">
+            <flux:button variant="ghost" :href="route('admin.whatsapp.campaigns')" wire:navigate size="sm">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="megaphone" class="w-4 h-4 mr-1.5" />
+                    WhatsApp Campaigns
+                </div>
+            </flux:button>
             @if($exportStatus === 'processing')
                 <flux:button variant="outline" wire:click="checkExportReady" wire:poll.5s="checkExportReady" size="sm">
                     <div class="flex items-center justify-center">
@@ -2114,6 +2121,34 @@ new class extends Component
                                                 </a>
                                             @endif
                                         </div>
+                                    @endif
+
+                                    {{-- WhatsApp blast indicator --}}
+                                    @if($order->whatsAppCampaignRecipients->isNotEmpty())
+                                        @php
+                                            $waLatest = $order->whatsAppCampaignRecipients->sortByDesc('id')->first();
+                                            $waCount = $order->whatsAppCampaignRecipients->count();
+                                            $waStyle = match($waLatest->status) {
+                                                'read' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
+                                                'delivered' => 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400',
+                                                'sent' => 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
+                                                'failed' => 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400',
+                                                'skipped' => 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+                                                default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+                                            };
+                                        @endphp
+                                        <a
+                                            href="{{ route('admin.whatsapp.campaigns.show', $waLatest->whatsapp_campaign_id) }}"
+                                            wire:navigate
+                                            title="WhatsApp blast · {{ ucfirst($waLatest->status) }}{{ $waLatest->created_at ? ' · '.$waLatest->created_at->format('d M Y, H:i') : '' }}{{ $waCount > 1 ? ' · '.$waCount.' campaigns' : '' }}"
+                                            class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-opacity hover:opacity-80 {{ $waStyle }}"
+                                        >
+                                            <flux:icon name="paper-airplane" class="w-3 h-3 shrink-0" />
+                                            <span>Blasted · {{ ucfirst($waLatest->status) }}</span>
+                                            @if($waCount > 1)
+                                                <span class="opacity-70">×{{ $waCount }}</span>
+                                            @endif
+                                        </a>
                                     @endif
 
                                     {{-- Items --}}
