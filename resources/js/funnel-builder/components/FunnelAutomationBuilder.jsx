@@ -1190,6 +1190,19 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
     const triggerNode = nodes?.find(n => n.type === 'trigger');
     const triggerType = triggerNode?.data?.triggerType || 'purchase_completed';
 
+    // Load WABA templates when opening a WhatsApp action that already uses the
+    // WABA provider. Without this the dropdown stays empty until the user toggles
+    // providers, because the fetch was previously only wired to the button click.
+    useEffect(() => {
+        if (
+            nodeType === 'action'
+            && data.actionType === FUNNEL_ACTION_TYPES.SEND_WHATSAPP
+            && data.config?.provider === 'waba'
+        ) {
+            fetchWabaTemplates();
+        }
+    }, [nodeType, data.actionType, data.config?.provider, fetchWabaTemplates]);
+
     const getTypeColor = () => {
         switch (nodeType) {
             case 'trigger': return 'from-green-500 to-green-600 border-green-400';
@@ -1340,10 +1353,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                                 ? 'bg-green-500 text-white'
                                                 : 'bg-white text-gray-700 hover:bg-gray-50'
                                         }`}
-                                        onClick={() => {
-                                            onUpdate({ config: { ...data.config, provider: 'waba' } });
-                                            fetchWabaTemplates();
-                                        }}
+                                        onClick={() => onUpdate({ config: { ...data.config, provider: 'waba' } })}
                                     >
                                         WABA (Official)
                                     </button>
