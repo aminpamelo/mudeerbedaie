@@ -5,11 +5,11 @@ import {
   CalendarDays,
   Video,
   ListChecks,
-  User as UserIcon,
+  TrendingUp,
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
-import { cn } from '@/livehost-pocket/lib/utils';
+import { cn, initialsFrom } from '@/livehost-pocket/lib/utils';
 import InstallButton from '@/livehost-pocket/components/InstallButton';
 import NotificationOptIn from '@/livehost-pocket/components/NotificationOptIn';
 
@@ -17,19 +17,19 @@ import NotificationOptIn from '@/livehost-pocket/components/NotificationOptIn';
  * Pocket shell — iOS-style phone layout with a fake status bar, scrollable
  * body, and a bottom tab bar with an elevated "Go Live" FAB at the center.
  *
- * Today / Schedule / Sessions / You all point at real Inertia routes
- * (Batches 2-4). The FAB simply routes back to Today — a live-card there
- * carries the real "Manage session" CTAs; a later batch can swap in a
- * dedicated go-live action once the backend contract is ready.
+ * Today / Schedule / Sessions / Performance point at real Inertia routes.
+ * The FAB routes to the Go Live flow. The "You" profile tab was replaced by
+ * "Performance"; the profile is now reached via the avatar in the top-right of
+ * the status bar.
  */
 const TABS = [
   { key: 'today', label: 'Today', href: '/live-host', icon: Home },
   { key: 'schedule', label: 'Schedule', href: '/live-host/schedule', icon: CalendarDays },
   { key: 'sessions', label: 'Sessions', href: '/live-host/sessions', icon: ListChecks },
-  { key: 'you', label: 'You', href: '/live-host/me', icon: UserIcon },
+  { key: 'performance', label: 'Performance', href: '/live-host/my-path', icon: TrendingUp },
 ];
 
-function StatusBar() {
+function StatusBar({ user }) {
   const [time, setTime] = useState(() => formatClock(new Date()));
 
   useEffect(() => {
@@ -38,14 +38,34 @@ function StatusBar() {
   }, []);
 
   return (
-    <div className="pocket-safe-top relative flex h-11 items-center justify-between px-6 text-[13px] font-semibold text-[var(--color-pocket-ink)]">
+    <div className="pocket-safe-top relative flex h-11 items-center justify-between px-5 text-[13px] font-semibold text-[var(--color-pocket-ink)]">
       <span>{time}</span>
-      <div className="flex items-center gap-1.5" aria-hidden="true">
-        <span className="h-2 w-2 rounded-full bg-[var(--color-pocket-ink)]" />
-        <span className="h-2 w-3 rounded-sm bg-[var(--color-pocket-ink)]" />
-        <span className="h-2 w-5 rounded-sm border border-[var(--color-pocket-ink)]" />
-      </div>
+      <ProfileAvatar user={user} />
     </div>
+  );
+}
+
+/**
+ * Top-right avatar that opens the profile ("You") page — the entry point that
+ * moved here when the "You" tab was swapped for "Performance".
+ */
+function ProfileAvatar({ user }) {
+  const avatarUrl = user?.avatarUrl;
+
+  return (
+    <Link
+      href="/live-host/me"
+      aria-label="Your profile"
+      className="relative h-[30px] w-[30px] shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-[var(--color-pocket-accent)] to-[var(--hot,#EC4899)] shadow-sm ring-1 ring-black/5 transition active:scale-95"
+    >
+      {avatarUrl ? (
+        <img src={avatarUrl} alt={user?.name ?? 'Profile'} className="h-full w-full object-cover" />
+      ) : (
+        <span className="grid h-full w-full place-items-center text-[11px] font-bold tracking-[-0.02em] text-white">
+          {initialsFrom(user?.name)}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -123,7 +143,7 @@ export default function PocketLayout({ children }) {
 
   return (
     <div className="pocket-shell">
-      <StatusBar />
+      <StatusBar user={props?.pocketUser} />
       <FlashToast message={flashSuccess} tone="success" />
       <FlashToast message={flashError} tone="error" />
       <NotificationOptIn />

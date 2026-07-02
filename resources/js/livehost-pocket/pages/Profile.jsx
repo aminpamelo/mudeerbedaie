@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Camera, ChevronRight, Loader2, LogOut, Trash2, TrendingUp, Users } from 'lucide-react';
+import { Camera, ChevronRight, Loader2, LogOut, Trash2, Users } from 'lucide-react';
 import { useRef, useState } from 'react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { initialsFrom } from '@/livehost-pocket/lib/utils';
@@ -166,20 +166,6 @@ export default function Profile() {
             <ChevronRight className="h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
           </Link>
         )}
-
-        <Link
-          href="/live-host/my-path"
-          className="mt-4 flex items-center gap-3 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[14px] py-[13px] transition active:scale-[0.98]"
-        >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] text-white">
-            <TrendingUp className="h-[18px] w-[18px]" strokeWidth={2} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[var(--fg)]">My Performance</div>
-            <div className="mt-0.5 text-[11.5px] text-[var(--fg-2)]">Your score, level, tasks &amp; progress</div>
-          </div>
-          <ChevronRight className="h-[18px] w-[18px] shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
-        </Link>
 
         <div className="pt-4">
           <button

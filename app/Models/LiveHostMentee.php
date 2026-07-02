@@ -95,6 +95,24 @@ class LiveHostMentee extends Model
         return $this->hasMany(LiveHostMenteeMonthlyScore::class, 'mentee_id');
     }
 
+    public function dailyMetrics(): HasMany
+    {
+        return $this->hasMany(LiveHostMenteeDailyMetric::class, 'mentee_id');
+    }
+
+    public function disciplinaryRecords(): HasMany
+    {
+        return $this->hasMany(LiveHostMenteeDisciplinaryRecord::class, 'mentee_id')
+            ->orderByDesc('incident_date');
+    }
+
+    public function dailyVideos(): HasMany
+    {
+        return $this->hasMany(LiveHostMenteeDailyVideo::class, 'mentee_id')
+            ->orderByDesc('video_date')
+            ->orderByDesc('created_at');
+    }
+
     /**
      * The mentor accountable for this mentee — the per-mentee override when set,
      * otherwise the program's leader.

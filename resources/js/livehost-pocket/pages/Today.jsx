@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { CheckCircle2, ChevronRight, Video } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import {
   firstNameFrom,
@@ -21,7 +22,7 @@ import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/fo
  * `docs/design-mockups/livehost-mobile-v3-grounded.html`.
  */
 export default function Today() {
-  const { auth, stats, liveNow, upcoming, features } = usePage().props;
+  const { auth, stats, liveNow, upcoming, features, mentoring, videoLog } = usePage().props;
   const user = auth?.user ?? null;
   const firstName = firstNameFrom(user?.name);
   const initials = initialsFrom(user?.name);
@@ -51,7 +52,10 @@ export default function Today() {
           clock={clock}
           hasLive={hasLive}
           liveCount={liveNow?.length ?? 0}
+          mentoring={mentoring}
         />
+
+        {videoLog && <VideoNudge videoLog={videoLog} />}
 
         {hasLive &&
           liveNow.map((session) => (
@@ -77,13 +81,16 @@ export default function Today() {
 
 Today.layout = (page) => <PocketLayout>{page}</PocketLayout>;
 
-function Greeting({ firstName, initials, avatarUrl, name, greeting, clock, hasLive, liveCount }) {
+function Greeting({ firstName, initials, avatarUrl, name, greeting, clock, hasLive, liveCount, mentoring }) {
   const pretitleLabel = hasLive ? 'ON AIR' : 'TODAY';
   const subtitle = hasLive
     ? liveCount > 1
       ? `${liveCount} sessions live.`
       : 'One session live.'
     : 'No live sessions right now.';
+  const salesToday = mentoring
+    ? `RM ${Number(mentoring.sales_today).toLocaleString(undefined, { minimumFractionDigits: Math.round(mentoring.sales_today) === mentoring.sales_today ? 0 : 2, maximumFractionDigits: 2 })}`
+    : null;
 
   return (
     <div className="relative px-1 pt-3 pb-4">
@@ -98,6 +105,18 @@ function Greeting({ firstName, initials, avatarUrl, name, greeting, clock, hasLi
         <br />
         {subtitle}
       </h1>
+      {mentoring && (
+        <Link href="/live-host/my-path" className="mt-2 inline-flex items-center gap-2">
+          {mentoring.level && (
+            <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ backgroundColor: mentoring.level.color || '#10B981' }}>
+              {mentoring.level.name}
+            </span>
+          )}
+          <span className="text-[11.5px] font-medium text-[var(--fg-2)]">
+            Sales today <span className="font-bold tabular-nums text-[var(--fg)]">{salesToday}</span>
+          </span>
+        </Link>
+      )}
       <div
         className="absolute right-2 top-2 h-[38px] w-[38px] overflow-hidden rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)]"
         aria-hidden="true"
@@ -111,6 +130,48 @@ function Greeting({ firstName, initials, avatarUrl, name, greeting, clock, hasLi
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Daily-video compliance nudge — surfaces the mentoring KPI on the Today
+ * screen. Accent-highlighted "log it" state until a video is recorded, then a
+ * calm "done" state. Both link into the full video log.
+ */
+function VideoNudge({ videoLog }) {
+  const logged = Boolean(videoLog.logged);
+
+  return (
+    <Link
+      href="/live-host/videos"
+      className={`mb-3 flex items-center gap-3 rounded-[16px] border px-[14px] py-3 transition active:scale-[0.99] ${
+        logged ? 'border-[var(--hair)] bg-[var(--app-bg-2)]' : 'border-[var(--accent)]'
+      }`}
+      style={
+        logged
+          ? undefined
+          : { backgroundImage: 'linear-gradient(165deg, var(--accent-soft), transparent 60%)' }
+      }
+    >
+      <span
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
+          logged ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'bg-[var(--accent)] text-[var(--accent-ink)]'
+        }`}
+      >
+        {logged ? <CheckCircle2 className="h-5 w-5" strokeWidth={2.2} /> : <Video className="h-5 w-5" strokeWidth={2.2} />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-semibold text-[var(--fg)]">
+          {logged ? "Today's video logged" : 'Log today’s video'}
+        </div>
+        <div className="text-[11.5px] text-[var(--fg-2)]">
+          {logged
+            ? `${videoLog.count} video${videoLog.count === 1 ? '' : 's'} recorded today`
+            : 'A daily video is part of your KPI.'}
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
+    </Link>
   );
 }
 

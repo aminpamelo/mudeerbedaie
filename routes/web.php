@@ -25,6 +25,7 @@ use App\Http\Controllers\LiveHost\LiveHostPayrollRunController;
 use App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController;
 use App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController;
 use App\Http\Controllers\LiveHost\MentoringActivityController;
+use App\Http\Controllers\LiveHost\MentoringDisciplinaryController;
 use App\Http\Controllers\LiveHost\MentoringLevelController;
 use App\Http\Controllers\LiveHost\MentoringMenteeController;
 use App\Http\Controllers\LiveHost\MentoringPerformanceController;
@@ -46,6 +47,7 @@ use App\Http\Controllers\LiveHost\SessionDataController;
 use App\Http\Controllers\LiveHost\SessionSlotController;
 use App\Http\Controllers\LiveHost\TiktokReportImportController;
 use App\Http\Controllers\LiveHost\TimeSlotController;
+use App\Http\Controllers\LiveHostPocket\DailyVideoController;
 use App\Http\Controllers\LiveHostPocket\DashboardController;
 use App\Http\Controllers\LiveHostPocket\GoLiveController;
 use App\Http\Controllers\LiveHostPocket\MentorController;
@@ -294,6 +296,16 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
 
         Route::get('my-path', [MentoringController::class, 'show'])
             ->name('my-path');
+
+        // Daily video log — the host records the video(s) they made today
+        // (title + optional link). A mentoring KPI, scoped to the active
+        // enrollment; multiple per day allowed.
+        Route::get('videos', [DailyVideoController::class, 'index'])
+            ->name('videos.index');
+        Route::post('videos', [DailyVideoController::class, 'store'])
+            ->name('videos.store');
+        Route::delete('videos/{video}', [DailyVideoController::class, 'destroy'])
+            ->name('videos.destroy');
 
         // My Mentees — top-host self-service cockpit (scoped to mentees they lead).
         Route::get('mentees', [MentorController::class, 'index'])
@@ -716,8 +728,38 @@ Route::middleware(['auth'])
                     ->name('mentees.graduate');
                 Route::patch('mentees/{mentee}/level', [MentoringMenteeController::class, 'assignLevel'])
                     ->name('mentees.level');
+                Route::patch('mentees/{mentee}/name', [MentoringMenteeController::class, 'updateMenteeName'])
+                    ->name('mentees.name');
+                Route::patch('mentees/{mentee}/pic', [MentoringMenteeController::class, 'updatePic'])
+                    ->name('mentees.pic');
                 Route::patch('mentees/{mentee}/monthly-score', [MentoringPerformanceController::class, 'store'])
                     ->name('mentees.monthly-score');
+
+                // Daily performance: auto-summed sales + the PIC's mandatory daily
+                // comment (the daily activity log). Read the breakdown/day-log JSON,
+                // upsert a single day.
+                Route::get('programs/{program}/daily-log', [MentoringPerformanceController::class, 'dailyLog'])
+                    ->name('programs.daily-log');
+                Route::get('programs/{program}/daily-matrix', [MentoringPerformanceController::class, 'dailyMatrix'])
+                    ->name('programs.daily-matrix');
+                Route::get('mentees/{mentee}/daily-breakdown', [MentoringPerformanceController::class, 'dailyBreakdown'])
+                    ->name('mentees.daily-breakdown');
+                Route::get('mentees/{mentee}/day-detail', [MentoringPerformanceController::class, 'dayDetail'])
+                    ->name('mentees.day-detail');
+                Route::get('mentees/{mentee}/month-overview', [MentoringPerformanceController::class, 'monthOverview'])
+                    ->name('mentees.month-overview');
+                Route::patch('mentees/{mentee}/daily-metric', [MentoringPerformanceController::class, 'storeDaily'])
+                    ->name('mentees.daily-metric');
+
+                // PIC-recorded disciplinary / conduct log (record only).
+                Route::get('mentees/{mentee}/disciplinary', [MentoringDisciplinaryController::class, 'index'])
+                    ->name('mentees.disciplinary.index');
+                Route::post('mentees/{mentee}/disciplinary', [MentoringDisciplinaryController::class, 'store'])
+                    ->name('mentees.disciplinary.store');
+                Route::patch('disciplinary/{record}', [MentoringDisciplinaryController::class, 'update'])
+                    ->name('disciplinary.update');
+                Route::delete('disciplinary/{record}', [MentoringDisciplinaryController::class, 'destroy'])
+                    ->name('disciplinary.destroy');
 
                 // Per-mentee task checklist.
                 Route::post('mentees/{mentee}/checklist', [MentoringMenteeController::class, 'storeChecklistItem'])

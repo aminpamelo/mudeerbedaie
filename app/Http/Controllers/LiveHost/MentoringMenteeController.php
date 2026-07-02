@@ -204,6 +204,18 @@ class MentoringMenteeController extends Controller
                     'completed_at_human' => $c->completed_at?->diffForHumans(),
                 ])->values(),
             'assignableMentors' => app(MenteeBoardPresenter::class)->assignableMentors(),
+            'disciplinary' => $mentee->disciplinaryRecords()
+                ->with('recordedByUser:id,name')
+                ->get()
+                ->map(fn ($r) => [
+                    'id' => $r->id,
+                    'incident_date' => $r->incident_date?->toDateString(),
+                    'incident_date_human' => $r->incident_date?->format('M j, Y'),
+                    'category' => $r->category,
+                    'severity' => $r->severity,
+                    'description' => $r->description,
+                    'recorded_by' => $r->recordedByUser?->name,
+                ])->values(),
         ]);
     }
 
@@ -376,6 +388,56 @@ class MentoringMenteeController extends Controller
         });
 
         return back()->with('success', $level ? "Level set to {$level->name}." : 'Level cleared.');
+    }
+
+    /**
+     * Rename the host from the performance board. This edits the underlying
+     * user account name (users.name) — the mentee has no separate display name,
+     * so the change is reflected everywhere the host appears.
+     */
+    public function updateMenteeName(Request $request, LiveHostMentee $mentee): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $user = $mentee->menteeUser;
+        abort_if($user === null, HttpResponse::HTTP_UNPROCESSABLE_ENTITY, 'This mentee has no linked account.');
+
+        $user->update(['name' => trim($data['name'])]);
+
+        return back()->with('success', 'Host name updated.');
+    }
+
+    /**
+     * Assign (or clear) the per-host PIC — the person-in-charge accountable for
+     * this mentee. Stored as mentor_user_id; clearing it falls back to the
+     * program leader. The open stage row's assignee is kept in sync so the board
+     * reflects the same owner.
+     */
+    public function updatePic(Request $request, LiveHostMentee $mentee): RedirectResponse
+    {
+        $data = $request->validate([
+            'mentor_user_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        $mentee->loadMissing('program');
+        $mentorId = $data['mentor_user_id'] ?? null;
+        $assigneeId = $mentorId ?? $mentee->program?->leader_user_id;
+
+        DB::transaction(function () use ($mentee, $mentorId, $assigneeId): void {
+            $mentee->update(['mentor_user_id' => $mentorId]);
+
+            LiveHostMenteeStage::query()
+                ->where('mentee_id', $mentee->id)
+                ->whereNull('exited_at')
+                ->update([
+                    'assignee_id' => $assigneeId,
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return back()->with('success', 'PIC updated.');
     }
 
     public function enroll(EnrollMenteeRequest $request, LiveHostMentoringProgram $program): RedirectResponse

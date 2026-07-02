@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveHostMentee;
 use App\Models\LiveSession;
+use App\Models\User;
+use App\Services\Mentoring\MenteeDailySalesResolver;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -61,6 +65,8 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (LiveSession $session): array => $this->upcomingDto($session));
 
+        $mentee = $host->activeMenteeEnrollment()->with('level:id,name,color')->first();
+
         return Inertia::render('Today', [
             'liveNow' => $liveNow,
             'stats' => [
@@ -69,7 +75,58 @@ class DashboardController extends Controller
                 'watchMinutesToday' => $watchMinutesToday,
             ],
             'upcoming' => $upcoming,
+            'mentoring' => $this->mentoringGlance($host, $mentee),
+            'videoLog' => $this->videoGlance($mentee),
         ]);
+    }
+
+    /**
+     * A tiny mentoring glance for the Today header: the host's current level and
+     * today's effective sales (override ?? auto live-session GMV). Null when the
+     * host isn't in an active mentoring program.
+     *
+     * @return array{level: array{name: string, color: string|null}|null, sales_today: float}|null
+     */
+    private function mentoringGlance(User $host, ?LiveHostMentee $mentee): ?array
+    {
+        if ($mentee === null) {
+            return null;
+        }
+
+        $today = CarbonImmutable::now();
+        $key = $today->toDateString();
+        $auto = app(MenteeDailySalesResolver::class)->autoDailyGmv([$host->id], $today, $today);
+        $autoGmv = (float) ($auto[$host->id][$key]['gmv'] ?? 0);
+        $override = $mentee->dailyMetrics()->whereDate('metric_date', $key)->value('sales_override');
+        $salesToday = $override !== null ? (float) $override : $autoGmv;
+
+        return [
+            'level' => $mentee->level ? ['name' => $mentee->level->name, 'color' => $mentee->level->color] : null,
+            'sales_today' => round($salesToday, 2),
+        ];
+    }
+
+    /**
+     * The daily-video compliance nudge for the Today screen: whether the host
+     * has logged today's video and how many. Null when the host isn't in an
+     * active mentoring program (the daily-video KPI is mentee-scoped).
+     *
+     * @return array{logged: bool, count: int}|null
+     */
+    private function videoGlance(?LiveHostMentee $mentee): ?array
+    {
+        if ($mentee === null) {
+            return null;
+        }
+
+        $count = $mentee->dailyVideos()
+            ->whereDate('video_date', CarbonImmutable::now()->toDateString())
+            ->count();
+
+        return [
+            'logged' => $count > 0,
+            'count' => $count,
+        ];
     }
 
     /**

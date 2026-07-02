@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyVideo;
 use App\Models\LiveSchedule;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\SessionReplacementRequest;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -28,10 +31,44 @@ class DashboardController extends Controller
             'upcoming' => $this->upcoming(),
             'recentActivity' => $this->recentActivity(),
             'topHosts' => $this->topHosts(),
+            'videoCompliance' => $this->videoComplianceToday(),
             'pendingReplacements' => SessionReplacementRequest::query()
                 ->where('status', SessionReplacementRequest::STATUS_PENDING)
                 ->count(),
         ]);
+    }
+
+    /**
+     * Today's daily-video KPI compliance across every active mentee: how many
+     * have logged at least one video today, the shortfall, and total videos.
+     * The daily video is a mentee-scoped KPI logged by hosts in the Pocket.
+     *
+     * @return array{active_mentees: int, posted: int, missing: int, videos_today: int, pct: int|null}
+     */
+    private function videoComplianceToday(): array
+    {
+        $today = today()->toDateString();
+        $activeMenteeIds = LiveHostMentee::query()->where('status', 'active')->pluck('id');
+        $total = $activeMenteeIds->count();
+
+        $posted = LiveHostMenteeDailyVideo::query()
+            ->whereIn('mentee_id', $activeMenteeIds)
+            ->whereDate('video_date', $today)
+            ->distinct()
+            ->count('mentee_id');
+
+        $videosToday = LiveHostMenteeDailyVideo::query()
+            ->whereIn('mentee_id', $activeMenteeIds)
+            ->whereDate('video_date', $today)
+            ->count();
+
+        return [
+            'active_mentees' => $total,
+            'posted' => $posted,
+            'missing' => max(0, $total - $posted),
+            'videos_today' => $videosToday,
+            'pct' => $total > 0 ? (int) round($posted / $total * 100) : null,
+        ];
     }
 
     /**
@@ -75,8 +112,8 @@ class DashboardController extends Controller
      */
     private function schedulerStats(): array
     {
-        $weekStart = \Carbon\CarbonImmutable::now()->startOfWeek(\Carbon\CarbonImmutable::SUNDAY);
-        $weekEnd = $weekStart->endOfWeek(\Carbon\CarbonImmutable::SATURDAY);
+        $weekStart = CarbonImmutable::now()->startOfWeek(CarbonImmutable::SUNDAY);
+        $weekEnd = $weekStart->endOfWeek(CarbonImmutable::SATURDAY);
         $today = today();
 
         $weekSlots = LiveScheduleAssignment::query()

@@ -5,7 +5,10 @@ namespace App\Http\Controllers\LiveHostPocket;
 use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMentoringLevel;
+use App\Services\Mentoring\MenteeDailySalesResolver;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -42,7 +45,7 @@ class MentoringController extends Controller
                 ->first();
 
         if ($mentee === null) {
-            return Inertia::render('MyPath', ['enrollment' => null]);
+            return Inertia::render('MyPath', ['enrollment' => null, 'leaderboard' => null]);
         }
 
         $currentPosition = $mentee->currentStage?->position ?? 0;
@@ -131,25 +134,99 @@ class MentoringController extends Controller
                     'title' => $a->title,
                     'occurred_at_human' => $a->occurred_at?->diffForHumans(),
                 ])->values(),
+                'daily' => $this->dailyData($mentee),
+                'comments' => $this->commentsData($mentee),
+                'conduct' => $this->conductData($mentee),
             ],
+            'leaderboard' => $this->leaderboardData($mentee),
         ]);
     }
 
     /**
+     * Cohort sales leaderboard — the host and their program peers ranked by
+     * effective sales (auto live-session GMV + PIC overrides). Two windows are
+     * pre-computed so the front end can toggle "This month" / "All time" without
+     * a round trip. Scoped to the host's own program only; dropped mentees are
+     * excluded so the board reflects the live cohort.
+     *
+     * @return array{program_title: string, member_count: int, my_mentee_id: int, periods: array<string, array{key: string, label: string, rows: list<array<string, mixed>>}>}
+     */
+    private function leaderboardData(LiveHostMentee $mentee): array
+    {
+        $cohort = LiveHostMentee::query()
+            ->where('program_id', $mentee->program_id)
+            ->whereIn('status', ['active', 'graduated'])
+            ->with(['menteeUser:id,name,avatar_path', 'level:id,name,color,position'])
+            ->get();
+
+        $now = CarbonImmutable::now();
+        $earliest = $cohort->min('enrolled_at');
+        $allFrom = $earliest
+            ? CarbonImmutable::parse($earliest)->startOfMonth()
+            : $now->subMonths(11)->startOfMonth();
+
+        $resolver = app(MenteeDailySalesResolver::class);
+        $monthTotals = $resolver->rangeTotals($cohort, $now->startOfMonth(), $now->endOfMonth());
+        $allTotals = $resolver->rangeTotals($cohort, $allFrom, $now->endOfMonth());
+
+        $buildRows = fn (array $totals): array => $cohort
+            ->map(fn (LiveHostMentee $m): array => [
+                'mentee_id' => $m->id,
+                'name' => $m->menteeUser?->name ?? 'Host',
+                'avatar_url' => $m->menteeUser?->avatar_url,
+                'level' => $m->level ? ['name' => $m->level->name, 'color' => $m->level->color] : null,
+                'sales' => $totals[$m->id] ?? 0.0,
+                'is_me' => $m->id === $mentee->id,
+            ])
+            ->sortByDesc('sales')
+            ->values()
+            ->map(function (array $row, int $i): array {
+                $row['rank'] = $i + 1;
+
+                return $row;
+            })
+            ->values()
+            ->all();
+
+        return [
+            'program_title' => $mentee->program->title,
+            'member_count' => $cohort->count(),
+            'my_mentee_id' => $mentee->id,
+            'periods' => [
+                'this_month' => ['key' => 'this_month', 'label' => $now->format('F Y'), 'rows' => $buildRows($monthTotals)],
+                'all_time' => ['key' => 'all_time', 'label' => 'All time', 'rows' => $buildRows($allTotals)],
+            ],
+        ];
+    }
+
+    /**
      * The host's monthly performance: latest score, a 6-month trend, and the
-     * change vs the previous month. The Overall KPI mirrors the PIC-side
-     * formula exactly — the mean of Attitude (0-100) and Sales% (sales ÷ the
-     * level's monthly target, capped at 100) — so host and PIC see the same number.
+     * change vs the previous month. Sales are the SUM of the host's effective
+     * daily sales (auto live-session GMV + PIC overrides) — the same figure the
+     * PIC sees. Attitude remains the PIC's monthly rating. The Overall KPI is the
+     * mean of Attitude (0-100) and Sales% (sales ÷ the level's monthly target).
      *
      * @return array{has_scores: bool, sales_target: int|null, latest: array<string, mixed>|null, trend: list<array<string, mixed>>, delta_overall: int|null}
      */
     private function performanceData(LiveHostMentee $mentee): array
     {
         $target = $mentee->level?->monthly_sales_target;
+        $now = CarbonImmutable::now();
 
-        $scores = $mentee->monthlyScores->map(function ($s) use ($target): array {
-            $attitude = $s->attitude_score !== null ? max(0, min(100, (int) $s->attitude_score)) : null;
-            $sales = $s->sales_quantity !== null ? (float) $s->sales_quantity : null;
+        $periods = collect(range(5, 0))
+            ->map(fn ($i) => $now->subMonths($i))
+            ->map(fn ($d) => ['year' => (int) $d->format('Y'), 'month' => (int) $d->format('n')])
+            ->values()
+            ->all();
+
+        $salesTotals = app(MenteeDailySalesResolver::class)->monthlyTotals(collect([$mentee]), $periods);
+        $byKey = $mentee->monthlyScores->keyBy(fn ($s) => sprintf('%04d-%02d', $s->year, $s->month));
+
+        $scores = collect($periods)->map(function ($p) use ($target, $salesTotals, $byKey, $mentee): array {
+            $key = sprintf('%04d-%02d', $p['year'], $p['month']);
+            $ms = $byKey->get($key);
+            $attitude = $ms && $ms->attitude_score !== null ? max(0, min(100, (int) $ms->attitude_score)) : null;
+            $sales = $salesTotals[$mentee->id][$key] ?? null;
             $salesPct = ($sales !== null && $target && $target > 0)
                 ? min(100, (int) round(($sales / $target) * 100))
                 : null;
@@ -158,28 +235,106 @@ class MentoringController extends Controller
             $overall = $parts !== [] ? (int) round(array_sum($parts) / count($parts)) : null;
 
             return [
-                'period' => sprintf('%04d-%02d', $s->year, $s->month),
-                'year' => (int) $s->year,
-                'month' => (int) $s->month,
+                'period' => $key,
+                'year' => $p['year'],
+                'month' => $p['month'],
                 'attitude' => $attitude,
                 'sales' => $sales,
                 'sales_pct' => $salesPct,
                 'overall' => $overall,
             ];
-        })->values();
+        });
 
-        $latest = $scores->last();
-        $previous = $scores->count() >= 2 ? $scores->slice(-2, 1)->first() : null;
+        $withData = $scores->filter(fn ($s) => $s['overall'] !== null || $s['sales'] !== null || $s['attitude'] !== null)->values();
+        $latest = $withData->last();
+        $previous = $withData->count() >= 2 ? $withData->slice(-2, 1)->first() : null;
         $delta = ($latest && $previous && $latest['overall'] !== null && $previous['overall'] !== null)
             ? $latest['overall'] - $previous['overall']
             : null;
 
         return [
-            'has_scores' => $scores->isNotEmpty(),
+            'has_scores' => $withData->isNotEmpty(),
             'sales_target' => $target !== null ? (int) $target : null,
             'latest' => $latest,
             'trend' => $scores->slice(-6)->values()->all(),
             'delta_overall' => $delta,
         ];
+    }
+
+    /**
+     * The host's own daily sales strip for the current month (up to today), plus
+     * the running month total. Sales are the effective daily figure (override ??
+     * auto live-session GMV).
+     *
+     * @return array{month_label: string, total: float, days: Collection<int, array<string, mixed>>}
+     */
+    private function dailyData(LiveHostMentee $mentee): array
+    {
+        $today = CarbonImmutable::now();
+        $todayDay = (int) $today->format('j');
+
+        $discByDate = $mentee->disciplinaryRecords()
+            ->whereBetween('incident_date', [$today->startOfMonth()->toDateString(), $today->endOfMonth()->toDateString()])
+            ->get()
+            ->keyBy(fn ($r) => $r->incident_date->toDateString());
+
+        $days = collect(app(MenteeDailySalesResolver::class)->dailyBreakdown($mentee, (int) $today->format('Y'), (int) $today->format('n')))
+            ->filter(fn ($d) => $d['day'] <= $todayDay)
+            ->map(fn ($d) => [
+                'date' => $d['date'],
+                'day' => $d['day'],
+                'sales' => $d['effective'],
+                'sessions' => $d['sessions'],
+                'comment' => $d['comment'],
+                'has_comment' => $d['comment'] !== null && $d['comment'] !== '',
+                'has_disciplinary' => $discByDate->has($d['date']),
+            ])
+            ->values();
+
+        return [
+            'month_label' => $today->format('F Y'),
+            'total' => round((float) $days->sum('sales'), 2),
+            'days' => $days,
+        ];
+    }
+
+    /**
+     * Recent PIC daily comments (the host's feedback loop) — the daily activity log.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function commentsData(LiveHostMentee $mentee): Collection
+    {
+        return $mentee->dailyMetrics()
+            ->whereNotNull('comment')
+            ->with('commentedByUser:id,name')
+            ->orderByDesc('metric_date')
+            ->limit(14)
+            ->get()
+            ->map(fn ($m) => [
+                'date' => $m->metric_date?->toDateString(),
+                'date_human' => $m->metric_date?->format('M j'),
+                'comment' => $m->comment,
+                'by' => $m->commentedByUser?->name,
+            ])
+            ->values();
+    }
+
+    /**
+     * The host's own disciplinary / conduct records (read-only).
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function conductData(LiveHostMentee $mentee): Collection
+    {
+        return $mentee->disciplinaryRecords()
+            ->get()
+            ->map(fn ($r) => [
+                'incident_date_human' => $r->incident_date?->format('M j, Y'),
+                'category' => $r->category,
+                'severity' => $r->severity,
+                'description' => $r->description,
+            ])
+            ->values();
     }
 }

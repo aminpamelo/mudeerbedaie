@@ -5,13 +5,17 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\Mentoring\MentoringProgramRequest;
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMentoringLevel;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
 use App\Services\Mentoring\MenteeBoardPresenter;
+use App\Services\Mentoring\MenteeDailySalesResolver;
 use App\Services\Mentoring\MentorActivityIndicator;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -146,7 +150,7 @@ class MentoringProgramController extends Controller
                 ->get()
                 ->map(fn ($m) => ['id' => $m->id, 'name' => $m->menteeUser?->name])
                 ->values(),
-            'performance' => $this->performanceData($program),
+            'performance' => $this->performanceData($program, $request),
             'board' => app(MenteeBoardPresenter::class)->forProgram($program),
         ]);
     }
@@ -214,48 +218,126 @@ class MentoringProgramController extends Controller
     }
 
     /**
-     * Monthly-performance grid data: every month of the current calendar year
-     * (January → December, ascending) and every active/graduated mentee with
-     * their recorded scores keyed by 'YYYY-MM'.
+     * Monthly-performance grid data for a chosen year + month window. Sales per
+     * month are the SUM of the host's effective daily sales (auto live-session
+     * GMV, with any PIC override), so the month cell is a read-only rollup of the
+     * daily strip; Attitude + notes remain the PIC's manual monthly entry. Each
+     * mentee also carries their effective PIC (per-host mentor override, else the
+     * program leader) for grouping and inline reassignment.
      *
      * @return array<string, mixed>
      */
-    private function performanceData(LiveHostMentoringProgram $program): array
+    private function performanceData(LiveHostMentoringProgram $program, Request $request): array
     {
-        $startOfYear = now()->startOfYear();
-        $months = collect(range(0, 11))
-            ->map(fn ($i) => $startOfYear->copy()->addMonths($i))
-            ->map(fn ($d) => [
-                'value' => $d->format('Y-m'),
-                'year' => (int) $d->format('Y'),
-                'month' => (int) $d->format('n'),
-                'label' => $d->format('M Y'),
+        $currentYear = (int) now()->format('Y');
+        $currentMonth = (int) now()->format('n');
+
+        $year = $request->integer('perf_year') ?: $currentYear;
+        $defaultTo = $year === $currentYear ? $currentMonth : 12;
+        $to = $request->integer('perf_to') ?: $defaultTo;
+        $from = $request->integer('perf_from') ?: max(1, $to - 5);
+
+        $from = max(1, min(12, $from));
+        $to = max(1, min(12, $to));
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $months = collect(range($from, $to))
+            ->map(fn ($m) => [
+                'value' => sprintf('%04d-%02d', $year, $m),
+                'year' => $year,
+                'month' => (int) $m,
+                'label' => CarbonImmutable::create($year, $m, 1)->format('M Y'),
             ])->values();
+
+        $periods = $months->map(fn ($mo) => ['year' => $mo['year'], 'month' => $mo['month']])->all();
 
         $mentees = $program->mentees()
             ->whereIn('status', ['active', 'graduated'])
-            ->with(['menteeUser:id,name', 'level:id,name,color,monthly_sales_target', 'monthlyScores'])
+            ->with([
+                'menteeUser:id,name',
+                'mentor:id,name',
+                'level:id,name,color,monthly_sales_target',
+                'monthlyScores',
+            ])
+            ->withCount('disciplinaryRecords')
             ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderByDesc('enrolled_at')
-            ->get()
-            ->map(fn (LiveHostMentee $m) => [
+            ->get();
+
+        $salesTotals = app(MenteeDailySalesResolver::class)->monthlyTotals($mentees, $periods);
+
+        $leader = $program->leader;
+        $leaderData = $leader ? [
+            'id' => $leader->id,
+            'name' => $leader->name,
+            'initials' => self::initials($leader->name),
+        ] : null;
+
+        $menteesOut = $mentees->map(function (LiveHostMentee $m) use ($salesTotals, $months, $leaderData) {
+            $scoreByKey = $m->monthlyScores->keyBy(fn ($s) => $s->periodKey());
+
+            $scores = [];
+            foreach ($months as $mo) {
+                $key = $mo['value'];
+                $ms = $scoreByKey->get($key);
+                $scores[$key] = [
+                    'attitude' => $ms?->attitude_score,
+                    'sales' => $salesTotals[$m->id][$key] ?? null,
+                    'notes' => $ms?->notes,
+                ];
+            }
+
+            $pic = $m->mentor
+                ? ['id' => $m->mentor->id, 'name' => $m->mentor->name, 'initials' => self::initials($m->mentor->name), 'is_override' => true]
+                : ($leaderData ? array_merge($leaderData, ['is_override' => false]) : null);
+
+            return [
                 'id' => $m->id,
                 'name' => $m->menteeUser?->name,
                 'status' => $m->status,
-                'level' => $m->level ? ['name' => $m->level->name, 'color' => $m->level->color] : null,
-                // The mentee's monthly sales target comes from their level; the Sales
-                // KPI is actual ÷ target, and feeds the computed Overall on the client.
+                'level' => $m->level ? ['id' => $m->level->id, 'name' => $m->level->name, 'color' => $m->level->color] : null,
+                'level_id' => $m->level_id,
                 'sales_target' => $m->level?->monthly_sales_target,
-                'scores' => $m->monthlyScores->mapWithKeys(fn ($s) => [
-                    $s->periodKey() => [
-                        'attitude' => $s->attitude_score,
-                        'sales' => $s->sales_quantity !== null ? (float) $s->sales_quantity : null,
-                        'notes' => $s->notes,
-                    ],
-                ]),
-            ])->values();
+                'mentor_user_id' => $m->mentor_user_id,
+                'pic' => $pic,
+                'disciplinary_count' => (int) ($m->disciplinary_records_count ?? 0),
+                'scores' => $scores,
+            ];
+        })->values();
 
-        return ['months' => $months, 'mentees' => $mentees];
+        return [
+            'year' => $year,
+            'range' => ['from' => $from, 'to' => $to],
+            'years' => $this->performanceYears($program, $year),
+            'months' => $months,
+            'mentees' => $menteesOut,
+            'pics' => app(MenteeBoardPresenter::class)->assignableMentors(),
+            'levels' => LiveHostMentoringLevel::query()
+                ->where('is_active', true)
+                ->orderBy('position')
+                ->get(['id', 'name', 'color'])
+                ->map(fn ($l) => ['id' => $l->id, 'name' => $l->name, 'color' => $l->color])
+                ->values(),
+            'leader' => $leaderData,
+        ];
+    }
+
+    /**
+     * Selectable years for the month filter: from the program's start year (or a
+     * year before now) through the current year, always including the selected one.
+     *
+     * @return array<int, int>
+     */
+    private function performanceYears(LiveHostMentoringProgram $program, int $selected): array
+    {
+        $current = (int) now()->format('Y');
+        $start = $program->starts_at ? (int) $program->starts_at->format('Y') : $current;
+        $min = min($start, $current - 1, $selected);
+        $max = max($current, $selected);
+
+        return range($min, $max);
     }
 
     public function update(MentoringProgramRequest $request, LiveHostMentoringProgram $program): RedirectResponse
@@ -368,9 +450,9 @@ class MentoringProgramController extends Controller
      * Live hosts who can lead a program (the "top hosts"). Top-host-eligible
      * graduates are surfaced first so they're easy to promote into a mentor.
      *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
-    private function assignableLeaders(): \Illuminate\Support\Collection
+    private function assignableLeaders(): Collection
     {
         return User::query()
             ->where('role', 'live_host')

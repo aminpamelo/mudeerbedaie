@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Plus,
   RotateCcw,
+  ShieldAlert,
   Sparkles,
   Trash2,
   Wand2,
@@ -27,6 +28,7 @@ import {
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import ActivityLogModal from '@/livehost/components/mentoring/ActivityLogModal';
+import DisciplinaryModal, { categoryLabel, severityTone } from '@/livehost/components/mentoring/DisciplinaryModal';
 
 function StatusBadge({ status }) {
   const map = {
@@ -72,7 +74,7 @@ function actionTone(action) {
 }
 
 export default function MenteeShow() {
-  const { mentee, stages, history, kpis, suggestedLevel, levels, activities, checklist } = usePage().props;
+  const { mentee, stages, history, kpis, suggestedLevel, levels, activities, checklist, disciplinary } = usePage().props;
   const [activeTab, setActiveTab] = useState('overview');
 
   return (
@@ -125,6 +127,7 @@ export default function MenteeShow() {
             { id: 'level', label: 'Level' },
             { id: 'checklist', label: `Checklist · ${checklist?.length ?? 0}` },
             { id: 'coaching', label: `Coaching · ${activities?.length ?? 0}` },
+            { id: 'conduct', label: `Conduct · ${disciplinary?.length ?? 0}` },
             { id: 'activity', label: `Activity · ${history?.length ?? 0}` },
             { id: 'notes', label: 'Notes' },
           ].map((tab) => (
@@ -139,6 +142,7 @@ export default function MenteeShow() {
         {activeTab === 'level' && <LevelTab mentee={mentee} suggestedLevel={suggestedLevel} levels={levels} />}
         {activeTab === 'checklist' && <ChecklistTab mentee={mentee} checklist={checklist} />}
         {activeTab === 'coaching' && <CoachingTab mentee={mentee} activities={activities} />}
+        {activeTab === 'conduct' && <ConductTab mentee={mentee} disciplinary={disciplinary} />}
         {activeTab === 'activity' && <ActivityTab history={history} />}
         {activeTab === 'notes' && <NotesTab mentee={mentee} />}
       </div>
@@ -673,5 +677,54 @@ function ActionBar({ mentee, stages }) {
         </div>
       )}
     </>
+  );
+}
+
+function ConductTab({ mentee, disciplinary }) {
+  const [open, setOpen] = useState(false);
+  const records = disciplinary ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[12px] text-[#737373]">
+          <ShieldAlert className="h-3.5 w-3.5 text-[#A3A3A3]" strokeWidth={2} />
+          Disciplinary / conduct records logged by the PIC. A record only — no automated action.
+        </div>
+        <Button size="sm" onClick={() => setOpen(true)} className="gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]">
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Add record
+        </Button>
+      </div>
+
+      {records.length === 0 ? (
+        <div className="grid place-items-center rounded-[16px] border border-dashed border-[#EAEAEA] bg-white px-8 py-16 text-center">
+          <div className="text-sm text-[#737373]">A clean sheet — no disciplinary records.</div>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white">
+          <ul className="divide-y divide-[#F0F0F0]">
+            {records.map((r) => (
+              <li key={r.id} className="group flex items-start justify-between gap-4 px-5 py-3.5">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide ${severityTone(r.severity)}`}>{r.severity}</span>
+                    <span className="text-[13.5px] font-semibold text-[#0A0A0A]">{categoryLabel(r.category)}</span>
+                    <span className="text-[11px] text-[#A3A3A3]">{r.incident_date_human ?? r.incident_date}</span>
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap text-[13px] text-[#525252]">{r.description}</div>
+                  {r.recorded_by && <div className="mt-1 text-[11px] text-[#A3A3A3]">by {r.recorded_by}</div>}
+                </div>
+                <button type="button" onClick={() => { if (window.confirm('Remove this disciplinary record?')) router.delete(`/livehost/mentoring/disciplinary/${r.id}`, { preserveScroll: true, only: ['disciplinary'] }); }} className="shrink-0 rounded-md p-1.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#FFF1F2] hover:text-[#F43F5E] group-hover:opacity-100" title="Remove">
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {open && <DisciplinaryModal mentee={{ id: mentee.id, name: mentee.full_name }} records={records} reloadOnly={['disciplinary']} onClose={() => setOpen(false)} />}
+    </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   Bell,
   Plus,
   UserMinus,
+  Video,
   ChevronRight,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
@@ -86,6 +87,7 @@ export default function Dashboard() {
     upcoming,
     recentActivity,
     topHosts,
+    videoCompliance = null,
     pendingReplacements = 0,
   } = usePage().props;
 
@@ -177,6 +179,10 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {videoCompliance?.active_mentees > 0 && (
+          <VideoComplianceCard data={videoCompliance} />
+        )}
+
         {/* Bento Row 2: On Air + Activity */}
         <div className="grid grid-cols-12 gap-4">
           <OnAirCard
@@ -226,6 +232,57 @@ function PendingReplacementsBanner({ count }) {
           className="h-5 w-5 text-[#92400E] transition-transform group-hover:translate-x-0.5"
           strokeWidth={2.25}
         />
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * Today's daily-video KPI compliance across active mentees. The host logs
+ * videos from the Pocket; this card lets the PIC see the cohort's coverage at a
+ * glance and jumps to the mentoring programs where the daily log lives.
+ */
+function VideoComplianceCard({ data }) {
+  const pct = data.pct ?? 0;
+  const allDone = data.missing === 0;
+
+  return (
+    <Link
+      href="/livehost/mentoring/programs"
+      className="group block rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[#D8CDF7]"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#F3F0FE] text-[#7C3AED]">
+            <Video className="h-5 w-5" strokeWidth={2.25} />
+          </div>
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[#7C3AED]">
+              Daily video KPI · today
+            </div>
+            <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
+              {allDone
+                ? `All ${data.active_mentees} mentees posted a video`
+                : `${data.posted} of ${data.active_mentees} mentees posted a video`}
+            </div>
+            <div className="mt-0.5 text-[12px] text-[#737373]">
+              {data.videos_today} video{data.videos_today === 1 ? '' : 's'} logged today
+              {data.missing > 0 ? ` · ${data.missing} still missing` : ''}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-2xl font-semibold tabular-nums tracking-[-0.02em] text-[#0A0A0A]">
+            {pct}%
+          </div>
+          <ChevronRight
+            className="h-5 w-5 text-[#A3A3A3] transition-transform group-hover:translate-x-0.5"
+            strokeWidth={2.25}
+          />
+        </div>
+      </div>
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F0EDFA]">
+        <div className="h-full rounded-full bg-[#7C3AED] transition-all" style={{ width: `${pct}%` }} />
       </div>
     </Link>
   );
