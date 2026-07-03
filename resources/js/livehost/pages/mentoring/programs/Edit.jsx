@@ -144,7 +144,7 @@ export default function ProgramEdit() {
         }
       />
 
-      <div className="space-y-6 p-8 pb-24">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8 pb-24">
         {/* Hero */}
         <section className="relative overflow-hidden rounded-[20px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="relative flex flex-wrap items-start justify-between gap-6">

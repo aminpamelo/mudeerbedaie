@@ -33,7 +33,7 @@ export default function MenteesIndex() {
       <Head title="Mentees" />
       <TopBar breadcrumb={['Live Host Desk', 'Mentoring', 'Mentees']} />
 
-      <div className="px-8 pb-12 pt-8">
+      <div className="px-4 sm:px-8 pb-12 pt-6 sm:pt-8">
         {!program ? (
           <EmptyNoPrograms />
         ) : (
@@ -45,7 +45,7 @@ export default function MenteesIndex() {
                     <StatusBadge status={program.status} />
                     {program.leader && <span className="text-[11.5px] text-[#737373]">Led by {program.leader.name}</span>}
                   </div>
-                  <h1 className="max-w-[780px] text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">{program.title}</h1>
+                  <h1 className="max-w-[780px] text-[26px] sm:text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">{program.title}</h1>
                   <p className="mt-1.5 text-[13.5px] text-[#737373]">
                     <span className="font-medium text-[#404040]">{c.active}</span> active
                     <span className="mx-1.5 text-[#D4D4D4]">·</span>

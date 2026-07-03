@@ -47,9 +47,9 @@ export default function ProgramCreate() {
         }
       />
 
-      <div className="max-w-3xl p-8">
+      <div className="max-w-3xl p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
             New mentoring program
           </h1>
           <p className="mt-1.5 text-sm text-[#737373]">
@@ -104,7 +104,7 @@ export default function ProgramCreate() {
             </select>
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Starts at" error={form.errors.starts_at}>
               <Input
                 type="date"

@@ -91,7 +91,7 @@ export default function PlatformAccountShow() {
         }
       />
 
-      <div className="p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Hero block */}
         <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 flex items-center gap-6">
           <div className="grid h-16 w-16 place-items-center rounded-xl bg-gradient-to-br from-[#10B981] to-[#059669] text-white">
@@ -116,15 +116,15 @@ export default function PlatformAccountShow() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <StatTile label="Schedules" value={account.schedules} />
           <StatTile label="Session slots" value={account.assignments ?? 0} />
           <StatTile label="Live sessions" value={account.sessions} />
         </div>
 
         {/* Detail grid */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-7 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="col-span-1 lg:col-span-7 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
             <div className="font-semibold text-[15px] tracking-[-0.015em] mb-3">Details</div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <DetailRow label="Platform" value={account.platform?.displayName ?? account.platform?.name ?? '—'} />
@@ -135,7 +135,7 @@ export default function PlatformAccountShow() {
               <DetailRow label="Status" value={account.isActive ? 'Active' : 'Inactive'} />
             </dl>
           </div>
-          <div className="col-span-5 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
+          <div className="col-span-1 lg:col-span-5 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
             <div className="font-semibold text-[15px] tracking-[-0.015em] mb-3">Description</div>
             {account.description ? (
               <p className="text-sm text-[#0A0A0A] whitespace-pre-wrap leading-relaxed">

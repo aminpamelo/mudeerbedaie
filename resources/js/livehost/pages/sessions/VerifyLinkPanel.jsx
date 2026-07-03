@@ -105,7 +105,7 @@ export default function VerifyLinkPanel({ session, candidates }) {
                   <span className="text-xs text-[#737373]">@{c.creatorHandle}</span>
                 )}
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-sm text-zinc-600">
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-zinc-600 sm:grid-cols-3">
                 <div>
                   <span className="text-xs text-zinc-500">Live-attrib GMV</span>
                   <div className="font-mono font-semibold text-[#0A0A0A]">

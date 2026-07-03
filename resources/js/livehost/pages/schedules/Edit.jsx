@@ -54,9 +54,9 @@ export default function SchedulesEdit() {
         }
       />
 
-      <div className="p-8 max-w-3xl">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">
             Edit schedule
           </h1>
           <p className="text-[#737373] mt-1.5 text-sm">

@@ -47,9 +47,9 @@ export default function CampaignCreate() {
         }
       />
 
-      <div className="max-w-3xl p-8">
+      <div className="max-w-3xl p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+          <h1 className="text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A] sm:text-3xl">
             New recruitment campaign
           </h1>
           <p className="mt-1.5 text-sm text-[#737373]">
@@ -102,7 +102,7 @@ export default function CampaignCreate() {
             />
           </Field>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Target hires" error={form.errors.target_count}>
               <Input
                 type="number"

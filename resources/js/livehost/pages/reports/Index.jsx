@@ -30,7 +30,7 @@ export default function ReportsIndex({ reports }) {
     <>
       <Head title="Reports" />
       <TopBar breadcrumb={['Live Host Desk', 'Reports']} />
-      <div className="space-y-10 p-8">
+      <div className="space-y-10 p-4 sm:p-6 lg:p-8">
         <header className="max-w-3xl">
           <span className="label-eyebrow">Live Host Desk</span>
           <h1 className="mt-3 text-[44px] leading-[1.05] tracking-tight text-[var(--color-ink)]">

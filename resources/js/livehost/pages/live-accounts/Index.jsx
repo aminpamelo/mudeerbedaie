@@ -104,7 +104,7 @@ function AccountFormModal({ open, onOpenChange, mode, account, shops, hosts }) {
               placeholder="amarmirzabedaie"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Display name" error={errors.display_name}>
               <Input
                 value={data.display_name}
@@ -257,9 +257,9 @@ export default function LiveAccountsIndex() {
       <Head title="Live Accounts" />
       <TopBar breadcrumb={['Live Host Desk', 'Live Accounts']} actions={newAction} />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div>
-          <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
             Live Accounts
           </h1>
           <p className="mt-1.5 text-sm text-[#737373]">
@@ -273,14 +273,14 @@ export default function LiveAccountsIndex() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="relative">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A3A3A3]" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search nickname, display name or Creator ID…"
-              className="h-9 w-80 rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full sm:w-80 rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#525252]">
@@ -300,7 +300,8 @@ export default function LiveAccountsIndex() {
               No live accounts yet. Create one, or run the consolidation command to import them.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Account</th>
@@ -372,6 +373,7 @@ export default function LiveAccountsIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

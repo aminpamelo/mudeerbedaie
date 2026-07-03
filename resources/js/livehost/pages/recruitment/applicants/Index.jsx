@@ -569,7 +569,7 @@ export default function ApplicantsIndex() {
       <Head title="Applicants" />
       <TopBar breadcrumb={['Live Host Desk', 'Recruitment', 'Applicants']} />
 
-      <div className="px-8 pb-12 pt-8">
+      <div className="px-4 pb-12 pt-8 sm:px-8">
         {!campaign ? (
           <EmptyNoCampaigns />
         ) : (
@@ -616,13 +616,13 @@ export default function ApplicantsIndex() {
             </header>
 
             {/* Toolbar: campaign + status */}
-            <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-[#EAEAEA] pb-4">
+            <div className="mb-6 flex flex-col gap-3 border-b border-[#EAEAEA] pb-4 sm:flex-row sm:flex-wrap sm:items-center">
               {(campaigns ?? []).length > 1 && (
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <select
                     value={filters?.campaign ?? ''}
                     onChange={(e) => setCampaign(e.target.value)}
-                    className="h-9 appearance-none rounded-lg border border-[#EAEAEA] bg-white pl-3 pr-8 text-[13px] font-medium text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                    className="h-9 w-full appearance-none rounded-lg border border-[#EAEAEA] bg-white pl-3 pr-8 text-[13px] font-medium text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
                   >
                     {(campaigns ?? []).map((c) => (
                       <option key={c.id} value={c.id}>

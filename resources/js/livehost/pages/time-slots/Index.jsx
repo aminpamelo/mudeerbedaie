@@ -76,10 +76,10 @@ export default function TimeSlotsIndex() {
       <Head title="Time Slots" />
       <TopBar breadcrumb={['Live Host Desk', 'Time Slots']} actions={newSlotAction} />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               Time Slots
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -100,11 +100,11 @@ export default function TimeSlotsIndex() {
         )}
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <select
             value={platformAccount}
             onChange={(event) => setPlatformAccount(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All platform accounts</option>
             <option value="global">Global (All platforms)</option>
@@ -117,7 +117,7 @@ export default function TimeSlotsIndex() {
           <select
             value={dayOfWeek}
             onChange={(event) => setDayOfWeek(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All days</option>
             <option value="global">All Days (Global)</option>
@@ -130,7 +130,7 @@ export default function TimeSlotsIndex() {
           <select
             value={active}
             onChange={(event) => setActive(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">Any status</option>
             <option value="true">Active</option>
@@ -140,7 +140,7 @@ export default function TimeSlotsIndex() {
             <button
               type="button"
               onClick={clearFilters}
-              className="text-sm font-medium text-[#059669] hover:text-[#047857]"
+              className="w-full sm:w-auto text-sm font-medium text-[#059669] hover:text-[#047857]"
             >
               Clear
             </button>
@@ -165,7 +165,8 @@ export default function TimeSlotsIndex() {
               )}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Day</th>
@@ -259,6 +260,7 @@ export default function TimeSlotsIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

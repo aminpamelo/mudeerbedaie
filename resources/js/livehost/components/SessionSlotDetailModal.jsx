@@ -195,7 +195,7 @@ export default function SessionSlotDetailModal({
           </div>
 
           {/* Metadata grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DetailTile
               label="Creator account"
               value={sessionSlot.liveAccountLabel ?? '—'}
@@ -338,7 +338,7 @@ function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
         </div>
       )}
 
-      <div className="mt-3 grid grid-cols-3 gap-2.5">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <MiniTile label="GMV (net)" value={formatGmv(session.gmvNet)} />
 
         <div className="rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-2.5">

@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -22,6 +23,8 @@ import {
   LogOut,
   UserMinus,
   GraduationCap,
+  Menu,
+  X,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 import {
@@ -99,6 +102,10 @@ const NAV_ITEM_PERMISSION = {
   'reports.replacements': 'canSeeReports',
 };
 
+// Shared state so the TopBar hamburger (rendered per-page) and the off-canvas
+// drawer (rendered by the layout) can talk to each other on mobile.
+const MobileNavContext = createContext({ open: false, setOpen: () => {} });
+
 function canSeeNavItem(itemKey, permissions) {
   const flag = NAV_ITEM_PERMISSION[itemKey];
   if (flag === null || flag === undefined) return true;
@@ -126,7 +133,10 @@ function formatCount(value) {
   return new Intl.NumberFormat('en-US').format(value);
 }
 
-function Sidebar({ auth, brand, navCounts, currentUrl }) {
+// The full sidebar body (brand, search, nav, user footer). Rendered inside both
+// the desktop <aside> and the mobile off-canvas drawer, so it takes no layout
+// chrome of its own. `onNavigate` lets the drawer close itself on link taps.
+function SidebarContent({ auth, brand, navCounts, currentUrl, onNavigate = () => {} }) {
   const user = auth?.user;
   const permissions = auth?.permissions ?? {};
   const isImpersonating = Boolean(auth?.isImpersonating);
@@ -194,7 +204,7 @@ function Sidebar({ auth, brand, navCounts, currentUrl }) {
     .filter((group) => group.items.length > 0);
 
   return (
-    <aside className="sticky top-0 flex h-screen flex-col gap-7 border-r border-border-2 px-4 py-6">
+    <>
       {/* Brand */}
       <div className="flex items-center gap-[10px] px-2 py-1">
         {brandLogoUrl ? (
@@ -250,6 +260,7 @@ function Sidebar({ auth, brand, navCounts, currentUrl }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     'group relative flex items-center gap-[10px] rounded-lg px-3 py-2 text-[13.5px] font-medium transition-colors',
                     active
@@ -350,37 +361,108 @@ function Sidebar({ auth, brand, navCounts, currentUrl }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+    </>
+  );
+}
+
+// Desktop sidebar — visible from lg upward, occupies the first grid column.
+function DesktopSidebar(props) {
+  return (
+    <aside className="sticky top-0 hidden h-screen flex-col gap-7 border-r border-border-2 px-4 py-6 lg:flex">
+      <SidebarContent {...props} />
     </aside>
   );
 }
 
+// Mobile off-canvas drawer — a fixed overlay that slides the sidebar in from the
+// left over a dimmed backdrop. Kept mounted so open/close can animate.
+function MobileDrawer(props) {
+  const { open, setOpen } = useContext(MobileNavContext);
+
+  return (
+    <div
+      className={cn(
+        'fixed inset-0 z-[60] lg:hidden',
+        open ? 'pointer-events-auto' : 'pointer-events-none'
+      )}
+      aria-hidden={!open}
+      inert={!open}
+    >
+      {/* Backdrop */}
+      <div
+        onClick={() => setOpen(false)}
+        className={cn(
+          'absolute inset-0 bg-ink/40 backdrop-blur-sm transition-opacity duration-300',
+          open ? 'opacity-100' : 'opacity-0'
+        )}
+      />
+
+      {/* Panel */}
+      <aside
+        className={cn(
+          'absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col gap-7 border-r border-border-2 bg-canvas px-4 py-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)] transition-transform duration-300 ease-out',
+          open ? 'translate-x-0' : '-translate-x-full'
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation"
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink"
+          aria-label="Close navigation"
+        >
+          <X className="h-[16px] w-[16px]" strokeWidth={2} />
+        </button>
+        <SidebarContent {...props} onNavigate={() => setOpen(false)} />
+      </aside>
+    </div>
+  );
+}
+
 export function TopBar({ breadcrumb = [], actions = null }) {
+  const { setOpen } = useContext(MobileNavContext);
+
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between border-b border-border-2 px-8 py-4"
+      className="sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-border-2 px-4 py-3 sm:px-8 sm:py-4"
       style={{
         background: 'rgba(250,250,250,0.75)',
         backdropFilter: 'saturate(180%) blur(12px)',
         WebkitBackdropFilter: 'saturate(180%) blur(12px)',
       }}
     >
-      <nav className="flex items-center gap-2 text-[13px] font-medium text-muted" aria-label="Breadcrumb">
-        {breadcrumb.map((crumb, index) => {
-          const isLast = index === breadcrumb.length - 1;
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="-ml-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink lg:hidden"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" strokeWidth={2} />
+        </button>
+        <nav className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-muted" aria-label="Breadcrumb">
+          {breadcrumb.map((crumb, index) => {
+            const isLast = index === breadcrumb.length - 1;
 
-          return (
-            <span key={`${crumb}-${index}`} className="flex items-center gap-2">
-              {index > 0 && <span className="text-muted-2">/</span>}
-              {isLast ? (
-                <strong className="font-semibold text-ink">{crumb}</strong>
-              ) : (
-                <span>{crumb}</span>
-              )}
-            </span>
-          );
-        })}
-      </nav>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+            return (
+              <span
+                key={`${crumb}-${index}`}
+                className={cn('items-center gap-2', isLast ? 'flex min-w-0' : 'hidden sm:flex')}
+              >
+                {index > 0 && <span className="text-muted-2">/</span>}
+                {isLast ? (
+                  <strong className="truncate font-semibold text-ink">{crumb}</strong>
+                ) : (
+                  <span>{crumb}</span>
+                )}
+              </span>
+            );
+          })}
+        </nav>
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>
   );
 }
@@ -391,10 +473,50 @@ export default function LiveHostLayout({ children }) {
   const navCounts = props.navCounts ?? {};
   const brand = props.brand ?? {};
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close the drawer whenever the route changes (link taps, back/forward).
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [url]);
+
+  // Lock body scroll while the drawer is open so the page behind it stays put.
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+    const previous = document.body.style.overflow;
+    if (mobileNavOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileNavOpen]);
+
+  // Close on Escape for keyboard users.
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return undefined;
+    }
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
+
+  const sidebarProps = { auth, brand, navCounts, currentUrl: url };
+
   return (
-    <div className="grid min-h-screen grid-cols-[240px_1fr]">
-      <Sidebar auth={auth} brand={brand} navCounts={navCounts} currentUrl={url} />
-      <main className="flex min-w-0 flex-col">{children}</main>
-    </div>
+    <MobileNavContext.Provider value={{ open: mobileNavOpen, setOpen: setMobileNavOpen }}>
+      <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
+        <DesktopSidebar {...sidebarProps} />
+        <main className="flex min-w-0 flex-col">{children}</main>
+        <MobileDrawer {...sidebarProps} />
+      </div>
+    </MobileNavContext.Provider>
   );
 }

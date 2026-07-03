@@ -34,7 +34,7 @@ export default function ReportFilters({ filters, options, basePath }) {
 
   return (
     <div className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <DateRangePicker
           value={{ dateFrom: filters.dateFrom, dateTo: filters.dateTo }}
           onChange={apply}

@@ -92,7 +92,7 @@ export default function MenteeShow() {
         }
       />
 
-      <div className="space-y-6 p-8 pb-32">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8 pb-32">
         <div className="flex items-start justify-between gap-6 rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-4">
             <div className="grid h-16 w-16 place-items-center rounded-xl bg-gradient-to-br from-[#10B981] to-[#059669] text-2xl font-semibold tracking-[-0.02em] text-white">
@@ -120,7 +120,7 @@ export default function MenteeShow() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 border-b border-[#EAEAEA]">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-[#EAEAEA]">
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'kpis', label: 'KPIs' },
@@ -587,7 +587,7 @@ function ActionBar({ mentee, stages }) {
   if (mentee.status === 'graduated') {
     return (
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#C7D2FE] bg-[#EEF2FF]/95 backdrop-blur">
-        <div className="flex items-center gap-3 px-8 py-4">
+        <div className="flex items-center gap-3 px-4 sm:px-8 py-4">
           <div className="grid h-9 w-9 place-items-center rounded-full bg-[#4338CA] text-white"><GraduationCap className="h-5 w-5" strokeWidth={2.25} /></div>
           <div>
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-[#3730A3]">Graduated — now eligible to lead a program</div>
@@ -601,7 +601,7 @@ function ActionBar({ mentee, stages }) {
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#EAEAEA] bg-white/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-3 px-8 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 py-3">
           <div className="text-[12px] text-[#737373]">
             {isActive ? (
               <>On <span className="font-semibold text-[#0A0A0A]">{mentee.current_stage?.name ?? '—'}</span>{nextStage && (<>{' · next is '}<span className="font-semibold text-[#0A0A0A]">{nextStage.name}</span></>)}</>
@@ -610,7 +610,7 @@ function ActionBar({ mentee, stages }) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isDropped && (
               <Button type="button" disabled={busy || mentee.current_stage_id === null} onClick={restore} className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50">
                 <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />

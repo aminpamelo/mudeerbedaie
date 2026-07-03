@@ -72,7 +72,7 @@ export default function ActivityLogModal({ programId, mentees = null, presetMent
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-[12px] font-medium text-[#0A0A0A]">Type</Label>
               <select value={type} onChange={(e) => setType(e.target.value)} className="h-10 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20">

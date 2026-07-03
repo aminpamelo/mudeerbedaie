@@ -26,10 +26,10 @@ export default function SchedulerDashboard() {
       <Head title="Scheduler Dashboard" />
       <TopBar breadcrumb={['Live Host Desk', 'Scheduler']} actions={dashboardActions} />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               Hello, {firstName}
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">

@@ -498,11 +498,11 @@ export default function SessionSlotsCalendar() {
         actions={newSlotAction}
       />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex flex-wrap items-end justify-between gap-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A] sm:text-3xl">
               Session Calendar
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -538,12 +538,12 @@ export default function SessionSlotsCalendar() {
         )}
 
         {/* Filters + week nav */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3">
             <select
               value={host}
               onChange={(e) => setHost(e.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             >
               <option value="">All hosts</option>
               <option value="unassigned">Unassigned only</option>
@@ -556,7 +556,7 @@ export default function SessionSlotsCalendar() {
             <select
               value={liveAccount}
               onChange={(e) => setLiveAccount(e.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             >
               <option value="">All accounts</option>
               {liveAccounts.map((a) => (
@@ -568,7 +568,7 @@ export default function SessionSlotsCalendar() {
             <select
               value={platformAccount}
               onChange={(e) => setPlatformAccount(e.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             >
               <option value="">All shops</option>
               {platformAccounts.map((pa) => (
@@ -580,7 +580,7 @@ export default function SessionSlotsCalendar() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -591,7 +591,7 @@ export default function SessionSlotsCalendar() {
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             >
               <option value="">Template & dated</option>
               <option value="template">Weekly template</option>
@@ -599,11 +599,11 @@ export default function SessionSlotsCalendar() {
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
             <button
               type="button"
               onClick={() => goToWeek(addDays(weekStart, -7))}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#EAEAEA] text-[#525252] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#EAEAEA] text-[#525252] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
               title="Previous week"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={2} />
@@ -611,14 +611,14 @@ export default function SessionSlotsCalendar() {
             <button
               type="button"
               onClick={() => goToWeek(todayIso())}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3.5 text-[13px] font-medium tabular-nums text-[#0A0A0A] hover:bg-[#F5F5F5]"
+              className="h-9 flex-1 rounded-lg border border-[#EAEAEA] bg-white px-3.5 text-[13px] font-medium tabular-nums text-[#0A0A0A] hover:bg-[#F5F5F5] sm:flex-none"
             >
               {formatWeekLabel(weekStart, weekEnd)}
             </button>
             <button
               type="button"
               onClick={() => goToWeek(addDays(weekStart, 7))}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#EAEAEA] text-[#525252] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#EAEAEA] text-[#525252] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
               title="Next week"
             >
               <ChevronRight className="h-4 w-4" strokeWidth={2} />

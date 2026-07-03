@@ -33,7 +33,7 @@ export default function CoverageReport({ kpis, weeklyTrend, accountRows, filters
     <>
       <Head title="Schedule Coverage" />
       <TopBar breadcrumb={['Live Host Desk', 'Reports', 'Schedule Coverage']} />
-      <div className="space-y-7 p-8" data-accent="sky">
+      <div className="space-y-7 p-4 sm:p-6 lg:p-8" data-accent="sky">
         <header className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <Link
@@ -129,7 +129,8 @@ function AccountsTable({ rows, filters }) {
         <div className="label-eyebrow">By account</div>
         <div className="text-[11px] text-[var(--color-muted)]">{rows.length} account{rows.length === 1 ? '' : 's'}</div>
       </div>
-      <table className="reports-table">
+      <div className="overflow-x-auto">
+      <table className="reports-table min-w-[720px]">
         <thead>
           <tr>
             <th>Account</th>
@@ -166,6 +167,7 @@ function AccountsTable({ rows, filters }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

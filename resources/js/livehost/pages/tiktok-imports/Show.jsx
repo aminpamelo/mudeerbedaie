@@ -313,7 +313,8 @@ function UnmatchedReportsTable({ rows }) {
           All reports matched a live session — nothing left to reconcile.
         </div>
       ) : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
               <th className="px-5 py-3 text-left">Creator ID</th>
@@ -344,6 +345,7 @@ function UnmatchedReportsTable({ rows }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
@@ -418,7 +420,8 @@ function ProposedAdjustmentsTable({ rows }) {
           No proposed adjustments — refund reconciler found no actionable rows.
         </div>
       ) : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
               <th className="px-5 py-3 text-left">Session</th>
@@ -486,6 +489,7 @@ function ProposedAdjustmentsTable({ rows }) {
             })}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
@@ -585,7 +589,7 @@ export default function TiktokImportShow() {
         }
       />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         {flash?.error && (
           <div className="rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
             {flash.error}

@@ -93,7 +93,7 @@ export default function ApplicantShow() {
         }
       />
 
-      <div className="space-y-6 p-8 pb-32">
+      <div className="space-y-6 p-4 pb-32 sm:p-6 lg:p-8">
         {/* Header card */}
         <div className="flex items-start justify-between gap-6 rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-4">
@@ -243,7 +243,7 @@ function ApplicationTab({ applicant }) {
               .map((field) => (
                 <div
                   key={field.id}
-                  className="grid grid-cols-[160px_1fr] gap-3 px-4 py-3"
+                  className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-[160px_1fr]"
                 >
                   <dt className="text-[13px] font-medium text-[#525252]">
                     {field.label}
@@ -533,7 +533,7 @@ function ActionBar({ applicant, stages }) {
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#EAEAEA] bg-white/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-3 px-8 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
           <div className="text-[12px] text-[#737373]">
             {isActive ? (
               <>
@@ -550,7 +550,7 @@ function ActionBar({ applicant, stages }) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isRejected && (
               <Button
                 type="button"
@@ -813,7 +813,7 @@ function HiredPanel({ applicant }) {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#D1FAE5] bg-[#ECFDF5]/95 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-8 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-8">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-full bg-[#10B981] text-white">
             <BadgeCheck className="h-5 w-5" strokeWidth={2.25} />

@@ -157,7 +157,7 @@ export default function HostShow() {
         }
       />
 
-      <div className="p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Hero block */}
         <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 flex items-center gap-6">
           <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#10B981] to-[#059669] text-white grid place-items-center font-semibold text-2xl tracking-[-0.02em]">
@@ -197,7 +197,7 @@ export default function HostShow() {
         {activeTab === 'overview' && (
           <>
             {/* Stats row */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatTile label="Total sessions" value={stats.totalSessions} />
               <StatTile label="Completed" value={stats.completedSessions} />
               <StatTile label="Platform accounts" value={stats.platformAccounts} />
@@ -205,8 +205,8 @@ export default function HostShow() {
             </div>
 
             {/* Grid: platforms + sessions */}
-            <div className="grid grid-cols-12 gap-4">
-              <div className="col-span-5 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-5 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
                 <div className="font-semibold text-[15px] tracking-[-0.015em] mb-3">Platform accounts</div>
                 {platformAccounts.length === 0 ? (
                   <div className="text-sm text-[#737373] py-6 text-center">No platform accounts assigned.</div>
@@ -227,7 +227,7 @@ export default function HostShow() {
                 )}
               </div>
 
-              <div className="col-span-7 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
+              <div className="lg:col-span-7 bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
                 <div className="font-semibold text-[15px] tracking-[-0.015em] mb-3">Recent sessions</div>
                 {recentSessions.length === 0 ? (
                   <div className="text-sm text-[#737373] py-6 text-center">No sessions yet.</div>
@@ -801,7 +801,7 @@ function CommissionPanel({
         }
       >
         <div className="p-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="relative" ref={uplineRef}>
             <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
               Upline (optional)
@@ -1208,7 +1208,7 @@ function MonthlyProjection({ baseSalary, perLiveRate, commissionTiers, formatMon
         </div>
       </header>
 
-      <div className="grid grid-cols-[1fr_1px_1fr] gap-5 px-5 py-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1px_1fr] gap-5 px-5 py-5">
         <ProjectionInput
           label="Live sessions"
           hint="completed this period"

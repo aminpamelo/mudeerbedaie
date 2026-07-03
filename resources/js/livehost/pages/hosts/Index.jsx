@@ -76,10 +76,10 @@ export default function HostsIndex() {
         actions={newHostAction}
       />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               Live Hosts
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -89,8 +89,8 @@ export default function HostsIndex() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="relative max-w-md flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="relative w-full sm:max-w-md sm:flex-1">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#737373]"
               strokeWidth={2}
@@ -105,7 +105,7 @@ export default function HostsIndex() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -115,7 +115,7 @@ export default function HostsIndex() {
           <select
             value={hasUpline}
             onChange={(event) => setHasUpline(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">Any commission plan</option>
             <option value="has_upline">Has upline</option>
@@ -140,7 +140,8 @@ export default function HostsIndex() {
               )}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Host</th>
@@ -231,6 +232,7 @@ export default function HostsIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

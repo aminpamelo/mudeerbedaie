@@ -46,7 +46,7 @@ export default function ReplacementsReport({ kpis, trend, topRequesters, topCove
     <>
       <Head title="Replacement Activity" />
       <TopBar breadcrumb={['Live Host Desk', 'Reports', 'Replacement Activity']} />
-      <div className="space-y-7 p-8" data-accent="violet">
+      <div className="space-y-7 p-4 sm:p-6 lg:p-8" data-accent="violet">
         <header className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <Link
@@ -175,6 +175,7 @@ function CoverersTable({ rows }) {
       {rows.length === 0 ? (
         <div className="p-10 text-center text-sm text-[var(--color-muted)]">No fulfilled replacements in this range.</div>
       ) : (
+        <div className="overflow-x-auto">
         <table className="reports-table">
           <thead>
             <tr>
@@ -193,6 +194,7 @@ function CoverersTable({ rows }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

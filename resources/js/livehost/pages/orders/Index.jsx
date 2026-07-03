@@ -167,10 +167,10 @@ export default function PlatformOrdersIndex() {
       <Head title="Platform Orders" />
       <TopBar breadcrumb={['Live Host Desk', 'Platform Orders']} />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="flex items-center gap-2.5 text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="flex items-center gap-2.5 text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               <ShoppingBag className="h-7 w-7 text-[#404040]" strokeWidth={2} />
               Platform Orders
             </h1>
@@ -211,8 +211,8 @@ export default function PlatformOrdersIndex() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="relative max-w-md flex-1 min-w-[220px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="relative w-full sm:max-w-md sm:flex-1 min-w-[220px]">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#737373]"
               strokeWidth={2}
@@ -238,7 +238,7 @@ export default function PlatformOrdersIndex() {
               setShop(next);
               applyFilters({ shop: next });
             }}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All shops</option>
             {(shops ?? []).map((s) => (
@@ -247,7 +247,7 @@ export default function PlatformOrdersIndex() {
               </option>
             ))}
           </select>
-          <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 text-[12.5px] text-[#0A0A0A]">
+          <label className="inline-flex h-9 w-full sm:w-auto items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 text-[12.5px] text-[#0A0A0A]">
             <input
               type="checkbox"
               checked={unmatched}
@@ -264,7 +264,7 @@ export default function PlatformOrdersIndex() {
             variant="outline"
             size="sm"
             onClick={() => applyFilters()}
-            className="border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
+            className="w-full sm:w-auto border-[#EAEAEA] bg-white text-[#0A0A0A] hover:bg-[#F5F5F5] shadow-none focus-visible:border-[#EAEAEA] focus-visible:ring-2 focus-visible:ring-[#10B981]/20"
           >
             Apply
           </Button>
@@ -296,7 +296,8 @@ export default function PlatformOrdersIndex() {
               )}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
                   <th className="px-5 py-3 text-left">Order</th>
@@ -364,6 +365,7 @@ export default function PlatformOrdersIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

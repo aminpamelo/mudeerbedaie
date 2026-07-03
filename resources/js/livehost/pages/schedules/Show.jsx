@@ -88,7 +88,7 @@ export default function SchedulesShow() {
         }
       />
 
-      <div className="p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Hero block */}
         <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 flex items-start gap-6">
           <span
@@ -127,7 +127,7 @@ export default function SchedulesShow() {
         </div>
 
         {/* Metadata row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <InfoTile label="Host" value={schedule.hostName ?? 'Unassigned'} />
           <InfoTile label="Platform account" value={schedule.platformAccount ?? '—'} />
           <InfoTile
@@ -176,7 +176,7 @@ export default function SchedulesShow() {
 
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
-          <div className="bg-white rounded-[16px] p-6 max-w-md shadow-lg">
+          <div className="bg-white rounded-[16px] p-6 max-w-[calc(100vw-2rem)] sm:max-w-md shadow-lg">
             <div className="font-semibold text-lg mb-2 tracking-[-0.02em]">Delete schedule?</div>
             <p className="text-sm text-[#737373] mb-4">
               This removes the {DAY_NAMES[schedule.dayOfWeek]} {schedule.startTime}–

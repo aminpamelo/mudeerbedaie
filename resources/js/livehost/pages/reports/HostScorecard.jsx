@@ -20,7 +20,7 @@ export default function HostScorecard({ kpis, rows, trend, filters, filterOption
     <>
       <Head title="Host Scorecard" />
       <TopBar breadcrumb={['Live Host Desk', 'Reports', 'Host Scorecard']} />
-      <div className="space-y-7 p-8" data-accent="emerald">
+      <div className="space-y-7 p-4 sm:p-6 lg:p-8" data-accent="emerald">
         <header className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <Link
@@ -102,7 +102,8 @@ function ScorecardTable({ rows }) {
         <div className="label-eyebrow">By host · sorted by GMV</div>
         <div className="text-[11px] text-[var(--color-muted)]">{rows.length} host{rows.length === 1 ? '' : 's'}</div>
       </div>
-      <table className="reports-table">
+      <div className="overflow-x-auto">
+      <table className="reports-table min-w-[720px]">
         <thead>
           <tr>
             <th>Host</th>
@@ -134,6 +135,7 @@ function ScorecardTable({ rows }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

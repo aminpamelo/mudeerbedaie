@@ -210,9 +210,9 @@ export default function LevelsIndex() {
         }
       />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div>
-          <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">Performance levels</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">Performance levels</h1>
           <p className="mt-1.5 text-sm text-[#737373]">
             Customize the ladder mentees climb. Lower position = entry level; the top-host level is the graduation target.
             Thresholds drive the auto-suggested level on each mentee.
@@ -223,7 +223,8 @@ export default function LevelsIndex() {
           {sorted.length === 0 ? (
             <div className="py-16 text-center text-sm text-[#737373]">No levels yet. Add your first level.</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="w-20 px-3 py-3 text-left">Order</th>
@@ -293,6 +294,7 @@ export default function LevelsIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

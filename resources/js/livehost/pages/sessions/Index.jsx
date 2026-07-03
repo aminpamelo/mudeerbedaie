@@ -201,10 +201,10 @@ export default function SessionsIndex() {
       <Head title="Live Sessions" />
       <TopBar breadcrumb={['Live Host Desk', 'Live Sessions']} />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               Live Sessions
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -247,11 +247,11 @@ export default function SessionsIndex() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -262,7 +262,7 @@ export default function SessionsIndex() {
           <select
             value={platformAccount}
             onChange={(event) => setPlatformAccount(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
           >
             <option value="">All platform accounts</option>
             {platformAccounts.map((pa) => (
@@ -274,7 +274,7 @@ export default function SessionsIndex() {
           <select
             value={host}
             onChange={(event) => setHost(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
           >
             <option value="">All hosts</option>
             {hosts.map((h) => (
@@ -283,7 +283,7 @@ export default function SessionsIndex() {
               </option>
             ))}
           </select>
-          <div className="inline-flex items-center gap-1.5">
+          <div className="flex w-full flex-wrap items-center gap-1.5 sm:inline-flex sm:w-auto sm:flex-nowrap">
             <label className="text-xs font-medium text-[#737373]" htmlFor="session-date-from">
               From
             </label>
@@ -292,7 +292,7 @@ export default function SessionsIndex() {
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             />
             <label className="ml-1 text-xs font-medium text-[#737373]" htmlFor="session-date-to">
               To
@@ -302,14 +302,14 @@ export default function SessionsIndex() {
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             />
           </div>
           {hasFilters && (
             <button
               type="button"
               onClick={clearFilters}
-              className="text-sm font-medium text-[#059669] hover:text-[#047857]"
+              className="w-full text-sm font-medium text-[#059669] hover:text-[#047857] sm:w-auto"
             >
               Clear
             </button>
@@ -336,7 +336,8 @@ export default function SessionsIndex() {
               )}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Session ID</th>
@@ -439,6 +440,7 @@ export default function SessionsIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

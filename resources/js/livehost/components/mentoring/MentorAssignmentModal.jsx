@@ -217,7 +217,7 @@ export default function MentorAssignmentModal({ mentee, stages, assignableMentor
           <Link href={`/livehost/mentoring/mentees/${mentee.id}`} className="text-[12.5px] font-medium text-[#0A0A0A] underline-offset-2 hover:underline">
             Open full profile
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={drop} className="inline-flex items-center gap-1 rounded-md border border-[#FCA5A5] bg-white px-2.5 py-1.5 text-[12.5px] font-medium text-[#B91C1C] hover:bg-[#FEF2F2]">
               <XCircle className="h-3.5 w-3.5" strokeWidth={2} />
               Drop

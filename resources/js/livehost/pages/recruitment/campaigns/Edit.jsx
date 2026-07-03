@@ -108,7 +108,7 @@ export default function CampaignEdit() {
         }
       />
 
-      <div className="space-y-6 p-8 pb-24">
+      <div className="space-y-6 p-4 pb-24 sm:p-6 lg:p-8">
         {/* ───────────────────── Hero ───────────────────── */}
         <section className="relative overflow-hidden rounded-[20px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {/* atmospheric corner glow */}
@@ -739,7 +739,7 @@ function StageEditor({ campaign, stages: initialStages }) {
                 >
                   {isEditing ? (
                     <div className="space-y-3 p-4">
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="col-span-2">
                           <Label className="text-[12px] font-medium text-[#0A0A0A]">Name</Label>
                           <Input
@@ -896,7 +896,7 @@ function StageEditor({ campaign, stages: initialStages }) {
                   </div>
                   <span className="text-[12.5px] font-semibold text-[#0A0A0A]">New stage</span>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="col-span-2">
                     <Label className="text-[12px] font-medium text-[#0A0A0A]">Name</Label>
                     <Input

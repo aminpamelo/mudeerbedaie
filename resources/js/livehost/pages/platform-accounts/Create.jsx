@@ -47,9 +47,9 @@ export default function PlatformAccountCreate() {
         }
       />
 
-      <div className="p-8 max-w-3xl">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">
             New platform account
           </h1>
           <p className="text-[#737373] mt-1.5 text-sm">
@@ -71,7 +71,7 @@ export default function PlatformAccountCreate() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Platform" error={form.errors.platform_id}>
               <select
                 name="platform_id"
@@ -128,7 +128,7 @@ export default function PlatformAccountCreate() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Country code" error={form.errors.country_code} hint="2-letter ISO, e.g. MY.">
               <Input
                 name="country_code"

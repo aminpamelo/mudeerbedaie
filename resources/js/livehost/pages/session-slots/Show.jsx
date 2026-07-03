@@ -63,7 +63,7 @@ export default function SessionSlotsShow() {
       <TopBar
         breadcrumb={['Live Host Desk', 'Session Slots', `#${sessionSlot.id}`]}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link href="/livehost/session-slots">
               <Button variant="ghost" className="gap-1.5 text-[#737373] hover:text-[#0A0A0A]">
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -87,7 +87,7 @@ export default function SessionSlotsShow() {
         }
       />
 
-      <div className="p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Hero block */}
         <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 flex items-start gap-6">
           <span
@@ -131,7 +131,7 @@ export default function SessionSlotsShow() {
         </div>
 
         {/* Metadata row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <InfoTile label="Host" value={sessionSlot.hostName ?? 'Unassigned'} hint={sessionSlot.hostEmail} />
           <InfoTile
             label="Platform account"
@@ -145,7 +145,7 @@ export default function SessionSlotsShow() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <InfoTile label="Created by" value={sessionSlot.createdByName ?? '—'} />
           <InfoTile
             label="Last updated"

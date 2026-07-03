@@ -213,10 +213,10 @@ export default function SessionsData() {
       <Head title="Session Data" />
       <TopBar breadcrumb={['Live Host Desk', 'Session Data']} />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               Session Data
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -265,8 +265,8 @@ export default function SessionsData() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="relative min-w-[220px] flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="relative w-full min-w-[220px] flex-1 sm:w-auto">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#A3A3A3]"
               strokeWidth={2}
@@ -279,7 +279,7 @@ export default function SessionsData() {
               className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-sm text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             />
           </div>
-          <div className="w-[150px]">
+          <div className="w-full sm:w-[150px]">
             <SearchableSelect
               value={host}
               onChange={setHost}
@@ -288,7 +288,7 @@ export default function SessionsData() {
               searchPlaceholder="Search hosts…"
             />
           </div>
-          <div className="w-[170px]">
+          <div className="w-full sm:w-[170px]">
             <SearchableSelect
               value={platformAccount}
               onChange={setPlatformAccount}
@@ -297,7 +297,7 @@ export default function SessionsData() {
               searchPlaceholder="Search accounts…"
             />
           </div>
-          <div className="w-[170px]">
+          <div className="w-full sm:w-[170px]">
             <SearchableSelect
               value={liveAccount}
               onChange={setLiveAccount}
@@ -309,7 +309,7 @@ export default function SessionsData() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -320,7 +320,7 @@ export default function SessionsData() {
           <select
             value={link}
             onChange={(event) => setLink(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
           >
             {LINK_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -328,7 +328,7 @@ export default function SessionsData() {
               </option>
             ))}
           </select>
-          <div className="inline-flex items-center gap-1.5">
+          <div className="flex w-full flex-wrap items-center gap-1.5 sm:inline-flex sm:w-auto sm:flex-nowrap">
             <label className="text-xs font-medium text-[#737373]" htmlFor="session-data-from">
               From
             </label>
@@ -337,7 +337,7 @@ export default function SessionsData() {
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             />
             <label className="ml-1 text-xs font-medium text-[#737373]" htmlFor="session-data-to">
               To
@@ -347,10 +347,10 @@ export default function SessionsData() {
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
             />
           </div>
-          <div className="inline-flex items-center gap-1.5">
+          <div className="flex w-full flex-wrap items-center gap-1.5 sm:inline-flex sm:w-auto sm:flex-nowrap">
             <label className="text-xs font-medium text-[#737373]" htmlFor="session-data-min-gmv">
               Min GMV
             </label>
@@ -370,7 +370,7 @@ export default function SessionsData() {
             <button
               type="button"
               onClick={clearFilters}
-              className="text-sm font-medium text-[#059669] hover:text-[#047857]"
+              className="w-full text-sm font-medium text-[#059669] hover:text-[#047857] sm:w-auto"
             >
               Clear
             </button>

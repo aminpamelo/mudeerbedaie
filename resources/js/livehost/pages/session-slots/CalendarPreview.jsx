@@ -557,9 +557,9 @@ export default function CalendarPreview() {
       <Head title="Calendar Layout Preview" />
       <TopBar breadcrumb={['Live Host Desk', 'Session Slots', 'Preview']} />
 
-      <div className="space-y-10 p-8">
+      <div className="space-y-10 p-4 sm:p-6 lg:p-8">
         <header>
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-[#0A0A0A]">
             Multi-Account Calendar Preview
           </h1>
           <p className="mt-1.5 max-w-3xl text-sm text-[#737373]">

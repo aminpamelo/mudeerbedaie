@@ -36,9 +36,9 @@ export default function HostCreate() {
         }
       />
 
-      <div className="p-8 max-w-3xl">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">New live host</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">New live host</h1>
           <p className="text-[#737373] mt-1.5 text-sm">Create a profile for a live streaming host on your team.</p>
         </div>
 
@@ -62,7 +62,7 @@ export default function HostCreate() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Email" error={form.errors.email}>
               <Input
                 type="email"

@@ -176,9 +176,9 @@ export default function Index() {
       <Head title="Permohonan ganti" />
       <TopBar breadcrumb={['Live Host Desk', 'Permohonan ganti']} />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div>
-          <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
             Permohonan ganti
           </h1>
           <p className="mt-1.5 text-sm text-[#737373]">
@@ -302,7 +302,8 @@ export default function Index() {
               </div>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Hos</th>
@@ -371,7 +372,8 @@ export default function Index() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </div>
       </div>

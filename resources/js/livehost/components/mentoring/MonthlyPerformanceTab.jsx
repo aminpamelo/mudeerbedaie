@@ -333,7 +333,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
 
   if (mentees.length === 0) {
     return (
-      <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col items-center gap-4 py-10 text-center">
           <p className="text-[13px] text-[#737373]">No mentees to evaluate yet. Enrol a host to start tracking their performance.</p>
           <Button type="button" size="sm" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 bg-[#10B981] text-white hover:bg-[#059669]">
@@ -346,7 +346,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
   }
 
   return (
-    <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+    <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -367,9 +367,9 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
       </div>
 
       {/* Controls */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <MonthFilter performance={performance} />
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {expanded.size > 0 && (
             <div className="inline-flex h-9 items-center rounded-lg border border-[#EAEAEA] bg-white p-0.5 text-[12px] font-medium">
               <button type="button" onClick={() => setView('dots')} className={`rounded-md px-2.5 py-1 transition-colors ${dayView === 'dots' ? 'bg-[#0A0A0A] text-white' : 'text-[#525252] hover:bg-[#F5F5F5]'}`}>Dots</button>
@@ -383,7 +383,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
           >
             <Layers className="h-3.5 w-3.5" strokeWidth={2} /> Group by PIC
           </button>
-          <div className="relative w-[200px]">
+          <div className="relative w-full sm:w-[200px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#A3A3A3]" strokeWidth={2} />
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search host name…" className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-[13px] text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
           </div>

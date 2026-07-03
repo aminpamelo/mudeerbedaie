@@ -201,7 +201,7 @@ export default function CommissionTierTable({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full min-w-[720px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-[#F0F0F0] bg-[#FAFAFA] text-left text-[11px] font-medium uppercase tracking-[0.06em] text-[#737373]">
                 <th className="w-[56px] px-5 py-2.5">Tier</th>

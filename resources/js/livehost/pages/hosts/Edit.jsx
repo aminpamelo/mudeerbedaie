@@ -37,9 +37,9 @@ export default function HostEdit() {
         }
       />
 
-      <div className="p-8 max-w-3xl">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">Edit host</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">Edit host</h1>
           <p className="text-[#737373] mt-1.5 text-sm">Update {host.name}'s profile.</p>
         </div>
 
@@ -56,7 +56,7 @@ export default function HostEdit() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Email" error={form.errors.email}>
               <Input
                 name="email"
@@ -75,7 +75,7 @@ export default function HostEdit() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Status" error={form.errors.status}>
               <select
                 name="status"
@@ -106,7 +106,7 @@ export default function HostEdit() {
             <p className="mt-0.5 mb-3 text-xs text-[#737373]">
               Set a new password for this host. Leave blank to keep their current password.
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="New password" error={form.errors.password}>
                 <Input
                   type="password"

@@ -274,9 +274,9 @@ export default function CreatorsIndex() {
       <Head title="Creators · Live Host Desk" />
       <TopBar breadcrumb={['Live Host Desk', 'Creators']} actions={newAction} />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div>
-          <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+          <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
             Creators
           </h1>
           <p className="mt-1.5 text-sm text-[#737373]">
@@ -297,8 +297,8 @@ export default function CreatorsIndex() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="relative max-w-md flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="relative w-full sm:max-w-md sm:flex-1">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#737373]"
               strokeWidth={2}
@@ -335,7 +335,8 @@ export default function CreatorsIndex() {
                     {group.creators.length} creator{group.creators.length === 1 ? '' : 's'}
                   </div>
                 </div>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                       <th className="px-5 py-3 text-left">Host</th>
@@ -410,6 +411,7 @@ export default function CreatorsIndex() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))}
           </div>

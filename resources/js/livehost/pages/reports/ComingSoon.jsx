@@ -6,7 +6,7 @@ export default function ComingSoon({ title, href }) {
     <>
       <Head title={`${title} — Coming soon`} />
       <TopBar breadcrumb={['Live Host Desk', 'Reports', title]} />
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-4 sm:p-6 lg:p-8 text-center">
         <h1 className="text-xl font-semibold">{title} report</h1>
         <p className="text-sm text-muted-foreground">This report is on the roadmap.</p>
         <Link href={href} className="text-sm underline">← Back to Reports</Link>

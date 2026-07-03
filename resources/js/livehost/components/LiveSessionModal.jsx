@@ -390,7 +390,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
                 />
               </ModalField>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <ModalField label="Host" error={form.errors.live_host_id}>
                   <ModalSelect
                     value={form.data.live_host_id}
@@ -444,7 +444,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
                 />
               </ModalField>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <ModalField label="Actual start" error={form.errors.actual_start_at}>
                   <Input
                     type="datetime-local"
@@ -487,7 +487,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
             </Fieldset>
 
             <Fieldset title="Analytics">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <AnalyticsField
                   label="Peak viewers"
                   value={form.data.analytics.viewers_peak}
@@ -577,7 +577,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
               <p className="text-[13px] leading-relaxed text-[#404040]">{session.description}</p>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <InfoRow label="Host" value={session.hostName ?? 'Unassigned'} />
               <InfoRow label="Host email" value={session.hostEmail ?? '—'} />
               <InfoRow label="Scheduled" value={formatDateTime(session.scheduledStart)} />

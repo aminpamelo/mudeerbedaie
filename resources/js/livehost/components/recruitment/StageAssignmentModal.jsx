@@ -212,7 +212,7 @@ export default function StageAssignmentModal({
           >
             Open full profile
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={reject}

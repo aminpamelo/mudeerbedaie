@@ -235,10 +235,10 @@ export default function CommissionIndex() {
         }
       />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
               Commission Overview
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -263,7 +263,8 @@ export default function CommissionIndex() {
           {hosts.length === 0 ? (
             <div className="py-16 text-center text-sm text-[#737373]">No live hosts yet.</div>
           ) : (
-            <table className="w-full text-sm table-fixed">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm table-fixed">
               <colgroup>
                 <col style={{ width: '32%' }} />
                 <col style={{ width: '14%' }} />
@@ -343,6 +344,7 @@ export default function CommissionIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

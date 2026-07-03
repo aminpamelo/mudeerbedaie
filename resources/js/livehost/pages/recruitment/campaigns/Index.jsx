@@ -112,10 +112,10 @@ export default function CampaignsIndex() {
         actions={newCampaignAction}
       />
 
-      <div className="space-y-6 p-8">
-        <div className="flex flex-wrap items-end justify-between gap-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
+            <h1 className="text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A] sm:text-3xl">
               Recruitment Campaigns
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
@@ -136,7 +136,8 @@ export default function CampaignsIndex() {
               </Link>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Title</th>
@@ -288,6 +289,7 @@ export default function CampaignsIndex() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

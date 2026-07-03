@@ -379,7 +379,7 @@ export default function SessionSlotFormModal({
             </ModalSelect>
           </ModalField>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ModalField label="Day of week" error={form.errors.day_of_week} required>
               <ModalSelect
                 value={form.data.day_of_week}
