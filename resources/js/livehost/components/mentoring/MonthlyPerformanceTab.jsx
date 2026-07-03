@@ -14,12 +14,14 @@ import {
   Search,
   ShieldAlert,
   UserCog,
+  UserPlus,
   Video,
   X,
 } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 import DailyLogModal from '@/livehost/components/mentoring/DailyLogModal';
 import DisciplinaryModal, { categoryLabel, severityTone } from '@/livehost/components/mentoring/DisciplinaryModal';
+import EnrollMenteeModal from '@/livehost/components/mentoring/EnrollMenteeModal';
 import MonthDetailModal from '@/livehost/components/mentoring/MonthDetailModal';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -217,7 +219,7 @@ function MonthFilter({ performance }) {
 
 /* ---------------- Main tab ---------------- */
 
-export default function MonthlyPerformanceTab({ performance, program }) {
+export default function MonthlyPerformanceTab({ performance, program, board }) {
   const months = performance?.months ?? [];
   const mentees = performance?.mentees ?? [];
   const pics = performance?.pics ?? [];
@@ -230,6 +232,19 @@ export default function MonthlyPerformanceTab({ performance, program }) {
   const [matrices, setMatrices] = useState({}); // monthValue -> { loading, byMentee }
   const [popover, setPopover] = useState(null); // { type, menteeId, anchor }
   const [modal, setModal] = useState(null); // { type, mentee, month, day, presetDate }
+  const [enrolling, setEnrolling] = useState(false);
+
+  // Enrolling here refreshes the performance grid (new host row) and the board
+  // prop that feeds the enrollable-hosts list, so a second enrol excludes them.
+  const enrollModal = enrolling && program && (
+    <EnrollMenteeModal
+      program={program}
+      enrollableHosts={board?.enrollableHosts ?? []}
+      assignableMentors={board?.assignableMentors ?? []}
+      reloadOnly={['performance', 'board']}
+      onClose={() => setEnrolling(false)}
+    />
+  );
 
   const currentMonthValue = useMemo(() => {
     const d = new Date();
@@ -319,7 +334,13 @@ export default function MonthlyPerformanceTab({ performance, program }) {
   if (mentees.length === 0) {
     return (
       <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="py-10 text-center text-[13px] text-[#737373]">No mentees to evaluate yet. Enrol mentees first.</div>
+        <div className="flex flex-col items-center gap-4 py-10 text-center">
+          <p className="text-[13px] text-[#737373]">No mentees to evaluate yet. Enrol a host to start tracking their performance.</p>
+          <Button type="button" size="sm" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 bg-[#10B981] text-white hover:bg-[#059669]">
+            <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol host
+          </Button>
+        </div>
+        {enrollModal}
       </section>
     );
   }
@@ -335,9 +356,14 @@ export default function MonthlyPerformanceTab({ performance, program }) {
             <p className="mt-0.5 text-[12px] text-[#737373]">Sales auto-sum from daily live-session GMV. Expand a month <span className="font-medium text-[#525252]">(▸)</span> to see every day; click a day to log its sales &amp; comment. Click a month to set attitude.</p>
           </div>
         </div>
-        <Button type="button" size="sm" onClick={() => setModal({ type: 'dailyLog' })} className="h-9 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]">
-          <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.25} /> Daily log
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 rounded-lg border-[#A7F3D0] bg-white text-[#047857] shadow-none hover:bg-[#ECFDF5] focus-visible:ring-2 focus-visible:ring-[#10B981]/20">
+            <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol host
+          </Button>
+          <Button type="button" size="sm" onClick={() => setModal({ type: 'dailyLog' })} className="h-9 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]">
+            <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.25} /> Daily log
+          </Button>
+        </div>
       </div>
 
       {/* Controls */}
@@ -569,6 +595,7 @@ export default function MonthlyPerformanceTab({ performance, program }) {
       )}
       {modal?.type === 'dailyLog' && <DailyLogModal program={program} onClose={() => setModal(null)} />}
       {modal?.type === 'disciplinary' && <DisciplinaryModal mentee={modal.mentee} presetDate={modal.presetDate ?? null} reloadOnly={['performance']} onClose={() => { setModal(null); refreshExpandedMatrices(); }} />}
+      {enrollModal}
     </section>
   );
 }

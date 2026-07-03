@@ -232,7 +232,7 @@ export default function ProgramEdit() {
         {activeTab === 'stages' && <StageEditor program={program} stages={stages} />}
         {activeTab === 'checklist' && <ChecklistOverview program={program} form={form} />}
         {activeTab === 'activity' && <ActivitiesSection program={program} activities={activities} mentees={mentees} />}
-        {activeTab === 'performance' && <MonthlyPerformanceTab performance={performance} program={program} />}
+        {activeTab === 'performance' && <MonthlyPerformanceTab performance={performance} program={program} board={board} />}
 
         {form.isDirty && (
           <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
