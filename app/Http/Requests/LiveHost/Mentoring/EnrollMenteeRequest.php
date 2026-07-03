@@ -23,7 +23,7 @@ class EnrollMenteeRequest extends FormRequest
         return [
             'mentee_user_id' => [
                 'required',
-                Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'live_host')),
+                Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['live_host', 'livehost_assistant'])),
             ],
             'mentor_user_id' => [
                 'nullable',
@@ -38,7 +38,7 @@ class EnrollMenteeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'mentee_user_id.exists' => 'The mentee must be an existing live host.',
+            'mentee_user_id.exists' => 'The mentee must be an existing live host or live host assistant.',
             'mentor_user_id.exists' => 'The mentor must be an existing live host.',
         ];
     }

@@ -146,3 +146,21 @@ it('exposes the mentee board on the program editor', function () {
             ->has('board.enrollableHosts')
         );
 });
+
+it('lists live hosts and assistants as enrollable, hosts first', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    User::factory()->create(['role' => 'live_host', 'name' => 'Zara Host']);
+    User::factory()->create(['role' => 'livehost_assistant', 'name' => 'Aaron Assistant']);
+
+    $this->actingAs(mentoringPic())
+        ->get("/livehost/mentoring/programs/{$program->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('board.enrollableHosts', 2)
+            // Live host is ordered ahead of the assistant despite the name sort.
+            ->where('board.enrollableHosts.0.name', 'Zara Host')
+            ->where('board.enrollableHosts.0.is_assistant', false)
+            ->where('board.enrollableHosts.1.name', 'Aaron Assistant')
+            ->where('board.enrollableHosts.1.is_assistant', true)
+        );
+});

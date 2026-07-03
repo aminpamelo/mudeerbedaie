@@ -104,8 +104,10 @@ class MenteeBoardPresenter
     }
 
     /**
-     * Live hosts not currently an active mentee anywhere — enforces the
-     * "one active program at a time" rule at the enrollment picker.
+     * Live hosts and live host assistants (part-time hosts) not currently an
+     * active mentee anywhere — enforces the "one active program at a time" rule
+     * at the enrollment picker. Each entry carries its role so the picker can
+     * group full hosts apart from assistants.
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -117,14 +119,17 @@ class MenteeBoardPresenter
             ->all();
 
         return User::query()
-            ->where('role', 'live_host')
+            ->whereIn('role', ['live_host', 'livehost_assistant'])
             ->whereNotIn('id', $activeMenteeUserIds)
+            ->orderByRaw("CASE WHEN role = 'live_host' THEN 0 ELSE 1 END")
             ->orderBy('name')
-            ->get(['id', 'name', 'email'])
+            ->get(['id', 'name', 'email', 'role'])
             ->map(fn (User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
+                'role' => $u->role,
+                'is_assistant' => $u->role === 'livehost_assistant',
                 'initials' => self::initials($u->name),
             ])
             ->values();

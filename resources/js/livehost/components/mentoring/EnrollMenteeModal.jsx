@@ -1,7 +1,8 @@
 import { router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { UserPlus, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
+import SearchableSelect from '@/livehost/components/SearchableSelect';
 
 /**
  * Enrol an existing live host into a mentoring program. Shared by the Mentee
@@ -16,6 +17,22 @@ export default function EnrollMenteeModal({ program, enrollableHosts, assignable
   const [mentorId, setMentorId] = useState('');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Group full live hosts apart from part-time assistants so the picker makes
+  // the distinction obvious. The backend already orders hosts before assistants,
+  // so the group headers land in the right order.
+  const hostOptions = useMemo(
+    () =>
+      (enrollableHosts ?? []).map((u) => ({
+        value: String(u.id),
+        label: u.name,
+        hint: u.email,
+        keywords: u.email,
+        group: u.is_assistant ? 'Live Host Assistants' : 'Live Hosts',
+        avatar: { initials: u.initials },
+      })),
+    [enrollableHosts],
+  );
 
   const submit = () => {
     setBusy(true);
@@ -58,12 +75,14 @@ export default function EnrollMenteeModal({ program, enrollableHosts, assignable
                 No available hosts — everyone is already in a program.
               </div>
             ) : (
-              <select value={menteeId} onChange={(e) => setMenteeId(e.target.value)} className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20">
-                <option value="">— Select a host —</option>
-                {enrollableHosts.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} · {u.email}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={menteeId}
+                onChange={setMenteeId}
+                options={hostOptions}
+                placeholder="— Select a host —"
+                searchPlaceholder="Search by name or email…"
+                emptyLabel="No matching host"
+              />
             )}
             {errors.mentee_user_id && <p className="mt-1 text-xs text-[#F43F5E]">{errors.mentee_user_id}</p>}
           </div>
