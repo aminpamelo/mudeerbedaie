@@ -1,7 +1,12 @@
 <?php
 
+use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeMonthlyScore;
+use App\Models\LiveHostMentoringLevel;
+use App\Models\LiveHostMentoringProgram;
 use App\Models\LiveSession;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
 use function Pest\Laravel\actingAs;
@@ -9,6 +14,44 @@ use function Pest\Laravel\actingAs;
 beforeEach(function () {
     $this->host = User::factory()->create(['role' => 'live_host', 'name' => 'Wan Amir']);
 });
+
+/** Enrol a host into a fresh active program at its first stage, with the given level. */
+function enrolTodayHost(User $host, ?LiveHostMentoringLevel $level = null): LiveHostMentee
+{
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+
+    return LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $host->id,
+        'current_stage_id' => $program->stages()->orderBy('position')->first()->id,
+        'level_id' => $level?->id,
+        'status' => 'active',
+        'enrolled_at' => CarbonImmutable::now(),
+    ]);
+}
+
+/** Seed one month: the PIC's attitude score plus an ended session whose GMV is that month's sales. */
+function seedTodayMonth(LiveHostMentee $mentee, User $host, CarbonImmutable $anchor, ?int $attitude, ?float $gmv): void
+{
+    if ($attitude !== null) {
+        LiveHostMenteeMonthlyScore::create([
+            'mentee_id' => $mentee->id,
+            'year' => (int) $anchor->format('Y'),
+            'month' => (int) $anchor->format('n'),
+            'attitude_score' => $attitude,
+        ]);
+    }
+
+    if ($gmv !== null) {
+        LiveSession::factory()->create([
+            'live_host_id' => $host->id,
+            'scheduled_start_at' => $anchor->startOfMonth()->addDays(14)->setTime(10, 0),
+            'status' => 'ended',
+            'gmv_amount' => $gmv,
+            'gmv_adjustment' => 0,
+        ]);
+    }
+}
 
 it('shows today stats with sessions, liveNow, upcoming', function () {
     LiveSession::factory()->count(2)->create([
@@ -94,4 +137,61 @@ it('rejects end-session when status is not live', function () {
     actingAs($this->host)
         ->post("/live-host/sessions/{$session->id}/end")
         ->assertStatus(409);
+});
+
+it('has no performance summary for a host outside any mentoring program', function () {
+    actingAs($this->host)
+        ->get('/live-host')
+        ->assertInertia(fn (Assert $p) => $p->where('performanceSummary', null));
+});
+
+it('summarises the latest score, delta and this-month sales for an enrolled host', function () {
+    $level = LiveHostMentoringLevel::factory()->create(['monthly_sales_target' => 100, 'position' => 1]);
+    $mentee = enrolTodayHost($this->host, $level);
+
+    $m0 = CarbonImmutable::now()->startOfMonth();
+    seedTodayMonth($mentee, $this->host, $m0->subMonth(), 70, 60); // salesPct 60 → overall 65
+    seedTodayMonth($mentee, $this->host, $m0, 90, 90);             // salesPct 90 → overall 90
+
+    actingAs($this->host)
+        ->get('/live-host')
+        ->assertInertia(fn (Assert $p) => $p
+            ->has('performanceSummary', fn (Assert $s) => $s
+                ->where('score', 90)
+                ->where('score_delta', 25) // 90 - 65
+                ->where('sales_month', 90)
+                ->where('sales_target', 100)
+                ->where('sales_pct', 90)
+                ->where('rank', null)      // solo cohort — nobody to rank against
+                ->where('cohort_size', 1)
+                ->has('trend', 6)));
+});
+
+it('ranks the host within their program cohort on the today summary', function () {
+    $level = LiveHostMentoringLevel::factory()->create(['monthly_sales_target' => 1000, 'position' => 1]);
+    $peerHost = User::factory()->create(['role' => 'live_host']);
+
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $stageId = $program->stages()->orderBy('position')->first()->id;
+    $make = fn (User $u) => LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $u->id,
+        'current_stage_id' => $stageId,
+        'level_id' => $level->id,
+        'status' => 'active',
+        'enrolled_at' => CarbonImmutable::now(),
+    ]);
+    $meMentee = $make($this->host);
+    $peerMentee = $make($peerHost);
+
+    $anchor = CarbonImmutable::now()->startOfMonth();
+    seedTodayMonth($meMentee, $this->host, $anchor, null, 300);   // me: RM 300
+    seedTodayMonth($peerMentee, $peerHost, $anchor, null, 800);   // peer: RM 800 → leads
+
+    actingAs($this->host)
+        ->get('/live-host')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('performanceSummary.rank', 2)
+            ->where('performanceSummary.cohort_size', 2)
+            ->where('performanceSummary.sales_month', 300));
 });

@@ -65,7 +65,9 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (LiveSession $session): array => $this->upcomingDto($session));
 
-        $mentee = $host->activeMenteeEnrollment()->with('level:id,name,color')->first();
+        $mentee = $host->activeMenteeEnrollment()
+            ->with(['level:id,name,color,monthly_sales_target', 'monthlyScores'])
+            ->first();
 
         return Inertia::render('Today', [
             'liveNow' => $liveNow,
@@ -77,7 +79,113 @@ class DashboardController extends Controller
             'upcoming' => $upcoming,
             'mentoring' => $this->mentoringGlance($host, $mentee),
             'videoLog' => $this->videoGlance($mentee),
+            'performanceSummary' => $this->performanceSummary($mentee),
         ]);
+    }
+
+    /**
+     * A compact performance snapshot for the Today home screen: the host's
+     * latest overall monthly score (with its month-over-month delta and a
+     * 6-month trend), this month's sales against the level target, and their
+     * cohort leaderboard rank. Deliberately mirrors the figures on the
+     * Performance ("My Path") tab so the home glance and the deep page never
+     * disagree. Null when the host isn't in an active mentoring program.
+     *
+     * @return array{score: int|null, score_delta: int|null, trend: list<int|null>, sales_month: float, sales_target: int|null, sales_pct: int|null, rank: int|null, cohort_size: int}|null
+     */
+    private function performanceSummary(?LiveHostMentee $mentee): ?array
+    {
+        if ($mentee === null) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now();
+        $target = $mentee->level?->monthly_sales_target;
+
+        $periods = collect(range(5, 0))
+            ->map(fn (int $i): CarbonImmutable => $now->subMonths($i))
+            ->map(fn (CarbonImmutable $d): array => ['year' => (int) $d->format('Y'), 'month' => (int) $d->format('n')])
+            ->all();
+
+        $salesByMonth = app(MenteeDailySalesResolver::class)->monthlyTotals(collect([$mentee]), $periods);
+        $scoresByKey = $mentee->monthlyScores->keyBy(fn ($s): string => sprintf('%04d-%02d', $s->year, $s->month));
+
+        // Overall = mean of the available parts of [attitude, sales%] per month,
+        // the same recipe the Performance tab uses.
+        $rows = array_map(function (array $p) use ($target, $salesByMonth, $scoresByKey, $mentee): array {
+            $key = sprintf('%04d-%02d', $p['year'], $p['month']);
+            $ms = $scoresByKey->get($key);
+            $attitude = $ms && $ms->attitude_score !== null ? max(0, min(100, (int) $ms->attitude_score)) : null;
+            $sales = $salesByMonth[$mentee->id][$key] ?? null;
+            $salesPct = ($sales !== null && $target && $target > 0)
+                ? min(100, (int) round(($sales / $target) * 100))
+                : null;
+            $parts = array_values(array_filter([$attitude, $salesPct], fn ($v): bool => $v !== null));
+
+            return [
+                'attitude' => $attitude,
+                'sales' => $sales,
+                'overall' => $parts !== [] ? (int) round(array_sum($parts) / count($parts)) : null,
+            ];
+        }, $periods);
+
+        $withData = array_values(array_filter(
+            $rows,
+            fn (array $r): bool => $r['overall'] !== null || $r['sales'] !== null || $r['attitude'] !== null,
+        ));
+        $latest = $withData === [] ? null : $withData[count($withData) - 1];
+        $previous = count($withData) >= 2 ? $withData[count($withData) - 2] : null;
+        $delta = ($latest && $previous && $latest['overall'] !== null && $previous['overall'] !== null)
+            ? $latest['overall'] - $previous['overall']
+            : null;
+
+        $currentKey = sprintf('%04d-%02d', (int) $now->format('Y'), (int) $now->format('n'));
+        $salesMonth = round((float) ($salesByMonth[$mentee->id][$currentKey] ?? 0), 2);
+        $salesPct = ($target && $target > 0) ? min(100, (int) round(($salesMonth / $target) * 100)) : null;
+
+        [$rank, $cohortSize] = $this->leaderboardRank($mentee, $now);
+
+        return [
+            'score' => $latest['overall'] ?? null,
+            'score_delta' => $delta,
+            'trend' => array_map(fn (array $r): ?int => $r['overall'], $rows),
+            'sales_month' => $salesMonth,
+            'sales_target' => $target !== null ? (int) $target : null,
+            'sales_pct' => $salesPct,
+            'rank' => $rank,
+            'cohort_size' => $cohortSize,
+        ];
+    }
+
+    /**
+     * The host's 1-based rank within their program cohort by this-month
+     * effective sales (auto live-session GMV + PIC overrides), plus the cohort
+     * size. Rank is null for a solo cohort — nobody to rank against. Mirrors the
+     * Performance tab's leaderboard ordering.
+     *
+     * @return array{0: int|null, 1: int} [rank, cohortSize]
+     */
+    private function leaderboardRank(LiveHostMentee $mentee, CarbonImmutable $now): array
+    {
+        $cohort = LiveHostMentee::query()
+            ->where('program_id', $mentee->program_id)
+            ->whereIn('status', ['active', 'graduated'])
+            ->get(['id', 'mentee_user_id']);
+
+        if ($cohort->count() <= 1) {
+            return [null, $cohort->count()];
+        }
+
+        $totals = app(MenteeDailySalesResolver::class)
+            ->rangeTotals($cohort, $now->startOfMonth(), $now->endOfMonth());
+
+        $rank = $cohort
+            ->map(fn (LiveHostMentee $m): array => ['id' => $m->id, 'sales' => $totals[$m->id] ?? 0.0])
+            ->sortByDesc('sales')
+            ->values()
+            ->search(fn (array $r): bool => $r['id'] === $mentee->id);
+
+        return [$rank === false ? null : $rank + 1, $cohort->count()];
     }
 
     /**

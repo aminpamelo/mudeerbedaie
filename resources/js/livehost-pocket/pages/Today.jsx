@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, Video } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Minus, TrendingDown, TrendingUp, Trophy, Video } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import {
   firstNameFrom,
@@ -12,7 +12,7 @@ import {
   minutesSince,
   shortGreetingFor,
 } from '@/livehost-pocket/lib/utils';
-import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
+import { accountLabel, formatRinggitInt, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 
 /**
  * Today screen (Batch 2) — host-scoped overview with live-now card, daily
@@ -22,7 +22,7 @@ import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/fo
  * `docs/design-mockups/livehost-mobile-v3-grounded.html`.
  */
 export default function Today() {
-  const { auth, stats, liveNow, upcoming, features, mentoring, videoLog } = usePage().props;
+  const { auth, stats, liveNow, upcoming, features, mentoring, videoLog, performanceSummary } = usePage().props;
   const user = auth?.user ?? null;
   const firstName = firstNameFrom(user?.name);
   const initials = initialsFrom(user?.name);
@@ -67,6 +67,17 @@ export default function Today() {
           stats={stats}
           allowanceEnabled={allowanceEnabled}
         />
+
+        {performanceSummary && (
+          <>
+            <SectionHeading
+              link={{ href: '/live-host/my-path', label: 'Details \u2192' }}
+            >
+              Performance
+            </SectionHeading>
+            <PerformanceSummary summary={performanceSummary} />
+          </>
+        )}
 
         <SectionHeading
           link={{ href: '/live-host/schedule', label: 'Schedule \u2192' }}
@@ -372,6 +383,147 @@ function Tile({ label, value, sub, accent = false }) {
       </div>
       <div className="mt-[6px] text-[10.5px] text-[var(--fg-2)]">{sub}</div>
     </div>
+  );
+}
+
+/** Colour tone for a 0-100 KPI score — mirrors the Performance tab's bands. */
+function kpiTone(score) {
+  if (score === null || score === undefined) {
+    return { text: 'var(--fg-3)', bar: 'var(--hair-2)' };
+  }
+  if (score >= 80) {
+    return { text: '#047857', bar: '#10B981' };
+  }
+  if (score >= 60) {
+    return { text: '#B45309', bar: '#F59E0B' };
+  }
+  return { text: '#B91C1C', bar: '#E11D48' };
+}
+
+/** Month-over-month score change — up/down tinted, flat muted. */
+function DeltaChip({ delta }) {
+  if (delta === null || delta === undefined) {
+    return null;
+  }
+  if (delta > 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-[#ECFDF5] px-1.5 py-[2px] text-[10px] font-bold text-[#047857]">
+        <TrendingUp className="h-2.5 w-2.5" strokeWidth={2.5} />+{delta}
+      </span>
+    );
+  }
+  if (delta < 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-[#FEECEF] px-1.5 py-[2px] text-[10px] font-bold text-[#B91C1C]">
+        <TrendingDown className="h-2.5 w-2.5" strokeWidth={2.5} />{delta}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--app-bg)] px-1.5 py-[2px] text-[10px] font-bold text-[var(--fg-3)]">
+      <Minus className="h-2.5 w-2.5" strokeWidth={2.5} />0
+    </span>
+  );
+}
+
+/** Six mini bars of the overall-score trend; blank months read as faint stubs. */
+function ScoreSparkline({ trend }) {
+  if (!Array.isArray(trend) || !trend.some((v) => v !== null)) {
+    return null;
+  }
+  return (
+    <div className="mt-2.5 flex items-end gap-[3px]" style={{ height: '26px' }}>
+      {trend.map((v, i) => {
+        const tone = kpiTone(v);
+        const h = v === null ? 3 : Math.max(4, Math.round((v / 100) * 22));
+        return (
+          <div
+            key={i}
+            className="flex-1 rounded-[3px] transition-all"
+            style={{ height: `${h}px`, backgroundColor: tone.bar, opacity: v === null ? 0.35 : 1 }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Performance glance card — a home-screen summary of the host's mentoring
+ * standing, tapping through to the full Performance ("My Path") tab. Surfaces
+ * the same three figures the tab leads with: latest overall monthly score (with
+ * delta + trend), this month's sales vs target, and cohort leaderboard rank.
+ */
+function PerformanceSummary({ summary }) {
+  const tone = kpiTone(summary.score);
+  const hasTarget = Boolean(summary.sales_target && summary.sales_target > 0);
+  const salesPct = summary.sales_pct ?? 0;
+  const salesTone = kpiTone(summary.sales_pct);
+
+  return (
+    <Link
+      href="/live-host/my-path"
+      className="mb-3 block rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-4 transition active:scale-[0.99]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+            Overall score
+          </div>
+          <div className="mt-1 flex items-end gap-2">
+            <span
+              className="font-display text-[30px] font-medium leading-none tracking-[-0.04em] tabular-nums"
+              style={{ color: tone.text }}
+            >
+              {summary.score === null ? '—' : summary.score}
+            </span>
+            {summary.score !== null && (
+              <span className="pb-0.5 text-[12px] font-semibold text-[var(--fg-3)]">%</span>
+            )}
+            <span className="pb-1"><DeltaChip delta={summary.score_delta} /></span>
+          </div>
+        </div>
+        {summary.rank !== null && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--app-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--fg)] ring-1 ring-[var(--hair)]">
+            <Trophy className="h-3 w-3 text-[var(--accent)]" strokeWidth={2.5} />
+            #{summary.rank}
+            <span className="text-[var(--fg-3)]">/{summary.cohort_size}</span>
+          </span>
+        )}
+      </div>
+
+      <ScoreSparkline trend={summary.trend} />
+
+      <div className="mt-3 border-t border-[var(--hair)] pt-3">
+        <div className="flex items-baseline justify-between">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+            Sales this month
+          </span>
+          {hasTarget && (
+            <span className="font-mono text-[11px] font-bold tabular-nums" style={{ color: salesTone.text }}>
+              {salesPct}%
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex items-baseline gap-1 font-display tabular-nums tracking-[-0.02em] text-[var(--fg)]">
+          <span className="text-[11px] font-medium text-[var(--fg-3)]">RM</span>
+          <span className="text-[18px] font-medium">{formatRinggitInt(summary.sales_month)}</span>
+          {hasTarget && (
+            <span className="text-[12px] font-medium text-[var(--fg-3)]">
+              {' '}/ RM {formatRinggitInt(summary.sales_target)}
+            </span>
+          )}
+        </div>
+        {hasTarget && (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--hair)]">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${salesPct}%`, backgroundColor: salesTone.bar }}
+            />
+          </div>
+        )}
+      </div>
+    </Link>
   );
 }
 
