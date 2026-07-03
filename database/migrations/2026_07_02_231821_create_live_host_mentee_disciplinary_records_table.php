@@ -25,7 +25,10 @@ return new class extends Migration
             $table->timestamp('acknowledged_at')->nullable();
             $table->timestamps();
 
-            $table->index(['mentee_id', 'incident_date']);
+            // Explicit short index name — the auto-generated
+            // "live_host_mentee_disciplinary_records_mentee_id_incident_date_index"
+            // is 67 chars and exceeds MySQL's 64-char identifier limit.
+            $table->index(['mentee_id', 'incident_date'], 'lh_disc_mentee_incident_idx');
         });
     }
 
