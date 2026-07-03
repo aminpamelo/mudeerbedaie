@@ -34,6 +34,19 @@ export default function EnrollMenteeModal({ program, enrollableHosts, assignable
     [enrollableHosts],
   );
 
+  // Top-host-eligible mentors are surfaced first (backend order) and marked ★.
+  const mentorOptions = useMemo(
+    () =>
+      (assignableMentors ?? []).map((u) => ({
+        value: String(u.id),
+        label: `${u.name}${u.is_top_host_eligible ? ' ★' : ''}`,
+        hint: u.is_top_host_eligible ? 'Top-host eligible' : undefined,
+        keywords: u.name,
+        avatar: { initials: u.initials },
+      })),
+    [assignableMentors],
+  );
+
   const submit = () => {
     setBusy(true);
     setErrors({});
@@ -89,12 +102,15 @@ export default function EnrollMenteeModal({ program, enrollableHosts, assignable
 
           <div>
             <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">Mentor (optional)</label>
-            <select value={mentorId} onChange={(e) => setMentorId(e.target.value)} className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20">
-              <option value="">— Use program leader —</option>
-              {(assignableMentors ?? []).map((u) => (
-                <option key={u.id} value={u.id}>{u.name}{u.is_top_host_eligible ? ' ★' : ''}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={mentorId}
+              onChange={setMentorId}
+              options={mentorOptions}
+              placeholder="— Use program leader —"
+              searchPlaceholder="Search mentors…"
+              emptyLabel="No matching mentor"
+              allowClear
+            />
             {errors.mentor_user_id && <p className="mt-1 text-xs text-[#F43F5E]">{errors.mentor_user_id}</p>}
           </div>
         </div>
