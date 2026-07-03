@@ -77,6 +77,21 @@ it('lets a PIC enrol a live host assistant (part-time host) as a mentee', functi
     expect(LiveHostMentee::where('mentee_user_id', $assistant->id)->where('status', 'active')->exists())->toBeTrue();
 });
 
+it('lets a PIC assign a live host assistant as the mentor', function () {
+    $program = programWithLeader();
+    $host = liveHost();
+    $assistantMentor = User::factory()->create(['role' => 'livehost_assistant']);
+
+    $this->actingAs(pic())
+        ->post("/livehost/mentoring/programs/{$program->id}/mentees", [
+            'mentee_user_id' => $host->id,
+            'mentor_user_id' => $assistantMentor->id,
+        ])
+        ->assertRedirect();
+
+    expect(LiveHostMentee::where('mentee_user_id', $host->id)->value('mentor_user_id'))->toBe($assistantMentor->id);
+});
+
 it('rejects enrolling a non-live-host user', function () {
     $program = programWithLeader();
     $student = User::factory()->create(['role' => 'student']);

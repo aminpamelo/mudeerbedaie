@@ -34,14 +34,16 @@ export default function EnrollMenteeModal({ program, enrollableHosts, assignable
     [enrollableHosts],
   );
 
-  // Top-host-eligible mentors are surfaced first (backend order) and marked ★.
+  // Live hosts first (top-host-eligible surfaced first, marked ★), then live host
+  // assistants under their own group.
   const mentorOptions = useMemo(
     () =>
       (assignableMentors ?? []).map((u) => ({
         value: String(u.id),
         label: `${u.name}${u.is_top_host_eligible ? ' ★' : ''}`,
-        hint: u.is_top_host_eligible ? 'Top-host eligible' : undefined,
+        hint: u.is_assistant ? 'Live host assistant' : u.is_top_host_eligible ? 'Top-host eligible' : undefined,
         keywords: u.name,
+        group: u.is_assistant ? 'Live Host Assistants' : 'Mentors',
         avatar: { initials: u.initials },
       })),
     [assignableMentors],

@@ -83,22 +83,26 @@ class MenteeBoardPresenter
     }
 
     /**
-     * Live hosts who can mentor (top-host-eligible surfaced first).
+     * Live hosts and live host assistants who can mentor / be a PIC — live hosts
+     * first (top-host-eligible surfaced first within), then assistants. Each entry
+     * carries its role so pickers can group assistants apart from full mentors.
      *
      * @return Collection<int, array<string, mixed>>
      */
     public function assignableMentors(): Collection
     {
         return User::query()
-            ->where('role', 'live_host')
+            ->whereIn('role', ['live_host', 'livehost_assistant'])
+            ->orderByRaw("CASE WHEN role = 'live_host' THEN 0 ELSE 1 END")
             ->orderByDesc('is_top_host_eligible')
             ->orderBy('name')
-            ->get(['id', 'name', 'is_top_host_eligible'])
+            ->get(['id', 'name', 'role', 'is_top_host_eligible'])
             ->map(fn (User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
                 'initials' => self::initials($u->name),
                 'is_top_host_eligible' => (bool) $u->is_top_host_eligible,
+                'is_assistant' => $u->role === 'livehost_assistant',
             ])
             ->values();
     }
