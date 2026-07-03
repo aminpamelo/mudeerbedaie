@@ -650,11 +650,12 @@ Route::middleware(['auth'])
                 });
             });
 
-        // Mentoring — post-recruitment performance/mentoring funnel. PIC-only
-        // (admin, admin_livehost): the PIC sets up programs, assigns a top-host
-        // leader, enrols existing live hosts as mentees, and on the leader's
-        // behalf monitors KPIs, logs activities, and assigns performance levels.
-        Route::middleware('role:admin,admin_livehost')
+        // Mentoring — post-recruitment performance/mentoring funnel. Shared by
+        // both PIC roles (admin, admin_livehost) and the livehost_assistant:
+        // they set up programs, assign a top-host leader, enrol existing live
+        // hosts as mentees, and on the leader's behalf monitor KPIs, log
+        // activities, and assign performance levels.
+        Route::middleware('role:admin,admin_livehost,livehost_assistant')
             ->prefix('mentoring')
             ->name('mentoring.')
             ->group(function () {

@@ -2,10 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\LiveHostMentee;
+use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveSchedule;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\ProductOrder;
+use App\Models\SessionReplacementRequest;
 use App\Models\User;
 use App\Services\ImpersonationService;
 use App\Services\SettingsService;
@@ -137,15 +140,17 @@ class HandleInertiaRequests extends Middleware
      * Role-derived capability flags consumed by the sidebar and action buttons.
      *
      * PIC roles (admin + admin_livehost) get full access to every flag. The
-     * livehost_assistant role gets all `false`, so the frontend hides write
-     * actions and admin-only nav items without needing to pattern-match on
-     * role strings.
+     * livehost_assistant role gets most flags `false`, so the frontend hides
+     * write actions and admin-only nav items without needing to pattern-match
+     * on role strings — except the surfaces explicitly shared with the
+     * assistant (recruitment, mentoring), where they have full access.
      *
      * @return array<string, bool>
      */
     private function permissions(?User $user): array
     {
         $isPic = $user && in_array($user->role, ['admin', 'admin_livehost'], true);
+        $isPicOrAssistant = $user && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true);
 
         return [
             'canManageHosts' => $isPic,
@@ -155,11 +160,11 @@ class HandleInertiaRequests extends Middleware
             'canSeeFinancials' => $isPic,
             'canSeePayroll' => $isPic,
             'canRecruit' => $isPic,
-            'canSeeRecruitment' => $user && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true),
+            'canSeeRecruitment' => $isPicOrAssistant,
             'canSeeTiktokImports' => $isPic,
             'canSeeReports' => $isPic,
-            'canSeeMentoring' => $isPic,
-            'canManageMentoring' => $isPic,
+            'canSeeMentoring' => $isPicOrAssistant,
+            'canManageMentoring' => $isPicOrAssistant,
         ];
     }
 
@@ -200,11 +205,12 @@ class HandleInertiaRequests extends Middleware
             return Cache::remember('livehost.navCounts.assistant', 60, fn () => [
                 'hosts' => User::query()->where('role', 'live_host')->count(),
                 'platformAccounts' => PlatformAccount::query()->count(),
-                'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
-                'replacements' => \App\Models\SessionReplacementRequest::query()
-                    ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
+                'creators' => LiveHostPlatformAccount::query()->count(),
+                'replacements' => SessionReplacementRequest::query()
+                    ->where('status', SessionReplacementRequest::STATUS_PENDING)
                     ->count(),
                 'unmatchedOrders' => $this->unmatchedOrderCount(),
+                'activeMentees' => LiveHostMentee::query()->where('status', 'active')->count(),
             ]);
         }
 
@@ -217,12 +223,12 @@ class HandleInertiaRequests extends Middleware
             'schedules' => LiveSchedule::query()->where('is_active', true)->count(),
             'sessions' => LiveSession::query()->count(),
             'platformAccounts' => PlatformAccount::query()->count(),
-            'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
-            'replacements' => \App\Models\SessionReplacementRequest::query()
-                ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
+            'creators' => LiveHostPlatformAccount::query()->count(),
+            'replacements' => SessionReplacementRequest::query()
+                ->where('status', SessionReplacementRequest::STATUS_PENDING)
                 ->count(),
             'unmatchedOrders' => $this->unmatchedOrderCount(),
-            'activeMentees' => \App\Models\LiveHostMentee::query()->where('status', 'active')->count(),
+            'activeMentees' => LiveHostMentee::query()->where('status', 'active')->count(),
         ]);
     }
 }

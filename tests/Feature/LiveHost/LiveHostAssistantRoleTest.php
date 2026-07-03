@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\LiveHost\DashboardController;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
@@ -49,11 +50,12 @@ it('allows assistant to reach shared livehost routes', function (string $routeNa
     'livehost.session-slots.index',
     'livehost.session-slots.calendar',
     'livehost.session-slots.table',
+    'livehost.mentoring.programs.index',
 ]);
 
 it('controller guards 403 the assistant even without role middleware', function () {
     RouteFacade::middleware('auth')->get('__test__/live-now', [
-        \App\Http\Controllers\LiveHost\DashboardController::class,
+        DashboardController::class,
         'liveNowJson',
     ])->name('__test__.live-now');
 
@@ -79,6 +81,9 @@ it('shares a permissions prop on Inertia responses', function () {
         ->where('auth.permissions.canSeePayroll', false)
         ->where('auth.permissions.canRecruit', false)
         ->where('auth.permissions.canSeeTiktokImports', false)
+        ->where('auth.permissions.canSeeRecruitment', true)
+        ->where('auth.permissions.canSeeMentoring', true)
+        ->where('auth.permissions.canManageMentoring', true)
     );
 });
 
@@ -108,6 +113,7 @@ it('excludes sensitive nav count keys from assistant payload', function () {
         ->has('navCounts.hosts')
         ->has('navCounts.platformAccounts')
         ->has('navCounts.creators')
+        ->has('navCounts.activeMentees')
         ->missing('navCounts.sessions')
         ->missing('navCounts.schedules')
     );
@@ -167,7 +173,9 @@ it('every non-shared /livehost route returns 403 for the assistant', function ()
 
     $livehostRoutes = collect(RouteFacade::getRoutes())
         ->filter(fn ($r) => str_starts_with($r->getName() ?? '', 'livehost.'))
-        ->filter(fn ($r) => ! in_array($r->getName(), $shared, true));
+        ->filter(fn ($r) => ! in_array($r->getName(), $shared, true))
+        // Mentoring is now fully shared with the assistant (view + manage).
+        ->filter(fn ($r) => ! str_starts_with($r->getName() ?? '', 'livehost.mentoring.'));
 
     $failures = [];
 
