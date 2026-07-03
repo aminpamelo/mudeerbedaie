@@ -34,7 +34,7 @@ new class extends Component {
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', Rule::unique('users')->ignore($this->user->id)],
-            'phone' => ['required', 'string', Rule::unique('users')->ignore($this->user->id), 'regex:/^[0-9]{10,15}$/'],
+            'phone' => ['nullable', 'string', Rule::unique('users')->ignore($this->user->id), 'regex:/^[0-9]{10,15}$/'],
             'password' => $this->change_password ? ['required', 'string', 'min:8', 'confirmed'] : [],
             'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
@@ -63,11 +63,14 @@ new class extends Component {
             }
         }
         
+        $this->email = filled($this->email) ? $this->email : null;
+        $this->phone = filled($this->phone) ? $this->phone : null;
+
         $this->validate();
-        
+
         $userData = [
             'name' => $this->name,
-            'email' => $this->email ?: null,
+            'email' => $this->email,
             'phone' => $this->phone,
             'role' => $this->role,
             'status' => $this->status,
@@ -201,10 +204,9 @@ new class extends Component {
                                     type="tel"
                                     wire:model="phone"
                                     placeholder="60165756060"
-                                    required
                                 />
                                 <flux:description>
-                                    Phone number is required for login and communication (10-15 digits).
+                                    Optional. Used for login and communication (10–15 digits).
                                 </flux:description>
                                 <flux:error name="phone" />
                             </flux:field>
