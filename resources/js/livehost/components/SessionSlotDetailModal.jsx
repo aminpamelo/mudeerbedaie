@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Pencil, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Paperclip,
+  Pencil,
+  Radio,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  XCircle,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -58,11 +69,51 @@ function formatDate(iso) {
   }
 }
 
+function formatGmv(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return '—';
+  }
+  const hasSen = num % 1 !== 0;
+  return `RM ${num.toLocaleString(undefined, {
+    minimumFractionDigits: hasSen ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+const SESSION_STATUS_META = {
+  scheduled: { label: 'Scheduled', className: 'bg-[#EFF6FF] text-[#1D4ED8]' },
+  live: { label: 'Live', className: 'bg-[#DCFCE7] text-[#166534]' },
+  ended: { label: 'Ended', className: 'bg-[#F5F5F5] text-[#404040]' },
+  completed: { label: 'Completed', className: 'bg-[#F5F5F5] text-[#404040]' },
+  cancelled: { label: 'Cancelled', className: 'bg-[#FEE2E2] text-[#991B1B]' },
+  missed: { label: 'Missed', className: 'bg-[#FEF3C7] text-[#92400E]' },
+};
+
+const VERIFICATION_META = {
+  pending: {
+    label: 'Pending review',
+    className: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
+    Icon: ShieldAlert,
+  },
+  verified: {
+    label: 'Verified',
+    className: 'bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]',
+    Icon: ShieldCheck,
+  },
+  rejected: {
+    label: 'Rejected',
+    className: 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]',
+    Icon: XCircle,
+  },
+};
+
 export default function SessionSlotDetailModal({
   open,
   onOpenChange,
   sessionSlot,
   onEdit,
+  onOpenSession,
   onDeleted,
 }) {
   const [deleting, setDeleting] = useState(false);
@@ -173,6 +224,12 @@ export default function SessionSlotDetailModal({
             />
           </div>
 
+          <LiveSessionSection
+            session={sessionSlot.session}
+            onOpenSession={onOpenSession}
+            onOpenChange={onOpenChange}
+          />
+
           {sessionSlot.remarks && (
             <div className="rounded-[12px] border border-[#F0F0F0] bg-white p-4">
               <div className="text-[11px] font-medium uppercase tracking-wide text-[#737373]">
@@ -221,6 +278,137 @@ export default function SessionSlotDetailModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
+  if (!session) {
+    return (
+      <div className="rounded-[12px] border border-dashed border-[#EAEAEA] bg-[#FAFAFA] px-4 py-3 text-[12.5px] text-[#737373]">
+        No live session recorded against this slot yet. Once the host goes live and submits a recap, its upload &amp; verification status will show here.
+      </div>
+    );
+  }
+
+  const status =
+    SESSION_STATUS_META[session.status] ?? {
+      label: session.status ?? '—',
+      className: 'bg-[#F5F5F5] text-[#404040]',
+    };
+  const verification =
+    VERIFICATION_META[session.verificationStatus ?? 'pending'] ?? VERIFICATION_META.pending;
+  const VerificationIcon = verification.Icon;
+  const uploaded = Boolean(session.uploaded);
+  const needsUpload = Boolean(session.needsUpload);
+  const overdue = Boolean(session.overdue);
+  const isPending = (session.verificationStatus ?? 'pending') === 'pending';
+  const attachmentCount = session.attachmentCount ?? session.attachments?.length ?? 0;
+
+  const cta = needsUpload
+    ? 'Open session · upload proof'
+    : isPending
+      ? 'Open session · verify'
+      : 'Open session';
+
+  return (
+    <div className="rounded-[12px] border border-[#EAEAEA] bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Radio className="h-4 w-4 text-[#737373]" strokeWidth={2} />
+          <span className="text-[10.5px] font-medium uppercase tracking-wide text-[#A3A3A3]">
+            Live session
+          </span>
+          <span className="font-mono text-[11px] text-[#737373]">{session.sessionId}</span>
+        </div>
+        <span
+          className={`inline-flex rounded-md px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide ${status.className}`}
+        >
+          {status.label}
+        </span>
+      </div>
+
+      {needsUpload && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#FCD34D] bg-[#FEF3C7] px-3 py-2 text-[12px] font-medium text-[#92400E]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2.2} />
+          <span>
+            {overdue
+              ? 'This slot has passed with no live and no recap uploaded. Follow up with the host — nothing has been submitted.'
+              : 'The session ended but the host hasn’t uploaded proof yet. It can’t be verified until a recap is uploaded.'}
+          </span>
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-3 gap-2.5">
+        <MiniTile label="GMV (net)" value={formatGmv(session.gmvNet)} />
+
+        <div className="rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-2.5">
+          <div className="text-[9.5px] font-medium uppercase tracking-wide text-[#737373]">
+            Upload
+          </div>
+          <div
+            className={`mt-1 inline-flex items-center gap-1 text-[12.5px] font-semibold ${
+              needsUpload ? 'text-[#B45309]' : uploaded ? 'text-[#166534]' : 'text-[#525252]'
+            }`}
+          >
+            {needsUpload ? (
+              <>
+                <Upload className="h-3 w-3" strokeWidth={2.4} />
+                {overdue ? 'Overdue' : 'Needs upload'}
+              </>
+            ) : uploaded ? (
+              <>
+                <Paperclip className="h-3 w-3" strokeWidth={2.2} />
+                Uploaded
+              </>
+            ) : (
+              '—'
+            )}
+          </div>
+          <div className="mt-0.5 text-[10px] text-[#A3A3A3]">
+            {attachmentCount} file{attachmentCount === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div className="rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-2.5">
+          <div className="text-[9.5px] font-medium uppercase tracking-wide text-[#737373]">
+            Verification
+          </div>
+          <span
+            className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${verification.className}`}
+          >
+            <VerificationIcon className="h-3 w-3" strokeWidth={2.2} />
+            {verification.label}
+          </span>
+          {session.verifiedByName && (
+            <div className="mt-0.5 truncate text-[10px] text-[#A3A3A3]">
+              by {session.verifiedByName}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          onOpenChange(false);
+          onOpenSession?.(session);
+        }}
+        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#262626]"
+      >
+        <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.2} />
+        {cta}
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.2} />
+      </button>
+    </div>
+  );
+}
+
+function MiniTile({ label, value }) {
+  return (
+    <div className="rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-2.5">
+      <div className="text-[9.5px] font-medium uppercase tracking-wide text-[#737373]">{label}</div>
+      <div className="mt-1 truncate text-[13px] font-bold tabular-nums text-[#0A0A0A]">{value}</div>
+    </div>
   );
 }
 

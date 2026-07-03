@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[ObservedBy(LiveScheduleAssignmentObserver::class)]
 class LiveScheduleAssignment extends Model
@@ -64,6 +65,16 @@ class LiveScheduleAssignment extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The actual broadcast recorded against this scheduled slot. A slot may be
+     * re-created over its life, so we surface the most recent linked session
+     * (by scheduled start) as the one the calendar reports on.
+     */
+    public function liveSession(): HasOne
+    {
+        return $this->hasOne(LiveSession::class)->latestOfMany('scheduled_start_at');
     }
 
     public function scopeTemplate(Builder $query): Builder

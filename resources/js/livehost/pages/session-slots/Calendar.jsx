@@ -1,10 +1,25 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  List,
+  Pencil,
+  Plus,
+  Radio,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  XCircle,
+} from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import SessionSlotFormModal from '@/livehost/components/SessionSlotFormModal';
 import SessionSlotDetailModal from '@/livehost/components/SessionSlotDetailModal';
+import LiveSessionModal from '@/livehost/components/LiveSessionModal';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -91,6 +106,103 @@ const FALLBACK_ACCOUNT_COLOR = {
 
 const LANE_MIN_WIDTH = 96;
 
+// The lifecycle signal a PIC scans the calendar for: which broadcasts still
+// need the host's upload, which are uploaded and waiting on verification, and
+// which are already reconciled against the imported TikTok record.
+const SESSION_STATE_LEGEND = [
+  { color: '#F59E0B', label: 'Needs upload' },
+  { color: '#3B82F6', label: 'Needs verify' },
+  { color: '#10B981', label: 'Verified' },
+  { color: '#EF4444', label: 'Rejected' },
+];
+
+function resolveSessionState(session) {
+  if (!session) {
+    return null;
+  }
+  const verification = session.verificationStatus ?? 'pending';
+
+  if (session.needsUpload) {
+    return {
+      key: 'needs_upload',
+      overdue: Boolean(session.overdue),
+      label: session.overdue ? 'No upload' : 'Upload',
+      title: session.overdue
+        ? 'Overdue — this slot has passed and the host never went live or uploaded a recap'
+        : 'Ended — host still needs to upload proof',
+      icon: session.overdue ? AlertTriangle : Upload,
+      dot: '#F59E0B',
+      bg: '#FEF3C7',
+      fg: '#92400E',
+    };
+  }
+  if (verification === 'verified') {
+    return {
+      key: 'verified',
+      label: 'Verified',
+      title: 'Verified against the imported TikTok record',
+      icon: ShieldCheck,
+      dot: '#10B981',
+      bg: '#DCFCE7',
+      fg: '#166534',
+    };
+  }
+  if (verification === 'rejected') {
+    return {
+      key: 'rejected',
+      label: 'Rejected',
+      title: 'Verification was rejected',
+      icon: XCircle,
+      dot: '#EF4444',
+      bg: '#FEE2E2',
+      fg: '#991B1B',
+    };
+  }
+  if (session.status === 'live') {
+    return {
+      key: 'live',
+      label: 'Live',
+      title: 'Currently live',
+      icon: Radio,
+      dot: '#10B981',
+      bg: '#DCFCE7',
+      fg: '#166534',
+    };
+  }
+  if (session.uploaded || session.status === 'ended') {
+    return {
+      key: 'needs_verify',
+      label: 'Verify',
+      title: 'Uploaded — awaiting PIC verification',
+      icon: ShieldAlert,
+      dot: '#3B82F6',
+      bg: '#DBEAFE',
+      fg: '#1E40AF',
+    };
+  }
+  return {
+    key: 'scheduled',
+    label: 'Scheduled',
+    title: 'Scheduled — not started yet',
+    icon: null,
+    dot: '#A3A3A3',
+    bg: '#F5F5F5',
+    fg: '#525252',
+  };
+}
+
+function formatGmv(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num === 0) {
+    return null;
+  }
+  const hasSen = num % 1 !== 0;
+  return `RM ${num.toLocaleString(undefined, {
+    minimumFractionDigits: hasSen ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function platformStyle(slug) {
   return PLATFORM_STYLES[slug] ?? DEFAULT_STYLE;
 }
@@ -168,6 +280,13 @@ export default function SessionSlotsCalendar() {
   const [createPrefill, setCreatePrefill] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [detailTarget, setDetailTarget] = useState(null);
+  const [sessionTarget, setSessionTarget] = useState(null);
+
+  const openSession = (session) => {
+    if (session) {
+      setSessionTarget(session);
+    }
+  };
 
   const { hourStart, hourEnd, totalHeight } = useMemo(() => {
     const times = [];
@@ -536,6 +655,22 @@ export default function SessionSlotsCalendar() {
           )}
         </div>
 
+        {/* Session-state legend — the upload → verify pipeline at a glance */}
+        <div className="-mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[#A3A3A3]">
+            Session
+          </span>
+          {SESSION_STATE_LEGEND.map((item) => (
+            <div key={item.label} className="flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 rounded-sm"
+                style={{ backgroundColor: item.color }}
+              ></span>
+              <span className="text-[#525252]">{item.label}</span>
+            </div>
+          ))}
+        </div>
+
         {timeSlots.length === 0 && (
           <div className="rounded-[16px] border border-dashed border-[#EAEAEA] bg-white p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="text-[15px] font-semibold text-[#0A0A0A]">No time slots defined yet</h3>
@@ -566,6 +701,9 @@ export default function SessionSlotsCalendar() {
             {DAY_NAMES.map((dayShort, dow) => {
               const dayDate = dateForDow(dow);
               const isToday = isCurrentWeek && dow === todayDow;
+              const needsUploadCount = slotsByDay[dow].filter(
+                (s) => s.session?.needsUpload
+              ).length;
               return (
                 <div
                   key={dayShort}
@@ -596,9 +734,20 @@ export default function SessionSlotsCalendar() {
                         {dayDate.slice(5).replace('-', '/')}
                       </span>
                     </div>
-                    <span className="font-mono text-[11px] font-semibold tabular-nums text-[#525252]">
-                      {String(slotsByDay[dow].length).padStart(2, '0')}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {needsUploadCount > 0 && (
+                        <span
+                          title={`${needsUploadCount} session${needsUploadCount === 1 ? '' : 's'} awaiting upload`}
+                          className="inline-flex items-center gap-0.5 rounded-full bg-[#FEF3C7] px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-[#92400E] ring-1 ring-[#FCD34D]"
+                        >
+                          <Upload className="h-2.5 w-2.5" strokeWidth={2.5} />
+                          {needsUploadCount}
+                        </span>
+                      )}
+                      <span className="font-mono text-[11px] font-semibold tabular-nums text-[#525252]">
+                        {String(slotsByDay[dow].length).padStart(2, '0')}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Swim lane sub-header — only when >1 account is active */}
@@ -797,6 +946,16 @@ export default function SessionSlotsCalendar() {
                           const pc = platformStyle(slot.platformType);
                           const slotColor = color;
                           const isCompact = heightPx < 60;
+                          const sessionState = resolveSessionState(slot.session);
+                          const SessionStateIcon = sessionState?.icon;
+                          const gmvLabel = formatGmv(slot.session?.gmvNet);
+                          const needsUpload = sessionState?.key === 'needs_upload';
+                          const isOverdue = Boolean(sessionState?.overdue);
+                          const blockBackground = needsUpload
+                            ? 'linear-gradient(135deg, #FDE68A 0%, #FEF3C7 45%, #FFFDF5 100%)'
+                            : `linear-gradient(135deg, ${slotColor.tint} 0%, ${slotColor.soft} 50%, #FFFFFF 100%)`;
+                          const blockBorderColor = needsUpload ? '#F59E0B' : slotColor.border;
+                          const barColor = needsUpload ? '#F59E0B' : slotColor.dot;
 
                           return (
                             <div
@@ -807,16 +966,18 @@ export default function SessionSlotsCalendar() {
                               <button
                                 type="button"
                                 onClick={() => setDetailTarget(slot)}
-                                className="relative flex h-full w-full flex-col rounded-md border text-left transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+                                className={`relative flex h-full w-full flex-col rounded-md border text-left transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] ${
+                                  needsUpload ? 'border-2 shadow-[0_0_0_1px_rgba(245,158,11,0.25)]' : ''
+                                }`}
                                 style={{
-                                  background: `linear-gradient(135deg, ${slotColor.tint} 0%, ${slotColor.soft} 50%, #FFFFFF 100%)`,
-                                  borderColor: slotColor.border,
+                                  background: blockBackground,
+                                  borderColor: blockBorderColor,
                                 }}
                               >
-                                {/* Account color bar */}
+                                {/* Left accent bar — account colour, or amber when an upload is outstanding */}
                                 <div
-                                  className="absolute bottom-0 left-0 top-0 w-[3px] rounded-l-md"
-                                  style={{ backgroundColor: slotColor.dot }}
+                                  className={`absolute bottom-0 left-0 top-0 rounded-l-md ${needsUpload ? 'w-1' : 'w-[3px]'}`}
+                                  style={{ backgroundColor: barColor }}
                                 ></div>
 
                                 <div className="relative flex h-full min-w-0 flex-col p-1.5 pl-2.5">
@@ -831,11 +992,38 @@ export default function SessionSlotsCalendar() {
                                         </div>
                                       )}
                                     </div>
-                                    {slot.isTemplate && (
-                                      <span className="shrink-0 rounded bg-white/70 px-1 py-px font-mono text-[8px] font-semibold uppercase tracking-wide text-[#5B21B6] backdrop-blur">
-                                        W
-                                      </span>
-                                    )}
+                                    <div className="flex shrink-0 items-center gap-1">
+                                      {sessionState && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            openSession(slot.session);
+                                          }}
+                                          title={sessionState.title}
+                                          className={`inline-flex items-center gap-0.5 rounded px-1 py-px text-[8px] font-bold uppercase tracking-wide backdrop-blur transition-transform hover:scale-105 ${
+                                            isOverdue ? 'animate-pulse ring-1 ring-[#F59E0B]' : ''
+                                          }`}
+                                          style={{ backgroundColor: sessionState.bg, color: sessionState.fg }}
+                                        >
+                                          {SessionStateIcon ? (
+                                            <SessionStateIcon className="h-2.5 w-2.5" strokeWidth={2.5} />
+                                          ) : (
+                                            <span
+                                              className="h-1.5 w-1.5 rounded-full"
+                                              style={{ backgroundColor: sessionState.dot }}
+                                            ></span>
+                                          )}
+                                          {!isCompact && <span>{sessionState.label}</span>}
+                                        </button>
+                                      )}
+                                      {slot.isTemplate && (
+                                        <span className="rounded bg-white/70 px-1 py-px font-mono text-[8px] font-semibold uppercase tracking-wide text-[#5B21B6] backdrop-blur">
+                                          W
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
 
                                   {heightPx >= 56 && (
@@ -867,6 +1055,17 @@ export default function SessionSlotsCalendar() {
                                               {slot.platformAccount}
                                             </span>
                                           )}
+                                        </div>
+                                      )}
+                                      {gmvLabel && (
+                                        <div className="mt-0.5 font-mono text-[9.5px] font-semibold leading-none tabular-nums text-[#0A0A0A]">
+                                          {gmvLabel}
+                                        </div>
+                                      )}
+                                      {needsUpload && (
+                                        <div className="mt-1 inline-flex items-center gap-0.5 rounded bg-[#F59E0B] px-1 py-px text-[8.5px] font-bold uppercase tracking-wide text-white shadow-sm">
+                                          <Upload className="h-2.5 w-2.5" strokeWidth={2.6} />
+                                          {isOverdue ? 'No upload yet' : 'Needs upload'}
                                         </div>
                                       )}
                                     </div>
@@ -959,7 +1158,23 @@ export default function SessionSlotsCalendar() {
           setDetailTarget(null);
           setEditTarget(slot);
         }}
+        onOpenSession={(session) => {
+          setDetailTarget(null);
+          openSession(session);
+        }}
         onDeleted={() => setDetailTarget(null)}
+      />
+
+      <LiveSessionModal
+        open={sessionTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setSessionTarget(null);
+          }
+        }}
+        session={sessionTarget}
+        hosts={hosts}
+        platformAccounts={platformAccounts}
       />
     </>
   );

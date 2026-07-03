@@ -3,6 +3,7 @@
 use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
+use App\Models\LiveSession;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
@@ -141,6 +142,90 @@ it('renders the calendar with live account props', function () {
             ->component('session-slots/Calendar', false)
             ->has('liveAccounts')
             ->has('sessionSlots')
+            ->etc());
+});
+
+it('exposes the linked live session state on each calendar slot', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $account = PlatformAccount::factory()->create();
+    $assignment = LiveScheduleAssignment::factory()->forDate(now()->format('Y-m-d'))->create([
+        'platform_account_id' => $account->id,
+        'live_host_id' => $host->id,
+        'day_of_week' => (int) now()->dayOfWeek,
+    ]);
+
+    // The observer materialises a scheduled session for a dated slot; drive it
+    // to "ended, no recap uploaded" → the calendar's "needs upload" signal.
+    $session = LiveSession::where('live_schedule_assignment_id', $assignment->id)->firstOrFail();
+    $session->update([
+        'status' => 'ended',
+        'uploaded_at' => null,
+        'gmv_amount' => 1250.50,
+        'gmv_adjustment' => 0,
+        'verification_status' => 'pending',
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.0.session.status', 'ended')
+            ->where('sessionSlots.0.session.needsUpload', true)
+            ->where('sessionSlots.0.session.uploaded', false)
+            ->where('sessionSlots.0.session.verificationStatus', 'pending')
+            ->where('sessionSlots.0.session.gmvNet', 1250.5)
+            ->where('sessionSlots.0.session.sessionId', 'LS-'.str_pad((string) $session->id, 5, '0', STR_PAD_LEFT))
+            ->etc());
+});
+
+it('flags a past scheduled slot that was never uploaded as needs-upload and overdue', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $date = now()->subDay();
+    LiveScheduleAssignment::factory()->forDate($date->format('Y-m-d'))->create([
+        'live_host_id' => $host->id,
+        'day_of_week' => (int) $date->dayOfWeek,
+        'status' => 'scheduled',
+    ]);
+
+    // The observer materialised a scheduled session dated in the past; the host
+    // never went live or uploaded a recap — it must surface as overdue.
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar?week_of='.$date->format('Y-m-d'))
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.0.session.status', 'scheduled')
+            ->where('sessionSlots.0.session.uploaded', false)
+            ->where('sessionSlots.0.session.needsUpload', true)
+            ->where('sessionSlots.0.session.overdue', true)
+            ->etc());
+});
+
+it('does not flag a future scheduled slot as needs-upload', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $date = now()->addDay();
+    LiveScheduleAssignment::factory()->forDate($date->format('Y-m-d'))->create([
+        'live_host_id' => $host->id,
+        'day_of_week' => (int) $date->dayOfWeek,
+        'status' => 'scheduled',
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar?week_of='.$date->format('Y-m-d'))
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.0.session.needsUpload', false)
+            ->where('sessionSlots.0.session.overdue', false)
+            ->etc());
+});
+
+it('reports null session for a template slot with no materialised broadcast', function () {
+    // Template (recurring) slots never materialise a LiveSession — the observer
+    // only bridges dated assignments — so the calendar reports a null session.
+    LiveScheduleAssignment::factory()->template()->create([
+        'day_of_week' => (int) now()->dayOfWeek,
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.0.session', null)
             ->etc());
 });
 

@@ -8,6 +8,8 @@ use App\Http\Requests\LiveHost\UpdateSessionSlotRequest;
 use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
+use App\Models\LiveSession;
+use App\Models\LiveSessionAttachment;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
@@ -15,6 +17,7 @@ use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,6 +41,12 @@ class SessionSlotController extends Controller
                 'platformAccount.platform:id,name,display_name,slug',
                 'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
                 'createdBy:id,name',
+                'liveSession.liveHost:id,name,email',
+                'liveSession.platformAccount:id,name,platform_id',
+                'liveSession.platformAccount.platform:id,name,display_name,slug',
+                'liveSession.attachments.uploader:id,name',
+                'liveSession.verifiedBy:id,name',
+                'liveSession.analytics',
             ])
             ->when(
                 $host === 'unassigned',
@@ -112,6 +121,12 @@ class SessionSlotController extends Controller
                 'platformAccount.platform:id,name,display_name,slug',
                 'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
                 'createdBy:id,name',
+                'liveSession.liveHost:id,name,email',
+                'liveSession.platformAccount:id,name,platform_id',
+                'liveSession.platformAccount.platform:id,name,display_name,slug',
+                'liveSession.attachments.uploader:id,name',
+                'liveSession.verifiedBy:id,name',
+                'liveSession.analytics',
             ])
             ->when(
                 $host === 'unassigned',
@@ -209,6 +224,12 @@ class SessionSlotController extends Controller
             'platformAccount.platform:id,name,display_name,slug',
             'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
             'createdBy:id,name',
+            'liveSession.liveHost:id,name,email',
+            'liveSession.platformAccount:id,name,platform_id',
+            'liveSession.platformAccount.platform:id,name,display_name,slug',
+            'liveSession.attachments.uploader:id,name',
+            'liveSession.verifiedBy:id,name',
+            'liveSession.analytics',
         ]);
 
         return Inertia::render('session-slots/Show', [
@@ -380,6 +401,104 @@ class SessionSlotController extends Controller
             'createdByName' => $a->createdBy?->name,
             'createdAt' => $a->created_at?->toIso8601String(),
             'updatedAt' => $a->updated_at?->toIso8601String(),
+            // The actual broadcast tied to this slot — carries lifecycle status,
+            // GMV, the host's proof upload and the PIC verification state so the
+            // calendar can flag "still needs upload" / "still needs verify".
+            'session' => $a->relationLoaded('liveSession') && $a->liveSession
+                ? $this->mapLinkedSession($a->liveSession)
+                : null,
+        ];
+    }
+
+    /**
+     * The linked live session in the exact shape LiveSessionModal consumes
+     * (so the calendar can reuse the full upload + verify surface), plus the
+     * derived indicators the calendar block renders at a glance.
+     *
+     * @return array<string, mixed>
+     */
+    private function mapLinkedSession(LiveSession $s): array
+    {
+        $attachments = $s->relationLoaded('attachments')
+            ? $s->attachments->map(fn (LiveSessionAttachment $a) => [
+                'id' => $a->id,
+                'fileName' => $a->file_name,
+                'fileType' => $a->file_type,
+                'fileSize' => (int) $a->file_size,
+                'fileSizeFormatted' => $a->file_size_formatted,
+                'fileUrl' => $a->file_url,
+                'description' => $a->description,
+                'uploaderName' => $a->uploader?->name,
+                'isImage' => $a->isImage(),
+                'isVideo' => $a->isVideo(),
+                'isPdf' => $a->isPdf(),
+                'attachmentType' => $a->attachment_type,
+                'createdAt' => $a->created_at?->toIso8601String(),
+            ])->values()->all()
+            : [];
+
+        $analytics = $s->relationLoaded('analytics') && $s->analytics ? [
+            'viewersPeak' => (int) $s->analytics->viewers_peak,
+            'viewersAvg' => (int) $s->analytics->viewers_avg,
+            'totalLikes' => (int) $s->analytics->total_likes,
+            'totalComments' => (int) $s->analytics->total_comments,
+            'totalShares' => (int) $s->analytics->total_shares,
+            'totalEngagement' => $s->analytics->total_engagement,
+            'engagementRate' => $s->analytics->engagement_rate,
+            'giftsValue' => (string) $s->analytics->gifts_value,
+            'durationMinutes' => (int) $s->analytics->duration_minutes,
+        ] : null;
+
+        $uploaded = $s->uploaded_at !== null;
+        $hasScreenshot = collect($attachments)
+            ->contains(fn (array $a): bool => $a['attachmentType'] === LiveSessionAttachment::TYPE_TIKTOK_SHOP_SCREENSHOT);
+
+        // "Needs upload" is the host's outstanding obligation: a session with no
+        // recap upload that is either already ended OR is past its scheduled
+        // start (the window to go live has closed). Cancelled / missed sessions
+        // are excluded — they're already accounted for. "Overdue" is the loudest
+        // case: the slot's time passed and it was never even ended.
+        $isActionable = ! in_array($s->status, ['cancelled', 'missed'], true);
+        $isPast = $s->scheduled_start_at !== null && $s->scheduled_start_at->isPast();
+        $needsUpload = $isActionable && ! $uploaded && ($s->status === 'ended' || $isPast);
+        $overdue = $isActionable && ! $uploaded && $s->status !== 'ended' && $isPast;
+
+        return [
+            'id' => $s->id,
+            'sessionId' => 'LS-'.str_pad((string) $s->id, 5, '0', STR_PAD_LEFT),
+            'title' => $s->title,
+            'description' => $s->description,
+            'status' => $s->status,
+            'statusColor' => $s->status_color,
+            'hostId' => $s->live_host_id,
+            'hostName' => $s->liveHost?->name,
+            'hostEmail' => $s->liveHost?->email,
+            'platformAccountId' => $s->platform_account_id,
+            'platformAccount' => $s->platformAccount?->name,
+            'platformType' => $s->platformAccount?->platform?->slug,
+            'scheduledStart' => $s->scheduled_start_at?->toIso8601String(),
+            'actualStart' => $s->actual_start_at?->toIso8601String(),
+            'actualEnd' => $s->actual_end_at?->toIso8601String(),
+            'duration' => $s->duration,
+            'durationMinutes' => $s->duration_minutes,
+            'remarks' => $s->remarks,
+            'missedReasonCode' => $s->missed_reason_code,
+            'missedReasonNote' => $s->missed_reason_note,
+            'analytics' => $analytics,
+            'attachments' => $attachments,
+            'attachmentCount' => count($attachments),
+            'verificationStatus' => $s->verification_status ?? 'pending',
+            'verificationNotes' => $s->verification_notes,
+            'verifiedByName' => $s->verifiedBy?->name,
+            'verifiedAt' => $s->verified_at?->toIso8601String(),
+            // Derived calendar indicators.
+            'gmvNet' => round(((float) ($s->gmv_amount ?? 0)) + ((float) ($s->gmv_adjustment ?? 0)), 2),
+            'gmvSource' => $s->gmv_source,
+            'uploaded' => $uploaded,
+            'uploadedAt' => $s->uploaded_at?->toIso8601String(),
+            'hasScreenshot' => $hasScreenshot,
+            'needsUpload' => $needsUpload,
+            'overdue' => $overdue,
         ];
     }
 
@@ -390,7 +509,7 @@ class SessionSlotController extends Controller
      * the option text without additional lookups. `isPrimary` lets the UI
      * auto-select the host's default identity for a given platform account.
      *
-     * @return \Illuminate\Support\Collection<int, array{
+     * @return Collection<int, array{
      *     id: int,
      *     userId: int,
      *     userName: ?string,
@@ -401,7 +520,7 @@ class SessionSlotController extends Controller
      *     label: string
      * }>
      */
-    private function hostPlatformPivotOptions(): \Illuminate\Support\Collection
+    private function hostPlatformPivotOptions(): Collection
     {
         return LiveHostPlatformAccount::query()
             ->with(['platformAccount:id,name', 'user:id,name'])
@@ -427,9 +546,9 @@ class SessionSlotController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, email: ?string}>
+     * @return Collection<int, array{id: int, name: string, email: ?string}>
      */
-    private function hostOptions(): \Illuminate\Support\Collection
+    private function hostOptions(): Collection
     {
         return User::query()
             ->where('role', 'live_host')
@@ -439,9 +558,9 @@ class SessionSlotController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, platform: ?string}>
+     * @return Collection<int, array{id: int, name: string, platform: ?string}>
      */
-    private function platformAccountOptions(): \Illuminate\Support\Collection
+    private function platformAccountOptions(): Collection
     {
         return PlatformAccount::query()
             ->with('platform:id,name,display_name,slug')
@@ -460,7 +579,7 @@ class SessionSlotController extends Controller
      * shops the account may promote (so the modal can derive/limit the shop)
      * and the eligible operating hosts.
      *
-     * @return \Illuminate\Support\Collection<int, array{
+     * @return Collection<int, array{
      *     id: int,
      *     label: string,
      *     nickname: ?string,
@@ -471,7 +590,7 @@ class SessionSlotController extends Controller
      *     hostIds: array<int, int>
      * }>
      */
-    private function liveAccountOptions(): \Illuminate\Support\Collection
+    private function liveAccountOptions(): Collection
     {
         return LiveAccount::query()
             ->where('is_active', true)
@@ -497,7 +616,7 @@ class SessionSlotController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{
+     * @return Collection<int, array{
      *     id: int,
      *     label: string,
      *     dayOfWeek: ?int,
@@ -506,7 +625,7 @@ class SessionSlotController extends Controller
      *     endTime: string
      * }>
      */
-    private function timeSlotOptions(): \Illuminate\Support\Collection
+    private function timeSlotOptions(): Collection
     {
         return LiveTimeSlot::query()
             ->where('is_active', true)
