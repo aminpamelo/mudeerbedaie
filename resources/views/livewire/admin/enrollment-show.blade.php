@@ -1,8 +1,14 @@
 <?php
 
+use App\Models\ClassModel;
+use App\Models\ClassStudent;
 use App\Models\Enrollment;
+use App\Models\Order;
 use App\Models\PaymentMethodToken;
+use App\Models\StripeCustomer;
+use App\Models\User;
 use App\Services\StripeService;
+use Carbon\Carbon;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
@@ -16,13 +22,18 @@ new class extends Component
 
     // Magic link properties
     public ?string $magicLink = null;
+
     public ?string $magicLinkExpiresAt = null;
+
     public bool $showMagicLinkModal = false;
+
     public bool $isGeneratingMagicLink = false;
 
     // Payment method indicator properties
     public bool $hasPaymentMethods = false;
+
     public int $paymentMethodsCount = 0;
+
     public ?array $defaultPaymentMethodInfo = null;
 
     // Manual payment properties
@@ -86,7 +97,14 @@ new class extends Component
 
     public function mount(): void
     {
-        $this->enrollment->load(['student.user', 'student.classStudents.class', 'course.feeSettings', 'course.classes', 'enrolledBy', 'orders']);
+        $this->enrollment->load([
+            'student.user' => fn ($query) => $query->withTrashed(),
+            'student.classStudents.class',
+            'course.feeSettings',
+            'course.classes',
+            'enrolledBy' => fn ($query) => $query->withTrashed(),
+            'orders',
+        ]);
 
         // Load subscription events
         $this->refreshSubscriptionEvents();
@@ -112,6 +130,15 @@ new class extends Component
     public function loadPaymentMethodInfo(): void
     {
         $user = $this->enrollment->student->user;
+
+        if (! $user) {
+            $this->paymentMethodsCount = 0;
+            $this->hasPaymentMethods = false;
+            $this->defaultPaymentMethodInfo = null;
+
+            return;
+        }
+
         $paymentMethods = $user->paymentMethods()->active()->get();
 
         $this->paymentMethodsCount = $paymentMethods->count();
@@ -152,12 +179,13 @@ new class extends Component
             // Check if a valid magic link already exists
             $existingToken = $this->enrollment->student->magicLinks()->valid()->first();
 
-            if ($existingToken && !$forceRegenerate) {
+            if ($existingToken && ! $forceRegenerate) {
                 // Use existing token instead of generating a new one
                 $this->magicLink = $existingToken->getMagicLinkUrl();
                 $this->magicLinkExpiresAt = $existingToken->expires_at->format('M d, Y \a\t h:i A');
                 $this->showMagicLinkModal = true;
                 session()->flash('info', 'Using existing magic link. Click "Regenerate" to create a new one (this will invalidate the current link).');
+
                 return;
             }
 
@@ -169,7 +197,7 @@ new class extends Component
 
             session()->flash('success', 'Magic link generated! Copy and send it to the student.');
 
-            \Log::info('Admin generated magic link for student from enrollment page', [
+            Log::info('Admin generated magic link for student from enrollment page', [
                 'admin_id' => auth()->user()->id,
                 'admin_name' => auth()->user()->name,
                 'enrollment_id' => $this->enrollment->id,
@@ -178,8 +206,8 @@ new class extends Component
                 'token_id' => $token->id,
                 'expires_at' => $token->expires_at->toIso8601String(),
             ]);
-        } catch (\Exception $e) {
-            session()->flash('error', 'Failed to generate magic link: ' . $e->getMessage());
+        } catch (Exception $e) {
+            session()->flash('error', 'Failed to generate magic link: '.$e->getMessage());
         } finally {
             $this->isGeneratingMagicLink = false;
         }
@@ -224,7 +252,7 @@ new class extends Component
                     'end_time' => $schedule['cancel_at'] ? date('H:i', $schedule['cancel_at']) : null,
                     'subscription_fee' => $this->enrollment->enrollment_fee,
                 ];
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Fallback to basic form with next payment date only
                 $this->scheduleForm = [
                     'billing_cycle_anchor' => null,
@@ -238,7 +266,7 @@ new class extends Component
                     'subscription_fee' => $this->enrollment->enrollment_fee,
                 ];
 
-                \Log::warning('Could not load subscription schedule details, using fallback', [
+                Log::warning('Could not load subscription schedule details, using fallback', [
                     'enrollment_id' => $this->enrollment->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -290,7 +318,7 @@ new class extends Component
     /**
      * Calculate the default start date based on course billing day
      */
-    private function calculateDefaultStartDate(): \Carbon\Carbon
+    private function calculateDefaultStartDate(): Carbon
     {
         $feeSettings = $this->enrollment->course->feeSettings;
 
@@ -324,7 +352,7 @@ new class extends Component
                 $defaultDate = $targetDate->day($billingDay)->startOfDay();
             }
 
-            \Log::info('Calculated default start date from course billing day', [
+            Log::info('Calculated default start date from course billing day', [
                 'course_id' => $this->enrollment->course->id,
                 'billing_day' => $billingDay,
                 'current_date' => $now->toDateString(),
@@ -333,8 +361,8 @@ new class extends Component
 
             return $defaultDate;
 
-        } catch (\Exception $e) {
-            \Log::warning('Failed to calculate start date from billing day, using today', [
+        } catch (Exception $e) {
+            Log::warning('Failed to calculate start date from billing day, using today', [
                 'course_id' => $this->enrollment->course->id,
                 'billing_day' => $billingDay,
                 'error' => $e->getMessage(),
@@ -392,7 +420,7 @@ new class extends Component
             // Update cancellation timestamp based on Stripe data
             $cancelAt = null;
             if ($details['cancel_at_period_end'] && $details['cancel_at']) {
-                $cancelAt = \Carbon\Carbon::createFromTimestamp($details['cancel_at']);
+                $cancelAt = Carbon::createFromTimestamp($details['cancel_at']);
             }
 
             // Only update if the cancellation timestamp has changed
@@ -405,8 +433,8 @@ new class extends Component
 
             $this->enrollment->refresh();
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to refresh subscription status from Stripe', [
+        } catch (Exception $e) {
+            Log::error('Failed to refresh subscription status from Stripe', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
@@ -524,10 +552,10 @@ new class extends Component
         // Generate month columns based on billing cycle
         $months = collect(range(1, 12))->map(function ($month) use ($currentYear) {
             return [
-                'label' => \Carbon\Carbon::create($currentYear, $month)->format('M'),
-                'full_label' => \Carbon\Carbon::create($currentYear, $month)->format('F Y'),
-                'period_start' => \Carbon\Carbon::create($currentYear, $month, 1)->startOfMonth(),
-                'period_end' => \Carbon\Carbon::create($currentYear, $month, 1)->endOfMonth(),
+                'label' => Carbon::create($currentYear, $month)->format('M'),
+                'full_label' => Carbon::create($currentYear, $month)->format('F Y'),
+                'period_start' => Carbon::create($currentYear, $month, 1)->startOfMonth(),
+                'period_end' => Carbon::create($currentYear, $month, 1)->endOfMonth(),
             ];
         });
 
@@ -631,7 +659,7 @@ new class extends Component
             // Get comprehensive subscription details from Stripe
             $details = $stripeService->getSubscriptionDetails($this->enrollment->stripe_subscription_id);
 
-            \Log::info('Syncing subscription data from Stripe', [
+            Log::info('Syncing subscription data from Stripe', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'stripe_status' => $details['status'] ?? 'unknown',
@@ -661,7 +689,7 @@ new class extends Component
 
             // Update next payment date
             if (in_array($details['status'] ?? '', ['active', 'trialing']) && isset($details['current_period_end'])) {
-                $nextPaymentDate = \Carbon\Carbon::createFromTimestamp($details['current_period_end'])->addDay();
+                $nextPaymentDate = Carbon::createFromTimestamp($details['current_period_end'])->addDay();
                 $this->enrollment->updateNextPaymentDate($nextPaymentDate);
             } elseif (in_array($details['status'] ?? '', ['canceled', 'incomplete_expired', 'past_due', 'unpaid'])) {
                 $this->enrollment->updateNextPaymentDate(null);
@@ -670,7 +698,7 @@ new class extends Component
             // Update cancellation information
             $cancelAt = null;
             if ($details['cancel_at_period_end'] && $details['cancel_at']) {
-                $cancelAt = \Carbon\Carbon::createFromTimestamp($details['cancel_at']);
+                $cancelAt = Carbon::createFromTimestamp($details['cancel_at']);
             }
 
             $currentCancelAt = $this->enrollment->subscription_cancel_at;
@@ -682,7 +710,7 @@ new class extends Component
 
             // Update trial information if available
             if (isset($details['trial_end']) && $details['trial_end']) {
-                $trialEnd = \Carbon\Carbon::createFromTimestamp($details['trial_end']);
+                $trialEnd = Carbon::createFromTimestamp($details['trial_end']);
                 // Update trial end if different
                 if (! $this->enrollment->trial_end_at || ! $this->enrollment->trial_end_at->equalTo($trialEnd)) {
                     $this->enrollment->update(['trial_end_at' => $trialEnd]);
@@ -700,15 +728,15 @@ new class extends Component
 
             session()->flash('success', 'Subscription data synchronized successfully from Stripe!');
 
-            \Log::info('Subscription data synced successfully', [
+            Log::info('Subscription data synced successfully', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'new_status' => $this->enrollment->subscription_status,
                 'collection_status' => $this->enrollment->collection_status ?? 'active',
             ]);
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to sync subscription data from Stripe', [
+        } catch (Exception $e) {
+            Log::error('Failed to sync subscription data from Stripe', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
@@ -720,38 +748,38 @@ new class extends Component
 
     public function createSubscription()
     {
-        \Log::info('Create subscription button clicked', [
+        Log::info('Create subscription button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'user_id' => auth()->user()->id,
         ]);
 
         try {
-            \Log::info('Checking course fee settings', [
+            Log::info('Checking course fee settings', [
                 'enrollment_id' => $this->enrollment->id,
                 'has_fee_settings' => (bool) $this->enrollment->course->feeSettings,
             ]);
 
             if (! $this->enrollment->course->feeSettings) {
-                \Log::warning('Course missing fee settings', ['enrollment_id' => $this->enrollment->id]);
+                Log::warning('Course missing fee settings', ['enrollment_id' => $this->enrollment->id]);
                 session()->flash('error', 'Course must have fee settings configured first.');
 
                 return;
             }
 
-            \Log::info('Checking Stripe price ID', [
+            Log::info('Checking Stripe price ID', [
                 'enrollment_id' => $this->enrollment->id,
                 'stripe_price_id' => $this->enrollment->course->feeSettings->stripe_price_id,
             ]);
 
             if (! $this->enrollment->course->feeSettings->stripe_price_id) {
-                \Log::warning('Course missing Stripe price ID', ['enrollment_id' => $this->enrollment->id]);
+                Log::warning('Course missing Stripe price ID', ['enrollment_id' => $this->enrollment->id]);
                 session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click"Sync to Stripe".');
 
                 return;
             }
 
             // Get student's default payment method
-            \Log::info('Looking for student payment methods', [
+            Log::info('Looking for student payment methods', [
                 'enrollment_id' => $this->enrollment->id,
                 'student_id' => $this->enrollment->student->id,
                 'user_id' => $this->enrollment->student->user->id,
@@ -762,21 +790,21 @@ new class extends Component
                 ->default()
                 ->first();
 
-            \Log::info('Payment method check result', [
+            Log::info('Payment method check result', [
                 'enrollment_id' => $this->enrollment->id,
                 'payment_method_found' => (bool) $paymentMethod,
                 'payment_method_id' => $paymentMethod?->id,
             ]);
 
             if (! $paymentMethod) {
-                \Log::warning('Student has no default payment method', ['enrollment_id' => $this->enrollment->id]);
+                Log::warning('Student has no default payment method', ['enrollment_id' => $this->enrollment->id]);
                 session()->flash('warning', 'Student must add a payment method first. You can add one for them or direct them to their Payment Methods page.');
 
                 return;
             }
 
             // Create subscription using StripeService
-            \Log::info('Creating Stripe subscription', [
+            Log::info('Creating Stripe subscription', [
                 'enrollment_id' => $this->enrollment->id,
                 'payment_method_id' => $paymentMethod->id,
             ]);
@@ -784,7 +812,7 @@ new class extends Component
             $stripeService = app(StripeService::class);
             $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
 
-            \Log::info('Stripe subscription creation result', [
+            Log::info('Stripe subscription creation result', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $result['subscription']->id ?? null,
             ]);
@@ -792,15 +820,15 @@ new class extends Component
             // Refresh enrollment to get updated subscription data
             $this->enrollment->refresh();
 
-            \Log::info('Subscription created successfully', [
+            Log::info('Subscription created successfully', [
                 'enrollment_id' => $this->enrollment->id,
                 'stripe_subscription_id' => $this->enrollment->stripe_subscription_id,
             ]);
 
             session()->flash('success', 'Subscription created successfully! The student will be charged according to the billing cycle.');
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to create subscription', [
+        } catch (Exception $e) {
+            Log::error('Failed to create subscription', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -811,7 +839,7 @@ new class extends Component
 
     public function createSubscriptionWithOptions()
     {
-        \Log::info('Create subscription with options submitted', [
+        Log::info('Create subscription with options submitted', [
             'enrollment_id' => $this->enrollment->id,
             'user_id' => auth()->user()->id,
             'form_data' => $this->createForm,
@@ -875,7 +903,7 @@ new class extends Component
                 if ($this->createForm['next_payment_date'] && $this->createForm['next_payment_date'] !== $this->createForm['start_date']) {
                     // Next payment date was explicitly set differently from start date
                     $nextPaymentTime = $this->createForm['next_payment_time'] ?? '07:23';
-                    $nextPaymentDate = \Carbon\Carbon::parse(
+                    $nextPaymentDate = Carbon::parse(
                         $this->createForm['next_payment_date'].' '.$nextPaymentTime,
                         $this->createForm['subscription_timezone']
                     );
@@ -884,7 +912,7 @@ new class extends Component
                 // Update stored next payment date in enrollment
                 $this->enrollment->updateNextPaymentDate($nextPaymentDate);
 
-                \Log::info('Next payment date updated for new subscription', [
+                Log::info('Next payment date updated for new subscription', [
                     'enrollment_id' => $this->enrollment->id,
                     'next_payment_date' => $nextPaymentDate->toDateTimeString(),
                     'subscription_status' => $this->enrollment->subscription_status,
@@ -907,15 +935,15 @@ new class extends Component
             // Close modal
             $this->showCreateSubscriptionModal = false;
 
-            \Log::info('Subscription created successfully with options', [
+            Log::info('Subscription created successfully with options', [
                 'enrollment_id' => $this->enrollment->id,
                 'stripe_subscription_id' => $this->enrollment->stripe_subscription_id,
             ]);
 
             session()->flash('success', 'Subscription created successfully with your configured options!');
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to create subscription with options', [
+        } catch (Exception $e) {
+            Log::error('Failed to create subscription with options', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
                 'form_data' => $this->createForm,
@@ -942,7 +970,7 @@ new class extends Component
                     'next_payment_date' => null,
                 ]);
 
-                \Log::info('Internal subscription canceled', [
+                Log::info('Internal subscription canceled', [
                     'enrollment_id' => $this->enrollment->id,
                     'internal_subscription_id' => $this->enrollment->stripe_subscription_id,
                 ]);
@@ -971,7 +999,7 @@ new class extends Component
             } else {
                 // Store the cancellation timestamp for pending cancellation
                 if (isset($result['cancel_at'])) {
-                    $cancelAt = \Carbon\Carbon::createFromTimestamp($result['cancel_at']);
+                    $cancelAt = Carbon::createFromTimestamp($result['cancel_at']);
                     $this->enrollment->updateSubscriptionCancellation($cancelAt);
                     $this->enrollment->refresh(); // Refresh to get updated data
                 }
@@ -979,14 +1007,14 @@ new class extends Component
                 session()->flash('info', $result['message'].' The subscription will automatically end at that time and no further charges will occur.');
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to cancel subscription: '.$e->getMessage());
         }
     }
 
     public function undoCancellation()
     {
-        \Log::info('Undo cancellation button clicked', [
+        Log::info('Undo cancellation button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'subscription_id' => $this->enrollment->stripe_subscription_id,
             'user_id' => auth()->user()->id,
@@ -1013,7 +1041,7 @@ new class extends Component
                     'subscription_cancel_at' => null,
                 ]);
 
-                \Log::info('Internal subscription cancellation undone', [
+                Log::info('Internal subscription cancellation undone', [
                     'enrollment_id' => $this->enrollment->id,
                     'internal_subscription_id' => $this->enrollment->stripe_subscription_id,
                 ]);
@@ -1042,14 +1070,14 @@ new class extends Component
 
                 session()->flash('success', $result['message']);
 
-                \Log::info('Cancellation undone successfully', [
+                Log::info('Cancellation undone successfully', [
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
                 ]);
             }
 
-        } catch (\Exception $e) {
-            \Log::error('Exception during cancellation undo', [
+        } catch (Exception $e) {
+            Log::error('Exception during cancellation undo', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
@@ -1061,7 +1089,7 @@ new class extends Component
 
     public function resumeCanceledSubscription()
     {
-        \Log::info('Resume canceled subscription button clicked', [
+        Log::info('Resume canceled subscription button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'user_id' => auth()->user()->id,
         ]);
@@ -1111,8 +1139,8 @@ new class extends Component
 
             session()->flash('success', 'Subscription resumed successfully! A new subscription has been created and the student will be charged according to the billing cycle.');
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to resume canceled subscription', [
+        } catch (Exception $e) {
+            Log::error('Failed to resume canceled subscription', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
@@ -1122,7 +1150,7 @@ new class extends Component
 
     public function forceRecreateSubscription()
     {
-        \Log::info('Force recreate subscription button clicked', [
+        Log::info('Force recreate subscription button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'subscription_id' => $this->enrollment->stripe_subscription_id,
             'user_id' => auth()->user()->id,
@@ -1134,7 +1162,7 @@ new class extends Component
                 $stripeService = app(StripeService::class);
                 $stripeService->cancelSubscription($this->enrollment->stripe_subscription_id, true); // Cancel immediately
 
-                \Log::info('Problematic subscription canceled', [
+                Log::info('Problematic subscription canceled', [
                     'enrollment_id' => $this->enrollment->id,
                     'old_subscription_id' => $this->enrollment->stripe_subscription_id,
                 ]);
@@ -1164,13 +1192,13 @@ new class extends Component
 
             session()->flash('success', 'Subscription recreated successfully! The old problematic subscription has been canceled and a new one created.');
 
-            \Log::info('Subscription successfully recreated', [
+            Log::info('Subscription successfully recreated', [
                 'enrollment_id' => $this->enrollment->id,
                 'new_subscription_id' => $this->enrollment->stripe_subscription_id,
             ]);
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to recreate subscription', [
+        } catch (Exception $e) {
+            Log::error('Failed to recreate subscription', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
@@ -1181,7 +1209,7 @@ new class extends Component
 
     public function confirmPayment()
     {
-        \Log::info('Confirm payment button clicked', [
+        Log::info('Confirm payment button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'subscription_id' => $this->enrollment->stripe_subscription_id,
             'user_id' => auth()->user()->id,
@@ -1212,7 +1240,7 @@ new class extends Component
 
                 session()->flash('success', $result['message'] ?? 'Payment confirmed successfully! Subscription should activate shortly.');
 
-                \Log::info('Payment confirmed successfully', [
+                Log::info('Payment confirmed successfully', [
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
                 ]);
@@ -1232,7 +1260,7 @@ new class extends Component
                     session()->flash('error', 'Failed to confirm payment: '.$result['error']);
                 }
 
-                \Log::warning('Payment confirmation failed', [
+                Log::warning('Payment confirmation failed', [
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
                     'error' => $result['error'],
@@ -1241,8 +1269,8 @@ new class extends Component
                 ]);
             }
 
-        } catch (\Exception $e) {
-            \Log::error('Exception during payment confirmation', [
+        } catch (Exception $e) {
+            Log::error('Exception during payment confirmation', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
@@ -1323,17 +1351,17 @@ new class extends Component
             if ($this->scheduleForm['next_payment_date']) {
                 // Handle next payment date - this takes precedence
                 $nextPaymentDateTime = $this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23');
-                $nextPaymentTimestamp = \Carbon\Carbon::parse($nextPaymentDateTime)
+                $nextPaymentTimestamp = Carbon::parse($nextPaymentDateTime)
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
                 $scheduleData['next_payment_date'] = $nextPaymentTimestamp;
-                $enrollmentData['billing_cycle_anchor'] = \Carbon\Carbon::createFromTimestamp($nextPaymentTimestamp);
+                $enrollmentData['billing_cycle_anchor'] = Carbon::createFromTimestamp($nextPaymentTimestamp);
             } else {
                 // Handle billing cycle anchor only if next payment date is not set
                 if ($this->scheduleForm['billing_cycle_anchor']) {
-                    $billingAnchor = \Carbon\Carbon::parse($this->scheduleForm['billing_cycle_anchor'])->timestamp;
+                    $billingAnchor = Carbon::parse($this->scheduleForm['billing_cycle_anchor'])->timestamp;
                     $scheduleData['billing_cycle_anchor'] = $billingAnchor;
-                    $enrollmentData['billing_cycle_anchor'] = \Carbon\Carbon::parse($this->scheduleForm['billing_cycle_anchor']);
+                    $enrollmentData['billing_cycle_anchor'] = Carbon::parse($this->scheduleForm['billing_cycle_anchor']);
                 }
             }
 
@@ -1342,9 +1370,9 @@ new class extends Component
             if (array_key_exists('trial_end_at', $this->scheduleForm)) {
                 if ($this->scheduleForm['trial_end_at']) {
                     // Setting a new trial end date
-                    $trialEnd = \Carbon\Carbon::parse($this->scheduleForm['trial_end_at'])->timestamp;
+                    $trialEnd = Carbon::parse($this->scheduleForm['trial_end_at'])->timestamp;
                     $scheduleData['trial_end_at'] = $trialEnd;
-                    $enrollmentData['trial_end_at'] = \Carbon\Carbon::parse($this->scheduleForm['trial_end_at']);
+                    $enrollmentData['trial_end_at'] = Carbon::parse($this->scheduleForm['trial_end_at']);
                 } else {
                     // Removing trial end date (empty field)
                     $scheduleData['trial_end_at'] = null;
@@ -1366,11 +1394,11 @@ new class extends Component
             // Handle subscription end date
             if ($this->scheduleForm['end_date']) {
                 $endDateTime = $this->scheduleForm['end_date'].' '.($this->scheduleForm['end_time'] ?? '23:59');
-                $endTimestamp = \Carbon\Carbon::parse($endDateTime)
+                $endTimestamp = Carbon::parse($endDateTime)
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
                 $scheduleData['cancel_at'] = $endTimestamp;
-                $enrollmentData['subscription_cancel_at'] = \Carbon\Carbon::createFromTimestamp($endTimestamp);
+                $enrollmentData['subscription_cancel_at'] = Carbon::createFromTimestamp($endTimestamp);
             }
 
             // Handle subscription fee update
@@ -1386,7 +1414,7 @@ new class extends Component
                         'old_fee' => $this->enrollment->enrollment_fee,
                         'new_fee' => $this->scheduleForm['subscription_fee'],
                     ]);
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     Log::error('Failed to update subscription fee', [
                         'enrollment_id' => $this->enrollment->id,
                         'new_fee' => $this->scheduleForm['subscription_fee'],
@@ -1407,7 +1435,7 @@ new class extends Component
 
                 // Update stored next payment date directly
                 if ($this->scheduleForm['next_payment_date']) {
-                    $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23'))
+                    $nextPaymentDateTime = Carbon::parse($this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23'))
                         ->setTimezone($this->scheduleForm['subscription_timezone']);
                     $this->enrollment->updateNextPaymentDate($nextPaymentDateTime);
                 }
@@ -1433,7 +1461,7 @@ new class extends Component
                 ]);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to update subscription schedule', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
@@ -1458,7 +1486,7 @@ new class extends Component
                 return;
             }
 
-            $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23'))
+            $nextPaymentDateTime = Carbon::parse($this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23'))
                 ->setTimezone($this->scheduleForm['subscription_timezone'])
                 ->timestamp;
 
@@ -1468,11 +1496,11 @@ new class extends Component
             if ($result['success']) {
                 // Update local data
                 $this->enrollment->update([
-                    'billing_cycle_anchor' => \Carbon\Carbon::createFromTimestamp($nextPaymentDateTime),
+                    'billing_cycle_anchor' => Carbon::createFromTimestamp($nextPaymentDateTime),
                 ]);
 
                 // Update stored next payment date
-                $this->enrollment->updateNextPaymentDate(\Carbon\Carbon::createFromTimestamp($nextPaymentDateTime));
+                $this->enrollment->updateNextPaymentDate(Carbon::createFromTimestamp($nextPaymentDateTime));
                 $this->enrollment->refresh();
 
                 // Refresh subscription events
@@ -1488,7 +1516,7 @@ new class extends Component
                 ]);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to reschedule next payment', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
@@ -1512,7 +1540,7 @@ new class extends Component
 
             $trialEndTimestamp = null;
             if ($this->scheduleForm['trial_end_at']) {
-                $trialEndTimestamp = \Carbon\Carbon::parse($this->scheduleForm['trial_end_at'])
+                $trialEndTimestamp = Carbon::parse($this->scheduleForm['trial_end_at'])
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
             }
@@ -1523,7 +1551,7 @@ new class extends Component
             if ($result['success']) {
                 // Update local data
                 $this->enrollment->update([
-                    'trial_end_at' => $trialEndTimestamp ? \Carbon\Carbon::createFromTimestamp($trialEndTimestamp) : null,
+                    'trial_end_at' => $trialEndTimestamp ? Carbon::createFromTimestamp($trialEndTimestamp) : null,
                 ]);
                 $this->enrollment->refresh();
 
@@ -1540,7 +1568,7 @@ new class extends Component
                 ]);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to update trial end', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
@@ -1562,7 +1590,7 @@ new class extends Component
             $endTimestamp = null;
             if ($this->scheduleForm['end_date']) {
                 $endDateTime = $this->scheduleForm['end_date'].' '.($this->scheduleForm['end_time'] ?? '23:59');
-                $endTimestamp = \Carbon\Carbon::parse($endDateTime)
+                $endTimestamp = Carbon::parse($endDateTime)
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
             }
@@ -1573,7 +1601,7 @@ new class extends Component
             if ($result['success']) {
                 // Update local data
                 $this->enrollment->update([
-                    'subscription_cancel_at' => $endTimestamp ? \Carbon\Carbon::createFromTimestamp($endTimestamp) : null,
+                    'subscription_cancel_at' => $endTimestamp ? Carbon::createFromTimestamp($endTimestamp) : null,
                 ]);
                 $this->enrollment->refresh();
 
@@ -1590,7 +1618,7 @@ new class extends Component
                 ]);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to update subscription end date', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
@@ -1620,7 +1648,7 @@ new class extends Component
                 $this->enrollment->refresh();
                 session()->flash('success', $result['message']);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to create manual subscription: '.$e->getMessage());
         }
     }
@@ -1668,11 +1696,11 @@ new class extends Component
             $receiptUrl = null;
             if ($this->receiptFile) {
                 $receiptPath = $this->receiptFile->store('receipts', 'public');
-                $receiptUrl = \Storage::url($receiptPath);
+                $receiptUrl = Storage::url($receiptPath);
             }
 
             // Check if order already exists for this period
-            $existingOrder = \App\Models\Order::where('enrollment_id', $this->enrollment->id)
+            $existingOrder = Order::where('enrollment_id', $this->enrollment->id)
                 ->where('student_id', $this->enrollment->student_id)
                 ->where('course_id', $this->enrollment->course_id)
                 ->where('period_start', $this->selectedPeriod['start'])
@@ -1683,8 +1711,8 @@ new class extends Component
                 // Update existing order
                 $existingOrder->update([
                     'amount' => $this->paymentAmount,
-                    'status' => \App\Models\Order::STATUS_PAID,
-                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'status' => Order::STATUS_PAID,
+                    'payment_method' => Order::PAYMENT_METHOD_MANUAL,
                     'paid_at' => now(),
                     'receipt_url' => $receiptUrl ?? $existingOrder->receipt_url,
                     'metadata' => array_merge($existingOrder->metadata ?? [], [
@@ -1698,17 +1726,17 @@ new class extends Component
                 session()->flash('success', 'Payment updated successfully!');
             } else {
                 // Create new order
-                \App\Models\Order::create([
+                Order::create([
                     'enrollment_id' => $this->enrollment->id,
                     'student_id' => $this->enrollment->student_id,
                     'course_id' => $this->enrollment->course_id,
                     'amount' => $this->paymentAmount,
                     'currency' => 'MYR',
-                    'status' => \App\Models\Order::STATUS_PAID,
+                    'status' => Order::STATUS_PAID,
                     'period_start' => $this->selectedPeriod['start'],
                     'period_end' => $this->selectedPeriod['end'],
-                    'billing_reason' => \App\Models\Order::REASON_MANUAL,
-                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'billing_reason' => Order::REASON_MANUAL,
+                    'payment_method' => Order::PAYMENT_METHOD_MANUAL,
                     'paid_at' => now(),
                     'receipt_url' => $receiptUrl,
                     'metadata' => [
@@ -1725,7 +1753,7 @@ new class extends Component
             // Refresh enrollment data
             $this->enrollment->refresh();
             $this->closeManualPaymentModal();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to create payment: '.$e->getMessage());
         }
     }
@@ -1758,7 +1786,7 @@ new class extends Component
             $this->closeCreateManualOrderModal();
 
             session()->flash('success', "Manual payment order generated successfully! Order ID: {$order->order_number}");
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Failed to generate manual payment order: '.$e->getMessage());
         }
     }
@@ -1805,7 +1833,7 @@ new class extends Component
             }
 
             // Log the deletion
-            \Log::info('Manual order deleted', [
+            Log::info('Manual order deleted', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
                 'enrollment_id' => $this->enrollment->id,
@@ -1818,8 +1846,8 @@ new class extends Component
             $this->enrollment->refresh();
             session()->flash('success', "Order #{$orderNumber} has been deleted successfully.");
             $this->closeDeleteOrderModal();
-        } catch (\Exception $e) {
-            \Log::error('Error deleting manual order', [
+        } catch (Exception $e) {
+            Log::error('Error deleting manual order', [
                 'order_id' => $this->selectedOrderForDeletion,
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
@@ -1879,8 +1907,8 @@ new class extends Component
             } else {
                 session()->flash('error', $result['message']);
             }
-        } catch (\Exception $e) {
-            \Log::error('Error approving manual payment', [
+        } catch (Exception $e) {
+            Log::error('Error approving manual payment', [
                 'order_id' => $this->selectedOrderForApproval,
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
@@ -1930,7 +1958,7 @@ new class extends Component
             return null;
         }
 
-        return \App\Models\User::find($order->metadata['approved_by']);
+        return User::find($order->metadata['approved_by']);
     }
 
     public function switchToAutomaticPayments($paymentMethodId = null)
@@ -1942,7 +1970,7 @@ new class extends Component
         }
 
         try {
-            $stripeService = app(\App\Services\StripeService::class);
+            $stripeService = app(StripeService::class);
 
             // Ensure we have the latest student data with proper relationships
             $this->enrollment->load('student.user');
@@ -1958,7 +1986,7 @@ new class extends Component
 
                     if ($existingCustomer) {
                         // Create StripeCustomer record linking to this user
-                        $stripeCustomer = \App\Models\StripeCustomer::create([
+                        $stripeCustomer = StripeCustomer::create([
                             'user_id' => $user->id,
                             'stripe_customer_id' => $existingCustomer->id,
                             'metadata' => json_encode($existingCustomer->toArray()),
@@ -1971,7 +1999,7 @@ new class extends Component
                         $customer = $stripeService->createCustomer($user->email, $user->name);
 
                         // Create StripeCustomer record
-                        $stripeCustomer = \App\Models\StripeCustomer::create([
+                        $stripeCustomer = StripeCustomer::create([
                             'user_id' => $user->id,
                             'stripe_customer_id' => $customer->id,
                             'metadata' => json_encode($customer->toArray()),
@@ -1983,7 +2011,7 @@ new class extends Component
                         return;
                     }
 
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     session()->flash('error', 'Failed to setup Stripe customer account: '.$e->getMessage());
 
                     return;
@@ -2035,8 +2063,8 @@ new class extends Component
             // Refresh enrollment data
             $this->enrollment->refresh();
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to switch payment method to automatic', [
+        } catch (Exception $e) {
+            Log::error('Failed to switch payment method to automatic', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
@@ -2054,7 +2082,7 @@ new class extends Component
         }
 
         try {
-            $stripeService = app(\App\Services\StripeService::class);
+            $stripeService = app(StripeService::class);
 
             // If there's an active subscription, use the StripeService method
             if ($this->enrollment->stripe_subscription_id) {
@@ -2074,8 +2102,8 @@ new class extends Component
             // Refresh enrollment data
             $this->enrollment->refresh();
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to switch payment method to manual', [
+        } catch (Exception $e) {
+            Log::error('Failed to switch payment method to manual', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
@@ -2098,7 +2126,7 @@ new class extends Component
 
         try {
             $user = $this->enrollment->student->user;
-            $stripeService = app(\App\Services\StripeService::class);
+            $stripeService = app(StripeService::class);
 
             // Check if user has a linked Stripe customer
             $stripeCustomer = $user->stripeCustomer;
@@ -2137,7 +2165,7 @@ new class extends Component
                             'message' => 'Student needs to be set up in Stripe first',
                         ];
                     }
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     return [
                         'ready' => false,
                         'has_customer' => false,
@@ -2162,8 +2190,8 @@ new class extends Component
                     ? 'Student has '.$paymentMethodCount.' payment method(s) on file'
                     : 'Student must add a payment method first. Ask them to set up a card in their account settings.',
             ];
-        } catch (\Exception $e) {
-            \Log::warning('Failed to check customer payment methods for readiness display', [
+        } catch (Exception $e) {
+            Log::warning('Failed to check customer payment methods for readiness display', [
                 'student_id' => $this->enrollment->student_id,
                 'user_id' => $this->enrollment->student->user->id ?? null,
                 'error' => $e->getMessage(),
@@ -2187,7 +2215,7 @@ new class extends Component
     public function joinClass($classId)
     {
         try {
-            $class = \App\Models\ClassModel::findOrFail($classId);
+            $class = ClassModel::findOrFail($classId);
 
             // Validate the enrollment can join this class
             if (! $this->enrollment->canJoinClass($class)) {
@@ -2197,7 +2225,7 @@ new class extends Component
             }
 
             // Check if already enrolled
-            $existingEnrollment = \App\Models\ClassStudent::where('class_id', $classId)
+            $existingEnrollment = ClassStudent::where('class_id', $classId)
                 ->where('student_id', $this->enrollment->student_id)
                 ->where('status', 'active')
                 ->first();
@@ -2219,7 +2247,7 @@ new class extends Component
             } else {
                 session()->flash('error', 'Failed to enroll student in class.');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Error joining class: '.$e->getMessage());
         }
     }
@@ -2227,10 +2255,10 @@ new class extends Component
     public function leaveClass($classId, $reason = 'Left by admin')
     {
         try {
-            $class = \App\Models\ClassModel::findOrFail($classId);
+            $class = ClassModel::findOrFail($classId);
 
             // Find the active class enrollment
-            $classStudent = \App\Models\ClassStudent::where('class_id', $classId)
+            $classStudent = ClassStudent::where('class_id', $classId)
                 ->where('student_id', $this->enrollment->student_id)
                 ->where('status', 'active')
                 ->first();
@@ -2252,7 +2280,7 @@ new class extends Component
             } else {
                 session()->flash('error', 'Failed to remove student from class.');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             session()->flash('error', 'Error leaving class: '.$e->getMessage());
         }
     }
@@ -2320,7 +2348,7 @@ new class extends Component
         <div class="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center gap-4">
                 <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold text-white ring-1 ring-white/30 backdrop-blur">
-                    {{ $enrollment->student->user->initials() }}
+                    {{ $enrollment->student->user?->initials() }}
                 </div>
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
@@ -2330,7 +2358,7 @@ new class extends Component
                             {{ $enrollment->academic_status->label() }}
                         </span>
                     </div>
-                    <h1 class="mt-1 truncate text-2xl font-bold text-white">{{ $enrollment->student->user->name }}</h1>
+                    <h1 class="mt-1 truncate text-2xl font-bold text-white">{{ $enrollment->student->user?->name ?? 'Unknown student' }}</h1>
                     <p class="truncate text-sm text-white/80">{{ $enrollment->course->name }}</p>
                 </div>
             </div>
@@ -2394,11 +2422,11 @@ new class extends Component
                 <div class="mt-6 space-y-4">
                     <div class="flex items-center space-x-4">
                         <flux:avatar size="lg">
-                            {{ $enrollment->student->user->initials() }}
+                            {{ $enrollment->student->user?->initials() }}
                         </flux:avatar>
                         <div>
-                            <p class="text-lg font-medium">{{ $enrollment->student->user->name }}</p>
-                            <p class="text-gray-500">{{ $enrollment->student->user->email }}</p>
+                            <p class="text-lg font-medium">{{ $enrollment->student->user?->name ?? 'Unknown student' }}</p>
+                            <p class="text-gray-500">{{ $enrollment->student->user?->email }}</p>
                             <p class="text-gray-500">ID: {{ $enrollment->student->student_id }}</p>
                         </div>
                     </div>
@@ -2919,11 +2947,11 @@ new class extends Component
                     @php
                         // Check subscription creation requirements
                         $hasFeeSettings = $enrollment->course->feeSettings && $enrollment->course->feeSettings->stripe_price_id;
-                        $hasPaymentMethod = $enrollment->student->user->paymentMethods()->active()->default()->exists();
+                        $hasPaymentMethod = $enrollment->student->user?->paymentMethods()->active()->default()->exists() ?? false;
                         $canCreateSubscription = $hasFeeSettings && $hasPaymentMethod;
-                        
+
                         // Get default payment method for display
-                        $defaultPaymentMethod = $enrollment->student->user->paymentMethods()->active()->default()->first();
+                        $defaultPaymentMethod = $enrollment->student->user?->paymentMethods()->active()->default()->first();
                     @endphp
 
                     <!-- Requirements Status -->
@@ -3599,7 +3627,7 @@ new class extends Component
                 
                 <div>
                     <p class="text-sm font-medium text-gray-500">Enrolled By</p>
-                    <p class="text-sm text-gray-900">{{ $enrollment->enrolledBy->name }}</p>
+                    <p class="text-sm text-gray-900">{{ $enrollment->enrolledBy?->name ?? 'Unknown' }}</p>
                 </div>
 
                 @if($enrollment->duration)
@@ -3937,7 +3965,7 @@ new class extends Component
                                         </div>
                                         <div class="flex-1 min-w-0">
                                             <div>
-                                                <p class="text-sm text-gray-900">Enrolled by {{ $enrollment->enrolledBy->name }}</p>
+                                                <p class="text-sm text-gray-900">Enrolled by {{ $enrollment->enrolledBy?->name ?? 'Unknown' }}</p>
                                                 <p class="text-sm text-gray-500">{{ $enrollment->enrollment_date->format('M d, Y \a\t g:i A') }}</p>
                                             </div>
                                         </div>
@@ -4180,7 +4208,7 @@ new class extends Component
                 <flux:text class="font-medium">Order Details:</flux:text>
                 <ul class="mt-2 text-sm text-gray-600 space-y-1">
                     <li>• Amount: {{ $enrollment->formatted_enrollment_fee }}</li>
-                    <li>• Student: {{ $enrollment->student->user->name }}</li>
+                    <li>• Student: {{ $enrollment->student->user?->name ?? 'Unknown student' }}</li>
                     <li>• Course: {{ $enrollment->course->name }}</li>
                     <li>• Payment Method: Manual</li>
                 </ul>
@@ -4381,7 +4409,7 @@ new class extends Component
                     <flux:field>
                         <flux:label>Payment Method</flux:label>
                         <flux:select wire:model="createForm.payment_method_id">
-                            @foreach($enrollment->student->user->paymentMethods()->active()->get() as $paymentMethod)
+                            @foreach($enrollment->student->user?->paymentMethods()->active()->get() ?? [] as $paymentMethod)
                                 <option value="{{ $paymentMethod->id }}">{{ $paymentMethod->display_name }}</option>
                             @endforeach
                         </flux:select>
@@ -4558,7 +4586,7 @@ new class extends Component
                         </div>
                         <div>
                             <span class="font-medium">Student:</span>
-                            <span class="ml-2">{{ $enrollment->student->user->name }}</span>
+                            <span class="ml-2">{{ $enrollment->student->user?->name ?? 'Unknown student' }}</span>
                         </div>
                     </div>
                 </div>

@@ -28,7 +28,11 @@ class EnrollmentController extends Controller
      */
     public function show(Enrollment $enrollment): View
     {
-        $enrollment->load(['student.user', 'course', 'enrolledBy']);
+        $enrollment->load([
+            'student.user' => fn ($query) => $query->withTrashed(),
+            'course',
+            'enrolledBy' => fn ($query) => $query->withTrashed(),
+        ]);
 
         return view('enrollments.show', compact('enrollment'));
     }
