@@ -371,7 +371,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
         <MonthFilter performance={performance} />
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {expanded.size > 0 && (
-            <div className="inline-flex h-9 items-center rounded-lg border border-[#EAEAEA] bg-white p-0.5 text-[12px] font-medium">
+            <div className="hidden h-9 items-center rounded-lg border border-[#EAEAEA] bg-white p-0.5 text-[12px] font-medium lg:inline-flex">
               <button type="button" onClick={() => setView('dots')} className={`rounded-md px-2.5 py-1 transition-colors ${dayView === 'dots' ? 'bg-[#0A0A0A] text-white' : 'text-[#525252] hover:bg-[#F5F5F5]'}`}>Dots</button>
               <button type="button" onClick={() => setView('detailed')} className={`rounded-md px-2.5 py-1 transition-colors ${dayView === 'detailed' ? 'bg-[#0A0A0A] text-white' : 'text-[#525252] hover:bg-[#F5F5F5]'}`}>Detailed</button>
             </div>
@@ -405,7 +405,9 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
       {visibleMentees.length === 0 ? (
         <div className="rounded-[12px] border border-dashed border-[#E5E5E5] bg-[#FAFAFA] py-10 text-center text-[12.5px] text-[#A3A3A3]">No host matches “{query.trim()}”.</div>
       ) : (
-        <div className="-mx-2 overflow-x-auto px-2">
+        <>
+        {/* Desktop / tablet: the full host × month matrix */}
+        <div className="hidden -mx-2 overflow-x-auto px-2 lg:block">
           <table className="border-separate border-spacing-0 text-sm">
             <thead>
               <tr>
@@ -556,6 +558,41 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
             ))}
           </table>
         </div>
+
+        {/* Mobile: one card per host with a horizontal month rail (chosen design) */}
+        <div className="space-y-5 lg:hidden">
+          {groups.map((group) => (
+            <div key={group.key} className="space-y-3">
+              {groupByPic && (
+                <div className="flex items-center gap-1.5 px-0.5">
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#E5E7EB] text-[9px] font-bold text-[#525252]">{group.pic?.initials ?? '—'}</span>
+                  <span className="truncate text-[12px] font-semibold text-[#0A0A0A]">{group.pic ? group.pic.name : 'No PIC assigned'}</span>
+                  <span className="text-[9.5px] font-medium uppercase tracking-wide text-[#A3A3A3]">PIC</span>
+                  <span className="ml-auto shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#737373] ring-1 ring-[#EAEAEA]">{group.mentees.length}</span>
+                </div>
+              )}
+              {group.mentees.map((m) => (
+                <MobileMenteeCard
+                  key={m.id}
+                  mentee={m}
+                  months={months}
+                  expanded={expanded}
+                  matrices={matrices}
+                  currentMonthValue={currentMonthValue}
+                  currentDay={currentDay}
+                  cellValue={cellValue}
+                  onAttitude={(mm, mo) => setModal({ type: 'attitude', mentee: mm, month: mo })}
+                  onDay={(mm, mo, dobj) => setModal({ type: 'day', mentee: mm, month: mo, day: dobj })}
+                  onToggleMonth={toggleMonth}
+                  onLevel={(mm, anchor) => setPopover({ type: 'level', menteeId: mm.id, anchor })}
+                  onMenu={(mm, anchor) => setPopover({ type: 'menu', menteeId: mm.id, anchor })}
+                  onDisciplinary={(mm) => setModal({ type: 'disciplinary', mentee: mm })}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       {/* Popovers */}
@@ -597,6 +634,111 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
       {modal?.type === 'disciplinary' && <DisciplinaryModal mentee={modal.mentee} presetDate={modal.presetDate ?? null} reloadOnly={['performance']} onClose={() => { setModal(null); refreshExpandedMatrices(); }} />}
       {enrollModal}
     </section>
+  );
+}
+
+/* ---------------- Mobile: card per host + horizontal month rail ---------------- */
+
+function MobileMenteeCard({ mentee: m, months, expanded, matrices, currentMonthValue, currentDay, cellValue, onAttitude, onDay, onToggleMonth, onLevel, onMenu, onDisciplinary }) {
+  const expandedMonths = months.filter((mo) => expanded.has(mo.value));
+
+  return (
+    <div className="overflow-hidden rounded-[14px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      {/* Header */}
+      <div className="flex items-center gap-1.5 border-b border-[#F0F0F0] px-3 py-2.5">
+        <span title={m.name} className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[#0A0A0A]">{m.name}</span>
+        {m.level ? (
+          <button type="button" onClick={(e) => onLevel(m, e.currentTarget.getBoundingClientRect())} className="shrink-0 rounded-full px-1.5 py-0.5 text-[9.5px] font-semibold text-white" style={{ backgroundColor: m.level.color || '#10B981' }} title="Change level">{m.level.name}</button>
+        ) : (
+          <button type="button" onClick={(e) => onLevel(m, e.currentTarget.getBoundingClientRect())} className="shrink-0 rounded-full border border-dashed border-[#D4D4D4] px-1.5 py-0.5 text-[9px] font-medium text-[#A3A3A3]">+ level</button>
+        )}
+        {m.status === 'graduated' && <span className="shrink-0 rounded-full bg-[#EEF2FF] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[#4338CA]">Grad</span>}
+        {m.disciplinary_count > 0 && (
+          <button type="button" onClick={() => onDisciplinary(m)} className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[#FEF2F2] px-1.5 py-0.5 text-[9px] font-semibold text-[#B91C1C]" title="Disciplinary records">
+            <ShieldAlert className="h-2.5 w-2.5" strokeWidth={2.5} /> {m.disciplinary_count}
+          </button>
+        )}
+        <button type="button" onClick={(e) => onMenu(m, e.currentTarget.getBoundingClientRect())} className="shrink-0 rounded-md p-1 text-[#A3A3A3] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]" title="Host actions">
+          <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+        </button>
+      </div>
+
+      {/* Month rail — tap a month to set attitude, tap "Days" to expand */}
+      <div className="flex gap-2 overflow-x-auto px-3 py-3">
+        {months.map((mo) => {
+          const cell = cellValue(m, mo);
+          const ov = overallKpi(cell.attitude, cell.sales, m.sales_target ?? null);
+          const tone = scoreTone(ov);
+          const hasData = cell.sales !== null || cell.attitude !== null;
+          const isCur = mo.value === currentMonthValue;
+          const isExp = expanded.has(mo.value);
+          return (
+            <div key={mo.value} className="flex shrink-0 flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onAttitude(m, mo)}
+                title={`${m.name} · ${mo.label} · Sales ${cell.sales !== null ? formatRM(cell.sales) : '—'} · Attitude ${cell.attitude ?? '—'} · Overall ${ov != null ? `${ov}%` : '—'}`}
+                className={`flex w-[80px] flex-col items-center justify-center gap-0.5 rounded-[10px] border border-black/5 px-2 py-2 leading-none transition-transform active:scale-95 ${tone.bg} ${tone.text} ${isCur ? 'ring-2 ring-[#10B981]/40' : ''}`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-[0.04em]">{monthAbbr(mo)}</span>
+                {hasData ? (
+                  <>
+                    <span className="mt-1 text-[13px] font-bold tabular-nums">{cell.sales !== null ? formatRMCompact(cell.sales) : '–'}</span>
+                    <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.04em] tabular-nums opacity-70">A {cell.attitude ?? '–'}</span>
+                  </>
+                ) : (
+                  <span className="mt-1 text-[13px] font-bold">–</span>
+                )}
+              </button>
+              <button type="button" onClick={() => onToggleMonth(mo)} className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[9px] font-medium text-[#A3A3A3] hover:bg-[#F5F5F5] hover:text-[#525252]">
+                Days {isExp ? <ChevronDown className="h-2.5 w-2.5" strokeWidth={2.5} /> : <ChevronRight className="h-2.5 w-2.5" strokeWidth={2.5} />}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Day rails for each expanded month — tap a day to log sales & comment */}
+      {expandedMonths.map((mo) => {
+        const matrix = matrices[mo.value];
+        const loaded = matrix && !matrix.loading;
+        const n = daysInMonth(mo);
+        return (
+          <div key={mo.value} className="border-t border-[#F0F0F0] px-3 py-2.5">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-[#A3A3A3]">
+              <CalendarDays className="h-3 w-3" strokeWidth={2} /> {mo.label} · days
+              {!loaded && <Loader2 className="h-3 w-3 animate-spin" />}
+            </div>
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {Array.from({ length: n }, (_, i) => i + 1).map((day) => {
+                const dobj = matrix?.byMentee?.[m.id]?.[day - 1];
+                const eff = dobj?.effective ?? 0;
+                const isToday = mo.value === currentMonthValue && day === currentDay;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    disabled={!loaded}
+                    onClick={() => loaded && onDay(m, mo, dobj)}
+                    title={dobj ? `${dobj.date}${eff > 0 ? ` · ${formatRMCompact(eff)}` : ' · no sales'}${dobj.sessions > 0 ? ` · ${dobj.sessions} live` : ''}${dobj.has_comment ? ' · commented' : ''}${dobj.has_disciplinary ? ' · disciplinary' : ''}` : ''}
+                    className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border ${isToday ? 'border-[#A7F3D0] bg-[#F0FDF4]' : 'border-[#F0F0F0]'} ${dobj?.has_disciplinary ? 'bg-[#FEF2F2]' : eff > 0 ? 'bg-[#FAFAFA]' : ''} transition-colors disabled:opacity-60`}
+                  >
+                    <span className={`text-[9px] font-semibold ${isToday ? 'text-[#047857]' : 'text-[#A3A3A3]'}`}>{day}</span>
+                    <span className={`text-[10px] font-bold tabular-nums ${eff > 0 ? 'text-[#0A0A0A]' : 'text-[#D4D4D4]'}`}>{loaded ? (eff > 0 ? kFormat(eff) : '·') : '·'}</span>
+                    <span className="flex h-1.5 items-center gap-0.5">
+                      {dobj?.has_comment && <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />}
+                      {dobj?.override != null && <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />}
+                      {dobj?.has_video && <span className="h-1.5 w-1.5 rounded-full bg-[#7C3AED]" />}
+                      {dobj?.has_disciplinary && <span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
