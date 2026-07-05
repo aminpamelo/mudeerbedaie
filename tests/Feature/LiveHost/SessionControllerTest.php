@@ -101,6 +101,41 @@ it('filters sessions by date range', function () {
             ->where('filters.to', '2026-04-22'));
 });
 
+it('filters sessions by session id search', function () {
+    $sessions = LiveSession::factory()->count(3)->create();
+    $target = $sessions->last();
+    $searchId = (string) $target->id;
+    $expected = $sessions->filter(fn ($s) => str_contains((string) $s->id, $searchId))->count();
+
+    actingAs($this->pic)
+        ->get('/livehost/sessions?search='.$searchId)
+        ->assertInertia(fn (Assert $p) => $p
+            ->has('sessions.data', $expected)
+            ->where('filters.search', $searchId)
+            ->where('tabCounts.all', $expected));
+});
+
+it('normalizes an LS-prefixed, zero-padded code when searching by session id', function () {
+    $sessions = LiveSession::factory()->count(3)->create();
+    $target = $sessions->last();
+    $code = 'LS-'.str_pad((string) $target->id, 5, '0', STR_PAD_LEFT);
+    $expected = $sessions->filter(fn ($s) => str_contains((string) $s->id, (string) $target->id))->count();
+
+    actingAs($this->pic)
+        ->get('/livehost/sessions?search='.$code)
+        ->assertInertia(fn (Assert $p) => $p
+            ->has('sessions.data', $expected)
+            ->where('filters.search', $code));
+});
+
+it('returns no sessions when the searched id does not exist', function () {
+    LiveSession::factory()->count(3)->create();
+
+    actingAs($this->pic)
+        ->get('/livehost/sessions?search=LS-99999')
+        ->assertInertia(fn (Assert $p) => $p->has('sessions.data', 0));
+});
+
 it('shows a session with analytics and attachments', function () {
     $session = LiveSession::factory()->create(['status' => 'ended']);
     LiveAnalytics::factory()->create([

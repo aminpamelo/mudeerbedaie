@@ -17,8 +17,12 @@ use App\Models\LiveSessionVerificationEvent;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Services\LiveHost\ActualLiveRecordCandidateFinder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -36,11 +40,17 @@ class SessionController extends Controller
         $host = $request->string('host')->toString();
         $from = $request->string('from')->toString();
         $to = $request->string('to')->toString();
+        $search = trim($request->string('search')->toString());
+
+        // Session IDs are displayed as "LS-00626" (a zero-padded id). Normalise
+        // whatever the user typed down to the numeric id so any of "626",
+        // "00626", "LS-626" or "LS-00626" resolves to the same lookup.
+        $searchId = ltrim((string) preg_replace('/\D/', '', $search), '0');
 
         // Filters that apply to every tab — used both by the paginated query
         // and by the per-tab count query so the badges reflect the current
         // platform/host/date scope.
-        $applyCommonFilters = function ($q) use ($platformAccount, $host, $status, $from, $to) {
+        $applyCommonFilters = function ($q) use ($platformAccount, $host, $status, $from, $to, $searchId) {
             return $q
                 ->when($status !== '', fn ($q) => $q->where('status', $status))
                 ->when(
@@ -49,7 +59,8 @@ class SessionController extends Controller
                 )
                 ->when($host !== '', fn ($q) => $q->where('live_host_id', $host))
                 ->when($from !== '', fn ($q) => $q->whereDate('scheduled_start_at', '>=', $from))
-                ->when($to !== '', fn ($q) => $q->whereDate('scheduled_start_at', '<=', $to));
+                ->when($to !== '', fn ($q) => $q->whereDate('scheduled_start_at', '<=', $to))
+                ->when($searchId !== '', fn ($q) => $q->where('id', 'like', '%'.$searchId.'%'));
         };
 
         $sessions = LiveSession::query()
@@ -78,6 +89,7 @@ class SessionController extends Controller
                 'host' => $host,
                 'from' => $from,
                 'to' => $to,
+                'search' => $search,
             ],
             'tabCounts' => $this->tabCounts($applyCommonFilters),
             'hosts' => $this->hostOptions(),
@@ -100,7 +112,7 @@ class SessionController extends Controller
      * means a host-submitted recap (status=ended) that the PIC hasn't yet
      * signed off on.
      */
-    private function applyTabFilter(\Illuminate\Database\Eloquent\Builder $query, string $tab): void
+    private function applyTabFilter(Builder $query, string $tab): void
     {
         match ($tab) {
             'needs_review' => $query
@@ -230,7 +242,7 @@ class SessionController extends Controller
      * Returns the same candidate shape as the Show page so the modal can
      * require a record selection before calling verify-link.
      */
-    public function candidates(Request $request, LiveSession $session): \Illuminate\Http\JsonResponse
+    public function candidates(Request $request, LiveSession $session): JsonResponse
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
 
@@ -329,7 +341,7 @@ class SessionController extends Controller
                     'gmv_snapshot' => $record->live_attributed_gmv_myr,
                 ]);
             });
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Only treat unique-constraint violations as the "already linked" case.
             // Other DB errors (deadlock, connection drop, etc.) should bubble up.
             if ($e->getCode() !== '23000') {
@@ -632,9 +644,9 @@ class SessionController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, email: ?string}>
+     * @return Collection<int, array{id: int, name: string, email: ?string}>
      */
-    private function hostOptions(): \Illuminate\Support\Collection
+    private function hostOptions(): Collection
     {
         return User::query()
             ->where('role', 'live_host')
@@ -644,9 +656,9 @@ class SessionController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string, platform: ?string}>
+     * @return Collection<int, array{id: int, name: string, platform: ?string}>
      */
-    private function platformAccountOptions(): \Illuminate\Support\Collection
+    private function platformAccountOptions(): Collection
     {
         return PlatformAccount::query()
             ->with('platform:id,name,display_name,slug')

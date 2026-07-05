@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { Eye, Paperclip } from 'lucide-react';
+import { Eye, Paperclip, Search } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import LiveSessionModal from '@/livehost/components/LiveSessionModal';
@@ -113,6 +113,7 @@ export default function SessionsIndex() {
 
   const activeTab = filters?.tab ?? 'all';
 
+  const [search, setSearch] = useState(filters?.search ?? '');
   const [status, setStatus] = useState(filters?.status ?? '');
   const [platformAccount, setPlatformAccount] = useState(filters?.platform_account ?? '');
   const [host, setHost] = useState(filters?.host ?? '');
@@ -133,6 +134,7 @@ export default function SessionsIndex() {
   useEffect(() => {
     const initial = filters ?? {};
     if (
+      (initial.search ?? '') === search &&
       (initial.status ?? '') === status &&
       (initial.platform_account ?? '') === platformAccount &&
       (initial.host ?? '') === host &&
@@ -147,6 +149,7 @@ export default function SessionsIndex() {
         '/livehost/sessions',
         {
           tab: activeTab !== 'all' ? activeTab : undefined,
+          search: search || undefined,
           status: status || undefined,
           platform_account: platformAccount || undefined,
           host: host || undefined,
@@ -162,7 +165,7 @@ export default function SessionsIndex() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [status, platformAccount, host, from, to, filters, activeTab]);
+  }, [search, status, platformAccount, host, from, to, filters, activeTab]);
 
   const switchTab = (nextTab) => {
     if (nextTab === activeTab) {
@@ -172,6 +175,7 @@ export default function SessionsIndex() {
       '/livehost/sessions',
       {
         tab: nextTab !== 'all' ? nextTab : undefined,
+        search: search || undefined,
         status: status || undefined,
         platform_account: platformAccount || undefined,
         host: host || undefined,
@@ -187,6 +191,7 @@ export default function SessionsIndex() {
   };
 
   const clearFilters = () => {
+    setSearch('');
     setStatus('');
     setPlatformAccount('');
     setHost('');
@@ -194,7 +199,7 @@ export default function SessionsIndex() {
     setTo('');
   };
 
-  const hasFilters = Boolean(status || platformAccount || host || from || to);
+  const hasFilters = Boolean(search || status || platformAccount || host || from || to);
 
   return (
     <>
@@ -248,6 +253,21 @@ export default function SessionsIndex() {
 
         {/* Filter bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="relative w-full sm:w-56">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A3A3A3]"
+              strokeWidth={2}
+            />
+            <input
+              type="search"
+              inputMode="numeric"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search Session ID…"
+              aria-label="Search by session ID"
+              className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-sm text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            />
+          </div>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
