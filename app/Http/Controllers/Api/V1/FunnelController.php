@@ -327,9 +327,20 @@ class FunnelController extends Controller
 
         // Copy steps from template
         foreach ($template->template_data['steps'] ?? [] as $index => $stepData) {
+            // Guarantee a unique slug within the funnel — a template with two
+            // steps that resolve to the same slug (e.g. two "checkout" steps)
+            // would otherwise hit the (funnel_id, slug) unique index.
+            $slug = $stepData['slug'] ?? Str::slug($stepData['name']);
+            $originalSlug = $slug;
+            $counter = 1;
+            while ($funnel->steps()->withTrashed()->where('slug', $slug)->exists()) {
+                $slug = "{$originalSlug}-{$counter}";
+                $counter++;
+            }
+
             $step = $funnel->steps()->create([
                 'name' => $stepData['name'],
-                'slug' => $stepData['slug'] ?? Str::slug($stepData['name']),
+                'slug' => $slug,
                 'type' => $stepData['type'],
                 'sort_order' => $index,
                 'is_active' => true,

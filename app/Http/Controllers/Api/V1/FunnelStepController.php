@@ -44,10 +44,12 @@ class FunnelStepController extends Controller
             $data['slug'] = Str::slug($data['name']);
         }
 
-        // Ensure unique slug within funnel
+        // Ensure unique slug within funnel. The (funnel_id, slug) unique index
+        // counts soft-deleted rows, so the check must include trashed steps —
+        // otherwise re-creating a previously deleted slug throws a duplicate.
         $originalSlug = $data['slug'];
         $counter = 1;
-        while ($funnel->steps()->where('slug', $data['slug'])->exists()) {
+        while ($funnel->steps()->withTrashed()->where('slug', $data['slug'])->exists()) {
             $data['slug'] = "{$originalSlug}-{$counter}";
             $counter++;
         }
@@ -106,7 +108,7 @@ class FunnelStepController extends Controller
         if (isset($data['slug']) && $data['slug'] !== $step->slug) {
             $originalSlug = $data['slug'];
             $counter = 1;
-            while ($funnel->steps()->where('slug', $data['slug'])->where('id', '!=', $step->id)->exists()) {
+            while ($funnel->steps()->withTrashed()->where('slug', $data['slug'])->where('id', '!=', $step->id)->exists()) {
                 $data['slug'] = "{$originalSlug}-{$counter}";
                 $counter++;
             }
@@ -130,6 +132,12 @@ class FunnelStepController extends Controller
 
         // Delete associated content
         $step->contents()->delete();
+
+        // Release the slug before soft-deleting. The unique index on
+        // (funnel_id, slug) counts soft-deleted rows, so a lingering slug would
+        // block re-creating a step with the same slug. Renaming it frees the
+        // original for reuse while keeping the row for history.
+        $step->update(['slug' => "{$step->slug}__deleted__{$step->id}"]);
         $step->delete();
 
         // Reorder remaining steps
@@ -155,7 +163,7 @@ class FunnelStepController extends Controller
         // Create duplicate step
         $newSlug = $step->slug.'-copy';
         $counter = 1;
-        while ($funnel->steps()->where('slug', $newSlug)->exists()) {
+        while ($funnel->steps()->withTrashed()->where('slug', $newSlug)->exists()) {
             $newSlug = "{$step->slug}-copy-{$counter}";
             $counter++;
         }

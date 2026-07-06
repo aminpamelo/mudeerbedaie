@@ -3,7 +3,7 @@
  * Defines all available components for the funnel builder
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useId, useMemo } from 'react';
 import MediaManager from '../components/MediaManager';
 
 /**
@@ -113,7 +113,7 @@ const CodeField = ({ value, onChange, field }) => {
                 style={{ tabSize: 2, whiteSpace: 'pre', overflowX: 'auto' }}
             />
             <p className="mt-1 text-[11px] text-gray-400 leading-snug">
-                Renders exactly as written on the live page. Scripts run on the published page (not in this preview).
+                Renders exactly as written on the live page. The preview runs in an isolated frame, so a full HTML page (Tailwind CDN, scripts, styles) shows here just like it will when published.
             </p>
         </div>
     );
@@ -191,9 +191,87 @@ const TextBlock = ({ content, alignment }) => (
 );
 
 /**
+ * HtmlPreviewFrame — renders arbitrary author markup inside a sandboxed, auto-resizing
+ * iframe. Because the iframe owns its own document, a pasted full HTML page (with its
+ * <!DOCTYPE>, <head>, <style> and <script> tags — e.g. a Tailwind CDN page) parses and
+ * renders exactly as it will on the published page, instead of being force-fed into a
+ * <div> where the browser drops the head/scripts and the markup collapses to nothing.
+ *
+ * The frame reports its content height back over postMessage so the block grows to fit,
+ * and pointer events are disabled so the block stays selectable inside the Puck canvas.
+ */
+const HtmlPreviewFrame = ({ html }) => {
+    const rawId = useId();
+    const frameId = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
+    const [height, setHeight] = useState(80);
+
+    const srcDoc = useMemo(() => {
+        // Inside an iframe, `vh` resolves against the frame's own height. If we auto-size
+        // the frame to its content, any 100vh / min-h-screen section grows with the frame
+        // and feeds back into an ever-taller measurement. Neutralise viewport-height sizing
+        // in the preview only (the published page is rendered untouched by PuckRenderer).
+        const vhReset =
+            '<style>' +
+            '[class*="h-screen"],[style*="100vh"],[style*="100dvh"],[style*="100svh"]' +
+            '{min-height:0 !important;height:auto !important;}' +
+            '</style>';
+        const reporter =
+            '<script>(function(){' +
+            'var id=' + JSON.stringify(frameId) + ';' +
+            'function send(){' +
+            'var h=Math.max(' +
+            'document.documentElement?document.documentElement.scrollHeight:0,' +
+            'document.body?document.body.scrollHeight:0,' +
+            'document.documentElement?document.documentElement.offsetHeight:0' +
+            ');' +
+            'var msg={__puckHtmlPreview:id,height:h};' +
+            // Puck renders block previews through a React portal, so the listener may live
+            // on the top window while this frame's parent is Puck's own preview iframe.
+            // Post to both so the height reaches whichever window is listening.
+            'try{parent.postMessage(msg,"*");}catch(e){}' +
+            'try{if(window.top&&window.top!==parent){window.top.postMessage(msg,"*");}}catch(e){}' +
+            '}' +
+            'window.addEventListener("load",send);' +
+            'window.addEventListener("resize",send);' +
+            'document.addEventListener("DOMContentLoaded",send);' +
+            'if(window.ResizeObserver){try{new ResizeObserver(send).observe(document.documentElement);}catch(e){}}' +
+            'var n=0,t=setInterval(function(){send();if(++n>40){clearInterval(t);}},200);' +
+            'send();' +
+            '})();<\/script>';
+        return (html || '') + vhReset + reporter;
+    }, [html, frameId]);
+
+    useEffect(() => {
+        const onMessage = (event) => {
+            const data = event.data;
+            if (data && data.__puckHtmlPreview === frameId && typeof data.height === 'number') {
+                setHeight(Math.min(Math.max(Math.ceil(data.height), 40), 100000));
+            }
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [frameId]);
+
+    return (
+        <iframe
+            title="Custom HTML preview"
+            srcDoc={srcDoc}
+            // Content is admin-authored (their own funnel page), so allow-same-origin is
+            // safe here and lets author scripts that touch localStorage / cookies / storage
+            // (countdowns, popups, pixels) run — making the preview match the live page.
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+            scrolling="no"
+            className="block w-full border-0"
+            style={{ height: `${height}px`, pointerEvents: 'none' }}
+        />
+    );
+};
+
+/**
  * Custom HTML Block — editor preview.
- * Scripts are stripped in the builder so embeds/pixels/widgets don't execute while
- * editing; they run on the published page (handled server-side by PuckRenderer).
+ * The markup is rendered in a sandboxed iframe (see HtmlPreviewFrame) so it looks in the
+ * builder exactly as it will on the published page — scripts, styles and all — without
+ * leaking into or breaking the surrounding editor UI.
  */
 const CustomHtmlBlock = ({ html, maxWidth, align, padding, backgroundColor }) => {
     if (!html || html.trim() === '') {
@@ -206,7 +284,6 @@ const CustomHtmlBlock = ({ html, maxWidth, align, padding, backgroundColor }) =>
         );
     }
 
-    const preview = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
     const margin = align === 'center' ? '0 auto' : align === 'right' ? '0 0 0 auto' : '0 auto 0 0';
 
     return (
@@ -214,10 +291,9 @@ const CustomHtmlBlock = ({ html, maxWidth, align, padding, backgroundColor }) =>
             <span className="absolute top-1 right-1 z-10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-indigo-600 text-white rounded opacity-0 group-hover:opacity-80 transition-opacity pointer-events-none">
                 HTML
             </span>
-            <div
-                style={{ maxWidth: maxWidth || '100%', margin, padding: padding || '0px', backgroundColor: backgroundColor || '#ffffff' }}
-                dangerouslySetInnerHTML={{ __html: preview }}
-            />
+            <div style={{ maxWidth: maxWidth || '100%', margin, padding: padding || '0px', backgroundColor: backgroundColor || '#ffffff' }}>
+                <HtmlPreviewFrame html={html} />
+            </div>
         </div>
     );
 };
