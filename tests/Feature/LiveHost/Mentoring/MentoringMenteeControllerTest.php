@@ -8,8 +8,9 @@ use App\Models\LiveHostMenteeStage;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
 use App\Services\Mentoring\MenteeStageTransition;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 function pic(): User
 {
@@ -113,7 +114,7 @@ it('advances a mentee to the next stage', function () {
         'current_stage_id' => $stages[0]->id,
         'status' => 'active',
     ]);
-    app(\App\Services\Mentoring\MenteeStageTransition::class)->enterFirstStage($mentee);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
 
     $this->actingAs(pic())
         ->patch("/livehost/mentoring/mentees/{$mentee->id}/stage", ['to_stage_id' => $stages[1]->id])
@@ -133,7 +134,7 @@ it('graduates a mentee on the final stage and marks the host top-host eligible',
         'current_stage_id' => $finalStage->id,
         'status' => 'active',
     ]);
-    app(\App\Services\Mentoring\MenteeStageTransition::class)->enterFirstStage($mentee);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
 
     $this->actingAs(pic())
         ->post("/livehost/mentoring/mentees/{$mentee->id}/graduate")
@@ -155,7 +156,7 @@ it('refuses to graduate a mentee who is not on the final stage', function () {
         'current_stage_id' => $firstStage->id,
         'status' => 'active',
     ]);
-    app(\App\Services\Mentoring\MenteeStageTransition::class)->enterFirstStage($mentee);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
 
     $this->actingAs(pic())
         ->post("/livehost/mentoring/mentees/{$mentee->id}/graduate")
@@ -173,7 +174,7 @@ it('drops then restores a mentee', function () {
         'current_stage_id' => $firstStage->id,
         'status' => 'active',
     ]);
-    app(\App\Services\Mentoring\MenteeStageTransition::class)->enterFirstStage($mentee);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
 
     $this->actingAs(pic())->patch("/livehost/mentoring/mentees/{$mentee->id}/drop")->assertRedirect();
     expect($mentee->fresh()->status)->toBe('dropped');
@@ -192,7 +193,7 @@ it('updates the mentor override and stage row assignee together', function () {
         'current_stage_id' => $firstStage->id,
         'status' => 'active',
     ]);
-    app(\App\Services\Mentoring\MenteeStageTransition::class)->enterFirstStage($mentee);
+    app(MenteeStageTransition::class)->enterFirstStage($mentee);
     $newMentor = liveHost();
 
     $this->actingAs(pic())
@@ -209,12 +210,14 @@ it('updates the mentor override and stage row assignee together', function () {
         ->and($openRow->stage_notes)->toBe('Pair with senior host');
 });
 
-it('blocks non-PIC roles from the mentee board', function () {
-    $program = programWithLeader();
+it('blocks a live host from the mentee board but allows the assistant', function () {
+    programWithLeader();
 
     $this->actingAs(liveHost())->get('/livehost/mentoring/mentees')->assertForbidden();
+
+    // The livehost_assistant has full mentoring parity (commit 9f8750fb).
     $this->actingAs(User::factory()->create(['role' => 'livehost_assistant']))
-        ->get('/livehost/mentoring/mentees')->assertForbidden();
+        ->get('/livehost/mentoring/mentees')->assertOk();
 });
 
 it('allows a PIC to load the mentee board', function () {

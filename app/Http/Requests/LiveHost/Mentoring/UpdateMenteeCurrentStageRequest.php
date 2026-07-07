@@ -13,7 +13,7 @@ class UpdateMenteeCurrentStageRequest extends FormRequest
         $user = $this->user();
 
         return $user !== null
-            && in_array($user->role, ['admin', 'admin_livehost'], true);
+            && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true);
     }
 
     /**
