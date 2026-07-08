@@ -995,6 +995,7 @@ export default function SessionSlotsCalendar() {
                   {lanes.map((account, laneIndex) => {
                     const isFallback = account === null;
                     const isNone = Boolean(account?.isNone);
+                    const isUnregistered = Boolean(account?.isUnregistered);
                     const color = account ? colorForAccount(account.id) : FALLBACK_ACCOUNT_COLOR;
                     const accountShopIds = (account?.shops ?? []).map((s) => Number(s.id));
 
@@ -1008,8 +1009,9 @@ export default function SessionSlotsCalendar() {
                       if (isFallback) {
                         return true;
                       }
-                      // The Unassigned lane only surfaces legacy slots, never scaffolds.
-                      if (isNone) {
+                      // The Unassigned / Unregistered lanes never show scaffolds —
+                      // they only surface legacy slots or TikTok suggestions.
+                      if (isNone || isUnregistered) {
                         return false;
                       }
                       // Global time slots (no shop attached) show in every account lane.
@@ -1028,7 +1030,23 @@ export default function SessionSlotsCalendar() {
                       if (isNone) {
                         return slot.liveAccountId == null;
                       }
+                      if (isUnregistered) {
+                        return false;
+                      }
                       return Number(slot.liveAccountId) === Number(account.id);
+                    });
+
+                    const laneSuggestions = suggestionsByDay[dow].filter((sg) => {
+                      if (isUnregistered) {
+                        return !sg.isRegistered;
+                      }
+                      if (isNone) {
+                        return false;
+                      }
+                      if (isFallback) {
+                        return sg.isRegistered;
+                      }
+                      return sg.isRegistered && Number(sg.liveAccountId) === Number(account.id);
                     });
 
                     return (
@@ -1073,6 +1091,70 @@ export default function SessionSlotsCalendar() {
                               <span className="mt-0.5 truncate text-[9px] font-medium uppercase tracking-wide opacity-0 group-hover/scaffold:opacity-100">
                                 + Assign
                               </span>
+                            </button>
+                          );
+                        })}
+
+                        {/* TikTok suggestion ghosts — lives with no session slot yet */}
+                        {laneSuggestions.map((sg) => {
+                          const { h: sh, m: sm } = parseHM(sg.startTime);
+                          const { h: eh, m: em } = parseHM(sg.endTime);
+                          const startMin = sh * 60 + sm;
+                          const endMin = eh * 60 + em;
+                          const duration = Math.max(30, endMin - startMin);
+                          if (startMin < hourStart * 60 || startMin >= hourEnd * 60) {
+                            return null;
+                          }
+                          const topPx = ((startMin - hourStart * 60) / 60) * HOUR_PX;
+                          const heightPx = (duration / 60) * HOUR_PX;
+                          const gmvLabel = formatGmv(sg.gmv);
+                          const isCompact = heightPx < 46;
+
+                          return (
+                            <button
+                              key={`suggestion-${sg.id}`}
+                              type="button"
+                              onClick={() => handleSuggestionClick(sg)}
+                              className="group/sg absolute left-0.5 right-0.5 z-[5] flex flex-col overflow-hidden rounded-md border border-dashed border-[#F0ABCE] bg-[#FDF2F8]/85 px-1.5 py-1 text-left text-[#9D174D] backdrop-blur-[1px] transition-all hover:border-[#EC4899] hover:bg-[#FCE7F3] hover:shadow-[0_4px_12px_rgba(236,72,153,0.12)]"
+                              style={{ top: `${topPx}px`, height: `${heightPx}px` }}
+                              title={`TikTok live ${sg.creatorHandle ? `@${sg.creatorHandle} ` : ''}· ${formatTimeLabel(sg.startTime)} – ${formatTimeLabel(sg.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} · ${sg.isRegistered ? 'click to assign' : 'creator not registered — click to register'}`}
+                            >
+                              <div className="flex items-center gap-1">
+                                <Radio className="h-2.5 w-2.5 shrink-0" strokeWidth={2.4} />
+                                <span className="truncate font-mono text-[10px] font-semibold leading-none tabular-nums">
+                                  {formatTimeLabel(sg.startTime)}
+                                </span>
+                                {sg.matchType === 'near_slot' && !isCompact && (
+                                  <span className="ml-auto rounded bg-white/70 px-1 py-px font-mono text-[7.5px] font-bold uppercase tracking-wide">
+                                    near slot
+                                  </span>
+                                )}
+                              </div>
+                              {!isCompact && (
+                                <div className="mt-auto min-w-0">
+                                  {sg.creatorHandle && (
+                                    <div className="truncate font-mono text-[9px] leading-none opacity-80">
+                                      @{sg.creatorHandle}
+                                    </div>
+                                  )}
+                                  {gmvLabel && (
+                                    <div className="mt-0.5 font-mono text-[9.5px] font-semibold leading-none tabular-nums">
+                                      {gmvLabel}
+                                    </div>
+                                  )}
+                                  <div className="mt-0.5 inline-flex items-center gap-0.5 text-[8.5px] font-semibold uppercase tracking-wide opacity-0 transition-opacity group-hover/sg:opacity-100">
+                                    {sg.isRegistered ? (
+                                      <>
+                                        <Plus className="h-2 w-2" strokeWidth={2.6} /> Assign
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UserPlus className="h-2 w-2" strokeWidth={2.6} /> Register
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </button>
                           );
                         })}
@@ -1323,6 +1405,17 @@ export default function SessionSlotsCalendar() {
         session={sessionTarget}
         hosts={hosts}
         platformAccounts={platformAccounts}
+      />
+
+      <RegisterCreatorModal
+        open={registerTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setRegisterTarget(null);
+          }
+        }}
+        creator={registerTarget}
+        onRegistered={() => setRegisterTarget(null)}
       />
     </>
   );

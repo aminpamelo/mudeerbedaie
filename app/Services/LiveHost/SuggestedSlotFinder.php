@@ -69,10 +69,10 @@ class SuggestedSlotFinder
                 continue;
             }
 
-            $kl = $record->launched_time->copy()->setTimezone(self::TIMEZONE);
-            $endKl = $this->endTime($record, $kl);
+            $kl = CarbonImmutable::instance($record->launched_time)->setTimezone(self::TIMEZONE);
             $dow = (int) $kl->dayOfWeek;
             $startMin = $kl->hour * 60 + $kl->minute;
+            $endKl = $this->endTime($record, $kl);
             $endMin = $endKl->hour * 60 + $endKl->minute;
             if ($endMin <= $startMin) {
                 $endMin = min(24 * 60, $startMin + 60);
@@ -185,7 +185,7 @@ class SuggestedSlotFinder
     private function endTime(ActualLiveRecord $record, CarbonImmutable $klStart): CarbonImmutable
     {
         if ($record->ended_time !== null) {
-            return $record->ended_time->copy()->setTimezone(self::TIMEZONE);
+            return CarbonImmutable::instance($record->ended_time)->setTimezone(self::TIMEZONE);
         }
 
         if ($record->duration_seconds !== null && (int) $record->duration_seconds > 0) {
