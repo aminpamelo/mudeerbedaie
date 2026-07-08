@@ -6,11 +6,9 @@ import {
   Paperclip,
   Pencil,
   Radio,
-  ShieldAlert,
   ShieldCheck,
   Trash2,
   Upload,
-  XCircle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -22,6 +20,7 @@ import {
 } from '@/livehost/components/ui/dialog';
 import { Button } from '@/livehost/components/ui/button';
 import StatusChip from '@/livehost/components/StatusChip';
+import SessionVerifyLinkPanel from '@/livehost/components/SessionVerifyLinkPanel';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_BADGE_COLORS = [
@@ -88,24 +87,6 @@ const SESSION_STATUS_META = {
   completed: { label: 'Completed', className: 'bg-[#F5F5F5] text-[#404040]' },
   cancelled: { label: 'Cancelled', className: 'bg-[#FEE2E2] text-[#991B1B]' },
   missed: { label: 'Missed', className: 'bg-[#FEF3C7] text-[#92400E]' },
-};
-
-const VERIFICATION_META = {
-  pending: {
-    label: 'Pending review',
-    className: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
-    Icon: ShieldAlert,
-  },
-  verified: {
-    label: 'Verified',
-    className: 'bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]',
-    Icon: ShieldCheck,
-  },
-  rejected: {
-    label: 'Rejected',
-    className: 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]',
-    Icon: XCircle,
-  },
 };
 
 export default function SessionSlotDetailModal({
@@ -295,9 +276,6 @@ function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
       label: session.status ?? '—',
       className: 'bg-[#F5F5F5] text-[#404040]',
     };
-  const verification =
-    VERIFICATION_META[session.verificationStatus ?? 'pending'] ?? VERIFICATION_META.pending;
-  const VerificationIcon = verification.Icon;
   const uploaded = Boolean(session.uploaded);
   const needsUpload = Boolean(session.needsUpload);
   const overdue = Boolean(session.overdue);
@@ -338,7 +316,7 @@ function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
         </div>
       )}
 
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-2 gap-2.5">
         <MiniTile label="GMV (net)" value={formatGmv(session.gmvNet)} />
 
         <div className="rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-2.5">
@@ -368,23 +346,12 @@ function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
             {attachmentCount} file{attachmentCount === 1 ? '' : 's'}
           </div>
         </div>
+      </div>
 
-        <div className="rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-2.5">
-          <div className="text-[9.5px] font-medium uppercase tracking-wide text-[#737373]">
-            Verification
-          </div>
-          <span
-            className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${verification.className}`}
-          >
-            <VerificationIcon className="h-3 w-3" strokeWidth={2.2} />
-            {verification.label}
-          </span>
-          {session.verifiedByName && (
-            <div className="mt-0.5 truncate text-[10px] text-[#A3A3A3]">
-              by {session.verifiedByName}
-            </div>
-          )}
-        </div>
+      {/* Inline TikTok-record verification — pick a record and Verify / Reject
+          right here, without opening the full Live Session modal. */}
+      <div className="mt-3">
+        <SessionVerifyLinkPanel session={session} onDone={() => onOpenChange(false)} />
       </div>
 
       <button
