@@ -104,16 +104,16 @@ function writeExpandParam(set) {
   window.history.replaceState(window.history.state, '', url);
 }
 
-/** Day-cell density for expanded months — 'dots' (compact) or 'detailed'. URL-persisted. */
+/** Day-cell density for expanded months — 'detailed' (default) or 'dots' (compact). URL-persisted. */
 function readViewParam() {
-  if (typeof window === 'undefined') return 'dots';
-  return new URLSearchParams(window.location.search).get('perf_view') === 'detailed' ? 'detailed' : 'dots';
+  if (typeof window === 'undefined') return 'detailed';
+  return new URLSearchParams(window.location.search).get('perf_view') === 'dots' ? 'dots' : 'detailed';
 }
 
 function writeViewParam(v) {
   if (typeof window === 'undefined') return;
   const url = new URL(window.location.href);
-  if (v === 'detailed') url.searchParams.set('perf_view', 'detailed');
+  if (v === 'dots') url.searchParams.set('perf_view', 'dots');
   else url.searchParams.delete('perf_view');
   window.history.replaceState(window.history.state, '', url);
 }
