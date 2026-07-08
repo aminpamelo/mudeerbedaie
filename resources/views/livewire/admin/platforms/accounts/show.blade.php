@@ -18,7 +18,10 @@ use App\Models\TiktokFinanceStatement;
 use App\Models\TiktokFinanceTransaction;
 use App\Models\TiktokProductPerformance;
 use App\Models\TiktokShopPerformanceSnapshot;
+use App\Services\TikTok\TikTokAuthService;
 use App\Services\TikTok\TikTokOrderSyncService;
+use Carbon\Carbon;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -47,6 +50,9 @@ new class extends Component
 
     #[Url(as: 'tab')]
     public string $activeTab = 'overview';
+
+    #[Url(as: 'atab')]
+    public string $analyticsSubTab = 'shop';
 
     #[Url(as: 'search')]
     public string $orderSearch = '';
@@ -113,6 +119,59 @@ new class extends Component
     {
         $this->activeTab = $tab;
         $this->resetPage();
+    }
+
+    public function setAnalyticsSubTab(string $tab): void
+    {
+        $this->analyticsSubTab = $tab;
+        $this->resetPage('livePage');
+    }
+
+    /**
+     * Resolve every synced TikTok product id for this account to a display
+     * name, so the Product Performance table can show a real name instead of
+     * a raw id. Priority: our internal product name (linked SKU mapping) >
+     * TikTok's own product title (synced but unmapped) > null (raw id + badge).
+     *
+     * @return array<string, array{internal: ?string, tiktok: ?string}>
+     */
+    #[Computed]
+    public function productNameIndex(): array
+    {
+        $index = [];
+
+        PendingPlatformProduct::query()
+            ->where('platform_account_id', $this->account->id)
+            ->whereNotNull('platform_product_id')
+            ->get(['platform_product_id', 'name'])
+            ->each(function (PendingPlatformProduct $p) use (&$index): void {
+                $index[(string) $p->platform_product_id] = [
+                    'internal' => null,
+                    'tiktok' => $p->name,
+                ];
+            });
+
+        PlatformSkuMapping::query()
+            ->where('platform_account_id', $this->account->id)
+            ->where('is_active', true)
+            ->with('product:id,name')
+            ->get()
+            ->each(function (PlatformSkuMapping $m) use (&$index): void {
+                $productId = $m->mapping_metadata['platform_product_id'] ?? null;
+
+                if ($productId === null) {
+                    return;
+                }
+
+                $productId = (string) $productId;
+
+                $index[$productId] = [
+                    'internal' => $m->product?->name,
+                    'tiktok' => $m->platform_product_name ?: ($index[$productId]['tiktok'] ?? null),
+                ];
+            });
+
+        return $index;
     }
 
     public function refreshStats(): void
@@ -265,8 +324,8 @@ new class extends Component
         $this->isSyncing = true;
 
         try {
-            $fromTimestamp = \Carbon\Carbon::parse($this->syncFromDate)->startOfDay()->timestamp;
-            $toTimestamp = \Carbon\Carbon::parse($this->syncToDate)->endOfDay()->timestamp;
+            $fromTimestamp = Carbon::parse($this->syncFromDate)->startOfDay()->timestamp;
+            $toTimestamp = Carbon::parse($this->syncToDate)->endOfDay()->timestamp;
 
             SyncTikTokOrders::dispatch($this->account, [
                 'create_time_from' => $fromTimestamp,
@@ -283,7 +342,7 @@ new class extends Component
             $this->closeSyncModal();
 
             $this->showProgressModal = true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Failed to start sync: '.$e->getMessage(),
@@ -329,7 +388,7 @@ new class extends Component
             $this->dispatch('sync-started');
 
             $this->showProgressModal = true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Failed to start sync: '.$e->getMessage(),
@@ -346,7 +405,7 @@ new class extends Component
         }
 
         try {
-            $authService = app(\App\Services\TikTok\TikTokAuthService::class);
+            $authService = app(TikTokAuthService::class);
             $success = $authService->refreshToken($this->account);
 
             if ($success) {
@@ -360,7 +419,7 @@ new class extends Component
                     'message' => 'Failed to refresh tokens. You may need to reconnect the account.',
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Token refresh failed: '.$e->getMessage(),
@@ -375,7 +434,7 @@ new class extends Component
         }
 
         try {
-            $authService = app(\App\Services\TikTok\TikTokAuthService::class);
+            $authService = app(TikTokAuthService::class);
             $authService->disconnectAccount($this->account);
 
             $this->account->update([
@@ -389,7 +448,7 @@ new class extends Component
                 'type' => 'success',
                 'message' => 'TikTok Shop has been disconnected. You can now link this account to a different shop, or link this shop to a different account.',
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Failed to disconnect: '.$e->getMessage(),
@@ -426,7 +485,7 @@ new class extends Component
             ]);
 
             $this->dispatch('product-sync-started');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Failed to start product sync: '.$e->getMessage(),
@@ -494,7 +553,7 @@ new class extends Component
                 'type' => 'info',
                 'message' => "{$label} sync queued. It will run in the background.",
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => "Failed to queue {$label} sync: ".$e->getMessage(),
@@ -1675,6 +1734,16 @@ new class extends Component
         {{-- ═══════════════════════════════════════════════════ Analytics --}}
         @elseif($activeTab === 'analytics')
             <div class="reveal d4 space-y-5">
+                {{-- Analytics sub-tabs --}}
+                <div class="pf-tabs">
+                    <button type="button" wire:click="setAnalyticsSubTab('shop')" class="pf-tab" aria-pressed="{{ $analyticsSubTab === 'shop' ? 'true' : 'false' }}">Shop</button>
+                    <button type="button" wire:click="setAnalyticsSubTab('live')" class="pf-tab" aria-pressed="{{ $analyticsSubTab === 'live' ? 'true' : 'false' }}">LIVE Performance</button>
+                    <button type="button" wire:click="setAnalyticsSubTab('products')" class="pf-tab" aria-pressed="{{ $analyticsSubTab === 'products' ? 'true' : 'false' }}">
+                        Products <span class="count">{{ number_format($syncStats['product_performance'] ?? 0) }}</span>
+                    </button>
+                </div>
+
+                @if($analyticsSubTab === 'shop')
                 <section class="pf-surface p-6">
                     <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
                         <h3 class="section-h text-[15px] flex items-center gap-2">
@@ -1865,6 +1934,7 @@ new class extends Component
                     </section>
                 @endif
 
+                @elseif($analyticsSubTab === 'live')
                 <section class="pf-surface p-6">
                     <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
                         <div>
@@ -1929,17 +1999,99 @@ new class extends Component
                     @endif
                 </section>
 
+                {{-- Per-LIVE detail list (the "depth" view) --}}
+                <section class="pf-surface overflow-hidden">
+                    <div class="p-6 pb-4">
+                        <h3 class="section-h text-[15px] flex items-center gap-2">
+                            <flux:icon name="list-bullet" class="w-4 h-4 text-zinc-400" />
+                            LIVE Sessions
+                        </h3>
+                        <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mt-1">
+                            Every LIVE pulled from TikTok Shop for this account, newest first.
+                        </p>
+                    </div>
+
+                    @php
+                        $liveReports = \App\Models\TiktokLiveReport::where('platform_account_id', $account->id)
+                            ->orderByDesc('launched_time')
+                            ->paginate(15, ['*'], 'livePage');
+                        $fmtDuration = function (?int $seconds): string {
+                            if (! $seconds) {
+                                return '—';
+                            }
+                            $h = intdiv($seconds, 3600);
+                            $m = intdiv($seconds % 3600, 60);
+
+                            return $h > 0 ? "{$h}h {$m}m" : "{$m}m";
+                        };
+                    @endphp
+
+                    @if($liveReports->total() > 0)
+                        <div class="overflow-x-auto">
+                            <table class="pf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Creator / Launched</th>
+                                        <th class="text-right">Duration</th>
+                                        <th class="text-right">Viewers</th>
+                                        <th class="text-right">Items Sold</th>
+                                        <th class="text-right">GMV</th>
+                                        <th class="text-right">Attributed GMV</th>
+                                        <th class="text-right">Match</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($liveReports as $live)
+                                        <tr wire:key="live-{{ $live->id }}">
+                                            <td>
+                                                <div class="font-medium text-[13px] text-zinc-800 dark:text-zinc-100">{{ $live->creator_nickname ?: ($live->creator_display_name ?: 'Unknown creator') }}</div>
+                                                <div class="text-[11.5px] text-zinc-400 mt-0.5">{{ $live->launched_time?->format('d M Y, g:i A') ?? '—' }}</div>
+                                            </td>
+                                            <td class="text-right mono">{{ $fmtDuration($live->duration_seconds) }}</td>
+                                            <td class="text-right mono">{{ number_format($live->viewers ?? 0) }}</td>
+                                            <td class="text-right mono">{{ number_format($live->items_sold ?? 0) }}</td>
+                                            <td class="text-right mono font-semibold text-emerald-600 dark:text-emerald-400">RM {{ number_format($live->gmv_myr ?? 0, 2) }}</td>
+                                            <td class="text-right mono">RM {{ number_format($live->live_attributed_gmv_myr ?? 0, 2) }}</td>
+                                            <td class="text-right">
+                                                @if($live->matched_live_session_id)
+                                                    <span class="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Matched</span>
+                                                @else
+                                                    <span class="inline-flex items-center rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Unmatched</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @if($liveReports->hasPages())
+                            <div class="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
+                                {{ $liveReports->links() }}
+                            </div>
+                        @endif
+                    @else
+                        <div class="empty-state pt-2 pb-12">
+                            <p>No LIVE sessions synced yet. Use <span class="font-semibold">Sync Now</span> above to pull the last 30 days.</p>
+                        </div>
+                    @endif
+                </section>
+
+                @elseif($analyticsSubTab === 'products')
                 <section class="pf-surface overflow-hidden">
                     <div class="p-6 pb-4">
                         <h3 class="section-h text-[15px] flex items-center gap-2">
                             <flux:icon name="cube" class="w-4 h-4 text-zinc-400" />
                             Product Performance
                         </h3>
+                        <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mt-1">
+                            Resolved to your internal product where a SKU mapping exists. Rows tagged <span class="font-semibold">Unmapped</span> still need linking under Products.
+                        </p>
                     </div>
 
                     @php
                         $productPerformance = \App\Models\TiktokProductPerformance::where('platform_account_id', $account->id)
-                            ->latest('fetched_at')->limit(20)->get();
+                            ->latest('fetched_at')->limit(50)->get();
+                        $nameIndex = $this->productNameIndex;
                     @endphp
 
                     @if($productPerformance->count() > 0)
@@ -1947,7 +2099,7 @@ new class extends Component
                             <table class="pf-table">
                                 <thead>
                                     <tr>
-                                        <th>Product ID</th>
+                                        <th>Product</th>
                                         <th class="text-right">Impressions</th>
                                         <th class="text-right">Clicks</th>
                                         <th class="text-right">Orders</th>
@@ -1958,8 +2110,30 @@ new class extends Component
                                 </thead>
                                 <tbody>
                                     @foreach($productPerformance as $pp)
-                                        <tr>
-                                            <td class="mono text-[11.5px]">{{ $pp->tiktok_product_id }}</td>
+                                        @php
+                                            $pid = (string) $pp->tiktok_product_id;
+                                            $entry = $nameIndex[$pid] ?? null;
+                                            $internalName = $entry['internal'] ?? null;
+                                            $tiktokName = $entry['tiktok'] ?? ($pp->raw_response['title'] ?? $pp->raw_response['product_name'] ?? $pp->raw_response['name'] ?? null);
+                                        @endphp
+                                        <tr wire:key="pp-{{ $pp->id }}">
+                                            <td>
+                                                @if($internalName)
+                                                    <div class="font-medium text-[13px] text-zinc-800 dark:text-zinc-100">{{ $internalName }}</div>
+                                                    <div class="mono text-[11px] text-zinc-400 mt-0.5">{{ $pid }}</div>
+                                                @elseif($tiktokName)
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="font-medium text-[13px] text-zinc-800 dark:text-zinc-100">{{ $tiktokName }}</span>
+                                                        <span class="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10.5px] font-medium text-amber-700 dark:text-amber-300">Unmapped</span>
+                                                    </div>
+                                                    <div class="mono text-[11px] text-zinc-400 mt-0.5">{{ $pid }}</div>
+                                                @else
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="mono text-[11.5px] text-zinc-500 dark:text-zinc-400">{{ $pid }}</span>
+                                                        <span class="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10.5px] font-medium text-amber-700 dark:text-amber-300">Unmapped</span>
+                                                    </div>
+                                                @endif
+                                            </td>
                                             <td class="text-right mono">{{ number_format($pp->impressions) }}</td>
                                             <td class="text-right mono">{{ number_format($pp->clicks) }}</td>
                                             <td class="text-right mono">{{ number_format($pp->orders) }}</td>
@@ -1977,6 +2151,7 @@ new class extends Component
                         </div>
                     @endif
                 </section>
+                @endif
             </div>
 
         {{-- ═══════════════════════════════════════════════════ Affiliates --}}
