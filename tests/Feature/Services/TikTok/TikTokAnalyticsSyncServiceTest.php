@@ -41,20 +41,33 @@ function makeAnalyticsService(object $fakeClient): TikTokAnalyticsSyncService
     };
 }
 
-it('syncs shop performance snapshot', function () {
+it('syncs shop performance snapshot from a single aggregated interval', function () {
     $account = PlatformAccount::factory()->create();
 
     $fakeAnalytics = new class
     {
-        public function getShopPerformance(): array
+        public array $capturedParams = [];
+
+        public function getShopPerformance(array $params): array
         {
+            $this->capturedParams = $params;
+
             return [
-                'total_orders' => 150,
-                'total_gmv' => 25000.50,
-                'total_buyers' => 120,
-                'total_video_views' => 50000,
-                'total_product_impressions' => 80000,
-                'conversion_rate' => 0.0325,
+                'performance' => [
+                    'intervals' => [
+                        [
+                            'orders' => 150,
+                            'gmv' => ['amount' => '25000.50', 'currency' => 'MYR'],
+                            'buyers' => 120,
+                            'product_impressions' => 80000,
+                            'product_page_views' => 2400,
+                            'product_impression_breakdowns' => [
+                                ['type' => 'VIDEO', 'amount' => 50000],
+                                ['type' => 'LIVE', 'amount' => 30000],
+                            ],
+                        ],
+                    ],
+                ],
             ];
         }
     };
@@ -72,6 +85,10 @@ it('syncs shop performance snapshot', function () {
     $service = makeAnalyticsService($fakeClient);
     $snapshot = $service->syncShopPerformance($account);
 
+    // The intervals[0] read only holds when we ask TikTok for a single
+    // aggregated interval — otherwise it returns a per-day breakdown.
+    expect($fakeAnalytics->capturedParams['granularity'])->toBe('ALL');
+
     expect($snapshot)->toBeInstanceOf(TiktokShopPerformanceSnapshot::class)
         ->and($snapshot->platform_account_id)->toBe($account->id)
         ->and($snapshot->total_orders)->toBe(150)
@@ -79,9 +96,10 @@ it('syncs shop performance snapshot', function () {
         ->and($snapshot->total_buyers)->toBe(120)
         ->and($snapshot->total_video_views)->toBe(50000)
         ->and($snapshot->total_product_impressions)->toBe(80000)
+        // buyers / product_page_views => 120 / 2400 * 100
+        ->and((float) $snapshot->conversion_rate)->toBe(5.0)
         ->and($snapshot->fetched_at)->not->toBeNull()
-        ->and($snapshot->raw_response)->toBeArray()
-        ->and($snapshot->raw_response['total_orders'])->toBe(150);
+        ->and($snapshot->raw_response)->toBeArray();
 });
 
 it('syncs product performance list', function () {

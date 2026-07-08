@@ -39,9 +39,16 @@ class TikTokAnalyticsSyncService
     {
         $client = $this->getClient($account, self::VERSION_SHOP_PERFORMANCE);
 
+        // granularity=ALL asks TikTok for a single interval aggregating the
+        // whole window (which is what the intervals[0] read below expects).
+        // Omitting it makes TikTok fall back to a per-day breakdown over the
+        // 30-day range — a heavier query that returns "Internal error"/
+        // "Request timeout" and, even on success, would leave intervals[0] as
+        // just the first day mislabelled as the period total.
         $response = $client->Analytics->getShopPerformance([
             'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
             'end_date_lt' => now()->format('Y-m-d'),
+            'granularity' => 'ALL',
         ]);
 
         $interval = $response['performance']['intervals'][0] ?? [];
