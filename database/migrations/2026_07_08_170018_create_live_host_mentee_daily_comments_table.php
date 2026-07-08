@@ -14,46 +14,78 @@ return new class extends Migration
      * comments are migrated into this table (attributed to their original author),
      * then the now-redundant comment columns are dropped from the daily metrics
      * table, which keeps only the per-day sales_override.
+     *
+     * The steps are written to be safely re-runnable. An earlier version used
+     * auto-generated index names that exceeded MySQL's 64-char identifier limit,
+     * so the CREATE succeeded but the unique index failed — leaving a partial,
+     * unindexed table (which the deployed app may already have written to) and no
+     * migration record. Everything below therefore checks state first and never
+     * drops data.
      */
     public function up(): void
     {
-        // Self-heal a prior failed run: an earlier version used index names that
-        // exceeded MySQL's 64-char identifier limit, so the table was created but
-        // the unique index failed, leaving an empty partial table and no migration
-        // record. Dropping it here is safe — the table is only ever populated by
-        // the backfill below, which runs after a successful creation.
-        Schema::dropIfExists('live_host_mentee_daily_comments');
+        if (! Schema::hasTable('live_host_mentee_daily_comments')) {
+            Schema::create('live_host_mentee_daily_comments', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('mentee_id')->constrained('live_host_mentees')->cascadeOnDelete();
+                $table->date('metric_date');
+                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->text('comment');
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('live_host_mentee_daily_comments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('mentee_id')->constrained('live_host_mentees')->cascadeOnDelete();
-            $table->date('metric_date');
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->text('comment');
-            $table->timestamps();
-
-            // Explicit short names — the auto-generated ones exceed MySQL's 64-char limit.
-            $table->unique(['mentee_id', 'metric_date', 'user_id'], 'lhmdc_mentee_date_user_unique');
-            $table->index(['mentee_id', 'metric_date'], 'lhmdc_mentee_date_idx');
-        });
-
+        $this->ensureIndexes();
         $this->backfillFromMetrics();
 
+        if (Schema::hasColumn('live_host_mentee_daily_metrics', 'commented_by')) {
+            Schema::table('live_host_mentee_daily_metrics', function (Blueprint $table) {
+                $table->dropConstrainedForeignId('commented_by');
+            });
+        }
         Schema::table('live_host_mentee_daily_metrics', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('commented_by');
+            foreach (['comment', 'commented_at'] as $column) {
+                if (Schema::hasColumn('live_host_mentee_daily_metrics', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
         });
-        Schema::table('live_host_mentee_daily_metrics', function (Blueprint $table) {
-            $table->dropColumn(['comment', 'commented_at']);
+    }
+
+    /**
+     * Add the (short-named) indexes if missing. Explicit names are required —
+     * the auto-generated composite unique name exceeds MySQL's 64-char limit.
+     */
+    private function ensureIndexes(): void
+    {
+        $hasUnique = Schema::hasIndex('live_host_mentee_daily_comments', 'lhmdc_mentee_date_user_unique');
+        $hasIndex = Schema::hasIndex('live_host_mentee_daily_comments', 'lhmdc_mentee_date_idx');
+
+        if ($hasUnique && $hasIndex) {
+            return;
+        }
+
+        Schema::table('live_host_mentee_daily_comments', function (Blueprint $table) use ($hasUnique, $hasIndex) {
+            if (! $hasUnique) {
+                $table->unique(['mentee_id', 'metric_date', 'user_id'], 'lhmdc_mentee_date_user_unique');
+            }
+            if (! $hasIndex) {
+                $table->index(['mentee_id', 'metric_date'], 'lhmdc_mentee_date_idx');
+            }
         });
     }
 
     /**
      * Copy every existing daily-metric comment into the new per-author table,
-     * preserving author and timestamps. There is at most one comment per
-     * (mentee, date) today, so the unique key can never collide here.
+     * preserving author and timestamps. insertOrIgnore keeps this idempotent and
+     * avoids colliding with any comments the app already wrote to a partial table.
      */
     private function backfillFromMetrics(): void
     {
+        if (! Schema::hasColumn('live_host_mentee_daily_metrics', 'comment')) {
+            return;
+        }
+
         DB::table('live_host_mentee_daily_metrics')
             ->whereNotNull('comment')
             ->where('comment', '!=', '')
@@ -72,7 +104,7 @@ return new class extends Migration
                     ];
                 }
                 if ($insert !== []) {
-                    DB::table('live_host_mentee_daily_comments')->insert($insert);
+                    DB::table('live_host_mentee_daily_comments')->insertOrIgnore($insert);
                 }
             });
     }
@@ -80,9 +112,15 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('live_host_mentee_daily_metrics', function (Blueprint $table) {
-            $table->text('comment')->nullable();
-            $table->foreignId('commented_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('commented_at')->nullable();
+            if (! Schema::hasColumn('live_host_mentee_daily_metrics', 'comment')) {
+                $table->text('comment')->nullable();
+            }
+            if (! Schema::hasColumn('live_host_mentee_daily_metrics', 'commented_by')) {
+                $table->foreignId('commented_by')->nullable()->constrained('users')->nullOnDelete();
+            }
+            if (! Schema::hasColumn('live_host_mentee_daily_metrics', 'commented_at')) {
+                $table->timestamp('commented_at')->nullable();
+            }
         });
 
         // Best-effort restore: fold each host/day's earliest comment back into the
