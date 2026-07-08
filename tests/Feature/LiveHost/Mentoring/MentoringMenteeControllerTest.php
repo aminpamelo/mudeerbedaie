@@ -59,10 +59,49 @@ it('rejects enrolling a host who is already an active mentee', function () {
     ]);
 
     $this->actingAs(pic())
+        ->from("/livehost/mentoring/mentees?program={$program->id}")
         ->post("/livehost/mentoring/programs/{$program->id}/mentees", [
             'mentee_user_id' => $host->id,
         ])
-        ->assertStatus(422);
+        ->assertSessionHasErrors('mentee_user_id');
+});
+
+it('rejects re-enrolling a host previously dropped from the same program (no duplicate row)', function () {
+    $program = programWithLeader();
+    $host = liveHost();
+    LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $host->id,
+        'status' => 'dropped',
+    ]);
+
+    $this->actingAs(pic())
+        ->from("/livehost/mentoring/mentees?program={$program->id}")
+        ->post("/livehost/mentoring/programs/{$program->id}/mentees", [
+            'mentee_user_id' => $host->id,
+        ])
+        ->assertSessionHasErrors('mentee_user_id');
+
+    expect(LiveHostMentee::where('program_id', $program->id)->where('mentee_user_id', $host->id)->count())->toBe(1);
+});
+
+it('rejects re-enrolling a host who graduated from the same program', function () {
+    $program = programWithLeader();
+    $host = liveHost();
+    LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $host->id,
+        'status' => 'graduated',
+    ]);
+
+    $this->actingAs(pic())
+        ->from("/livehost/mentoring/mentees?program={$program->id}")
+        ->post("/livehost/mentoring/programs/{$program->id}/mentees", [
+            'mentee_user_id' => $host->id,
+        ])
+        ->assertSessionHasErrors('mentee_user_id');
+
+    expect(LiveHostMentee::where('program_id', $program->id)->where('mentee_user_id', $host->id)->count())->toBe(1);
 });
 
 it('lets a PIC enrol a live host assistant (part-time host) as a mentee', function () {

@@ -22,6 +22,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -449,11 +450,26 @@ class MentoringMenteeController extends Controller
             ->where('status', 'active')
             ->exists();
 
-        abort_if(
-            $alreadyActive,
-            HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
-            'This host is already an active mentee in a program.'
-        );
+        if ($alreadyActive) {
+            throw ValidationException::withMessages([
+                'mentee_user_id' => 'This host is already an active mentee in a program.',
+            ]);
+        }
+
+        // A host can hold only one record per program (unique program_id +
+        // mentee_user_id). If they were previously in THIS program, re-inserting
+        // would hit that constraint — guide the PIC to Restore instead.
+        $existing = $program->mentees()
+            ->where('mentee_user_id', $data['mentee_user_id'])
+            ->first();
+
+        if ($existing !== null) {
+            throw ValidationException::withMessages([
+                'mentee_user_id' => $existing->status === 'graduated'
+                    ? 'This host has already graduated from this program.'
+                    : 'This host was previously enrolled in this program. Restore them from the Dropped tab instead of enrolling again.',
+            ]);
+        }
 
         $firstStage = $program->stages()->orderBy('position')->first();
         abort_if(

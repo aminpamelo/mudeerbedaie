@@ -42,7 +42,7 @@ class MenteeBoardPresenter
                 'dropped' => $mentees->where('status', 'dropped')->count(),
             ],
             'assignableMentors' => $this->assignableMentors(),
-            'enrollableHosts' => $this->enrollableHosts(),
+            'enrollableHosts' => $this->enrollableHosts($program),
         ];
     }
 
@@ -110,21 +110,25 @@ class MenteeBoardPresenter
     /**
      * Live hosts and live host assistants (part-time hosts) not currently an
      * active mentee anywhere — enforces the "one active program at a time" rule
-     * at the enrollment picker. Each entry carries its role so the picker can
-     * group full hosts apart from assistants.
+     * at the enrollment picker. Hosts who already hold any record in THIS program
+     * (dropped or graduated) are also excluded: they are re-activated via Restore,
+     * not enrolled again, which would collide on the (program, host) unique key.
+     * Each entry carries its role so the picker can group full hosts apart from
+     * assistants.
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function enrollableHosts(): Collection
+    public function enrollableHosts(LiveHostMentoringProgram $program): Collection
     {
-        $activeMenteeUserIds = LiveHostMentee::query()
-            ->where('status', 'active')
+        $excludeUserIds = LiveHostMentee::query()
+            ->where(fn ($q) => $q->where('status', 'active')->orWhere('program_id', $program->id))
             ->pluck('mentee_user_id')
+            ->unique()
             ->all();
 
         return User::query()
             ->whereIn('role', ['live_host', 'livehost_assistant'])
-            ->whereNotIn('id', $activeMenteeUserIds)
+            ->whereNotIn('id', $excludeUserIds)
             ->orderByRaw("CASE WHEN role = 'live_host' THEN 0 ELSE 1 END")
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role'])

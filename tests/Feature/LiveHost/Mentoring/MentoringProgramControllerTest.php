@@ -5,9 +5,10 @@ declare(strict_types=1);
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 function mentoringPic(): User
 {
@@ -162,5 +163,24 @@ it('lists live hosts and assistants as enrollable, hosts first', function () {
             ->where('board.enrollableHosts.0.is_assistant', false)
             ->where('board.enrollableHosts.1.name', 'Aaron Assistant')
             ->where('board.enrollableHosts.1.is_assistant', true)
+        );
+});
+
+it('excludes hosts already recorded in the program from the enrollable list', function () {
+    $program = LiveHostMentoringProgram::factory()->active()->create();
+    $fresh = User::factory()->create(['role' => 'live_host', 'name' => 'Fresh Host']);
+    $dropped = User::factory()->create(['role' => 'live_host', 'name' => 'Dropped Host']);
+    LiveHostMentee::factory()->create([
+        'program_id' => $program->id,
+        'mentee_user_id' => $dropped->id,
+        'status' => 'dropped',
+    ]);
+
+    $this->actingAs(mentoringPic())
+        ->get("/livehost/mentoring/programs/{$program->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('board.enrollableHosts', fn ($hosts) => collect($hosts)->pluck('id')->contains($fresh->id)
+                && ! collect($hosts)->pluck('id')->contains($dropped->id))
         );
 });
