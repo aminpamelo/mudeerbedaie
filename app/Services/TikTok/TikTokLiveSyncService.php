@@ -12,6 +12,7 @@ use App\Models\TiktokLiveReport;
 use App\Services\LiveHost\Tiktok\LiveSessionMatcher;
 use App\Services\TikTok\Sdk\AnalyticsExtended;
 use Carbon\Carbon;
+use EcomPHP\TiktokShop\Errors\ResponseException;
 use Illuminate\Support\Facades\Log;
 use ReflectionMethod;
 
@@ -79,7 +80,7 @@ class TikTokLiveSyncService
         $pages = 0;
         $pageToken = null;
 
-        /** @var array<string, ?\App\Models\LiveHostPlatformAccount> */
+        /** @var array<string, ?LiveHostPlatformAccount> */
         $pivotCache = [];
 
         try {
@@ -150,15 +151,18 @@ class TikTokLiveSyncService
                     }
 
                     // Mirror the ActualLiveRecord that ProcessTiktokImportJob creates
-                    // for CSV imports. Keyed on (platform_account_id, source, source_record_id)
-                    // so re-syncs update in place without duplicating.
+                    // for CSV imports. Match on (source, source_record_id) to line up
+                    // with the alr_source_unique index: a TikTok live id is unique
+                    // across shops, so re-syncing the same live under a sibling account
+                    // updates the existing row in place (re-pointing platform_account_id)
+                    // instead of colliding on the unique constraint.
                     ActualLiveRecord::updateOrCreate(
                         [
-                            'platform_account_id' => $account->id,
                             'source' => 'api_sync',
                             'source_record_id' => $tiktokLiveId,
                         ],
                         [
+                            'platform_account_id' => $account->id,
                             'creator_platform_user_id' => $report->tiktok_creator_id,
                             'creator_handle' => $report->creator_nickname,
                             'launched_time' => $report->launched_time,
@@ -191,7 +195,7 @@ class TikTokLiveSyncService
                 $pageToken = $response['next_page_token'] ?? null;
                 $pages++;
             } while ($pageToken && $pages < 50);
-        } catch (\EcomPHP\TiktokShop\Errors\ResponseException $e) {
+        } catch (ResponseException $e) {
             if ($this->isNotAuthorized($e)) {
                 Log::warning('[TikTokLiveSync] LIVE API not enabled for account', [
                     'account_id' => $account->id,
@@ -354,7 +358,7 @@ class TikTokLiveSyncService
      * Matched both by code (more reliable) and by message text (fallback for
      * codes TikTok may introduce later or vary by locale).
      */
-    private function isNotAuthorized(\EcomPHP\TiktokShop\Errors\ResponseException $e): bool
+    private function isNotAuthorized(ResponseException $e): bool
     {
         // Known "shop not authorized for this feature" codes seen so far.
         // The token-related 105xxx codes are intentionally NOT here — those

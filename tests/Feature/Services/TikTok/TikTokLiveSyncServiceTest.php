@@ -2,11 +2,18 @@
 
 declare(strict_types=1);
 
+use App\Models\ActualLiveRecord;
+use App\Models\LiveHostPlatformAccount;
+use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\TiktokLiveReport;
+use App\Models\User;
+use App\Services\LiveHost\Tiktok\LiveSessionMatcher;
 use App\Services\TikTok\TikTokAuthService;
 use App\Services\TikTok\TikTokClientFactory;
 use App\Services\TikTok\TikTokLiveSyncService;
+use Carbon\Carbon;
+use EcomPHP\TiktokShop\Errors\ResponseException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -31,7 +38,7 @@ function makeLiveSyncService(object $fakeAnalytics)
         }
     };
 
-    $matcher = app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class);
+    $matcher = app(LiveSessionMatcher::class);
 
     return new class($factoryMock, $authMock, $matcher, $fakeClient) extends TikTokLiveSyncService
     {
@@ -40,7 +47,7 @@ function makeLiveSyncService(object $fakeAnalytics)
         public function __construct(
             TikTokClientFactory $clientFactory,
             TikTokAuthService $authService,
-            \App\Services\LiveHost\Tiktok\LiveSessionMatcher $matcher,
+            LiveSessionMatcher $matcher,
             object $testClient,
         ) {
             parent::__construct($clientFactory, $authService, $matcher);
@@ -150,8 +157,8 @@ it('looks up creator_platform_user_id from creator_handle and matches a LiveSess
 
     // Hub: a User-LiveHostPlatformAccount pivot mapping the API's username
     // (creator_handle) to a numeric creator id (creator_platform_user_id)
-    $user = \App\Models\User::factory()->create();
-    $pivot = \App\Models\LiveHostPlatformAccount::factory()->create([
+    $user = User::factory()->create();
+    $pivot = LiveHostPlatformAccount::factory()->create([
         'user_id' => $user->id,
         'platform_account_id' => $account->id,
         'creator_handle' => 'amarmirzabedaie',
@@ -162,7 +169,7 @@ it('looks up creator_platform_user_id from creator_handle and matches a LiveSess
     // Must reference the pivot via live_host_platform_account_id so the
     // matcher's whereHas('liveHostPlatformAccount', ...) clause hits.
     $apiStartTime = now()->subMinutes(10);
-    $session = \App\Models\LiveSession::factory()->create([
+    $session = LiveSession::factory()->create([
         'platform_account_id' => $account->id,
         'live_host_platform_account_id' => $pivot->id,
         'actual_start_at' => $apiStartTime,
@@ -171,7 +178,7 @@ it('looks up creator_platform_user_id from creator_handle and matches a LiveSess
 
     $fakeAnalytics = new class($apiStartTime)
     {
-        public function __construct(private \Carbon\Carbon $startTime) {}
+        public function __construct(private Carbon $startTime) {}
 
         public function getShopLivePerformanceList(array $params): array
         {
@@ -224,7 +231,7 @@ it('creates a paired ActualLiveRecord per upserted TiktokLiveReport', function (
     $service = makeLiveSyncService($fakeAnalytics);
     $service->syncLivePerformance($account);
 
-    $alr = \App\Models\ActualLiveRecord::where('source', 'api_sync')
+    $alr = ActualLiveRecord::where('source', 'api_sync')
         ->where('source_record_id', 'live_alr_1')
         ->where('platform_account_id', $account->id)
         ->first();
@@ -237,7 +244,7 @@ it('creates a paired ActualLiveRecord per upserted TiktokLiveReport', function (
 
 it('re-syncing the same live preserves matched_live_session_id', function () {
     $account = PlatformAccount::factory()->create();
-    $session = \App\Models\LiveSession::factory()->create([
+    $session = LiveSession::factory()->create([
         'platform_account_id' => $account->id,
         'actual_start_at' => now()->subDay(), // far enough away that it would NOT auto-match
     ]);
@@ -278,15 +285,79 @@ it('re-syncing the same live preserves matched_live_session_id', function () {
     $service->syncLivePerformance($account);
 
     // Manually link this row (simulating a successful match or an admin's manual fix)
-    \App\Models\TiktokLiveReport::firstWhere('tiktok_live_id', 'live_resync')
+    TiktokLiveReport::firstWhere('tiktok_live_id', 'live_resync')
         ->update(['matched_live_session_id' => $session->id]);
 
     // Re-sync: matched_live_session_id must survive the update; gmv must refresh
     $service->syncLivePerformance($account);
 
-    $row = \App\Models\TiktokLiveReport::firstWhere('tiktok_live_id', 'live_resync');
+    $row = TiktokLiveReport::firstWhere('tiktok_live_id', 'live_resync');
     expect($row->matched_live_session_id)->toBe($session->id)
         ->and((float) $row->gmv_myr)->toBe(200.00);
+});
+
+it('re-syncing the same live under a second shop updates the record in place instead of colliding', function () {
+    // Reproduces the production 1062 "Duplicate entry ... for key 'alr_source_unique'":
+    // the same tiktok_live_id is returned for two platform accounts (an affiliate/host
+    // live seen by sibling shops). The unique index is (source, source_record_id) only,
+    // so the second account must UPDATE the existing row, not INSERT a duplicate.
+    $shopA = PlatformAccount::factory()->create();
+    $shopB = PlatformAccount::factory()->create();
+
+    $payload = fn (string $handle, int $gmv) => [
+        'live_stream_sessions' => [[
+            'id' => '7649198757371841297',
+            'username' => $handle,
+            'start_time' => '1746000000',
+            'end_time' => '1746003600',
+            'sales_performance' => [
+                'gmv' => ['amount' => (string) $gmv, 'currency' => 'MYR'],
+            ],
+        ]],
+        'next_page_token' => null,
+    ];
+
+    $fakeA = new class($payload)
+    {
+        public $payload;
+
+        public function __construct($payload)
+        {
+            $this->payload = $payload;
+        }
+
+        public function getShopLivePerformanceList(array $params): array
+        {
+            return ($this->payload)('muminah.sulpa', 100);
+        }
+    };
+    makeLiveSyncService($fakeA)->syncLivePerformance($shopA);
+
+    $fakeB = new class($payload)
+    {
+        public $payload;
+
+        public function __construct($payload)
+        {
+            $this->payload = $payload;
+        }
+
+        public function getShopLivePerformanceList(array $params): array
+        {
+            return ($this->payload)('muminah.sulpa', 250);
+        }
+    };
+
+    // Before the fix this threw UniqueConstraintViolationException on shop B's insert.
+    makeLiveSyncService($fakeB)->syncLivePerformance($shopB);
+
+    $records = ActualLiveRecord::where('source', 'api_sync')
+        ->where('source_record_id', '7649198757371841297')
+        ->get();
+
+    expect($records)->toHaveCount(1)
+        ->and($records->first()->platform_account_id)->toBe($shopB->id)
+        ->and((float) $records->first()->gmv_myr)->toBe(250.00);
 });
 
 it('leaves duration_seconds null when end_time is missing from the API payload', function () {
@@ -315,7 +386,7 @@ it('leaves duration_seconds null when end_time is missing from the API payload',
     $row = TiktokLiveReport::firstWhere('tiktok_live_id', 'live_no_end');
     expect($row->duration_seconds)->toBeNull();
 
-    $alr = \App\Models\ActualLiveRecord::where('source_record_id', 'live_no_end')->first();
+    $alr = ActualLiveRecord::where('source_record_id', 'live_no_end')->first();
     expect($alr->duration_seconds)->toBeNull();
 });
 
@@ -325,7 +396,7 @@ it('skips cleanly and flags the account when API returns not_authorized', functi
     {
         public function getShopLivePerformanceList(array $params): array
         {
-            throw new \EcomPHP\TiktokShop\Errors\ResponseException('not_authorized', 105005);
+            throw new ResponseException('not_authorized', 105005);
         }
     };
     $service = makeLiveSyncService($fake);
@@ -354,7 +425,7 @@ it('short-circuits on subsequent runs when account is flagged live_api_supported
         public function getShopLivePerformanceList(array $params): array
         {
             $this->called++;
-            throw new \RuntimeException('Should not have been called');
+            throw new RuntimeException('Should not have been called');
         }
     };
 
