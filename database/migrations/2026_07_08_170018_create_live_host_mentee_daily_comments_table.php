@@ -17,6 +17,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Self-heal a prior failed run: an earlier version used index names that
+        // exceeded MySQL's 64-char identifier limit, so the table was created but
+        // the unique index failed, leaving an empty partial table and no migration
+        // record. Dropping it here is safe — the table is only ever populated by
+        // the backfill below, which runs after a successful creation.
+        Schema::dropIfExists('live_host_mentee_daily_comments');
+
         Schema::create('live_host_mentee_daily_comments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('mentee_id')->constrained('live_host_mentees')->cascadeOnDelete();
@@ -25,8 +32,9 @@ return new class extends Migration
             $table->text('comment');
             $table->timestamps();
 
-            $table->unique(['mentee_id', 'metric_date', 'user_id']);
-            $table->index(['mentee_id', 'metric_date']);
+            // Explicit short names — the auto-generated ones exceed MySQL's 64-char limit.
+            $table->unique(['mentee_id', 'metric_date', 'user_id'], 'lhmdc_mentee_date_user_unique');
+            $table->index(['mentee_id', 'metric_date'], 'lhmdc_mentee_date_idx');
         });
 
         $this->backfillFromMetrics();
