@@ -14,6 +14,7 @@ use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
+use App\Services\LiveHost\SuggestedSlotFinder;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,6 +108,7 @@ class SessionSlotController extends Controller
         $status = $request->string('status')->toString();
         $mode = $request->string('mode')->toString();
         $weekOf = $request->string('week_of')->toString();
+        $showSuggestions = $request->string('show_suggestions')->toString();
 
         $weekStart = $weekOf !== ''
             ? CarbonImmutable::parse($weekOf)->startOfWeek(CarbonImmutable::SUNDAY)
@@ -162,8 +164,24 @@ class SessionSlotController extends Controller
             ->get()
             ->map(fn (LiveScheduleAssignment $a) => $this->mapAssignment($a));
 
+        $timeSlots = $this->timeSlotOptions();
+
+        // TikTok lives with no recorded session yet, surfaced as "assign from
+        // TikTok" ghosts. Suppressed in the templates-only view (suggestions are
+        // inherently dated) and when the PIC toggles them off.
+        $suggestions = ($showSuggestions !== '0' && $mode !== 'template')
+            ? app(SuggestedSlotFinder::class)->forWeek(
+                $weekStart,
+                $weekEnd,
+                $platformAccount !== '' ? (int) $platformAccount : null,
+                $liveAccount !== '' ? (int) $liveAccount : null,
+                $timeSlots->all()
+            )
+            : [];
+
         return Inertia::render('session-slots/Calendar', [
             'sessionSlots' => $assignments,
+            'suggestions' => $suggestions,
             'weekStart' => $weekStart->toDateString(),
             'weekEnd' => $weekEnd->toDateString(),
             'filters' => [
@@ -173,11 +191,12 @@ class SessionSlotController extends Controller
                 'status' => $status,
                 'mode' => $mode,
                 'week_of' => $weekStart->toDateString(),
+                'show_suggestions' => $showSuggestions === '0' ? '0' : '1',
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
             'liveAccounts' => $this->liveAccountOptions(),
-            'timeSlots' => $this->timeSlotOptions(),
+            'timeSlots' => $timeSlots,
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }

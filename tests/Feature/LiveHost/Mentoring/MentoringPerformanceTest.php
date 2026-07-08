@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyComment;
 use App\Models\LiveHostMenteeDailyMetric;
 use App\Models\LiveHostMenteeDailyVideo;
 use App\Models\LiveHostMenteeDisciplinaryRecord;
@@ -97,8 +98,9 @@ it('returns a daily matrix for an expanded month', function () {
     $mentee = perfMentee();
     $hostId = $mentee->mentee_user_id;
     perfSession($hostId, '2026-05-03 10:00:00', 1000);
-    $mentee->dailyMetrics()->create([
-        'metric_date' => '2026-05-04', 'comment' => 'good day', 'sales_override' => 500, 'commented_at' => now(),
+    $mentee->dailyMetrics()->create(['metric_date' => '2026-05-04', 'sales_override' => 500]);
+    $mentee->dailyComments()->create([
+        'metric_date' => '2026-05-04', 'user_id' => perfPic()->id, 'comment' => 'good day',
     ]);
     $mentee->disciplinaryRecords()->create([
         'incident_date' => '2026-05-05', 'category' => 'lateness', 'severity' => 'minor', 'description' => 'Late',
@@ -198,7 +200,7 @@ it('returns full day detail — sessions, disciplinary and the comment', functio
     $mentee = perfMentee();
     $hostId = $mentee->mentee_user_id;
     perfSession($hostId, '2026-05-03 10:00:00', 1200);
-    $mentee->dailyMetrics()->create(['metric_date' => '2026-05-03', 'comment' => 'Solid open', 'commented_at' => now()]);
+    $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => perfPic()->id, 'comment' => 'Solid open']);
     $mentee->disciplinaryRecords()->create(['incident_date' => '2026-05-03', 'category' => 'lateness', 'severity' => 'minor', 'description' => 'Late']);
 
     $res = $this->actingAs(perfPic())
@@ -210,7 +212,8 @@ it('returns full day detail — sessions, disciplinary and the comment', functio
         ->and((float) $res['sessions'][0]['gmv'])->toBe(1200.0)
         ->and($res['disciplinary'])->toHaveCount(1)
         ->and($res['disciplinary'][0]['category'])->toBe('lateness')
-        ->and($res['metric']['comment'])->toBe('Solid open');
+        ->and($res['comments'])->toHaveCount(1)
+        ->and($res['comments'][0]['text'])->toBe('Solid open');
 });
 
 it('returns the daily log with compliance count and per-host disciplinary counts', function () {
@@ -231,7 +234,7 @@ it('returns a full month overview — day-by-day sessions, comments and discipli
     $mentee = perfMentee();
     $hostId = $mentee->mentee_user_id;
     perfSession($hostId, '2026-05-03 10:00:00', 1200);
-    $mentee->dailyMetrics()->create(['metric_date' => '2026-05-03', 'comment' => 'Great open', 'commented_at' => now()]);
+    $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => perfPic()->id, 'comment' => 'Great open']);
     $mentee->disciplinaryRecords()->create(['incident_date' => '2026-05-05', 'category' => 'lateness', 'severity' => 'minor', 'description' => 'Late']);
 
     $res = $this->actingAs(perfPic())
@@ -247,52 +250,166 @@ it('returns a full month overview — day-by-day sessions, comments and discipli
 
     $day3 = collect($res['days'])->firstWhere('date', '2026-05-03');
     expect($day3['sessions'])->toHaveCount(1)
-        ->and($day3['comment'])->toBe('Great open')
+        ->and($day3['comments'])->toHaveCount(1)
+        ->and($day3['comments'][0]['text'])->toBe('Great open')
         ->and($day3['has_activity'])->toBeTrue();
 
     $day5 = collect($res['days'])->firstWhere('date', '2026-05-05');
     expect($day5['disciplinary'])->toHaveCount(1);
 });
 
-it('requires a comment when logging a daily metric', function () {
+it('allows an override-only daily save with no comment', function () {
     $mentee = perfMentee();
 
     $this->actingAs(perfPic())
         ->patchJson("/livehost/mentoring/mentees/{$mentee->id}/daily-metric", ['date' => '2026-05-03', 'sales_override' => 500])
-        ->assertStatus(422);
+        ->assertRedirect();
+
+    expect((float) $mentee->dailyMetrics()->first()->sales_override)->toBe(500.0)
+        ->and($mentee->dailyComments()->count())->toBe(0);
 });
 
-it('stores a daily comment and sales override', function () {
+it('stores a daily comment (attributed to the author) and sales override', function () {
     $mentee = perfMentee();
+    $pic = perfPic();
 
-    $this->actingAs(perfPic())
+    $this->actingAs($pic)
         ->patch("/livehost/mentoring/mentees/{$mentee->id}/daily-metric", [
             'date' => '2026-05-03', 'comment' => 'Great hooks', 'sales_override' => 640.5,
         ])
         ->assertRedirect();
 
-    $row = LiveHostMenteeDailyMetric::where('mentee_id', $mentee->id)->first();
-    expect($row)->not->toBeNull()
-        ->and($row->comment)->toBe('Great hooks')
-        ->and((float) $row->sales_override)->toBe(640.5);
+    $metric = LiveHostMenteeDailyMetric::where('mentee_id', $mentee->id)->first();
+    expect($metric)->not->toBeNull()
+        ->and((float) $metric->sales_override)->toBe(640.5);
+
+    $comment = LiveHostMenteeDailyComment::where('mentee_id', $mentee->id)->first();
+    expect($comment)->not->toBeNull()
+        ->and($comment->comment)->toBe('Great hooks')
+        ->and($comment->user_id)->toBe($pic->id);
 });
 
-it('updates the same day on re-save instead of violating the unique constraint', function () {
+it('updates the saving user\'s own comment on re-save instead of duplicating', function () {
     $mentee = perfMentee();
+    $pic = perfPic();
     $url = "/livehost/mentoring/mentees/{$mentee->id}/daily-metric";
 
-    $this->actingAs(perfPic())
+    $this->actingAs($pic)
         ->patch($url, ['date' => '2026-05-03', 'comment' => 'First note', 'sales_override' => 100])
         ->assertRedirect();
 
-    $this->actingAs(perfPic())
+    $this->actingAs($pic)
         ->patch($url, ['date' => '2026-05-03', 'comment' => 'Updated note', 'sales_override' => 250])
         ->assertRedirect();
 
-    $rows = LiveHostMenteeDailyMetric::where('mentee_id', $mentee->id)->get();
-    expect($rows)->toHaveCount(1)
-        ->and($rows->first()->comment)->toBe('Updated note')
-        ->and((float) $rows->first()->sales_override)->toBe(250.0);
+    expect(LiveHostMenteeDailyMetric::where('mentee_id', $mentee->id)->count())->toBe(1)
+        ->and((float) LiveHostMenteeDailyMetric::where('mentee_id', $mentee->id)->first()->sales_override)->toBe(250.0);
+
+    $comments = LiveHostMenteeDailyComment::where('mentee_id', $mentee->id)->get();
+    expect($comments)->toHaveCount(1)
+        ->and($comments->first()->comment)->toBe('Updated note');
+});
+
+it('groups comments by author — two PICs each keep their own comment for the same day', function () {
+    $mentee = perfMentee();
+    $picA = perfPic();
+    $picB = perfPic();
+    $url = "/livehost/mentoring/mentees/{$mentee->id}/daily-metric";
+
+    $this->actingAs($picA)->patch($url, ['date' => '2026-05-03', 'comment' => 'From A'])->assertRedirect();
+    $this->actingAs($picB)->patch($url, ['date' => '2026-05-03', 'comment' => 'From B'])->assertRedirect();
+
+    expect(LiveHostMenteeDailyComment::where('mentee_id', $mentee->id)->count())->toBe(2);
+
+    $res = $this->actingAs($picA)
+        ->getJson("/livehost/mentoring/mentees/{$mentee->id}/day-detail?date=2026-05-03")
+        ->assertOk()
+        ->json();
+
+    expect($res['comments'])->toHaveCount(2);
+
+    $mine = collect($res['comments'])->firstWhere('is_mine', true);
+    expect($mine['text'])->toBe('From A')
+        ->and($mine['author_id'])->toBe($picA->id)
+        ->and($mine['can_manage'])->toBeTrue();
+
+    $other = collect($res['comments'])->firstWhere('is_mine', false);
+    expect($other['text'])->toBe('From B')
+        ->and($other['can_manage'])->toBeFalse();
+});
+
+it('does not overwrite another user\'s comment when saving mine', function () {
+    $mentee = perfMentee();
+    $picA = perfPic();
+    $picB = perfPic();
+    $url = "/livehost/mentoring/mentees/{$mentee->id}/daily-metric";
+
+    $this->actingAs($picA)->patch($url, ['date' => '2026-05-03', 'comment' => 'A first']);
+    $this->actingAs($picB)->patch($url, ['date' => '2026-05-03', 'comment' => 'B first']);
+    $this->actingAs($picA)->patch($url, ['date' => '2026-05-03', 'comment' => 'A edited']);
+
+    $byA = LiveHostMenteeDailyComment::where('mentee_id', $mentee->id)->where('user_id', $picA->id)->first();
+    $byB = LiveHostMenteeDailyComment::where('mentee_id', $mentee->id)->where('user_id', $picB->id)->first();
+
+    expect($byA->comment)->toBe('A edited')
+        ->and($byB->comment)->toBe('B first');
+});
+
+it('lets a user delete their own daily comment', function () {
+    $mentee = perfMentee();
+    $pic = perfPic();
+    $comment = $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => $pic->id, 'comment' => 'mine']);
+
+    $this->actingAs($pic)
+        ->delete("/livehost/mentoring/daily-comment/{$comment->id}")
+        ->assertRedirect();
+
+    expect(LiveHostMenteeDailyComment::find($comment->id))->toBeNull();
+});
+
+it('forbids a user from deleting another user\'s comment', function () {
+    $mentee = perfMentee();
+    $author = perfPic();
+    $other = perfPic();
+    $comment = $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => $author->id, 'comment' => 'not yours']);
+
+    $this->actingAs($other)
+        ->delete("/livehost/mentoring/daily-comment/{$comment->id}")
+        ->assertForbidden();
+
+    expect(LiveHostMenteeDailyComment::find($comment->id))->not->toBeNull();
+});
+
+it('lets an admin delete anyone\'s comment', function () {
+    $mentee = perfMentee();
+    $author = perfPic();
+    $admin = User::factory()->create(['role' => 'admin']);
+    $comment = $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => $author->id, 'comment' => 'moderated']);
+
+    $this->actingAs($admin)
+        ->delete("/livehost/mentoring/daily-comment/{$comment->id}")
+        ->assertRedirect();
+
+    expect(LiveHostMenteeDailyComment::find($comment->id))->toBeNull();
+});
+
+it('returns the viewer\'s own comment and every author\'s comment in the daily log', function () {
+    $mentee = perfMentee();
+    $picA = perfPic();
+    $picB = perfPic();
+    $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => $picA->id, 'comment' => 'A note']);
+    $mentee->dailyComments()->create(['metric_date' => '2026-05-03', 'user_id' => $picB->id, 'comment' => 'B note']);
+
+    $res = $this->actingAs($picA)
+        ->getJson("/livehost/mentoring/programs/{$mentee->program_id}/daily-log?date=2026-05-03")
+        ->assertOk()
+        ->json();
+
+    $row = $res['mentees'][0];
+    expect($row['has_comment'])->toBeTrue()
+        ->and($row['comment_count'])->toBe(2)
+        ->and($row['my_comment'])->toBe('A note')
+        ->and($res['missing'])->toBe(0);
 });
 
 it('renames the host account from the performance board', function () {

@@ -158,11 +158,10 @@ it('surfaces the daily sales strip, PIC comments and conduct records', function 
         'gmv_amount' => 500,
         'gmv_adjustment' => 0,
     ]);
-    $mentee->dailyMetrics()->create([
+    $mentee->dailyComments()->create([
         'metric_date' => $today->toDateString(),
+        'user_id' => $host->id,
         'comment' => 'Nice energy today',
-        'commented_by' => $host->id,
-        'commented_at' => now(),
     ]);
     $mentee->disciplinaryRecords()->create([
         'incident_date' => $today->toDateString(),

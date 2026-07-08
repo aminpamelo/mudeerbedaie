@@ -100,6 +100,11 @@ class LiveHostMentee extends Model
         return $this->hasMany(LiveHostMenteeDailyMetric::class, 'mentee_id');
     }
 
+    public function dailyComments(): HasMany
+    {
+        return $this->hasMany(LiveHostMenteeDailyComment::class, 'mentee_id');
+    }
+
     public function disciplinaryRecords(): HasMany
     {
         return $this->hasMany(LiveHostMenteeDisciplinaryRecord::class, 'mentee_id')

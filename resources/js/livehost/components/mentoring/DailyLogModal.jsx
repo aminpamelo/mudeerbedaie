@@ -4,6 +4,7 @@ import { Check, Loader2, ShieldAlert, Video, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 import { Label } from '@/livehost/components/ui/label';
+import DailyComments from '@/livehost/components/mentoring/DailyComments';
 import DisciplinaryModal from '@/livehost/components/mentoring/DisciplinaryModal';
 
 function rm(n) {
@@ -81,7 +82,7 @@ export default function DailyLogModal({ program, onClose }) {
         const seed = {};
         (data.mentees ?? []).forEach((m) => {
           seed[m.id] = {
-            comment: m.comment ?? '',
+            comment: m.my_comment ?? '',
             sales_override: m.sales_override != null ? String(m.sales_override) : '',
           };
         });
@@ -187,11 +188,17 @@ export default function DailyLogModal({ program, onClose }) {
 
                     <VideoStatus videos={m.videos ?? []} count={m.video_count ?? 0} />
 
+                    {(m.comments?.length ?? 0) > 0 && (
+                      <div className="mb-2">
+                        <DailyComments comments={m.comments} onChanged={() => { setDirty(true); fetchLog(date); }} reloadOnly={['performance']} compact />
+                      </div>
+                    )}
+
                     <textarea
                       value={draft.comment ?? ''}
                       onChange={(e) => setDraft(m.id, 'comment', e.target.value)}
                       rows={3}
-                      placeholder="How did they do today? (required)"
+                      placeholder={draft.comment ? 'Your comment' : 'Add your comment for today'}
                       className="w-full flex-1 resize-y rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
                     />
 

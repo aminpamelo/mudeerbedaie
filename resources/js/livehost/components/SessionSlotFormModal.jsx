@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useForm } from '@inertiajs/react';
+import { Radio } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 import {
   Dialog,
@@ -68,6 +69,38 @@ function formatTimeLabel(time) {
   return `${display}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
+function formatGmv(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return null;
+  }
+  const hasSen = num % 1 !== 0;
+  return `RM ${num.toLocaleString(undefined, {
+    minimumFractionDigits: hasSen ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatDuration(seconds) {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total <= 0) {
+    return null;
+  }
+  const mins = Math.round(total / 60);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h${m ? ` ${m}m` : ''}` : `${m}m`;
+}
+
+function tiktokRemark(suggestion) {
+  const gmv = formatGmv(suggestion.gmv);
+  const parts = [`Recorded from TikTok live on ${suggestion.scheduleDate}`];
+  if (gmv) {
+    parts.push(`GMV ${gmv}`);
+  }
+  return `${parts.join(' · ')}.`;
+}
+
 export default function SessionSlotFormModal({
   open,
   onOpenChange,
@@ -129,7 +162,7 @@ export default function SessionSlotFormModal({
       schedule_date: prefill?.scheduleDate ?? '',
       is_template: false,
       status: 'scheduled',
-      remarks: '',
+      remarks: prefill?.suggestion ? tiktokRemark(prefill.suggestion) : '',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -141,6 +174,7 @@ export default function SessionSlotFormModal({
     prefill?.liveAccountId,
     prefill?.platformAccountId,
     prefill?.scheduleDate,
+    prefill?.suggestionId,
   ]);
 
   const selectedAccount = useMemo(
@@ -326,6 +360,10 @@ export default function SessionSlotFormModal({
           )}
         </DialogHeader>
 
+        {mode !== 'edit' && prefill?.suggestion && (
+          <SuggestionBanner suggestion={prefill.suggestion} />
+        )}
+
         <form onSubmit={submit} className="space-y-4">
           {/* The creator account (nickname) is the punca kuasa: chosen first. */}
           <ModalField
@@ -488,6 +526,59 @@ export default function SessionSlotFormModal({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SuggestionBanner({ suggestion }) {
+  const gmv = formatGmv(suggestion.gmv);
+  const liveGmv = formatGmv(suggestion.liveAttributedGmv);
+  const duration = formatDuration(suggestion.durationSeconds);
+  const range = `${formatTimeLabel(suggestion.startTime)} – ${formatTimeLabel(suggestion.endTime)}`;
+  const sourceLabel = suggestion.source === 'api_sync' ? 'TikTok API' : 'CSV import';
+
+  const stats = [
+    gmv ? { label: 'GMV', value: gmv } : null,
+    liveGmv ? { label: 'Live GMV', value: liveGmv } : null,
+    suggestion.viewers ? { label: 'Viewers', value: Number(suggestion.viewers).toLocaleString() } : null,
+    suggestion.itemsSold ? { label: 'Items', value: Number(suggestion.itemsSold).toLocaleString() } : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="rounded-xl border border-[#F5D0E4] bg-gradient-to-br from-[#FDF2F8] to-white p-3">
+      <div className="flex items-center gap-1.5">
+        <Radio className="h-3.5 w-3.5 text-[#EC4899]" strokeWidth={2.4} />
+        <span className="text-[12px] font-semibold text-[#9D174D]">Suggested from a TikTok live</span>
+        <span className="ml-auto rounded-full bg-white/70 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-[#9D174D]">
+          {sourceLabel}
+        </span>
+      </div>
+      <p className="mt-1.5 text-[12.5px] text-[#525252]">
+        {suggestion.creatorHandle && (
+          <span className="font-mono font-medium text-[#0A0A0A]">@{suggestion.creatorHandle}</span>
+        )}
+        <span className="mx-1 text-[#D4D4D4]">·</span>
+        <span className="tabular-nums text-[#0A0A0A]">{range}</span>
+        {duration && <span className="text-[#A3A3A3]"> ({duration})</span>}
+      </p>
+      {stats.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {stats.map((stat) => (
+            <div key={stat.label} className="flex items-baseline gap-1">
+              <span className="font-mono text-[9px] uppercase tracking-wide text-[#A3A3A3]">
+                {stat.label}
+              </span>
+              <span className="font-mono text-[11px] font-semibold tabular-nums text-[#0A0A0A]">
+                {stat.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] leading-snug text-[#737373]">
+        Confirm the host below and create the slot. GMV stays unverified until you link this live in
+        the session&rsquo;s verify step.
+      </p>
+    </div>
   );
 }
 

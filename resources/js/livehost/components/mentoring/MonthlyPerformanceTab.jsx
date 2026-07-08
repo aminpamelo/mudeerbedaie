@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
+import DailyComments from '@/livehost/components/mentoring/DailyComments';
 import DailyLogModal from '@/livehost/components/mentoring/DailyLogModal';
 import DisciplinaryModal, { categoryLabel, severityTone } from '@/livehost/components/mentoring/DisciplinaryModal';
 import EnrollMenteeModal from '@/livehost/components/mentoring/EnrollMenteeModal';
@@ -751,23 +752,30 @@ function sessionStatusDot(status) {
 }
 
 function DayModal({ mentee, month, day, onSaved, onLogDisciplinary, onClose }) {
-  const [comment, setComment] = useState(day.comment ?? '');
+  const [comment, setComment] = useState('');
   const [override, setOverride] = useState(day.override != null ? String(day.override) : '');
   const [busy, setBusy] = useState(false);
   const [detail, setDetail] = useState(null);
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
     fetch(`/livehost/mentoring/mentees/${mentee.id}/day-detail?date=${day.date}`, {
       headers: { Accept: 'application/json' },
       credentials: 'same-origin',
     })
       .then((r) => r.json())
-      .then(setDetail)
-      .catch(() => setDetail({ sessions: [], disciplinary: [], metric: null }));
+      .then((d) => {
+        setDetail(d);
+        setComment(d.comments?.find((c) => c.is_mine)?.text ?? '');
+      })
+      .catch(() => setDetail({ sessions: [], disciplinary: [], comments: [] }));
   }, [mentee.id, day.date]);
 
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  const otherComments = (detail?.comments ?? []).filter((c) => !c.is_mine);
+
   const save = () => {
-    if (!comment.trim()) return;
+    if (!comment.trim() && override === '') return;
     setBusy(true);
     router.patch(
       `/livehost/mentoring/mentees/${mentee.id}/daily-metric`,
@@ -840,8 +848,20 @@ function DayModal({ mentee, month, day, onSaved, onLogDisciplinary, onClose }) {
         </div>
       </div>
 
-      <label className="mb-1 block text-[12.5px] font-medium text-[#525252]">Daily comment <span className="text-[#F43F5E]">*</span>{detail?.metric?.commented_by && <span className="ml-1 font-normal text-[#A3A3A3]">· last by {detail.metric.commented_by}{detail.metric.commented_at_human ? ` ${detail.metric.commented_at_human}` : ''}</span>}</label>
-      <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} autoFocus placeholder="How did they do today? (required)" className="mb-3 w-full resize-y rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+      <div className="mb-3">
+        <div className="mb-1 text-[12.5px] font-medium text-[#525252]">Comments{detail?.comments?.length ? ` (${detail.comments.length})` : ''}</div>
+        {detail ? (
+          <DailyComments comments={detail.comments} onChanged={loadDetail} reloadOnly={['performance']} emptyLabel="No comments yet — add the first one below." />
+        ) : (
+          <div className="flex items-center gap-1.5 text-[12px] text-[#A3A3A3]"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+        )}
+      </div>
+
+      <label className="mb-1 block text-[12.5px] font-medium text-[#525252]">
+        {otherComments.length > 0 || detail?.comments?.some((c) => c.is_mine) ? 'Your comment' : 'Daily comment'}
+        <span className="ml-1 font-normal text-[#A3A3A3]">· saved under your name</span>
+      </label>
+      <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} autoFocus placeholder="How did they do today?" className="mb-3 w-full resize-y rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
 
       <label className="mb-1 flex items-center justify-between text-[12.5px] font-medium text-[#525252]">
         <span>Sales override <span className="font-normal text-[#A3A3A3]">(optional)</span></span>
@@ -857,7 +877,7 @@ function DayModal({ mentee, month, day, onSaved, onLogDisciplinary, onClose }) {
         </button>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="button" disabled={busy || !comment.trim()} onClick={save} className="bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-40">{busy ? 'Saving…' : 'Save day'}</Button>
+          <Button type="button" disabled={busy || (!comment.trim() && override === '')} onClick={save} className="bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-40">{busy ? 'Saving…' : 'Save day'}</Button>
         </div>
       </div>
     </Modal>

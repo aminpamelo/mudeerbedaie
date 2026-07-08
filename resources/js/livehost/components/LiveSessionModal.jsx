@@ -93,6 +93,20 @@ function formatDateTime(iso) {
   });
 }
 
+function formatGmvMyr(value) {
+  const num = Number(value);
+  // The API doesn't always return a live-attributed GMV breakdown; when it
+  // can't, the sync stores a -1 sentinel. Render that (and any non-finite
+  // value) as an em dash rather than a misleading "RM -1.00".
+  if (!Number.isFinite(num) || num < 0) {
+    return '—';
+  }
+  return `RM ${num.toLocaleString('en-MY', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function formatDuration(minutes) {
   if (minutes == null || !Number.isFinite(Number(minutes))) {
     return '—';
@@ -1052,10 +1066,36 @@ function VerificationPanel({
                             Suggested
                           </span>
                         )}
+                        <span className="ml-auto rounded bg-[#F5F5F5] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#737373]">
+                          {c.source === 'csv_import' ? 'CSV' : 'API'}
+                        </span>
                       </div>
-                      <div className="text-[11.5px] text-[#737373]">
-                        GMV {c.liveAttributedGmvMyr.toFixed(2)} · {c.viewers ?? 0} viewers
-                        {c.creatorHandle ? ` · ${c.creatorHandle}` : ''}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] text-[#737373]">
+                        <span className="inline-flex items-baseline gap-1">
+                          <span className="text-[10px] uppercase tracking-wide text-[#A3A3A3]">
+                            Total GMV
+                          </span>
+                          <span className="font-semibold text-[#0A0A0A]">
+                            {formatGmvMyr(c.gmvMyr)}
+                          </span>
+                        </span>
+                        <span className="text-[#D4D4D4]">·</span>
+                        <span className="inline-flex items-baseline gap-1">
+                          <span className="text-[10px] uppercase tracking-wide text-[#A3A3A3]">
+                            Live-attrib
+                          </span>
+                          <span className="font-medium">
+                            {formatGmvMyr(c.liveAttributedGmvMyr)}
+                          </span>
+                        </span>
+                        <span className="text-[#D4D4D4]">·</span>
+                        <span>{c.viewers ?? 0} viewers</span>
+                        {c.creatorHandle ? (
+                          <>
+                            <span className="text-[#D4D4D4]">·</span>
+                            <span>{c.creatorHandle}</span>
+                          </>
+                        ) : null}
                       </div>
                     </div>
                   </label>

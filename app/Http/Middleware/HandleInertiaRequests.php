@@ -151,9 +151,11 @@ class HandleInertiaRequests extends Middleware
     {
         $isPic = $user && in_array($user->role, ['admin', 'admin_livehost'], true);
         $isPicOrAssistant = $user && in_array($user->role, ['admin', 'admin_livehost', 'livehost_assistant'], true);
+        $isAdmin = $user && $user->role === 'admin';
 
         return [
             'canManageHosts' => $isPic,
+            'canImpersonate' => $isAdmin,
             'canManagePlatformAccounts' => $isPic,
             'canManageCreators' => $isPic,
             'canSeeSessions' => $isPic,

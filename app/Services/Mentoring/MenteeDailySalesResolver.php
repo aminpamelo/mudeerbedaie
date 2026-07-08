@@ -3,6 +3,7 @@
 namespace App\Services\Mentoring;
 
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyComment;
 use App\Models\LiveHostMenteeDailyMetric;
 use App\Models\LiveSession;
 use Carbon\CarbonImmutable;
@@ -102,8 +103,10 @@ class MenteeDailySalesResolver
 
     /**
      * Full day-by-day breakdown for one mentee in one month, for the daily strip.
+     * Comments are grouped by author in their own table; here we only surface the
+     * per-day count and presence (the strip renders a single "commented" dot).
      *
-     * @return array<int, array{date: string, day: int, auto: float, override: float|null, effective: float, sessions: int, comment: string|null, commented_by: string|null, commented_at: string|null}>
+     * @return array<int, array{date: string, day: int, auto: float, override: float|null, effective: float, sessions: int, comment_count: int, has_comment: bool}>
      */
     public function dailyBreakdown(LiveHostMentee $mentee, int $year, int $month): array
     {
@@ -115,9 +118,14 @@ class MenteeDailySalesResolver
         $rows = LiveHostMenteeDailyMetric::query()
             ->where('mentee_id', $mentee->id)
             ->whereBetween('metric_date', [$start->toDateString(), $end->toDateString()])
-            ->with('commentedByUser:id,name')
             ->get()
             ->keyBy(fn (LiveHostMenteeDailyMetric $m) => $m->metric_date->toDateString());
+
+        $commentCounts = LiveHostMenteeDailyComment::query()
+            ->where('mentee_id', $mentee->id)
+            ->whereBetween('metric_date', [$start->toDateString(), $end->toDateString()])
+            ->get(['metric_date'])
+            ->countBy(fn (LiveHostMenteeDailyComment $c) => $c->metric_date->toDateString());
 
         $days = [];
         for ($d = $start; $d->lte($end); $d = $d->addDay()) {
@@ -126,6 +134,7 @@ class MenteeDailySalesResolver
             $sessions = (int) ($auto[$dateKey]['sessions'] ?? 0);
             $row = $rows->get($dateKey);
             $override = $row && $row->sales_override !== null ? (float) $row->sales_override : null;
+            $commentCount = (int) ($commentCounts[$dateKey] ?? 0);
 
             $days[] = [
                 'date' => $dateKey,
@@ -134,9 +143,8 @@ class MenteeDailySalesResolver
                 'override' => $override,
                 'effective' => round($override ?? $autoGmv, 2),
                 'sessions' => $sessions,
-                'comment' => $row?->comment,
-                'commented_by' => $row?->commentedByUser?->name,
-                'commented_at' => $row?->commented_at?->toIso8601String(),
+                'comment_count' => $commentCount,
+                'has_comment' => $commentCount > 0,
             ];
         }
 

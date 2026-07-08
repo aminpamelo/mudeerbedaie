@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyComment;
 use App\Models\LiveHostMenteeDailyMetric;
 use App\Models\LiveHostMenteeDailyVideo;
 use App\Models\LiveHostMenteeDisciplinaryRecord;
@@ -49,29 +50,72 @@ class MentoringPerformanceController extends Controller
     }
 
     /**
-     * Upsert one day of a mentee's daily performance. The PIC's comment is
-     * mandatory (the daily activity-log note); sales_override is optional and,
-     * when null, the day falls back to the auto live-session GMV.
+     * Upsert one day of a mentee's daily performance. Comments are grouped by
+     * author: the saving user's own comment (if provided) is created/updated
+     * without touching anyone else's. sales_override is a single shared per-day
+     * value; when null, the day falls back to the auto live-session GMV. Clearing
+     * a comment is an explicit action (deleteDailyComment), not a blank save.
      */
     public function storeDaily(Request $request, LiveHostMentee $mentee): RedirectResponse
     {
         $data = $request->validate([
             'date' => ['required', 'date'],
-            'comment' => ['required', 'string', 'max:5000'],
+            'comment' => ['nullable', 'string', 'max:5000'],
             'sales_override' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
         ]);
 
+        $date = CarbonImmutable::parse($data['date'])->startOfDay();
+
         $mentee->dailyMetrics()->updateOrCreate(
-            ['metric_date' => CarbonImmutable::parse($data['date'])->startOfDay()],
-            [
-                'comment' => $data['comment'],
-                'sales_override' => $data['sales_override'] ?? null,
-                'commented_by' => $request->user()?->id,
-                'commented_at' => now(),
-            ],
+            ['metric_date' => $date],
+            ['sales_override' => $data['sales_override'] ?? null],
         );
 
+        $comment = trim((string) ($data['comment'] ?? ''));
+        if ($comment !== '') {
+            $mentee->dailyComments()->updateOrCreate(
+                ['metric_date' => $date, 'user_id' => $request->user()?->id],
+                ['comment' => $comment],
+            );
+        }
+
         return back();
+    }
+
+    /**
+     * Delete a single daily comment. A user may remove their own comment; admins
+     * may remove anyone's.
+     */
+    public function deleteDailyComment(Request $request, LiveHostMenteeDailyComment $comment): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null && ($user->isAdmin() || $comment->user_id === $user->id), 403);
+
+        $comment->delete();
+
+        return back();
+    }
+
+    /**
+     * Shape one daily comment for the client, flagging whether the viewer owns it
+     * (is_mine — seeds their editable textarea) and whether they may edit/delete
+     * it (can_manage — own comment, or any comment for an admin).
+     *
+     * @return array{id: int, text: string, author: string|null, author_id: int|null, updated_at_human: string|null, is_mine: bool, can_manage: bool}
+     */
+    private function serializeComment(LiveHostMenteeDailyComment $comment, ?int $viewerId, bool $viewerIsAdmin): array
+    {
+        $isMine = $viewerId !== null && $comment->user_id === $viewerId;
+
+        return [
+            'id' => $comment->id,
+            'text' => $comment->comment,
+            'author' => $comment->user?->name,
+            'author_id' => $comment->user_id,
+            'updated_at_human' => $comment->updated_at?->diffForHumans(),
+            'is_mine' => $isMine,
+            'can_manage' => $viewerIsAdmin || $isMine,
+        ];
     }
 
     /**
@@ -133,10 +177,20 @@ class MentoringPerformanceController extends Controller
                 'recorded_by' => $r->recordedByUser?->name,
             ])->values();
 
-        $metric = $mentee->dailyMetrics()
+        $viewer = $request->user();
+        $viewerIsAdmin = (bool) $viewer?->isAdmin();
+
+        $comments = $mentee->dailyComments()
             ->whereDate('metric_date', $date->toDateString())
-            ->with('commentedByUser:id,name')
-            ->first();
+            ->with('user:id,name')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (LiveHostMenteeDailyComment $c) => $this->serializeComment($c, $viewer?->id, $viewerIsAdmin))
+            ->values();
+
+        $override = $mentee->dailyMetrics()
+            ->whereDate('metric_date', $date->toDateString())
+            ->value('sales_override');
 
         $videos = $mentee->dailyVideos()
             ->whereDate('video_date', $date->toDateString())
@@ -153,12 +207,8 @@ class MentoringPerformanceController extends Controller
             'sessions' => $sessions,
             'disciplinary' => $disciplinary,
             'videos' => $videos,
-            'metric' => $metric ? [
-                'comment' => $metric->comment,
-                'sales_override' => $metric->sales_override !== null ? (float) $metric->sales_override : null,
-                'commented_by' => $metric->commentedByUser?->name,
-                'commented_at_human' => $metric->commented_at?->diffForHumans(),
-            ] : null,
+            'comments' => $comments,
+            'sales_override' => $override !== null ? (float) $override : null,
         ]);
     }
 
@@ -193,9 +243,17 @@ class MentoringPerformanceController extends Controller
 
         $metrics = $mentee->dailyMetrics()
             ->whereBetween('metric_date', [$start->toDateString(), $end->toDateString()])
-            ->with('commentedByUser:id,name')
             ->get()
             ->keyBy(fn (LiveHostMenteeDailyMetric $r) => $r->metric_date->toDateString());
+
+        $viewer = $request->user();
+        $viewerIsAdmin = (bool) $viewer?->isAdmin();
+        $commentsByDate = $mentee->dailyComments()
+            ->whereBetween('metric_date', [$start->toDateString(), $end->toDateString()])
+            ->with('user:id,name')
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy(fn (LiveHostMenteeDailyComment $c) => $c->metric_date->toDateString());
 
         $disciplinary = $mentee->disciplinaryRecords()
             ->whereBetween('incident_date', [$start->toDateString(), $end->toDateString()])
@@ -227,12 +285,13 @@ class MentoringPerformanceController extends Controller
             $effective = round($override ?? $autoGmv, 2);
             $dayDisc = $disciplinary[$key] ?? collect();
             $dayVideos = $videosByDate[$key] ?? collect();
+            $dayComments = $commentsByDate[$key] ?? collect();
 
             $salesTotal += $effective;
             if ($ended->isNotEmpty()) {
                 $liveDays++;
             }
-            if ($metric && $metric->comment) {
+            if ($dayComments->isNotEmpty()) {
                 $commentDays++;
             }
             $videoTotal += $dayVideos->count();
@@ -256,9 +315,7 @@ class MentoringPerformanceController extends Controller
                     'start' => $s->scheduled_start_at?->format('g:i A'),
                     'duration_minutes' => $s->duration_minutes,
                 ])->values(),
-                'comment' => $metric?->comment,
-                'commented_by' => $metric?->commentedByUser?->name,
-                'commented_at_human' => $metric?->commented_at?->diffForHumans(),
+                'comments' => $dayComments->map(fn (LiveHostMenteeDailyComment $c) => $this->serializeComment($c, $viewer?->id, $viewerIsAdmin))->values(),
                 'disciplinary' => $dayDisc->map(fn (LiveHostMenteeDisciplinaryRecord $r) => [
                     'id' => $r->id,
                     'category' => $r->category,
@@ -271,7 +328,7 @@ class MentoringPerformanceController extends Controller
                     'title' => $r->title,
                     'link' => $r->link,
                 ])->values(),
-                'has_activity' => $daySessions->isNotEmpty() || ($metric && $metric->comment) || $dayDisc->isNotEmpty() || $override !== null || $dayVideos->isNotEmpty(),
+                'has_activity' => $daySessions->isNotEmpty() || $dayComments->isNotEmpty() || $dayDisc->isNotEmpty() || $override !== null || $dayVideos->isNotEmpty(),
             ];
         }
 
@@ -334,6 +391,12 @@ class MentoringPerformanceController extends Controller
             ->get()
             ->groupBy('mentee_id');
 
+        $commentRows = LiveHostMenteeDailyComment::query()
+            ->whereIn('mentee_id', $mentees->pluck('id'))
+            ->whereBetween('metric_date', [$start->toDateString(), $end->toDateString()])
+            ->get(['mentee_id', 'metric_date'])
+            ->groupBy('mentee_id');
+
         $disciplinaryRows = LiveHostMenteeDisciplinaryRecord::query()
             ->whereIn('mentee_id', $mentees->pluck('id'))
             ->whereBetween('incident_date', [$start->toDateString(), $end->toDateString()])
@@ -349,6 +412,7 @@ class MentoringPerformanceController extends Controller
         $byMentee = [];
         foreach ($mentees as $m) {
             $metricByDate = ($metricRows[$m->id] ?? collect())->keyBy(fn ($r) => $r->metric_date->toDateString());
+            $commentCountByDate = ($commentRows[$m->id] ?? collect())->countBy(fn ($r) => $r->metric_date->toDateString());
             $discByDate = ($disciplinaryRows[$m->id] ?? collect())->groupBy(fn ($r) => $r->incident_date->toDateString());
             $videoByDate = ($videoRows[$m->id] ?? collect())->groupBy(fn ($r) => $r->video_date->toDateString());
 
@@ -359,6 +423,7 @@ class MentoringPerformanceController extends Controller
                 $sessions = (int) ($auto[$m->mentee_user_id][$date]['sessions'] ?? 0);
                 $row = $metricByDate->get($date);
                 $override = $row && $row->sales_override !== null ? (float) $row->sales_override : null;
+                $commentCount = (int) ($commentCountByDate[$date] ?? 0);
                 $discCount = ($discByDate[$date] ?? collect())->count();
                 $videoCount = ($videoByDate[$date] ?? collect())->count();
 
@@ -369,8 +434,8 @@ class MentoringPerformanceController extends Controller
                     'override' => $override,
                     'effective' => round($override ?? $autoGmv, 2),
                     'sessions' => $sessions,
-                    'comment' => $row?->comment,
-                    'has_comment' => (bool) ($row && $row->comment),
+                    'comment_count' => $commentCount,
+                    'has_comment' => $commentCount > 0,
                     'disciplinary_count' => $discCount,
                     'has_disciplinary' => $discCount > 0,
                     'video_count' => $videoCount,
@@ -417,6 +482,16 @@ class MentoringPerformanceController extends Controller
             ->get()
             ->keyBy('mentee_id');
 
+        $viewer = $request->user();
+        $viewerIsAdmin = (bool) $viewer?->isAdmin();
+        $commentsByMentee = LiveHostMenteeDailyComment::query()
+            ->whereIn('mentee_id', $mentees->pluck('id'))
+            ->whereDate('metric_date', $dateKey)
+            ->with('user:id,name')
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy('mentee_id');
+
         $disciplinary = LiveHostMenteeDisciplinaryRecord::query()
             ->whereIn('mentee_id', $mentees->pluck('id'))
             ->whereDate('incident_date', $dateKey)
@@ -437,13 +512,17 @@ class MentoringPerformanceController extends Controller
             'initials' => MenteeBoardPresenter::initials($leader->name),
         ] : null;
 
-        $out = $mentees->map(function (LiveHostMentee $m) use ($auto, $rows, $disciplinary, $videos, $dateKey, $leaderData) {
+        $out = $mentees->map(function (LiveHostMentee $m) use ($auto, $rows, $commentsByMentee, $viewer, $viewerIsAdmin, $disciplinary, $videos, $dateKey, $leaderData) {
             $row = $rows->get($m->id);
             $autoGmv = (float) ($auto[$m->mentee_user_id][$dateKey]['gmv'] ?? 0);
             $sessions = (int) ($auto[$m->mentee_user_id][$dateKey]['sessions'] ?? 0);
             $override = $row && $row->sales_override !== null ? (float) $row->sales_override : null;
             $discCount = ($disciplinary[$m->id] ?? collect())->count();
             $menteeVideos = $videos[$m->id] ?? collect();
+            $menteeComments = ($commentsByMentee[$m->id] ?? collect())
+                ->map(fn (LiveHostMenteeDailyComment $c) => $this->serializeComment($c, $viewer?->id, $viewerIsAdmin))
+                ->values();
+            $myComment = $menteeComments->firstWhere('is_mine', true);
 
             $pic = $m->mentor
                 ? ['id' => $m->mentor->id, 'name' => $m->mentor->name, 'initials' => MenteeBoardPresenter::initials($m->mentor->name), 'is_override' => true]
@@ -458,8 +537,10 @@ class MentoringPerformanceController extends Controller
                 'sessions' => $sessions,
                 'sales_override' => $override,
                 'sales' => round($override ?? $autoGmv, 2),
-                'comment' => $row?->comment,
-                'has_comment' => (bool) ($row && $row->comment),
+                'comments' => $menteeComments,
+                'comment_count' => $menteeComments->count(),
+                'my_comment' => $myComment['text'] ?? '',
+                'has_comment' => $menteeComments->isNotEmpty(),
                 'disciplinary_count' => $discCount,
                 'has_disciplinary' => $discCount > 0,
                 'video_count' => $menteeVideos->count(),

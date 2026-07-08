@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Eye, LogIn, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { deriveInitials } from '@/livehost/lib/format';
@@ -20,6 +20,7 @@ function statusVariant(status) {
 export default function HostsIndex() {
   const { hosts, filters, auth } = usePage().props;
   const canManageHosts = Boolean(auth?.permissions?.canManageHosts);
+  const canImpersonate = Boolean(auth?.permissions?.canImpersonate);
   const [search, setSearch] = useState(filters?.search ?? '');
   const [status, setStatus] = useState(filters?.status ?? '');
   const [hasUpline, setHasUpline] = useState(filters?.has_upline ?? '');
@@ -57,6 +58,35 @@ export default function HostsIndex() {
     setSearch('');
     setStatus('');
     setHasUpline('');
+  };
+
+  // Impersonation redirects into the host-facing Pocket app, which is a
+  // separate Inertia root — so we submit a native full-page POST rather than
+  // an Inertia visit, matching how the admin user list starts impersonation.
+  const impersonate = (host) => {
+    if (
+      !window.confirm(
+        `Impersonate ${host.name}? You'll be signed in as this host and taken to their view.`
+      )
+    ) {
+      return;
+    }
+
+    const token =
+      document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/admin/impersonate/${host.id}`;
+
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = '_token';
+    csrf.value = token;
+    form.appendChild(csrf);
+
+    document.body.appendChild(form);
+    form.submit();
   };
 
   const newHostAction = canManageHosts ? (
@@ -224,6 +254,16 @@ export default function HostsIndex() {
                             title="Delete"
                           >
                             <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
+                          </button>
+                        )}
+                        {canImpersonate && (
+                          <button
+                            type="button"
+                            onClick={() => impersonate(host)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#EEF2FF] hover:text-[#4F46E5]"
+                            title={`Impersonate ${host.name}`}
+                          >
+                            <LogIn className="h-[14px] w-[14px]" strokeWidth={2} />
                           </button>
                         )}
                       </div>

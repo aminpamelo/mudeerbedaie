@@ -11,8 +11,10 @@ import {
   Radio,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Upload,
+  UserPlus,
   XCircle,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
@@ -20,6 +22,9 @@ import { Button } from '@/livehost/components/ui/button';
 import SessionSlotFormModal from '@/livehost/components/SessionSlotFormModal';
 import SessionSlotDetailModal from '@/livehost/components/SessionSlotDetailModal';
 import LiveSessionModal from '@/livehost/components/LiveSessionModal';
+import RegisterCreatorModal from '@/livehost/components/RegisterCreatorModal';
+
+const UNREGISTERED_LANE_ID = '__unregistered__';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -259,6 +264,7 @@ function dayIndexOf(iso) {
 export default function SessionSlotsCalendar() {
   const {
     sessionSlots,
+    suggestions = [],
     weekStart,
     weekEnd,
     filters,
@@ -275,12 +281,14 @@ export default function SessionSlotsCalendar() {
   const [liveAccount, setLiveAccount] = useState(filters?.live_account ?? '');
   const [status, setStatus] = useState(filters?.status ?? '');
   const [mode, setMode] = useState(filters?.mode ?? '');
+  const [showSuggestions, setShowSuggestions] = useState((filters?.show_suggestions ?? '1') !== '0');
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefill, setCreatePrefill] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [detailTarget, setDetailTarget] = useState(null);
   const [sessionTarget, setSessionTarget] = useState(null);
+  const [registerTarget, setRegisterTarget] = useState(null);
 
   const openSession = (session) => {
     if (session) {
@@ -306,6 +314,12 @@ export default function SessionSlotsCalendar() {
       push(s.startTime);
       push(s.endTime);
     }
+    if (showSuggestions) {
+      for (const s of suggestions) {
+        push(s.startTime);
+        push(s.endTime);
+      }
+    }
 
     let start = DEFAULT_HOUR_START;
     let end = DEFAULT_HOUR_END;
@@ -317,7 +331,19 @@ export default function SessionSlotsCalendar() {
     end = Math.min(24, end);
 
     return { hourStart: start, hourEnd: end, totalHeight: (end - start) * HOUR_PX };
-  }, [timeSlots, sessionSlots]);
+  }, [timeSlots, sessionSlots, suggestions, showSuggestions]);
+
+  // Suggestions actually rendered this session — respects the toggle. Kept as a
+  // separate memo so lane/grouping logic can depend on it cleanly.
+  const visibleSuggestions = useMemo(
+    () => (showSuggestions ? suggestions : []),
+    [showSuggestions, suggestions]
+  );
+
+  const unregisteredSuggestions = useMemo(
+    () => visibleSuggestions.filter((s) => !s.isRegistered),
+    [visibleSuggestions]
+  );
 
   // Resolve the set of CREATOR ACCOUNTS (the punca kuasa) that render as swim
   // lanes. When the account filter is set, lanes collapse to just that account.
@@ -341,6 +367,16 @@ export default function SessionSlotsCalendar() {
         hasUnassigned = true;
       }
     }
+    // A creator with only TikTok suggestions (no assignment yet) still earns a
+    // lane, so the ghost has somewhere to render.
+    let hasUnregistered = false;
+    for (const s of visibleSuggestions) {
+      if (s.isRegistered && s.liveAccountId) {
+        ids.add(Number(s.liveAccountId));
+      } else if (!s.isRegistered) {
+        hasUnregistered = true;
+      }
+    }
 
     const accounts = Array.from(ids)
       .map((id) => lookup(id) ?? { id, label: `Account ${id}`, shops: [] })
@@ -349,9 +385,17 @@ export default function SessionSlotsCalendar() {
     if (hasUnassigned) {
       accounts.push({ id: '__none__', label: 'Unassigned', shops: [], isNone: true });
     }
+    if (hasUnregistered) {
+      accounts.push({
+        id: UNREGISTERED_LANE_ID,
+        label: 'Unregistered',
+        shops: [],
+        isUnregistered: true,
+      });
+    }
 
     return accounts;
-  }, [liveAccount, sessionSlots, liveAccounts]);
+  }, [liveAccount, sessionSlots, liveAccounts, visibleSuggestions]);
 
   const accountColorMap = useMemo(() => {
     const map = new Map();
@@ -375,7 +419,8 @@ export default function SessionSlotsCalendar() {
       (initial.platform_account ?? '') === platformAccount &&
       (initial.live_account ?? '') === liveAccount &&
       (initial.status ?? '') === status &&
-      (initial.mode ?? '') === mode
+      (initial.mode ?? '') === mode &&
+      ((initial.show_suggestions ?? '1') !== '0') === showSuggestions
     ) {
       return undefined;
     }
@@ -389,6 +434,7 @@ export default function SessionSlotsCalendar() {
           live_account: liveAccount || undefined,
           status: status || undefined,
           mode: mode || undefined,
+          show_suggestions: showSuggestions ? undefined : '0',
           week_of: weekStart,
         },
         { preserveState: true, preserveScroll: true, replace: true }
@@ -396,7 +442,7 @@ export default function SessionSlotsCalendar() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [host, platformAccount, liveAccount, status, mode, filters, weekStart]);
+  }, [host, platformAccount, liveAccount, status, mode, showSuggestions, filters, weekStart]);
 
   const goToWeek = (isoDate) => {
     router.get(
@@ -407,6 +453,7 @@ export default function SessionSlotsCalendar() {
         live_account: liveAccount || undefined,
         status: status || undefined,
         mode: mode || undefined,
+        show_suggestions: showSuggestions ? undefined : '0',
         week_of: isoDate,
       },
       { preserveScroll: true }
@@ -429,6 +476,19 @@ export default function SessionSlotsCalendar() {
     return groups;
   }, [sessionSlots]);
 
+  const suggestionsByDay = useMemo(() => {
+    const groups = Array.from({ length: 7 }, () => []);
+
+    for (const suggestion of visibleSuggestions) {
+      const dow = Number(suggestion.dayOfWeek);
+      if (dow >= 0 && dow <= 6) {
+        groups[dow].push(suggestion);
+      }
+    }
+
+    return groups;
+  }, [visibleSuggestions]);
+
   const dateForDow = (dow) => addDays(weekStart, dow);
 
   const handleScaffoldClick = (dow, timeSlot, laneAccount = null) => {
@@ -442,6 +502,33 @@ export default function SessionSlotsCalendar() {
       liveAccountId: isReal ? laneAccount.id : null,
       platformAccountId: timeSlot?.platformAccountId ?? primaryShop?.id ?? null,
       scheduleDate: addDays(weekStart, dow),
+    });
+    setCreateOpen(true);
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    if (!suggestion.isRegistered) {
+      const sameHandle = unregisteredSuggestions.filter(
+        (s) => (s.creatorHandle ?? '') === (suggestion.creatorHandle ?? '')
+      );
+      setRegisterTarget({
+        creatorHandle: suggestion.creatorHandle,
+        creatorUserId: suggestion.creatorUserId,
+        platformAccountId: suggestion.platformAccountId,
+        platformAccount: suggestion.platformAccount,
+        count: sameHandle.length || 1,
+      });
+      return;
+    }
+
+    setCreatePrefill({
+      dayOfWeek: suggestion.dayOfWeek,
+      timeSlotId: suggestion.suggestedTimeSlotId ?? null,
+      liveAccountId: suggestion.liveAccountId,
+      platformAccountId: suggestion.platformAccountId,
+      scheduleDate: suggestion.scheduleDate,
+      suggestionId: suggestion.id,
+      suggestion,
     });
     setCreateOpen(true);
   };
@@ -597,6 +684,29 @@ export default function SessionSlotsCalendar() {
               <option value="template">Weekly template</option>
               <option value="dated">Dated only</option>
             </select>
+            <button
+              type="button"
+              onClick={() => setShowSuggestions((v) => !v)}
+              aria-pressed={showSuggestions}
+              title="Show TikTok lives that have no session slot yet"
+              className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors sm:w-auto ${
+                showSuggestions
+                  ? 'border-[#F5D0E4] bg-[#FDF2F8] text-[#9D174D]'
+                  : 'border-[#EAEAEA] bg-white text-[#737373] hover:text-[#0A0A0A]'
+              }`}
+            >
+              <Sparkles className="h-[13px] w-[13px]" strokeWidth={2.2} />
+              TikTok suggestions
+              {suggestions.length > 0 && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+                    showSuggestions ? 'bg-white/70 text-[#9D174D]' : 'bg-[#F5F5F5] text-[#737373]'
+                  }`}
+                >
+                  {suggestions.length}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
@@ -669,7 +779,28 @@ export default function SessionSlotsCalendar() {
               <span className="text-[#525252]">{item.label}</span>
             </div>
           ))}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="flex items-center gap-1.5" title="A TikTok live with no session slot yet">
+              <span className="h-2 w-2 rounded-sm border border-dashed border-[#EC4899] bg-[#FDF2F8]"></span>
+              <span className="text-[#525252]">TikTok suggestion</span>
+            </div>
+          )}
         </div>
+
+        {/* Unregistered-creator guide — these lives can't be assigned until the
+            creator account exists in the system. */}
+        {showSuggestions && unregisteredSuggestions.length > 0 && (
+          <div className="-mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-2.5 text-[12.5px] text-[#92400E]">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-[#B45309]" strokeWidth={2.2} />
+            <span>
+              <span className="font-semibold">{unregisteredSuggestions.length} TikTok live
+              {unregisteredSuggestions.length === 1 ? '' : 's'}</span> {unregisteredSuggestions.length === 1 ? 'is' : 'are'} on
+              creator accounts not registered in your system yet — see the{' '}
+              <span className="font-semibold">Unregistered</span> lane. Register a creator to be able
+              to assign its sessions.
+            </span>
+          </div>
+        )}
 
         {timeSlots.length === 0 && (
           <div className="rounded-[16px] border border-dashed border-[#EAEAEA] bg-white p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -758,6 +889,23 @@ export default function SessionSlotsCalendar() {
                     >
                       {activeAccounts.map((account) => {
                         const color = colorForAccount(account.id);
+                        if (account.isUnregistered) {
+                          return (
+                            <div
+                              key={account.id}
+                              className="flex items-center gap-1 border-r border-[#F5F5F5] px-1.5 py-1 last:border-r-0"
+                              title="Creators not registered in your system yet"
+                            >
+                              <AlertTriangle
+                                className="h-2 w-2 shrink-0 text-[#B45309]"
+                                strokeWidth={2.5}
+                              />
+                              <span className="truncate font-mono text-[9px] font-semibold uppercase tracking-wide text-[#B45309]">
+                                {account.label}
+                              </span>
+                            </div>
+                          );
+                        }
                         return (
                           <div
                             key={account.id}

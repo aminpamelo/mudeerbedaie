@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyComment;
 use App\Models\LiveHostMentoringLevel;
 use App\Services\Mentoring\MenteeDailySalesResolver;
 use Carbon\CarbonImmutable;
@@ -285,8 +286,7 @@ class MentoringController extends Controller
                 'day' => $d['day'],
                 'sales' => $d['effective'],
                 'sessions' => $d['sessions'],
-                'comment' => $d['comment'],
-                'has_comment' => $d['comment'] !== null && $d['comment'] !== '',
+                'has_comment' => $d['has_comment'],
                 'has_disciplinary' => $discByDate->has($d['date']),
             ])
             ->values();
@@ -299,23 +299,25 @@ class MentoringController extends Controller
     }
 
     /**
-     * Recent PIC daily comments (the host's feedback loop) — the daily activity log.
+     * Recent PIC daily comments (the host's feedback loop) — the daily activity
+     * log. Comments are grouped by author, so several people may have commented
+     * on the same day; each is listed with its author.
      *
      * @return Collection<int, array<string, mixed>>
      */
     private function commentsData(LiveHostMentee $mentee): Collection
     {
-        return $mentee->dailyMetrics()
-            ->whereNotNull('comment')
-            ->with('commentedByUser:id,name')
+        return $mentee->dailyComments()
+            ->with('user:id,name')
             ->orderByDesc('metric_date')
+            ->orderByDesc('created_at')
             ->limit(14)
             ->get()
-            ->map(fn ($m) => [
-                'date' => $m->metric_date?->toDateString(),
-                'date_human' => $m->metric_date?->format('M j'),
-                'comment' => $m->comment,
-                'by' => $m->commentedByUser?->name,
+            ->map(fn (LiveHostMenteeDailyComment $c) => [
+                'date' => $c->metric_date?->toDateString(),
+                'date_human' => $c->metric_date?->format('M j'),
+                'comment' => $c->comment,
+                'by' => $c->user?->name,
             ])
             ->values();
     }

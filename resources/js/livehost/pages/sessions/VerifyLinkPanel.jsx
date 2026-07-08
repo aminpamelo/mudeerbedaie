@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
 
+function formatGmvMyr(value) {
+  const num = Number(value);
+  // A -1 (or any negative/non-finite) means the API couldn't provide this
+  // GMV figure — show an em dash instead of a misleading "RM -1.00".
+  if (!Number.isFinite(num) || num < 0) {
+    return '—';
+  }
+  return `RM ${num.toLocaleString('en-MY', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export default function VerifyLinkPanel({ session, candidates }) {
   const [selectedId, setSelectedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -109,12 +122,12 @@ export default function VerifyLinkPanel({ session, candidates }) {
                 <div>
                   <span className="text-xs text-zinc-500">Live-attrib GMV</span>
                   <div className="font-mono font-semibold text-[#0A0A0A]">
-                    RM {Number(c.liveAttributedGmvMyr ?? 0).toFixed(2)}
+                    {formatGmvMyr(c.liveAttributedGmvMyr)}
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs text-zinc-500">Total GMV</span>
-                  <div className="font-mono">RM {Number(c.gmvMyr ?? 0).toFixed(2)}</div>
+                  <span className="text-xs text-zinc-500">Total GMV (API)</span>
+                  <div className="font-mono">{formatGmvMyr(c.gmvMyr)}</div>
                 </div>
                 <div>
                   <span className="text-xs text-zinc-500">Viewers / Items</span>

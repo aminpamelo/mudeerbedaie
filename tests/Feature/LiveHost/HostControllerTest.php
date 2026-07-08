@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -259,7 +260,7 @@ it('soft-deletes a live host without connected platform accounts', function () {
 
 it('refuses to delete a host with connected platform accounts', function () {
     $host = User::factory()->create(['role' => 'live_host']);
-    \App\Models\PlatformAccount::factory()->create(['user_id' => $host->id]);
+    PlatformAccount::factory()->create(['user_id' => $host->id]);
 
     actingAs($this->pic)
         ->delete("/livehost/hosts/{$host->id}")
@@ -385,6 +386,28 @@ it('keeps edit and view reachable after a host becomes an assistant', function (
     actingAs($this->pic)
         ->get("/livehost/hosts/{$host->id}")
         ->assertOk();
+});
+
+it('exposes the canImpersonate permission only to admins on the hosts index', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($admin)
+        ->get('/livehost/hosts')
+        ->assertInertia(fn (Assert $p) => $p->where('auth.permissions.canImpersonate', true));
+});
+
+it('hides the canImpersonate permission from the admin_livehost PIC', function () {
+    actingAs($this->pic)
+        ->get('/livehost/hosts')
+        ->assertInertia(fn (Assert $p) => $p->where('auth.permissions.canImpersonate', false));
+});
+
+it('hides the canImpersonate permission from the livehost assistant', function () {
+    $assistant = User::factory()->create(['role' => 'livehost_assistant']);
+
+    actingAs($assistant)
+        ->get('/livehost/hosts')
+        ->assertInertia(fn (Assert $p) => $p->where('auth.permissions.canImpersonate', false));
 });
 
 it('includes livehost_assistant users in the hosts list with their role', function () {

@@ -1,7 +1,8 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, Check, Loader2, MessageSquare, Pencil, ShieldAlert, Video, X } from 'lucide-react';
+import { CalendarDays, Check, Loader2, Pencil, ShieldAlert, Video, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
+import DailyComments from '@/livehost/components/mentoring/DailyComments';
 import DisciplinaryModal, { categoryLabel, severityTone } from '@/livehost/components/mentoring/DisciplinaryModal';
 
 /* ---- small local helpers (kept independent of the grid file) ---- */
@@ -182,6 +183,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
                       isToday={d.date === todayKey}
                       onEdit={() => setDayEdit(d)}
                       onDiscipline={() => setDisciplinaryFor({ date: d.date })}
+                      onChanged={refresh}
                     />
                   ))}
                 </ul>
@@ -213,7 +215,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
 
 /* ---- one day card (compact when quiet, rich when there was activity) ---- */
 
-function DayItem({ d, isToday, onEdit, onDiscipline }) {
+function DayItem({ d, isToday, onEdit, onDiscipline, onChanged }) {
   if (!d.has_activity) {
     return (
       <li className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-[12px] ${isToday ? 'bg-[#F0FDF4]' : ''}`}>
@@ -251,13 +253,9 @@ function DayItem({ d, isToday, onEdit, onDiscipline }) {
         </div>
       )}
 
-      {d.comment && (
-        <div className="mb-2 flex items-start gap-1.5 rounded-lg bg-[#F0FDF4] px-2.5 py-1.5">
-          <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#10B981]" strokeWidth={2} />
-          <div className="min-w-0">
-            <div className="whitespace-pre-wrap text-[12.5px] text-[#0A0A0A]">{d.comment}</div>
-            {d.commented_by && <div className="text-[10px] text-[#A3A3A3]">{d.commented_by}{d.commented_at_human ? ` · ${d.commented_at_human}` : ''}</div>}
-          </div>
+      {d.comments?.length > 0 && (
+        <div className="mb-2">
+          <DailyComments comments={d.comments} onChanged={onChanged} reloadOnly={['performance']} compact />
         </div>
       )}
 
@@ -298,12 +296,14 @@ function DayItem({ d, isToday, onEdit, onDiscipline }) {
 /* ---- inline day editor (comment + sales override) ---- */
 
 function DayEditForm({ menteeId, day, onSaved, onClose }) {
-  const [comment, setComment] = useState(day.comment ?? '');
+  const [comment, setComment] = useState(day.comments?.find((c) => c.is_mine)?.text ?? '');
   const [override, setOverride] = useState(day.override != null ? String(day.override) : '');
   const [busy, setBusy] = useState(false);
 
+  const otherComments = (day.comments ?? []).filter((c) => !c.is_mine);
+
   const save = () => {
-    if (!comment.trim()) return;
+    if (!comment.trim() && override === '') return;
     setBusy(true);
     router.patch(
       `/livehost/mentoring/mentees/${menteeId}/daily-metric`,
@@ -325,8 +325,14 @@ function DayEditForm({ menteeId, day, onSaved, onClose }) {
           <span className="text-[#737373]">{day.sessions?.length > 0 ? `${day.sessions.length} live session${day.sessions.length === 1 ? '' : 's'}` : 'No live session'}</span>
           <span className="font-medium text-[#525252]">Auto GMV <span className="font-bold text-[#0A0A0A]">{rm(day.auto)}</span></span>
         </div>
-        <label className="mb-1 block text-[12.5px] font-medium text-[#525252]">Daily comment <span className="text-[#F43F5E]">*</span></label>
-        <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} autoFocus placeholder="How did they do today? (required)" className="mb-3 w-full resize-y rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+        {otherComments.length > 0 && (
+          <div className="mb-3">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#A3A3A3]">Other comments ({otherComments.length})</div>
+            <DailyComments comments={otherComments} canDelete={false} compact />
+          </div>
+        )}
+        <label className="mb-1 block text-[12.5px] font-medium text-[#525252]">Your comment <span className="font-normal text-[#A3A3A3]">· saved under your name</span></label>
+        <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} autoFocus placeholder="How did they do today?" className="mb-3 w-full resize-y rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
         <label className="mb-1 block text-[12.5px] font-medium text-[#525252]">Sales override <span className="font-normal text-[#A3A3A3]">(optional)</span></label>
         <div className="mb-4 flex items-center gap-2">
           <input type="number" min="0" step="0.01" value={override} onChange={(e) => setOverride(e.target.value)} placeholder={String(day.auto)} className="h-9 w-40 rounded-lg border border-[#EAEAEA] bg-white px-3 text-right text-[14px] tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
@@ -334,7 +340,7 @@ function DayEditForm({ menteeId, day, onSaved, onClose }) {
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="button" disabled={busy || !comment.trim()} onClick={save} className="bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-40">{busy ? 'Saving…' : 'Save day'}</Button>
+          <Button type="button" disabled={busy || (!comment.trim() && override === '')} onClick={save} className="bg-[#0A0A0A] text-white hover:bg-[#262626] disabled:opacity-40">{busy ? 'Saving…' : 'Save day'}</Button>
         </div>
       </div>
     </div>

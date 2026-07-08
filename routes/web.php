@@ -751,6 +751,8 @@ Route::middleware(['auth'])
                     ->name('mentees.month-overview');
                 Route::patch('mentees/{mentee}/daily-metric', [MentoringPerformanceController::class, 'storeDaily'])
                     ->name('mentees.daily-metric');
+                Route::delete('daily-comment/{comment}', [MentoringPerformanceController::class, 'deleteDailyComment'])
+                    ->name('daily-comment.destroy');
 
                 // PIC-recorded disciplinary / conduct log (record only).
                 Route::get('mentees/{mentee}/disciplinary', [MentoringDisciplinaryController::class, 'index'])
