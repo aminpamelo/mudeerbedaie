@@ -31,6 +31,8 @@ class MentoringPerformanceController extends Controller
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
             'month' => ['required', 'integer', 'min:1', 'max:12'],
             'attitude_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'video_target' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'live_target' => ['nullable', 'integer', 'min:0', 'max:1000'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
@@ -38,6 +40,8 @@ class MentoringPerformanceController extends Controller
             ['year' => $data['year'], 'month' => $data['month']],
             [
                 'attitude_score' => $data['attitude_score'] ?? null,
+                'video_target' => $data['video_target'] ?? null,
+                'live_target' => $data['live_target'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'recorded_by' => $request->user()?->id,
             ]
@@ -269,6 +273,7 @@ class MentoringPerformanceController extends Controller
 
         $salesTotal = 0.0;
         $liveDays = 0;
+        $liveTotal = 0;
         $commentDays = 0;
         $videoTotal = 0;
         $videoDays = 0;
@@ -288,6 +293,7 @@ class MentoringPerformanceController extends Controller
             $dayComments = $commentsByDate[$key] ?? collect();
 
             $salesTotal += $effective;
+            $liveTotal += $ended->count();
             if ($ended->isNotEmpty()) {
                 $liveDays++;
             }
@@ -348,8 +354,11 @@ class MentoringPerformanceController extends Controller
                 'sales_total' => round($salesTotal, 2),
                 'sales_target' => $mentee->level?->monthly_sales_target,
                 'attitude' => $score?->attitude_score,
+                'video_target' => $score?->video_target,
+                'live_target' => $score?->live_target,
                 'note' => $score?->notes,
                 'live_days' => $liveDays,
+                'live_total' => $liveTotal,
                 'comment_days' => $commentDays,
                 'disciplinary_total' => $disciplinary->flatten(1)->count(),
                 'video_total' => $videoTotal,

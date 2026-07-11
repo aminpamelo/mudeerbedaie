@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Grid3x3,
   LayoutGrid,
   List,
   Pencil,
@@ -610,6 +611,13 @@ export default function SessionSlotsCalendar() {
               <LayoutGrid className="h-[13px] w-[13px]" strokeWidth={2} />
               Calendar
             </span>
+            <Link
+              href="/livehost/session-slots/matrix"
+              className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium text-[#737373] transition-colors hover:text-[#0A0A0A]"
+            >
+              <Grid3x3 className="h-[13px] w-[13px]" strokeWidth={2} />
+              Matrix
+            </Link>
           </div>
         </div>
 

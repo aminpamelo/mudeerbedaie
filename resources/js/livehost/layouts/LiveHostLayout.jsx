@@ -16,6 +16,7 @@ import {
   Megaphone,
   Replace,
   Activity,
+  Gauge,
   BarChart3,
   CalendarRange,
   ShoppingBag,
@@ -45,6 +46,7 @@ const NAV_GROUPS = [
       { key: 'replacements', label: 'Permohonan Ganti', href: '/livehost/replacements', icon: Replace, countKey: 'replacements' },
       { key: 'recruitment', label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
       { key: 'mentoring', label: 'Mentoring', href: '/livehost/mentoring/programs', icon: GraduationCap, countKey: 'activeMentees' },
+      { key: 'mentoring-overview', label: 'Mentoring Overview', href: '/livehost/mentoring/overview', icon: Gauge },
     ],
   },
   {
@@ -85,6 +87,7 @@ const NAV_ITEM_PERMISSION = {
   replacements: null,
   recruitment: 'canSeeRecruitment',
   mentoring: 'canSeeMentoring',
+  'mentoring-overview': 'canSeeMentoring',
   'time-slots': null,
   'session-slots': null,
   'platform-accounts': null,
@@ -189,11 +192,14 @@ function SidebarContent({ auth, brand, navCounts, currentUrl, onNavigate = () =>
   const brandInitial = initialsFrom(brandName).charAt(0) || '?';
 
   const isActive = (href) => {
+    // Compare on the path only — query strings (e.g. the overview's ?perf_year=…
+    // month filter) must not drop a nav item's active highlight.
+    const path = (currentUrl || '').split('?')[0];
     if (href === '/livehost') {
-      return currentUrl === '/livehost' || currentUrl === '/livehost/';
+      return path === '/livehost' || path === '/livehost/';
     }
 
-    return currentUrl === href || currentUrl.startsWith(`${href}/`);
+    return path === href || path.startsWith(`${href}/`);
   };
 
   const visibleGroups = NAV_GROUPS

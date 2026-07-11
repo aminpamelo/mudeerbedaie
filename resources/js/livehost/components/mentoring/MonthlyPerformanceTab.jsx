@@ -11,6 +11,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  Radio,
   Search,
   ShieldAlert,
   UserCog,
@@ -47,12 +48,45 @@ function salesPct(sales, target) {
   return Math.min(100, Math.round((n / target) * 100));
 }
 
-function overallKpi(attitude, sales, target) {
-  const a = attitude === '' || attitude === null || attitude === undefined ? null : Math.max(0, Math.min(100, Number(attitude)));
-  const s = salesPct(sales, target);
-  const parts = [a, s].filter((v) => v !== null && !Number.isNaN(v));
+/** Progress % for a count KPI (videos, lives): actual ÷ target, capped at 100.
+ * Null when no target is set — the KPI then sits out of the Overall average. */
+function countPct(actual, target) {
+  if (!target || target <= 0) return null;
+  const n = Number(actual ?? 0);
+  if (Number.isNaN(n)) return null;
+  return Math.min(100, Math.round((n / target) * 100));
+}
+
+/** Overall = average of every KPI that applies this month: Attitude (when
+ * scored), Sales% (when the level carries a target), and Video% / Live% (each
+ * when a monthly target is set). A KPI with no target/value is left out. */
+function overallKpi(cell, salesTarget) {
+  const a = cell.attitude === '' || cell.attitude === null || cell.attitude === undefined ? null : Math.max(0, Math.min(100, Number(cell.attitude)));
+  const parts = [a, salesPct(cell.sales, salesTarget), countPct(cell.video_actual, cell.video_target), countPct(cell.live_actual, cell.live_target)]
+    .filter((v) => v !== null && !Number.isNaN(v));
   if (parts.length === 0) return null;
   return Math.round(parts.reduce((x, y) => x + y, 0) / parts.length);
+}
+
+/** The compact live/video progress badges shown under a month cell. Renders
+ * nothing until at least one of the two monthly targets is set. A met target
+ * turns green; otherwise it inherits the cell's tone at reduced opacity. */
+function KpiBadges({ liveActual, liveTarget, videoActual, videoTarget }) {
+  if (liveTarget == null && videoTarget == null) return null;
+  return (
+    <span className="mt-[3px] flex items-center justify-center gap-1.5 text-[8.5px] font-semibold tabular-nums">
+      {liveTarget != null && (
+        <span className={`inline-flex items-center gap-0.5 ${liveActual >= liveTarget ? 'text-[#047857]' : 'opacity-70'}`} title={`${liveActual}/${liveTarget} lives`}>
+          <Radio className="h-2.5 w-2.5" strokeWidth={2.5} />{liveActual}/{liveTarget}
+        </span>
+      )}
+      {videoTarget != null && (
+        <span className={`inline-flex items-center gap-0.5 ${videoActual >= videoTarget ? 'text-[#047857]' : 'opacity-70'}`} title={`${videoActual}/${videoTarget} videos`}>
+          <Video className="h-2.5 w-2.5" strokeWidth={2.5} />{videoActual}/{videoTarget}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function monthAbbr(mo) {
@@ -74,6 +108,14 @@ function formatRMCompact(n) {
   if (Number.isNaN(num)) return '–';
   const hasSen = Math.round(num) !== num;
   return `RM ${num.toLocaleString(undefined, { minimumFractionDigits: hasSen ? 2 : 0, maximumFractionDigits: 2 })}`;
+}
+
+/** Sales figure for the dense KPI cell — no "RM" prefix, sen only when present. */
+function numCompact(n) {
+  const num = Number(n);
+  if (Number.isNaN(num)) return '–';
+  const hasSen = Math.round(num) !== num;
+  return num.toLocaleString(undefined, { minimumFractionDigits: hasSen ? 2 : 0, maximumFractionDigits: 2 });
 }
 
 /** Ultra-compact value for the dense day columns (e.g. 2909 → "2.9k", 420 → "420"). */
@@ -146,17 +188,21 @@ function writePrefs(programId, patch) {
   }
 }
 
-/** Expanded months on mount: URL wins (refresh/share), else the saved preference. */
-function initExpanded(programId) {
-  const fromUrl = readExpandParam();
-  if (fromUrl.size) return fromUrl;
+/** Expanded months on mount: URL wins (refresh/share), else the saved preference.
+ * When persistUrl is false (embedded overview — the URL params are page-shared and
+ * would collide across sections), the URL is ignored and only the saved pref counts. */
+function initExpanded(programId, persistUrl = true) {
+  if (persistUrl) {
+    const fromUrl = readExpandParam();
+    if (fromUrl.size) return fromUrl;
+  }
   const prefs = readPrefs(programId);
   return new Set(Array.isArray(prefs?.expand) ? prefs.expand : []);
 }
 
 /** Day-cell density on mount: an explicit URL param wins, else the saved preference. */
-function initDayView(programId) {
-  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('perf_view')) {
+function initDayView(programId, persistUrl = true) {
+  if (persistUrl && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('perf_view')) {
     return readViewParam();
   }
   return readPrefs(programId)?.dayView === 'dots' ? 'dots' : 'detailed';
@@ -270,16 +316,38 @@ function MonthFilter({ performance, program }) {
 
 /* ---------------- Main tab ---------------- */
 
-export default function MonthlyPerformanceTab({ performance, program, board }) {
+/**
+ * The host × month performance grid. Rendered standalone on a program's edit
+ * page, and reused verbatim as one section per program on the cross-program
+ * Mentoring Overview. The overview passes:
+ *   reloadProp='programs'  — inline edits (via `back()`) partial-reload the
+ *                            overview's `programs` prop instead of `performance`.
+ *   showFilter=false       — the overview owns a single shared month filter.
+ *   persistUrl=false       — expand/day-view live in localStorage only (the
+ *                            perf_* URL params are page-global and would collide).
+ *   variant='embedded'     — compact per-program header instead of the big title.
+ *   allowEnroll=false      — enrolling is a program-setup action; drill in for it.
+ */
+export default function MonthlyPerformanceTab({
+  performance,
+  program,
+  board,
+  reloadProp = 'performance',
+  showFilter = true,
+  persistUrl = true,
+  variant = 'standalone',
+  allowEnroll = true,
+}) {
   const months = performance?.months ?? [];
   const mentees = performance?.mentees ?? [];
   const pics = performance?.pics ?? [];
   const levels = performance?.levels ?? [];
+  const embedded = variant === 'embedded';
 
   const [query, setQuery] = useState('');
   const [groupByPic, setGroupByPic] = useState(() => initGroupByPic(program?.id));
-  const [expanded, setExpanded] = useState(() => initExpanded(program?.id)); // expanded months: URL, else saved preference
-  const [dayView, setDayView] = useState(() => initDayView(program?.id)); // 'dots' | 'detailed' for expanded day cells
+  const [expanded, setExpanded] = useState(() => initExpanded(program?.id, persistUrl)); // expanded months: URL (if persisted), else saved preference
+  const [dayView, setDayView] = useState(() => initDayView(program?.id, persistUrl)); // 'dots' | 'detailed' for expanded day cells
   const [matrices, setMatrices] = useState({}); // monthValue -> { loading, byMentee }
   const [popover, setPopover] = useState(null); // { type, menteeId, anchor }
   const [modal, setModal] = useState(null); // { type, mentee, month, day, presetDate }
@@ -303,7 +371,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
   }, []);
   const currentDay = useMemo(() => new Date().getDate(), []);
   const detailed = dayView === 'detailed';
-  const setView = (v) => { setDayView(v); writeViewParam(v); writePrefs(program?.id, { dayView: v }); };
+  const setView = (v) => { setDayView(v); if (persistUrl) writeViewParam(v); writePrefs(program?.id, { dayView: v }); };
   const toggleGroupByPic = () => setGroupByPic((v) => {
     const next = !v;
     writePrefs(program?.id, { groupByPic: next });
@@ -342,9 +410,32 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
     return cols;
   }, [months, expanded]);
 
+  // Months where at least one visible host has a video/live target set — only
+  // those columns widen to fit the 2×2 KPI quadrant, so untargeted months stay
+  // compact instead of every column paying for the extra width.
+  const monthsWithTargets = useMemo(() => {
+    const s = new Set();
+    months.forEach((mo) => {
+      const any = mentees.some((m) => {
+        const sc = m.scores?.[mo.value];
+        return sc && (sc.live_target != null || sc.video_target != null);
+      });
+      if (any) s.add(mo.value);
+    });
+    return s;
+  }, [months, mentees]);
+
   const cellValue = useCallback((m, mo) => {
     const base = m.scores?.[mo.value] ?? {};
-    return { attitude: base.attitude ?? null, sales: base.sales ?? null, notes: base.notes ?? null };
+    return {
+      attitude: base.attitude ?? null,
+      sales: base.sales ?? null,
+      notes: base.notes ?? null,
+      video_actual: base.video_actual ?? 0,
+      live_actual: base.live_actual ?? 0,
+      video_target: base.video_target ?? null,
+      live_target: base.live_target ?? null,
+    };
   }, []);
 
   const fetchMatrix = useCallback((mo) => {
@@ -367,7 +458,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
         next.add(mo.value);
         if (!matrices[mo.value]) fetchMatrix(mo);
       }
-      writeExpandParam(next);
+      if (persistUrl) writeExpandParam(next);
       writePrefs(program?.id, { expand: [...next] });
       return next;
     });
@@ -386,7 +477,9 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
   // window saved for this program so the view isn't reset to the server default.
   const restoredRef = useRef(false);
   useEffect(() => {
-    if (restoredRef.current || !program?.id || typeof window === 'undefined') return;
+    // Standalone only — the overview owns a single shared month window, so it
+    // passes showFilter=false and there is nothing per-section to restore.
+    if (restoredRef.current || !program?.id || typeof window === 'undefined' || !showFilter) return;
     restoredRef.current = true;
 
     const params = new URLSearchParams(window.location.search);
@@ -410,7 +503,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const reloadPerformance = () => router.reload({ only: ['performance'], preserveScroll: true, preserveState: true });
+  const reloadPerformance = () => router.reload({ only: [reloadProp], preserveScroll: true, preserveState: true });
 
   const refreshExpandedMatrices = () => {
     months.forEach((mo) => { if (expanded.has(mo.value)) fetchMatrix(mo); });
@@ -419,13 +512,22 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
   if (mentees.length === 0) {
     return (
       <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        {embedded && (
+          <a href={`/livehost/mentoring/programs/${program.id}/edit?tab=performance`} className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A] hover:text-[#047857]">{program.title}</a>
+        )}
         <div className="flex flex-col items-center gap-4 py-10 text-center">
-          <p className="text-[13px] text-[#737373]">No mentees to evaluate yet. Enrol a host to start tracking their performance.</p>
-          <Button type="button" size="sm" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 bg-[#10B981] text-white hover:bg-[#059669]">
-            <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol host
-          </Button>
+          <p className="text-[13px] text-[#737373]">No mentees to evaluate yet.{allowEnroll ? ' Enrol a host to start tracking their performance.' : ''}</p>
+          {allowEnroll ? (
+            <Button type="button" size="sm" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 bg-[#10B981] text-white hover:bg-[#059669]">
+              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol host
+            </Button>
+          ) : (
+            <a href={`/livehost/mentoring/programs/${program.id}/edit?tab=board`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#A7F3D0] bg-white px-3 text-[13px] font-medium text-[#047857] hover:bg-[#ECFDF5]">
+              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol in program
+            </a>
+          )}
         </div>
-        {enrollModal}
+        {allowEnroll && enrollModal}
       </section>
     );
   }
@@ -434,17 +536,32 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
     <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F5F5] text-[#525252]"><Gauge className="h-4 w-4" strokeWidth={2} /></div>
-          <div>
-            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Monthly performance</h2>
-            <p className="mt-0.5 text-[12px] text-[#737373]">Sales auto-sum from daily live-session GMV. Expand a month <span className="font-medium text-[#525252]">(▸)</span> to see every day; click a day to log its sales &amp; comment. Click a month to set attitude.</p>
+        {embedded ? (
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#ECFDF5] text-[#047857]"><Gauge className="h-4 w-4" strokeWidth={2} /></div>
+            <div>
+              <a href={`/livehost/mentoring/programs/${program.id}/edit?tab=performance`} className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A] hover:text-[#047857]">{program.title}</a>
+              <p className="mt-0.5 text-[12px] text-[#737373]">
+                <span className="font-medium text-[#525252] tabular-nums">{program.active_mentees_count ?? mentees.length}</span> active mentee{(program.active_mentees_count ?? mentees.length) === 1 ? '' : 's'}
+                {program.leader?.name ? <> · Leader <span className="font-medium text-[#525252]">{program.leader.name}</span></> : null}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F5F5] text-[#525252]"><Gauge className="h-4 w-4" strokeWidth={2} /></div>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Monthly performance</h2>
+              <p className="mt-0.5 text-[12px] text-[#737373]">Sales auto-sum from daily live-session GMV. Expand a month <span className="font-medium text-[#525252]">(▸)</span> to see every day; click a day to log its sales &amp; comment. Click a month to set attitude and the video &amp; live targets.</p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 rounded-lg border-[#A7F3D0] bg-white text-[#047857] shadow-none hover:bg-[#ECFDF5] focus-visible:ring-2 focus-visible:ring-[#10B981]/20">
-            <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol host
-          </Button>
+          {allowEnroll && (
+            <Button type="button" size="sm" variant="outline" onClick={() => setEnrolling(true)} className="h-9 gap-1.5 rounded-lg border-[#A7F3D0] bg-white text-[#047857] shadow-none hover:bg-[#ECFDF5] focus-visible:ring-2 focus-visible:ring-[#10B981]/20">
+              <UserPlus className="h-3.5 w-3.5" strokeWidth={2.25} /> Enrol host
+            </Button>
+          )}
           <Button type="button" size="sm" onClick={() => setModal({ type: 'dailyLog' })} className="h-9 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]">
             <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.25} /> Daily log
           </Button>
@@ -453,7 +570,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
 
       {/* Controls */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <MonthFilter performance={performance} program={program} />
+        {showFilter ? <MonthFilter performance={performance} program={program} /> : <span />}
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {expanded.size > 0 && (
             <div className="hidden h-9 items-center rounded-lg border border-[#EAEAEA] bg-white p-0.5 text-[12px] font-medium lg:inline-flex">
@@ -485,6 +602,8 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" /> sales override</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" /> disciplinary</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#7C3AED]" /> video</span>
+        <span className="ml-2 inline-flex items-center gap-1"><Radio className="h-3 w-3 text-[#525252]" strokeWidth={2.5} /> lives</span>
+        <span className="inline-flex items-center gap-1"><Video className="h-3 w-3 text-[#525252]" strokeWidth={2.5} /> videos <span className="text-[#A3A3A3]">(actual/target)</span></span>
       </div>
 
       {visibleMentees.length === 0 ? (
@@ -509,8 +628,9 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
                   }
                   const isCur = col.mo.value === currentMonthValue;
                   const isExpanded = col.type === 'summary';
+                  const wide = monthsWithTargets.has(col.mo.value);
                   return (
-                    <th key={col.key} className={`min-w-[70px] border-b px-1 py-2 text-center ${isExpanded ? 'border-l border-[#EAEAEA] bg-[#FAFAFA]' : 'border-[#EAEAEA]'}`}>
+                    <th key={col.key} className={`${wide ? 'min-w-[100px]' : 'min-w-[64px]'} border-b px-1 py-2 text-center ${isExpanded ? 'border-l border-[#EAEAEA] bg-[#FAFAFA]' : 'border-[#EAEAEA]'}`}>
                       <button
                         type="button"
                         onClick={() => toggleMonth(col.mo)}
@@ -613,25 +733,51 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
                       // month (collapsed) or summary (expanded) → the monthly KPI cell
                       const cell = cellValue(m, col.mo);
                       const target = m.sales_target ?? null;
-                      const ov = overallKpi(cell.attitude, cell.sales, target);
+                      const ov = overallKpi(cell, target);
                       const tone = scoreTone(ov);
                       const hasData = cell.sales !== null || cell.attitude !== null;
+                      const showQuadrant = cell.live_target != null || cell.video_target != null;
                       const isSummary = col.type === 'summary';
+                      const wide = monthsWithTargets.has(col.mo.value);
                       return (
                         <td key={col.key} className={`border-b border-[#F0F0F0] p-1 text-center ${isSummary ? 'border-l border-[#EAEAEA] bg-[#FAFAFA]' : ''}`}>
                           <button
                             type="button"
                             onClick={() => setModal({ type: 'attitude', mentee: m, month: col.mo })}
-                            title={`${m.name} · ${col.mo.label} · Sales ${cell.sales !== null ? formatRM(cell.sales) : '—'} · Attitude ${cell.attitude ?? '—'} · Overall ${ov != null ? `${ov}%` : '—'}`}
-                            className={`flex h-10 w-full min-w-[54px] flex-col items-center justify-center rounded-md leading-none transition-all hover:ring-2 hover:ring-[#10B981]/40 ${tone.bg} ${tone.text}`}
+                            title={`${m.name} · ${col.mo.label} · Sales ${cell.sales !== null ? formatRM(cell.sales) : '—'} · Attitude ${cell.attitude ?? '—'}${cell.live_target != null ? ` · Live ${cell.live_actual}/${cell.live_target}` : ''}${cell.video_target != null ? ` · Video ${cell.video_actual}/${cell.video_target}` : ''} · Overall ${ov != null ? `${ov}%` : '—'}`}
+                            className={`flex min-h-[42px] w-full ${wide ? 'min-w-[96px]' : 'min-w-[54px]'} flex-col items-center justify-center rounded-md px-1.5 py-1 leading-none transition-all hover:ring-2 hover:ring-[#10B981]/40 ${tone.bg} ${tone.text}`}
                           >
-                            {hasData ? (
+                            {showQuadrant ? (
+                              /* 2×2 quadrant: Sales | Attitude on top, Live | Video below — all four big & bold, each in its own corner */
+                              <div className="flex w-full flex-col gap-1">
+                                <div className="flex items-baseline justify-between gap-1.5">
+                                  <span className="whitespace-nowrap text-[13.5px] font-bold tabular-nums">{cell.sales !== null ? numCompact(cell.sales) : '–'}</span>
+                                  <span className="whitespace-nowrap text-[12px] font-bold tabular-nums">A {cell.attitude !== null ? cell.attitude : '–'}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <span className="flex items-center">
+                                    {cell.live_target != null && (
+                                      <span className={`inline-flex items-center gap-0.5 whitespace-nowrap text-[12px] font-bold tabular-nums ${cell.live_actual >= cell.live_target ? 'text-[#047857]' : ''}`}>
+                                        <Radio className="h-3 w-3" strokeWidth={2.5} />{cell.live_actual}/{cell.live_target}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="flex items-center">
+                                    {cell.video_target != null && (
+                                      <span className={`inline-flex items-center gap-0.5 whitespace-nowrap text-[12px] font-bold tabular-nums ${cell.video_actual >= cell.video_target ? 'text-[#047857]' : ''}`}>
+                                        <Video className="h-3 w-3" strokeWidth={2.5} />{cell.video_actual}/{cell.video_target}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : hasData ? (
                               <>
-                                <span className="text-[12.5px] font-bold tabular-nums">{cell.sales !== null ? formatRMCompact(cell.sales) : '–'}</span>
-                                <span className="mt-[3px] text-[9px] font-semibold uppercase tracking-[0.04em] tabular-nums opacity-70">A {cell.attitude !== null ? cell.attitude : '–'}</span>
+                                <span className="text-[13.5px] font-bold tabular-nums">{cell.sales !== null ? numCompact(cell.sales) : '–'}</span>
+                                <span className="mt-[3px] text-[11px] font-bold tabular-nums opacity-70">A {cell.attitude !== null ? cell.attitude : '–'}</span>
                               </>
                             ) : (
-                              <span className="text-[12px] font-bold">–</span>
+                              <span className="text-[13px] font-bold">–</span>
                             )}
                           </button>
                         </td>
@@ -691,9 +837,9 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
           onDisciplinary={() => { const m = mentees.find((x) => x.id === popover.menteeId); setPopover(null); setModal({ type: 'disciplinary', mentee: m }); }}
         />
       )}
-      {popover?.type === 'rename' && <RenamePopover anchor={popover.anchor} mentee={mentees.find((m) => m.id === popover.menteeId)} onClose={() => setPopover(null)} />}
-      {popover?.type === 'level' && <LevelPopover anchor={popover.anchor} mentee={mentees.find((m) => m.id === popover.menteeId)} levels={levels} onClose={() => setPopover(null)} />}
-      {popover?.type === 'pic' && <PicPopover anchor={popover.anchor} mentee={mentees.find((m) => m.id === popover.menteeId)} pics={pics} leader={performance.leader} onClose={() => setPopover(null)} />}
+      {popover?.type === 'rename' && <RenamePopover anchor={popover.anchor} mentee={mentees.find((m) => m.id === popover.menteeId)} reloadProp={reloadProp} onClose={() => setPopover(null)} />}
+      {popover?.type === 'level' && <LevelPopover anchor={popover.anchor} mentee={mentees.find((m) => m.id === popover.menteeId)} levels={levels} reloadProp={reloadProp} onClose={() => setPopover(null)} />}
+      {popover?.type === 'pic' && <PicPopover anchor={popover.anchor} mentee={mentees.find((m) => m.id === popover.menteeId)} pics={pics} leader={performance.leader} reloadProp={reloadProp} onClose={() => setPopover(null)} />}
 
       {/* Modals */}
       {modal?.type === 'attitude' && (
@@ -701,6 +847,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
           mentee={modal.mentee}
           month={modal.month}
           target={modal.mentee.sales_target ?? null}
+          reloadOnly={[reloadProp]}
           onSaved={() => { reloadPerformance(); refreshExpandedMatrices(); }}
           onClose={() => setModal(null)}
         />
@@ -710,14 +857,15 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
           mentee={modal.mentee}
           month={modal.month}
           day={modal.day}
+          reloadProp={reloadProp}
           onSaved={() => { reloadPerformance(); fetchMatrix(modal.month); }}
           onLogDisciplinary={() => setModal({ type: 'disciplinary', mentee: modal.mentee, presetDate: modal.day.date })}
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.type === 'dailyLog' && <DailyLogModal program={program} onClose={() => setModal(null)} />}
-      {modal?.type === 'disciplinary' && <DisciplinaryModal mentee={modal.mentee} presetDate={modal.presetDate ?? null} reloadOnly={['performance']} onClose={() => { setModal(null); refreshExpandedMatrices(); }} />}
-      {enrollModal}
+      {modal?.type === 'dailyLog' && <DailyLogModal program={program} reloadOnly={[reloadProp]} onClose={() => setModal(null)} />}
+      {modal?.type === 'disciplinary' && <DisciplinaryModal mentee={modal.mentee} presetDate={modal.presetDate ?? null} reloadOnly={[reloadProp]} onClose={() => { setModal(null); refreshExpandedMatrices(); }} />}
+      {allowEnroll && enrollModal}
     </section>
   );
 }
@@ -752,7 +900,7 @@ function MobileMenteeCard({ mentee: m, months, expanded, matrices, currentMonthV
       <div className="flex gap-2 overflow-x-auto px-3 py-3">
         {months.map((mo) => {
           const cell = cellValue(m, mo);
-          const ov = overallKpi(cell.attitude, cell.sales, m.sales_target ?? null);
+          const ov = overallKpi(cell, m.sales_target ?? null);
           const tone = scoreTone(ov);
           const hasData = cell.sales !== null || cell.attitude !== null;
           const isCur = mo.value === currentMonthValue;
@@ -762,7 +910,7 @@ function MobileMenteeCard({ mentee: m, months, expanded, matrices, currentMonthV
               <button
                 type="button"
                 onClick={() => onAttitude(m, mo)}
-                title={`${m.name} · ${mo.label} · Sales ${cell.sales !== null ? formatRM(cell.sales) : '—'} · Attitude ${cell.attitude ?? '—'} · Overall ${ov != null ? `${ov}%` : '—'}`}
+                title={`${m.name} · ${mo.label} · Sales ${cell.sales !== null ? formatRM(cell.sales) : '—'} · Attitude ${cell.attitude ?? '—'}${cell.live_target != null ? ` · Live ${cell.live_actual}/${cell.live_target}` : ''}${cell.video_target != null ? ` · Video ${cell.video_actual}/${cell.video_target}` : ''} · Overall ${ov != null ? `${ov}%` : '—'}`}
                 className={`flex w-[80px] flex-col items-center justify-center gap-0.5 rounded-[10px] border border-black/5 px-2 py-2 leading-none transition-transform active:scale-95 ${tone.bg} ${tone.text} ${isCur ? 'ring-2 ring-[#10B981]/40' : ''}`}
               >
                 <span className="text-[10px] font-bold uppercase tracking-[0.04em]">{monthAbbr(mo)}</span>
@@ -774,6 +922,7 @@ function MobileMenteeCard({ mentee: m, months, expanded, matrices, currentMonthV
                 ) : (
                   <span className="mt-1 text-[13px] font-bold">–</span>
                 )}
+                <KpiBadges liveActual={cell.live_actual} liveTarget={cell.live_target} videoActual={cell.video_actual} videoTarget={cell.video_target} />
               </button>
               <button type="button" onClick={() => onToggleMonth(mo)} className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[9px] font-medium text-[#A3A3A3] hover:bg-[#F5F5F5] hover:text-[#525252]">
                 Days {isExp ? <ChevronDown className="h-2.5 w-2.5" strokeWidth={2.5} /> : <ChevronRight className="h-2.5 w-2.5" strokeWidth={2.5} />}
@@ -835,7 +984,7 @@ function sessionStatusDot(status) {
   }[status] ?? 'bg-[#A3A3A3]';
 }
 
-function DayModal({ mentee, month, day, onSaved, onLogDisciplinary, onClose }) {
+function DayModal({ mentee, month, day, reloadProp = 'performance', onSaved, onLogDisciplinary, onClose }) {
   const [comment, setComment] = useState('');
   const [override, setOverride] = useState(day.override != null ? String(day.override) : '');
   const [busy, setBusy] = useState(false);
@@ -864,7 +1013,7 @@ function DayModal({ mentee, month, day, onSaved, onLogDisciplinary, onClose }) {
     router.patch(
       `/livehost/mentoring/mentees/${mentee.id}/daily-metric`,
       { date: day.date, comment, sales_override: override === '' ? null : Number(override) },
-      { preserveScroll: true, preserveState: true, only: ['performance'], onSuccess: () => { onSaved(); onClose(); }, onFinish: () => setBusy(false) },
+      { preserveScroll: true, preserveState: true, only: [reloadProp], onSuccess: () => { onSaved(); onClose(); }, onFinish: () => setBusy(false) },
     );
   };
 
@@ -935,7 +1084,7 @@ function DayModal({ mentee, month, day, onSaved, onLogDisciplinary, onClose }) {
       <div className="mb-3">
         <div className="mb-1 text-[12.5px] font-medium text-[#525252]">Comments{detail?.comments?.length ? ` (${detail.comments.length})` : ''}</div>
         {detail ? (
-          <DailyComments comments={detail.comments} onChanged={loadDetail} reloadOnly={['performance']} emptyLabel="No comments yet — add the first one below." />
+          <DailyComments comments={detail.comments} onChanged={loadDetail} reloadOnly={[reloadProp]} emptyLabel="No comments yet — add the first one below." />
         ) : (
           <div className="flex items-center gap-1.5 text-[12px] text-[#A3A3A3]"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
         )}
@@ -990,14 +1139,14 @@ function RowMenu({ anchor, onClose, onRename, onLevel, onPic, onDisciplinary }) 
   );
 }
 
-function RenamePopover({ anchor, mentee, onClose }) {
+function RenamePopover({ anchor, mentee, reloadProp = 'performance', onClose }) {
   const [name, setName] = useState(mentee?.name ?? '');
   const [busy, setBusy] = useState(false);
   const save = () => {
     if (!name.trim()) return;
     setBusy(true);
     router.patch(`/livehost/mentoring/mentees/${mentee.id}/name`, { name }, {
-      preserveScroll: true, preserveState: true, only: ['performance'],
+      preserveScroll: true, preserveState: true, only: [reloadProp],
       onSuccess: onClose, onFinish: () => setBusy(false),
     });
   };
@@ -1016,10 +1165,10 @@ function RenamePopover({ anchor, mentee, onClose }) {
   );
 }
 
-function LevelPopover({ anchor, mentee, levels, onClose }) {
+function LevelPopover({ anchor, mentee, levels, reloadProp = 'performance', onClose }) {
   const set = (levelId) => {
     router.patch(`/livehost/mentoring/mentees/${mentee.id}/level`, { level_id: levelId, source: 'manual' }, {
-      preserveScroll: true, preserveState: true, only: ['performance'], onSuccess: onClose,
+      preserveScroll: true, preserveState: true, only: [reloadProp], onSuccess: onClose,
     });
   };
   return (
@@ -1040,10 +1189,10 @@ function LevelPopover({ anchor, mentee, levels, onClose }) {
   );
 }
 
-function PicPopover({ anchor, mentee, pics, leader, onClose }) {
+function PicPopover({ anchor, mentee, pics, leader, reloadProp = 'performance', onClose }) {
   const set = (mentorId) => {
     router.patch(`/livehost/mentoring/mentees/${mentee.id}/pic`, { mentor_user_id: mentorId }, {
-      preserveScroll: true, preserveState: true, only: ['performance'], onSuccess: onClose,
+      preserveScroll: true, preserveState: true, only: [reloadProp], onSuccess: onClose,
     });
   };
   return (

@@ -164,7 +164,80 @@ class ScheduleController extends Controller
                 'today' => $currentWeekStart->toDateString(),
                 'isCurrent' => $weekStart->equalTo($currentWeekStart),
             ],
+            'monthGrid' => $this->buildMonthGrid($host->id, $request->query('month')),
         ]);
+    }
+
+    /**
+     * A whole-month picture of the host's recap backlog: every actionable
+     * session (needs upload / pending recap / submitted) keyed by its date, so
+     * the "Bulan" tab can render a calendar with a per-day count and reuse the
+     * exact same recap modal on tap. The client counts un-done items per day.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildMonthGrid(int $hostId, ?string $month): array
+    {
+        $start = $this->resolveMonthStart($month);
+        $end = $start->endOfMonth();
+
+        $sessions = LiveSession::query()
+            ->with(['attachments', 'platformAccount.platform', 'liveAccount'])
+            ->withCount('attachments')
+            ->where('live_host_id', $hostId)
+            ->whereDate('scheduled_start_at', '>=', $start->toDateString())
+            ->whereDate('scheduled_start_at', '<=', $end->toDateString())
+            ->orderBy('scheduled_start_at')
+            ->get();
+
+        $itemsByDate = [];
+        foreach ($sessions as $session) {
+            $recap = $this->buildRecapAction($session);
+            if ($recap === null) {
+                continue;
+            }
+
+            $date = $session->scheduled_start_at?->toDateString();
+            if ($date === null) {
+                continue;
+            }
+
+            $itemsByDate[$date][] = [
+                'sessionId' => $session->id,
+                'title' => $session->title,
+                'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
+                'platformAccount' => $session->platformAccount?->name,
+                'startTime' => $this->formatTime($session->scheduled_start_at),
+                'state' => $recap['state'],
+                'recapAction' => $recap,
+            ];
+        }
+
+        return [
+            'value' => $start->format('Y-m'),
+            'label' => self::MONTH_SHORT_MS[$start->month - 1].' '.$start->year,
+            'year' => $start->year,
+            'month' => $start->month,
+            'firstWeekday' => (int) $start->dayOfWeek, // 0 = Sunday
+            'daysInMonth' => (int) $end->format('j'),
+            'prev' => $start->subMonth()->format('Y-m'),
+            'next' => $start->addMonth()->format('Y-m'),
+            'today' => CarbonImmutable::today()->toDateString(),
+            'itemsByDate' => $itemsByDate,
+        ];
+    }
+
+    private function resolveMonthStart(?string $value): CarbonImmutable
+    {
+        if ($value !== null && $value !== '') {
+            try {
+                return CarbonImmutable::parse($value.'-01')->startOfMonth();
+            } catch (\Throwable) {
+                // Fall through to default.
+            }
+        }
+
+        return CarbonImmutable::today()->startOfMonth();
     }
 
     /**
@@ -175,7 +248,7 @@ class ScheduleController extends Controller
      * critical for recurring assignments that span multiple weeks.
      *
      * @param  array<int, int>  $assignmentIds
-     * @return array<string, \App\Models\LiveSession>
+     * @return array<string, LiveSession>
      */
     private function sessionsBySlotKey(int $hostId, array $assignmentIds, CarbonImmutable $weekStart, CarbonImmutable $weekEnd): array
     {

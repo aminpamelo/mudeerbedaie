@@ -61,7 +61,7 @@ function VideoStatus({ videos, count }) {
  * who has not yet posted a daily video (the video is logged by the host in the
  * Pocket; here it is read-only).
  */
-export default function DailyLogModal({ program, onClose }) {
+export default function DailyLogModal({ program, reloadOnly = ['performance'], onClose }) {
   const [date, setDate] = useState(todayInput());
   const [log, setLog] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export default function DailyLogModal({ program, onClose }) {
       {
         preserveScroll: true,
         preserveState: true,
-        only: ['performance'],
+        only: reloadOnly,
         onSuccess: () => { setDirty(true); fetchLog(date); },
         onFinish: () => setSavingId(null),
       },
@@ -117,7 +117,7 @@ export default function DailyLogModal({ program, onClose }) {
   };
 
   const close = () => {
-    if (dirty) router.reload({ only: ['performance'], preserveScroll: true });
+    if (dirty) router.reload({ only: reloadOnly, preserveScroll: true });
     onClose();
   };
 
@@ -190,7 +190,7 @@ export default function DailyLogModal({ program, onClose }) {
 
                     {(m.comments?.length ?? 0) > 0 && (
                       <div className="mb-2">
-                        <DailyComments comments={m.comments} onChanged={() => { setDirty(true); fetchLog(date); }} reloadOnly={['performance']} compact />
+                        <DailyComments comments={m.comments} onChanged={() => { setDirty(true); fetchLog(date); }} reloadOnly={reloadOnly} compact />
                       </div>
                     )}
 
@@ -243,7 +243,7 @@ export default function DailyLogModal({ program, onClose }) {
         <DisciplinaryModal
           mentee={disciplinaryFor}
           presetDate={date}
-          reloadOnly={['performance']}
+          reloadOnly={reloadOnly}
           onClose={() => { setDisciplinaryFor(null); setDirty(true); fetchLog(date); }}
         />
       )}

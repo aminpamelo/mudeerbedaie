@@ -59,6 +59,46 @@ class MenteeDailySalesResolver
     }
 
     /**
+     * Ended live-session counts per mentee per month — the "how many lives did
+     * they run" actual behind the monthly Live KPI. A live is one ended session
+     * (a host may run several a day), so this counts sessions, not days. Months
+     * with no ended sessions return 0 (a countable KPI wants a number, not null).
+     *
+     * @param  Collection<int, LiveHostMentee>  $mentees  each must expose id + mentee_user_id
+     * @param  array<int, array{year: int, month: int}>  $periods
+     * @return array<int, array<string, int>> [menteeId][ 'YYYY-MM' ] => ended-session count
+     */
+    public function monthlyLiveCounts(Collection $mentees, array $periods): array
+    {
+        if ($mentees->isEmpty() || $periods === []) {
+            return [];
+        }
+
+        [$from, $to] = $this->rangeFor($periods);
+
+        $hostIds = $mentees->pluck('mentee_user_id')->filter()->unique()->values()->all();
+        $auto = $this->autoDailyGmv($hostIds, $from, $to); // [hostId][Y-m-d] => ['gmv', 'sessions']
+
+        $counts = [];
+        foreach ($mentees as $mentee) {
+            $autoForHost = $auto[$mentee->mentee_user_id] ?? [];
+            foreach ($periods as $p) {
+                $prefix = sprintf('%04d-%02d-', $p['year'], $p['month']);
+                $key = sprintf('%04d-%02d', $p['year'], $p['month']);
+                $total = 0;
+                foreach ($autoForHost as $dateKey => $day) {
+                    if (str_starts_with($dateKey, $prefix)) {
+                        $total += (int) ($day['sessions'] ?? 0);
+                    }
+                }
+                $counts[$mentee->id][$key] = $total;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
      * Effective total sales per mentee over an arbitrary date range. Powers the
      * cohort leaderboard, where "this month" and "all time" are just two ranges.
      * A mentee with no ended sessions and no overrides in the range totals 0.0

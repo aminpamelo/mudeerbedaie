@@ -5,6 +5,7 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\Mentoring\MentoringProgramRequest;
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyVideo;
 use App\Models\LiveHostMentoringLevel;
 use App\Models\LiveHostMentoringProgram;
 use App\Models\User;
@@ -23,6 +24,18 @@ use Inertia\Response;
 
 class MentoringProgramController extends Controller
 {
+    /**
+     * Request-level memo for the program-independent grid lookups (assignable
+     * PICs + active levels). The overview builds one grid per active program, so
+     * without this each program would re-run these identical global queries.
+     *
+     * @var Collection<int, array<string, mixed>>|null
+     */
+    private ?Collection $assignablePicsCache = null;
+
+    /** @var Collection<int, array{id: int, name: string, color: ?string}>|null */
+    private ?Collection $activeLevelsCache = null;
+
     public function index(Request $request): Response
     {
         $paginator = LiveHostMentoringProgram::query()
@@ -227,7 +240,83 @@ class MentoringProgramController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function performanceData(LiveHostMentoringProgram $program, Request $request): array
+    /**
+     * Cross-program Monthly Performance overview. Aggregates the very same monthly
+     * grid that lives on each program's Performance tab, but for EVERY active
+     * program at once, so the PIC can monitor (and edit inline) without drilling
+     * into each program. Only 'active' programs are shown — drafts, paused, and
+     * completed are excluded. Every program carries the identical `performance`
+     * payload the single-program grid consumes, so the React side reuses the
+     * MonthlyPerformanceTab component verbatim, one section per program.
+     */
+    public function overview(Request $request): Response
+    {
+        $programs = LiveHostMentoringProgram::query()
+            ->where('status', 'active')
+            ->with('leader:id,name')
+            ->withCount([
+                'mentees as active_mentees_count' => fn ($q) => $q->where('status', 'active'),
+            ])
+            ->orderBy('title')
+            ->get();
+
+        $window = $this->resolveMonthWindow($request);
+
+        $payload = $programs->map(fn (LiveHostMentoringProgram $program) => [
+            'program' => [
+                'id' => $program->id,
+                'title' => $program->title,
+                'slug' => $program->slug,
+                'status' => $program->status,
+                'active_mentees_count' => (int) ($program->active_mentees_count ?? 0),
+                'leader' => $program->leader ? [
+                    'id' => $program->leader->id,
+                    'name' => $program->leader->name,
+                    'initials' => self::initials($program->leader->name),
+                ] : null,
+            ],
+            'performance' => $this->performanceData($program, $request),
+        ])->values();
+
+        return Inertia::render('mentoring/Overview', [
+            'programs' => $payload,
+            'window' => [
+                'year' => $window['year'],
+                'range' => ['from' => $window['from'], 'to' => $window['to']],
+                'months' => $window['months'],
+                'years' => $this->overviewYears($programs, $window['year']),
+            ],
+        ]);
+    }
+
+    /**
+     * Selectable years for the overview month filter: from the earliest active
+     * program's start year (or a year before now) through the current year,
+     * always including the selected one.
+     *
+     * @param  Collection<int, LiveHostMentoringProgram>  $programs
+     * @return array<int, int>
+     */
+    private function overviewYears(Collection $programs, int $selected): array
+    {
+        $current = (int) now()->format('Y');
+        $starts = $programs
+            ->map(fn (LiveHostMentoringProgram $p) => $p->starts_at ? (int) $p->starts_at->format('Y') : $current)
+            ->push($current - 1)
+            ->push($selected);
+
+        return range((int) $starts->min(), max($current, $selected));
+    }
+
+    /**
+     * The chosen year + month window shared by the performance grid, derived from
+     * the perf_year / perf_from / perf_to query params (defaulting to the last six
+     * months up to the current month). Returns both the month descriptors the grid
+     * renders and the year/month periods the sales resolver aggregates over.
+     *
+     * @return array{year: int, from: int, to: int, months: Collection<int, array<string, mixed>>, periods: array<int, array{year: int, month: int}>}
+     */
+    private function resolveMonthWindow(Request $request): array
     {
         $currentYear = (int) now()->format('Y');
         $currentMonth = (int) now()->format('n');
@@ -251,7 +340,23 @@ class MentoringProgramController extends Controller
                 'label' => CarbonImmutable::create($year, $m, 1)->format('M Y'),
             ])->values();
 
-        $periods = $months->map(fn ($mo) => ['year' => $mo['year'], 'month' => $mo['month']])->all();
+        return [
+            'year' => $year,
+            'from' => $from,
+            'to' => $to,
+            'months' => $months,
+            'periods' => $months->map(fn ($mo) => ['year' => $mo['year'], 'month' => $mo['month']])->all(),
+        ];
+    }
+
+    private function performanceData(LiveHostMentoringProgram $program, Request $request): array
+    {
+        $window = $this->resolveMonthWindow($request);
+        $year = $window['year'];
+        $from = $window['from'];
+        $to = $window['to'];
+        $months = $window['months'];
+        $periods = $window['periods'];
 
         $mentees = $program->mentees()
             ->whereIn('status', ['active', 'graduated'])
@@ -266,7 +371,10 @@ class MentoringProgramController extends Controller
             ->orderByDesc('enrolled_at')
             ->get();
 
-        $salesTotals = app(MenteeDailySalesResolver::class)->monthlyTotals($mentees, $periods);
+        $resolver = app(MenteeDailySalesResolver::class);
+        $salesTotals = $resolver->monthlyTotals($mentees, $periods);
+        $liveCounts = $resolver->monthlyLiveCounts($mentees, $periods); // [menteeId]['YYYY-MM'] => ended sessions
+        $videoCounts = $this->monthlyVideoCounts($mentees, $year, $from, $to); // [menteeId]['YYYY-MM'] => videos logged
 
         $leader = $program->leader;
         $leaderData = $leader ? [
@@ -275,7 +383,7 @@ class MentoringProgramController extends Controller
             'initials' => self::initials($leader->name),
         ] : null;
 
-        $menteesOut = $mentees->map(function (LiveHostMentee $m) use ($salesTotals, $months, $leaderData) {
+        $menteesOut = $mentees->map(function (LiveHostMentee $m) use ($salesTotals, $liveCounts, $videoCounts, $months, $leaderData) {
             $scoreByKey = $m->monthlyScores->keyBy(fn ($s) => $s->periodKey());
 
             $scores = [];
@@ -286,6 +394,10 @@ class MentoringProgramController extends Controller
                     'attitude' => $ms?->attitude_score,
                     'sales' => $salesTotals[$m->id][$key] ?? null,
                     'notes' => $ms?->notes,
+                    'video_actual' => (int) ($videoCounts[$m->id][$key] ?? 0),
+                    'live_actual' => (int) ($liveCounts[$m->id][$key] ?? 0),
+                    'video_target' => $ms?->video_target,
+                    'live_target' => $ms?->live_target,
                 ];
             }
 
@@ -313,8 +425,8 @@ class MentoringProgramController extends Controller
             'years' => $this->performanceYears($program, $year),
             'months' => $months,
             'mentees' => $menteesOut,
-            'pics' => app(MenteeBoardPresenter::class)->assignableMentors(),
-            'levels' => LiveHostMentoringLevel::query()
+            'pics' => $this->assignablePicsCache ??= app(MenteeBoardPresenter::class)->assignableMentors(),
+            'levels' => $this->activeLevelsCache ??= LiveHostMentoringLevel::query()
                 ->where('is_active', true)
                 ->orderBy('position')
                 ->get(['id', 'name', 'color'])
@@ -322,6 +434,35 @@ class MentoringProgramController extends Controller
                 ->values(),
             'leader' => $leaderData,
         ];
+    }
+
+    /**
+     * Video-log counts per mentee per month — the actual behind the monthly Video
+     * KPI. Videos are logged by the host (title + optional link); here we count how
+     * many landed in each month of the window. Months with no videos are absent
+     * from the map (the caller defaults them to 0).
+     *
+     * @param  Collection<int, LiveHostMentee>  $mentees
+     * @return array<int, array<string, int>> [menteeId][ 'YYYY-MM' ] => video count
+     */
+    private function monthlyVideoCounts(Collection $mentees, int $year, int $from, int $to): array
+    {
+        if ($mentees->isEmpty()) {
+            return [];
+        }
+
+        $start = CarbonImmutable::create($year, $from, 1)->startOfMonth();
+        $end = CarbonImmutable::create($year, $to, 1)->endOfMonth();
+
+        return LiveHostMenteeDailyVideo::query()
+            ->whereIn('mentee_id', $mentees->pluck('id'))
+            ->whereBetween('video_date', [$start->toDateString(), $end->toDateString()])
+            ->get(['mentee_id', 'video_date'])
+            ->groupBy('mentee_id')
+            ->map(fn (Collection $rows) => $rows
+                ->countBy(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->format('Y-m'))
+                ->all())
+            ->all();
     }
 
     /**

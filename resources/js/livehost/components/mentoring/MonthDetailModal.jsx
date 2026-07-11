@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, Check, Loader2, Pencil, ShieldAlert, Video, X } from 'lucide-react';
+import { CalendarDays, Check, Loader2, Pencil, Radio, ShieldAlert, Video, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 import DailyComments from '@/livehost/components/mentoring/DailyComments';
 import DisciplinaryModal, { categoryLabel, severityTone } from '@/livehost/components/mentoring/DisciplinaryModal';
@@ -22,10 +22,19 @@ function salesPct(sales, target) {
   return Math.min(100, Math.round((n / target) * 100));
 }
 
-function overallKpi(attitude, sales, target) {
+function countPct(actual, target) {
+  if (!target || target <= 0) return null;
+  const n = Number(actual ?? 0);
+  if (Number.isNaN(n)) return null;
+  return Math.min(100, Math.round((n / target) * 100));
+}
+
+/** Overall = average of every KPI that applies: Attitude, Sales%, Video%, Live%
+ * (each counted only when it has a value/target). Mirrors the grid's helper. */
+function overallKpi({ attitude, sales, salesTarget, videoActual, videoTarget, liveActual, liveTarget }) {
   const a = attitude === '' || attitude == null ? null : Math.max(0, Math.min(100, Number(attitude)));
-  const s = salesPct(sales, target);
-  const parts = [a, s].filter((v) => v !== null && !Number.isNaN(v));
+  const parts = [a, salesPct(sales, salesTarget), countPct(videoActual, videoTarget), countPct(liveActual, liveTarget)]
+    .filter((v) => v !== null && !Number.isNaN(v));
   if (parts.length === 0) return null;
   return Math.round(parts.reduce((x, y) => x + y, 0) / parts.length);
 }
@@ -63,14 +72,18 @@ function Stat({ label, value, sub, tone }) {
  * are editable inline; disciplinary can be logged per day. Everything that
  * happened that month, in one place.
  */
-export default function MonthDetailModal({ mentee, month, target, onSaved, onClose }) {
+export default function MonthDetailModal({ mentee, month, target, reloadOnly = ['performance'], onSaved, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [attitude, setAttitude] = useState('');
   const [note, setNote] = useState('');
+  const [videoTarget, setVideoTarget] = useState('');
+  const [liveTarget, setLiveTarget] = useState('');
   const [savingAttitude, setSavingAttitude] = useState(false);
   const [attitudeStart, setAttitudeStart] = useState('');
   const [noteStart, setNoteStart] = useState('');
+  const [videoTargetStart, setVideoTargetStart] = useState('');
+  const [liveTargetStart, setLiveTargetStart] = useState('');
   const [dayEdit, setDayEdit] = useState(null); // day object being edited
   const [disciplinaryFor, setDisciplinaryFor] = useState(null); // { date }
   const [onlyActive, setOnlyActive] = useState(false);
@@ -88,6 +101,12 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
         setNote(d.summary.note ?? '');
         setAttitudeStart(d.summary.attitude ?? '');
         setNoteStart(d.summary.note ?? '');
+        const vt = d.summary.video_target ?? '';
+        const lt = d.summary.live_target ?? '';
+        setVideoTarget(vt);
+        setVideoTargetStart(vt);
+        setLiveTarget(lt);
+        setLiveTargetStart(lt);
       })
       .finally(() => setLoading(false));
   }, [mentee.id, month.year, month.month]);
@@ -100,12 +119,25 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
     setSavingAttitude(true);
     router.patch(
       `/livehost/mentoring/mentees/${mentee.id}/monthly-score`,
-      { year: month.year, month: month.month, attitude_score: attitude === '' ? null : Number(attitude), notes: note || null },
+      {
+        year: month.year,
+        month: month.month,
+        attitude_score: attitude === '' ? null : Number(attitude),
+        video_target: videoTarget === '' ? null : Number(videoTarget),
+        live_target: liveTarget === '' ? null : Number(liveTarget),
+        notes: note || null,
+      },
       {
         preserveScroll: true,
         preserveState: true,
-        only: ['performance'],
-        onSuccess: () => { setAttitudeStart(attitude); setNoteStart(note); onSaved?.(); },
+        only: reloadOnly,
+        onSuccess: () => {
+          setAttitudeStart(attitude);
+          setNoteStart(note);
+          setVideoTargetStart(videoTarget);
+          setLiveTargetStart(liveTarget);
+          onSaved?.();
+        },
         onFinish: () => setSavingAttitude(false),
       },
     );
@@ -113,9 +145,20 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
 
   const summary = data?.summary;
   const salesTotal = summary?.sales_total ?? 0;
-  const overall = overallKpi(attitude, salesTotal, target);
+  const overall = overallKpi({
+    attitude,
+    sales: salesTotal,
+    salesTarget: target,
+    videoActual: summary?.video_total ?? 0,
+    videoTarget: videoTarget === '' ? null : Number(videoTarget),
+    liveActual: summary?.live_total ?? 0,
+    liveTarget: liveTarget === '' ? null : Number(liveTarget),
+  });
   const overallTone = scoreTone(overall);
-  const attitudeDirty = String(attitude) !== String(attitudeStart) || String(note) !== String(noteStart);
+  const attitudeDirty = String(attitude) !== String(attitudeStart)
+    || String(note) !== String(noteStart)
+    || String(videoTarget) !== String(videoTargetStart)
+    || String(liveTarget) !== String(liveTargetStart);
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -134,7 +177,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
           <button type="button" onClick={onClose} className="rounded-md p-1 text-[#737373] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"><X className="h-4 w-4" strokeWidth={2} /></button>
         </div>
 
-        {/* Summary + attitude */}
+        {/* Summary (actuals) */}
         <div className="border-b border-[#F0F0F0] bg-[#FCFCFC] px-6 py-3">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
             <Stat label="Sales (summed)" value={rm(salesTotal)} sub={target ? `target ${rm(target)}` : 'no target'} />
@@ -142,18 +185,39 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
               <div className="text-[9.5px] font-semibold uppercase tracking-wide text-[#A3A3A3]">Overall</div>
               <div className={`mt-0.5 inline-flex h-7 min-w-[44px] items-center justify-center rounded-md px-2 text-[13px] font-bold tabular-nums ${overallTone.bg} ${overallTone.text}`}>{overall != null ? `${overall}%` : '–'}</div>
             </div>
+            <Stat
+              label="Live sessions"
+              value={summary?.live_total ?? 0}
+              sub={liveTarget !== '' && liveTarget != null ? `target ${liveTarget}` : (summary?.live_days ?? 0) > 0 ? `${summary.live_days} day${summary.live_days === 1 ? '' : 's'}` : null}
+              tone={liveTarget !== '' && liveTarget != null && (summary?.live_total ?? 0) >= Number(liveTarget) ? 'text-[#047857]' : 'text-[#0A0A0A]'}
+            />
+            <Stat
+              label="Videos"
+              value={summary?.video_total ?? 0}
+              sub={videoTarget !== '' && videoTarget != null ? `target ${videoTarget}` : (summary?.video_days ?? 0) > 0 ? `${summary.video_days} day${summary.video_days === 1 ? '' : 's'}` : null}
+              tone={videoTarget !== '' && videoTarget != null && (summary?.video_total ?? 0) >= Number(videoTarget) ? 'text-[#047857]' : (summary?.video_total ?? 0) > 0 ? 'text-[#6D28D9]' : 'text-[#0A0A0A]'}
+            />
             <Stat label="Live days" value={summary?.live_days ?? 0} />
             <Stat label="Comments" value={summary?.comment_days ?? 0} />
-            <Stat label="Videos" value={summary?.video_total ?? 0} sub={(summary?.video_days ?? 0) > 0 ? `${summary.video_days} day${summary.video_days === 1 ? '' : 's'}` : null} tone={(summary?.video_total ?? 0) > 0 ? 'text-[#6D28D9]' : 'text-[#0A0A0A]'} />
             <Stat label="Disciplinary" value={summary?.disciplinary_total ?? 0} tone={(summary?.disciplinary_total ?? 0) > 0 ? 'text-[#B91C1C]' : 'text-[#0A0A0A]'} />
-            <div className="rounded-[10px] bg-[#F9F9F9] px-3 py-2">
-              <div className="text-[9.5px] font-semibold uppercase tracking-wide text-[#A3A3A3]">Attitude / 100</div>
-              <input type="number" min="0" max="100" value={attitude} onChange={(e) => setAttitude(e.target.value)} placeholder="–" className="mt-0.5 h-7 w-full rounded-md border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
-            </div>
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Monthly note (optional)…" className="h-9 flex-1 rounded-lg border border-[#EAEAEA] bg-white px-3 text-[12.5px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
-            <Button type="button" size="sm" disabled={savingAttitude || !attitudeDirty} onClick={saveAttitude} className="h-9 bg-[#0A0A0A] px-3.5 text-white hover:bg-[#262626] disabled:opacity-40">{savingAttitude ? 'Saving…' : 'Save attitude'}</Button>
+
+          {/* Editable monthly targets + attitude */}
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-[#A3A3A3]">Attitude / 100</span>
+              <input type="number" min="0" max="100" value={attitude} onChange={(e) => setAttitude(e.target.value)} placeholder="–" className="h-9 w-[84px] rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-[#A3A3A3]"><Radio className="h-3 w-3" strokeWidth={2.5} /> Live target</span>
+              <input type="number" min="0" value={liveTarget} onChange={(e) => setLiveTarget(e.target.value)} placeholder="–" className="h-9 w-[84px] rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-[#A3A3A3]"><Video className="h-3 w-3" strokeWidth={2.5} /> Video target</span>
+              <input type="number" min="0" value={videoTarget} onChange={(e) => setVideoTarget(e.target.value)} placeholder="–" className="h-9 w-[84px] rounded-lg border border-[#EAEAEA] bg-white px-2 text-center text-[14px] font-semibold tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+            </label>
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Monthly note (optional)…" className="h-9 min-w-[180px] flex-1 self-end rounded-lg border border-[#EAEAEA] bg-white px-3 text-[12.5px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20" />
+            <Button type="button" size="sm" disabled={savingAttitude || !attitudeDirty} onClick={saveAttitude} className="h-9 self-end bg-[#0A0A0A] px-3.5 text-white hover:bg-[#262626] disabled:opacity-40">{savingAttitude ? 'Saving…' : 'Save'}</Button>
           </div>
         </div>
 
@@ -181,6 +245,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
                       key={d.date}
                       d={d}
                       isToday={d.date === todayKey}
+                      reloadOnly={reloadOnly}
                       onEdit={() => setDayEdit(d)}
                       onDiscipline={() => setDisciplinaryFor({ date: d.date })}
                       onChanged={refresh}
@@ -197,6 +262,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
         <DayEditForm
           menteeId={mentee.id}
           day={dayEdit}
+          reloadOnly={reloadOnly}
           onSaved={refresh}
           onClose={() => setDayEdit(null)}
         />
@@ -205,7 +271,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
         <DisciplinaryModal
           mentee={mentee}
           presetDate={disciplinaryFor.date}
-          reloadOnly={['performance']}
+          reloadOnly={reloadOnly}
           onClose={() => { setDisciplinaryFor(null); refresh(); }}
         />
       )}
@@ -215,7 +281,7 @@ export default function MonthDetailModal({ mentee, month, target, onSaved, onClo
 
 /* ---- one day card (compact when quiet, rich when there was activity) ---- */
 
-function DayItem({ d, isToday, onEdit, onDiscipline, onChanged }) {
+function DayItem({ d, isToday, reloadOnly = ['performance'], onEdit, onDiscipline, onChanged }) {
   if (!d.has_activity) {
     return (
       <li className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-[12px] ${isToday ? 'bg-[#F0FDF4]' : ''}`}>
@@ -255,7 +321,7 @@ function DayItem({ d, isToday, onEdit, onDiscipline, onChanged }) {
 
       {d.comments?.length > 0 && (
         <div className="mb-2">
-          <DailyComments comments={d.comments} onChanged={onChanged} reloadOnly={['performance']} compact />
+          <DailyComments comments={d.comments} onChanged={onChanged} reloadOnly={reloadOnly} compact />
         </div>
       )}
 
@@ -295,7 +361,7 @@ function DayItem({ d, isToday, onEdit, onDiscipline, onChanged }) {
 
 /* ---- inline day editor (comment + sales override) ---- */
 
-function DayEditForm({ menteeId, day, onSaved, onClose }) {
+function DayEditForm({ menteeId, day, reloadOnly = ['performance'], onSaved, onClose }) {
   const [comment, setComment] = useState(day.comments?.find((c) => c.is_mine)?.text ?? '');
   const [override, setOverride] = useState(day.override != null ? String(day.override) : '');
   const [busy, setBusy] = useState(false);
@@ -308,7 +374,7 @@ function DayEditForm({ menteeId, day, onSaved, onClose }) {
     router.patch(
       `/livehost/mentoring/mentees/${menteeId}/daily-metric`,
       { date: day.date, comment, sales_override: override === '' ? null : Number(override) },
-      { preserveScroll: true, preserveState: true, only: ['performance'], onSuccess: () => { onSaved(); onClose(); }, onFinish: () => setBusy(false) },
+      { preserveScroll: true, preserveState: true, only: reloadOnly, onSuccess: () => { onSaved(); onClose(); }, onFinish: () => setBusy(false) },
     );
   };
 

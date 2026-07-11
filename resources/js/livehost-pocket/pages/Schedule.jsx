@@ -18,11 +18,20 @@ import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/fo
  * slots return null because ownership has transferred.
  */
 export default function Schedule() {
-  const { days, totalSlots, pendingRecaps, week } = usePage().props;
+  const { days, totalSlots, pendingRecaps, week, monthGrid } = usePage().props;
   const buckets = Array.isArray(days) ? days : [];
   const total = Number.isFinite(totalSlots) ? totalSlots : 0;
   const recaps = Array.isArray(pendingRecaps) ? pendingRecaps : [];
   const weekInfo = week ?? null;
+  const month = monthGrid ?? null;
+
+  const monthPending = useMemo(() => {
+    if (!month?.itemsByDate) return 0;
+    return Object.values(month.itemsByDate).reduce(
+      (sum, items) => sum + items.filter((i) => i.state !== 'submitted').length,
+      0
+    );
+  }, [month]);
 
   const activeRequests = useMemo(() => {
     const list = [];
@@ -62,6 +71,7 @@ export default function Schedule() {
           onChange={setActiveTab}
           activeCount={activeRequests.length}
           recapsCount={recaps.length}
+          monthPending={monthPending}
         />
 
         {activeTab === 'schedule' ? (
@@ -73,6 +83,8 @@ export default function Schedule() {
           </div>
         ) : activeTab === 'requests' ? (
           <ActiveRequestsList items={activeRequests} />
+        ) : activeTab === 'month' ? (
+          <MonthGrid month={month} />
         ) : (
           <PendingRecapsList items={recaps} />
         )}
@@ -83,9 +95,9 @@ export default function Schedule() {
   );
 }
 
-function TabStrip({ activeTab, onChange, activeCount, recapsCount }) {
+function TabStrip({ activeTab, onChange, activeCount, recapsCount, monthPending }) {
   return (
-    <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1">
+    <div className="mb-4 grid grid-cols-4 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1">
       <TabButton active={activeTab === 'schedule'} onClick={() => onChange('schedule')}>
         Jadual
       </TabButton>
@@ -104,6 +116,14 @@ function TabStrip({ activeTab, onChange, activeCount, recapsCount }) {
         countTone="warm"
       >
         Rekap
+      </TabButton>
+      <TabButton
+        active={activeTab === 'month'}
+        onClick={() => onChange('month')}
+        count={monthPending}
+        countTone="warm"
+      >
+        Bulan
       </TabButton>
     </div>
   );
@@ -345,6 +365,155 @@ function formatRecapDuration(minutes) {
   const h = Math.floor(m / 60);
   const rest = m % 60;
   return rest > 0 ? `${h}j ${rest}m` : `${h} jam`;
+}
+
+/**
+ * Bulan — a whole-month calendar of the host's recap backlog. Amber day =
+ * sessions still need upload; green day = all done. Tap a day to see and upload
+ * each session's proof via the same RecapModal used elsewhere.
+ */
+function MonthGrid({ month }) {
+  const [selected, setSelected] = useState(null);
+
+  if (!month) {
+    return <div className="px-1 py-12 text-center text-[13px] text-[var(--fg-3)]">Tiada data bulan.</div>;
+  }
+
+  const itemsByDate = month.itemsByDate ?? {};
+  const go = (m) =>
+    router.get('/live-host/schedule', { month: m }, { only: ['monthGrid'], preserveState: true, preserveScroll: true });
+
+  const weekdayLabels = ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'];
+  const cells = [];
+  for (let i = 0; i < month.firstWeekday; i += 1) cells.push(null);
+  for (let d = 1; d <= month.daysInMonth; d += 1) cells.push(d);
+
+  const dateStr = (d) => `${month.year}-${pad2(month.month)}-${pad2(d)}`;
+  const dayInfo = (d) => {
+    const items = itemsByDate[dateStr(d)] ?? [];
+    const pending = items.filter((i) => i.state !== 'submitted').length;
+    return { items, pending };
+  };
+
+  const totalPending = Object.values(itemsByDate).reduce(
+    (sum, items) => sum + items.filter((i) => i.state !== 'submitted').length,
+    0
+  );
+  const selectedItems = selected ? itemsByDate[selected] ?? [] : [];
+
+  return (
+    <div>
+      {/* Month navigator */}
+      <div className="mb-3 flex items-center justify-between">
+        <button type="button" onClick={() => go(month.prev)} aria-label="Bulan sebelum" className="grid h-[34px] w-[34px] place-items-center rounded-full border border-[var(--hair)] text-[16px] text-[var(--fg-2)] active:scale-95">‹</button>
+        <div className="font-display text-[15px] font-medium tracking-[-0.02em] text-[var(--fg)]">{month.label}</div>
+        <button type="button" onClick={() => go(month.next)} aria-label="Bulan seterusnya" className="grid h-[34px] w-[34px] place-items-center rounded-full border border-[var(--hair)] text-[16px] text-[var(--fg-2)] active:scale-95">›</button>
+      </div>
+
+      {/* Summary */}
+      <div className="mb-3 rounded-[12px] border border-[var(--hair)] px-4 py-3 text-center">
+        {totalPending > 0 ? (
+          <span className="text-[12.5px] text-[var(--fg-2)]">
+            <span className="font-bold text-[var(--warm)]">{totalPending}</span> sesi belum diupload bulan ni
+          </span>
+        ) : (
+          <span className="text-[12.5px] text-[var(--fg-2)]">Semua sesi bulan ni sudah diupload 🎉</span>
+        )}
+      </div>
+
+      {/* Weekday header */}
+      <div className="mb-1 grid grid-cols-7 gap-1">
+        {weekdayLabels.map((w) => (
+          <div key={w} className="text-center font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--fg-4)]">{w}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          if (d === null) return <div key={`blank-${i}`} />;
+          const date = dateStr(d);
+          const { items, pending } = dayInfo(d);
+          const hasItems = items.length > 0;
+          const allDone = hasItems && pending === 0;
+          const isToday = date === month.today;
+          const isSelected = date === selected;
+          return (
+            <button
+              key={d}
+              type="button"
+              disabled={!hasItems}
+              onClick={() => setSelected(isSelected ? null : date)}
+              className={`relative flex aspect-square flex-col items-center justify-center rounded-[10px] border text-[12px] font-bold tabular-nums transition active:scale-95 disabled:active:scale-100 ${
+                isSelected ? 'border-[var(--fg)] text-[var(--app-bg)]' : hasItems ? 'border-transparent text-[var(--fg)]' : 'border-transparent text-[var(--fg-4)]'
+              } ${isToday && !isSelected ? 'ring-1 ring-[var(--fg-3)]' : ''}`}
+              style={{
+                backgroundColor: isSelected
+                  ? 'var(--fg)'
+                  : pending > 0
+                    ? 'rgba(245,158,11,0.14)'
+                    : allDone
+                      ? 'rgba(16,185,129,0.12)'
+                      : 'transparent',
+              }}
+            >
+              <span>{d}</span>
+              {pending > 0 ? (
+                <span className="mt-[2px] inline-flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-[4px] font-mono text-[8.5px] font-bold text-white" style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.24)' : 'var(--warm)' }}>{pending}</span>
+              ) : allDone ? (
+                <span className="mt-[2px] text-[9px]" style={{ color: isSelected ? '#fff' : '#10B981' }}>✓</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-3 flex items-center justify-center gap-4 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+        <span className="inline-flex items-center gap-[5px]"><span className="h-[8px] w-[8px] rounded-[3px]" style={{ backgroundColor: 'rgba(245,158,11,0.55)' }} /> Perlu upload</span>
+        <span className="inline-flex items-center gap-[5px]"><span className="h-[8px] w-[8px] rounded-[3px]" style={{ backgroundColor: 'rgba(16,185,129,0.5)' }} /> Siap</span>
+      </div>
+
+      {/* Selected day drill-in */}
+      {selected ? (
+        <div className="mt-4">
+          <div className="mb-2 px-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">{formatDayLabel(selected)}</div>
+          {selectedItems.length === 0 ? (
+            <div className="rounded-[14px] border border-[var(--hair)] px-4 py-6 text-center text-[12px] text-[var(--fg-3)]">Tiada sesi.</div>
+          ) : (
+            selectedItems.map((item) => <MonthDayCard key={item.sessionId} item={item} />)
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 px-1 text-center text-[11.5px] text-[var(--fg-3)]">Tekan mana-mana hari untuk lihat &amp; upload sesi.</div>
+      )}
+    </div>
+  );
+}
+
+function MonthDayCard({ item }) {
+  return (
+    <div className="mb-[8px] rounded-[14px] border border-[var(--hair)] px-[14px] py-[12px]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-mono text-[15px] font-bold tabular-nums text-[var(--fg)]">{item.startTime || '—'}</div>
+        {item.platformAccount ? (
+          <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--fg-3)]">{item.platformAccount}</div>
+        ) : null}
+      </div>
+      {item.creatorAccount || item.title ? (
+        <div className="mt-[3px] text-[12.5px] leading-snug text-[var(--fg-2)]">{item.creatorAccount || item.title}</div>
+      ) : null}
+      <RecapActionLink action={item.recapAction} />
+    </div>
+  );
+}
+
+function formatDayLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const dayNames = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+  const monthNames = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+  return `${dayNames[date.getDay()]}, ${d} ${monthNames[m - 1]} ${y}`;
 }
 
 Schedule.layout = (page) => <PocketLayout>{page}</PocketLayout>;

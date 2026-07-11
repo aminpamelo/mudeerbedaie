@@ -43,6 +43,7 @@ use App\Http\Controllers\LiveHost\Reports\HostScorecardController;
 use App\Http\Controllers\LiveHost\Reports\ReplacementsController;
 use App\Http\Controllers\LiveHost\Reports\ReportsController;
 use App\Http\Controllers\LiveHost\SessionController;
+use App\Http\Controllers\LiveHost\SessionCoverageController;
 use App\Http\Controllers\LiveHost\SessionDataController;
 use App\Http\Controllers\LiveHost\SessionSlotController;
 use App\Http\Controllers\LiveHost\TiktokReportImportController;
@@ -661,6 +662,12 @@ Route::middleware(['auth'])
             ->prefix('mentoring')
             ->name('mentoring.')
             ->group(function () {
+                // Cross-program Monthly Performance overview (all active programs
+                // in one editable grid). Literal path — declared before the
+                // parameterized program routes.
+                Route::get('overview', [MentoringProgramController::class, 'overview'])
+                    ->name('overview');
+
                 // Programs
                 Route::get('programs', [MentoringProgramController::class, 'index'])
                     ->name('programs.index');
@@ -827,6 +834,15 @@ Route::middleware(['auth'])
                 ->name('session-slots.preview');
             Route::get('session-slots', [SessionSlotController::class, 'calendar'])
                 ->name('session-slots.index');
+
+            // Session Coverage matrix (account × month→day) + its JSON drill endpoints.
+            // Must also precede Route::resource so "/matrix" isn't read as a {sessionSlot}.
+            Route::get('session-slots/matrix', [SessionCoverageController::class, 'index'])
+                ->name('session-slots.matrix');
+            Route::get('session-slots/coverage/daily', [SessionCoverageController::class, 'daily'])
+                ->name('session-slots.coverage.daily');
+            Route::get('session-slots/coverage/day', [SessionCoverageController::class, 'day'])
+                ->name('session-slots.coverage.day');
 
             Route::resource('session-slots', SessionSlotController::class)
                 ->except(['index'])

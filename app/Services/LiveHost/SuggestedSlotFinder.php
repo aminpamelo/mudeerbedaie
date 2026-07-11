@@ -127,6 +127,61 @@ class SuggestedSlotFinder
     }
 
     /**
+     * Count unlinked TikTok lives (the same "suggestion" set forWeek() surfaces)
+     * per resolved creator account per day over an arbitrary window — the
+     * month-grid analogue used by the Session Coverage matrix. Counts are keyed
+     * by live_account_id then Y-m-d (KL date); lives whose creator isn't a
+     * registered account collapse under the special key 0 ("unregistered").
+     *
+     * @return array<int, array<string, int>>
+     */
+    public function countByAccountAndDay(
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+        ?int $platformAccountId = null,
+        ?int $liveAccountId = null,
+        bool $includeUnlinked = false
+    ): array {
+        $records = ActualLiveRecord::query()
+            ->when($platformAccountId !== null, fn ($q) => $q->where('platform_account_id', $platformAccountId))
+            ->whereBetween('launched_time', [$from->startOfDay(), $to->endOfDay()])
+            ->whereNotIn('id', function ($q) {
+                $q->select('matched_actual_live_record_id')
+                    ->from('live_sessions')
+                    ->whereNotNull('matched_actual_live_record_id');
+            })
+            ->orderBy('launched_time')
+            ->get(['id', 'platform_account_id', 'creator_platform_user_id', 'creator_handle', 'launched_time']);
+
+        if ($records->isEmpty()) {
+            return [];
+        }
+
+        [$byCreatorId, $byHandle] = $this->accountLookups($records);
+
+        $counts = [];
+
+        foreach ($records as $record) {
+            $account = $this->resolveAccount($record, $byCreatorId, $byHandle);
+
+            if ($liveAccountId !== null && (int) $account?->id !== $liveAccountId) {
+                continue;
+            }
+
+            $isLinked = $account !== null && $account->account_type === LiveAccount::TYPE_LINKED;
+            if (! $isLinked && ! $includeUnlinked && $liveAccountId === null) {
+                continue;
+            }
+
+            $key = $account?->id ?? 0;
+            $date = CarbonImmutable::instance($record->launched_time)->setTimezone(self::TIMEZONE)->toDateString();
+            $counts[$key][$date] = ($counts[$key][$date] ?? 0) + 1;
+        }
+
+        return $counts;
+    }
+
+    /**
      * The DISTINCT creators who went live in the window but are NOT yet
      * classified — the "belum diklasifikasi" list on the Creators page. Includes
      * `unknown` accounts and creators with no account at all; excludes both
