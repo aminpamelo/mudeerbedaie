@@ -69,7 +69,7 @@ it('excludes TikTok lives already linked to a recorded session', function () {
     expect($suggestions)->toBeEmpty();
 });
 
-it('flags a live whose creator is not a registered account', function () {
+it('flags a live whose creator is not a registered account (only when unlinked are included)', function () {
     [$weekStart, $weekEnd] = suggestionWeek();
     $shop = PlatformAccount::factory()->create();
     ActualLiveRecord::factory()->create([
@@ -79,12 +79,80 @@ it('flags a live whose creator is not a registered account', function () {
         'launched_time' => '2026-07-07 20:00:00',
     ]);
 
-    $suggestions = app(SuggestedSlotFinder::class)->forWeek($weekStart, $weekEnd, null, null, []);
+    // Hidden by default now (linked-only).
+    expect(app(SuggestedSlotFinder::class)->forWeek($weekStart, $weekEnd, null, null, []))->toBeEmpty();
+
+    $suggestions = app(SuggestedSlotFinder::class)->forWeek($weekStart, $weekEnd, null, null, [], includeUnlinked: true);
 
     expect($suggestions)->toHaveCount(1);
     expect($suggestions[0]['isRegistered'])->toBeFalse();
     expect($suggestions[0]['liveAccountId'])->toBeNull();
     expect($suggestions[0]['liveAccountLabel'])->toBe('mila_ckoot');
+});
+
+it('hides affiliate and unknown creator lives from the timetable by default', function () {
+    [$weekStart, $weekEnd] = suggestionWeek();
+    $shop = PlatformAccount::factory()->create();
+
+    LiveAccount::factory()->affiliate()->create(['creator_user_id' => null, 'nickname' => 'kakdee_akuwanita', 'normalized_handle' => 'kakdee_akuwanita']);
+    LiveAccount::factory()->unknown()->create(['creator_user_id' => null, 'nickname' => 'mama_qiesh', 'normalized_handle' => 'mama_qiesh']);
+    LiveAccount::factory()->linked()->create(['creator_user_id' => null, 'nickname' => 'amarmirzabedaie', 'normalized_handle' => 'amarmirzabedaie']);
+
+    foreach (['kakdee_akuwanita', 'mama_qiesh', 'amarmirzabedaie'] as $i => $handle) {
+        ActualLiveRecord::factory()->apiSync()->create([
+            'platform_account_id' => $shop->id,
+            'creator_platform_user_id' => null,
+            'creator_handle' => $handle,
+            'launched_time' => '2026-07-0'.($i + 5).' 17:00:00',
+        ]);
+    }
+
+    $default = app(SuggestedSlotFinder::class)->forWeek($weekStart, $weekEnd, null, null, []);
+    expect($default)->toHaveCount(1);
+    expect($default[0]['creatorHandle'])->toBe('amarmirzabedaie');
+
+    $all = app(SuggestedSlotFinder::class)->forWeek($weekStart, $weekEnd, null, null, [], includeUnlinked: true);
+    expect($all)->toHaveCount(3);
+});
+
+it('lists only unknown/unresolved creators as unclassified (linked and affiliate are settled)', function () {
+    $shop = PlatformAccount::factory()->create();
+
+    LiveAccount::factory()->linked()->create(['creator_user_id' => null, 'nickname' => 'amarmirzabedaie', 'normalized_handle' => 'amarmirzabedaie']);
+    LiveAccount::factory()->affiliate()->create(['creator_user_id' => null, 'nickname' => 'kakdee_akuwanita', 'normalized_handle' => 'kakdee_akuwanita']);
+    LiveAccount::factory()->unknown()->create(['creator_user_id' => null, 'nickname' => 'ustamarbedaie', 'normalized_handle' => 'ustamarbedaie']);
+
+    $rows = [
+        ['amarmirzabedaie', 500, now()->subDays(2)],   // linked — excluded
+        ['kakdee_akuwanita', 10, now()->subDays(1)],   // affiliate — excluded (settled)
+        ['ustamarbedaie', 20, now()->subDays(1)],      // unknown — appears
+        ['ustamarbedaie', 30, now()->subDays(3)],      // unknown — same group
+        ['bondaaran', 0, now()->subDays(1)],           // unresolved (no account) — appears
+    ];
+    foreach ($rows as [$handle, $gmv, $when]) {
+        ActualLiveRecord::factory()->apiSync()->create([
+            'platform_account_id' => $shop->id, 'creator_platform_user_id' => null,
+            'creator_handle' => $handle, 'launched_time' => $when, 'live_attributed_gmv_myr' => $gmv,
+        ]);
+    }
+
+    $unclassified = app(SuggestedSlotFinder::class)->unclassifiedCreators(
+        CarbonImmutable::now()->subDays(14),
+        CarbonImmutable::now(),
+    );
+
+    $handles = collect($unclassified)->pluck('creatorHandle')->all();
+    expect($unclassified)->toHaveCount(2);
+    expect($handles)->not->toContain('amarmirzabedaie');
+    expect($handles)->not->toContain('kakdee_akuwanita');
+
+    $unknown = collect($unclassified)->firstWhere('creatorHandle', 'ustamarbedaie');
+    expect($unknown['liveCount'])->toBe(2);
+    expect($unknown['attributedGmv'])->toBe(50.0);
+    // Knows which TikTok Shop the creator went live on.
+    expect($unknown['platformAccountId'])->toBe($shop->id);
+    expect($unknown['shops'])->toHaveCount(1);
+    expect($unknown['shops'][0]['id'])->toBe($shop->id);
 });
 
 it('tags a live sitting on an existing unverified slot as near_slot and picks the nearest time slot', function () {

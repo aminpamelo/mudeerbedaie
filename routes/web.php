@@ -497,6 +497,8 @@ Route::middleware(['auth'])
                 ->name('creators.destroy');
 
             // Live accounts (creator nicknames) — the scheduling punca kuasa.
+            Route::post('live-accounts/classify', [LiveAccountController::class, 'classify'])
+                ->name('live-accounts.classify');
             Route::post('live-accounts', [LiveAccountController::class, 'store'])
                 ->name('live-accounts.store');
             Route::put('live-accounts/{liveAccount}', [LiveAccountController::class, 'update'])

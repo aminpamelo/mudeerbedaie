@@ -8,9 +8,12 @@ use App\Http\Requests\LiveHost\UpdateLiveAccountRequest;
 use App\Models\LiveAccount;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use App\Services\LiveHost\LiveAccountResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,6 +25,8 @@ use Inertia\Response;
  */
 class LiveAccountController extends Controller
 {
+    public function __construct(private LiveAccountResolver $resolver) {}
+
     public function index(Request $request): Response
     {
         $search = $request->string('search')->toString();
@@ -65,6 +70,9 @@ class LiveAccountController extends Controller
                 'normalized_handle' => LiveAccount::normalizeHandle($data['nickname'] ?? null),
                 'is_active' => (bool) ($data['is_active'] ?? true),
                 'needs_review' => (bool) ($data['needs_review'] ?? false),
+                // Creating an account by hand (incl. the register-creator prompt)
+                // is a deliberate "this is our creator" — default it to linked.
+                'account_type' => $data['account_type'] ?? LiveAccount::TYPE_LINKED,
             ]);
 
             $this->syncShops($account, $data);
@@ -88,6 +96,7 @@ class LiveAccountController extends Controller
                 'normalized_handle' => LiveAccount::normalizeHandle($data['nickname'] ?? null),
                 'is_active' => (bool) ($data['is_active'] ?? $liveAccount->is_active),
                 'needs_review' => (bool) ($data['needs_review'] ?? $liveAccount->needs_review),
+                'account_type' => $data['account_type'] ?? $liveAccount->account_type,
             ])->save();
 
             if (array_key_exists('shop_ids', $data)) {
@@ -108,6 +117,71 @@ class LiveAccountController extends Controller
         $liveAccount->delete();
 
         return back()->with('success', 'Live account removed.');
+    }
+
+    /**
+     * One-click classify a creator as linked / affiliate / unknown from the
+     * Creators "belum diklasifikasi" list. Works by handle alone — the TikTok
+     * shop_lives API returns no Creator ID, so requiring one here would block
+     * every API-discovered creator. Resolves an existing account (by id, then
+     * Creator ID, then handle); creates a handle-only account if none exists.
+     */
+    public function classify(Request $request): RedirectResponse
+    {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
+        $validated = $request->validate([
+            'live_account_id' => ['nullable', 'integer', 'exists:live_accounts,id'],
+            'creator_handle' => ['nullable', 'string', 'max:255'],
+            'creator_user_id' => ['nullable', 'string', 'max:255'],
+            'account_type' => ['required', Rule::in(LiveAccount::ACCOUNT_TYPES)],
+            'shop_ids' => ['array'],
+            'shop_ids.*' => ['integer', 'exists:platform_accounts,id'],
+        ], [], ['account_type' => 'account type']);
+
+        $handle = $validated['creator_handle'] ?? null;
+        $creatorId = $validated['creator_user_id'] ?? null;
+
+        DB::transaction(function () use ($validated, $handle, $creatorId): void {
+            $account = isset($validated['live_account_id'])
+                ? LiveAccount::find($validated['live_account_id'])
+                : ($this->resolver->fromCreatorId($creatorId) ?? $this->resolver->fromHandle($handle));
+
+            if ($account === null) {
+                abort_if($handle === null && ($creatorId === null || $creatorId === ''), 422, 'A handle or Creator ID is required.');
+
+                $account = new LiveAccount([
+                    'creator_user_id' => $creatorId ?: null,
+                    'nickname' => $handle,
+                    'display_name' => $handle,
+                    'normalized_handle' => LiveAccount::normalizeHandle($handle),
+                    'is_active' => true,
+                    'needs_review' => false,
+                ]);
+            }
+
+            $account->account_type = $validated['account_type'];
+            $account->save();
+
+            // Record which TikTok Shop(s) a linked account belongs to — the
+            // shops it actually went live on. First shop is primary if the
+            // account has none yet.
+            $shopIds = array_values(array_unique(array_map('intval', $validated['shop_ids'] ?? [])));
+            if ($validated['account_type'] === LiveAccount::TYPE_LINKED && $shopIds !== []) {
+                $hasPrimary = $account->shops()->wherePivot('is_primary', true)->exists();
+                $payload = [];
+                foreach ($shopIds as $i => $id) {
+                    $payload[$id] = ['is_primary' => ! $hasPrimary && $i === 0];
+                }
+                $account->shops()->syncWithoutDetaching($payload);
+            }
+        });
+
+        $label = $validated['account_type'] === LiveAccount::TYPE_LINKED
+            ? 'linked TikTok Shop account'
+            : $validated['account_type'];
+
+        return back()->with('success', "Creator marked as {$label}.");
     }
 
     /**
@@ -175,6 +249,8 @@ class LiveAccountController extends Controller
             'label' => $account->label,
             'is_active' => (bool) $account->is_active,
             'needs_review' => (bool) $account->needs_review,
+            'account_type' => $account->account_type,
+            'is_linked' => $account->isLinked(),
             'shops' => $account->shops->map(fn (PlatformAccount $s) => [
                 'id' => $s->id,
                 'name' => $s->name,
@@ -188,9 +264,9 @@ class LiveAccountController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string}>
+     * @return Collection<int, array{id: int, name: string}>
      */
-    private function shopOptions(): \Illuminate\Support\Collection
+    private function shopOptions(): Collection
     {
         return PlatformAccount::query()
             ->orderBy('name')
@@ -199,9 +275,9 @@ class LiveAccountController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string}>
+     * @return Collection<int, array{id: int, name: string}>
      */
-    private function hostOptions(): \Illuminate\Support\Collection
+    private function hostOptions(): Collection
     {
         return User::query()
             ->where('role', 'live_host')

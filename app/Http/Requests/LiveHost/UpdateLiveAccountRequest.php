@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\LiveHost;
 
+use App\Models\LiveAccount;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,6 +41,7 @@ class UpdateLiveAccountRequest extends FormRequest
             'display_name' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'needs_review' => ['boolean'],
+            'account_type' => ['nullable', Rule::in(LiveAccount::ACCOUNT_TYPES)],
             'shop_ids' => ['array'],
             'shop_ids.*' => ['integer', 'exists:platform_accounts,id'],
             'primary_shop_id' => ['nullable', 'integer', 'exists:platform_accounts,id'],

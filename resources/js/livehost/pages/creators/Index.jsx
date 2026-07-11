@@ -1,6 +1,6 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { BadgeCheck, HelpCircle, Pencil, Plus, Search, Trash2, UserPlus } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
@@ -28,6 +28,48 @@ function PrimaryBadge() {
       Primary
     </span>
   );
+}
+
+/**
+ * Shows whether the creator's canonical account is a linked TikTok Shop account
+ * (the ones the timetable shows) vs still unclassified.
+ */
+function LinkedBadge({ account }) {
+  if (account?.is_linked) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#EFF6FF] px-2 py-[2px] text-[10.5px] font-medium text-[#1D4ED8]">
+        <BadgeCheck className="h-[12px] w-[12px]" strokeWidth={2.4} />
+        Linked
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F5] px-2 py-[2px] text-[10.5px] font-medium text-[#737373]">
+      <HelpCircle className="h-[12px] w-[12px]" strokeWidth={2.2} />
+      Not linked
+    </span>
+  );
+}
+
+function relativeTime(iso) {
+  if (!iso) {
+    return null;
+  }
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) {
+    return null;
+  }
+  const diff = Date.now() - then;
+  const mins = Math.round(diff / 60000);
+  if (mins < 60) {
+    return `${Math.max(1, mins)}m ago`;
+  }
+  const hours = Math.round(mins / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  return `${Math.round(hours / 24)}d ago`;
 }
 
 function CreatorFormModal({ open, onOpenChange, mode, creator, hosts, platformAccounts, onSaved }) {
@@ -87,6 +129,7 @@ function CreatorFormModal({ open, onOpenChange, mode, creator, hosts, platformAc
             <DialogTitle>{isEdit ? 'Edit creator' : 'New creator'}</DialogTitle>
             <DialogDescription>
               Link a live host to a TikTok creator identity so imports match automatically.
+              Registering marks this creator as a <span className="font-medium text-[#0A0A0A]">linked TikTok Shop account</span> — its lives then show on the timetable.
             </DialogDescription>
           </DialogHeader>
 
@@ -197,13 +240,61 @@ function CreatorFormModal({ open, onOpenChange, mode, creator, hosts, platformAc
 }
 
 export default function CreatorsIndex() {
-  const { creators, filters, hosts, platformAccounts, flash, auth } = usePage().props;
+  const {
+    creators,
+    filters,
+    hosts,
+    platformAccounts,
+    flash,
+    auth,
+    unclassified = [],
+    unclassifiedWindowDays = 14,
+  } = usePage().props;
   const canManageCreators = Boolean(auth?.permissions?.canManageCreators);
 
   const [search, setSearch] = useState(filters?.search ?? '');
+  const [shopFilter, setShopFilter] = useState(filters?.platform_account ?? '');
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [flashMessage, setFlashMessage] = useState(null);
+  const [classifyingKey, setClassifyingKey] = useState(null);
+
+  const navigateFilters = (next = {}) => {
+    router.get(
+      '/livehost/creators',
+      {
+        search: (next.search ?? search) || undefined,
+        platform_account: (next.platform_account ?? shopFilter) || undefined,
+      },
+      { preserveState: true, preserveScroll: true, replace: true }
+    );
+  };
+
+  const onShopFilterChange = (value) => {
+    setShopFilter(value);
+    navigateFilters({ platform_account: value });
+  };
+
+  // One-click classify from the "belum diklasifikasi" list. No Creator ID needed
+  // — the TikTok API only gives us the handle, so we link/dismiss by handle.
+  const classifyUnclassified = (row, accountType) => {
+    const key = row.liveAccountId ?? row.creatorHandle ?? row.creatorUserId;
+    setClassifyingKey(key);
+    router.post(
+      '/livehost/live-accounts/classify',
+      {
+        live_account_id: row.liveAccountId ?? null,
+        creator_handle: row.creatorHandle ? String(row.creatorHandle).replace(/^@/, '') : null,
+        creator_user_id: row.creatorUserId ?? null,
+        account_type: accountType,
+        shop_ids: (row.shops ?? []).map((s) => s.id),
+      },
+      {
+        preserveScroll: true,
+        onFinish: () => setClassifyingKey(null),
+      }
+    );
+  };
 
   useEffect(() => {
     if (flash?.success) {
@@ -218,11 +309,7 @@ export default function CreatorsIndex() {
     }
 
     const handle = setTimeout(() => {
-      router.get(
-        '/livehost/creators',
-        { search: search || undefined },
-        { preserveState: true, preserveScroll: true, replace: true }
-      );
+      navigateFilters({ search });
     }, 300);
 
     return () => clearTimeout(handle);
@@ -297,6 +384,94 @@ export default function CreatorsIndex() {
           </div>
         )}
 
+        {unclassified.length > 0 && (
+          <div className="overflow-hidden rounded-[16px] border border-[#FDE68A] bg-[#FFFBEB] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#FDE68A]/70 px-5 py-3.5">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-[#F59E0B] px-2 py-[2px] text-[11px] font-semibold text-white">
+                  {unclassified.length}
+                </span>
+                <div>
+                  <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[#78350F]">
+                    Belum diklasifikasi
+                  </div>
+                  <div className="text-[11.5px] text-[#92400E]">
+                    Creator yang live {unclassifiedWindowDays} hari lepas tapi belum diklasifikasi. Klik <span className="font-medium">Daftar sebagai linked</span> untuk yang betul milik anda, atau <span className="font-medium">Bukan kami</span> untuk affiliate luar. Tak perlu Creator ID.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="text-[11px] font-medium text-[#92400E]">
+                    <th className="px-5 py-2 text-left">Creator</th>
+                    <th className="px-5 py-2 text-left">TikTok Shop</th>
+                    <th className="px-5 py-2 text-right">Lives</th>
+                    <th className="px-5 py-2 text-right">GMV attributed</th>
+                    <th className="px-5 py-2 text-right">Last live</th>
+                    <th className="px-5 py-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unclassified.map((row, index) => (
+                    <tr key={`${row.creatorHandle ?? row.creatorUserId ?? 'x'}-${index}`} className="border-t border-[#FDE68A]/60">
+                      <td className="px-5 py-2.5 font-medium text-[#78350F]">
+                        {formatHandle(row.creatorHandle) ?? row.creatorUserId ?? 'Unknown creator'}
+                      </td>
+                      <td className="px-5 py-2.5 text-[#92400E]">
+                        {row.platformAccount ? (
+                          <span>
+                            {row.platformAccount}
+                            {row.shops && row.shops.length > 1 && (
+                              <span className="ml-1 text-[11px] text-[#B45309]">+{row.shops.length - 1}</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-[#B45309]/60">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-2.5 text-right tabular-nums text-[#92400E]">{row.liveCount}</td>
+                      <td className="px-5 py-2.5 text-right tabular-nums text-[#92400E]">
+                        RM {Number(row.attributedGmv ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-5 py-2.5 text-right text-[11.5px] text-[#B45309]">
+                        {relativeTime(row.lastLiveAt) ?? '—'}
+                      </td>
+                      <td className="px-5 py-2.5 text-right">
+                        {canManageCreators ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={classifyingKey !== null}
+                              onClick={() => classifyUnclassified(row, 'linked')}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-[#F59E0B] bg-white px-2.5 py-1 text-[12px] font-medium text-[#B45309] hover:bg-[#FFFBEB] disabled:opacity-50"
+                            >
+                              <UserPlus className="h-[13px] w-[13px]" strokeWidth={2.2} />
+                              Daftar sebagai linked
+                            </button>
+                            <button
+                              type="button"
+                              disabled={classifyingKey !== null}
+                              onClick={() => classifyUnclassified(row, 'affiliate')}
+                              title="Tandakan sebagai affiliate luar (bukan akaun kami) — buang dari senarai"
+                              className="inline-flex items-center rounded-md px-2 py-1 text-[12px] font-medium text-[#92400E]/70 hover:bg-[#FEF3C7] disabled:opacity-50"
+                            >
+                              Bukan kami
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11.5px] text-[#B45309]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="relative w-full sm:max-w-md sm:flex-1">
             <Search
@@ -310,6 +485,19 @@ export default function CreatorsIndex() {
               className="border-[#EAEAEA] bg-[#FAFAFA] pl-9"
             />
           </div>
+          <select
+            value={shopFilter}
+            onChange={(event) => onShopFilterChange(event.target.value)}
+            className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
+          >
+            <option value="">All TikTok Shops</option>
+            {platformAccounts.map((pa) => (
+              <option key={pa.id} value={pa.id}>
+                {pa.name}
+                {pa.platform ? ` · ${pa.platform}` : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
         {creators.data.length === 0 ? (
@@ -354,16 +542,20 @@ export default function CreatorsIndex() {
                         <td className="px-5 py-3.5">
                           {creator.host ? (
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2 truncate text-[13.5px] font-semibold tracking-[-0.01em]">
-                                {creator.host.name}
+                              <div className="flex flex-wrap items-center gap-2 text-[13.5px] font-semibold tracking-[-0.01em]">
+                                <span className="truncate">{creator.host.name}</span>
                                 {creator.is_primary && <PrimaryBadge />}
+                                <LinkedBadge account={creator.live_account} />
                               </div>
                               <div className="mt-0.5 truncate text-[11.5px] text-[#737373]">
                                 {creator.host.email}
                               </div>
                             </div>
                           ) : (
-                            <span className="text-[#737373]">—</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#737373]">—</span>
+                              <LinkedBadge account={creator.live_account} />
+                            </div>
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-[13px] text-[#0A0A0A]">

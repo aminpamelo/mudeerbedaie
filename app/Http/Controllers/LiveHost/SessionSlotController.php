@@ -109,6 +109,7 @@ class SessionSlotController extends Controller
         $mode = $request->string('mode')->toString();
         $weekOf = $request->string('week_of')->toString();
         $showSuggestions = $request->string('show_suggestions')->toString();
+        $includeUnlinked = $request->boolean('include_unlinked');
 
         $weekStart = $weekOf !== ''
             ? CarbonImmutable::parse($weekOf)->startOfWeek(CarbonImmutable::SUNDAY)
@@ -175,7 +176,8 @@ class SessionSlotController extends Controller
                 $weekEnd,
                 $platformAccount !== '' ? (int) $platformAccount : null,
                 $liveAccount !== '' ? (int) $liveAccount : null,
-                $timeSlots->all()
+                $timeSlots->all(),
+                $includeUnlinked
             )
             : [];
 
@@ -192,6 +194,7 @@ class SessionSlotController extends Controller
                 'mode' => $mode,
                 'week_of' => $weekStart->toDateString(),
                 'show_suggestions' => $showSuggestions === '0' ? '0' : '1',
+                'include_unlinked' => $includeUnlinked ? '1' : '0',
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Database\Factories\LiveAccountFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,8 +11,33 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LiveAccount extends Model
 {
-    /** @use HasFactory<\Database\Factories\LiveAccountFactory> */
+    /** @use HasFactory<LiveAccountFactory> */
     use HasFactory;
+
+    /**
+     * The shop's own creator account, officially linked to its TikTok Shop.
+     * Only these appear on the Live Host timetable by default.
+     */
+    public const TYPE_LINKED = 'linked';
+
+    /**
+     * An external affiliate creator who promoted the shop's products. Their
+     * lives are excluded from the timetable and host scorecards.
+     */
+    public const TYPE_AFFILIATE = 'affiliate';
+
+    /**
+     * Discovered from a TikTok sync but not yet classified by the PIC.
+     * Treated as non-linked (excluded) until reviewed.
+     */
+    public const TYPE_UNKNOWN = 'unknown';
+
+    /** @var array<int, string> */
+    public const ACCOUNT_TYPES = [
+        self::TYPE_LINKED,
+        self::TYPE_AFFILIATE,
+        self::TYPE_UNKNOWN,
+    ];
 
     protected $fillable = [
         'creator_user_id',
@@ -21,6 +48,7 @@ class LiveAccount extends Model
         'follower_count',
         'is_active',
         'needs_review',
+        'account_type',
         'metadata',
     ];
 
@@ -57,6 +85,22 @@ class LiveAccount extends Model
     public function scheduleAssignments(): HasMany
     {
         return $this->hasMany(LiveScheduleAssignment::class, 'live_account_id');
+    }
+
+    /**
+     * Only the shop's own linked TikTok Shop accounts — the set the timetable
+     * shows by default (external affiliates and unclassified creators excluded).
+     *
+     * @param  Builder<LiveAccount>  $query
+     */
+    public function scopeLinked(Builder $query): void
+    {
+        $query->where('account_type', self::TYPE_LINKED);
+    }
+
+    public function isLinked(): bool
+    {
+        return $this->account_type === self::TYPE_LINKED;
     }
 
     public function liveSessions(): HasMany

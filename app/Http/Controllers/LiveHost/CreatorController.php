@@ -5,11 +5,16 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreCreatorRequest;
 use App\Http\Requests\LiveHost\UpdateCreatorRequest;
+use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use App\Services\LiveHost\LiveAccountResolver;
+use App\Services\LiveHost\SuggestedSlotFinder;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,12 +24,29 @@ use Inertia\Response;
  * record — (host × platform account) + TikTok creator identity. Populating
  * creator_platform_user_id here is what lets the TikTok import matcher
  * (LiveSessionMatcher) link report rows to live sessions.
+ *
+ * Registering a creator here also marks its canonical LiveAccount as `linked`
+ * (a linked TikTok Shop account) — the signal the timetable filters on so only
+ * the shop's own creators appear, and affiliate lives stay hidden.
  */
 class CreatorController extends Controller
 {
+    /**
+     * How many days back the "belum diklasifikasi" nudge scans for creators
+     * who went live but aren't linked yet.
+     */
+    private const UNCLASSIFIED_WINDOW_DAYS = 14;
+
+    public function __construct(
+        private LiveAccountResolver $accounts,
+        private SuggestedSlotFinder $suggestions,
+    ) {}
+
     public function index(Request $request): Response
     {
         $search = $request->string('search')->toString();
+        $platformAccount = $request->string('platform_account')->toString();
+        $shopId = $platformAccount !== '' ? (int) $platformAccount : null;
 
         $creators = LiveHostPlatformAccount::query()
             ->with([
@@ -39,6 +61,7 @@ class CreatorController extends Controller
                         ->orWhereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
                 });
             })
+            ->when($shopId !== null, fn ($q) => $q->where('platform_account_id', $shopId))
             ->orderByRaw('creator_handle IS NULL')
             ->orderBy('creator_handle')
             ->orderByDesc('is_primary')
@@ -47,11 +70,19 @@ class CreatorController extends Controller
             ->withQueryString()
             ->through(fn (LiveHostPlatformAccount $c) => $this->mapCreator($c));
 
+        $unclassified = $this->suggestions->unclassifiedCreators(
+            CarbonImmutable::now()->subDays(self::UNCLASSIFIED_WINDOW_DAYS),
+            CarbonImmutable::now(),
+            $shopId,
+        );
+
         return Inertia::render('creators/Index', [
             'creators' => $creators,
-            'filters' => ['search' => $search],
+            'filters' => ['search' => $search, 'platform_account' => $platformAccount],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'unclassified' => $unclassified,
+            'unclassifiedWindowDays' => self::UNCLASSIFIED_WINDOW_DAYS,
         ]);
     }
 
@@ -71,6 +102,7 @@ class CreatorController extends Controller
             ]);
 
             $this->demoteOtherPrimaries($creator);
+            $this->markAccountLinked($creator);
         });
 
         return back()->with('success', 'Creator added.');
@@ -90,6 +122,7 @@ class CreatorController extends Controller
             ])->save();
 
             $this->demoteOtherPrimaries($creator);
+            $this->markAccountLinked($creator);
         });
 
         return redirect()
@@ -109,10 +142,45 @@ class CreatorController extends Controller
     }
 
     /**
+     * Mark the creator's canonical LiveAccount as a linked TikTok Shop account.
+     * Resolves an existing account by Creator ID (then handle); if none exists
+     * yet, creates one so the timetable can show this creator's lives right away.
+     * Back-fills the Creator ID onto a handle-only account we now have it for.
+     */
+    private function markAccountLinked(LiveHostPlatformAccount $creator): void
+    {
+        $creatorId = $creator->creator_platform_user_id !== null
+            ? trim((string) $creator->creator_platform_user_id)
+            : null;
+
+        $account = $this->accounts->fromCreatorId($creatorId)
+            ?? $this->accounts->fromHandle($creator->creator_handle);
+
+        if ($account === null) {
+            $account = new LiveAccount([
+                'creator_user_id' => $creatorId ?: null,
+                'nickname' => $creator->creator_handle,
+                'display_name' => $creator->creator_handle,
+                'normalized_handle' => LiveAccount::normalizeHandle($creator->creator_handle),
+                'is_active' => true,
+                'needs_review' => false,
+            ]);
+        } elseif ($account->creator_user_id === null && $creatorId !== null && $creatorId !== '') {
+            $account->creator_user_id = $creatorId;
+        }
+
+        $account->account_type = LiveAccount::TYPE_LINKED;
+        $account->save();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function mapCreator(LiveHostPlatformAccount $creator): array
     {
+        $account = $this->accounts->fromCreatorId($creator->creator_platform_user_id)
+            ?? $this->accounts->fromHandle($creator->creator_handle);
+
         return [
             'id' => $creator->id,
             'user_id' => $creator->user_id,
@@ -120,6 +188,11 @@ class CreatorController extends Controller
             'creator_handle' => $creator->creator_handle,
             'creator_platform_user_id' => $creator->creator_platform_user_id,
             'is_primary' => (bool) $creator->is_primary,
+            'live_account' => $account ? [
+                'id' => $account->id,
+                'account_type' => $account->account_type,
+                'is_linked' => $account->isLinked(),
+            ] : null,
             'host' => $creator->user ? [
                 'id' => $creator->user->id,
                 'name' => $creator->user->name,
@@ -136,9 +209,9 @@ class CreatorController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
-    private function hostOptions(): \Illuminate\Support\Collection
+    private function hostOptions(): Collection
     {
         return User::query()
             ->where('role', 'live_host')
@@ -152,9 +225,9 @@ class CreatorController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
-    private function platformAccountOptions(): \Illuminate\Support\Collection
+    private function platformAccountOptions(): Collection
     {
         return PlatformAccount::query()
             ->with('platform:id,slug,name,display_name')
