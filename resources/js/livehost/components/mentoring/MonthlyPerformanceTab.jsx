@@ -118,6 +118,55 @@ function writeViewParam(v) {
   window.history.replaceState(window.history.state, '', url);
 }
 
+/* ---------------- Per-program view preferences (localStorage) ----------------
+ * The month window lives in the URL so a refresh or shared link reopens the same
+ * view, but a fresh navigation to this tab arrives with no query string and the
+ * server falls back to its default range. We remember the last-used view per
+ * program in localStorage and re-apply it on mount so the PIC doesn't have to
+ * re-pick their window (and Group by PIC / day-view) every visit. */
+const PREF_PREFIX = 'livehost:mentoring:perf:';
+
+function readPrefs(programId) {
+  if (typeof window === 'undefined' || !programId) return null;
+  try {
+    const raw = window.localStorage.getItem(PREF_PREFIX + programId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePrefs(programId, patch) {
+  if (typeof window === 'undefined' || !programId) return;
+  try {
+    const current = readPrefs(programId) ?? {};
+    window.localStorage.setItem(PREF_PREFIX + programId, JSON.stringify({ ...current, ...patch }));
+  } catch {
+    /* storage disabled or over quota — persistence is best-effort */
+  }
+}
+
+/** Expanded months on mount: URL wins (refresh/share), else the saved preference. */
+function initExpanded(programId) {
+  const fromUrl = readExpandParam();
+  if (fromUrl.size) return fromUrl;
+  const prefs = readPrefs(programId);
+  return new Set(Array.isArray(prefs?.expand) ? prefs.expand : []);
+}
+
+/** Day-cell density on mount: an explicit URL param wins, else the saved preference. */
+function initDayView(programId) {
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('perf_view')) {
+    return readViewParam();
+  }
+  return readPrefs(programId)?.dayView === 'dots' ? 'dots' : 'detailed';
+}
+
+function initGroupByPic(programId) {
+  const prefs = readPrefs(programId);
+  return typeof prefs?.groupByPic === 'boolean' ? prefs.groupByPic : true;
+}
+
 function weekdayShort(mo, day) {
   return new Date(mo.year, mo.month - 1, day).toLocaleDateString(undefined, { weekday: 'short' });
 }
@@ -167,12 +216,13 @@ function Modal({ onClose, children, maxWidth = 'max-w-md' }) {
 
 /* ---------------- Month filter ---------------- */
 
-function MonthFilter({ performance }) {
+function MonthFilter({ performance, program }) {
   const { year, range, years, months } = performance;
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
 
   const apply = (nextYear, from, to) => {
+    writePrefs(program?.id, { year: nextYear, from, to }); // remember this window for next visit
     const data = { tab: 'performance', perf_year: nextYear, perf_from: from, perf_to: to };
     const params = new URLSearchParams(window.location.search);
     const expand = params.get('perf_expand');
@@ -227,9 +277,9 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
   const levels = performance?.levels ?? [];
 
   const [query, setQuery] = useState('');
-  const [groupByPic, setGroupByPic] = useState(true);
-  const [expanded, setExpanded] = useState(readExpandParam); // month values expanded into day columns (URL-persisted)
-  const [dayView, setDayView] = useState(readViewParam); // 'dots' | 'detailed' for expanded day cells
+  const [groupByPic, setGroupByPic] = useState(() => initGroupByPic(program?.id));
+  const [expanded, setExpanded] = useState(() => initExpanded(program?.id)); // expanded months: URL, else saved preference
+  const [dayView, setDayView] = useState(() => initDayView(program?.id)); // 'dots' | 'detailed' for expanded day cells
   const [matrices, setMatrices] = useState({}); // monthValue -> { loading, byMentee }
   const [popover, setPopover] = useState(null); // { type, menteeId, anchor }
   const [modal, setModal] = useState(null); // { type, mentee, month, day, presetDate }
@@ -253,7 +303,12 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
   }, []);
   const currentDay = useMemo(() => new Date().getDate(), []);
   const detailed = dayView === 'detailed';
-  const setView = (v) => { setDayView(v); writeViewParam(v); };
+  const setView = (v) => { setDayView(v); writeViewParam(v); writePrefs(program?.id, { dayView: v }); };
+  const toggleGroupByPic = () => setGroupByPic((v) => {
+    const next = !v;
+    writePrefs(program?.id, { groupByPic: next });
+    return next;
+  });
 
   const visibleMentees = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -313,6 +368,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
         if (!matrices[mo.value]) fetchMatrix(mo);
       }
       writeExpandParam(next);
+      writePrefs(program?.id, { expand: [...next] });
       return next;
     });
   };
@@ -325,6 +381,34 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [months, fetchMatrix]);
+
+  // On a fresh visit (no window params in the URL), re-apply the last-used month
+  // window saved for this program so the view isn't reset to the server default.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || !program?.id || typeof window === 'undefined') return;
+    restoredRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const urlHasWindow = params.has('perf_year') || params.has('perf_from') || params.has('perf_to');
+    const prefs = readPrefs(program.id);
+    const canRestore = prefs && Number.isInteger(prefs.year) && Number.isInteger(prefs.from) && Number.isInteger(prefs.to);
+    const windowDiffers = canRestore
+      && (prefs.year !== performance.year || prefs.from !== performance.range.from || prefs.to !== performance.range.to);
+
+    if (!urlHasWindow && windowDiffers) {
+      const data = { tab: 'performance', perf_year: prefs.year, perf_from: prefs.from, perf_to: prefs.to };
+      if (expanded.size) data.perf_expand = [...expanded].join(',');
+      if (dayView === 'dots') data.perf_view = 'dots';
+      router.get(window.location.pathname, data, { only: ['performance'], preserveState: true, preserveScroll: true, replace: true });
+      return;
+    }
+
+    // No server reload needed — mirror any preference-restored client view into the URL.
+    if (!params.has('perf_expand') && expanded.size) writeExpandParam(expanded);
+    if (!params.has('perf_view') && dayView === 'dots') writeViewParam(dayView);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const reloadPerformance = () => router.reload({ only: ['performance'], preserveScroll: true, preserveState: true });
 
@@ -369,7 +453,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
 
       {/* Controls */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <MonthFilter performance={performance} />
+        <MonthFilter performance={performance} program={program} />
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {expanded.size > 0 && (
             <div className="hidden h-9 items-center rounded-lg border border-[#EAEAEA] bg-white p-0.5 text-[12px] font-medium lg:inline-flex">
@@ -379,7 +463,7 @@ export default function MonthlyPerformanceTab({ performance, program, board }) {
           )}
           <button
             type="button"
-            onClick={() => setGroupByPic((v) => !v)}
+            onClick={toggleGroupByPic}
             className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors ${groupByPic ? 'border-[#0A0A0A] bg-[#0A0A0A] text-white' : 'border-[#EAEAEA] bg-white text-[#525252] hover:bg-[#F5F5F5]'}`}
           >
             <Layers className="h-3.5 w-3.5" strokeWidth={2} /> Group by PIC
