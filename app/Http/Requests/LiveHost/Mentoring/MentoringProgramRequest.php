@@ -31,7 +31,9 @@ class MentoringProgramRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'leader_user_id' => [
                 'nullable',
-                Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'live_host')),
+                Rule::exists('users', 'id')->where(
+                    fn ($q) => $q->whereIn('role', ['live_host', 'admin_livehost', 'livehost_assistant'])
+                ),
             ],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
@@ -47,7 +49,7 @@ class MentoringProgramRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'leader_user_id.exists' => 'The selected leader must be an existing live host.',
+            'leader_user_id.exists' => 'The selected leader must be an existing live host or Live Host Desk staff member.',
             'ends_at.after_or_equal' => 'The end date must be on or after the start date.',
         ];
     }

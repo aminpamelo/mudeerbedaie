@@ -33,6 +33,7 @@ import { Label } from '@/livehost/components/ui/label';
 import ActivityLogModal from '@/livehost/components/mentoring/ActivityLogModal';
 import MenteeBoard from '@/livehost/components/mentoring/MenteeBoard';
 import MonthlyPerformanceTab from '@/livehost/components/mentoring/MonthlyPerformanceTab';
+import { LeaderOptions } from './LeaderOptions';
 
 const ACTIVITY_COLOR = { green: '#10B981', amber: '#F59E0B', red: '#F43F5E', none: '#D4D4D4' };
 
@@ -331,18 +332,13 @@ function ProgramDetailsForm({ form, onSubmit, assignableLeaders }) {
           <Field label="Program title" error={form.errors.title}>
             <Input name="title" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} className={FIELD_INPUT_CLASS} />
           </Field>
-          <Field label="Program leader (top host)" error={form.errors.leader_user_id}>
+          <Field label="Program leader" error={form.errors.leader_user_id}>
             <select
               value={form.data.leader_user_id ?? ''}
               onChange={(e) => form.setData('leader_user_id', e.target.value)}
               className="h-10 w-full appearance-none rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             >
-              <option value="">— No leader yet —</option>
-              {(assignableLeaders ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}{u.is_top_host_eligible ? ' ★' : ''}
-                </option>
-              ))}
+              <LeaderOptions leaders={assignableLeaders} />
             </select>
           </Field>
         </div>

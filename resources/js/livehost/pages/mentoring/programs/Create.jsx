@@ -4,6 +4,7 @@ import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 import { Label } from '@/livehost/components/ui/label';
+import { LeaderOptions } from './LeaderOptions';
 
 // Overrides the shared Input component to the lighter Live Host field style
 // (#EAEAEA border + soft green focus ring) used by the select/textarea fields,
@@ -85,8 +86,8 @@ export default function ProgramCreate() {
           </Field>
 
           <Field
-            label="Program leader (top host)"
-            hint="The top host who mentors this cohort. You can change this later."
+            label="Program leader"
+            hint="The live host or Live Host Desk staff member who mentors this cohort. You can change this later."
             error={form.errors.leader_user_id}
           >
             <select
@@ -94,13 +95,7 @@ export default function ProgramCreate() {
               onChange={(e) => form.setData('leader_user_id', e.target.value)}
               className="h-10 w-full appearance-none rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             >
-              <option value="">— No leader yet —</option>
-              {(assignableLeaders ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                  {u.is_top_host_eligible ? ' ★ (top-host eligible)' : ''}
-                </option>
-              ))}
+              <LeaderOptions leaders={assignableLeaders} />
             </select>
           </Field>
 

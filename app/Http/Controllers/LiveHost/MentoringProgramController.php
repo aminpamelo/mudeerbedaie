@@ -588,23 +588,34 @@ class MentoringProgramController extends Controller
     }
 
     /**
-     * Live hosts who can lead a program (the "top hosts"). Top-host-eligible
-     * graduates are surfaced first so they're easy to promote into a mentor.
+     * Users who can lead a program: live hosts (the "top hosts") plus Live Host
+     * Desk staff (the desk admin and assistants). Top-host-eligible graduates are
+     * surfaced first so they're easy to promote into a mentor; the frontend groups
+     * staff and hosts under separate headings using the `is_staff` / `role_label`.
      *
      * @return Collection<int, array<string, mixed>>
      */
     private function assignableLeaders(): Collection
     {
+        $roleLabels = [
+            'admin_livehost' => 'Admin',
+            'livehost_assistant' => 'Assistant',
+            'live_host' => 'Live Host',
+        ];
+
         return User::query()
-            ->where('role', 'live_host')
+            ->whereIn('role', array_keys($roleLabels))
             ->orderByDesc('is_top_host_eligible')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'is_top_host_eligible'])
+            ->get(['id', 'name', 'email', 'role', 'is_top_host_eligible'])
             ->map(fn (User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
                 'initials' => self::initials($u->name),
+                'role' => $u->role,
+                'role_label' => $roleLabels[$u->role] ?? 'Live Host',
+                'is_staff' => $u->role !== 'live_host',
                 'is_top_host_eligible' => (bool) $u->is_top_host_eligible,
             ])
             ->values();
