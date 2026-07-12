@@ -8,6 +8,7 @@ use App\Models\LiveHostMenteeDailyVideo;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,6 +65,9 @@ class DailyVideoController extends Controller
                 'mentee_number' => $mentee->mentee_number,
                 'program' => ['title' => $mentee->program?->title],
             ],
+            'categories' => collect(LiveHostMenteeDailyVideo::CATEGORIES)
+                ->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])
+                ->values(),
             'today' => [
                 'date' => $todayKey,
                 'label' => $today->format('l, j F'),
@@ -80,7 +84,8 @@ class DailyVideoController extends Controller
     }
 
     /**
-     * Log one video the host made today (title required, link optional).
+     * Log one video the host made (title + category required, date defaults to
+     * today but the host may backfill an earlier day, link optional).
      */
     public function store(Request $request): RedirectResponse
     {
@@ -88,13 +93,16 @@ class DailyVideoController extends Controller
         abort_if($mentee === null, 403, 'You are not currently enrolled in a mentoring program.');
 
         $data = $request->validate([
+            'date' => ['required', 'date', 'before_or_equal:today'],
             'title' => ['required', 'string', 'max:255'],
+            'category' => ['required', Rule::in(array_keys(LiveHostMenteeDailyVideo::CATEGORIES))],
             'link' => ['nullable', 'string', 'url', 'max:2048'],
         ]);
 
         $mentee->dailyVideos()->create([
-            'video_date' => CarbonImmutable::now()->toDateString(),
+            'video_date' => CarbonImmutable::parse($data['date'])->toDateString(),
             'title' => $data['title'],
+            'category' => $data['category'],
             'link' => $data['link'] ?? null,
             'logged_by' => $request->user()->id,
         ]);
@@ -120,13 +128,15 @@ class DailyVideoController extends Controller
     }
 
     /**
-     * @return array{id: int, title: string, link: string|null, time_human: string|null}
+     * @return array{id: int, title: string, category: string|null, category_label: string|null, link: string|null, time_human: string|null}
      */
     private function videoDto(LiveHostMenteeDailyVideo $video): array
     {
         return [
             'id' => $video->id,
             'title' => $video->title,
+            'category' => $video->category,
+            'category_label' => $video->categoryLabel(),
             'link' => $video->link,
             'time_human' => $video->created_at?->format('g:i A'),
         ];

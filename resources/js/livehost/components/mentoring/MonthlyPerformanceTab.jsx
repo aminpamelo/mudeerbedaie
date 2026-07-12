@@ -1061,6 +1061,7 @@ function DayModal({ mentee, month, day, reloadProp = 'performance', onSaved, onL
               <div className="flex min-w-0 items-center gap-1.5">
                 <Video className="h-3.5 w-3.5 shrink-0 text-[#7C3AED]" strokeWidth={2.25} />
                 <span className="truncate text-[12px] font-medium text-[#0A0A0A]">{v.title}</span>
+                {v.category_label && <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[9.5px] font-semibold text-[#6D28D9] ring-1 ring-[#E9E3FB]">{v.category_label}</span>}
               </div>
               {v.link && (
                 <a href={v.link} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[11px] font-medium text-[#7C3AED] hover:underline">Open</a>

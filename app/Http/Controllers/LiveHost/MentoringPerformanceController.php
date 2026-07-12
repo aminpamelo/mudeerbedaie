@@ -203,6 +203,8 @@ class MentoringPerformanceController extends Controller
             ->map(fn (LiveHostMenteeDailyVideo $v) => [
                 'id' => $v->id,
                 'title' => $v->title,
+                'category' => $v->category,
+                'category_label' => $v->categoryLabel(),
                 'link' => $v->link,
             ])->values();
 
@@ -332,6 +334,8 @@ class MentoringPerformanceController extends Controller
                 'videos' => $dayVideos->map(fn (LiveHostMenteeDailyVideo $r) => [
                     'id' => $r->id,
                     'title' => $r->title,
+                    'category' => $r->category,
+                    'category_label' => $r->categoryLabel(),
                     'link' => $r->link,
                 ])->values(),
                 'has_activity' => $daySessions->isNotEmpty() || $dayComments->isNotEmpty() || $dayDisc->isNotEmpty() || $override !== null || $dayVideos->isNotEmpty(),
@@ -557,6 +561,8 @@ class MentoringPerformanceController extends Controller
                 'videos' => $menteeVideos->map(fn (LiveHostMenteeDailyVideo $v) => [
                     'id' => $v->id,
                     'title' => $v->title,
+                    'category' => $v->category,
+                    'category_label' => $v->categoryLabel(),
                     'link' => $v->link,
                 ])->values(),
             ];

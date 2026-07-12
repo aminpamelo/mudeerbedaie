@@ -38,17 +38,21 @@ function VideoStatus({ videos, count }) {
       <span className="inline-flex items-center gap-1 rounded-md bg-[#F3F0FE] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#6D28D9]">
         <Video className="h-3 w-3" strokeWidth={2.25} /> {count} video{count === 1 ? '' : 's'}
       </span>
-      {videos.map((v) => (
-        v.link ? (
-          <a key={v.id} href={v.link} target="_blank" rel="noopener noreferrer" title={v.title} className="max-w-[130px] truncate rounded-md bg-[#F7F5FE] px-1.5 py-0.5 text-[10.5px] font-medium text-[#7C3AED] hover:underline">
-            {v.title}
-          </a>
-        ) : (
-          <span key={v.id} title={v.title} className="max-w-[130px] truncate rounded-md bg-[#F7F5FE] px-1.5 py-0.5 text-[10.5px] font-medium text-[#7C3AED]">
-            {v.title}
-          </span>
-        )
-      ))}
+      {videos.map((v) => {
+        const Tag = v.link ? 'a' : 'span';
+        const linkProps = v.link ? { href: v.link, target: '_blank', rel: 'noopener noreferrer' } : {};
+        return (
+          <Tag
+            key={v.id}
+            {...linkProps}
+            title={`${v.title}${v.category_label ? ` · ${v.category_label}` : ''}`}
+            className={`inline-flex max-w-[170px] items-center gap-1 rounded-md bg-[#F7F5FE] px-1.5 py-0.5 text-[10.5px] font-medium text-[#7C3AED] ${v.link ? 'hover:underline' : ''}`}
+          >
+            <span className="truncate">{v.title}</span>
+            {v.category_label && <span className="shrink-0 text-[9px] font-semibold text-[#A78BFA]">· {v.category_label}</span>}
+          </Tag>
+        );
+      })}
     </div>
   );
 }

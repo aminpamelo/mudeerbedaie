@@ -12,11 +12,30 @@ class LiveHostMenteeDailyVideo extends Model
     /** @use HasFactory<LiveHostMenteeDailyVideoFactory> */
     use HasFactory;
 
+    /**
+     * The content category a host assigns to a video, keyed by its stored slug.
+     *
+     * @var array<string, string>
+     */
+    public const CATEGORIES = [
+        'tarik_live' => 'Tarik live',
+        'engagement' => 'Engagement',
+        'tunjuk_buku' => 'Tunjuk buku',
+        'lakonan' => 'Lakonan',
+        'podcast' => 'Podcast',
+    ];
+
     protected $table = 'live_host_mentee_daily_videos';
 
     protected $fillable = [
-        'mentee_id', 'video_date', 'title', 'link', 'logged_by',
+        'mentee_id', 'video_date', 'title', 'category', 'link', 'logged_by',
     ];
+
+    /** Human label for the stored category slug (null when unset/unknown). */
+    public function categoryLabel(): ?string
+    {
+        return self::CATEGORIES[$this->category] ?? null;
+    }
 
     protected function casts(): array
     {

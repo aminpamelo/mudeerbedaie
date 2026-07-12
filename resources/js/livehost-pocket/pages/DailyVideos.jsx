@@ -1,6 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
+  CalendarDays,
   CheckCircle2,
   ExternalLink,
   Film,
@@ -19,7 +20,7 @@ import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
  * Data comes from {@link \App\Http\Controllers\LiveHostPocket\DailyVideoController}.
  */
 export default function DailyVideos() {
-  const { enrollment, today, history, stats } = usePage().props;
+  const { enrollment, categories = [], today, history, stats } = usePage().props;
 
   if (!enrollment) {
     return <NotEnrolled />;
@@ -45,7 +46,7 @@ export default function DailyVideos() {
 
         <ComplianceBanner loggedToday={loggedToday} count={today?.videos?.length ?? 0} />
 
-        <LogForm />
+        <LogForm categories={categories} todayDate={today?.date} />
 
         <SectionHeading>{today?.label ?? 'Today'}</SectionHeading>
         <TodayList videos={today?.videos ?? []} />
@@ -98,22 +99,26 @@ function ComplianceBanner({ loggedToday, count }) {
   );
 }
 
-function LogForm() {
+function LogForm({ categories, todayDate }) {
+  const [date, setDate] = useState(todayDate ?? '');
   const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('');
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
 
+  const canSubmit = title.trim() && category && date && !busy;
+
   const submit = (e) => {
     e.preventDefault();
-    if (!title.trim() || busy) return;
+    if (!canSubmit) return;
     setBusy(true);
     router.post(
       '/live-host/videos',
-      { title: title.trim(), link: link.trim() || null },
+      { date, title: title.trim(), category, link: link.trim() || null },
       {
         preserveScroll: true,
-        onSuccess: () => { setTitle(''); setLink(''); setErrors({}); },
+        onSuccess: () => { setTitle(''); setCategory(''); setLink(''); setDate(todayDate ?? ''); setErrors({}); },
         onError: (e) => setErrors(e),
         onFinish: () => setBusy(false),
       },
@@ -123,6 +128,46 @@ function LogForm() {
   return (
     <form onSubmit={submit} className="mb-4 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[14px]">
       <label className="mb-1 block font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        Date
+      </label>
+      <div className="flex items-center gap-2 rounded-[11px] border border-[var(--hair-2)] bg-[var(--app-bg)] px-3">
+        <CalendarDays className="h-4 w-4 shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
+        <input
+          type="date"
+          value={date}
+          max={todayDate}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full bg-transparent py-[10px] text-[13px] text-[var(--fg)] focus:outline-none"
+        />
+      </div>
+      {errors.date && <p className="mt-1 text-[11px] text-[var(--hot)]">{errors.date}</p>}
+
+      <label className="mb-1.5 mt-3 block font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        Category
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        {categories.map((c) => {
+          const active = category === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setCategory(c.key)}
+              aria-pressed={active}
+              className={`rounded-full border px-3 py-[7px] text-[12px] font-semibold transition active:scale-95 ${
+                active
+                  ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
+                  : 'border-[var(--hair-2)] bg-[var(--app-bg)] text-[var(--fg-2)]'
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      {errors.category && <p className="mt-1 text-[11px] text-[var(--hot)]">{errors.category}</p>}
+
+      <label className="mb-1 mt-3 block font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
         Video title
       </label>
       <input
@@ -153,7 +198,7 @@ function LogForm() {
 
       <button
         type="submit"
-        disabled={busy || !title.trim()}
+        disabled={!canSubmit}
         className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-[11px] bg-[var(--accent)] px-0 py-[11px] font-sans text-[13px] font-bold text-[var(--accent-ink)] transition active:scale-[0.98] disabled:opacity-40"
       >
         <Plus className="h-4 w-4" strokeWidth={2.4} />
@@ -194,7 +239,12 @@ function VideoCard({ video }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-semibold leading-snug text-[var(--fg)]">{video.title}</div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {video.category_label && (
+            <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+              {video.category_label}
+            </span>
+          )}
           {video.time_human && (
             <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
               {video.time_human}
