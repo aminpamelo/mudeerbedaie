@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Hr\RejectExitPermissionRequest;
 use App\Models\AttendanceLog;
 use App\Models\ExitPermissionNotifier;
 use App\Models\OfficeExitPermission;
@@ -75,16 +74,22 @@ class HrOfficeExitPermissionController extends Controller
         });
     }
 
-    public function reject(RejectExitPermissionRequest $request, OfficeExitPermission $officeExitPermission): JsonResponse
+    public function reject(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
     {
         if (! $officeExitPermission->isPending()) {
             return response()->json(['message' => 'Only pending requests can be rejected.'], 422);
         }
 
-        return DB::transaction(function () use ($request, $officeExitPermission): JsonResponse {
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'min:5'],
+        ], [
+            'rejection_reason.min' => 'Please provide a reason with at least 5 characters.',
+        ]);
+
+        return DB::transaction(function () use ($request, $officeExitPermission, $validated): JsonResponse {
             $officeExitPermission->update([
                 'status' => 'rejected',
-                'rejection_reason' => $request->validated()['rejection_reason'],
+                'rejection_reason' => $validated['rejection_reason'],
             ]);
 
             $officeExitPermission->load('employee.user');
