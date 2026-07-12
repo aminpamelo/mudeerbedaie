@@ -79,9 +79,9 @@ function CoverageOutstandingModal({ bucket, onClose }) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
-        <div className="flex items-start justify-between gap-3 border-b border-[#F0F0F0] px-5 py-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-0 sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="flex h-[100vh] w-[100vw] max-w-[1400px] flex-col overflow-hidden bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] sm:h-[94vh] sm:rounded-[16px]">
+        <div className="flex items-start justify-between gap-3 border-b border-[#F0F0F0] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <span className={`grid h-9 w-9 place-items-center rounded-xl bg-[#F5F5F5] ${meta.tint}`}>
               {bucket === 'needs_upload' ? <Upload className="h-4 w-4" strokeWidth={2.25} /> : <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />}
@@ -97,13 +97,15 @@ function CoverageOutstandingModal({ bucket, onClose }) {
           <button type="button" onClick={onClose} className="rounded-md p-1 text-[#737373] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"><X className="h-4 w-4" strokeWidth={2} /></button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {!data && <div className="grid place-items-center py-12 text-[#A3A3A3]"><Loader2 className="h-5 w-5 animate-spin" /></div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          {!data && <div className="grid place-items-center py-16 text-[#A3A3A3]"><Loader2 className="h-6 w-6 animate-spin" /></div>}
           {data && data.hosts.length === 0 && (
-            <div className="py-12 text-center text-[13px] text-[#737373]">{meta.done}</div>
+            <div className="py-16 text-center text-[13px] text-[#737373]">{meta.done}</div>
           )}
-          {data && data.hosts.map((h) => (
-            <div key={h.host_id ?? 'unassigned'} className="mb-2.5 overflow-hidden rounded-[12px] border border-[#EEEEEE]">
+          {data && data.hosts.length > 0 && (
+          <div className="gap-4 sm:columns-2 xl:columns-3">
+          {data.hosts.map((h) => (
+            <div key={h.host_id ?? 'unassigned'} className="mb-4 break-inside-avoid overflow-hidden rounded-[12px] border border-[#EEEEEE]">
               <div className="flex items-center justify-between gap-2 border-b border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="grid h-6 w-6 place-items-center rounded-full bg-[#E5E7EB] text-[9px] font-bold text-[#525252]">{h.initials}</span>
@@ -130,6 +132,8 @@ function CoverageOutstandingModal({ bucket, onClose }) {
               </ul>
             </div>
           ))}
+          </div>
+          )}
         </div>
       </div>
     </div>
