@@ -1,209 +1,72 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
 import {
-  Users,
-  Radio,
-  Calendar,
-  Clock,
-  Check,
-  Bell,
-  Plus,
-  UserMinus,
-  Video,
   ChevronRight,
+  Gauge,
+  Grid3x3,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  UserMinus,
+  Users,
+  Video,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
-import StatCard from '@/livehost/components/StatCard';
-import LiveSessionRow from '@/livehost/components/LiveSessionRow';
-import AgendaRow from '@/livehost/components/AgendaRow';
-import ActivityFeedItem from '@/livehost/components/ActivityFeedItem';
-import StatusChip from '@/livehost/components/StatusChip';
-import { Button } from '@/livehost/components/ui/button';
-import { deriveInitials, secondsSince } from '@/livehost/lib/format';
 
-const SESSIONS_TARGET = 14;
-const WATCH_HOURS_TARGET = 67;
+/* Coverage buckets — same colours as the Coverage Matrix. */
+const COVERAGE_TILES = [
+  { key: 'needs_upload', label: 'Belum upload', hint: 'host kena upload', icon: Upload, dot: '#EF4444', tint: 'text-[#B91C1C]', bg: 'bg-[#FEF2F2]', ring: 'ring-[#FBD5D5]' },
+  { key: 'needs_verify', label: 'Belum verify', hint: 'PIC kena verify', icon: ShieldCheck, dot: '#F59E0B', tint: 'text-[#B45309]', bg: 'bg-[#FFFBEB]', ring: 'ring-[#FDE68A]' },
+  { key: 'verified', label: 'Verified', hint: 'selesai', icon: ShieldCheck, dot: '#10B981', tint: 'text-[#047857]', bg: 'bg-[#ECFDF5]', ring: 'ring-[#A7F3D0]' },
+  { key: 'suggestions', label: 'TikTok suggestion', hint: 'live tiada slot', icon: Sparkles, dot: '#7C3AED', tint: 'text-[#6D28D9]', bg: 'bg-[#F7F5FE]', ring: 'ring-[#E9E3FB]' },
+];
 
-/**
- * Poll the /livehost/live-now JSON endpoint every 10s. Returns the latest
- * liveNow list and the subset of stats that can change quickly.
- */
-function useLiveNow(initialLiveNow, initialStats) {
-  const [state, setState] = useState({
-    liveNow: initialLiveNow,
-    stats: initialStats,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const response = await fetch('/livehost/live-now', {
-          headers: { Accept: 'application/json' },
-        });
-        if (!response.ok) {
-          return;
-        }
-        const data = await response.json();
-        if (cancelled) {
-          return;
-        }
-        setState((prev) => ({
-          liveNow: data.liveNow ?? prev.liveNow,
-          stats: { ...prev.stats, ...(data.stats ?? {}) },
-        }));
-      } catch (_) {
-        // Silently ignore polling errors so the dashboard stays mounted.
-      }
-    };
-
-    const id = setInterval(tick, 10_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  return state;
-}
-
-function sumViewers(liveNow) {
-  return (liveNow ?? []).reduce((sum, l) => sum + (Number(l.viewers) || 0), 0);
-}
-
-function progressPercent(numerator, denominator) {
-  if (!denominator) {
-    return 0;
-  }
-  const pct = ((Number(numerator) || 0) / denominator) * 100;
-  return Math.max(0, Math.min(100, Math.round(pct)));
+function formatRM(n) {
+  const num = Number(n) || 0;
+  const hasSen = Math.round(num) !== num;
+  return `RM ${num.toLocaleString(undefined, { minimumFractionDigits: hasSen ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
 export default function Dashboard() {
-  const {
-    auth,
-    stats: initialStats,
-    liveNow: initialLiveNow,
-    upcoming,
-    recentActivity,
-    topHosts,
-    videoCompliance = null,
-    pendingReplacements = 0,
-  } = usePage().props;
-
+  const { auth, coverage = {}, mentoring = {}, pendingReplacements = 0 } = usePage().props;
   const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
-  const { liveNow, stats } = useLiveNow(
-    initialLiveNow ?? [],
-    initialStats ?? {}
-  );
-
-  const totalViewers = sumViewers(liveNow);
-  const sessionsPct = progressPercent(stats?.sessionsToday, SESSIONS_TARGET);
-  const watchHours = Number(stats?.watchHoursToday ?? 0);
-  const watchPct = progressPercent(watchHours, WATCH_HOURS_TARGET);
-
-  const dashboardActions = (
-    <Link href="/livehost/session-slots">
-      <Button size="sm" className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]">
-        <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
-        New schedule
-      </Button>
-    </Link>
-  );
 
   return (
     <>
       <Head title="Dashboard" />
-      <TopBar breadcrumb={['Live Host Desk', 'Dashboard']} actions={dashboardActions} />
+      <TopBar breadcrumb={['Live Host Desk', 'Dashboard']} />
 
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        <PageHeader
-          firstName={firstName}
-          liveNowCount={stats?.liveNow ?? 0}
-          viewers={totalViewers}
-        />
+        <PageHeader firstName={firstName} monthLabel={coverage.month_label ?? mentoring.month_label} />
 
-        {pendingReplacements > 0 && (
-          <PendingReplacementsBanner count={pendingReplacements} />
-        )}
+        {pendingReplacements > 0 && <PendingReplacementsBanner count={pendingReplacements} />}
 
-        {/* Bento Row 1: KPIs */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-6 xl:col-span-3">
-            <StatCard
-              variant="hero"
-              label="Active hosts"
-              value={stats?.activeHosts ?? 0}
-              icon={Users}
-              iconTint="emerald"
-              subtitle={
-                <span>
-                  of <strong>{stats?.totalHosts ?? 0}</strong> total
-                </span>
-              }
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6 xl:col-span-3">
-            <StatCard
-              variant="dark"
-              label="Live now"
-              value={stats?.liveNow ?? 0}
-              icon={Radio}
-              subtitle={<span>{totalViewers.toLocaleString()} viewers</span>}
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6 xl:col-span-3">
-            <StatCard
-              variant="progress"
-              label="Sessions today"
-              value={stats?.sessionsToday ?? 0}
-              valueUnit={`/ ${SESSIONS_TARGET}`}
-              icon={Calendar}
-              iconTint="amber"
-              progressPercent={sessionsPct}
-              subtitle={<span>{sessionsPct}% of target</span>}
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6 xl:col-span-3">
-            <StatCard
-              variant="ring"
-              label="Watch hours"
-              icon={Clock}
-              iconTint="ink"
-              ringPercent={watchPct}
-              ringValueLabel={`${watchPct}%`}
-              ringSideTitle={watchHours.toString()}
-              ringSideUnit="h"
-              ringSideSubtitle={`weekly target ${WATCH_HOURS_TARGET}h`}
-            />
-          </div>
-        </div>
-
-        {videoCompliance?.active_mentees > 0 && (
-          <VideoComplianceCard data={videoCompliance} />
-        )}
-
-        {/* Bento Row 2: On Air + Activity */}
-        <div className="grid grid-cols-12 gap-4">
-          <OnAirCard
-            className="col-span-12 xl:col-span-7"
-            liveNow={liveNow}
-            upcoming={upcoming}
-          />
-          <ActivityCard
-            className="col-span-12 xl:col-span-5"
-            activities={recentActivity}
-          />
-        </div>
-
-        {/* Bento Row 3: Top hosts */}
-        <TopHostsCard hosts={topHosts} />
+        <CoveragePanel coverage={coverage} />
+        <MentoringPanel mentoring={mentoring} />
       </div>
     </>
   );
 }
 
 Dashboard.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
+
+function PageHeader({ firstName, monthLabel }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
+      <div>
+        <h1 className="text-2xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A] sm:text-3xl">
+          Good afternoon, {firstName}
+        </h1>
+        <p className="mt-1.5 text-sm text-[#737373]">
+          Settlement &amp; mentoring health for <span className="font-medium text-[#0A0A0A]">{monthLabel ?? 'this month'}</span>
+        </p>
+      </div>
+      <span className="inline-flex items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 py-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-[#737373]">Range</span>
+        <span className="text-xs font-semibold text-[#0A0A0A]">{monthLabel ?? 'This month'}</span>
+      </span>
+    </div>
+  );
+}
 
 function PendingReplacementsBanner({ count }) {
   return (
@@ -216,433 +79,140 @@ function PendingReplacementsBanner({ count }) {
           <UserMinus className="h-5 w-5" strokeWidth={2.25} />
         </div>
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-wide text-[#92400E]">
-            Tindakan diperlukan
-          </div>
-          <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
-            Permohonan ganti tertunda
-          </div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-[#92400E]">Tindakan diperlukan</div>
+          <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">Permohonan ganti tertunda</div>
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <div className="text-3xl font-semibold tabular-nums tracking-[-0.02em] text-[#0A0A0A]">
-          {count}
-        </div>
-        <ChevronRight
-          className="h-5 w-5 text-[#92400E] transition-transform group-hover:translate-x-0.5"
-          strokeWidth={2.25}
-        />
+        <div className="text-3xl font-semibold tabular-nums tracking-[-0.02em] text-[#0A0A0A]">{count}</div>
+        <ChevronRight className="h-5 w-5 text-[#92400E] transition-transform group-hover:translate-x-0.5" strokeWidth={2.25} />
       </div>
     </Link>
   );
 }
 
-/**
- * Today's daily-video KPI compliance across active mentees. The host logs
- * videos from the Pocket; this card lets the PIC see the cohort's coverage at a
- * glance and jumps to the mentoring programs where the daily log lives.
- */
-function VideoComplianceCard({ data }) {
-  const pct = data.pct ?? 0;
-  const allDone = data.missing === 0;
+/* ---------------- Session Slots · Coverage ---------------- */
+
+function CoveragePanel({ coverage }) {
+  const settledPct = coverage.settled_pct ?? null;
+  const outstanding = (coverage.needs_upload ?? 0) + (coverage.needs_verify ?? 0);
 
   return (
-    <Link
-      href="/livehost/mentoring/programs"
-      className="group block rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[#D8CDF7]"
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#F3F0FE] text-[#7C3AED]">
-            <Video className="h-5 w-5" strokeWidth={2.25} />
-          </div>
+    <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#F5F5F5] text-[#525252]"><Grid3x3 className="h-[18px] w-[18px]" strokeWidth={2} /></div>
           <div>
-            <div className="text-[11px] font-medium uppercase tracking-wide text-[#7C3AED]">
-              Daily video KPI · today
-            </div>
-            <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
-              {allDone
-                ? `All ${data.active_mentees} mentees posted a video`
-                : `${data.posted} of ${data.active_mentees} mentees posted a video`}
-            </div>
-            <div className="mt-0.5 text-[12px] text-[#737373]">
-              {data.videos_today} video{data.videos_today === 1 ? '' : 's'} logged today
-              {data.missing > 0 ? ` · ${data.missing} still missing` : ''}
-            </div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">Session Slots · Coverage</h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">Settlement state across every account · {coverage.month_label ?? 'this month'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-2xl font-semibold tabular-nums tracking-[-0.02em] text-[#0A0A0A]">
-            {pct}%
+        <Link href="/livehost/session-slots/matrix" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0A0A0A] px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-[#262626]">
+          Open matrix <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {COVERAGE_TILES.map((t) => {
+          const Icon = t.icon;
+          return (
+            <div key={t.key} className={`rounded-[14px] ${t.bg} p-4 ring-1 ${t.ring}`}>
+              <div className="flex items-center justify-between">
+                <span className={`grid h-8 w-8 place-items-center rounded-lg bg-white/70 ${t.tint}`}><Icon className="h-4 w-4" strokeWidth={2.25} /></span>
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.dot }} />
+              </div>
+              <div className={`mt-3 text-[26px] font-semibold tabular-nums leading-none tracking-[-0.02em] ${t.tint}`}>{coverage[t.key] ?? 0}</div>
+              <div className="mt-1.5 text-[12.5px] font-medium text-[#0A0A0A]">{t.label}</div>
+              <div className="text-[11px] text-[#737373]">{t.hint}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-[#F0F0F0] pt-4">
+        <div className="min-w-[180px] flex-1">
+          <div className="mb-1 flex items-center justify-between text-[12px]">
+            <span className="font-medium text-[#525252]">Settled</span>
+            <span className="font-semibold tabular-nums text-[#0A0A0A]">{settledPct ?? '—'}%</span>
           </div>
-          <ChevronRight
-            className="h-5 w-5 text-[#A3A3A3] transition-transform group-hover:translate-x-0.5"
-            strokeWidth={2.25}
-          />
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#F0F0F0]">
+            <div className="h-full rounded-full bg-[#10B981] transition-all" style={{ width: `${settledPct ?? 0}%` }} />
+          </div>
+          <div className="mt-1.5 text-[11px] text-[#737373]">{coverage.verified ?? 0} of {coverage.total_sessions ?? 0} sessions verified</div>
         </div>
+        <Metric label="Accounts outstanding" value={`${coverage.accounts_outstanding ?? 0}`} sub={`of ${coverage.accounts ?? 0} accounts`} tone={outstanding > 0 ? 'text-[#B91C1C]' : 'text-[#047857]'} />
+        <Metric label="Sessions today" value={`${coverage.sessions_today ?? 0}`} sub="scheduled" />
       </div>
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F0EDFA]">
-        <div className="h-full rounded-full bg-[#7C3AED] transition-all" style={{ width: `${pct}%` }} />
-      </div>
-    </Link>
+    </section>
   );
 }
 
-function PageHeader({ firstName, liveNowCount, viewers }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-4 sm:gap-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A0A0A]">
-          Good afternoon, {firstName}
-        </h1>
-        <p className="mt-1.5 text-sm text-[#737373]">
-          <span className="inline-flex items-center gap-1.5 font-medium text-[#059669]">
-            <span className="pulse-dot h-1.5 w-1.5" aria-hidden="true" />
-            {liveNowCount} session{liveNowCount === 1 ? '' : 's'} live
-          </span>
-          <span className="mx-2">·</span>
-          {viewers.toLocaleString()} concurrent viewers across all platforms
-        </p>
-      </div>
-      <SegControl items={['Today', 'This week', 'Month', 'All']} activeIndex={1} />
-    </div>
-  );
-}
+/* ---------------- Mentoring Overview ---------------- */
 
-function SegControl({ items, activeIndex }) {
-  // Display-only indicator: signals which window is being summarised.
-  // Will become interactive once the backend supports range filtering.
-  const activeLabel = items[activeIndex] ?? items[0];
-  return (
-    <div
-      className="inline-flex items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 py-1.5"
-      aria-label="Current range"
-      title="Showing stats for this range"
-    >
-      <span className="text-[11px] font-medium uppercase tracking-wide text-[#737373]">
-        Range
-      </span>
-      <span className="text-xs font-semibold text-[#0A0A0A]">{activeLabel}</span>
-    </div>
-  );
-}
-
-function OnAirCard({ className, liveNow, upcoming }) {
-  const upcomingList = upcoming ?? [];
+function MentoringPanel({ mentoring }) {
+  const programs = mentoring.programs ?? [];
+  const video = mentoring.video ?? {};
 
   return (
-    <div
-      className={`${className ?? ''} rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]`}
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5 text-[15px] font-semibold tracking-[-0.015em]">
-          On Air now
-          <span className="rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#059669]">
-            {liveNow.length} live
-          </span>
-        </div>
-        <a
-          href="/livehost/sessions"
-          className="text-xs font-medium text-[#737373] hover:text-[#0A0A0A]"
-        >
-          View all sessions →
-        </a>
-      </div>
-
-      {liveNow.length === 0 ? (
-        <div className="py-12 text-center text-sm text-[#737373]">
-          No live sessions right now.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {liveNow.map((session, index) => (
-            <LiveSessionRow
-              key={session.id}
-              hostName={session.hostName}
-              initials={session.initials ?? deriveInitials(session.hostName)}
-              platformAccount={session.platformAccount}
-              platformType={session.platformType}
-              sessionId={session.sessionId}
-              viewers={session.viewers}
-              durationSeconds={secondsSince(session.startedAt) ?? 0}
-              thumbColor={((index % 5) + 1)}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="mt-6 mb-2 flex items-center justify-between">
-        <div className="text-[15px] font-semibold tracking-[-0.015em]">Next up</div>
-        <a
-          href="/livehost/schedules"
-          className="text-xs font-medium text-[#737373] hover:text-[#0A0A0A]"
-        >
-          Full schedule →
-        </a>
-      </div>
-      {upcomingList.length === 0 ? (
-        <div className="py-6 text-sm text-[#737373]">No upcoming schedules.</div>
-      ) : (
-        <div className="flex flex-col">
-          {upcomingList.map((u) => (
-            <AgendaRow
-              key={u.id}
-              startTime={`${(u.dayName ?? '').slice(0, 3)} ${formatTime(u.startTime)}`.trim()}
-              durationLabel={computeDurationLabel(u.startTime, u.endTime)}
-              hostName={u.hostName}
-              meta={[u.platformAccount, u.platformType].filter(Boolean).join(' · ')}
-              status="scheduled"
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function formatTime(value) {
-  if (!value) {
-    return '';
-  }
-  const str = String(value);
-  const match = str.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) {
-    return str;
-  }
-  return `${match[1].padStart(2, '0')}:${match[2]}`;
-}
-
-function computeDurationLabel(startTime, endTime) {
-  if (!startTime || !endTime) {
-    return '';
-  }
-  const parse = (t) => {
-    const m = String(t).match(/^(\d{1,2}):(\d{2})/);
-    if (!m) {
-      return null;
-    }
-    return Number(m[1]) * 60 + Number(m[2]);
-  };
-  const startMins = parse(startTime);
-  const endMins = parse(endTime);
-  if (startMins === null || endMins === null) {
-    return '';
-  }
-  const diff = endMins - startMins;
-  if (diff <= 0) {
-    return '';
-  }
-  if (diff >= 60) {
-    const hours = diff / 60;
-    const rounded = Number.isInteger(hours) ? hours.toString() : hours.toFixed(1);
-    return `${rounded}h`;
-  }
-  return `${diff}m`;
-}
-
-function ActivityCard({ className, activities }) {
-  const list = activities ?? [];
-
-  return (
-    <div
-      className={`${className ?? ''} rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]`}
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="text-[15px] font-semibold tracking-[-0.015em]">
-          Recent activity
-        </div>
-        <a
-          href="/livehost/sessions"
-          className="text-xs font-medium text-[#737373] hover:text-[#0A0A0A]"
-        >
-          See all →
-        </a>
-      </div>
-
-      {list.length === 0 ? (
-        <div className="py-12 text-center text-sm text-[#737373]">
-          Activity will appear here as sessions start and end.
-        </div>
-      ) : (
-        <div className="flex flex-col">
-          {list.map((activity) => (
-            <ActivityFeedItem
-              key={activity.id}
-              icon={iconForKind(activity.kind)}
-              iconTint={tintForKind(activity.kind)}
-              timeLabel={relativeTime(activity.at)}
-            >
-              {bodyForKind(activity)}
-            </ActivityFeedItem>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function iconForKind(kind) {
-  if (kind === 'live') {
-    return Radio;
-  }
-  if (kind === 'ended') {
-    return Check;
-  }
-  if (kind === 'cancelled') {
-    return Bell;
-  }
-  return Calendar;
-}
-
-function tintForKind(kind) {
-  if (kind === 'live' || kind === 'ended') {
-    return 'emerald';
-  }
-  if (kind === 'cancelled') {
-    return 'rose';
-  }
-  return 'default';
-}
-
-function bodyForKind(activity) {
-  const host = activity.hostName ?? 'A host';
-  const account = activity.platformAccount ?? 'a platform';
-  switch (activity.kind) {
-    case 'live':
-      return (
-        <>
-          <strong>{host}</strong> started a session on <strong>{account}</strong>.
-        </>
-      );
-    case 'ended':
-      return (
-        <>
-          <strong>{host}</strong> ended a session on <strong>{account}</strong>.
-        </>
-      );
-    case 'cancelled':
-      return (
-        <>
-          <strong>{host}</strong>'s session on <strong>{account}</strong> was cancelled.
-        </>
-      );
-    default:
-      return (
-        <>
-          Session on <strong>{account}</strong> scheduled for <strong>{host}</strong>.
-        </>
-      );
-  }
-}
-
-function relativeTime(iso) {
-  if (!iso) {
-    return '';
-  }
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) {
-    return '';
-  }
-  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (seconds < 60) {
-    return `${seconds}s ago`;
-  }
-  if (seconds < 3600) {
-    return `${Math.round(seconds / 60)}m ago`;
-  }
-  if (seconds < 86400) {
-    return `${Math.round(seconds / 3600)}h ago`;
-  }
-  return `${Math.round(seconds / 86400)}d ago`;
-}
-
-function TopHostsCard({ hosts }) {
-  if (!hosts || hosts.length === 0) {
-    return (
-      <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-between border-b border-[#F0F0F0] p-4">
-          <div className="text-[15px] font-semibold tracking-[-0.015em]">
-            Top performing hosts
+    <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#ECFDF5] text-[#047857]"><Gauge className="h-[18px] w-[18px]" strokeWidth={2} /></div>
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">Mentoring Overview</h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">Performance across active programs · {mentoring.month_label ?? 'this month'}</p>
           </div>
         </div>
-        <div className="py-12 text-center text-sm text-[#737373]">
-          No hosts yet — create your first live host to see rankings here.
-        </div>
+        <Link href="/livehost/mentoring/overview" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0A0A0A] px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-[#262626]">
+          Open overview <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </Link>
       </div>
-    );
-  }
 
-  return (
-    <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-between border-b border-[#F0F0F0] p-4">
-        <div className="text-[15px] font-semibold tracking-[-0.015em]">
-          Top performing hosts
-          <span className="ml-2 rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] text-[#737373]">
-            This week
-          </span>
-        </div>
-        <a
-          href="/livehost/hosts"
-          className="text-xs font-medium text-[#737373] hover:text-[#0A0A0A]"
-        >
-          View all →
-        </a>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Metric icon={Users} label="Active mentees" value={`${mentoring.active_mentees ?? 0}`} sub={`${mentoring.active_programs ?? 0} program${(mentoring.active_programs ?? 0) === 1 ? '' : 's'}`} boxed />
+        <Metric label="Sales (month)" value={formatRM(mentoring.sales_month)} sub="effective GMV" boxed />
+        <Metric label="Avg attitude" value={mentoring.avg_attitude != null ? `${mentoring.avg_attitude}` : '—'} sub="/ 100" boxed />
+        <Metric icon={Video} label="Daily video" value={`${video.posted ?? 0}/${video.active_mentees ?? 0}`} sub={`${video.pct ?? 0}% today · ${video.videos_today ?? 0} logged`} boxed tint={video.missing > 0 ? 'text-[#6D28D9]' : 'text-[#047857]'} />
       </div>
-      <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] text-sm">
-        <thead>
-          <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
-            <th className="px-5 py-2.5 text-left">Host</th>
-            <th className="px-5 py-2.5 text-center">Accounts</th>
-            <th className="px-5 py-2.5 text-right">Sessions</th>
-            <th className="px-5 py-2.5 text-left">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {hosts.map((host) => (
-            <tr
-              key={host.id}
-              className="border-t border-[#F0F0F0] transition-colors hover:bg-[#F5F5F5]"
-            >
-              <td className="px-5 py-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-[#10B981] to-[#059669] text-xs font-semibold text-white">
-                    {host.initials ?? deriveInitials(host.name)}
-                  </div>
-                  <div>
-                    <div className="text-[13.5px] font-semibold tracking-[-0.01em]">
-                      {host.name}
-                    </div>
-                    <div className="mt-0.5 text-[11.5px] text-[#737373]">
-                      ID · {host.id}
-                    </div>
-                  </div>
+
+      <div className="mt-4 border-t border-[#F0F0F0] pt-4">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#737373]">Per program</div>
+        {programs.length === 0 ? (
+          <div className="rounded-[12px] border border-dashed border-[#E5E5E5] bg-[#FAFAFA] py-8 text-center text-[12.5px] text-[#A3A3A3]">
+            No active mentoring programs.
+          </div>
+        ) : (
+          <div className="flex flex-col divide-y divide-[#F0F0F0]">
+            {programs.map((p) => (
+              <Link key={p.id} href="/livehost/mentoring/overview" className="group flex items-center justify-between gap-3 py-2.5 transition-colors hover:bg-[#FAFAFA] -mx-2 px-2 rounded-lg">
+                <div className="min-w-0">
+                  <div className="truncate text-[13.5px] font-semibold text-[#0A0A0A] group-hover:text-[#047857]">{p.title}</div>
+                  <div className="text-[11.5px] text-[#737373]">{p.mentees} active mentee{p.mentees === 1 ? '' : 's'}</div>
                 </div>
-              </td>
-              <td className="px-5 py-3.5 text-center tabular-nums">
-                {host.accounts ?? 0}
-              </td>
-              <td className="px-5 py-3.5 text-right font-semibold tabular-nums">
-                {host.sessions ?? 0}
-              </td>
-              <td className="px-5 py-3.5">
-                <StatusChip variant={statusVariant(host.status)} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <div className="text-[13px] font-semibold tabular-nums text-[#0A0A0A]">{formatRM(p.sales_month)}</div>
+                    <div className="text-[10.5px] uppercase tracking-wide text-[#A3A3A3]">this month</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-[#C4C4C4] transition-transform group-hover:translate-x-0.5 group-hover:text-[#047857]" strokeWidth={2.25} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }
 
-function statusVariant(status) {
-  if (status === 'active') {
-    return 'active';
-  }
-  if (status === 'suspended') {
-    return 'suspended';
-  }
-  return 'inactive';
+function Metric({ icon: Icon, label, value, sub, tone = 'text-[#0A0A0A]', boxed = false }) {
+  return (
+    <div className={boxed ? 'rounded-[14px] border border-[#EAEAEA] bg-white p-3.5' : ''}>
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+        {Icon && <Icon className="h-3.5 w-3.5" strokeWidth={2} />} {label}
+      </div>
+      <div className={`mt-1 text-[20px] font-semibold tabular-nums leading-none tracking-[-0.02em] ${tone}`}>{value}</div>
+      {sub && <div className="mt-1 text-[11px] text-[#737373]">{sub}</div>}
+    </div>
+  );
 }

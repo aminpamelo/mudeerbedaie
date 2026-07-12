@@ -5,12 +5,15 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMenteeDailyVideo;
-use App\Models\LiveSchedule;
+use App\Models\LiveHostMenteeMonthlyScore;
+use App\Models\LiveHostMentoringProgram;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\SessionReplacementRequest;
 use App\Models\User;
+use App\Services\LiveHost\SessionCoverageMatrix;
+use App\Services\Mentoring\MenteeDailySalesResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -26,12 +29,8 @@ class DashboardController extends Controller
         }
 
         return Inertia::render('Dashboard', [
-            'stats' => $this->stats(),
-            'liveNow' => $this->liveNow(),
-            'upcoming' => $this->upcoming(),
-            'recentActivity' => $this->recentActivity(),
-            'topHosts' => $this->topHosts(),
-            'videoCompliance' => $this->videoComplianceToday(),
+            'coverage' => $this->coverageSummary(),
+            'mentoring' => $this->mentoringSummary(),
             'pendingReplacements' => SessionReplacementRequest::query()
                 ->where('status', SessionReplacementRequest::STATUS_PENDING)
                 ->count(),
@@ -39,26 +38,134 @@ class DashboardController extends Controller
     }
 
     /**
-     * Today's daily-video KPI compliance across every active mentee: how many
-     * have logged at least one video today, the shortfall, and total videos.
-     * The daily video is a mentee-scoped KPI logged by hosts in the Pocket.
+     * Session-slot settlement health for the current month: the four coverage
+     * buckets (belum upload / belum verify / verified / TikTok suggestions)
+     * summed across every linked account, plus a settled percentage. Mirrors the
+     * Coverage Matrix so the dashboard is its at-a-glance headline.
      *
+     * @return array<string, mixed>
+     */
+    private function coverageSummary(): array
+    {
+        $now = CarbonImmutable::now();
+        $monthValue = $now->format('Y-m');
+
+        $coverage = app(SessionCoverageMatrix::class)->monthly($now->year, $now->month, $now->month, [
+            'hostId' => null,
+            'platformAccountId' => null,
+            'liveAccountId' => null,
+            'includeUnlinked' => false,
+        ]);
+
+        $keys = ['needs_upload', 'needs_verify', 'verified', 'suggestions', 'total'];
+        $totals = array_fill_keys($keys, 0);
+        $accountsOutstanding = 0;
+
+        foreach ($coverage['accounts'] as $account) {
+            $cell = $account['scores'][$monthValue] ?? [];
+            foreach ($keys as $k) {
+                $totals[$k] += $cell[$k] ?? 0;
+            }
+            if (($cell['needs_upload'] ?? 0) + ($cell['needs_verify'] ?? 0) > 0) {
+                $accountsOutstanding++;
+            }
+        }
+
+        return [
+            'month_label' => $now->format('M Y'),
+            'needs_upload' => $totals['needs_upload'],
+            'needs_verify' => $totals['needs_verify'],
+            'verified' => $totals['verified'],
+            'suggestions' => $totals['suggestions'],
+            'total_sessions' => $totals['total'],
+            'settled_pct' => $totals['total'] > 0 ? (int) round($totals['verified'] / $totals['total'] * 100) : null,
+            'accounts' => count($coverage['accounts']),
+            'accounts_outstanding' => $accountsOutstanding,
+            'sessions_today' => LiveSession::whereDate('scheduled_start_at', today())->count(),
+        ];
+    }
+
+    /**
+     * Cross-program mentoring health for the current month: active program /
+     * mentee counts, summed effective sales (auto GMV + overrides), average
+     * attitude, today's daily-video compliance, and a per-program breakdown.
+     * Mirrors the Mentoring Overview so the dashboard is its at-a-glance headline.
+     *
+     * @return array<string, mixed>
+     */
+    private function mentoringSummary(): array
+    {
+        $now = CarbonImmutable::now();
+        $monthKey = $now->format('Y-m');
+        $periods = [['year' => $now->year, 'month' => $now->month]];
+
+        $programs = LiveHostMentoringProgram::query()
+            ->where('status', 'active')
+            ->withCount(['mentees as active_mentees_count' => fn ($q) => $q->where('status', 'active')])
+            ->orderBy('title')
+            ->get();
+
+        // Scope to mentees inside ACTIVE programs so the figures reconcile with
+        // the per-program breakdown and the Mentoring Overview page.
+        $activeMentees = LiveHostMentee::query()
+            ->where('status', 'active')
+            ->whereIn('program_id', $programs->pluck('id'))
+            ->get(['id', 'program_id', 'mentee_user_id']);
+
+        $salesTotals = app(MenteeDailySalesResolver::class)->monthlyTotals($activeMentees, $periods);
+
+        $salesByProgram = [];
+        $totalSales = 0.0;
+        foreach ($activeMentees as $mentee) {
+            $sales = (float) ($salesTotals[$mentee->id][$monthKey] ?? 0);
+            $totalSales += $sales;
+            $salesByProgram[$mentee->program_id] = ($salesByProgram[$mentee->program_id] ?? 0) + $sales;
+        }
+
+        $attitudes = LiveHostMenteeMonthlyScore::query()
+            ->whereIn('mentee_id', $activeMentees->pluck('id'))
+            ->where('year', $now->year)
+            ->where('month', $now->month)
+            ->whereNotNull('attitude_score')
+            ->pluck('attitude_score');
+
+        return [
+            'month_label' => $now->format('M Y'),
+            'active_programs' => $programs->count(),
+            'active_mentees' => $activeMentees->count(),
+            'sales_month' => round($totalSales, 2),
+            'avg_attitude' => $attitudes->isNotEmpty() ? (int) round($attitudes->avg()) : null,
+            'video' => $this->videoComplianceFor($activeMentees->pluck('id')),
+            'programs' => $programs->map(fn (LiveHostMentoringProgram $p) => [
+                'id' => $p->id,
+                'title' => $p->title,
+                'mentees' => (int) ($p->active_mentees_count ?? 0),
+                'sales_month' => round($salesByProgram[$p->id] ?? 0, 2),
+            ])->values(),
+        ];
+    }
+
+    /**
+     * Today's daily-video KPI compliance for a set of mentees: how many logged at
+     * least one video today, the shortfall, and total videos. The daily video is
+     * a mentee-scoped KPI logged by hosts in the Pocket.
+     *
+     * @param  Collection<int, int>  $menteeIds
      * @return array{active_mentees: int, posted: int, missing: int, videos_today: int, pct: int|null}
      */
-    private function videoComplianceToday(): array
+    private function videoComplianceFor(Collection $menteeIds): array
     {
         $today = today()->toDateString();
-        $activeMenteeIds = LiveHostMentee::query()->where('status', 'active')->pluck('id');
-        $total = $activeMenteeIds->count();
+        $total = $menteeIds->count();
 
         $posted = LiveHostMenteeDailyVideo::query()
-            ->whereIn('mentee_id', $activeMenteeIds)
+            ->whereIn('mentee_id', $menteeIds)
             ->whereDate('video_date', $today)
             ->distinct()
             ->count('mentee_id');
 
         $videosToday = LiveHostMenteeDailyVideo::query()
-            ->whereIn('mentee_id', $activeMenteeIds)
+            ->whereIn('mentee_id', $menteeIds)
             ->whereDate('video_date', $today)
             ->count();
 
@@ -87,21 +194,6 @@ class DashboardController extends Controller
                 'activeHosts' => User::where('role', 'live_host')->where('status', 'active')->count(),
             ],
         ]);
-    }
-
-    /**
-     * @return array<string, int|float>
-     */
-    private function stats(): array
-    {
-        return [
-            'totalHosts' => User::where('role', 'live_host')->count(),
-            'activeHosts' => User::where('role', 'live_host')->where('status', 'active')->count(),
-            'platformAccounts' => PlatformAccount::count(),
-            'liveNow' => LiveSession::where('status', 'live')->count(),
-            'sessionsToday' => LiveSession::whereDate('scheduled_start_at', today())->count(),
-            'watchHoursToday' => $this->watchHoursToday(),
-        ];
     }
 
     /**
@@ -178,83 +270,6 @@ class DashboardController extends Controller
                 'startedAt' => $s->actual_start_at?->toIso8601String(),
                 'viewers' => 0,
             ]);
-    }
-
-    private function upcoming(): Collection
-    {
-        return LiveSchedule::query()
-            ->with(['platformAccount.platform', 'liveHost'])
-            ->where('is_active', true)
-            ->orderBy('day_of_week')
-            ->orderBy('start_time')
-            ->take(6)
-            ->get()
-            ->map(fn (LiveSchedule $s) => [
-                'id' => $s->id,
-                'dayOfWeek' => $s->day_of_week,
-                'dayName' => $s->day_name,
-                'startTime' => $s->start_time,
-                'endTime' => $s->end_time,
-                'hostName' => $s->liveHost?->name,
-                'platformAccount' => $s->platformAccount?->name,
-                'platformType' => $s->platformAccount?->platform?->slug,
-                'isRecurring' => (bool) $s->is_recurring,
-            ]);
-    }
-
-    private function recentActivity(): Collection
-    {
-        return LiveSession::query()
-            ->with(['liveHost', 'platformAccount'])
-            ->latest('updated_at')
-            ->take(10)
-            ->get()
-            ->map(fn (LiveSession $s) => [
-                'id' => $s->id,
-                'kind' => $s->status,
-                'hostName' => $s->liveHost?->name,
-                'platformAccount' => $s->platformAccount?->name,
-                'at' => $s->updated_at?->toIso8601String(),
-            ]);
-    }
-
-    private function topHosts(): Collection
-    {
-        return User::query()
-            ->where('role', 'live_host')
-            ->withCount('platformAccounts')
-            ->selectSub(
-                LiveSession::query()
-                    ->selectRaw('count(*)')
-                    ->whereColumn('live_sessions.live_host_id', 'users.id'),
-                'hosted_sessions_count'
-            )
-            ->orderByDesc('hosted_sessions_count')
-            ->take(5)
-            ->get()
-            ->map(fn (User $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'initials' => $this->initials($u->name),
-                'accounts' => (int) $u->platform_accounts_count,
-                'sessions' => (int) ($u->hosted_sessions_count ?? 0),
-                'status' => $u->status,
-            ]);
-    }
-
-    private function watchHoursToday(): float
-    {
-        $today = today();
-        $sessions = LiveSession::query()
-            ->whereDate('actual_start_at', $today)
-            ->whereNotNull('actual_end_at')
-            ->get(['actual_start_at', 'actual_end_at']);
-
-        $minutes = $sessions->sum(fn (LiveSession $s) => $s->actual_start_at && $s->actual_end_at
-            ? $s->actual_start_at->diffInMinutes($s->actual_end_at)
-            : 0);
-
-        return round($minutes / 60, 1);
     }
 
     private function initials(?string $name): string

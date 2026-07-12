@@ -90,8 +90,8 @@ Schedule::command('hr:check-task-deadlines')->dailyAt('09:00');
 // TikTok Shop analytics sync - daily at 4 AM
 Schedule::command('tiktok:sync-analytics')->dailyAt('04:00');
 
-// TikTok Shop per-LIVE performance sync - daily at 4:30 AM
-Schedule::command('tiktok:sync-live')->dailyAt('04:30')->withoutOverlapping();
+// TikTok Shop per-LIVE performance sync - every 15 minutes (withoutOverlapping guards against a slow run piling up)
+Schedule::command('tiktok:sync-live')->everyFifteenMinutes()->withoutOverlapping();
 
 // TikTok Shop affiliate sync - daily at 5 AM
 Schedule::command('tiktok:sync-affiliates')->dailyAt('05:00');
