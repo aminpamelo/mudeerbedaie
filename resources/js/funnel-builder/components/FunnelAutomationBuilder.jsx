@@ -1423,7 +1423,11 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                         const bodyComponent = selectedTpl.components?.find(c => c.type === 'BODY');
                                         const bodyText = bodyComponent?.text || '';
                                         const variableMatches = bodyText.match(/\{\{\d+\}\}/g) || [];
-                                        const variableNumbers = variableMatches.map(m => m.replace(/[{}]/g, ''));
+                                        // De-duplicate and sort numerically so the mapping fields always
+                                        // read 1,2,3… (Meta returns them in text order, which can put
+                                        // {{7}} before {{4}} and repeat placeholders).
+                                        const variableNumbers = [...new Set(variableMatches.map(m => m.replace(/[{}]/g, '')))]
+                                            .sort((a, b) => Number(a) - Number(b));
 
                                         return (
                                             <>
@@ -1434,11 +1438,11 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
 
                                                 {variableNumbers.length > 0 && (
                                                     <div>
-                                                        <label className="block text-xs font-medium text-gray-700 mb-2">Variable Mapping</label>
-                                                        <div className="space-y-2">
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Variable Mapping</label>
+                                                        <p className="text-xs text-gray-500 mb-2">Choose a variable for each placeholder, or type a fixed value.</p>
+                                                        <div className="space-y-3">
                                                             {variableNumbers.map((num) => (
-                                                                <div key={num} className="flex items-center gap-2">
-                                                                    <span className="text-xs font-mono text-gray-500 w-10 shrink-0">{`{{${num}}}`}</span>
+                                                                <div key={num} className="rounded-lg border border-gray-200 bg-gray-50 p-2">
                                                                     <TextareaWithVariables
                                                                         value={data.config?.template_variables?.body?.[num] || ''}
                                                                         onChange={(value) => {
@@ -1448,7 +1452,8 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                                                         }}
                                                                         triggerType={triggerType}
                                                                         rows={1}
-                                                                        placeholder={`Value for {{${num}}}`}
+                                                                        label={`{{${num}}}`}
+                                                                        placeholder={`Value for {{${num}}} — e.g. {{contact.name}}`}
                                                                     />
                                                                 </div>
                                                             ))}
