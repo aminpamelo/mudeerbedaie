@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\LiveHost;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class VerifyLinkLiveSessionRequest extends FormRequest
@@ -14,12 +15,13 @@ class VerifyLinkLiveSessionRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'actual_live_record_id' => ['required', 'integer', 'exists:actual_live_records,id'],
+            'actual_live_record_id' => ['required', 'array', 'min:1'],
+            'actual_live_record_id.*' => ['integer', 'distinct', 'exists:actual_live_records,id'],
         ];
     }
 }

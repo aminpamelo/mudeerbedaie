@@ -6,6 +6,7 @@ use App\Models\LiveSession;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use Database\Seeders\LiveHostCommissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 use function Pest\Laravel\actingAs;
@@ -48,7 +49,7 @@ function makePicVerifySession(User $host, Platform $platform, array $overrides =
 }
 
 beforeEach(function () {
-    $this->seed(\Database\Seeders\LiveHostCommissionSeeder::class);
+    $this->seed(LiveHostCommissionSeeder::class);
     $this->ahmad = User::where('email', 'ahmad@livehost.com')->first();
     $this->tiktok = Platform::where('slug', 'tiktok-shop')->firstOrFail();
     $this->pic = User::factory()->create(['role' => 'admin_livehost']);
@@ -84,7 +85,7 @@ it('locks GMV against the linked record when verified via verify-link', function
 
     actingAs($this->pic)
         ->post("/livehost/sessions/{$session->id}/verify-link", [
-            'actual_live_record_id' => $record->id,
+            'actual_live_record_id' => [$record->id],
         ])
         ->assertRedirect()
         ->assertSessionHas('success');

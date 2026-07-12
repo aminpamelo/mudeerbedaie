@@ -171,6 +171,73 @@ class SessionCoverageMatrix
     }
 
     /**
+     * The outstanding sessions in a settle-state bucket (needs_upload / needs_verify)
+     * for a month, grouped by the live host responsible — each with the session's
+     * date + time. Scoped to the same linked accounts the matrix counts, so the
+     * totals line up with the coverage tiles on the dashboard.
+     *
+     * @param  array{hostId: ?int, platformAccountId: ?int, liveAccountId: ?int, includeUnlinked: bool}  $filters
+     * @return array{bucket: string, month_label: string, total: int, hosts: list<array<string, mixed>>}
+     */
+    public function outstandingByHost(int $year, int $month, string $bucket, array $filters): array
+    {
+        $period = CarbonImmutable::create($year, $month, 1)->startOfMonth();
+        $start = $period->startOfMonth();
+        $end = $period->endOfMonth();
+        $startDate = $start->toDateString();
+        $endDate = $end->toDateString();
+
+        $accountIds = $this->accountRows($filters)->pluck('id');
+
+        $matching = LiveSession::query()
+            ->whereIn('live_account_id', $accountIds)
+            ->whereNotNull('scheduled_start_at')
+            ->whereBetween('scheduled_start_at', [$start->subDay(), $end->addDay()])
+            ->when($filters['hostId'], fn ($q, $id) => $q->where('live_host_id', $id))
+            ->when($filters['platformAccountId'], fn ($q, $id) => $q->where('platform_account_id', $id))
+            ->with(['liveHost:id,name', 'liveAccount:id,nickname,display_name', 'platformAccount:id,name'])
+            ->orderBy('scheduled_start_at')
+            ->get()
+            ->filter(function (LiveSession $s) use ($bucket, $startDate, $endDate) {
+                $date = $this->klDate($s->scheduled_start_at);
+
+                return $date >= $startDate && $date <= $endDate && $this->bucketSession($s) === $bucket;
+            });
+
+        $hosts = $matching
+            ->groupBy(fn (LiveSession $s) => (int) ($s->live_host_id ?? 0))
+            ->map(function (Collection $rows) {
+                $first = $rows->first();
+
+                return [
+                    'host_id' => $first->live_host_id,
+                    'host_name' => $first->liveHost?->name ?? 'Unassigned',
+                    'initials' => $this->initials($first->liveHost?->name ?? '—'),
+                    'count' => $rows->count(),
+                    'sessions' => $rows->map(fn (LiveSession $s) => [
+                        'id' => $s->id,
+                        'date' => $this->klDate($s->scheduled_start_at),
+                        'date_human' => CarbonImmutable::instance($s->scheduled_start_at)->setTimezone(self::TIMEZONE)->format('D, j M'),
+                        'time' => $this->klTime($s->scheduled_start_at),
+                        'account' => $s->liveAccount?->nickname ?? $s->liveAccount?->display_name ?? $s->platformAccount?->name,
+                        'title' => $s->title,
+                        'url' => "/livehost/sessions/{$s->id}",
+                    ])->values()->all(),
+                ];
+            })
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+
+        return [
+            'bucket' => $bucket,
+            'month_label' => $period->format('M Y'),
+            'total' => $matching->count(),
+            'hosts' => $hosts,
+        ];
+    }
+
+    /**
      * Aggregate a window into [accountId => [Y-m-d => metrics]]. Sessions supply
      * the settle-state buckets; SuggestedSlotFinder supplies the suggestion tally.
      *

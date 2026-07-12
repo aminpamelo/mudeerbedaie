@@ -14,15 +14,60 @@ function formatGmvMyr(value) {
   })}`;
 }
 
+function formatTimeOnly(iso) {
+  if (!iso) {
+    return null;
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+}
+
+// The record's end time: prefer the reported ended_time, else launch + duration.
+function recordEndTime(candidate) {
+  if (candidate.endedTime) {
+    return formatTimeOnly(candidate.endedTime);
+  }
+  if (candidate.launchedTime && candidate.durationSeconds) {
+    return formatTimeOnly(
+      new Date(new Date(candidate.launchedTime).getTime() + candidate.durationSeconds * 1000).toISOString(),
+    );
+  }
+  return null;
+}
+
 export default function VerifyLinkPanel({ session, candidates }) {
-  const [selectedId, setSelectedId] = useState(null);
+  // A split live (blip/reconnect) is 2+ records → multi-select; pre-check the
+  // suggested contiguous cluster.
+  const [selectedIds, setSelectedIds] = useState(
+    () => new Set((candidates ?? []).filter((c) => c.isSuggested).map((c) => c.id)),
+  );
   const [submitting, setSubmitting] = useState(false);
 
   if (session.verificationStatus !== 'pending') {
     return null;
   }
 
-  const canSubmit = selectedId !== null && session.verificationStatus === 'pending';
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectedRecords = (candidates ?? []).filter((c) => selectedIds.has(c.id));
+  const summedGmv = selectedRecords.reduce((sum, c) => {
+    const v = Number(c.liveAttributedGmvMyr);
+    return sum + (Number.isFinite(v) && v > 0 ? v : 0);
+  }, 0);
+  const canSubmit = selectedIds.size > 0 && session.verificationStatus === 'pending';
 
   const submit = () => {
     if (!canSubmit) {
@@ -31,7 +76,7 @@ export default function VerifyLinkPanel({ session, candidates }) {
     setSubmitting(true);
     router.post(
       `/livehost/sessions/${session.id}/verify-link`,
-      { actual_live_record_id: selectedId },
+      { actual_live_record_id: [...selectedIds] },
       {
         preserveScroll: true,
         onFinish: () => setSubmitting(false),
@@ -72,10 +117,11 @@ export default function VerifyLinkPanel({ session, candidates }) {
     <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="mb-4">
         <h3 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
-          Link this session to TikTok actual record
+          Link this session to TikTok actual record(s)
         </h3>
         <p className="mt-1 text-sm text-[#737373]">
-          Pick the TikTok live that matches this scheduled session. GMV will lock from the selected record.
+          Pick the TikTok live(s) that match this scheduled session — select every segment of a split
+          live. GMV locks as the sum of the selected records' live-attributed GMV.
         </p>
       </div>
 
@@ -84,17 +130,16 @@ export default function VerifyLinkPanel({ session, candidates }) {
           <label
             key={c.id}
             className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-              selectedId === c.id
+              selectedIds.has(c.id)
                 ? 'border-blue-400 bg-blue-50'
                 : 'border-zinc-200 hover:bg-zinc-50'
             }`}
           >
             <input
-              type="radio"
-              name="candidate"
-              checked={selectedId === c.id}
-              onChange={() => setSelectedId(c.id)}
-              className="mt-1"
+              type="checkbox"
+              checked={selectedIds.has(c.id)}
+              onChange={() => toggleSelected(c.id)}
+              className="mt-1 accent-emerald-600"
             />
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -105,6 +150,7 @@ export default function VerifyLinkPanel({ session, candidates }) {
                         timeStyle: 'short',
                       })
                     : '—'}
+                  {recordEndTime(c) ? ` – ${recordEndTime(c)}` : ''}
                 </span>
                 {c.isSuggested && (
                   <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-800">
@@ -140,6 +186,16 @@ export default function VerifyLinkPanel({ session, candidates }) {
           </label>
         ))}
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm">
+          <span className="text-emerald-800">
+            {selectedIds.size} record{selectedIds.size === 1 ? '' : 's'} selected
+            {selectedIds.size > 1 ? ' (split live)' : ''}
+          </span>
+          <span className="font-mono font-semibold text-emerald-800">Locks {formatGmvMyr(summedGmv)}</span>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-2 pt-2">
         <button

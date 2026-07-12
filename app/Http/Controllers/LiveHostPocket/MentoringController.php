@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMenteeDailyComment;
 use App\Models\LiveHostMentoringLevel;
+use App\Models\User;
 use App\Services\Mentoring\MenteeDailySalesResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -37,13 +39,7 @@ class MentoringController extends Controller
             'monthlyScores' => fn ($q) => $q->orderBy('year')->orderBy('month'),
         ];
 
-        // Prefer the active enrollment; fall back to the most recent graduated one
-        // so a host who finished the program still sees their performance history.
-        $mentee = $user->activeMenteeEnrollment()->with($eagerLoad)->first()
-            ?? $user->menteeEnrollments()->with($eagerLoad)
-                ->where('status', 'graduated')
-                ->latest('enrolled_at')
-                ->first();
+        $mentee = $this->resolveMentee($user, $eagerLoad);
 
         if ($mentee === null) {
             return Inertia::render('MyPath', ['enrollment' => null, 'leaderboard' => null]);
@@ -136,11 +132,82 @@ class MentoringController extends Controller
                     'occurred_at_human' => $a->occurred_at?->diffForHumans(),
                 ])->values(),
                 'daily' => $this->dailyData($mentee),
+                'available_months' => $this->availableMonths($mentee),
                 'comments' => $this->commentsData($mentee),
                 'conduct' => $this->conductData($mentee),
             ],
             'leaderboard' => $this->leaderboardData($mentee),
         ]);
+    }
+
+    /**
+     * JSON: the day-by-day sales strip for a chosen month, so the host can browse
+     * past months. The requested period is clamped to the enrolment window
+     * (earliest enrolment month → current month) to keep it within real data.
+     */
+    public function daily(Request $request): JsonResponse
+    {
+        $mentee = $this->resolveMentee($request->user(), []);
+        abort_if($mentee === null, 403);
+
+        $now = CarbonImmutable::now();
+        $start = $mentee->enrolled_at
+            ? CarbonImmutable::parse($mentee->enrolled_at)->startOfMonth()
+            : $now->startOfMonth();
+
+        $year = $request->integer('year') ?: (int) $now->format('Y');
+        $month = $request->integer('month') ?: (int) $now->format('n');
+        $requested = CarbonImmutable::create($year, max(1, min(12, $month)), 1);
+
+        // Clamp into [enrolment start month, current month].
+        if ($requested->lessThan($start)) {
+            $requested = $start;
+        } elseif ($requested->greaterThan($now->startOfMonth())) {
+            $requested = $now->startOfMonth();
+        }
+
+        return response()->json($this->dailyData($mentee, (int) $requested->format('Y'), (int) $requested->format('n')));
+    }
+
+    /**
+     * Prefer the active enrollment; fall back to the most recent graduated one so
+     * a host who finished the program still sees their performance history.
+     *
+     * @param  array<string, mixed>  $eagerLoad
+     */
+    private function resolveMentee(User $user, array $eagerLoad): ?LiveHostMentee
+    {
+        return $user->activeMenteeEnrollment()->with($eagerLoad)->first()
+            ?? $user->menteeEnrollments()->with($eagerLoad)
+                ->where('status', 'graduated')
+                ->latest('enrolled_at')
+                ->first();
+    }
+
+    /**
+     * Selectable months for the day-by-day browser: every month from the host's
+     * enrolment through the current month, newest first.
+     *
+     * @return list<array{year: int, month: int, label: string}>
+     */
+    private function availableMonths(LiveHostMentee $mentee): array
+    {
+        $now = CarbonImmutable::now()->startOfMonth();
+        $cursor = $mentee->enrolled_at
+            ? CarbonImmutable::parse($mentee->enrolled_at)->startOfMonth()
+            : $now;
+
+        $months = [];
+        while ($cursor->lessThanOrEqualTo($now) && count($months) < 60) {
+            $months[] = [
+                'year' => (int) $cursor->format('Y'),
+                'month' => (int) $cursor->format('n'),
+                'label' => $cursor->format('M Y'),
+            ];
+            $cursor = $cursor->addMonth();
+        }
+
+        return array_reverse($months);
     }
 
     /**
@@ -263,24 +330,29 @@ class MentoringController extends Controller
     }
 
     /**
-     * The host's own daily sales strip for the current month (up to today), plus
-     * the running month total. Sales are the effective daily figure (override ??
-     * auto live-session GMV).
+     * The host's own daily sales strip for a month (the current month by default),
+     * plus the month total. The current month caps at today; past months show
+     * every day. Sales are the effective daily figure (override ?? auto GMV).
      *
-     * @return array{month_label: string, total: float, days: Collection<int, array<string, mixed>>}
+     * @return array{year: int, month: int, month_label: string, total: float, days: Collection<int, array<string, mixed>>}
      */
-    private function dailyData(LiveHostMentee $mentee): array
+    private function dailyData(LiveHostMentee $mentee, ?int $year = null, ?int $month = null): array
     {
-        $today = CarbonImmutable::now();
-        $todayDay = (int) $today->format('j');
+        $now = CarbonImmutable::now();
+        $year ??= (int) $now->format('Y');
+        $month ??= (int) $now->format('n');
+        $period = CarbonImmutable::create($year, $month, 1);
+
+        $isCurrentMonth = $period->format('Y-m') === $now->format('Y-m');
+        $lastDay = $isCurrentMonth ? (int) $now->format('j') : $period->daysInMonth;
 
         $discByDate = $mentee->disciplinaryRecords()
-            ->whereBetween('incident_date', [$today->startOfMonth()->toDateString(), $today->endOfMonth()->toDateString()])
+            ->whereBetween('incident_date', [$period->startOfMonth()->toDateString(), $period->endOfMonth()->toDateString()])
             ->get()
             ->keyBy(fn ($r) => $r->incident_date->toDateString());
 
-        $days = collect(app(MenteeDailySalesResolver::class)->dailyBreakdown($mentee, (int) $today->format('Y'), (int) $today->format('n')))
-            ->filter(fn ($d) => $d['day'] <= $todayDay)
+        $days = collect(app(MenteeDailySalesResolver::class)->dailyBreakdown($mentee, $year, $month))
+            ->filter(fn ($d) => $d['day'] <= $lastDay)
             ->map(fn ($d) => [
                 'date' => $d['date'],
                 'day' => $d['day'],
@@ -292,7 +364,9 @@ class MentoringController extends Controller
             ->values();
 
         return [
-            'month_label' => $today->format('F Y'),
+            'year' => $year,
+            'month' => $month,
+            'month_label' => $period->format('F Y'),
             'total' => round((float) $days->sum('sales'), 2),
             'days' => $days,
         ];

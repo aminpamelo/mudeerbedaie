@@ -1,14 +1,18 @@
 import { Head, Link, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import {
   ChevronRight,
+  ExternalLink,
   Gauge,
   Grid3x3,
+  Loader2,
   ShieldCheck,
   Sparkles,
   Upload,
   UserMinus,
   Users,
   Video,
+  X,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 
@@ -29,6 +33,7 @@ function formatRM(n) {
 export default function Dashboard() {
   const { auth, coverage = {}, mentoring = {}, pendingReplacements = 0 } = usePage().props;
   const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
+  const [outstanding, setOutstanding] = useState(null); // 'needs_upload' | 'needs_verify' | null
 
   return (
     <>
@@ -40,10 +45,94 @@ export default function Dashboard() {
 
         {pendingReplacements > 0 && <PendingReplacementsBanner count={pendingReplacements} />}
 
-        <CoveragePanel coverage={coverage} />
+        <CoveragePanel coverage={coverage} onOpen={setOutstanding} />
         <MentoringPanel mentoring={mentoring} />
       </div>
+
+      {outstanding && <CoverageOutstandingModal bucket={outstanding} onClose={() => setOutstanding(null)} />}
     </>
+  );
+}
+
+const BUCKET_META = {
+  needs_upload: { title: 'Belum upload', hint: 'host kena upload', dot: '#EF4444', tint: 'text-[#B91C1C]', done: 'Semua sesi dah di-upload 🎉' },
+  needs_verify: { title: 'Belum verify', hint: 'PIC kena verify', dot: '#F59E0B', tint: 'text-[#B45309]', done: 'Semua sesi dah diverify 🎉' },
+};
+
+/** Drill-in modal: outstanding sessions for a coverage bucket, grouped by host. */
+function CoverageOutstandingModal({ bucket, onClose }) {
+  const [data, setData] = useState(null);
+  const meta = BUCKET_META[bucket] ?? BUCKET_META.needs_upload;
+
+  useEffect(() => {
+    setData(null);
+    fetch(`/livehost/coverage-outstanding?bucket=${bucket}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => setData({ hosts: [], total: 0, month_label: '' }));
+  }, [bucket]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[#F0F0F0] px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className={`grid h-9 w-9 place-items-center rounded-xl bg-[#F5F5F5] ${meta.tint}`}>
+              {bucket === 'needs_upload' ? <Upload className="h-4 w-4" strokeWidth={2.25} /> : <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />}
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-[#0A0A0A]">{meta.title}</h3>
+                {data && <span className={`rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] font-semibold tabular-nums ${meta.tint}`}>{data.total}</span>}
+              </div>
+              <p className="mt-0.5 text-[12px] text-[#737373]">{meta.hint} · {data?.month_label ?? '…'} · grouped by host</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md p-1 text-[#737373] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"><X className="h-4 w-4" strokeWidth={2} /></button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {!data && <div className="grid place-items-center py-12 text-[#A3A3A3]"><Loader2 className="h-5 w-5 animate-spin" /></div>}
+          {data && data.hosts.length === 0 && (
+            <div className="py-12 text-center text-[13px] text-[#737373]">{meta.done}</div>
+          )}
+          {data && data.hosts.map((h) => (
+            <div key={h.host_id ?? 'unassigned'} className="mb-2.5 overflow-hidden rounded-[12px] border border-[#EEEEEE]">
+              <div className="flex items-center justify-between gap-2 border-b border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[#E5E7EB] text-[9px] font-bold text-[#525252]">{h.initials}</span>
+                  <span className="text-[13px] font-semibold text-[#0A0A0A]">{h.host_name}</span>
+                </div>
+                <span className={`rounded-full bg-white px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-[#EAEAEA] ${meta.tint}`}>{h.count}</span>
+              </div>
+              <ul className="divide-y divide-[#F5F5F5]">
+                {h.sessions.map((s) => (
+                  <li key={s.id}>
+                    <a href={s.url} className="group flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#FAFAFA]">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#0A0A0A]">
+                          <span className="tabular-nums">{s.date_human}</span>
+                          <span className="text-[#D4D4D4]">·</span>
+                          <span className="tabular-nums text-[#525252]">{s.time}</span>
+                        </div>
+                        {s.account && <div className="mt-0.5 truncate text-[11px] text-[#A3A3A3]">{s.account}</div>}
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#C4C4C4] group-hover:text-[#0A0A0A]" strokeWidth={2} />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -93,7 +182,9 @@ function PendingReplacementsBanner({ count }) {
 
 /* ---------------- Session Slots · Coverage ---------------- */
 
-function CoveragePanel({ coverage }) {
+const CLICKABLE_TILES = { needs_upload: true, needs_verify: true };
+
+function CoveragePanel({ coverage, onOpen }) {
   const settledPct = coverage.settled_pct ?? null;
   const outstanding = (coverage.needs_upload ?? 0) + (coverage.needs_verify ?? 0);
 
@@ -115,16 +206,24 @@ function CoveragePanel({ coverage }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {COVERAGE_TILES.map((t) => {
           const Icon = t.icon;
-          return (
-            <div key={t.key} className={`rounded-[14px] ${t.bg} p-4 ring-1 ${t.ring}`}>
+          const clickable = CLICKABLE_TILES[t.key] && (coverage[t.key] ?? 0) > 0;
+          const inner = (
+            <>
               <div className="flex items-center justify-between">
                 <span className={`grid h-8 w-8 place-items-center rounded-lg bg-white/70 ${t.tint}`}><Icon className="h-4 w-4" strokeWidth={2.25} /></span>
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.dot }} />
+                {clickable ? <ChevronRight className={`h-4 w-4 ${t.tint} opacity-40 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100`} strokeWidth={2.5} /> : <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.dot }} />}
               </div>
               <div className={`mt-3 text-[26px] font-semibold tabular-nums leading-none tracking-[-0.02em] ${t.tint}`}>{coverage[t.key] ?? 0}</div>
               <div className="mt-1.5 text-[12.5px] font-medium text-[#0A0A0A]">{t.label}</div>
-              <div className="text-[11px] text-[#737373]">{t.hint}</div>
-            </div>
+              <div className="text-[11px] text-[#737373]">{clickable ? 'tap to see hosts →' : t.hint}</div>
+            </>
+          );
+          return clickable ? (
+            <button key={t.key} type="button" onClick={() => onOpen(t.key)} className={`group rounded-[14px] ${t.bg} p-4 text-left ring-1 ${t.ring} transition-all hover:shadow-[0_2px_10px_rgba(0,0,0,0.06)] focus:outline-none focus-visible:ring-2`}>
+              {inner}
+            </button>
+          ) : (
+            <div key={t.key} className={`rounded-[14px] ${t.bg} p-4 ring-1 ${t.ring}`}>{inner}</div>
           );
         })}
       </div>

@@ -126,7 +126,7 @@ export default function SessionSlotDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border border-[#EAEAEA] bg-white text-[#0A0A0A] sm:max-w-[560px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border border-[#EAEAEA] bg-white text-[#0A0A0A] sm:max-w-[600px] lg:max-w-[940px]">
         <DialogHeader className="text-left">
           <DialogTitle className="text-[17px] font-semibold tracking-[-0.02em] text-[#0A0A0A]">
             Session slot details
@@ -136,7 +136,9 @@ export default function SessionSlotDetailModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* LEFT — identity, schedule, remarks (read-only context) */}
+          <div className="space-y-4">
           {/* Hero */}
           <div className="flex items-start gap-4 rounded-[12px] border border-[#F0F0F0] bg-[#FAFAFA] p-4">
             <span
@@ -205,12 +207,6 @@ export default function SessionSlotDetailModal({
             />
           </div>
 
-          <LiveSessionSection
-            session={sessionSlot.session}
-            onOpenSession={onOpenSession}
-            onOpenChange={onOpenChange}
-          />
-
           {sessionSlot.remarks && (
             <div className="rounded-[12px] border border-[#F0F0F0] bg-white p-4">
               <div className="text-[11px] font-medium uppercase tracking-wide text-[#737373]">
@@ -221,6 +217,16 @@ export default function SessionSlotDetailModal({
               </p>
             </div>
           )}
+          </div>
+
+          {/* RIGHT — the live session + verification (the actionable side) */}
+          <div className="space-y-4">
+            <LiveSessionSection
+              session={sessionSlot.session}
+              onOpenSession={onOpenSession}
+              onOpenChange={onOpenChange}
+            />
+          </div>
         </div>
 
         <DialogFooter className="justify-between gap-2 sm:justify-between">

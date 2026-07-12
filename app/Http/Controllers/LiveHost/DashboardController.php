@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\LiveHost\SessionCoverageMatrix;
 use App\Services\Mentoring\MenteeDailySalesResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -176,6 +177,28 @@ class DashboardController extends Controller
             'videos_today' => $videosToday,
             'pct' => $total > 0 ? (int) round($posted / $total * 100) : null,
         ];
+    }
+
+    /**
+     * JSON drill-in for a dashboard coverage tile: the outstanding sessions
+     * (belum upload / belum verify) for the current month, grouped by the live
+     * host responsible — each with its date + time. Same linked-account scope as
+     * the tile, so the totals match.
+     */
+    public function coverageOutstanding(Request $request): JsonResponse
+    {
+        $bucket = in_array($request->query('bucket'), ['needs_upload', 'needs_verify'], true)
+            ? $request->query('bucket')
+            : 'needs_upload';
+
+        $now = CarbonImmutable::now();
+
+        return response()->json(app(SessionCoverageMatrix::class)->outstandingByHost(
+            (int) $now->format('Y'),
+            (int) $now->format('n'),
+            $bucket,
+            ['hostId' => null, 'platformAccountId' => null, 'liveAccountId' => null, 'includeUnlinked' => false],
+        ));
     }
 
     /**

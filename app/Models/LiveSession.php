@@ -2,16 +2,19 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Database\Factories\LiveSessionFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LiveSession extends Model
 {
-    /** @use HasFactory<\Database\Factories\LiveSessionFactory> */
+    /** @use HasFactory<LiveSessionFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -115,6 +118,19 @@ class LiveSession extends Model
         return $this->belongsTo(ActualLiveRecord::class, 'matched_actual_live_record_id');
     }
 
+    /**
+     * All TikTok records attributed to this session (a split live that blipped
+     * shows up as 2+ back-to-back records). session.gmv_amount is the SUM of
+     * these records' live_attributed_gmv_myr. matchedActualLiveRecord() is kept
+     * as the denormalized "primary" pointer for backward compatibility.
+     */
+    public function actualLiveRecords(): BelongsToMany
+    {
+        return $this->belongsToMany(ActualLiveRecord::class, 'live_session_actual_live_record')
+            ->withPivot(['is_primary', 'live_attributed_gmv_myr', 'linked_by', 'linked_at'])
+            ->withTimestamps();
+    }
+
     public function verificationEvents(): HasMany
     {
         return $this->hasMany(LiveSessionVerificationEvent::class);
@@ -209,8 +225,8 @@ class LiveSession extends Model
 
     public function uploadDetails(array $data): void
     {
-        $actualStart = \Carbon\Carbon::parse($data['actual_start_at']);
-        $actualEnd = \Carbon\Carbon::parse($data['actual_end_at']);
+        $actualStart = Carbon::parse($data['actual_start_at']);
+        $actualEnd = Carbon::parse($data['actual_end_at']);
 
         $this->update([
             'actual_start_at' => $actualStart,

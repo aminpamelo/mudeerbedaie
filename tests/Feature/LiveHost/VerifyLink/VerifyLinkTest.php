@@ -6,6 +6,7 @@ use App\Models\LiveSession;
 use App\Models\LiveSessionVerificationEvent;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 
 function makeAdmin(): User
 {
@@ -40,7 +41,7 @@ it('links record and flips session to verified atomically', function () {
 
     $response = $this->actingAs(makeAdmin())
         ->post("/livehost/sessions/{$session->id}/verify-link", [
-            'actual_live_record_id' => $record->id,
+            'actual_live_record_id' => [$record->id],
         ]);
 
     $response->assertRedirect();
@@ -51,7 +52,37 @@ it('links record and flips session to verified atomically', function () {
         ->and((float) $session->gmv_amount)->toBe(987.65)
         ->and($session->gmv_source)->toBe('tiktok_actual')
         ->and($session->gmv_locked_at)->not->toBeNull()
-        ->and($session->verified_by)->not->toBeNull();
+        ->and($session->verified_by)->not->toBeNull()
+        ->and($session->actualLiveRecords()->count())->toBe(1);
+});
+
+it('links multiple records for a split live and sums the GMV', function () {
+    [$session, $record] = makeSessionWithCandidate();
+    $account = $session->platformAccount;
+    // A second segment of the same live (blip/reconnect).
+    $record2 = ActualLiveRecord::factory()->create([
+        'platform_account_id' => $account->id,
+        'creator_platform_user_id' => 'c1',
+        'launched_time' => now()->addMinutes(10),
+        'live_attributed_gmv_myr' => 12.35,
+    ]);
+
+    $this->actingAs(makeAdmin())
+        ->post("/livehost/sessions/{$session->id}/verify-link", [
+            'actual_live_record_id' => [$record->id, $record2->id],
+        ])->assertRedirect();
+
+    $session->refresh();
+    expect($session->verification_status)->toBe('verified')
+        // 987.65 + 12.35 = 1000.00
+        ->and((float) $session->gmv_amount)->toBe(1000.00)
+        ->and($session->actualLiveRecords()->count())->toBe(2)
+        // Primary = earliest launched segment.
+        ->and($session->matched_actual_live_record_id)->toBe($record->id);
+
+    // One audit event per linked record.
+    expect(LiveSessionVerificationEvent::where('live_session_id', $session->id)
+        ->where('action', 'verify_link')->count())->toBe(2);
 });
 
 it('writes a verify_link audit event', function () {
@@ -59,7 +90,7 @@ it('writes a verify_link audit event', function () {
 
     $this->actingAs(makeAdmin())
         ->post("/livehost/sessions/{$session->id}/verify-link", [
-            'actual_live_record_id' => $record->id,
+            'actual_live_record_id' => [$record->id],
         ]);
 
     $event = LiveSessionVerificationEvent::where('live_session_id', $session->id)->first();
@@ -74,7 +105,7 @@ it('rejects when session not pending', function () {
 
     $this->actingAs(makeAdmin())
         ->post("/livehost/sessions/{$session->id}/verify-link", [
-            'actual_live_record_id' => $record->id,
+            'actual_live_record_id' => [$record->id],
         ])
         ->assertSessionHasErrors();
 });
@@ -85,7 +116,7 @@ it('rejects when record belongs to different platform account', function () {
 
     $this->actingAs(makeAdmin())
         ->post("/livehost/sessions/{$session->id}/verify-link", [
-            'actual_live_record_id' => $record->id,
+            'actual_live_record_id' => [$record->id],
         ])
         ->assertSessionHasErrors();
 });
@@ -99,10 +130,25 @@ it('returns 409 when record already linked to another session', function () {
         'verification_status' => 'pending',
         'matched_actual_live_record_id' => $record->id,
     ]);
+    $sessionB->actualLiveRecords()->attach($record->id, ['is_primary' => true]);
 
     $this->actingAs(makeAdmin())
         ->post("/livehost/sessions/{$sessionA->id}/verify-link", [
-            'actual_live_record_id' => $record->id,
+            'actual_live_record_id' => [$record->id],
         ])
         ->assertStatus(409);
+});
+
+it('prevents the same record from feeding two sessions at the DB level (no double-count)', function () {
+    [$sessionA, $record] = makeSessionWithCandidate();
+    $pivot = $sessionA->liveHostPlatformAccount;
+    $sessionB = LiveSession::factory()->create([
+        'platform_account_id' => $pivot->platform_account_id,
+        'live_host_platform_account_id' => $pivot->id,
+    ]);
+
+    $sessionA->actualLiveRecords()->attach($record->id, ['is_primary' => true]);
+
+    expect(fn () => $sessionB->actualLiveRecords()->attach($record->id))
+        ->toThrow(QueryException::class);
 });

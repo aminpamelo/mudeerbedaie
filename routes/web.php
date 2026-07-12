@@ -298,6 +298,11 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
         Route::get('my-path', [MentoringController::class, 'show'])
             ->name('my-path');
 
+        // Day-by-day sales strip for a chosen month (JSON) — lets the host browse
+        // past months of their performance without reloading the whole page.
+        Route::get('my-path/daily', [MentoringController::class, 'daily'])
+            ->name('my-path.daily');
+
         // Daily video log — the host records the video(s) they made today
         // (title + optional link). A mentoring KPI, scoped to the active
         // enrollment; multiple per day allowed.
@@ -414,6 +419,11 @@ Route::middleware(['auth'])
         Route::middleware('role:admin,admin_livehost')->group(function () {
             Route::get('live-now', [App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
                 ->name('live-now');
+
+            // Drill-in for the dashboard's coverage tiles: outstanding sessions
+            // (belum upload / belum verify) for the month, grouped by live host.
+            Route::get('coverage-outstanding', [App\Http\Controllers\LiveHost\DashboardController::class, 'coverageOutstanding'])
+                ->name('coverage-outstanding');
 
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', [ReportsController::class, 'index'])

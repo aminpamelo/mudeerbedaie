@@ -47,15 +47,20 @@ it('adds matched_actual_live_record_id column to live_sessions', function () {
     expect(Schema::hasColumn('live_sessions', 'matched_actual_live_record_id'))->toBeTrue();
 });
 
-it('enforces a unique constraint on live_sessions.matched_actual_live_record_id', function () {
-    $indexes = collect(Schema::getIndexes('live_sessions'));
+it('moves the global uniqueness guard onto the live_session_actual_live_record pivot', function () {
+    // The old column-level UNIQUE on live_sessions.matched_actual_live_record_id
+    // was dropped in favour of the pivot (a session can now link many records).
+    $sessionUnique = collect(Schema::getIndexes('live_sessions'))->first(
+        fn (array $i) => $i['unique'] && $i['columns'] === ['matched_actual_live_record_id']
+    );
+    expect($sessionUnique)->toBeNull();
 
-    $unique = $indexes->first(function (array $index) {
-        return $index['unique']
-            && $index['columns'] === ['matched_actual_live_record_id'];
-    });
-
-    expect($unique)->not->toBeNull();
+    // The pivot carries the global guard: one ActualLiveRecord, one session.
+    expect(Schema::hasTable('live_session_actual_live_record'))->toBeTrue();
+    $pivotUnique = collect(Schema::getIndexes('live_session_actual_live_record'))->first(
+        fn (array $i) => $i['unique'] && $i['columns'] === ['actual_live_record_id']
+    );
+    expect($pivotUnique)->not->toBeNull();
 });
 
 it('creates live_session_verification_events audit table', function () {

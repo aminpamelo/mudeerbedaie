@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { CalendarClock, CheckCircle2, ChevronRight, Circle, Crown, GraduationCap, MessageSquare, Minus, PartyPopper, Star, TrendingDown, TrendingUp, Trophy, Video } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Circle, Crown, GraduationCap, Loader2, MessageSquare, Minus, PartyPopper, Star, TrendingDown, TrendingUp, Trophy, Video } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { MONTH_SHORT_MS } from '@/livehost-pocket/lib/format';
 import { initialsFrom } from '@/livehost-pocket/lib/utils';
@@ -371,6 +371,63 @@ function DailyStrip({ daily }) {
   );
 }
 
+/**
+ * The day-by-day strip with a month browser. `months` is newest-first; switching
+ * month fetches that month's strip from the JSON endpoint (the rest of the page
+ * stays put). The previous month stays visible, dimmed, while the next loads.
+ */
+function DailyStripSection({ initialDaily, months }) {
+  const [daily, setDaily] = useState(initialDaily);
+  const [loading, setLoading] = useState(false);
+
+  const list = months.length > 0 ? months : (daily ? [{ year: daily.year, month: daily.month, label: daily.month_label }] : []);
+  const idx = list.findIndex((m) => m.year === daily?.year && m.month === daily?.month);
+  const canOlder = idx >= 0 && idx < list.length - 1; // older months sit later in a newest-first list
+  const canNewer = idx > 0;
+
+  const go = (targetIdx) => {
+    const m = list[targetIdx];
+    if (!m || loading) return;
+    setLoading(true);
+    fetch(`/live-host/my-path/daily?year=${m.year}&month=${m.month}`, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then((r) => r.json())
+      .then((data) => setDaily(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  const arrow = 'grid h-9 w-9 shrink-0 place-items-center rounded-[11px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[var(--fg-2)] transition active:scale-95 disabled:opacity-30';
+
+  return (
+    <>
+      <div className="mb-2 flex items-center gap-2">
+        <button type="button" onClick={() => go(idx + 1)} disabled={!canOlder || loading} aria-label="Previous month" className={arrow}>
+          <ChevronLeft className="h-4 w-4" strokeWidth={2.2} />
+        </button>
+        <div className="relative flex-1">
+          <select
+            value={`${daily?.year}-${daily?.month}`}
+            onChange={(e) => { const [y, m] = e.target.value.split('-').map(Number); go(list.findIndex((x) => x.year === y && x.month === m)); }}
+            className="h-9 w-full appearance-none rounded-[11px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 text-center text-[13px] font-semibold text-[var(--fg)] focus:border-[var(--accent)] focus:outline-none"
+          >
+            {list.map((m) => <option key={`${m.year}-${m.month}`} value={`${m.year}-${m.month}`}>{m.label}</option>)}
+          </select>
+          {loading && <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-[var(--fg-3)]" />}
+        </div>
+        <button type="button" onClick={() => go(idx - 1)} disabled={!canNewer || loading} aria-label="Next month" className={arrow}>
+          <ChevronRight className="h-4 w-4" strokeWidth={2.2} />
+        </button>
+      </div>
+      <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+        <DailyStrip daily={daily} />
+      </div>
+    </>
+  );
+}
+
 function CommentsFeed({ comments }) {
   return (
     <div className="overflow-hidden rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)]">
@@ -645,8 +702,8 @@ export default function MyPath() {
             <SectionTitle>Monthly performance</SectionTitle>
             <MonthlyPerformance performance={enrollment.performance} />
 
-            <SectionTitle>This month, day by day</SectionTitle>
-            <DailyStrip daily={enrollment.daily} />
+            <SectionTitle>Day by day</SectionTitle>
+            <DailyStripSection initialDaily={enrollment.daily} months={enrollment.available_months ?? []} />
 
             <SectionTitle>Path to top host</SectionTitle>
             <LevelLadder ladder={enrollment.ladder} />

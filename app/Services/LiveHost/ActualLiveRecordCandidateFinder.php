@@ -15,6 +15,21 @@ class ActualLiveRecordCandidateFinder
     private const MAX_CANDIDATES = 20;
 
     /**
+     * Segments launched within this gap of the previous one's end are treated as
+     * one physical live that blipped and reconnected (TikTok reports each as a
+     * separate record). Used to pre-select the whole split as the suggestion.
+     */
+    private const CLUSTER_GAP_SECONDS = 20 * 60;
+
+    /**
+     * A blip-split cluster fills roughly one scheduled slot, so cap its total
+     * span (first launch → last end). This stops long back-to-back lives whose
+     * ends happen to abut the next start (tiny gap) from chaining into one giant
+     * "cluster" across the whole day.
+     */
+    private const CLUSTER_MAX_SPAN_SECONDS = 3 * 3600;
+
+    /**
      * Return candidate ActualLiveRecord rows for the given LiveSession, filtered to
      * same shop + same creator account + same calendar day (KL timezone),
      * excluding records already linked to other sessions, sorted by time
@@ -52,6 +67,15 @@ class ActualLiveRecordCandidateFinder
             })
             ->whereBetween('launched_time', [$dayStart, $dayEnd])
             ->whereNotIn('id', function ($q) use ($session) {
+                // Hide records already attributed to OTHER sessions, but keep this
+                // session's own linked records selectable (multi-record split lives).
+                $q->select('actual_live_record_id')
+                    ->from('live_session_actual_live_record')
+                    ->where('live_session_id', '!=', $session->id);
+            })
+            // Belt-and-suspenders against the retained primary pointer (kept in
+            // sync with the pivot): also exclude records primary-linked elsewhere.
+            ->whereNotIn('id', function ($q) use ($session) {
                 $q->select('matched_actual_live_record_id')
                     ->from('live_sessions')
                     ->whereNotNull('matched_actual_live_record_id')
@@ -63,5 +87,75 @@ class ActualLiveRecordCandidateFinder
             ))
             ->take(self::MAX_CANDIDATES)
             ->values();
+    }
+
+    /**
+     * Given a session's candidate records, return the ids of the contiguous
+     * cluster nearest the scheduled slot — i.e. the segments of one physical
+     * live that blipped and reconnected. The verify modal pre-selects these so
+     * a split live is linked as a set with a single click.
+     *
+     * @param  Collection<int, ActualLiveRecord>  $candidates
+     * @return array<int, int>
+     */
+    public function suggestedClusterIds(Collection $candidates, LiveSession $session): array
+    {
+        if ($candidates->isEmpty() || $session->scheduled_start_at === null) {
+            return [];
+        }
+
+        $sorted = $candidates
+            ->filter(fn (ActualLiveRecord $r) => $r->launched_time !== null)
+            ->sortBy(fn (ActualLiveRecord $r) => $r->launched_time->getTimestamp())
+            ->values();
+
+        /** @var array<int, array<int, ActualLiveRecord>> $runs */
+        $runs = [];
+        $current = [];
+        $prevEnd = null;
+        $runStart = null;
+
+        $endOf = fn (ActualLiveRecord $r) => $r->ended_time
+            ?? $r->launched_time->copy()->addSeconds((int) ($r->duration_seconds ?? 0));
+
+        foreach ($sorted as $record) {
+            $start = $record->launched_time;
+
+            // Gap = this segment's start minus the previous segment's end. Carbon's
+            // $a->diffInSeconds($b, false) returns ($b - $a), so
+            // $prevEnd->diffInSeconds($start) is (start - prevEnd): positive when
+            // there is a real gap between the two segments.
+            $gapTooBig = $prevEnd !== null
+                && $prevEnd->diffInSeconds($start, false) > self::CLUSTER_GAP_SECONDS;
+
+            // Span cap: adding this segment must not stretch the run past one slot.
+            $spanTooBig = $runStart !== null
+                && $runStart->diffInSeconds($endOf($record), false) > self::CLUSTER_MAX_SPAN_SECONDS;
+
+            if ($gapTooBig || $spanTooBig) {
+                $runs[] = $current;
+                $current = [];
+                $runStart = null;
+            }
+
+            if ($runStart === null) {
+                $runStart = $start;
+            }
+            $current[] = $record;
+            $prevEnd = $endOf($record);
+        }
+
+        if ($current !== []) {
+            $runs[] = $current;
+        }
+
+        // Pick the run whose middle segment launches closest to the scheduled slot.
+        $best = collect($runs)
+            ->sortBy(fn (array $run) => abs(
+                $run[intdiv(count($run), 2)]->launched_time->diffInSeconds($session->scheduled_start_at, true)
+            ))
+            ->first() ?? [];
+
+        return collect($best)->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

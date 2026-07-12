@@ -52,6 +52,12 @@ class SuggestedSlotFinder
             ->when($platformAccountId !== null, fn ($q) => $q->where('platform_account_id', $platformAccountId))
             ->whereBetween('launched_time', [$weekStart->startOfDay(), $weekEnd->endOfDay()])
             ->whereNotIn('id', function ($q) {
+                // Records already attributed to a session (any pivot row) are settled.
+                $q->select('actual_live_record_id')
+                    ->from('live_session_actual_live_record');
+            })
+            ->whereNotIn('id', function ($q) {
+                // Backward-compat with the retained primary pointer.
                 $q->select('matched_actual_live_record_id')
                     ->from('live_sessions')
                     ->whereNotNull('matched_actual_live_record_id');
@@ -146,6 +152,12 @@ class SuggestedSlotFinder
             ->when($platformAccountId !== null, fn ($q) => $q->where('platform_account_id', $platformAccountId))
             ->whereBetween('launched_time', [$from->startOfDay(), $to->endOfDay()])
             ->whereNotIn('id', function ($q) {
+                // Records already attributed to a session (any pivot row) are settled.
+                $q->select('actual_live_record_id')
+                    ->from('live_session_actual_live_record');
+            })
+            ->whereNotIn('id', function ($q) {
+                // Backward-compat with the retained primary pointer.
                 $q->select('matched_actual_live_record_id')
                     ->from('live_sessions')
                     ->whereNotNull('matched_actual_live_record_id');

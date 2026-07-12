@@ -189,6 +189,14 @@ class SessionController extends Controller
         $isUnverify = $nextStatus === 'pending';
         $wasVerified = $session->verification_status === 'verified';
 
+        // Unverifying rewrites GMV to 0 — block it if a locked payroll run already
+        // paid the host on this session.
+        if ($isUnverify && $this->isSessionPayrollLocked($session)) {
+            return back()->withErrors([
+                'verification' => 'A locked payroll run covers this session — unlock it before unverifying.',
+            ])->setStatusCode(423);
+        }
+
         $attributes = [
             'verification_status' => $nextStatus,
             'verification_notes' => $data['verification_notes'] ?? null,
@@ -207,7 +215,12 @@ class SessionController extends Controller
         $priorRecordId = $session->matched_actual_live_record_id;
         $priorGmv = (float) ($session->gmv_amount ?? 0);
 
-        DB::transaction(function () use ($session, $attributes, $nextStatus, $wasVerified, $priorRecordId, $priorGmv, $request, $data) {
+        DB::transaction(function () use ($session, $attributes, $nextStatus, $wasVerified, $priorRecordId, $priorGmv, $request, $data, $isUnverify) {
+            // Unverify detaches every attributed record so re-verify starts clean.
+            if ($isUnverify) {
+                $session->actualLiveRecords()->detach();
+            }
+
             $session->update($attributes);
 
             $action = match ($nextStatus) {
@@ -246,31 +259,39 @@ class SessionController extends Controller
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
 
-        $candidates = app(ActualLiveRecordCandidateFinder::class)
-            ->forSession($session)
-            ->map(fn (ActualLiveRecord $r) => [
-                'id' => $r->id,
-                'launchedTime' => $r->launched_time?->toIso8601String(),
-                'endedTime' => $r->ended_time?->toIso8601String(),
-                'durationSeconds' => $r->duration_seconds,
-                'gmvMyr' => (float) $r->gmv_myr,
-                'liveAttributedGmvMyr' => (float) $r->live_attributed_gmv_myr,
-                'viewers' => $r->viewers,
-                'itemsSold' => $r->items_sold,
-                'creatorHandle' => $r->creator_handle,
-                'source' => $r->source,
-                'isSuggested' => false,
-            ])
-            ->values()
-            ->all();
-
-        if ($candidates !== []) {
-            $candidates[0]['isSuggested'] = true;
-        }
+        $candidates = $this->buildCandidatePayload($session);
 
         return response()->json([
             'candidates' => $candidates,
         ]);
+    }
+
+    /**
+     * Candidate TikTok records for a session, with every record of the nearest
+     * contiguous split-live cluster flagged isSuggested (so the verify modal can
+     * pre-select the whole split). Shared by candidates() and show().
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCandidatePayload(LiveSession $session): array
+    {
+        $finder = app(ActualLiveRecordCandidateFinder::class);
+        $models = $finder->forSession($session);
+        $clusterIds = $finder->suggestedClusterIds($models, $session);
+
+        return $models->map(fn (ActualLiveRecord $r) => [
+            'id' => $r->id,
+            'launchedTime' => $r->launched_time?->toIso8601String(),
+            'endedTime' => $r->ended_time?->toIso8601String(),
+            'durationSeconds' => $r->duration_seconds,
+            'gmvMyr' => (float) $r->gmv_myr,
+            'liveAttributedGmvMyr' => (float) $r->live_attributed_gmv_myr,
+            'viewers' => $r->viewers,
+            'itemsSold' => $r->items_sold,
+            'creatorHandle' => $r->creator_handle,
+            'source' => $r->source,
+            'isSuggested' => in_array($r->id, $clusterIds, true),
+        ])->values()->all();
     }
 
     public function verifyLink(VerifyLinkLiveSessionRequest $request, LiveSession $session): RedirectResponse
@@ -283,63 +304,95 @@ class SessionController extends Controller
             ]);
         }
 
-        $record = ActualLiveRecord::findOrFail($request->integer('actual_live_record_id'));
+        $ids = $request->validated()['actual_live_record_id'];
+        $records = ActualLiveRecord::whereIn('id', $ids)->get();
 
-        if ($record->platform_account_id !== $session->platform_account_id) {
+        // Every linked record must belong to this session's shop.
+        if ($records->contains(fn (ActualLiveRecord $r) => $r->platform_account_id !== $session->platform_account_id)) {
             return back()->withErrors([
-                'actual_live_record_id' => 'Record does not belong to this platform account.',
-            ]);
+                'actual_live_record_id' => 'One or more records do not belong to this platform account.',
+            ])->setStatusCode(422);
         }
 
-        $alreadyLinked = LiveSession::where('matched_actual_live_record_id', $record->id)
-            ->where('id', '!=', $session->id)
-            ->exists();
+        // Global guard (mirrors the pivot's UNIQUE): a record already attributed
+        // to another session cannot be double-counted here. Check the pivot and
+        // the retained primary pointer.
+        $takenElsewhere = DB::table('live_session_actual_live_record')
+            ->whereIn('actual_live_record_id', $ids)
+            ->where('live_session_id', '!=', $session->id)
+            ->exists()
+            || LiveSession::query()
+                ->whereIn('matched_actual_live_record_id', $ids)
+                ->where('id', '!=', $session->id)
+                ->exists();
 
-        if ($alreadyLinked) {
-            return back()
-                ->withErrors([
-                    'actual_live_record_id' => 'This record is already linked to another session.',
-                ])
-                ->setStatusCode(409);
+        if ($takenElsewhere) {
+            return back()->withErrors([
+                'actual_live_record_id' => 'One or more records are already linked to another session.',
+            ])->setStatusCode(409);
+        }
+
+        // Don't let a link change rewrite GMV a host was already paid on.
+        if ($this->isSessionPayrollLocked($session)) {
+            return back()->withErrors([
+                'actual_live_record_id' => 'A locked payroll run covers this session — unlock it before re-linking.',
+            ])->setStatusCode(423);
         }
 
         try {
-            DB::transaction(function () use ($session, $record, $request) {
+            DB::transaction(function () use ($session, $records, $request) {
+                $primaryId = $records->sortBy('launched_time')->first()->id;
+                $userId = $request->user()->id;
+
+                // Sum of live-attributed GMV across every linked record. Because
+                // each record can belong to only one session (pivot UNIQUE), this
+                // figure is counted exactly once in payroll.
+                $summedGmv = $records->sum(fn (ActualLiveRecord $r) => max(0.0, (float) $r->live_attributed_gmv_myr));
+
+                $session->actualLiveRecords()->sync(
+                    $records->mapWithKeys(fn (ActualLiveRecord $r) => [
+                        $r->id => [
+                            'is_primary' => $r->id === $primaryId,
+                            'live_attributed_gmv_myr' => max(0.0, (float) $r->live_attributed_gmv_myr),
+                            'linked_by' => $userId,
+                            'linked_at' => now(),
+                        ],
+                    ])->all()
+                );
+
                 $session->update([
-                    'matched_actual_live_record_id' => $record->id,
-                    'gmv_amount' => $record->live_attributed_gmv_myr,
+                    'matched_actual_live_record_id' => $primaryId,
+                    'gmv_amount' => $summedGmv,
                     'gmv_source' => 'tiktok_actual',
                     'gmv_locked_at' => now(),
                     'verification_status' => 'verified',
-                    'verified_by' => $request->user()->id,
+                    'verified_by' => $userId,
                     'verified_at' => now(),
                 ]);
 
-                // Mirror the linked record's stats onto the session's
-                // analytics row so the detail page reflects what was verified.
-                // TikTok's xlsx exposes a single viewer figure; we treat it as
-                // peak. gifts_value isn't tracked on actual_live_records.
+                // Aggregate the split's stats onto the session's analytics row:
+                // peak viewers = MAX across segments, engagement + duration = SUM.
                 LiveAnalytics::updateOrCreate(
                     ['live_session_id' => $session->id],
                     [
-                        'viewers_peak' => $record->viewers ?? 0,
-                        'viewers_avg' => $record->viewers ?? 0,
-                        'total_likes' => $record->likes ?? 0,
-                        'total_comments' => $record->comments ?? 0,
-                        'total_shares' => $record->shares ?? 0,
-                        'duration_minutes' => $record->duration_seconds
-                            ? (int) round($record->duration_seconds / 60)
-                            : 0,
+                        'viewers_peak' => (int) $records->max('viewers'),
+                        'viewers_avg' => (int) $records->max('viewers'),
+                        'total_likes' => (int) $records->sum('likes'),
+                        'total_comments' => (int) $records->sum('comments'),
+                        'total_shares' => (int) $records->sum('shares'),
+                        'duration_minutes' => (int) round($records->sum('duration_seconds') / 60),
                     ]
                 );
 
-                LiveSessionVerificationEvent::create([
-                    'live_session_id' => $session->id,
-                    'actual_live_record_id' => $record->id,
-                    'action' => 'verify_link',
-                    'user_id' => $request->user()->id,
-                    'gmv_snapshot' => $record->live_attributed_gmv_myr,
-                ]);
+                foreach ($records as $r) {
+                    LiveSessionVerificationEvent::create([
+                        'live_session_id' => $session->id,
+                        'actual_live_record_id' => $r->id,
+                        'action' => 'verify_link',
+                        'user_id' => $userId,
+                        'gmv_snapshot' => max(0.0, (float) $r->live_attributed_gmv_myr),
+                    ]);
+                }
             });
         } catch (QueryException $e) {
             // Only treat unique-constraint violations as the "already linked" case.
@@ -350,12 +403,15 @@ class SessionController extends Controller
 
             return back()
                 ->withErrors([
-                    'actual_live_record_id' => 'Record was just linked elsewhere — refresh and retry.',
+                    'actual_live_record_id' => 'A record was just linked elsewhere — refresh and retry.',
                 ])
                 ->setStatusCode(409);
         }
 
-        return back()->with('success', 'Session verified with linked TikTok record.');
+        $count = $records->count();
+        $noun = $count === 1 ? 'record' : "{$count} records";
+
+        return back()->with('success', "Session verified with linked TikTok {$noun}.");
     }
 
     public function storeAttachment(StoreLiveSessionAttachmentRequest $request, LiveSession $session): RedirectResponse
@@ -403,32 +459,13 @@ class SessionController extends Controller
             'liveHostPlatformAccount.platformAccount.platform:id,name,display_name,slug',
             'verifiedBy:id,name',
             'matchedActualLiveRecord:id,launched_time,ended_time,duration_seconds,gmv_myr,live_attributed_gmv_myr,viewers,items_sold,creator_handle,source,import_id',
+            'actualLiveRecords',
             'analytics',
             'attachments.uploader:id,name',
             'gmvAdjustments.adjustedBy:id,name',
         ]);
 
-        $candidates = app(ActualLiveRecordCandidateFinder::class)
-            ->forSession($session)
-            ->map(fn (ActualLiveRecord $r) => [
-                'id' => $r->id,
-                'launchedTime' => $r->launched_time?->toIso8601String(),
-                'endedTime' => $r->ended_time?->toIso8601String(),
-                'durationSeconds' => $r->duration_seconds,
-                'gmvMyr' => (float) $r->gmv_myr,
-                'liveAttributedGmvMyr' => (float) $r->live_attributed_gmv_myr,
-                'viewers' => $r->viewers,
-                'itemsSold' => $r->items_sold,
-                'creatorHandle' => $r->creator_handle,
-                'source' => $r->source,
-                'isSuggested' => false,
-            ])
-            ->values()
-            ->all();
-
-        if ($candidates !== []) {
-            $candidates[0]['isSuggested'] = true;
-        }
+        $candidates = $this->buildCandidatePayload($session);
 
         return Inertia::render('sessions/Show', [
             'session' => $this->mapSession($session, detailed: true),
@@ -554,6 +591,24 @@ class SessionController extends Controller
                 'source' => $s->matchedActualLiveRecord->source,
                 'import_id' => $s->matchedActualLiveRecord->import_id,
             ] : null;
+
+            // Full set of records attributed to this session (split-live). The
+            // primary is flagged so the UI can mark it; gmv_amount is their sum.
+            $base['actual_live_records'] = $s->relationLoaded('actualLiveRecords')
+                ? $s->actualLiveRecords->map(fn (ActualLiveRecord $r) => [
+                    'id' => $r->id,
+                    'launched_time' => $r->launched_time?->toIso8601String(),
+                    'ended_time' => $r->ended_time?->toIso8601String(),
+                    'duration_seconds' => $r->duration_seconds,
+                    'gmv_myr' => (float) $r->gmv_myr,
+                    'live_attributed_gmv_myr' => (float) $r->live_attributed_gmv_myr,
+                    'viewers' => $r->viewers,
+                    'items_sold' => $r->items_sold,
+                    'creator_handle' => $r->creator_handle,
+                    'source' => $r->source,
+                    'is_primary' => (bool) $r->pivot->is_primary,
+                ])->sortBy('launched_time')->values()->all()
+                : [];
         }
 
         return $base;

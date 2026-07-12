@@ -404,6 +404,39 @@ function VerifiedRecordPanel({ session }) {
               </Link>
             </div>
           )}
+
+          {Array.isArray(session.actual_live_records) && session.actual_live_records.length > 1 && (
+            <div className="mt-4">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-[#15803D]">
+                Split live · {session.actual_live_records.length} segments linked
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {session.actual_live_records.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-2 rounded-md bg-white/60 px-3 py-2 text-[12px]"
+                  >
+                    <span className="flex flex-wrap items-center gap-2 text-[#14532D]">
+                      <span className="font-medium tabular-nums">{formatDateTime(r.launched_time)}</span>
+                      <span className="text-[#15803D]">· {formatSeconds(r.duration_seconds)}</span>
+                      {r.is_primary && (
+                        <span className="rounded-full bg-[#DCFCE7] px-1.5 py-0.5 text-[10px] font-medium text-[#15803D]">
+                          Primary
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono font-semibold text-[#14532D]">
+                      {formatMyr(r.live_attributed_gmv_myr)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-[#BBF7D0] px-3 pt-2 text-[12px] font-semibold text-[#14532D]">
+                <span>Total live-attributed (session GMV)</span>
+                <span className="font-mono">{formatMyr(session.gmv_amount)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

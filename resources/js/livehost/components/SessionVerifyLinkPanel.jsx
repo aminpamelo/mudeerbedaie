@@ -40,6 +40,30 @@ function formatDateTime(iso) {
   });
 }
 
+function formatTimeOnly(iso) {
+  if (!iso) {
+    return null;
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+// The record's end time: prefer the reported ended_time, else launch + duration.
+function recordEndTime(candidate) {
+  if (candidate.endedTime) {
+    return formatTimeOnly(candidate.endedTime);
+  }
+  if (candidate.launchedTime && candidate.durationSeconds) {
+    return formatTimeOnly(
+      new Date(new Date(candidate.launchedTime).getTime() + candidate.durationSeconds * 1000).toISOString(),
+    );
+  }
+  return null;
+}
+
 const META = {
   pending: {
     label: 'Pending PIC review',
@@ -63,9 +87,22 @@ const META = {
 
 export default function SessionVerifyLinkPanel({ session, onDone = null }) {
   const [candidates, setCandidates] = useState(null); // null = not loaded, [] = loaded empty
-  const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  // A split live (blip/reconnect) is 2+ records → multi-select.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const verifyForm = useForm({
     verification_status: 'pending',
@@ -96,7 +133,7 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
     let cancelled = false;
     setCandidatesLoading(true);
     setCandidates(null);
-    setSelectedCandidateId(null);
+    setSelectedIds(new Set());
     fetch(`/livehost/sessions/${session.id}/candidates`, {
       headers: { Accept: 'application/json' },
       credentials: 'same-origin',
@@ -108,10 +145,9 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
         }
         const list = data.candidates ?? [];
         setCandidates(list);
-        const suggested = list.find((c) => c.isSuggested);
-        if (suggested) {
-          setSelectedCandidateId(suggested.id);
-        }
+        // Pre-select the whole suggested split-live cluster.
+        const suggested = list.filter((c) => c.isSuggested).map((c) => c.id);
+        setSelectedIds(new Set(suggested));
       })
       .catch(() => {
         if (!cancelled) {
@@ -133,17 +169,22 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
   }
 
   const hasCandidates = Array.isArray(candidates) && candidates.length > 0;
-  const canVerify = isPending && hasCandidates && selectedCandidateId !== null;
+  const selectedRecords = hasCandidates ? candidates.filter((c) => selectedIds.has(c.id)) : [];
+  const summedGmv = selectedRecords.reduce((sum, c) => {
+    const v = Number(c.liveAttributedGmvMyr);
+    return sum + (Number.isFinite(v) && v > 0 ? v : 0);
+  }, 0);
+  const canVerify = isPending && selectedIds.size > 0;
   const processing = verifyForm.processing;
   const { label, badgeClass, icon: Icon, iconClass } = META[current] ?? META.pending;
 
   const verify = () => {
-    if (selectedCandidateId === null) {
+    if (selectedIds.size === 0) {
       return;
     }
     router.post(
       `/livehost/sessions/${session.id}/verify-link`,
-      { actual_live_record_id: selectedCandidateId },
+      { actual_live_record_id: [...selectedIds] },
       {
         preserveScroll: true,
         onSuccess: () => {
@@ -202,8 +243,11 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
 
       {isPending && (
         <div className="mt-3">
-          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
-            Pick the TikTok record to link
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+              Pick the TikTok record(s) to link
+            </span>
+            <span className="text-[10.5px] text-[#A3A3A3]">Select all segments of a split live</span>
           </div>
           {candidatesLoading && (
             <div className="rounded-md border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-2 text-[12px] text-[#737373]">
@@ -219,8 +263,9 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
           {!candidatesLoading && hasCandidates && (
             <div className="flex max-h-[180px] flex-col gap-1.5 overflow-y-auto pr-1">
               {candidates.map((c) => {
-                const selected = selectedCandidateId === c.id;
+                const selected = selectedIds.has(c.id);
                 const durationMin = c.durationSeconds ? Math.round(c.durationSeconds / 60) : null;
+                const endTime = recordEndTime(c);
                 return (
                   <label
                     key={c.id}
@@ -229,15 +274,17 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
                     }`}
                   >
                     <input
-                      type="radio"
-                      name="slot-actual-live-record"
+                      type="checkbox"
                       checked={selected}
-                      onChange={() => setSelectedCandidateId(c.id)}
-                      className="mt-0.5"
+                      onChange={() => toggleSelected(c.id)}
+                      className="mt-0.5 accent-[#10B981]"
                     />
                     <div className="min-w-0 flex-1 text-[12px]">
-                      <div className="flex items-center gap-1.5 text-[#0A0A0A]">
-                        <span className="font-medium">{formatDateTime(c.launchedTime)}</span>
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[#0A0A0A]">
+                        <span className="font-medium">
+                          {formatDateTime(c.launchedTime)}
+                          {endTime ? ` – ${endTime}` : ''}
+                        </span>
                         {durationMin !== null && (
                           <span className="text-[#737373]">· {durationMin}m</span>
                         )}
@@ -279,6 +326,15 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
                   </label>
                 );
               })}
+            </div>
+          )}
+          {!candidatesLoading && hasCandidates && selectedIds.size > 0 && (
+            <div className="mt-2 flex items-center justify-between rounded-md border border-[#D1FAE5] bg-[#ECFDF5] px-3 py-2 text-[12px]">
+              <span className="text-[#065F46]">
+                {selectedIds.size} record{selectedIds.size === 1 ? '' : 's'} selected
+                {selectedIds.size > 1 ? ' (split live)' : ''}
+              </span>
+              <span className="font-semibold text-[#065F46]">Locks {formatGmvMyr(summedGmv)}</span>
             </div>
           )}
         </div>
@@ -341,8 +397,8 @@ export default function SessionVerifyLinkPanel({ session, onDone = null }) {
               title={
                 isPending && !hasCandidates
                   ? 'No TikTok records found — verification blocked'
-                  : isPending && selectedCandidateId === null
-                    ? 'Select a TikTok record first'
+                  : isPending && selectedIds.size === 0
+                    ? 'Select at least one TikTok record first'
                     : undefined
               }
               className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-50"
