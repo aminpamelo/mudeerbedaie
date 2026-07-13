@@ -31,6 +31,14 @@ export function fetchVideoReportCell(params) {
     return api.get('/video-report/cell', { params }).then((r) => r.data);
 }
 
+export function postVideoComment(videoId, body) {
+    return api.post(`/video-report/videos/${videoId}/comments`, { body }).then((r) => r.data);
+}
+
+export function deleteVideoComment(commentId) {
+    return api.delete(`/video-report/comments/${commentId}`).then((r) => r.data);
+}
+
 // ─── Contents ────────────────────────────────────────────────────────────────
 
 export function fetchContents(params) {

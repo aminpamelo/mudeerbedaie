@@ -1219,9 +1219,11 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     Route::get('reports/content', [CmsContentReportController::class, 'index']);
     Route::get('reports/content/export', [CmsContentReportController::class, 'export']);
 
-    // Video Report (read-only monitor of the mentoring host × category video matrix)
+    // Video Report (monitor the mentoring host × category video matrix + give feedback)
     Route::get('video-report', [CmsVideoReportController::class, 'index']);
     Route::get('video-report/cell', [CmsVideoReportController::class, 'cell']);
+    Route::post('video-report/videos/{video}/comments', [CmsVideoReportController::class, 'storeComment']);
+    Route::delete('video-report/comments/{comment}', [CmsVideoReportController::class, 'destroyComment']);
 
     // Ad Campaigns
     Route::apiResource('ads', CmsAdCampaignController::class)->parameters(['ads' => 'adCampaign']);

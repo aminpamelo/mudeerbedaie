@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clapperboard, ExternalLink, Loader2, MessageSquare, X } from 'lucide-react';
-import { fetchVideoReport, fetchVideoReportCell } from '../lib/api';
+import { Clapperboard, ExternalLink, Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
+import { deleteVideoComment, fetchVideoReport, fetchVideoReportCell, postVideoComment } from '../lib/api';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -61,6 +61,10 @@ export default function VideoReport() {
     }, [filters.year, filters.from, filters.to]);
 
     const closeCell = () => setCell({ open: false, loading: false, host: null, category: null, videos: [] });
+
+    const updateVideo = useCallback((updated) => {
+        setCell((c) => ({ ...c, videos: c.videos.map((v) => (v.id === updated.id ? updated : v)) }));
+    }, []);
 
     const setYear = (year) => {
         const cap = year === currentYear ? currentMonth : 12;
@@ -124,7 +128,7 @@ export default function VideoReport() {
                 </div>
             )}
 
-            <CommentDrawer cell={cell} onClose={closeCell} />
+            <CommentDrawer cell={cell} onClose={closeCell} onVideoUpdated={updateVideo} />
         </div>
     );
 }
@@ -252,7 +256,7 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
     );
 }
 
-function CommentDrawer({ cell, onClose }) {
+function CommentDrawer({ cell, onClose, onVideoUpdated }) {
     if (!cell.open) return null;
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -274,14 +278,42 @@ function CommentDrawer({ cell, onClose }) {
                     {!cell.loading && cell.videos.length === 0 && (
                         <div className="py-16 text-center text-sm text-zinc-400">No videos in this cell.</div>
                     )}
-                    {!cell.loading && cell.videos.map((v) => <VideoCard key={v.id} video={v} />)}
+                    {!cell.loading && cell.videos.map((v) => <VideoCard key={v.id} video={v} onUpdated={onVideoUpdated} />)}
                 </div>
             </div>
         </div>
     );
 }
 
-function VideoCard({ video }) {
+function VideoCard({ video, onUpdated }) {
+    const [body, setBody] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    const submit = async () => {
+        const text = body.trim();
+        if (!text || busy) return;
+        setBusy(true);
+        try {
+            const res = await postVideoComment(video.id, text);
+            onUpdated(res.video);
+            setBody('');
+        } catch {
+            /* keep the draft so the user can retry */
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async (commentId) => {
+        if (!window.confirm('Delete this feedback?')) return;
+        try {
+            await deleteVideoComment(commentId);
+            onUpdated({ ...video, comments: video.comments.filter((c) => c.id !== commentId) });
+        } catch {
+            /* ignore */
+        }
+    };
+
     return (
         <div className="rounded-xl border border-zinc-200 bg-white p-4">
             <div className="flex items-start justify-between gap-3">
@@ -308,10 +340,10 @@ function VideoCard({ video }) {
 
             <div className="mt-3 flex flex-col gap-3 border-t border-zinc-100 pt-3">
                 {video.comments.length === 0 ? (
-                    <p className="text-xs text-zinc-400">No feedback yet.</p>
+                    <p className="text-xs text-zinc-400">No feedback yet — add the first one below.</p>
                 ) : (
                     video.comments.map((c) => (
-                        <div key={c.id} className={`flex gap-2.5 ${c.is_host ? '' : 'flex-row-reverse'}`}>
+                        <div key={c.id} className={`group flex gap-2.5 ${c.is_host ? '' : 'flex-row-reverse'}`}>
                             <span className={`grid h-7 w-7 flex-shrink-0 place-items-center rounded-full text-[10px] font-semibold ${c.is_host ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'}`}>
                                 {c.author.initials}
                             </span>
@@ -319,13 +351,39 @@ function VideoCard({ video }) {
                                 <div className={`rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${c.is_host ? 'rounded-tl-sm bg-emerald-50 text-emerald-900' : 'rounded-tr-sm bg-violet-50 text-violet-900'}`}>
                                     {c.body}
                                 </div>
-                                <div className="mt-1 px-1 text-[10.5px] text-zinc-400">
-                                    {c.author.name}{c.is_host ? ' · Host' : ''} · {c.created_human}
+                                <div className="mt-1 flex items-center gap-1.5 px-1 text-[10.5px] text-zinc-400">
+                                    <span>{c.author.name}{c.is_host ? ' · Host' : ''} · {c.created_human}</span>
+                                    {c.can_delete && (
+                                        <button type="button" onClick={() => remove(c.id)} title="Delete" className="opacity-0 transition hover:text-rose-500 group-hover:opacity-100">
+                                            <Trash2 className="h-3 w-3" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     ))
                 )}
+
+                {/* Inline feedback composer — give the host feedback right here */}
+                <div className="mt-1 flex items-end gap-2">
+                    <textarea
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}
+                        rows={2}
+                        placeholder="Write feedback for this video…"
+                        className="min-h-[38px] flex-1 resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-800 placeholder:text-zinc-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                    />
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={busy || !body.trim()}
+                        className="inline-flex h-[38px] flex-shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-[13px] font-semibold text-white transition hover:bg-violet-700 disabled:opacity-40"
+                    >
+                        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                        Send
+                    </button>
+                </div>
             </div>
         </div>
     );
