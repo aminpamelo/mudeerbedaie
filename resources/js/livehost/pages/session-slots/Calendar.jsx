@@ -1,7 +1,9 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import SlotOverrideModal from '@/livehost/components/session-slots/SlotOverrideModal';
 import {
   AlertTriangle,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Grid3x3,
@@ -273,6 +275,7 @@ export default function SessionSlotsCalendar() {
     platformAccounts,
     liveAccounts = [],
     timeSlots,
+    slotOverrides = [],
     hostPlatformPivots,
     flash,
   } = usePage().props;
@@ -290,6 +293,7 @@ export default function SessionSlotsCalendar() {
   const [detailTarget, setDetailTarget] = useState(null);
   const [sessionTarget, setSessionTarget] = useState(null);
   const [registerTarget, setRegisterTarget] = useState(null);
+  const [overrideAccount, setOverrideAccount] = useState(null);
 
   const openSession = (session) => {
     if (session) {
@@ -310,6 +314,12 @@ export default function SessionSlotsCalendar() {
     for (const ts of timeSlots) {
       push(ts.startTime);
       push(ts.endTime);
+    }
+    for (const ov of slotOverrides) {
+      for (const s of ov.slots ?? []) {
+        push(s.startTime);
+        push(s.endTime);
+      }
     }
     for (const s of sessionSlots) {
       push(s.startTime);
@@ -332,7 +342,7 @@ export default function SessionSlotsCalendar() {
     end = Math.min(24, end);
 
     return { hourStart: start, hourEnd: end, totalHeight: (end - start) * HOUR_PX };
-  }, [timeSlots, sessionSlots, suggestions, showSuggestions]);
+  }, [timeSlots, slotOverrides, sessionSlots, suggestions, showSuggestions]);
 
   // Suggestions actually rendered this session — respects the toggle. Kept as a
   // separate memo so lane/grouping logic can depend on it cleanly.
@@ -491,6 +501,19 @@ export default function SessionSlotsCalendar() {
   }, [visibleSuggestions]);
 
   const dateForDow = (dow) => addDays(weekStart, dow);
+
+  // The active per-creator slot override (if any) for a live account on a given
+  // ISO date — its slots replace the account's normal scaffolds in that window.
+  const overrideFor = (accountId, isoDate) => {
+    if (accountId == null) {
+      return null;
+    }
+    return slotOverrides.find(
+      (o) => Number(o.liveAccountId) === Number(accountId)
+        && o.from <= isoDate
+        && (o.until == null || o.until >= isoDate)
+    ) ?? null;
+  };
 
   const handleScaffoldClick = (dow, timeSlot, laneAccount = null) => {
     const isReal = laneAccount && !laneAccount.isNone;
@@ -755,18 +778,32 @@ export default function SessionSlotsCalendar() {
             activeAccounts.map((account) => {
               const color = colorForAccount(account.id);
               const shopLabel = (account.shops ?? []).map((s) => s.name).filter(Boolean).join(', ');
-              return (
-                <div key={account.id} className="flex items-center gap-1.5" title={shopLabel}>
-                  <span
-                    className="h-2 w-2 rounded-sm"
-                    style={{ backgroundColor: color.dot }}
-                  ></span>
+              const manageable = !account.isNone && !account.isUnregistered && account.id !== '__none__';
+              const inner = (
+                <>
+                  <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: color.dot }}></span>
                   <span className="font-medium text-[#0A0A0A]">{account.label}</span>
                   {shopLabel && (
                     <span className="max-w-[160px] truncate font-mono text-[10px] uppercase tracking-wide text-[#A3A3A3]">
                       · {shopLabel}
                     </span>
                   )}
+                </>
+              );
+              return manageable ? (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => setOverrideAccount(account)}
+                  title={`${shopLabel ? `${shopLabel} · ` : ''}Set slot override for ${account.label}`}
+                  className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-[#EEF2FF]"
+                >
+                  {inner}
+                  <CalendarClock className="h-3 w-3 text-[#A3A3A3]" strokeWidth={2} />
+                </button>
+              ) : (
+                <div key={account.id} className="flex items-center gap-1.5" title={shopLabel}>
+                  {inner}
                 </div>
               );
             })
@@ -1007,29 +1044,39 @@ export default function SessionSlotsCalendar() {
                     const color = account ? colorForAccount(account.id) : FALLBACK_ACCOUNT_COLOR;
                     const accountShopIds = (account?.shops ?? []).map((s) => Number(s.id));
 
-                    const laneScaffolds = timeSlots.filter((ts) => {
-                      const matchesDay =
-                        ts.dayOfWeek === null || ts.dayOfWeek === undefined || ts.dayOfWeek === dow;
-                      if (!matchesDay) {
-                        return false;
-                      }
-                      // Single fallback lane (no accounts yet) shows every scaffold.
-                      if (isFallback) {
-                        return true;
-                      }
-                      // The Unassigned / Unregistered lanes never show scaffolds —
-                      // they only surface legacy slots or TikTok suggestions.
-                      if (isNone || isUnregistered) {
-                        return false;
-                      }
-                      // Global time slots (no shop attached) show in every account lane.
-                      if (!ts.platformAccountId) {
-                        return true;
-                      }
-                      // Otherwise show the scaffold only in lanes whose account is
-                      // affiliated with the time slot's shop.
-                      return accountShopIds.includes(Number(ts.platformAccountId));
-                    });
+                    // A per-creator slot override in effect for this date replaces
+                    // the account's normal scaffolds for that day.
+                    const activeOverride = (!isFallback && !isNone && !isUnregistered && account)
+                      ? overrideFor(account.id, dateForDow(dow))
+                      : null;
+
+                    const laneScaffolds = activeOverride
+                      ? activeOverride.slots.filter(
+                          (ts) => ts.dayOfWeek === null || ts.dayOfWeek === undefined || ts.dayOfWeek === dow
+                        )
+                      : timeSlots.filter((ts) => {
+                        const matchesDay =
+                          ts.dayOfWeek === null || ts.dayOfWeek === undefined || ts.dayOfWeek === dow;
+                        if (!matchesDay) {
+                          return false;
+                        }
+                        // Single fallback lane (no accounts yet) shows every scaffold.
+                        if (isFallback) {
+                          return true;
+                        }
+                        // The Unassigned / Unregistered lanes never show scaffolds —
+                        // they only surface legacy slots or TikTok suggestions.
+                        if (isNone || isUnregistered) {
+                          return false;
+                        }
+                        // Global time slots (no shop attached) show in every account lane.
+                        if (!ts.platformAccountId) {
+                          return true;
+                        }
+                        // Otherwise show the scaffold only in lanes whose account is
+                        // affiliated with the time slot's shop.
+                        return accountShopIds.includes(Number(ts.platformAccountId));
+                      });
 
                     const laneSlots = slots.filter((slot) => {
                       if (isFallback) {
@@ -1425,6 +1472,14 @@ export default function SessionSlotsCalendar() {
         creator={registerTarget}
         onRegistered={() => setRegisterTarget(null)}
       />
+
+      {overrideAccount && (
+        <SlotOverrideModal
+          account={overrideAccount}
+          onClose={() => setOverrideAccount(null)}
+          onSaved={() => router.reload({ only: ['slotOverrides', 'sessionSlots'], preserveScroll: true })}
+        />
+      )}
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +15,7 @@ class LiveTimeSlot extends Model
 
     protected $fillable = [
         'platform_account_id',
+        'override_id',
         'day_of_week',
         'start_time',
         'end_time',
@@ -35,6 +37,11 @@ class LiveTimeSlot extends Model
     public function platformAccount(): BelongsTo
     {
         return $this->belongsTo(PlatformAccount::class);
+    }
+
+    public function override(): BelongsTo
+    {
+        return $this->belongsTo(LiveTimeSlotOverride::class, 'override_id');
     }
 
     public function createdBy(): BelongsTo
@@ -113,28 +120,28 @@ class LiveTimeSlot extends Model
 
     public function getTimeRangeAttribute(): string
     {
-        $start = \Carbon\Carbon::parse($this->start_time)->format('g:ia');
-        $end = \Carbon\Carbon::parse($this->end_time)->format('g:ia');
+        $start = Carbon::parse($this->start_time)->format('g:ia');
+        $end = Carbon::parse($this->end_time)->format('g:ia');
 
         return "{$start} - {$end}";
     }
 
     public function getFormattedStartTimeAttribute(): string
     {
-        return \Carbon\Carbon::parse($this->start_time)->format('g:ia');
+        return Carbon::parse($this->start_time)->format('g:ia');
     }
 
     public function getFormattedEndTimeAttribute(): string
     {
-        return \Carbon\Carbon::parse($this->end_time)->format('g:ia');
+        return Carbon::parse($this->end_time)->format('g:ia');
     }
 
     protected static function booted(): void
     {
         static::creating(function (LiveTimeSlot $slot) {
             if (empty($slot->duration_minutes)) {
-                $start = \Carbon\Carbon::parse($slot->start_time);
-                $end = \Carbon\Carbon::parse($slot->end_time);
+                $start = Carbon::parse($slot->start_time);
+                $end = Carbon::parse($slot->end_time);
                 $slot->duration_minutes = $start->diffInMinutes($end);
             }
         });

@@ -11,6 +11,7 @@ use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\LiveTimeSlot;
+use App\Models\LiveTimeSlotOverride;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
@@ -200,6 +201,7 @@ class SessionSlotController extends Controller
             'platformAccounts' => $this->platformAccountOptions(),
             'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $timeSlots,
+            'slotOverrides' => $this->slotOverridesForWeek($weekStart, $weekEnd),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }
@@ -651,10 +653,40 @@ class SessionSlotController extends Controller
      *     endTime: string
      * }>
      */
+    /**
+     * Active per-creator slot overrides whose window intersects the visible week.
+     * Each carries its date range + its own slots (per day-of-week). The calendar
+     * swaps a lane's normal scaffolds for these on dates inside the window.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function slotOverridesForWeek(CarbonImmutable $weekStart, CarbonImmutable $weekEnd): Collection
+    {
+        return LiveTimeSlotOverride::query()
+            ->touchingRange($weekStart->toDateString(), $weekEnd->toDateString())
+            ->with(['slots' => fn ($q) => $q->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')])
+            ->get()
+            ->map(fn (LiveTimeSlotOverride $o) => [
+                'id' => $o->id,
+                'liveAccountId' => $o->live_account_id,
+                'label' => $o->label,
+                'from' => $o->effective_from->toDateString(),
+                'until' => $o->effective_until?->toDateString(),
+                'slots' => $o->slots->map(fn (LiveTimeSlot $s) => [
+                    'id' => $s->id,
+                    'label' => substr((string) $s->start_time, 0, 5).'–'.substr((string) $s->end_time, 0, 5),
+                    'dayOfWeek' => $s->day_of_week !== null ? (int) $s->day_of_week : null,
+                    'startTime' => substr((string) $s->start_time, 0, 5),
+                    'endTime' => substr((string) $s->end_time, 0, 5),
+                ])->values(),
+            ])->values();
+    }
+
     private function timeSlotOptions(): Collection
     {
         return LiveTimeSlot::query()
             ->where('is_active', true)
+            ->whereNull('override_id') // perpetual slots only — override slots ride the slotOverrides prop
             ->orderBy('platform_account_id')
             ->orderBy('day_of_week')
             ->orderBy('start_time')
