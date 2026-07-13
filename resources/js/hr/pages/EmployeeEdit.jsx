@@ -9,6 +9,7 @@ import {
     fetchPositions,
     fetchEmployees,
     fetchUnlinkedUsers,
+    reassignEmployeeUser,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -315,6 +316,39 @@ export default function EmployeeEdit() {
         },
     });
 
+    // Reassign an already-linked user account to this employee (detaches it
+    // from whichever employee currently holds it).
+    const [reassignNote, setReassignNote] = useState(null);
+
+    const reassignMutation = useMutation({
+        mutationFn: (userId) => reassignEmployeeUser(id, userId),
+        onSuccess: (res) => {
+            const updated = res?.data;
+            if (updated?.user) {
+                setLinkedUser(updated.user);
+            }
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next.user_id;
+                return next;
+            });
+            setErrorBanner(null);
+
+            const from = res?.reassigned_from?.[0];
+            setReassignNote(
+                from
+                    ? `Account reassigned from ${from.full_name} to this employee.`
+                    : 'Account linked to this employee.'
+            );
+
+            queryClient.invalidateQueries({ queryKey: ['hr', 'employee', id] });
+            queryClient.invalidateQueries({ queryKey: ['hr', 'employees'] });
+        },
+        onError: (error) => {
+            setErrorBanner(error.response?.data?.message || 'Failed to reassign the user account.');
+        },
+    });
+
     function setField(field, value) {
         setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -560,8 +594,36 @@ export default function EmployeeEdit() {
                                     </div>
                                 )}
                                 {errors.user_id && (
-                                    <p className="mt-2 text-xs text-red-600">
-                                        {Array.isArray(errors.user_id) ? errors.user_id[0] : errors.user_id}
+                                    <div className="mt-2 space-y-2">
+                                        <p className="text-xs text-red-600">
+                                            {Array.isArray(errors.user_id) ? errors.user_id[0] : errors.user_id}
+                                        </p>
+                                        {form.user_id && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => reassignMutation.mutate(Number(form.user_id))}
+                                                disabled={reassignMutation.isPending}
+                                            >
+                                                {reassignMutation.isPending ? (
+                                                    <>
+                                                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                                        Reassigning…
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                                                        Reassign this account to this employee
+                                                    </>
+                                                )}
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                                {reassignNote && !errors.user_id && (
+                                    <p className="mt-2 text-xs font-medium text-emerald-600">
+                                        {reassignNote}
                                     </p>
                                 )}
                             </div>

@@ -282,6 +282,75 @@ class HrEmployeeController extends Controller
     }
 
     /**
+     * Force-link a user account to this employee, detaching it from any other
+     * employee currently linked to it. Used to resolve the "already linked to
+     * another employee" conflict from the edit form.
+     */
+    public function reassignUser(Request $request, Employee $employee): JsonResponse
+    {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $userId = (int) $validated['user_id'];
+
+        return DB::transaction(function () use ($userId, $employee, $request) {
+            $previousHolders = Employee::where('user_id', $userId)
+                ->where('id', '!=', $employee->id)
+                ->get();
+
+            foreach ($previousHolders as $holder) {
+                $holder->update(['user_id' => null]);
+
+                EmployeeHistory::create([
+                    'employee_id' => $holder->id,
+                    'change_type' => 'general_update',
+                    'field_name' => 'user_id',
+                    'old_value' => (string) $userId,
+                    'new_value' => '',
+                    'effective_date' => now(),
+                    'remarks' => "User account reassigned to {$employee->full_name} (#{$employee->id}).",
+                    'changed_by' => $request->user()->id,
+                ]);
+            }
+
+            $oldUserId = $employee->user_id;
+            $employee->update(['user_id' => $userId]);
+
+            EmployeeHistory::create([
+                'employee_id' => $employee->id,
+                'change_type' => 'general_update',
+                'field_name' => 'user_id',
+                'old_value' => $oldUserId ? (string) $oldUserId : null,
+                'new_value' => (string) $userId,
+                'effective_date' => now(),
+                'remarks' => $previousHolders->isNotEmpty()
+                    ? 'User account reassigned from another employee.'
+                    : 'User account linked.',
+                'changed_by' => $request->user()->id,
+            ]);
+
+            $employee->load(['department', 'position', 'user:id,name,email']);
+
+            return response()->json([
+                'data' => $employee,
+                'reassigned_from' => $previousHolders
+                    ->map(fn (Employee $holder): array => [
+                        'id' => $holder->id,
+                        'full_name' => $holder->full_name,
+                        'employee_id' => $holder->employee_id,
+                    ])
+                    ->values(),
+                'message' => $previousHolders->isNotEmpty()
+                    ? 'User account reassigned to this employee.'
+                    : 'User account linked to this employee.',
+            ]);
+        });
+    }
+
+    /**
      * Update employee status with effective date and remarks.
      */
     public function updateStatus(Request $request, Employee $employee): JsonResponse

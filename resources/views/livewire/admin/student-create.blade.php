@@ -47,7 +47,7 @@ new class extends Component
         $this->validate([
             // User validation
             'name' => 'required|string|min:3|max:255',
-            'email' => 'nullable|string|email|max:255|unique:users',
+            'email' => 'nullable|string|email|max:255|unique:users,email,NULL,id,deleted_at,NULL',
             'password' => 'required|string|min:8|confirmed',
 
             // Student validation

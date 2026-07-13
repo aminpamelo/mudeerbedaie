@@ -31,7 +31,7 @@ new class extends Component {
     {
         return [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $this->teacher->user_id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $this->teacher->user_id . ',id,deleted_at,NULL',
             'ic_number' => 'nullable|string|max:20',
             'phone' => 'nullable|string|max:20',
             'status' => 'required|in:active,inactive',

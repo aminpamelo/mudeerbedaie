@@ -33,7 +33,7 @@ new class extends Component {
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', Rule::unique('users')->ignore($this->user->id)],
+            'email' => ['nullable', 'email', Rule::unique('users')->ignore($this->user->id)->whereNull('deleted_at')],
             'phone' => ['nullable', 'string', Rule::unique('users')->ignore($this->user->id), 'regex:/^[0-9]{10,15}$/'],
             'password' => $this->change_password ? ['required', 'string', 'min:8', 'confirmed'] : [],
             'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee'])],

@@ -45,6 +45,7 @@ export const createEmployee = (data) => api.post('/employees', data, {
 }).then(r => r.data);
 export const updateEmployee = (id, data) => api.put(`/employees/${id}`, data).then(r => r.data);
 export const updateEmployeeStatus = (id, data) => api.patch(`/employees/${id}/status`, data).then(r => r.data);
+export const reassignEmployeeUser = (id, userId) => api.post(`/employees/${id}/reassign-user`, { user_id: userId }).then(r => r.data);
 export const deleteEmployee = (id) => api.delete(`/employees/${id}`).then(r => r.data);
 export const fetchNextEmployeeId = () => api.get('/employees/next-id').then(r => r.data);
 export const fetchUnlinkedUsers = (params) => api.get('/employees/unlinked-users', { params }).then(r => r.data);

@@ -96,7 +96,7 @@ new class extends Component
         $this->validate([
             // User validation
             'name' => 'required|string|min:3|max:255',
-            'email' => 'nullable|string|email|max:255|unique:users,email,'.$this->student->user?->id,
+            'email' => 'nullable|string|email|max:255|unique:users,email,'.$this->student->user?->id.',id,deleted_at,NULL',
 
             // Student validation
             'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,'.$this->student->id,

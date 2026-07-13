@@ -49,7 +49,7 @@ new class extends Component {
 
         return [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255|unique:users,email,NULL,id,deleted_at,NULL',
             'password' => 'required|string|min:8|confirmed',
             'ic_number' => 'nullable|string|max:20',
             'phone' => 'nullable|string|max:20',
