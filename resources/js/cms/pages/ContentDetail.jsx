@@ -26,6 +26,7 @@ import {
     Plus,
     Check,
     FileText,
+    Mic,
 } from 'lucide-react';
 import {
     fetchContent,
@@ -41,6 +42,8 @@ import {
     fetchContentCreators,
     updatePlatformPost,
     updatePlatformPostStats,
+    addContentTalent,
+    removeContentTalent,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { toastSuccess, toastError } from '../lib/toast';
@@ -75,6 +78,7 @@ import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import StageTimeline from '../components/StageTimeline';
 import StatsCard from '../components/StatsCard';
 import AssigneePicker from '../components/AssigneePicker';
+import TalentPicker from '../components/TalentPicker';
 
 const STAGES = ['idea', 'shooting', 'editing', 'posting', 'posted'];
 
@@ -296,6 +300,24 @@ export default function ContentDetail() {
         onError: (error) => toastError(error, 'Failed to remove assignee'),
     });
 
+    const addTalentMutation = useMutation({
+        mutationFn: (userId) => addContentTalent(id, userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Talent added');
+        },
+        onError: (error) => toastError(error, 'Failed to add talent'),
+    });
+
+    const removeTalentMutation = useMutation({
+        mutationFn: (userId) => removeContentTalent(id, userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Talent removed');
+        },
+        onError: (error) => toastError(error, 'Failed to remove talent'),
+    });
+
     const updateVideoMutation = useMutation({
         mutationFn: (data) => updateContent(id, data),
         onSuccess: () => {
@@ -397,6 +419,7 @@ export default function ContentDetail() {
     }
 
     const platformPosts = data.platform_posts || [];
+    const talents = data.talents || [];
 
     function handleStatusChange(post, newStatus) {
         platformPostMutation.mutate({
@@ -826,8 +849,69 @@ export default function ContentDetail() {
                     </CardContent>
                 </Card>
 
-                {/* Right: TikTok Stats */}
-                <div>
+                {/* Right: Talent + TikTok Stats */}
+                <div className="space-y-4">
+                    {/* Talent (live hosts) */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Mic className="h-4 w-4 text-purple-500" />
+                                Talent
+                                {talents.length > 0 && (
+                                    <Badge variant="secondary" className="ml-1 text-[10px]">
+                                        {talents.length}
+                                    </Badge>
+                                )}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {talents.length > 0 ? (
+                                <div className="space-y-2">
+                                    {talents.map((talent) => (
+                                        <div
+                                            key={talent.id}
+                                            className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                        >
+                                            {talent.avatar_url ? (
+                                                <img
+                                                    src={talent.avatar_url}
+                                                    alt=""
+                                                    className="h-8 w-8 shrink-0 rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-medium text-purple-700">
+                                                    {getInitials(talent.name)}
+                                                </div>
+                                            )}
+                                            <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+                                                {talent.name}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeTalentMutation.mutate(talent.id)}
+                                                disabled={removeTalentMutation.isPending}
+                                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                                                title="Remove talent"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-400">
+                                    No live host assigned as talent yet.
+                                </p>
+                            )}
+
+                            <TalentPicker
+                                excludeIds={talents.map((t) => t.id)}
+                                onSelect={(host) => addTalentMutation.mutate(host.id)}
+                                disabled={addTalentMutation.isPending}
+                            />
+                        </CardContent>
+                    </Card>
+
                     {currentStage === 'posted' ? (
                         <div>
                             <h3 className="mb-3 text-lg font-semibold text-slate-800">
@@ -848,7 +932,7 @@ export default function ContentDetail() {
 
                     {/* Creator Promotions */}
                     {currentStage === 'posted' && contentCreators.length > 0 && (
-                        <Card className="mt-4">
+                        <Card>
                             <CardHeader className="pb-3">
                                 <CardTitle className="flex items-center gap-2 text-base">
                                     <Users className="h-4 w-4 text-purple-500" />

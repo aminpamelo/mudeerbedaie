@@ -141,7 +141,10 @@ class CmsContentController extends Controller
             'platformPosts.platform',
             'platformPosts.assignee:id,full_name,profile_photo',
             'references.referencedContent:id,title,stage',
+            'talents:id,name,avatar_path',
         ]);
+
+        $content->talents->each->append('avatar_url');
 
         return response()->json(['data' => $content]);
     }

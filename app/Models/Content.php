@@ -3,17 +3,20 @@
 namespace App\Models;
 
 use App\Observers\ContentObserver;
+use App\Services\TikTok\TikTokUrlParser;
+use Database\Factories\ContentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy(ContentObserver::class)]
 class Content extends Model
 {
-    /** @use HasFactory<\Database\Factories\ContentFactory> */
+    /** @use HasFactory<ContentFactory> */
     use HasFactory;
 
     use SoftDeletes;
@@ -56,7 +59,7 @@ class Content extends Model
     {
         static::saving(function (Content $content): void {
             if ($content->isDirty('tiktok_url') && $content->tiktok_url) {
-                $videoId = \App\Services\TikTok\TikTokUrlParser::extractVideoId($content->tiktok_url);
+                $videoId = TikTokUrlParser::extractVideoId($content->tiktok_url);
                 if ($videoId) {
                     $content->tiktok_post_id = $videoId;
                 }
@@ -83,6 +86,16 @@ class Content extends Model
     public function platformPosts(): HasMany
     {
         return $this->hasMany(CmsContentPlatformPost::class);
+    }
+
+    /**
+     * The live hosts assigned as on-camera talent for this content.
+     */
+    public function talents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'content_talent')
+            ->withTimestamps()
+            ->orderBy('name');
     }
 
     /**
