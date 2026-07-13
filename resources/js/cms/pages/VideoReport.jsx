@@ -1,7 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clapperboard, ExternalLink, Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
-import { deleteVideoComment, fetchVideoReport, fetchVideoReportCell, postVideoComment } from '../lib/api';
+import { ChevronDown, Clapperboard, ExternalLink, Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
+import {
+    deleteVideoComment,
+    fetchVideoReport,
+    fetchVideoReportCell,
+    fetchVideoReportDayMatrix,
+    postVideoComment,
+} from '../lib/api';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -11,7 +17,6 @@ const CATEGORY_STYLE = {
     tunjuk_buku: 'bg-amber-50 text-amber-700 border-amber-200',
     lakonan: 'bg-sky-50 text-sky-700 border-sky-200',
     podcast: 'bg-rose-50 text-rose-700 border-rose-200',
-    __uncat__: 'bg-zinc-100 text-zinc-500 border-zinc-200',
 };
 const chipFor = (slug) => CATEGORY_STYLE[slug] ?? 'bg-zinc-100 text-zinc-600 border-zinc-200';
 
@@ -25,7 +30,10 @@ export default function VideoReport() {
         from: Math.max(1, currentMonth - 5),
         to: currentMonth,
     });
-    const [cell, setCell] = useState({ open: false, loading: false, host: null, category: null, videos: [] });
+    const [cell, setCell] = useState({ open: false, loading: false, host: null, period: null, videos: [] });
+    const [expandedMonths, setExpandedMonths] = useState(() => new Set());
+    const [loadingMonths, setLoadingMonths] = useState(() => new Set());
+    const [dayData, setDayData] = useState({});
 
     const { data, isLoading } = useQuery({
         queryKey: ['cms-video-report', filters],
@@ -39,37 +47,64 @@ export default function VideoReport() {
     });
 
     const programs = data?.programs ?? [];
-    const categories = data?.categories ?? [];
+    const months = data?.months ?? [];
     const programOptions = data?.filters?.programOptions ?? [];
     const windowLabel = data?.window?.label ?? '';
     const totalVideos = programs.reduce((sum, p) => sum + p.grand_total, 0);
 
-    const openCell = useCallback(async (host, category) => {
-        setCell({ open: true, loading: true, host, category, videos: [] });
-        try {
-            const res = await fetchVideoReportCell({
-                mentee: host.mentee_id,
-                category: category.slug,
-                year: filters.year,
-                from: filters.from,
-                to: filters.to,
-            });
-            setCell({ open: true, loading: false, host: res.host, category: res.category, videos: res.videos });
-        } catch {
-            setCell((c) => ({ ...c, loading: false }));
-        }
-    }, [filters.year, filters.from, filters.to]);
-
-    const closeCell = () => setCell({ open: false, loading: false, host: null, category: null, videos: [] });
-
-    const updateVideo = useCallback((updated) => {
-        setCell((c) => ({ ...c, videos: c.videos.map((v) => (v.id === updated.id ? updated : v)) }));
-    }, []);
+    // Any filter change invalidates the loaded day columns.
+    const updateFilters = (patch) => {
+        setFilters((f) => ({ ...f, ...patch }));
+        setExpandedMonths(new Set());
+        setDayData({});
+    };
 
     const setYear = (year) => {
         const cap = year === currentYear ? currentMonth : 12;
-        setFilters((f) => ({ ...f, year, from: Math.max(1, cap - 5), to: cap }));
+        updateFilters({ year, from: Math.max(1, cap - 5), to: cap });
     };
+
+    const toggleMonth = useCallback(async (m) => {
+        if (expandedMonths.has(m.key)) {
+            setExpandedMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
+            return;
+        }
+        if (dayData[m.key]) {
+            setExpandedMonths((s) => new Set(s).add(m.key));
+            return;
+        }
+        setLoadingMonths((s) => new Set(s).add(m.key));
+        try {
+            const res = await fetchVideoReportDayMatrix({ year: m.year, month: m.month, program: filters.program || undefined });
+            setDayData((d) => ({ ...d, [m.key]: { days: res.days, counts: res.counts } }));
+            setExpandedMonths((s) => new Set(s).add(m.key));
+        } catch {
+            /* leave collapsed on failure */
+        } finally {
+            setLoadingMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
+        }
+    }, [expandedMonths, dayData, filters.program]);
+
+    const openPeriod = useCallback(async (host, label, params) => {
+        setCell({ open: true, loading: true, host, period: { label }, videos: [] });
+        try {
+            const res = await fetchVideoReportCell({ mentee: host.mentee_id, ...params });
+            setCell({ open: true, loading: false, host: res.host, period: res.period, videos: res.videos });
+        } catch {
+            setCell((c) => ({ ...c, loading: false }));
+        }
+    }, []);
+
+    const openMonthCell = useCallback((host, m) => openPeriod(host, m.label, { month: m.key }), [openPeriod]);
+    const openDayCell = useCallback((host, m, day) => {
+        const date = `${m.key}-${String(day.day).padStart(2, '0')}`;
+        return openPeriod(host, date, { date });
+    }, [openPeriod]);
+
+    const closeCell = () => setCell({ open: false, loading: false, host: null, period: null, videos: [] });
+    const updateVideo = useCallback((updated) => {
+        setCell((c) => ({ ...c, videos: c.videos.map((v) => (v.id === updated.id ? updated : v)) }));
+    }, []);
 
     return (
         <div className="p-6">
@@ -81,7 +116,7 @@ export default function VideoReport() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Video Report</h1>
                         <p className="mt-0.5 text-sm text-zinc-500">
-                            Monitor videos each host logged by category{windowLabel ? ` — ${windowLabel}` : ''}. {totalVideos} videos. Click a number to review.
+                            Videos each host logged by month{windowLabel ? ` — ${windowLabel}` : ''}. {totalVideos} videos. Click a month to expand its days; click a number to review.
                         </p>
                     </div>
                 </div>
@@ -89,7 +124,7 @@ export default function VideoReport() {
                 <div className="flex flex-wrap items-center gap-2">
                     <select
                         value={filters.program}
-                        onChange={(e) => setFilters((f) => ({ ...f, program: e.target.value }))}
+                        onChange={(e) => updateFilters({ program: e.target.value })}
                         className="h-9 rounded-lg border border-zinc-200 bg-white px-2.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                     >
                         <option value="">All programs</option>
@@ -105,9 +140,9 @@ export default function VideoReport() {
                         >
                             {[currentYear - 2, currentYear - 1, currentYear].map((y) => <option key={y} value={y}>{y}</option>)}
                         </select>
-                        <MonthSelect value={filters.from} onChange={(v) => setFilters((f) => ({ ...f, from: v }))} />
+                        <MonthSelect value={filters.from} onChange={(v) => updateFilters({ from: v })} />
                         <span className="text-zinc-400">→</span>
-                        <MonthSelect value={filters.to} onChange={(v) => setFilters((f) => ({ ...f, to: v }))} />
+                        <MonthSelect value={filters.to} onChange={(v) => updateFilters({ to: v })} />
                     </div>
                 </div>
             </div>
@@ -123,7 +158,17 @@ export default function VideoReport() {
             ) : (
                 <div className="flex flex-col gap-5">
                     {programs.map((program) => (
-                        <ProgramMatrix key={program.id} program={program} categories={categories} onOpenCell={openCell} />
+                        <ProgramMatrix
+                            key={program.id}
+                            program={program}
+                            months={months}
+                            expandedMonths={expandedMonths}
+                            loadingMonths={loadingMonths}
+                            dayData={dayData}
+                            onToggleMonth={toggleMonth}
+                            onOpenMonthCell={openMonthCell}
+                            onOpenDayCell={openDayCell}
+                        />
                     ))}
                 </div>
             )}
@@ -145,7 +190,12 @@ function MonthSelect({ value, onChange }) {
     );
 }
 
-function ProgramMatrix({ program, categories, onOpenCell }) {
+function ProgramMatrix({ program, months, expandedMonths, loadingMonths, dayData, onToggleMonth, onOpenMonthCell, onOpenDayCell }) {
+    const daysOf = (m) => (expandedMonths.has(m.key) ? dayData[m.key]?.days ?? [] : []);
+    const totalCols = 1 + months.reduce((n, m) => n + 1 + daysOf(m).length, 0) + 1;
+    const dayTotal = (m, day) =>
+        program.hosts.reduce((s, h) => s + (dayData[m.key]?.counts?.[h.mentee_id]?.[day] ?? 0), 0);
+
     return (
         <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-3.5">
@@ -161,13 +211,30 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
                 <table className="w-full border-collapse text-sm">
                     <thead>
                         <tr className="border-b border-zinc-100 text-[11px] uppercase tracking-wide text-zinc-400">
-                            <th className="px-5 py-2.5 text-left font-semibold">Host</th>
-                            {categories.map((c) => (
-                                <th key={c.slug} className="px-1 py-2.5 text-center font-semibold">
-                                    <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold normal-case ${chipFor(c.slug)}`}>
-                                        {c.label}
-                                    </span>
-                                </th>
+                            <th className="sticky left-0 z-10 bg-white px-5 py-2.5 text-left font-semibold">Host</th>
+                            {months.map((m) => (
+                                <Fragment key={m.key}>
+                                    <th className="px-1 py-2 text-center font-semibold">
+                                        <button
+                                            type="button"
+                                            onClick={() => onToggleMonth(m)}
+                                            className="mx-auto flex items-center gap-1 rounded-md px-2 py-1 text-zinc-600 transition hover:bg-zinc-100"
+                                        >
+                                            {m.label}
+                                            {loadingMonths.has(m.key) ? (
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedMonths.has(m.key) ? '' : '-rotate-90'}`} />
+                                            )}
+                                        </button>
+                                    </th>
+                                    {daysOf(m).map((day) => (
+                                        <th key={`${m.key}-${day.day}`} className="px-0.5 py-1.5 text-center font-medium">
+                                            <div className="text-[11px] text-zinc-900">{day.day}</div>
+                                            <div className="text-[8.5px] font-normal text-zinc-400">{day.dow}</div>
+                                        </th>
+                                    ))}
+                                </Fragment>
                             ))}
                             <th className="px-3 py-2.5 text-center font-semibold">Total</th>
                         </tr>
@@ -175,14 +242,14 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
                     <tbody>
                         {program.hosts.length === 0 && (
                             <tr>
-                                <td colSpan={categories.length + 2} className="px-5 py-8 text-center text-sm text-zinc-400">
+                                <td colSpan={totalCols} className="px-5 py-8 text-center text-sm text-zinc-400">
                                     No hosts in this program yet.
                                 </td>
                             </tr>
                         )}
                         {program.hosts.map((host) => (
                             <tr key={host.mentee_id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/60">
-                                <td className="px-5 py-2">
+                                <td className="sticky left-0 z-10 bg-white px-5 py-2">
                                     <div className="flex items-center gap-2.5">
                                         <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-zinc-100 text-[10px] font-semibold text-zinc-600">
                                             {host.initials}
@@ -207,34 +274,43 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
                                         </div>
                                     </div>
                                 </td>
-                                {categories.map((c) => {
-                                    const value = host.counts[c.slug] ?? 0;
-                                    return (
-                                        <td key={c.slug} className="px-1 py-1 text-center">
+                                {months.map((m) => (
+                                    <Fragment key={m.key}>
+                                        <td className="px-1 py-1 text-center">
                                             <button
                                                 type="button"
-                                                onClick={() => onOpenCell(host, c)}
-                                                disabled={!value}
-                                                className={`mx-auto flex h-9 w-full min-w-[44px] items-center justify-center rounded-lg text-[13px] font-semibold transition ${
-                                                    value ? `${chipFor(c.slug)} border hover:brightness-95` : 'cursor-default text-zinc-300'
+                                                onClick={() => onOpenMonthCell(host, m)}
+                                                disabled={!host.counts[m.key]}
+                                                className={`mx-auto flex h-9 w-full min-w-[46px] items-center justify-center rounded-lg text-[13px] font-semibold transition ${
+                                                    host.counts[m.key] ? 'border border-violet-200 bg-violet-50 text-violet-700 hover:brightness-95' : 'cursor-default text-zinc-300'
                                                 }`}
                                             >
-                                                {value || '–'}
+                                                {host.counts[m.key] || '–'}
                                             </button>
                                         </td>
-                                    );
-                                })}
+                                        {daysOf(m).map((day) => {
+                                            const value = dayData[m.key]?.counts?.[host.mentee_id]?.[day.day] ?? 0;
+                                            return (
+                                                <td key={`${m.key}-${day.day}`} className="px-0.5 py-1 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onOpenDayCell(host, m, day)}
+                                                        disabled={!value}
+                                                        className={`mx-auto flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-semibold transition ${
+                                                            value ? 'bg-zinc-900 text-white hover:bg-zinc-700' : 'cursor-default text-zinc-300'
+                                                        }`}
+                                                    >
+                                                        {value || '·'}
+                                                    </button>
+                                                </td>
+                                            );
+                                        })}
+                                    </Fragment>
+                                ))}
                                 <td className="px-3 py-2 text-center">
-                                    <button
-                                        type="button"
-                                        onClick={() => onOpenCell(host, { slug: '', label: 'All categories' })}
-                                        disabled={!host.total}
-                                        className={`mx-auto flex h-9 min-w-[44px] items-center justify-center rounded-lg px-2 text-[13px] font-bold transition ${
-                                            host.total ? 'bg-zinc-900 text-white hover:bg-zinc-700' : 'cursor-default text-zinc-300'
-                                        }`}
-                                    >
+                                    <span className={`text-[13px] font-bold ${host.total ? 'text-zinc-900' : 'text-zinc-300'}`}>
                                         {host.total || '–'}
-                                    </button>
+                                    </span>
                                 </td>
                             </tr>
                         ))}
@@ -242,9 +318,16 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
                     {program.hosts.length > 0 && (
                         <tfoot>
                             <tr className="border-t border-zinc-200 bg-zinc-50 text-[12px] font-semibold text-zinc-600">
-                                <td className="px-5 py-2.5">Total</td>
-                                {categories.map((c) => (
-                                    <td key={c.slug} className="px-1 py-2.5 text-center">{program.totals[c.slug] || '–'}</td>
+                                <td className="sticky left-0 z-10 bg-zinc-50 px-5 py-2.5">Total</td>
+                                {months.map((m) => (
+                                    <Fragment key={m.key}>
+                                        <td className="px-1 py-2.5 text-center">{program.totals[m.key] || '–'}</td>
+                                        {daysOf(m).map((day) => (
+                                            <td key={`${m.key}-${day.day}`} className="px-0.5 py-2.5 text-center text-zinc-400">
+                                                {dayTotal(m, day.day) || '·'}
+                                            </td>
+                                        ))}
+                                    </Fragment>
                                 ))}
                                 <td className="px-3 py-2.5 text-center text-zinc-900">{program.grand_total}</td>
                             </tr>
@@ -253,6 +336,58 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
                 </table>
             </div>
         </section>
+    );
+}
+
+/* ---------------- Drawer ---------------- */
+function groupByDay(videos) {
+    const groups = [];
+    const index = new Map();
+    for (const v of videos) {
+        const key = v.date ?? 'unknown';
+        let g = index.get(key);
+        if (!g) {
+            g = { date: key, label: v.date_label ?? 'Unknown date', videos: [] };
+            index.set(key, g);
+            groups.push(g);
+        }
+        g.videos.push(v);
+    }
+    return groups;
+}
+
+function DayGroups({ videos, renderVideo }) {
+    const groups = useMemo(() => groupByDay(videos), [videos]);
+    const [collapsed, setCollapsed] = useState(() => new Set());
+    const toggle = (date) =>
+        setCollapsed((s) => {
+            const next = new Set(s);
+            next.has(date) ? next.delete(date) : next.add(date);
+            return next;
+        });
+
+    return (
+        <div className="space-y-3">
+            {groups.map((g) => {
+                const open = !collapsed.has(g.date);
+                return (
+                    <div key={g.date}>
+                        <button
+                            type="button"
+                            onClick={() => toggle(g.date)}
+                            className="mb-2 flex w-full items-center gap-2 rounded-lg bg-zinc-100/70 px-3 py-2 text-left transition-colors hover:bg-zinc-100"
+                        >
+                            <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+                            <span className="text-[12px] font-semibold text-zinc-700">{g.label}</span>
+                            <span className="ml-auto text-[11px] font-medium text-zinc-400">
+                                {g.videos.length} video{g.videos.length === 1 ? '' : 's'}
+                            </span>
+                        </button>
+                        {open && <div className="space-y-3">{g.videos.map(renderVideo)}</div>}
+                    </div>
+                );
+            })}
+        </div>
     );
 }
 
@@ -265,7 +400,7 @@ function CommentDrawer({ cell, onClose, onVideoUpdated }) {
                 <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-4">
                     <div className="min-w-0">
                         <h3 className="truncate text-[15px] font-semibold text-zinc-900">{cell.host?.name}</h3>
-                        <p className="text-xs text-zinc-500">{cell.category?.label}</p>
+                        <p className="text-xs text-zinc-500">{cell.period?.label}</p>
                     </div>
                     <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100">
                         <X className="h-5 w-5" />
@@ -276,9 +411,14 @@ function CommentDrawer({ cell, onClose, onVideoUpdated }) {
                         <div className="flex items-center justify-center py-16 text-zinc-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
                     )}
                     {!cell.loading && cell.videos.length === 0 && (
-                        <div className="py-16 text-center text-sm text-zinc-400">No videos in this cell.</div>
+                        <div className="py-16 text-center text-sm text-zinc-400">No videos in this period.</div>
                     )}
-                    {!cell.loading && cell.videos.map((v) => <VideoCard key={v.id} video={v} onUpdated={onVideoUpdated} />)}
+                    {!cell.loading && cell.videos.length > 0 && (
+                        <DayGroups
+                            videos={cell.videos}
+                            renderVideo={(v) => <VideoCard key={v.id} video={v} onUpdated={onVideoUpdated} />}
+                        />
+                    )}
                 </div>
             </div>
         </div>
@@ -319,7 +459,7 @@ function VideoCard({ video, onUpdated }) {
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${chipFor(video.category ?? '__uncat__')}`}>
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${chipFor(video.category)}`}>
                             {video.category_label ?? 'Uncategorised'}
                         </span>
                         <span className="text-[11.5px] text-zinc-400">{video.date_label}</span>
@@ -364,7 +504,6 @@ function VideoCard({ video, onUpdated }) {
                     ))
                 )}
 
-                {/* Inline feedback composer — give the host feedback right here */}
                 <div className="mt-1 flex items-end gap-2">
                     <textarea
                         value={body}

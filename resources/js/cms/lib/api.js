@@ -31,6 +31,10 @@ export function fetchVideoReportCell(params) {
     return api.get('/video-report/cell', { params }).then((r) => r.data);
 }
 
+export function fetchVideoReportDayMatrix(params) {
+    return api.get('/video-report/day-matrix', { params }).then((r) => r.data);
+}
+
 export function postVideoComment(videoId, body) {
     return api.post(`/video-report/videos/${videoId}/comments`, { body }).then((r) => r.data);
 }

@@ -9,17 +9,18 @@ use App\Models\LiveHostMenteeVideoComment;
 use App\Models\User;
 use App\Notifications\LiveHost\VideoCommentedNotification;
 use App\Services\LiveHost\VideoReportService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Video Report — a host × content-category matrix of the videos each mentee has
- * logged, with a two-way comment thread on every video. Staff feedback here
- * notifies the host in their Pocket; the host can reply, which surfaces back as
- * an "awaiting reply" marker on the matrix. The read model is shared with the
- * CMS view via {@see VideoReportService}.
+ * Video Report — a host × month grid of the videos each mentee logged (each month
+ * column expands into day columns, like the Mentoring Overview), with a two-way
+ * comment thread on every video. Staff feedback notifies the host in their
+ * Pocket; the host can reply, surfacing as an "awaiting reply" marker. The read
+ * model is shared with the CMS view via {@see VideoReportService}.
  */
 class VideoReportController extends Controller
 {
@@ -36,7 +37,7 @@ class VideoReportController extends Controller
 
         return Inertia::render('mentoring/VideoReport', [
             'programs' => $matrix['programs'],
-            'categories' => $matrix['categories'],
+            'months' => $matrix['months'],
             'filters' => [
                 'program' => $programs['selectedId'],
                 'programOptions' => $programs['all']->map(fn ($p) => ['id' => $p->id, 'title' => $p->title])->values(),
@@ -45,22 +46,28 @@ class VideoReportController extends Controller
         ]);
     }
 
-    /**
-     * JSON: the videos in a single matrix cell (host + category over the window),
-     * each with its full comment thread. Drives the report drawer.
-     */
+    /** JSON: per-host per-day counts for one month (expands that month column). */
+    public function dayMatrix(Request $request): JsonResponse
+    {
+        $programs = $this->reports->programs($request);
+
+        return response()->json($this->reports->dayMatrix(
+            $programs['selected'],
+            $request->integer('year') ?: (int) now()->format('Y'),
+            max(1, min(12, $request->integer('month') ?: (int) now()->format('n'))),
+        ));
+    }
+
+    /** JSON: the videos in a matrix cell (a month, a day, or the window). */
     public function cell(Request $request): JsonResponse
     {
         $mentee = LiveHostMentee::query()
             ->with('menteeUser:id,name')
             ->findOrFail($request->integer('mentee'));
 
-        return response()->json($this->reports->cell(
-            $mentee,
-            (string) $request->string('category'),
-            $this->reports->window($request),
-            $request->user(),
-        ));
+        [$start, $end, $label] = $this->resolvePeriod($request);
+
+        return response()->json($this->reports->cell($mentee, $start, $end, $label, $request->user()));
     }
 
     /** Staff posts feedback on a video → notify the host. Returns the new thread. */
@@ -97,6 +104,31 @@ class VideoReportController extends Controller
         $comment->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Resolve the drawer period from ?date=Y-m-d (one day), ?month=Y-m (one
+     * month), or the report window (default).
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function resolvePeriod(Request $request): array
+    {
+        if ($date = $request->query('date')) {
+            $d = CarbonImmutable::parse($date);
+
+            return [$d->startOfDay()->toDateTimeString(), $d->endOfDay()->toDateTimeString(), $d->format('j M Y')];
+        }
+
+        if ($month = $request->query('month')) {
+            $d = CarbonImmutable::createFromFormat('Y-m', $month)->startOfMonth();
+
+            return [$d->toDateTimeString(), $d->endOfMonth()->toDateTimeString(), $d->format('M Y')];
+        }
+
+        $window = $this->reports->window($request);
+
+        return [$window['start'], $window['end'], $window['meta']['label']];
     }
 
     private function notifyHost(LiveHostMenteeDailyVideo $video, User $author, string $excerpt): void

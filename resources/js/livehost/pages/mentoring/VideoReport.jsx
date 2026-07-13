@@ -1,20 +1,20 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clapperboard, ExternalLink, MessageSquare, Send, Trash2, X, Loader2 } from 'lucide-react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
+import { ChevronDown, Clapperboard, ExternalLink, Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Subtle per-category accent so the 5 columns read as distinct content types.
+// Per-category accent — used only for the video chips inside the drawer now that
+// the matrix columns are months.
 const CATEGORY_STYLE = {
-  tarik_live: { chip: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-500' },
-  engagement: { chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  tunjuk_buku: { chip: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
-  lakonan: { chip: 'bg-sky-50 text-sky-700 border-sky-200', dot: 'bg-sky-500' },
-  podcast: { chip: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
+  tarik_live: 'bg-violet-50 text-violet-700 border-violet-200',
+  engagement: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  tunjuk_buku: 'bg-amber-50 text-amber-700 border-amber-200',
+  lakonan: 'bg-sky-50 text-sky-700 border-sky-200',
+  podcast: 'bg-rose-50 text-rose-700 border-rose-200',
 };
-
-const styleFor = (slug) => CATEGORY_STYLE[slug] ?? { chip: 'bg-zinc-100 text-zinc-600 border-zinc-200', dot: 'bg-zinc-400' };
+const chipFor = (slug) => CATEGORY_STYLE[slug] ?? 'bg-zinc-100 text-zinc-600 border-zinc-200';
 
 function csrf() {
   return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
@@ -52,7 +52,7 @@ function Filters({ window: win, filters }) {
     router.get(
       window.location.pathname,
       { program: filters.program ?? undefined, year, from, to, ...params },
-      { only: ['programs', 'window', 'filters'], preserveState: true, preserveScroll: true, replace: true },
+      { only: ['programs', 'months', 'window', 'filters'], preserveState: true, preserveScroll: true, replace: true },
     );
   };
 
@@ -109,7 +109,7 @@ function StatusPill({ status }) {
   return null;
 }
 
-function CountCell({ value, slug, onClick }) {
+function MonthCountCell({ value, onClick }) {
   const empty = !value;
   return (
     <td className="px-1 py-1 text-center">
@@ -118,10 +118,8 @@ function CountCell({ value, slug, onClick }) {
         onClick={onClick}
         disabled={empty}
         className={[
-          'mx-auto flex h-9 w-full min-w-[44px] items-center justify-center rounded-lg text-[13px] font-semibold transition-colors',
-          empty
-            ? 'cursor-default text-[#D4D4D4]'
-            : `${styleFor(slug).chip} border hover:brightness-95`,
+          'mx-auto flex h-9 w-full min-w-[46px] items-center justify-center rounded-lg text-[13px] font-semibold transition-colors',
+          empty ? 'cursor-default text-[#D4D4D4]' : 'border border-violet-200 bg-violet-50 text-violet-700 hover:brightness-95',
         ].join(' ')}
       >
         {empty ? '–' : value}
@@ -130,7 +128,33 @@ function CountCell({ value, slug, onClick }) {
   );
 }
 
-function ProgramMatrix({ program, categories, onOpenCell }) {
+function DayCountCell({ value, onClick }) {
+  const empty = !value;
+  return (
+    <td className="px-0.5 py-1 text-center">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={empty}
+        className={[
+          'mx-auto flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-semibold transition-colors',
+          empty ? 'cursor-default text-[#E0E0E0]' : 'bg-[#0A0A0A] text-white hover:bg-[#262626]',
+        ].join(' ')}
+      >
+        {empty ? '·' : value}
+      </button>
+    </td>
+  );
+}
+
+function ProgramMatrix({ program, months, expandedMonths, loadingMonths, dayData, onToggleMonth, onOpenMonthCell, onOpenDayCell }) {
+  const daysOf = (m) => (expandedMonths.has(m.key) ? dayData[m.key]?.days ?? [] : []);
+  const totalCols =
+    1 + months.reduce((n, m) => n + 1 + daysOf(m).length, 0) + 1;
+
+  const dayTotal = (m, day) =>
+    program.hosts.reduce((s, h) => s + (dayData[m.key]?.counts?.[h.mentee_id]?.[day] ?? 0), 0);
+
   return (
     <section className="overflow-hidden rounded-2xl border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-between border-b border-[#F0F0F0] px-5 py-3.5">
@@ -150,12 +174,29 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
           <thead>
             <tr className="border-b border-[#F0F0F0] text-[11px] uppercase tracking-wide text-[#8A8A8A]">
               <th className="sticky left-0 z-10 bg-white px-5 py-2.5 text-left font-semibold">Host</th>
-              {categories.map((c) => (
-                <th key={c.slug} className="px-1 py-2.5 text-center font-semibold">
-                  <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold normal-case ${styleFor(c.slug).chip}`}>
-                    {c.label}
-                  </span>
-                </th>
+              {months.map((m) => (
+                <Fragment key={m.key}>
+                  <th className="px-1 py-2 text-center font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => onToggleMonth(m)}
+                      className="mx-auto flex items-center gap-1 rounded-md px-2 py-1 text-[#525252] transition-colors hover:bg-[#F5F5F5]"
+                    >
+                      {m.label}
+                      {loadingMonths.has(m.key) ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedMonths.has(m.key) ? '' : '-rotate-90'}`} />
+                      )}
+                    </button>
+                  </th>
+                  {daysOf(m).map((day) => (
+                    <th key={`${m.key}-${day.day}`} className="px-0.5 py-1.5 text-center font-medium">
+                      <div className="text-[11px] text-[#0A0A0A]">{day.day}</div>
+                      <div className="text-[8.5px] font-normal text-[#B0B0B0]">{day.dow}</div>
+                    </th>
+                  ))}
+                </Fragment>
               ))}
               <th className="px-3 py-2.5 text-center font-semibold">Total</th>
             </tr>
@@ -163,7 +204,7 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
           <tbody>
             {program.hosts.length === 0 && (
               <tr>
-                <td colSpan={categories.length + 2} className="px-5 py-8 text-center text-[13px] text-[#A3A3A3]">
+                <td colSpan={totalCols} className="px-5 py-8 text-center text-[13px] text-[#A3A3A3]">
                   No hosts in this program yet.
                 </td>
               </tr>
@@ -195,26 +236,22 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
                     </div>
                   </div>
                 </td>
-                {categories.map((c) => (
-                  <CountCell
-                    key={c.slug}
-                    value={host.counts[c.slug]}
-                    slug={c.slug}
-                    onClick={() => onOpenCell(host, c)}
-                  />
+                {months.map((m) => (
+                  <Fragment key={m.key}>
+                    <MonthCountCell value={host.counts[m.key]} onClick={() => onOpenMonthCell(host, m)} />
+                    {daysOf(m).map((day) => (
+                      <DayCountCell
+                        key={`${m.key}-${day.day}`}
+                        value={dayData[m.key]?.counts?.[host.mentee_id]?.[day.day]}
+                        onClick={() => onOpenDayCell(host, m, day)}
+                      />
+                    ))}
+                  </Fragment>
                 ))}
                 <td className="px-3 py-2 text-center">
-                  <button
-                    type="button"
-                    onClick={() => onOpenCell(host, { slug: '', label: 'All categories' })}
-                    disabled={!host.total}
-                    className={[
-                      'mx-auto flex h-9 min-w-[44px] items-center justify-center rounded-lg px-2 text-[13px] font-bold transition-colors',
-                      host.total ? 'bg-[#0A0A0A] text-white hover:bg-[#262626]' : 'cursor-default text-[#D4D4D4]',
-                    ].join(' ')}
-                  >
+                  <span className={`text-[13px] font-bold ${host.total ? 'text-[#0A0A0A]' : 'text-[#D4D4D4]'}`}>
                     {host.total || '–'}
-                  </button>
+                  </span>
                 </td>
               </tr>
             ))}
@@ -223,8 +260,15 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
             <tfoot>
               <tr className="border-t border-[#EAEAEA] bg-[#FAFAFA] text-[12px] font-semibold text-[#525252]">
                 <td className="sticky left-0 z-10 bg-[#FAFAFA] px-5 py-2.5">Total</td>
-                {categories.map((c) => (
-                  <td key={c.slug} className="px-1 py-2.5 text-center">{program.totals[c.slug] || '–'}</td>
+                {months.map((m) => (
+                  <Fragment key={m.key}>
+                    <td className="px-1 py-2.5 text-center">{program.totals[m.key] || '–'}</td>
+                    {daysOf(m).map((day) => (
+                      <td key={`${m.key}-${day.day}`} className="px-0.5 py-2.5 text-center text-[#8A8A8A]">
+                        {dayTotal(m, day.day) || '·'}
+                      </td>
+                    ))}
+                  </Fragment>
                 ))}
                 <td className="px-3 py-2.5 text-center text-[#0A0A0A]">{program.grand_total}</td>
               </tr>
@@ -236,7 +280,58 @@ function ProgramMatrix({ program, categories, onOpenCell }) {
   );
 }
 
-/* ---------------- Comment thread ---------------- */
+/* ---------------- Comment thread (drawer) ---------------- */
+function groupByDay(videos) {
+  const groups = [];
+  const index = new Map();
+  for (const v of videos) {
+    const key = v.date ?? 'unknown';
+    let g = index.get(key);
+    if (!g) {
+      g = { date: key, label: v.date_label ?? 'Unknown date', videos: [] };
+      index.set(key, g);
+      groups.push(g);
+    }
+    g.videos.push(v);
+  }
+  return groups;
+}
+
+function DayGroups({ videos, renderVideo }) {
+  const groups = useMemo(() => groupByDay(videos), [videos]);
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const toggle = (date) =>
+    setCollapsed((s) => {
+      const next = new Set(s);
+      next.has(date) ? next.delete(date) : next.add(date);
+      return next;
+    });
+
+  return (
+    <div className="space-y-3">
+      {groups.map((g) => {
+        const open = !collapsed.has(g.date);
+        return (
+          <div key={g.date}>
+            <button
+              type="button"
+              onClick={() => toggle(g.date)}
+              className="mb-2 flex w-full items-center gap-2 rounded-lg bg-[#F0F0F0]/70 px-3 py-2 text-left transition-colors hover:bg-[#EDEDED]"
+            >
+              <ChevronDown className={`h-4 w-4 text-[#A3A3A3] transition-transform ${open ? '' : '-rotate-90'}`} />
+              <span className="text-[12px] font-semibold text-[#525252]">{g.label}</span>
+              <span className="ml-auto text-[11px] font-medium text-[#A3A3A3]">
+                {g.videos.length} video{g.videos.length === 1 ? '' : 's'}
+              </span>
+            </button>
+            {open && <div className="space-y-3">{g.videos.map(renderVideo)}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CommentBubble({ comment, onDelete }) {
   const host = comment.is_host;
   return (
@@ -269,7 +364,6 @@ function CommentBubble({ comment, onDelete }) {
 function VideoCard({ video, onPost, onDelete }) {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
-  const style = styleFor(video.category);
 
   const submit = async () => {
     const text = body.trim();
@@ -288,7 +382,7 @@ function VideoCard({ video, onPost, onDelete }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${style.chip}`}>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${chipFor(video.category)}`}>
               {video.category_label ?? 'Uncategorised'}
             </span>
             <span className="text-[11.5px] text-[#A3A3A3]">{video.date_label}</span>
@@ -348,7 +442,7 @@ function CommentDrawer({ cell, onClose, onPost, onDelete }) {
         <div className="flex items-center justify-between border-b border-[#EAEAEA] bg-white px-5 py-4">
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold text-[#0A0A0A]">{cell.host?.name}</h3>
-            <p className="text-[12px] text-[#737373]">{cell.category?.label}</p>
+            <p className="text-[12px] text-[#737373]">{cell.period?.label}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[#737373] hover:bg-[#F5F5F5]">
             <X className="h-5 w-5" />
@@ -362,11 +456,14 @@ function CommentDrawer({ cell, onClose, onPost, onDelete }) {
             </div>
           )}
           {!cell.loading && cell.videos.length === 0 && (
-            <div className="py-16 text-center text-[13px] text-[#A3A3A3]">No videos in this cell.</div>
+            <div className="py-16 text-center text-[13px] text-[#A3A3A3]">No videos in this period.</div>
           )}
-          {!cell.loading && cell.videos.map((v) => (
-            <VideoCard key={v.id} video={v} onPost={onPost} onDelete={onDelete} />
-          ))}
+          {!cell.loading && cell.videos.length > 0 && (
+            <DayGroups
+              videos={cell.videos}
+              renderVideo={(v) => <VideoCard key={v.id} video={v} onPost={onPost} onDelete={onDelete} />}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -375,34 +472,61 @@ function CommentDrawer({ cell, onClose, onPost, onDelete }) {
 
 /* ---------------- Page ---------------- */
 export default function VideoReport() {
-  const { programs, categories, filters, window: win } = usePage().props;
-  const [cell, setCell] = useState({ open: false, loading: false, host: null, category: null, videos: [] });
+  const { programs, months, filters, window: win } = usePage().props;
+  const [cell, setCell] = useState({ open: false, loading: false, host: null, period: null, videos: [] });
+  const [expandedMonths, setExpandedMonths] = useState(() => new Set());
+  const [loadingMonths, setLoadingMonths] = useState(() => new Set());
+  const [dayData, setDayData] = useState({});
 
-  const winQuery = useMemo(
-    () => `year=${win.year}&from=${win.from}&to=${win.to}`,
-    [win.year, win.from, win.to],
-  );
+  const programParam = filters.program ? `&program=${filters.program}` : '';
 
-  const openCell = useCallback(async (host, category) => {
-    setCell({ open: true, loading: true, host, category, videos: [] });
+  const toggleMonth = useCallback(async (m) => {
+    if (expandedMonths.has(m.key)) {
+      setExpandedMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
+      return;
+    }
+    if (dayData[m.key]) {
+      setExpandedMonths((s) => new Set(s).add(m.key));
+      return;
+    }
+    setLoadingMonths((s) => new Set(s).add(m.key));
     try {
-      const data = await apiGet(
-        `/livehost/mentoring/video-report/cell?mentee=${host.mentee_id}&category=${category.slug}&${winQuery}`,
-      );
-      setCell({ open: true, loading: false, host: data.host, category: data.category, videos: data.videos });
+      const data = await apiGet(`/livehost/mentoring/video-report/day-matrix?year=${m.year}&month=${m.month}${programParam}`);
+      setDayData((d) => ({ ...d, [m.key]: { days: data.days, counts: data.counts } }));
+      setExpandedMonths((s) => new Set(s).add(m.key));
+    } catch {
+      /* leave collapsed on failure */
+    } finally {
+      setLoadingMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
+    }
+  }, [expandedMonths, dayData, programParam]);
+
+  const openPeriod = useCallback(async (host, label, query) => {
+    setCell({ open: true, loading: true, host, period: { label }, videos: [] });
+    try {
+      const data = await apiGet(`/livehost/mentoring/video-report/cell?mentee=${host.mentee_id}&${query}`);
+      setCell({ open: true, loading: false, host: data.host, period: data.period, videos: data.videos });
     } catch {
       setCell((c) => ({ ...c, loading: false }));
     }
-  }, [winQuery]);
+  }, []);
 
-  const closeCell = () => setCell({ open: false, loading: false, host: null, category: null, videos: [] });
+  const openMonthCell = useCallback((host, m) => openPeriod(host, m.label, `month=${m.key}`), [openPeriod]);
+  const openDayCell = useCallback(
+    (host, m, day) => {
+      const date = `${m.key}-${String(day.day).padStart(2, '0')}`;
+      return openPeriod(host, date, `date=${date}`);
+    },
+    [openPeriod],
+  );
 
-  const replaceVideo = (updated) =>
-    setCell((c) => ({ ...c, videos: c.videos.map((v) => (v.id === updated.id ? updated : v)) }));
+  const closeCell = () => setCell({ open: false, loading: false, host: null, period: null, videos: [] });
 
   const postComment = useCallback(async (videoId, body) => {
     const data = await apiSend(`/livehost/mentoring/videos/${videoId}/comments`, 'POST', { body });
-    if (data?.video) replaceVideo(data.video);
+    if (data?.video) {
+      setCell((c) => ({ ...c, videos: c.videos.map((v) => (v.id === data.video.id ? data.video : v)) }));
+    }
     router.reload({ only: ['programs'], preserveScroll: true, preserveState: true });
   }, []);
 
@@ -425,7 +549,7 @@ export default function VideoReport() {
         actions={<Filters window={win} filters={filters} />}
       />
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6">
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#F5F3FF] text-violet-600">
             <Clapperboard className="h-5 w-5" strokeWidth={2} />
@@ -433,7 +557,7 @@ export default function VideoReport() {
           <div>
             <h1 className="text-[24px] font-bold tracking-[-0.02em] text-[#0A0A0A]">Video Report</h1>
             <p className="mt-0.5 text-[13.5px] text-[#737373]">
-              Videos each host logged by category — {win.label}. {totalVideos} videos. Click a number to review and comment.
+              Videos each host logged by month — {win.label}. {totalVideos} videos. Click a month to expand its days; click a number to review and comment.
             </p>
           </div>
         </div>
@@ -448,8 +572,13 @@ export default function VideoReport() {
           <ProgramMatrix
             key={program.id}
             program={program}
-            categories={categories}
-            onOpenCell={openCell}
+            months={months}
+            expandedMonths={expandedMonths}
+            loadingMonths={loadingMonths}
+            dayData={dayData}
+            onToggleMonth={toggleMonth}
+            onOpenMonthCell={openMonthCell}
+            onOpenDayCell={openDayCell}
           />
         ))}
       </div>

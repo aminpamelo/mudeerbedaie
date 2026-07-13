@@ -1222,6 +1222,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     // Video Report (monitor the mentoring host × category video matrix + give feedback)
     Route::get('video-report', [CmsVideoReportController::class, 'index']);
     Route::get('video-report/cell', [CmsVideoReportController::class, 'cell']);
+    Route::get('video-report/day-matrix', [CmsVideoReportController::class, 'dayMatrix']);
     Route::post('video-report/videos/{video}/comments', [CmsVideoReportController::class, 'storeComment']);
     Route::delete('video-report/comments/{comment}', [CmsVideoReportController::class, 'destroyComment']);
 

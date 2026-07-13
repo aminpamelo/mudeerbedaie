@@ -9,14 +9,15 @@ use App\Models\LiveHostMenteeVideoComment;
 use App\Models\User;
 use App\Notifications\LiveHost\VideoCommentedNotification;
 use App\Services\LiveHost\VideoReportService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Video Report for the CMS module — the content team monitors the host ×
- * category video matrix and gives feedback on each video, right in the report.
- * Shares the exact read model via {@see VideoReportService}; posting mirrors the
- * Live Host Desk (staff comment + host notification).
+ * Video Report for the CMS module — the content team monitors the host × month
+ * video grid (each month expands into days) and gives feedback on each video,
+ * right in the report. Shares the exact read model via {@see VideoReportService};
+ * posting mirrors the Live Host Desk (staff comment + host notification).
  */
 class CmsVideoReportController extends Controller
 {
@@ -32,7 +33,7 @@ class CmsVideoReportController extends Controller
 
         return response()->json([
             'programs' => $matrix['programs'],
-            'categories' => $matrix['categories'],
+            'months' => $matrix['months'],
             'filters' => [
                 'program' => $programs['selectedId'],
                 'programOptions' => $programs['all']->map(fn ($p) => ['id' => $p->id, 'title' => $p->title])->values(),
@@ -41,18 +42,27 @@ class CmsVideoReportController extends Controller
         ]);
     }
 
+    /** JSON: per-host per-day counts for one month (expands that month column). */
+    public function dayMatrix(Request $request): JsonResponse
+    {
+        $programs = $this->reports->programs($request);
+
+        return response()->json($this->reports->dayMatrix(
+            $programs['selected'],
+            $request->integer('year') ?: (int) now()->format('Y'),
+            max(1, min(12, $request->integer('month') ?: (int) now()->format('n'))),
+        ));
+    }
+
     public function cell(Request $request): JsonResponse
     {
         $mentee = LiveHostMentee::query()
             ->with('menteeUser:id,name')
             ->findOrFail($request->integer('mentee'));
 
-        return response()->json($this->reports->cell(
-            $mentee,
-            (string) $request->string('category'),
-            $this->reports->window($request),
-            $request->user(),
-        ));
+        [$start, $end, $label] = $this->resolvePeriod($request);
+
+        return response()->json($this->reports->cell($mentee, $start, $end, $label, $request->user()));
     }
 
     /** Content team posts feedback on a host's video → notify the host. */
@@ -89,6 +99,28 @@ class CmsVideoReportController extends Controller
         $comment->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function resolvePeriod(Request $request): array
+    {
+        if ($date = $request->query('date')) {
+            $d = CarbonImmutable::parse($date);
+
+            return [$d->startOfDay()->toDateTimeString(), $d->endOfDay()->toDateTimeString(), $d->format('j M Y')];
+        }
+
+        if ($month = $request->query('month')) {
+            $d = CarbonImmutable::createFromFormat('Y-m', $month)->startOfMonth();
+
+            return [$d->toDateTimeString(), $d->endOfMonth()->toDateTimeString(), $d->format('M Y')];
+        }
+
+        $window = $this->reports->window($request);
+
+        return [$window['start'], $window['end'], $window['meta']['label']];
     }
 
     private function notifyHost(LiveHostMenteeDailyVideo $video, User $author, string $excerpt): void

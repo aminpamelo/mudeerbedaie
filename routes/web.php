@@ -46,6 +46,7 @@ use App\Http\Controllers\LiveHost\SessionController;
 use App\Http\Controllers\LiveHost\SessionCoverageController;
 use App\Http\Controllers\LiveHost\SessionDataController;
 use App\Http\Controllers\LiveHost\SessionSlotController;
+use App\Http\Controllers\LiveHost\SlotOverrideController;
 use App\Http\Controllers\LiveHost\TiktokReportImportController;
 use App\Http\Controllers\LiveHost\TimeSlotController;
 use App\Http\Controllers\LiveHost\VideoReportController;
@@ -703,6 +704,8 @@ Route::middleware(['auth'])
                     ->name('video-report');
                 Route::get('video-report/cell', [VideoReportController::class, 'cell'])
                     ->name('video-report.cell');
+                Route::get('video-report/day-matrix', [VideoReportController::class, 'dayMatrix'])
+                    ->name('video-report.day-matrix');
                 Route::post('videos/{video}/comments', [VideoReportController::class, 'storeComment'])
                     ->name('videos.comments.store');
                 Route::delete('video-comments/{comment}', [VideoReportController::class, 'destroyComment'])
@@ -883,6 +886,17 @@ Route::middleware(['auth'])
                 ->name('session-slots.coverage.daily');
             Route::get('session-slots/coverage/day', [SessionCoverageController::class, 'day'])
                 ->name('session-slots.coverage.day');
+
+            // Per-creator slot overrides (date-ranged slots that replace the
+            // account's normal slots). Literal paths — before the resource.
+            Route::get('slot-overrides', [SlotOverrideController::class, 'index'])
+                ->name('slot-overrides.index');
+            Route::post('slot-overrides', [SlotOverrideController::class, 'store'])
+                ->name('slot-overrides.store');
+            Route::put('slot-overrides/{slotOverride}', [SlotOverrideController::class, 'update'])
+                ->name('slot-overrides.update');
+            Route::delete('slot-overrides/{slotOverride}', [SlotOverrideController::class, 'destroy'])
+                ->name('slot-overrides.destroy');
 
             Route::resource('session-slots', SessionSlotController::class)
                 ->except(['index'])

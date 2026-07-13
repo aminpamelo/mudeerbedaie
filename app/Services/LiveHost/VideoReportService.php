@@ -12,17 +12,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
- * Shared read model for the Video Report — the host × content-category matrix of
- * host-logged videos and their comment threads. Used by both the Live Host Desk
- * (Inertia) and the CMS module (React SPA) so the two views never diverge.
- *
- * Videos with no (or an unrecognised) category fall into an "Uncategorised"
- * bucket so they stay visible instead of silently vanishing from the grid.
+ * Shared read model for the Video Report — a host × month grid of the videos each
+ * mentee logged, mirroring the Mentoring Overview: each month column can expand
+ * into per-day columns. The per-video category breakdown lives in the click-in
+ * drawer. Used by both the Live Host Desk (Inertia) and the CMS module (SPA) so
+ * the two views never diverge.
  */
 class VideoReportService
 {
-    public const UNCATEGORISED = '__uncat__';
-
     /** Roles allowed to delete any comment (not just their own). */
     private const MANAGER_ROLES = ['admin', 'admin_livehost'];
 
@@ -48,45 +45,26 @@ class VideoReportService
     }
 
     /**
-     * The host × category matrix payload for a set of programs.
+     * The host × month matrix payload for a set of programs.
      *
      * @param  Collection<int, LiveHostMentoringProgram>  $programs
-     * @param  array{start: string, end: string}  $window
-     * @return array{programs: array<int, mixed>, categories: array<int, array{slug: string, label: string}>}
+     * @param  array{start: string, end: string, meta: array<string, mixed>}  $window
+     * @return array{months: array<int, array{key: string, label: string, year: int, month: int}>, programs: array<int, mixed>}
      */
     public function matrix(Collection $programs, array $window): array
     {
-        $mentees = LiveHostMentee::query()
-            ->whereIn('program_id', $programs->pluck('id'))
-            ->whereIn('status', ['active', 'graduated'])
-            ->with('menteeUser:id,name')
-            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
-            ->orderByDesc('enrolled_at')
-            ->get();
-
+        $mentees = $this->menteesFor($programs);
         $aggregates = $this->videoAggregates($mentees->pluck('id'), $window);
-
-        // The 5 fixed categories, plus an Uncategorised column only when some
-        // in-view video actually lacks a recognised category.
-        $categories = collect(LiveHostMenteeDailyVideo::CATEGORIES)
-            ->map(fn (string $label, string $slug) => ['slug' => $slug, 'label' => $label])
-            ->values()
-            ->all();
-
-        $hasUncat = collect($aggregates)->contains(fn ($a) => ($a['counts'][self::UNCATEGORISED] ?? 0) > 0);
-        if ($hasUncat) {
-            $categories[] = ['slug' => self::UNCATEGORISED, 'label' => 'Uncategorised'];
-        }
-
+        $months = $this->windowMonths($window);
         $byProgram = $mentees->groupBy('program_id');
 
-        $programPayload = $programs->map(function (LiveHostMentoringProgram $program) use ($byProgram, $aggregates, $categories) {
+        $programPayload = $programs->map(function (LiveHostMentoringProgram $program) use ($byProgram, $aggregates, $months) {
             $rows = ($byProgram->get($program->id) ?? collect())
-                ->map(function (LiveHostMentee $m) use ($aggregates, $categories) {
+                ->map(function (LiveHostMentee $m) use ($aggregates, $months) {
                     $agg = $aggregates[$m->id] ?? null;
                     $counts = [];
-                    foreach ($categories as $c) {
-                        $counts[$c['slug']] = (int) ($agg['counts'][$c['slug']] ?? 0);
+                    foreach ($months as $mo) {
+                        $counts[$mo['key']] = (int) ($agg['months'][$mo['key']] ?? 0);
                     }
 
                     return [
@@ -103,8 +81,8 @@ class VideoReportService
                 ->values();
 
             $totals = [];
-            foreach ($categories as $c) {
-                $totals[$c['slug']] = (int) $rows->sum(fn ($r) => $r['counts'][$c['slug']] ?? 0);
+            foreach ($months as $mo) {
+                $totals[$mo['key']] = (int) $rows->sum(fn ($r) => $r['counts'][$mo['key']] ?? 0);
             }
 
             return [
@@ -116,28 +94,60 @@ class VideoReportService
             ];
         })->values()->all();
 
-        return ['programs' => $programPayload, 'categories' => $categories];
+        return ['months' => $months, 'programs' => $programPayload];
     }
 
     /**
-     * The videos in one matrix cell (host + category over the window), each with
-     * its full comment thread.
+     * Per-mentee per-day video counts for one month (drives a month's day-column
+     * expansion across every row at once).
      *
-     * @param  array{start: string, end: string}  $window
-     * @return array{host: array<string, mixed>, category: array{slug: string, label: string}, videos: array<int, mixed>}
+     * @param  Collection<int, LiveHostMentoringProgram>  $programs
+     * @return array{month: string, label: string, days: array<int, array{day: int, dow: string}>, counts: array<int, array<int, int>>}
      */
-    public function cell(LiveHostMentee $mentee, string $category, array $window, ?User $viewer): array
+    public function dayMatrix(Collection $programs, int $year, int $month): array
     {
-        $known = array_keys(LiveHostMenteeDailyVideo::CATEGORIES);
+        $start = CarbonImmutable::create($year, $month, 1)->startOfMonth();
+        $end = $start->endOfMonth();
 
+        $days = collect(range(1, $start->daysInMonth))
+            ->map(fn ($d) => ['day' => $d, 'dow' => CarbonImmutable::create($year, $month, $d)->format('D')])
+            ->values()
+            ->all();
+
+        $menteeIds = $this->menteesFor($programs)->pluck('id');
+        $counts = [];
+        if ($menteeIds->isNotEmpty()) {
+            $videos = LiveHostMenteeDailyVideo::query()
+                ->whereIn('mentee_id', $menteeIds)
+                ->whereBetween('video_date', [$start->toDateTimeString(), $end->toDateTimeString()])
+                ->get(['mentee_id', 'video_date']);
+
+            foreach ($videos as $v) {
+                $mid = (int) $v->mentee_id;
+                $day = (int) $v->video_date->format('j');
+                $counts[$mid][$day] = ($counts[$mid][$day] ?? 0) + 1;
+            }
+        }
+
+        return [
+            'month' => sprintf('%04d-%02d', $year, $month),
+            'label' => $start->format('M Y'),
+            'days' => $days,
+            'counts' => (object) $counts,
+        ];
+    }
+
+    /**
+     * The videos for one host over a date range (a month cell, a single day cell,
+     * or the whole window), each with its full comment thread.
+     *
+     * @return array{host: array<string, mixed>, period: array{label: string}, videos: array<int, mixed>}
+     */
+    public function cell(LiveHostMentee $mentee, string $start, string $end, string $label, ?User $viewer): array
+    {
         $videos = LiveHostMenteeDailyVideo::query()
             ->where('mentee_id', $mentee->id)
-            ->when(
-                $category === self::UNCATEGORISED,
-                fn ($q) => $q->where(fn ($w) => $w->whereNull('category')->orWhereNotIn('category', $known)),
-                fn ($q) => $q->when($category !== '', fn ($qq) => $qq->where('category', $category)),
-            )
-            ->whereBetween('video_date', [$window['start'], $window['end']])
+            ->whereBetween('video_date', [$start, $end])
             ->with(['comments.user:id,name,role'])
             ->orderByDesc('video_date')
             ->orderByDesc('id')
@@ -145,10 +155,7 @@ class VideoReportService
 
         return [
             'host' => ['mentee_id' => $mentee->id, 'name' => $mentee->menteeUser?->name],
-            'category' => [
-                'slug' => $category,
-                'label' => $this->categoryLabel($category),
-            ],
+            'period' => ['label' => $label],
             'videos' => $videos->map(fn (LiveHostMenteeDailyVideo $v) => $this->serializeVideo($v, $viewer))->values()->all(),
         ];
     }
@@ -188,13 +195,29 @@ class VideoReportService
     }
 
     /**
-     * Per-mentee aggregates over the window: counts per category (unknown →
-     * Uncategorised), total, commented count, and awaiting-reply count (latest
-     * comment came from the host).
+     * Mentees (active + graduated) of the given programs, surfacing active first.
+     *
+     * @param  Collection<int, LiveHostMentoringProgram>  $programs
+     * @return Collection<int, LiveHostMentee>
+     */
+    private function menteesFor(Collection $programs): Collection
+    {
+        return LiveHostMentee::query()
+            ->whereIn('program_id', $programs->pluck('id'))
+            ->whereIn('status', ['active', 'graduated'])
+            ->with('menteeUser:id,name')
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderByDesc('enrolled_at')
+            ->get();
+    }
+
+    /**
+     * Per-mentee aggregates over the window: video counts per month, total, how
+     * many videos have any comment, and how many are awaiting a staff reply.
      *
      * @param  Collection<int, int>  $menteeIds
      * @param  array{start: string, end: string}  $window
-     * @return array<int, array{counts: array<string, int>, total: int, commented: int, awaiting_reply: int}>
+     * @return array<int, array{months: array<string, int>, total: int, commented: int, awaiting_reply: int}>
      */
     private function videoAggregates(Collection $menteeIds, array $window): array
     {
@@ -205,7 +228,7 @@ class VideoReportService
         $videos = LiveHostMenteeDailyVideo::query()
             ->whereIn('mentee_id', $menteeIds)
             ->whereBetween('video_date', [$window['start'], $window['end']])
-            ->get(['id', 'mentee_id', 'category']);
+            ->get(['id', 'mentee_id', 'video_date']);
 
         if ($videos->isEmpty()) {
             return [];
@@ -234,7 +257,7 @@ class VideoReportService
             }
 
             $out[(int) $menteeId] = [
-                'counts' => $rows->countBy(fn (LiveHostMenteeDailyVideo $v) => $this->categoryKey($v->category))->all(),
+                'months' => $rows->countBy(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->format('Y-m'))->all(),
                 'total' => $rows->count(),
                 'commented' => $commented,
                 'awaiting_reply' => $awaiting,
@@ -244,20 +267,25 @@ class VideoReportService
         return $out;
     }
 
-    private function categoryKey(?string $category): string
+    /**
+     * The month columns for the window (from..to of the chosen year).
+     *
+     * @param  array{meta: array<string, mixed>}  $window
+     * @return array<int, array{key: string, label: string, year: int, month: int}>
+     */
+    private function windowMonths(array $window): array
     {
-        return $category !== null && array_key_exists($category, LiveHostMenteeDailyVideo::CATEGORIES)
-            ? $category
-            : self::UNCATEGORISED;
-    }
+        $year = (int) $window['meta']['year'];
 
-    private function categoryLabel(string $slug): string
-    {
-        if ($slug === self::UNCATEGORISED) {
-            return 'Uncategorised';
-        }
-
-        return LiveHostMenteeDailyVideo::CATEGORIES[$slug] ?? 'All categories';
+        return collect(range($window['meta']['from'], $window['meta']['to']))
+            ->map(fn ($m) => [
+                'key' => sprintf('%04d-%02d', $year, $m),
+                'label' => CarbonImmutable::create($year, (int) $m, 1)->format('M'),
+                'year' => $year,
+                'month' => (int) $m,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -286,18 +314,16 @@ class VideoReportService
         $end = CarbonImmutable::create($year, $to, 1)->endOfMonth();
 
         return [
-            'start' => $start->toDateString(),
-            'end' => $end->toDateString(),
+            // Full datetimes so BETWEEN is inclusive of a datetime video_date on
+            // the last day of the window (a date-only bound would drop it).
+            'start' => $start->toDateTimeString(),
+            'end' => $end->toDateTimeString(),
             'meta' => [
                 'year' => $year,
                 'from' => $from,
                 'to' => $to,
                 'label' => $start->format('M Y').' – '.$end->format('M Y'),
                 'years' => range($currentYear - 2, max($currentYear, $year)),
-                'months' => collect(range(1, 12))
-                    ->map(fn ($m) => ['value' => $m, 'label' => CarbonImmutable::create($year, $m, 1)->format('M')])
-                    ->values()
-                    ->all(),
             ],
         ];
     }
