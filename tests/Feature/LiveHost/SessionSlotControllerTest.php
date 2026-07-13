@@ -129,6 +129,24 @@ it('exposes the hosts who share each account for the live-host picker', function
             ->etc());
 });
 
+it('flags linked vs non-linked accounts so the assign picker can show linked-only', function () {
+    $linked = LiveAccount::factory()->create(['nickname' => 'aaa_linked', 'account_type' => LiveAccount::TYPE_LINKED]);
+    $affiliate = LiveAccount::factory()->create(['nickname' => 'zzz_affiliate', 'account_type' => LiveAccount::TYPE_AFFILIATE]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('liveAccounts', function ($accounts) use ($linked, $affiliate) {
+                $byId = collect($accounts)->keyBy('id');
+
+                return $byId[$linked->id]['isLinked'] === true
+                    && $byId[$linked->id]['accountType'] === 'linked'
+                    && $byId[$affiliate->id]['isLinked'] === false
+                    && $byId[$affiliate->id]['accountType'] === 'affiliate';
+            })
+            ->etc());
+});
+
 it('renders the calendar with live account props', function () {
     $liveAccount = LiveAccount::factory()->create(['nickname' => 'amarmirzabedaie']);
     LiveScheduleAssignment::factory()->forDate(now()->format('Y-m-d'))->create([

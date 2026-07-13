@@ -267,27 +267,32 @@ export default function SessionSlotFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.data.live_account_id, mode]);
 
+  // Only linked creator accounts are assignable (affiliates and unclassified
+  // "needs review" accounts are excluded). The currently-selected account is
+  // always kept so editing/prefilling a slot on a non-linked account still shows it.
   const accountOptions = useMemo(
     () =>
-      liveAccounts.map((a) => {
-        const shopNames = (a.shops ?? []).map((s) => s.name).filter(Boolean);
-        return {
-          value: String(a.id),
-          label: a.label,
-          hint: a.needsReview
-            ? 'Needs review'
-            : shopNames.length
-              ? shopNames.join(', ')
-              : a.creatorUserId
-                ? `ID ${a.creatorUserId}`
-                : null,
-          keywords: [a.label, a.nickname, a.displayName, a.creatorUserId, ...shopNames]
-            .filter(Boolean)
-            .join(' '),
-          avatar: { initials: initialsFrom(a.label), color: colorFor(a.label) },
-        };
-      }),
-    [liveAccounts]
+      liveAccounts
+        .filter((a) => a.isLinked || String(a.id) === String(form.data.live_account_id))
+        .map((a) => {
+          const shopNames = (a.shops ?? []).map((s) => s.name).filter(Boolean);
+          return {
+            value: String(a.id),
+            label: a.label,
+            hint: a.needsReview
+              ? 'Needs review'
+              : shopNames.length
+                ? shopNames.join(', ')
+                : a.creatorUserId
+                  ? `ID ${a.creatorUserId}`
+                  : null,
+            keywords: [a.label, a.nickname, a.displayName, a.creatorUserId, ...shopNames]
+              .filter(Boolean)
+              .join(' '),
+            avatar: { initials: initialsFrom(a.label), color: colorFor(a.label) },
+          };
+        }),
+    [liveAccounts, form.data.live_account_id]
   );
 
   const contextLabel = useMemo(() => {

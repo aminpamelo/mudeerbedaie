@@ -90,11 +90,13 @@ export default function SessionSlotsEdit() {
               required
             >
               <option value="">Select creator account</option>
-              {liveAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
+              {liveAccounts
+                .filter((a) => a.isLinked || String(a.id) === String(form.data.live_account_id))
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.label}
+                  </option>
+                ))}
             </Select>
           </Field>
 

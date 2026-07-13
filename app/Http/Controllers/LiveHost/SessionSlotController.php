@@ -608,6 +608,8 @@ class SessionSlotController extends Controller
      *     displayName: ?string,
      *     creatorUserId: ?string,
      *     needsReview: bool,
+     *     accountType: string,
+     *     isLinked: bool,
      *     shops: array<int, array{id: int, name: ?string, isPrimary: bool}>,
      *     hostIds: array<int, int>
      * }>
@@ -627,6 +629,8 @@ class SessionSlotController extends Controller
                     'displayName' => $account->display_name,
                     'creatorUserId' => $account->creator_user_id,
                     'needsReview' => (bool) $account->needs_review,
+                    'accountType' => $account->account_type,
+                    'isLinked' => $account->isLinked(),
                     'shops' => $account->shops->map(fn (PlatformAccount $shop) => [
                         'id' => $shop->id,
                         'name' => $shop->name,
