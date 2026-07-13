@@ -21,6 +21,16 @@ export function fetchTopPosts() {
     return api.get('/dashboard/top-posts').then((r) => r.data);
 }
 
+// ─── Video Report (read-only monitor of mentoring videos) ────────────────────
+
+export function fetchVideoReport(params) {
+    return api.get('/video-report', { params }).then((r) => r.data);
+}
+
+export function fetchVideoReportCell(params) {
+    return api.get('/video-report/cell', { params }).then((r) => r.data);
+}
+
 // ─── Contents ────────────────────────────────────────────────────────────────
 
 export function fetchContents(params) {
@@ -83,6 +93,20 @@ export function updateStageDueDate(contentId, stage, data) {
 
 export function updateStageMeta(contentId, stage, data) {
     return api.patch(`/contents/${contentId}/stages/${stage}/meta`, data).then((r) => r.data);
+}
+
+// ─── Talent (live hosts) ─────────────────────────────────────────────────────
+
+export function fetchLiveHosts(params) {
+    return api.get('/live-hosts', { params }).then((r) => r.data);
+}
+
+export function addContentTalent(contentId, userId) {
+    return api.post(`/contents/${contentId}/talents`, { user_id: userId }).then((r) => r.data);
+}
+
+export function removeContentTalent(contentId, userId) {
+    return api.delete(`/contents/${contentId}/talents/${userId}`).then((r) => r.data);
 }
 
 // ─── Ad Campaigns ────────────────────────────────────────────────────────────

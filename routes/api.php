@@ -7,9 +7,11 @@ use App\Http\Controllers\Api\Cms\CmsContentController;
 use App\Http\Controllers\Api\Cms\CmsContentPlatformPostController;
 use App\Http\Controllers\Api\Cms\CmsContentReportController;
 use App\Http\Controllers\Api\Cms\CmsContentStageController;
+use App\Http\Controllers\Api\Cms\CmsContentTalentController;
 use App\Http\Controllers\Api\Cms\CmsDashboardController;
 use App\Http\Controllers\Api\Cms\CmsPerformanceReportController;
 use App\Http\Controllers\Api\Cms\CmsPlatformController;
+use App\Http\Controllers\Api\Cms\CmsVideoReportController;
 use App\Http\Controllers\Api\ContactActivityController;
 use App\Http\Controllers\Api\FunnelEventController;
 use App\Http\Controllers\Api\Hr\HrApplicantController;
@@ -507,6 +509,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('employees/export', [HrEmployeeController::class, 'export'])->name('api.hr.employees.export');
     Route::apiResource('employees', HrEmployeeController::class)->names('api.hr.employees');
     Route::patch('employees/{employee}/status', [HrEmployeeController::class, 'updateStatus'])->name('api.hr.employees.update-status');
+    Route::post('employees/{employee}/reassign-user', [HrEmployeeController::class, 'reassignUser'])->name('api.hr.employees.reassign-user');
     Route::post('employees/{employee}/photo', [HrEmployeeController::class, 'updatePhoto'])->name('api.hr.employees.update-photo');
     Route::delete('employees/{employee}/photo', [HrEmployeeController::class, 'removePhoto'])->name('api.hr.employees.remove-photo');
 
@@ -1204,12 +1207,21 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     Route::post('contents/{content}/stages/{stage}/assignees', [CmsContentStageController::class, 'addAssignee']);
     Route::delete('contents/{content}/stages/{stage}/assignees/{employee}', [CmsContentStageController::class, 'removeAssignee']);
 
+    // Content Talent (live hosts)
+    Route::get('live-hosts', [CmsContentTalentController::class, 'hosts']);
+    Route::post('contents/{content}/talents', [CmsContentTalentController::class, 'store']);
+    Route::delete('contents/{content}/talents/{user}', [CmsContentTalentController::class, 'destroy']);
+
     // Performance Report
     Route::get('performance-report', [CmsPerformanceReportController::class, 'index']);
 
     // Content Report
     Route::get('reports/content', [CmsContentReportController::class, 'index']);
     Route::get('reports/content/export', [CmsContentReportController::class, 'export']);
+
+    // Video Report (read-only monitor of the mentoring host × category video matrix)
+    Route::get('video-report', [CmsVideoReportController::class, 'index']);
+    Route::get('video-report/cell', [CmsVideoReportController::class, 'cell']);
 
     // Ad Campaigns
     Route::apiResource('ads', CmsAdCampaignController::class)->parameters(['ads' => 'adCampaign']);

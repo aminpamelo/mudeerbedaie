@@ -40,6 +40,13 @@ class ReportsController extends Controller
                     'href' => '/livehost/reports/replacements',
                     'available' => true,
                 ],
+                [
+                    'key' => 'video-report',
+                    'title' => 'Video Report',
+                    'description' => 'Host × category matrix of logged videos, with two-way feedback comments.',
+                    'href' => '/livehost/mentoring/video-report',
+                    'available' => true,
+                ],
             ],
         ]);
     }

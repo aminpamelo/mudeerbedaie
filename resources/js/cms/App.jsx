@@ -15,6 +15,7 @@ import AdsList from './pages/AdsList';
 import AdCampaignDetail from './pages/AdCampaignDetail';
 import PerformanceReport from './pages/PerformanceReport';
 import ContentReport from './pages/ContentReport';
+import VideoReport from './pages/VideoReport';
 import CreatorLeaderboard from './pages/CreatorLeaderboard';
 import PlatformQueue from './pages/PlatformQueue';
 import PlatformHistory from './pages/PlatformHistory';
@@ -74,6 +75,7 @@ export default function App() {
                         <Route path="platform/history" element={<PlatformHistory />} />
                         <Route path="reports/performance" element={<PerformanceReport />} />
                         <Route path="reports/content" element={<ContentReport />} />
+                        <Route path="reports/video" element={<VideoReport />} />
                         <Route path="creators" element={<CreatorLeaderboard />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>

@@ -44,7 +44,22 @@ class HandlePocketInertiaRequests extends HandleInertiaRequests
             // "Performance", the avatar in the top bar is now the entry point to
             // the profile page.
             'pocketUser' => fn () => $this->pocketUser($request),
+            // Seed the header bell badge on first paint (it then polls for updates).
+            'unreadNotificationCount' => fn () => $this->unreadNotificationCount($request),
         ];
+    }
+
+    private function unreadNotificationCount(Request $request): int
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return 0;
+        }
+
+        return $user->unreadNotifications()
+            ->where('type', 'like', 'App\\Notifications\\LiveHost\\%')
+            ->count();
     }
 
     /**

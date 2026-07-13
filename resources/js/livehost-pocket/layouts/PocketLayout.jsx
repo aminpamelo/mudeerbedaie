@@ -12,6 +12,7 @@ import {
 import { cn, initialsFrom } from '@/livehost-pocket/lib/utils';
 import InstallButton from '@/livehost-pocket/components/InstallButton';
 import NotificationOptIn from '@/livehost-pocket/components/NotificationOptIn';
+import NotificationBell from '@/livehost-pocket/components/NotificationBell';
 
 /**
  * Pocket shell — iOS-style phone layout with a fake status bar, scrollable
@@ -40,7 +41,10 @@ function StatusBar({ user }) {
   return (
     <div className="pocket-safe-top relative flex h-11 items-center justify-between px-5 text-[13px] font-semibold text-[var(--color-pocket-ink)]">
       <span>{time}</span>
-      <ProfileAvatar user={user} />
+      <div className="flex items-center gap-1.5">
+        <NotificationBell />
+        <ProfileAvatar user={user} />
+      </div>
     </div>
   );
 }

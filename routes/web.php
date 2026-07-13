@@ -48,11 +48,13 @@ use App\Http\Controllers\LiveHost\SessionDataController;
 use App\Http\Controllers\LiveHost\SessionSlotController;
 use App\Http\Controllers\LiveHost\TiktokReportImportController;
 use App\Http\Controllers\LiveHost\TimeSlotController;
+use App\Http\Controllers\LiveHost\VideoReportController;
 use App\Http\Controllers\LiveHostPocket\DailyVideoController;
 use App\Http\Controllers\LiveHostPocket\DashboardController;
 use App\Http\Controllers\LiveHostPocket\GoLiveController;
 use App\Http\Controllers\LiveHostPocket\MentorController;
 use App\Http\Controllers\LiveHostPocket\MentoringController;
+use App\Http\Controllers\LiveHostPocket\NotificationController as PocketNotificationController;
 use App\Http\Controllers\LiveHostPocket\PocketPwaController;
 use App\Http\Controllers\LiveHostPocket\ProfileController;
 use App\Http\Controllers\LiveHostPocket\PushSubscriptionController;
@@ -312,6 +314,22 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
             ->name('videos.store');
         Route::delete('videos/{video}', [DailyVideoController::class, 'destroy'])
             ->name('videos.destroy');
+        // Host reply on a staff feedback thread for one of their videos.
+        Route::post('videos/{video}/comments', [DailyVideoController::class, 'storeComment'])
+            ->name('videos.comments.store');
+
+        // In-app notification center (bell + full history). JSON endpoints back
+        // the header bell; the index is a full Inertia page.
+        Route::get('notifications', [PocketNotificationController::class, 'index'])
+            ->name('notifications.index');
+        Route::get('notifications/feed', [PocketNotificationController::class, 'feed'])
+            ->name('notifications.feed');
+        Route::get('notifications/unread-count', [PocketNotificationController::class, 'unreadCount'])
+            ->name('notifications.unread-count');
+        Route::post('notifications/read-all', [PocketNotificationController::class, 'markAllRead'])
+            ->name('notifications.read-all');
+        Route::post('notifications/{id}/read', [PocketNotificationController::class, 'markRead'])
+            ->name('notifications.read');
 
         // My Mentees — top-host self-service cockpit (scoped to mentees they lead).
         Route::get('mentees', [MentorController::class, 'index'])
@@ -677,6 +695,18 @@ Route::middleware(['auth'])
                 // parameterized program routes.
                 Route::get('overview', [MentoringProgramController::class, 'overview'])
                     ->name('overview');
+
+                // Video Report: host × content-category matrix of logged videos,
+                // with a two-way comment thread per video (staff feedback → host
+                // Pocket notification; host reply → "awaiting reply" marker).
+                Route::get('video-report', [VideoReportController::class, 'index'])
+                    ->name('video-report');
+                Route::get('video-report/cell', [VideoReportController::class, 'cell'])
+                    ->name('video-report.cell');
+                Route::post('videos/{video}/comments', [VideoReportController::class, 'storeComment'])
+                    ->name('videos.comments.store');
+                Route::delete('video-comments/{comment}', [VideoReportController::class, 'destroyComment'])
+                    ->name('video-comments.destroy');
 
                 // Programs
                 Route::get('programs', [MentoringProgramController::class, 'index'])

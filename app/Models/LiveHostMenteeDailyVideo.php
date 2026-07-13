@@ -6,6 +6,7 @@ use Database\Factories\LiveHostMenteeDailyVideoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LiveHostMenteeDailyVideo extends Model
 {
@@ -52,5 +53,15 @@ class LiveHostMenteeDailyVideo extends Model
     public function loggedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'logged_by');
+    }
+
+    /**
+     * The two-way feedback thread on this video (staff + host).
+     *
+     * @return HasMany<LiveHostMenteeVideoComment, $this>
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(LiveHostMenteeVideoComment::class, 'video_id');
     }
 }

@@ -18,6 +18,7 @@ import {
     Share2,
     TrendingUp,
     Users,
+    Clapperboard,
 } from 'lucide-react';
 import useCmsStore from '../stores/useCmsStore';
 import { cn } from '../lib/utils';
@@ -54,6 +55,7 @@ const navigation = [
         ],
     },
     { name: 'Performance', to: '/reports/performance', icon: TrendingUp },
+    { name: 'Video Report', to: '/reports/video', icon: Clapperboard },
     { name: 'Creators', to: '/creators', icon: Users },
 ];
 

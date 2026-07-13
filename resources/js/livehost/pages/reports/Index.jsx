@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowUpRight, Activity, BarChart3, CalendarRange, Replace } from 'lucide-react';
+import { ArrowUpRight, Activity, BarChart3, CalendarRange, Replace, Clapperboard } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 
 const ACCENTS = {
@@ -22,6 +22,11 @@ const ACCENTS = {
     accent: 'violet',
     icon: Replace,
     metric: 'SLA · Top requesters',
+  },
+  'video-report': {
+    accent: 'violet',
+    icon: Clapperboard,
+    metric: 'Videos by category · Feedback',
   },
 };
 

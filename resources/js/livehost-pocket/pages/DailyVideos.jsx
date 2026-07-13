@@ -1,12 +1,15 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   Film,
   Link2,
+  MessageSquare,
   Plus,
+  Send,
   Trash2,
   Video,
 } from 'lucide-react';
@@ -20,7 +23,7 @@ import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
  * Data comes from {@link \App\Http\Controllers\LiveHostPocket\DailyVideoController}.
  */
 export default function DailyVideos() {
-  const { enrollment, categories = [], today, history, stats } = usePage().props;
+  const { enrollment, categories = [], today, history, stats, focusVideoId = null } = usePage().props;
 
   if (!enrollment) {
     return <NotEnrolled />;
@@ -49,14 +52,14 @@ export default function DailyVideos() {
         <LogForm categories={categories} todayDate={today?.date} />
 
         <SectionHeading>{today?.label ?? 'Today'}</SectionHeading>
-        <TodayList videos={today?.videos ?? []} />
+        <TodayList videos={today?.videos ?? []} focusVideoId={focusVideoId} />
 
         <MonthStats stats={stats} />
 
         {history.length > 0 && (
           <>
             <SectionHeading>Earlier this month</SectionHeading>
-            <History history={history} />
+            <History history={history} focusVideoId={focusVideoId} />
           </>
         )}
       </div>
@@ -208,7 +211,7 @@ function LogForm({ categories, todayDate }) {
   );
 }
 
-function TodayList({ videos }) {
+function TodayList({ videos, focusVideoId }) {
   if (videos.length === 0) {
     return (
       <div className="mb-4 rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-5 text-center text-[12px] text-[var(--fg-3)]">
@@ -220,56 +223,148 @@ function TodayList({ videos }) {
   return (
     <div className="mb-4">
       {videos.map((v) => (
-        <VideoCard key={v.id} video={v} />
+        <VideoCard key={v.id} video={v} focus={v.id === focusVideoId} />
       ))}
     </div>
   );
 }
 
-function VideoCard({ video }) {
+function VideoCard({ video, focus = false }) {
+  const cardRef = useRef(null);
+  const comments = video.comments ?? [];
+  const [showThread, setShowThread] = useState(Boolean(video.unread_feedback) || focus);
+
+  useEffect(() => {
+    if (focus && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [focus]);
+
   const remove = () => {
     if (!window.confirm('Remove this video?')) return;
     router.delete(`/live-host/videos/${video.id}`, { preserveScroll: true });
   };
 
   return (
-    <div className="mb-[6px] flex items-start gap-2.5 rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-[11px]">
-      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--accent-soft)] text-[var(--accent)]">
-        <Film className="h-4 w-4" strokeWidth={2} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-semibold leading-snug text-[var(--fg)]">{video.title}</div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          {video.category_label && (
-            <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
-              {video.category_label}
-            </span>
-          )}
-          {video.time_human && (
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
-              {video.time_human}
-            </span>
-          )}
-          {video.link && (
-            <a
-              href={video.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)]"
-            >
-              <ExternalLink className="h-3 w-3" strokeWidth={2.2} /> Open link
-            </a>
-          )}
+    <div
+      ref={cardRef}
+      className={`mb-[6px] rounded-[14px] border bg-[var(--app-bg-2)] px-3 py-[11px] transition ${
+        focus ? 'border-[var(--accent)] ring-2 ring-[var(--accent-soft)]' : 'border-[var(--hair)]'
+      }`}
+    >
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--accent-soft)] text-[var(--accent)]">
+          <Film className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold leading-snug text-[var(--fg)]">{video.title}</div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {video.category_label && (
+              <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                {video.category_label}
+              </span>
+            )}
+            {video.time_human && (
+              <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--fg-3)]">
+                {video.time_human}
+              </span>
+            )}
+            {video.link && (
+              <a
+                href={video.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)]"
+              >
+                <ExternalLink className="h-3 w-3" strokeWidth={2.2} /> Open link
+              </a>
+            )}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={remove}
+          aria-label="Remove video"
+          className="shrink-0 rounded-lg p-1.5 text-[var(--fg-3)] transition hover:bg-[var(--app-bg)] hover:text-[var(--hot)] active:scale-95"
+        >
+          <Trash2 className="h-4 w-4" strokeWidth={2} />
+        </button>
       </div>
+
       <button
         type="button"
-        onClick={remove}
-        aria-label="Remove video"
-        className="shrink-0 rounded-lg p-1.5 text-[var(--fg-3)] transition hover:bg-[var(--app-bg)] hover:text-[var(--hot)] active:scale-95"
+        onClick={() => setShowThread((s) => !s)}
+        className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-[11.5px] font-semibold text-[var(--fg-2)]"
       >
-        <Trash2 className="h-4 w-4" strokeWidth={2} />
+        <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
+        {comments.length > 0 ? `Feedback (${comments.length})` : 'Feedback'}
+        {video.unread_feedback && <span className="h-1.5 w-1.5 rounded-full bg-[var(--hot,#EC4899)]" />}
+        <ChevronDown className={`ml-auto h-3.5 w-3.5 transition-transform ${showThread ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
+
+      {showThread && <FeedbackThread video={video} comments={comments} />}
+    </div>
+  );
+}
+
+function FeedbackThread({ video, comments }) {
+  const [reply, setReply] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const send = () => {
+    const text = reply.trim();
+    if (!text || busy) return;
+    setBusy(true);
+    router.post(
+      `/live-host/videos/${video.id}/comments`,
+      { body: text },
+      { preserveScroll: true, onSuccess: () => setReply(''), onFinish: () => setBusy(false) },
+    );
+  };
+
+  return (
+    <div className="mt-1.5 border-t border-[var(--hair)] pt-2.5">
+      {comments.length === 0 ? (
+        <p className="px-1 pb-2 text-[11.5px] text-[var(--fg-3)]">No feedback yet.</p>
+      ) : (
+        <div className="mb-2 flex flex-col gap-2">
+          {comments.map((c) => (
+            <div key={c.id} className={`flex flex-col ${c.is_host ? 'items-end' : 'items-start'}`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-3 py-2 text-[12.5px] leading-relaxed ${
+                  c.is_host
+                    ? 'rounded-tr-sm bg-[var(--accent)] text-[var(--accent-ink)]'
+                    : 'rounded-tl-sm bg-[var(--app-bg)] text-[var(--fg)] border border-[var(--hair)]'
+                }`}
+              >
+                {c.body}
+              </div>
+              <span className="mt-0.5 px-1 text-[10px] text-[var(--fg-3)]">
+                {c.author} · {c.created_human}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-end gap-1.5">
+        <textarea
+          value={reply}
+          onChange={(e) => setReply(e.target.value)}
+          rows={1}
+          placeholder="Reply to your mentor…"
+          className="max-h-24 min-h-[36px] flex-1 resize-none rounded-[11px] border border-[var(--hair-2)] bg-[var(--app-bg)] px-3 py-2 text-[12.5px] text-[var(--fg)] placeholder:text-[var(--fg-3)] focus:border-[var(--accent)] focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={send}
+          disabled={!reply.trim() || busy}
+          aria-label="Send reply"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[var(--accent)] text-[var(--accent-ink)] transition active:scale-95 disabled:opacity-40"
+        >
+          <Send className="h-4 w-4" strokeWidth={2} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -295,7 +390,7 @@ function StatTile({ label, value }) {
   );
 }
 
-function History({ history }) {
+function History({ history, focusVideoId }) {
   return (
     <div>
       {history.map((group) => (
@@ -309,7 +404,7 @@ function History({ history }) {
             </span>
           </div>
           {group.videos.map((v) => (
-            <VideoCard key={v.id} video={v} />
+            <VideoCard key={v.id} video={v} focus={v.id === focusVideoId} />
           ))}
         </div>
       ))}
