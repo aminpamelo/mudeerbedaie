@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarClock, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 
 const DAYS = [
@@ -31,7 +31,10 @@ async function jsonFetch(url, options = {}) {
   return data;
 }
 
-const emptyForm = () => ({ id: null, effective_from: '', effective_until: '', label: '', slots: [{ day_of_week: 1, start_time: '', end_time: '' }] });
+let _uid = 0;
+const uid = () => `k${(_uid += 1)}`;
+const withKeys = (slots) => (slots ?? []).map((s) => ({ _k: uid(), day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time }));
+const emptyForm = (suggested = []) => ({ id: null, effective_from: '', effective_until: '', label: '', slots: withKeys(suggested) });
 
 function fmtRange(o) {
   return o.effective_until ? `${o.effective_from} → ${o.effective_until}` : `${o.effective_from} → open-ended`;
@@ -41,7 +44,7 @@ function fmtRange(o) {
  * Manage a creator account's date-ranged slot overrides. While an override is
  * active for a date, its slots replace the account's normal slots on the calendar.
  */
-export default function SlotOverrideModal({ account, onClose, onSaved }) {
+export default function SlotOverrideModal({ account, suggestedSlots = [], onClose, onSaved }) {
   const [loading, setLoading] = useState(true);
   const [overrides, setOverrides] = useState([]);
   const [form, setForm] = useState(null); // null = list view; object = editing
@@ -70,7 +73,7 @@ export default function SlotOverrideModal({ account, onClose, onSaved }) {
       effective_from: o.effective_from,
       effective_until: o.effective_until ?? '',
       label: o.label ?? '',
-      slots: o.slots.length ? o.slots.map((s) => ({ day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time })) : [{ day_of_week: 1, start_time: '', end_time: '' }],
+      slots: withKeys(o.slots),
     });
   };
 
@@ -82,7 +85,7 @@ export default function SlotOverrideModal({ account, onClose, onSaved }) {
       effective_from: form.effective_from,
       effective_until: form.effective_until || null,
       label: form.label || null,
-      slots: form.slots,
+      slots: form.slots.map(({ day_of_week, start_time, end_time }) => ({ day_of_week, start_time, end_time })),
     };
     try {
       if (form.id) {
@@ -109,9 +112,9 @@ export default function SlotOverrideModal({ account, onClose, onSaved }) {
     onSaved?.();
   };
 
-  const updateSlot = (i, patch) => setForm((f) => ({ ...f, slots: f.slots.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) }));
-  const addSlot = () => setForm((f) => ({ ...f, slots: [...f.slots, { day_of_week: 1, start_time: '', end_time: '' }] }));
-  const removeSlot = (i) => setForm((f) => ({ ...f, slots: f.slots.filter((_, idx) => idx !== i) }));
+  const updateSlot = (k, patch) => setForm((f) => ({ ...f, slots: f.slots.map((s) => (s._k === k ? { ...s, ...patch } : s)) }));
+  const removeSlot = (k) => setForm((f) => ({ ...f, slots: f.slots.filter((s) => s._k !== k) }));
+  const addSlotForDay = (day) => setForm((f) => ({ ...f, slots: [...f.slots, { _k: uid(), day_of_week: day, start_time: '', end_time: '' }] }));
 
   const canSave = form && form.effective_from && form.slots.length > 0
     && form.slots.every((s) => s.start_time && s.end_time && s.end_time > s.start_time) && !busy;
@@ -162,7 +165,7 @@ export default function SlotOverrideModal({ account, onClose, onSaved }) {
                   ))}
                 </div>
               )}
-              <Button type="button" onClick={() => { setErrors({}); setForm(emptyForm()); }} className="mt-4 h-9 w-full gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]">
+              <Button type="button" onClick={() => { setErrors({}); setForm(emptyForm(suggestedSlots)); }} className="mt-4 h-9 w-full gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]">
                 <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> New override
               </Button>
             </>
@@ -188,21 +191,36 @@ export default function SlotOverrideModal({ account, onClose, onSaved }) {
 
               <div className="rounded-[12px] border border-[#EAEAEA] p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#737373]">Slots (per day)</span>
-                  <button type="button" onClick={addSlot} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-[#047857] hover:bg-[#ECFDF5]"><Plus className="h-3 w-3" strokeWidth={2.5} /> Add slot</button>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#737373]">Slots · per day</span>
+                  {suggestedSlots.length > 0 && (
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, slots: withKeys(suggestedSlots) }))} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[#4338CA] hover:bg-[#EEF2FF]" title="Fill every day from this account's normal slots">
+                      <RotateCcw className="h-3 w-3" strokeWidth={2.25} /> Prefill from normal
+                    </button>
+                  )}
                 </div>
-                <div className="flex flex-col gap-2">
-                  {form.slots.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <select value={s.day_of_week} onChange={(e) => updateSlot(i, { day_of_week: Number(e.target.value) })} className={`${input} w-[74px]`}>
-                        {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
-                      </select>
-                      <input type="time" value={s.start_time} onChange={(e) => updateSlot(i, { start_time: e.target.value })} className={`${input} flex-1`} />
-                      <span className="text-[#A3A3A3]">–</span>
-                      <input type="time" value={s.end_time} onChange={(e) => updateSlot(i, { end_time: e.target.value })} className={`${input} flex-1`} />
-                      <button type="button" onClick={() => removeSlot(i)} disabled={form.slots.length === 1} className="rounded-md p-1.5 text-[#B91C1C] hover:bg-[#FEF2F2] disabled:opacity-30"><Trash2 className="h-3.5 w-3.5" strokeWidth={2} /></button>
-                    </div>
-                  ))}
+                <div className="flex flex-col gap-1.5">
+                  {DAYS.map((d) => {
+                    const daySlots = form.slots.filter((s) => s.day_of_week === d.v);
+                    return (
+                      <div key={d.v} className="flex gap-2.5 rounded-lg border border-[#F0F0F0] bg-[#FCFCFC] px-2.5 py-2">
+                        <div className="w-9 shrink-0 pt-1.5 text-[11.5px] font-semibold text-[#525252]">{d.label}</div>
+                        <div className="flex flex-1 flex-col gap-1.5">
+                          {daySlots.length === 0 && <span className="py-0.5 text-[11px] text-[#C4C4C4]">No slots</span>}
+                          {daySlots.map((s) => (
+                            <div key={s._k} className="flex items-center gap-1.5">
+                              <input type="time" value={s.start_time} onChange={(e) => updateSlot(s._k, { start_time: e.target.value })} className={`${input} flex-1`} />
+                              <span className="text-[#A3A3A3]">–</span>
+                              <input type="time" value={s.end_time} onChange={(e) => updateSlot(s._k, { end_time: e.target.value })} className={`${input} flex-1`} />
+                              <button type="button" onClick={() => removeSlot(s._k)} className="rounded-md p-1.5 text-[#B91C1C] hover:bg-[#FEF2F2]"><Trash2 className="h-3.5 w-3.5" strokeWidth={2} /></button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => addSlotForDay(d.v)} className="inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[#047857] hover:bg-[#ECFDF5]">
+                            <Plus className="h-3 w-3" strokeWidth={2.5} /> Add time
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 {errors.slots && <p className="mt-1.5 text-[11px] text-[#B91C1C]">Add at least one valid slot (end after start).</p>}
               </div>

@@ -502,6 +502,28 @@ export default function SessionSlotsCalendar() {
 
   const dateForDow = (dow) => addDays(weekStart, dow);
 
+  // An account's normal (perpetual) slots, flattened to per-day rows — offered as
+  // the starting suggestion when creating a new override. Global (all-day) slots
+  // expand across every weekday.
+  const suggestedSlotsFor = (account) => {
+    if (!account) {
+      return [];
+    }
+    const shopIds = (account.shops ?? []).map((s) => Number(s.id));
+    const matching = timeSlots.filter((ts) => !ts.platformAccountId || shopIds.includes(Number(ts.platformAccountId)));
+    const out = [];
+    for (const ts of matching) {
+      if (ts.dayOfWeek === null || ts.dayOfWeek === undefined) {
+        for (let d = 0; d < 7; d += 1) {
+          out.push({ day_of_week: d, start_time: ts.startTime, end_time: ts.endTime });
+        }
+      } else {
+        out.push({ day_of_week: ts.dayOfWeek, start_time: ts.startTime, end_time: ts.endTime });
+      }
+    }
+    return out;
+  };
+
   // The active per-creator slot override (if any) for a live account on a given
   // ISO date — its slots replace the account's normal scaffolds in that window.
   const overrideFor = (accountId, isoDate) => {
@@ -1476,6 +1498,7 @@ export default function SessionSlotsCalendar() {
       {overrideAccount && (
         <SlotOverrideModal
           account={overrideAccount}
+          suggestedSlots={suggestedSlotsFor(overrideAccount)}
           onClose={() => setOverrideAccount(null)}
           onSaved={() => router.reload({ only: ['slotOverrides', 'sessionSlots'], preserveScroll: true })}
         />
