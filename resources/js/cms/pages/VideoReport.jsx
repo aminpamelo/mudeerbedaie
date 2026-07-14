@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, Clapperboard, ExternalLink, Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
 import {
@@ -23,15 +23,32 @@ const chipFor = (slug) => CATEGORY_STYLE[slug] ?? 'bg-zinc-100 text-zinc-600 bor
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
 
+// Remember the last view (filters + which months are expanded) so a reload or a
+// trip to another page and back reopens the exact same grid.
+const VIEW_KEY = 'cms:video-report:view';
+const DEFAULT_FILTERS = { program: '', year: currentYear, from: Math.max(1, currentMonth - 5), to: currentMonth };
+
+function readView() {
+    try {
+        return JSON.parse(window.localStorage.getItem(VIEW_KEY) || 'null');
+    } catch {
+        return null;
+    }
+}
+
+function writeView(view) {
+    try {
+        window.localStorage.setItem(VIEW_KEY, JSON.stringify(view));
+    } catch {
+        /* storage disabled or over quota — persistence is best-effort */
+    }
+}
+
 export default function VideoReport() {
-    const [filters, setFilters] = useState({
-        program: '',
-        year: currentYear,
-        from: Math.max(1, currentMonth - 5),
-        to: currentMonth,
-    });
+    const saved = useMemo(() => readView(), []);
+    const [filters, setFilters] = useState(() => ({ ...DEFAULT_FILTERS, ...(saved?.filters ?? {}) }));
     const [cell, setCell] = useState({ open: false, loading: false, host: null, period: null, videos: [] });
-    const [expandedMonths, setExpandedMonths] = useState(() => new Set());
+    const [expandedMonths, setExpandedMonths] = useState(() => new Set(saved?.expandedMonths ?? []));
     const [loadingMonths, setLoadingMonths] = useState(() => new Set());
     const [dayData, setDayData] = useState({});
 
@@ -64,26 +81,40 @@ export default function VideoReport() {
         updateFilters({ year, from: Math.max(1, cap - 5), to: cap });
     };
 
-    const toggleMonth = useCallback(async (m) => {
-        if (expandedMonths.has(m.key)) {
-            setExpandedMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
-            return;
-        }
-        if (dayData[m.key]) {
-            setExpandedMonths((s) => new Set(s).add(m.key));
-            return;
-        }
+    const ensureDayData = useCallback(async (m) => {
+        if (dayData[m.key] || loadingMonths.has(m.key)) return;
         setLoadingMonths((s) => new Set(s).add(m.key));
         try {
             const res = await fetchVideoReportDayMatrix({ year: m.year, month: m.month, program: filters.program || undefined });
             setDayData((d) => ({ ...d, [m.key]: { days: res.days, counts: res.counts } }));
-            setExpandedMonths((s) => new Set(s).add(m.key));
         } catch {
             /* leave collapsed on failure */
         } finally {
             setLoadingMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
         }
-    }, [expandedMonths, dayData, filters.program]);
+    }, [dayData, loadingMonths, filters.program]);
+
+    const toggleMonth = useCallback((m) => {
+        if (expandedMonths.has(m.key)) {
+            setExpandedMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
+        } else {
+            setExpandedMonths((s) => new Set(s).add(m.key));
+            ensureDayData(m);
+        }
+    }, [expandedMonths, ensureDayData]);
+
+    // Persist the view whenever the filters or expanded months change.
+    useEffect(() => {
+        writeView({ filters, expandedMonths: [...expandedMonths] });
+    }, [filters, expandedMonths]);
+
+    // On restore (or after data loads), fetch day columns for any month that was
+    // left expanded last time.
+    useEffect(() => {
+        months.forEach((m) => {
+            if (expandedMonths.has(m.key)) ensureDayData(m);
+        });
+    }, [months, expandedMonths, ensureDayData]);
 
     const openPeriod = useCallback(async (host, label, params) => {
         setCell({ open: true, loading: true, host, period: { label }, videos: [] });

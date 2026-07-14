@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Clapperboard, ExternalLink, Loader2, MessageSquare, Send, Trash2, X } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 
@@ -40,6 +40,26 @@ async function apiSend(url, method, body) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.status === 204 ? null : res.json();
+}
+
+// Remember the last view (filters + expanded months) so a reload, or leaving
+// and returning to this page, reopens the exact same grid.
+const VIEW_KEY = 'livehost:video-report:view';
+
+function readView() {
+  try {
+    return JSON.parse(window.localStorage.getItem(VIEW_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function writeView(view) {
+  try {
+    window.localStorage.setItem(VIEW_KEY, JSON.stringify(view));
+  } catch {
+    /* storage disabled or over quota — persistence is best-effort */
+  }
 }
 
 /* ---------------- Filters ---------------- */
@@ -473,33 +493,77 @@ function CommentDrawer({ cell, onClose, onPost, onDelete }) {
 /* ---------------- Page ---------------- */
 export default function VideoReport() {
   const { programs, months, filters, window: win } = usePage().props;
+  const saved = useMemo(() => readView(), []);
   const [cell, setCell] = useState({ open: false, loading: false, host: null, period: null, videos: [] });
-  const [expandedMonths, setExpandedMonths] = useState(() => new Set());
+  const [expandedMonths, setExpandedMonths] = useState(() => new Set(saved?.expandedMonths ?? []));
   const [loadingMonths, setLoadingMonths] = useState(() => new Set());
   const [dayData, setDayData] = useState({});
 
   const programParam = filters.program ? `&program=${filters.program}` : '';
 
-  const toggleMonth = useCallback(async (m) => {
-    if (expandedMonths.has(m.key)) {
-      setExpandedMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
-      return;
-    }
-    if (dayData[m.key]) {
-      setExpandedMonths((s) => new Set(s).add(m.key));
-      return;
-    }
+  const ensureDayData = useCallback(async (m) => {
+    if (dayData[m.key] || loadingMonths.has(m.key)) return;
     setLoadingMonths((s) => new Set(s).add(m.key));
     try {
       const data = await apiGet(`/livehost/mentoring/video-report/day-matrix?year=${m.year}&month=${m.month}${programParam}`);
       setDayData((d) => ({ ...d, [m.key]: { days: data.days, counts: data.counts } }));
-      setExpandedMonths((s) => new Set(s).add(m.key));
     } catch {
       /* leave collapsed on failure */
     } finally {
       setLoadingMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
     }
-  }, [expandedMonths, dayData, programParam]);
+  }, [dayData, loadingMonths, programParam]);
+
+  const toggleMonth = useCallback((m) => {
+    if (expandedMonths.has(m.key)) {
+      setExpandedMonths((s) => { const n = new Set(s); n.delete(m.key); return n; });
+    } else {
+      setExpandedMonths((s) => new Set(s).add(m.key));
+      ensureDayData(m);
+    }
+  }, [expandedMonths, ensureDayData]);
+
+  // Day counts are program-scoped; drop them when the program filter changes so
+  // stale mentee counts don't leak into another program's grid.
+  useEffect(() => {
+    setDayData({});
+  }, [filters.program]);
+
+  // Persist the view (applied filters + expanded months) on every change.
+  useEffect(() => {
+    writeView({
+      filters: { program: filters.program ?? null, year: win.year, from: win.from, to: win.to },
+      expandedMonths: [...expandedMonths],
+    });
+  }, [filters.program, win.year, win.from, win.to, expandedMonths]);
+
+  // Re-fetch day columns for any month left expanded (restore / after reload).
+  useEffect(() => {
+    months.forEach((m) => {
+      if (expandedMonths.has(m.key)) ensureDayData(m);
+    });
+  }, [months, expandedMonths, ensureDayData]);
+
+  // On a fresh visit with no filter query, reapply the saved filters so
+  // returning to this page reopens the same window (the URL keeps it on reload).
+  const restoredFilters = useRef(false);
+  useEffect(() => {
+    if (restoredFilters.current) return;
+    restoredFilters.current = true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('year') || params.has('from') || params.has('to') || params.has('program')) return;
+    const f = saved?.filters;
+    if (!f) return;
+    const want = { year: f.year ?? win.year, from: f.from ?? win.from, to: f.to ?? win.to, program: f.program ?? null };
+    const changed = want.year !== win.year || want.from !== win.from || want.to !== win.to || (want.program ?? null) !== (filters.program ?? null);
+    if (changed) {
+      router.get(
+        window.location.pathname,
+        { year: want.year, from: want.from, to: want.to, program: want.program || undefined },
+        { only: ['programs', 'months', 'window', 'filters'], preserveState: true, replace: true },
+      );
+    }
+  }, [saved, win, filters.program]);
 
   const openPeriod = useCallback(async (host, label, query) => {
     setCell({ open: true, loading: true, host, period: { label }, videos: [] });
