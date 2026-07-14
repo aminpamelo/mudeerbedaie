@@ -195,6 +195,40 @@ it('redirects recap save back to the page it was triggered from', function () {
         ->assertRedirect('/live-host/schedule');
 });
 
+it('lets a host upload proof and save a went_live recap for a past-dated session', function () {
+    Storage::fake('public');
+
+    // The customer complaint: "tak leh isi kalau tarikh lepas" (can't fill in
+    // for past dates). There is no such server-side restriction — a session
+    // scheduled last month accepts both the proof upload and the recap save.
+    $pastSession = LiveSession::factory()->create([
+        'live_host_id' => $this->host->id,
+        'status' => 'scheduled',
+        'scheduled_start_at' => now()->subMonth(),
+    ]);
+
+    actingAs($this->host)
+        ->post("/live-host/sessions/{$pastSession->id}/attachments", [
+            'file' => UploadedFile::fake()->create('proof.jpg', 300, 'image/jpeg'),
+        ])
+        ->assertRedirect();
+
+    actingAs($this->host)
+        ->post("/live-host/sessions/{$pastSession->id}/recap", [
+            'went_live' => true,
+            'gmv_amount' => 500,
+            'actual_start_at' => now()->subMonth()->toIso8601String(),
+            'actual_end_at' => now()->subMonth()->addHours(2)->toIso8601String(),
+            'viewers_peak' => 120,
+        ])
+        ->assertRedirect();
+
+    $fresh = $pastSession->fresh();
+    expect($fresh->status)->toBe('ended');
+    expect($fresh->uploaded_at)->not->toBeNull();
+    expect(LiveSessionAttachment::where('live_session_id', $pastSession->id)->count())->toBe(1);
+});
+
 it('forbids another host from uploading an attachment', function () {
     Storage::fake('public');
     $other = User::factory()->create(['role' => 'live_host']);

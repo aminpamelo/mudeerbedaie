@@ -35,3 +35,5 @@ yarn-error.log
 /*.xlsx
 /*.xls
 /*.csv
+# Pest browser-test screenshots (regenerated per run)
+/tests/Browser/Screenshots

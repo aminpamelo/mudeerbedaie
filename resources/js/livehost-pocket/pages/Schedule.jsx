@@ -1128,6 +1128,7 @@ function RecapModal({ action, defaultWentLive, onClose }) {
   const [attachments, setAttachments] = useState(initialAttachments);
   const fileInputRef = useRef(null);
   const [uploadError, setUploadError] = useState('');
+  const pendingUrlsRef = useRef([]);
 
   // Lock body scroll while open + close on Escape.
   useEffect(() => {
@@ -1142,6 +1143,15 @@ function RecapModal({ action, defaultWentLive, onClose }) {
       window.removeEventListener('keydown', onKey);
     };
   }, [onClose]);
+
+  // Release any optimistic preview object URLs when the modal unmounts.
+  useEffect(
+    () => () => {
+      pendingUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      pendingUrlsRef.current = [];
+    },
+    []
+  );
 
   const recap = useForm({
     went_live: deriveDefaultWentLive(session, defaultWentLive),
@@ -1158,30 +1168,70 @@ function RecapModal({ action, defaultWentLive, onClose }) {
 
   const handlePickFile = () => fileInputRef.current?.click();
 
+  const revokePendingUrls = () => {
+    pendingUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    pendingUrlsRef.current = [];
+  };
+
+  // Pull the authoritative attachment list back out of a freshly reloaded
+  // `days` snapshot. Returns false when this session isn't in the loaded
+  // window (e.g. a past-dated slot outside the current week/month), in which
+  // case the optimistic entry added on upload stands in for the real row.
+  const syncAttachmentsFromDays = (page) => {
+    const fresh = findRecapAction(page?.props?.days, sessionId);
+    if (fresh?.attachments) {
+      revokePendingUrls();
+      setAttachments(fresh.attachments);
+      return true;
+    }
+    return false;
+  };
+
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploadError('');
     const data = new FormData();
     data.append('file', file);
+
+    const isMedia = file.type?.startsWith('image/') || file.type?.startsWith('video/');
+    const previewUrl = isMedia ? URL.createObjectURL(file) : null;
+
     router.post(`/live-host/sessions/${sessionId}/attachments`, data, {
       preserveScroll: true,
       preserveState: true,
       forceFormData: true,
       onSuccess: () => {
-        // Refresh schedule props (which carry the updated attachments) and
-        // sync local state from the latest snapshot.
+        // Upload succeeded server-side. Reflect it in local state *now* so
+        // "Simpan rekap" enables even when this slot sits outside the loaded
+        // day window. The previous flow only synced via the `days` reload
+        // below, which silently no-op'd for past-dated slots and left the
+        // save button greyed out ("stuck loading"). We still run the reload to
+        // hydrate the real row (id + stored URL) for delete; if it can't find
+        // the session in the visible window, the optimistic entry stands.
+        if (isMedia && previewUrl) {
+          pendingUrlsRef.current.push(previewUrl);
+          setAttachments((prev) => [
+            ...prev,
+            {
+              id: `pending-${prev.length}-${file.name}`,
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+              fileUrl: previewUrl,
+              pending: true,
+            },
+          ]);
+        }
         router.reload({
           only: ['days'],
           preserveScroll: true,
           preserveState: true,
-          onSuccess: (page) => {
-            const fresh = findRecapAction(page.props.days, sessionId);
-            if (fresh?.attachments) setAttachments(fresh.attachments);
-          },
+          onSuccess: syncAttachmentsFromDays,
         });
       },
       onError: (errs) => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
         setUploadError(errs?.file ?? 'Upload gagal — sila cuba lagi.');
       },
       onFinish: () => {
@@ -1191,6 +1241,18 @@ function RecapModal({ action, defaultWentLive, onClose }) {
   };
 
   const handleDeleteAttachment = (attachmentId) => {
+    const target = attachments.find((a) => a.id === attachmentId);
+    if (target?.pending) {
+      // Optimistic-only entry (its slot fell outside the reloaded window, so
+      // we never received the server row). Drop it locally; the file is
+      // already stored server-side and will surface on the next full load.
+      if (target.fileUrl) {
+        URL.revokeObjectURL(target.fileUrl);
+        pendingUrlsRef.current = pendingUrlsRef.current.filter((u) => u !== target.fileUrl);
+      }
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      return;
+    }
     if (!window.confirm('Buang fail ini?')) return;
     router.delete(`/live-host/sessions/${sessionId}/attachments/${attachmentId}`, {
       preserveScroll: true,
@@ -1211,11 +1273,17 @@ function RecapModal({ action, defaultWentLive, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setUploadError('');
     recap.post(`/live-host/sessions/${sessionId}/recap`, {
       preserveScroll: true,
       onSuccess: () => {
         onClose();
         router.reload({ only: ['days'], preserveScroll: true });
+      },
+      onError: (errs) => {
+        // Surface the server's proof check instead of leaving the modal
+        // looking like it did nothing.
+        if (errs?.proof) setUploadError(errs.proof);
       },
     });
   };
