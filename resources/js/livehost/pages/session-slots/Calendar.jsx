@@ -1,11 +1,15 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import SlotOverrideModal from '@/livehost/components/session-slots/SlotOverrideModal';
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  Eye,
+  EyeOff,
   Grid3x3,
   LayoutGrid,
   List,
@@ -14,6 +18,7 @@ import {
   Radio,
   ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   Upload,
@@ -28,6 +33,32 @@ import LiveSessionModal from '@/livehost/components/LiveSessionModal';
 import RegisterCreatorModal from '@/livehost/components/RegisterCreatorModal';
 
 const UNREGISTERED_LANE_ID = '__unregistered__';
+
+// Persisted custom order + hidden set for the account columns/lanes, so the PIC's
+// arrangement survives reloads and revisits (per browser).
+const ACCOUNT_PREF_KEY = 'livehost:session-slots:calendar:accounts';
+
+function readAccountPrefs() {
+  if (typeof window === 'undefined') return { order: [], hidden: [] };
+  try {
+    const p = JSON.parse(window.localStorage.getItem(ACCOUNT_PREF_KEY) || 'null');
+    return {
+      order: Array.isArray(p?.order) ? p.order.map(String) : [],
+      hidden: Array.isArray(p?.hidden) ? p.hidden.map(String) : [],
+    };
+  } catch {
+    return { order: [], hidden: [] };
+  }
+}
+
+function writeAccountPrefs(prefs) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(ACCOUNT_PREF_KEY, JSON.stringify(prefs));
+  } catch {
+    /* storage disabled or over quota — persistence is best-effort */
+  }
+}
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = [
@@ -361,7 +392,13 @@ export default function SessionSlotsCalendar() {
   // Otherwise, collect every live account referenced by a session this week,
   // plus an "Unassigned" lane for legacy/unresolved slots. The shop is no
   // longer the lane axis — many accounts can be live for one shop at once.
-  const activeAccounts = useMemo(() => {
+  const [accountPrefs, setAccountPrefs] = useState(() => readAccountPrefs());
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const accountPanelRef = useRef(null);
+
+  // Every account/lane referenced this week, alphabetical (the raw set before the
+  // user's custom order / hidden preferences are applied).
+  const allAccounts = useMemo(() => {
     const lookup = (id) => liveAccounts.find((a) => Number(a.id) === Number(id));
 
     if (liveAccount) {
@@ -408,20 +445,85 @@ export default function SessionSlotsCalendar() {
     return accounts;
   }, [liveAccount, sessionSlots, liveAccounts, visibleSuggestions]);
 
+  // Colors are keyed to the alphabetical index so custom ordering / hiding never
+  // reshuffles which color an account has.
   const accountColorMap = useMemo(() => {
     const map = new Map();
-    activeAccounts.forEach((account, i) => {
+    allAccounts.forEach((account, i) => {
       map.set(String(account.id), ACCOUNT_PALETTE[i % ACCOUNT_PALETTE.length]);
     });
     return map;
-  }, [activeAccounts]);
+  }, [allAccounts]);
+
+  const colorForAccount = (accountId) =>
+    accountColorMap.get(String(accountId ?? '__none__')) ?? FALLBACK_ACCOUNT_COLOR;
+
+  const isManageableAccount = (a) => !a.isNone && !a.isUnregistered && a.id !== '__none__';
+
+  // Real accounts in the user's custom order (persisted ids first, the rest
+  // alphabetical) — drives the Sort & hide panel (includes hidden ones).
+  const orderedManageable = useMemo(() => {
+    const orderIndex = new Map((accountPrefs.order ?? []).map((id, i) => [String(id), i]));
+    return allAccounts
+      .filter((a) => !a.isNone && !a.isUnregistered && a.id !== '__none__')
+      .sort((a, b) => {
+        const ai = orderIndex.has(String(a.id)) ? orderIndex.get(String(a.id)) : Infinity;
+        const bi = orderIndex.has(String(b.id)) ? orderIndex.get(String(b.id)) : Infinity;
+        if (ai !== bi) return ai - bi;
+        return String(a.label).localeCompare(String(b.label));
+      });
+  }, [allAccounts, accountPrefs.order]);
+
+  // The lanes actually rendered: custom-ordered visible accounts, then the
+  // synthetic Unassigned / Unregistered lanes.
+  const activeAccounts = useMemo(() => {
+    const hidden = new Set((accountPrefs.hidden ?? []).map(String));
+    const visible = orderedManageable.filter((a) => !hidden.has(String(a.id)));
+    const synthetic = allAccounts.filter((a) => a.isNone || a.isUnregistered);
+    return [...visible, ...synthetic];
+  }, [orderedManageable, allAccounts, accountPrefs.hidden]);
 
   const laneCount = Math.max(1, activeAccounts.length);
   const showLanes = activeAccounts.length > 1;
   const minGridWidth = 64 + 7 * laneCount * LANE_MIN_WIDTH;
 
-  const colorForAccount = (accountId) =>
-    accountColorMap.get(String(accountId ?? '__none__')) ?? FALLBACK_ACCOUNT_COLOR;
+  useEffect(() => {
+    writeAccountPrefs(accountPrefs);
+  }, [accountPrefs]);
+
+  useEffect(() => {
+    if (!accountPanelOpen) return undefined;
+    const onClick = (e) => {
+      if (accountPanelRef.current && !accountPanelRef.current.contains(e.target)) {
+        setAccountPanelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [accountPanelOpen]);
+
+  const moveAccount = (id, dir) => {
+    const ids = orderedManageable.map((a) => String(a.id));
+    const i = ids.indexOf(String(id));
+    const j = dir === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    setAccountPrefs((p) => ({ ...p, order: ids }));
+  };
+
+  const toggleAccountHidden = (id) => {
+    setAccountPrefs((p) => {
+      const hidden = new Set((p.hidden ?? []).map(String));
+      if (hidden.has(String(id))) {
+        hidden.delete(String(id));
+      } else {
+        hidden.add(String(id));
+      }
+      return { ...p, hidden: [...hidden] };
+    });
+  };
+
+  const resetAccountPrefs = () => setAccountPrefs({ order: [], hidden: [] });
 
   useEffect(() => {
     const initial = filters ?? {};
@@ -794,6 +896,81 @@ export default function SessionSlotsCalendar() {
           <span className="font-mono text-[10px] uppercase tracking-wider text-[#A3A3A3]">
             Accounts
           </span>
+
+          {orderedManageable.length > 0 && (
+            <div className="relative z-40" ref={accountPanelRef}>
+              <button
+                type="button"
+                onClick={() => setAccountPanelOpen((o) => !o)}
+                className="inline-flex items-center gap-1 rounded-md border border-[#EAEAEA] px-2 py-0.5 text-[10px] font-medium text-[#525252] transition-colors hover:bg-[#F5F5F5]"
+              >
+                <SlidersHorizontal className="h-3 w-3" strokeWidth={2} />
+                Sort &amp; hide
+                {(accountPrefs.hidden ?? []).length > 0 && (
+                  <span className="rounded-full bg-[#F0F0F0] px-1 text-[9px] font-semibold text-[#737373]">
+                    {(accountPrefs.hidden ?? []).length} hidden
+                  </span>
+                )}
+              </button>
+              {accountPanelOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-xl border border-[#EAEAEA] bg-white p-1.5 shadow-xl">
+                  <div className="flex items-center justify-between px-1.5 py-1">
+                    <span className="text-[11px] font-semibold text-[#0A0A0A]">Account columns</span>
+                    <button
+                      type="button"
+                      onClick={resetAccountPrefs}
+                      className="text-[10.5px] font-medium text-[#737373] transition-colors hover:text-[#0A0A0A]"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="max-h-72 space-y-0.5 overflow-y-auto">
+                    {orderedManageable.map((account, i) => {
+                      const isHidden = (accountPrefs.hidden ?? []).map(String).includes(String(account.id));
+                      const color = colorForAccount(account.id);
+                      return (
+                        <div key={account.id} className="flex items-center gap-1.5 rounded-lg px-1 py-1 hover:bg-[#FAFAFA]">
+                          <div className="flex flex-col text-[#A3A3A3]">
+                            <button
+                              type="button"
+                              onClick={() => moveAccount(account.id, 'up')}
+                              disabled={i === 0}
+                              aria-label="Move up"
+                              className="leading-none transition-colors hover:text-[#0A0A0A] disabled:opacity-20"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveAccount(account.id, 'down')}
+                              disabled={i === orderedManageable.length - 1}
+                              aria-label="Move down"
+                              className="leading-none transition-colors hover:text-[#0A0A0A] disabled:opacity-20"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            </button>
+                          </div>
+                          <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: color.dot }} />
+                          <span className={`flex-1 truncate text-[12px] ${isHidden ? 'text-[#B0B0B0] line-through' : 'text-[#0A0A0A]'}`}>
+                            {account.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleAccountHidden(account.id)}
+                            aria-label={isHidden ? 'Show account' : 'Hide account'}
+                            className="rounded p-1 text-[#737373] transition-colors hover:bg-[#F0F0F0]"
+                          >
+                            {isHidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={2} /> : <Eye className="h-3.5 w-3.5" strokeWidth={2} />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeAccounts.length === 0 ? (
             <span className="italic text-[#A3A3A3]">No active accounts this week</span>
           ) : (
