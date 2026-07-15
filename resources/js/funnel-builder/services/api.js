@@ -235,9 +235,15 @@ export const orderBumpApi = {
  * Analytics API
  */
 export const analyticsApi = {
-    // Get funnel analytics
-    getFunnelStats: (funnelUuid, period = '7d') =>
-        request(`/funnels/${funnelUuid}/analytics?period=${period}`),
+    // Get funnel analytics. For period 'custom', pass { startDate, endDate } (YYYY-MM-DD).
+    getFunnelStats: (funnelUuid, period = '7d', { startDate, endDate } = {}) => {
+        const params = new URLSearchParams({ period });
+        if (period === 'custom') {
+            if (startDate) params.set('start_date', startDate);
+            if (endDate) params.set('end_date', endDate);
+        }
+        return request(`/funnels/${funnelUuid}/analytics?${params.toString()}`);
+    },
 
     // Get step analytics
     getStepStats: (funnelUuid, stepId, period = '7d') =>

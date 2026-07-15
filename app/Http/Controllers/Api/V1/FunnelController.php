@@ -9,6 +9,7 @@ use App\Http\Resources\FunnelResource;
 use App\Models\Funnel;
 use App\Models\FunnelTemplate;
 use App\Models\ProductOrder;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -226,25 +227,47 @@ class FunnelController extends Controller
             ->with(['steps' => fn ($q) => $q->orderBy('sort_order')])
             ->firstOrFail();
 
+        $request->validate([
+            'period' => ['nullable', 'string', 'in:24h,today,yesterday,7d,30d,90d,custom'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+        ]);
+
         $period = $request->input('period', '7d');
-        $startDate = match ($period) {
-            '24h' => now()->subDay(),
-            '7d' => now()->subDays(7),
-            '30d' => now()->subDays(30),
-            '90d' => now()->subDays(90),
-            default => now()->subDays(7),
+        $now = CarbonImmutable::now();
+
+        // Resolve an inclusive [start, end] window. Today/yesterday/custom give
+        // marketers day-level reporting; the rolling periods end at "now".
+        [$startDate, $endDate] = match ($period) {
+            '24h' => [$now->subDay(), $now],
+            'today' => [$now->startOfDay(), $now->endOfDay()],
+            'yesterday' => [$now->subDay()->startOfDay(), $now->subDay()->endOfDay()],
+            '30d' => [$now->subDays(30), $now],
+            '90d' => [$now->subDays(90), $now],
+            'custom' => [
+                $request->filled('start_date') ? CarbonImmutable::parse($request->input('start_date'))->startOfDay() : $now->subDays(7),
+                $request->filled('end_date') ? CarbonImmutable::parse($request->input('end_date'))->endOfDay() : $now->endOfDay(),
+            ],
+            default => [$now->subDays(7), $now],
         };
 
-        // Get overall funnel analytics (no step filter)
+        $startStr = $startDate->toDateString();
+        $endStr = $endDate->toDateString();
+
+        // Get overall funnel analytics (no step filter). whereDate normalises the
+        // stored value to its date part so the inclusive upper bound matches rows
+        // regardless of any time component (SQLite keeps 00:00:00, MySQL truncates).
         $funnelAnalytics = $funnel->analytics()
             ->whereNull('funnel_step_id')
-            ->where('date', '>=', $startDate->toDateString())
+            ->whereDate('date', '>=', $startStr)
+            ->whereDate('date', '<=', $endStr)
             ->get();
 
         // Get step-by-step analytics
         $stepAnalytics = $funnel->analytics()
             ->whereNotNull('funnel_step_id')
-            ->where('date', '>=', $startDate->toDateString())
+            ->whereDate('date', '>=', $startStr)
+            ->whereDate('date', '<=', $endStr)
             ->get()
             ->groupBy('funnel_step_id');
 
@@ -305,6 +328,11 @@ class FunnelController extends Controller
                 'summary' => $summary,
                 'steps' => $steps,
                 'timeseries' => $timeseries,
+                'range' => [
+                    'period' => $period,
+                    'start' => $startStr,
+                    'end' => $endStr,
+                ],
             ],
         ]);
     }

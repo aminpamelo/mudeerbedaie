@@ -362,24 +362,35 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
 // Analytics Tab Component
 function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
     const [period, setPeriod] = useState('7d');
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
     const [loading, setLoading] = useState(false);
     const [analytics, setAnalytics] = useState(initialAnalytics);
     const [stepStats, setStepStats] = useState([]);
     const [timeSeriesData, setTimeSeriesData] = useState([]);
 
     const PERIODS = [
-        { value: '24h', label: '24 Hours' },
+        { value: 'today', label: 'Today' },
+        { value: 'yesterday', label: 'Yesterday' },
         { value: '7d', label: '7 Days' },
         { value: '30d', label: '30 Days' },
         { value: '90d', label: '90 Days' },
+        { value: 'custom', label: 'Custom' },
     ];
 
-    // Load analytics when period changes
+    // Load analytics when the period (or a complete custom range) changes.
     useEffect(() => {
+        // For a custom range, wait until both ends are chosen.
+        if (period === 'custom' && (!customStart || !customEnd)) {
+            return;
+        }
         const loadData = async () => {
             setLoading(true);
             try {
-                const response = await analyticsApi.getFunnelStats(funnelUuid, period);
+                const response = await analyticsApi.getFunnelStats(funnelUuid, period, {
+                    startDate: customStart,
+                    endDate: customEnd,
+                });
                 const data = response.data || response;
                 setAnalytics(data.summary || data);
                 setStepStats(data.steps || []);
@@ -391,7 +402,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
             }
         };
         loadData();
-    }, [funnelUuid, period]);
+    }, [funnelUuid, period, customStart, customEnd]);
 
     // Calculate max values for chart scaling
     const maxVisitors = Math.max(...(timeSeriesData.map(d => d.visitors) || [1]), 1);
@@ -405,7 +416,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
             {/* Period Selector */}
             <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Funnel Analytics</h3>
-                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <div className="flex flex-wrap items-center gap-2 bg-gray-100 rounded-lg p-1">
                     {PERIODS.map((p) => (
                         <button
                             key={p.value}
@@ -421,6 +432,35 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
                     ))}
                 </div>
             </div>
+
+            {/* Custom date range */}
+            {period === 'custom' && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className="font-medium text-gray-700">From</span>
+                        <input
+                            type="date"
+                            value={customStart}
+                            max={customEnd || undefined}
+                            onChange={(e) => setCustomStart(e.target.value)}
+                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className="font-medium text-gray-700">To</span>
+                        <input
+                            type="date"
+                            value={customEnd}
+                            min={customStart || undefined}
+                            onChange={(e) => setCustomEnd(e.target.value)}
+                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </label>
+                    {(!customStart || !customEnd) && (
+                        <span className="text-xs text-gray-500">Pick both dates to load the report.</span>
+                    )}
+                </div>
+            )}
 
             {loading && (
                 <div className="flex items-center justify-center py-8">
