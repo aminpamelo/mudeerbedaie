@@ -298,6 +298,39 @@ it('books using the customer phone when the shipping address row has none', func
         && data_get($request->data(), 'shipment.0.receiver.phone_number') === '165756060');
 });
 
+it('offers EasyParcel booking for any pre-shipment status but not after', function (string $status, bool $expected) {
+    connectEasyParcel();
+    fakeEasyParcelApi();
+
+    $order = ProductOrder::factory()->create(['status' => $status, 'weight_kg' => 1.0]);
+    ProductOrderAddress::create([
+        'order_id' => $order->id,
+        'type' => 'shipping',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane@example.com',
+        'address_line_1' => '2 Lorong Buyer',
+        'city' => 'George Town',
+        'state' => 'Penang',
+        'postal_code' => '10000',
+        'country' => 'Malaysia',
+        'phone' => '0198765432',
+    ]);
+
+    $component = Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order->fresh()]);
+
+    $expected
+        ? $component->assertSee('Get Rates')
+        : $component->assertDontSee('Get Rates');
+})->with([
+    'pending' => ['pending', true],
+    'confirmed' => ['confirmed', true],
+    'processing' => ['processing', true],
+    'delivered' => ['delivered', false],
+    'cancelled' => ['cancelled', false],
+]);
+
 it('rejects an invalid recipient phone', function () {
     connectEasyParcel();
 

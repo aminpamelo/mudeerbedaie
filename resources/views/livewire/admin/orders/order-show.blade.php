@@ -495,6 +495,16 @@ new class extends Component
     }
 
     /**
+     * Whether a courier shipment can be booked for this order — any pre-shipment
+     * state (payment status is intentionally not a gate; booking charges the
+     * courier wallet regardless of whether the customer has paid yet).
+     */
+    public function canBookShipment(): bool
+    {
+        return in_array($this->order->status, ['pending', 'confirmed', 'processing'], true);
+    }
+
+    /**
      * When EasyParcel is partially set up (so the store clearly intends to use
      * it) but not fully enabled, return a short reason explaining why the rate
      * box is hidden. Returns null when fully enabled, or when nothing has been
@@ -1603,7 +1613,7 @@ new class extends Component
                         </div>
                     @else
                         <div class="space-y-3">
-                            @if($this->isJntEnabled() && in_array($order->status, ['confirmed', 'processing']))
+                            @if($this->isJntEnabled() && $this->canBookShipment())
                                 <div class="p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
                                     <div class="flex items-center justify-between gap-4">
                                         <div class="flex items-center gap-3">
@@ -1622,7 +1632,7 @@ new class extends Component
                                 </div>
                             @endif
 
-                            @if($this->isEasyParcelEnabled() && in_array($order->status, ['confirmed', 'processing']))
+                            @if($this->isEasyParcelEnabled() && $this->canBookShipment())
                                 <div class="p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
                                     <div class="flex items-center justify-between gap-4">
                                         <div class="flex items-center gap-3">
@@ -1710,7 +1720,7 @@ new class extends Component
                                 </div>
                             @endif
 
-                            @if(! $this->isEasyParcelEnabled() && in_array($order->status, ['confirmed', 'processing']) && ($easyParcelHint = $this->easyParcelHint()))
+                            @if(! $this->isEasyParcelEnabled() && $this->canBookShipment() && ($easyParcelHint = $this->easyParcelHint()))
                                 <div class="p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
                                     <div class="flex items-start gap-3">
                                         <div class="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">

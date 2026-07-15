@@ -63,11 +63,20 @@ it('shows the Get Rates box and no hint when fully enabled', function () {
         ->assertDontSee('EasyParcel not available');
 });
 
-it('does not show the hint for orders that are not confirmed or processing', function () {
+it('shows the hint for pending orders (any pre-shipment status can book)', function () {
     configureEasyParcelCredentials(); // configured but not connected
 
     $pendingOrder = ProductOrder::factory()->create(['status' => 'pending']);
 
     Volt::test('admin.orders.order-show', ['order' => $pendingOrder])
+        ->assertSee('EasyParcel not available');
+});
+
+it('does not show the shipping section once the order is past the pre-shipment stage', function () {
+    configureEasyParcelCredentials(); // configured but not connected
+
+    $deliveredOrder = ProductOrder::factory()->create(['status' => 'delivered']);
+
+    Volt::test('admin.orders.order-show', ['order' => $deliveredOrder])
         ->assertDontSee('EasyParcel not available');
 });
