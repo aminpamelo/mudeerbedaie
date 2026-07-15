@@ -134,6 +134,13 @@ class EasyParcelShippingService implements ShippingProvider
             );
         }
 
+        if ($problems = $this->validateShipmentData($request)) {
+            return new ShipmentResult(
+                success: false,
+                message: 'Cannot book shipment — '.implode(' Also, ', $problems),
+            );
+        }
+
         $payload = ['shipment' => [[
             'reference' => $request->orderNumber,
             'service_id' => $request->serviceCode,
@@ -171,9 +178,29 @@ class EasyParcelShippingService implements ShippingProvider
             $shipment = $first['shipments'][0] ?? [];
 
             if (! $this->ok($response) || ($shipment['status'] ?? '') !== 'success') {
+                // EasyParcel nests the real rejection reason inconsistently: a
+                // per-shipment validation error sits on the shipment, an
+                // order-level rejection on the data row, and only the generic
+                // "N requests success, N request error" summary lives at the top.
+                // Prefer the most specific reason and log the raw response so the
+                // true cause (wallet balance, bad phone/postcode, …) is diagnosable.
+                $reason = $shipment['message']
+                    ?? $shipment['remarks']
+                    ?? $first['message']
+                    ?? $first['remarks']
+                    ?? $response['message']
+                    ?? 'Failed to submit EasyParcel order.';
+
+                Log::warning('EasyParcel submit_orders rejected', [
+                    'order' => $request->orderNumber,
+                    'service_id' => $request->serviceCode,
+                    'reason' => $reason,
+                    'response' => $response,
+                ]);
+
                 return new ShipmentResult(
                     success: false,
-                    message: $shipment['message'] ?? $response['message'] ?? 'Failed to submit EasyParcel order.',
+                    message: $reason,
                     rawResponse: $response ?? [],
                 );
             }
@@ -334,6 +361,43 @@ class EasyParcelShippingService implements ShippingProvider
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * Pre-flight check for the fields EasyParcel silently rejects — when the
+     * receiver phone or postcode is missing/invalid, `submit_orders` returns only
+     * the generic "0 requests success, 1 request error" with no per-field reason,
+     * so we must catch it here to give the admin an actionable message. The
+     * receiver phone is the usual culprit: quotations don't need it (rates still
+     * load), but booking does.
+     *
+     * @return string[]
+     */
+    private function validateShipmentData(ShipmentRequest $request): array
+    {
+        $problems = [];
+
+        if (strlen($this->localPhone($request->receiverPhone)) < 7) {
+            $problems[] = "the receiver's phone number is missing or invalid — add a valid Malaysian phone number to this order's shipping address.";
+        }
+
+        if (trim($request->receiverPostalCode) === '') {
+            $problems[] = "the receiver's postcode is missing.";
+        }
+
+        if (trim($request->receiverAddress) === '') {
+            $problems[] = "the receiver's address is missing.";
+        }
+
+        if (strlen($this->localPhone($request->senderPhone)) < 7) {
+            $problems[] = "the sender's phone number is missing or invalid — set it in Settings → Shipping.";
+        }
+
+        if (trim($request->senderPostalCode) === '') {
+            $problems[] = "the sender's postcode is missing — set it in Settings → Shipping.";
+        }
+
+        return $problems;
     }
 
     /**

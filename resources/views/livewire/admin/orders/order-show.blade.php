@@ -40,6 +40,9 @@ new class extends Component
 
     public ?string $easyParcelServiceId = null;
 
+    // Inline fix for a missing recipient phone (the #1 cause of booking rejection).
+    public string $receiverPhoneInput = '';
+
     public function mount(ProductOrder $order): void
     {
         $this->order = $order->load([
@@ -525,6 +528,64 @@ new class extends Component
         // in the `shipping_address` JSON column with varied key names instead of
         // as address rows. Normalise it to the shape the rate/booking code reads.
         return $this->normalizeJsonShippingAddress($this->order->shipping_address ?? []);
+    }
+
+    /**
+     * Recipient name + phone for the shipping card, flagging a missing/invalid
+     * phone so the admin can fix it before EasyParcel silently rejects the booking.
+     *
+     * @return array{name: string, phone: string, phone_valid: bool}|null
+     */
+    public function getShippingContactProperty(): ?array
+    {
+        $address = $this->orderShippingAddress();
+
+        if (! $address) {
+            return null;
+        }
+
+        $phone = trim((string) ($address->phone ?? ''));
+
+        return [
+            'name' => trim(($address->first_name ?? '').' '.($address->last_name ?? '')),
+            'phone' => $phone,
+            'phone_valid' => strlen((string) preg_replace('/\D+/', '', $phone)) >= 9,
+        ];
+    }
+
+    /**
+     * Save a recipient phone number onto the order's shipping address — writing to
+     * the address row when present, else the `shipping_address` JSON column.
+     */
+    public function saveReceiverPhone(): void
+    {
+        $this->validate(
+            ['receiverPhoneInput' => ['required', 'string']],
+            ['receiverPhoneInput.required' => 'Please enter the recipient phone number.'],
+        );
+
+        if (strlen((string) preg_replace('/\D+/', '', $this->receiverPhoneInput)) < 9) {
+            $this->addError('receiverPhoneInput', 'Enter a valid Malaysian phone number (at least 9 digits, e.g. 0123456789).');
+
+            return;
+        }
+
+        $phone = trim($this->receiverPhoneInput);
+
+        $row = $this->order->addresses()->where('type', 'shipping')->first()
+            ?? $this->order->addresses()->where('type', 'billing')->first();
+
+        if ($row) {
+            $row->update(['phone' => $phone]);
+        } else {
+            $address = $this->order->shipping_address ?? [];
+            $address['phone'] = $phone;
+            $this->order->update(['shipping_address' => $address]);
+        }
+
+        $this->receiverPhoneInput = '';
+        $this->order->refresh();
+        session()->flash('success', 'Recipient phone number saved. You can book the shipment now.');
     }
 
     /**
@@ -1554,6 +1615,39 @@ new class extends Component
                                             </div>
                                         </flux:button>
                                     </div>
+
+                                    {{-- Recipient contact — a missing phone is the #1 cause of EasyParcel
+                                         rejecting the booking ("0 requests success, 1 request error"). --}}
+                                    @php $contact = $this->shippingContact; @endphp
+                                    @if($contact)
+                                        <div class="mt-3 rounded-lg border p-3 {{ $contact['phone_valid'] ? 'border-zinc-200 dark:border-zinc-700 bg-white/60 dark:bg-zinc-800/60' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20' }}">
+                                            <div class="flex items-center gap-2">
+                                                <flux:icon name="user" class="w-4 h-4 text-zinc-400" />
+                                                <flux:text class="text-sm font-medium">{{ $contact['name'] ?: 'Recipient' }}</flux:text>
+                                            </div>
+                                            @if($contact['phone_valid'])
+                                                <div class="mt-1 flex items-center gap-2">
+                                                    <flux:icon name="phone" class="w-4 h-4 text-zinc-400" />
+                                                    <flux:text class="text-sm font-mono">{{ $contact['phone'] }}</flux:text>
+                                                </div>
+                                            @else
+                                                <div class="mt-2 flex items-start gap-2">
+                                                    <flux:icon name="exclamation-triangle" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                                    <flux:text class="text-xs text-amber-800 dark:text-amber-300">No recipient phone number. EasyParcel will reject the booking without it — add one below.</flux:text>
+                                                </div>
+                                                <div class="mt-2 flex gap-2">
+                                                    <flux:input wire:model="receiverPhoneInput" placeholder="e.g. 0123456789" size="sm" class="max-w-[220px]" />
+                                                    <flux:button variant="primary" size="sm" wire:click="saveReceiverPhone" wire:loading.attr="disabled" wire:target="saveReceiverPhone">
+                                                        <span wire:loading.remove wire:target="saveReceiverPhone">Save Phone</span>
+                                                        <span wire:loading wire:target="saveReceiverPhone">Saving...</span>
+                                                    </flux:button>
+                                                </div>
+                                                @error('receiverPhoneInput')
+                                                    <flux:text class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+                                                @enderror
+                                            @endif
+                                        </div>
+                                    @endif
 
                                     @if(!empty($easyParcelRates))
                                         <div class="mt-4 space-y-2">

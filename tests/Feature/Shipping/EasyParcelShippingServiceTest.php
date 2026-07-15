@@ -192,6 +192,74 @@ describe('createShipment', function () {
         expect($result->success)->toBeFalse()
             ->and($result->message)->toBe('Insufficient balance');
     });
+
+    it('surfaces an order-level rejection reason instead of the generic summary', function () {
+        configureEasyParcel();
+        Http::fake(['*' => Http::response([
+            'status_code' => 200,
+            'message' => '0 requests success, 1 request error',
+            'data' => [['message' => 'Invalid receiver phone number', 'shipments' => []]],
+        ])]);
+
+        $result = easyParcelService()->createShipment(shipmentRequest('EP-CS097'));
+
+        expect($result->success)->toBeFalse()
+            ->and($result->message)->toBe('Invalid receiver phone number');
+    });
+
+    it('falls back to the summary message when no specific reason is given', function () {
+        configureEasyParcel();
+        Http::fake(['*' => Http::response([
+            'status_code' => 200,
+            'message' => '0 requests success, 1 request error',
+            'data' => [['shipments' => []]],
+        ])]);
+
+        $result = easyParcelService()->createShipment(shipmentRequest('EP-CS098'));
+
+        expect($result->success)->toBeFalse()
+            ->and($result->message)->toBe('0 requests success, 1 request error');
+    });
+
+    it('rejects a missing/invalid receiver phone before hitting the API', function (string $phone) {
+        configureEasyParcel();
+        Http::fake();
+
+        $req = new ShipmentRequest(
+            orderNumber: 'ORD-NOPHONE',
+            senderName: 'Sender Co', senderPhone: '0312345678', senderAddress: '1 Jalan Test',
+            senderCity: 'Shah Alam', senderState: 'Selangor', senderPostalCode: '40000',
+            receiverName: 'Jane Doe', receiverPhone: $phone, receiverAddress: '2 Lorong Buyer',
+            receiverCity: 'George Town', receiverState: 'Penang', receiverPostalCode: '10000',
+            weightKg: 1.5, serviceCode: 'EP-CS096',
+        );
+
+        $result = easyParcelService()->createShipment($req);
+
+        expect($result->success)->toBeFalse()
+            ->and($result->message)->toContain("receiver's phone number");
+        Http::assertNothingSent();
+    })->with(['empty' => '', 'just a zero' => '0', 'too short' => '012']);
+
+    it('rejects a missing receiver postcode before hitting the API', function () {
+        configureEasyParcel();
+        Http::fake();
+
+        $req = new ShipmentRequest(
+            orderNumber: 'ORD-NOPOST',
+            senderName: 'Sender Co', senderPhone: '0312345678', senderAddress: '1 Jalan Test',
+            senderCity: 'Shah Alam', senderState: 'Selangor', senderPostalCode: '40000',
+            receiverName: 'Jane Doe', receiverPhone: '0198765432', receiverAddress: '2 Lorong Buyer',
+            receiverCity: 'George Town', receiverState: 'Penang', receiverPostalCode: '',
+            weightKg: 1.5, serviceCode: 'EP-CS096',
+        );
+
+        $result = easyParcelService()->createShipment($req);
+
+        expect($result->success)->toBeFalse()
+            ->and($result->message)->toContain("receiver's postcode");
+        Http::assertNothingSent();
+    });
 });
 
 describe('tracking, cancel, wallet', function () {

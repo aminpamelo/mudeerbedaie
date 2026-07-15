@@ -185,3 +185,82 @@ it('still reports no address when the order has neither rows nor JSON', function
 
     Http::assertNothingSent();
 });
+
+it('flags a missing recipient phone and saves a new one onto the address row', function () {
+    connectEasyParcel();
+
+    $order = ProductOrder::factory()->create(['status' => 'processing', 'weight_kg' => 1.0]);
+    $address = ProductOrderAddress::create([
+        'order_id' => $order->id,
+        'type' => 'shipping',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane@example.com',
+        'address_line_1' => '2 Lorong Buyer',
+        'city' => 'George Town',
+        'state' => 'Penang',
+        'postal_code' => '10000',
+        'country' => 'Malaysia',
+        'phone' => '',
+    ]);
+
+    $component = Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order->fresh()]);
+
+    expect($component->get('shippingContact')['phone_valid'])->toBeFalse();
+
+    $component->set('receiverPhoneInput', '0123456789')
+        ->call('saveReceiverPhone')
+        ->assertHasNoErrors();
+
+    expect($address->fresh()->phone)->toBe('0123456789');
+});
+
+it('saves a recipient phone onto the shipping_address JSON column when there are no rows', function () {
+    connectEasyParcel();
+
+    $order = ProductOrder::factory()->create([
+        'status' => 'processing',
+        'source' => 'tiktok_shop',
+        'shipping_address' => [
+            'name' => 'Siti Aminah',
+            'address_line1' => '12 Jalan Mawar',
+            'city' => 'George Town',
+            'state' => 'Penang',
+            'postal_code' => '10000',
+        ],
+    ]);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order])
+        ->set('receiverPhoneInput', '0198887777')
+        ->call('saveReceiverPhone')
+        ->assertHasNoErrors();
+
+    expect(data_get($order->fresh()->shipping_address, 'phone'))->toBe('0198887777');
+});
+
+it('rejects an invalid recipient phone', function () {
+    connectEasyParcel();
+
+    $order = ProductOrder::factory()->create(['status' => 'processing']);
+    ProductOrderAddress::create([
+        'order_id' => $order->id,
+        'type' => 'shipping',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane@example.com',
+        'address_line_1' => '2 Lorong Buyer',
+        'city' => 'George Town',
+        'state' => 'Penang',
+        'postal_code' => '10000',
+        'country' => 'Malaysia',
+        'phone' => '',
+    ]);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order->fresh()])
+        ->set('receiverPhoneInput', '012')
+        ->call('saveReceiverPhone')
+        ->assertHasErrors('receiverPhoneInput');
+});
