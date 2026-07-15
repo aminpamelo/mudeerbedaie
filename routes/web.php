@@ -585,6 +585,8 @@ Route::middleware(['auth'])
                 ->name('payroll.store');
             Route::get('payroll/{run}', [LiveHostPayrollRunController::class, 'show'])
                 ->name('payroll.show');
+            Route::get('payroll/{run}/items/{item}', [LiveHostPayrollRunController::class, 'showItem'])
+                ->name('payroll.item');
             Route::post('payroll/{run}/recompute', [LiveHostPayrollRunController::class, 'recompute'])
                 ->name('payroll.recompute');
             Route::post('payroll/{run}/lock', [LiveHostPayrollRunController::class, 'lock'])

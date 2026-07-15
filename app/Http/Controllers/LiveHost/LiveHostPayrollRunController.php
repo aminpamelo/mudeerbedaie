@@ -112,6 +112,25 @@ class LiveHostPayrollRunController extends Controller
         ]);
     }
 
+    /** One host's full payroll breakdown on its own page. */
+    public function showItem(Request $request, LiveHostPayrollRun $run, LiveHostPayrollItem $item): Response
+    {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+        abort_unless($item->payroll_run_id === $run->id, 404);
+
+        $item->load('user:id,name,email');
+
+        return Inertia::render('payroll/Item', [
+            'run' => [
+                'id' => $run->id,
+                'period_start' => $run->period_start?->toDateString(),
+                'period_end' => $run->period_end?->toDateString(),
+                'status' => $run->status,
+            ],
+            'item' => $this->shapeItem($item),
+        ]);
+    }
+
     public function recompute(Request $request, LiveHostPayrollRun $run): RedirectResponse
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
