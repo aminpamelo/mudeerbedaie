@@ -25,5 +25,6 @@ class ShipmentRequest
         public readonly string $serviceCode = 'EZ',
         public readonly string $paymentType = 'PP_PM',
         public readonly ?string $note = null,
+        public readonly ?float $codAmount = null,
     ) {}
 }

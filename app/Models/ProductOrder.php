@@ -635,6 +635,35 @@ class ProductOrder extends Model
         ]);
     }
 
+    /**
+     * Whether the courier collects payment on delivery for this order — either the
+     * order's own payment method is COD, or it was booked as an EasyParcel COD
+     * shipment (flagged in metadata at booking time).
+     */
+    public function isCashOnDelivery(): bool
+    {
+        return $this->payment_method === 'cod'
+            || (bool) data_get($this->metadata, 'easyparcel_cod', false);
+    }
+
+    /**
+     * Record that a COD order's cash was collected on delivery. Only flips a
+     * not-yet-paid order; never overrides a 'refunded'/'failed' history.
+     */
+    public function markCodPaymentCollected(): void
+    {
+        if ($this->payment_status === 'paid') {
+            return;
+        }
+
+        $this->update([
+            'payment_status' => 'paid',
+            'paid_time' => $this->paid_time ?? now(),
+        ]);
+
+        $this->addSystemNote('COD payment auto-marked as paid on delivery.');
+    }
+
     // Static methods
     public static function generateOrderNumber(): string
     {

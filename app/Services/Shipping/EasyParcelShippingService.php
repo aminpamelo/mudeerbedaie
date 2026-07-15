@@ -161,11 +161,7 @@ class EasyParcelShippingService implements ShippingProvider
             ]],
             'sender' => $this->party($request->senderName, $request->senderPhone, $request->senderAddress, $request->senderCity, $request->senderState, $request->senderPostalCode),
             'receiver' => $this->party($request->receiverName, $request->receiverPhone, $request->receiverAddress, $request->receiverCity, $request->receiverState, $request->receiverPostalCode),
-            'feature' => [
-                'sms_tracking' => false,
-                'email_tracking' => true,
-                'whatsapp_tracking' => false,
-            ],
+            'feature' => $this->feature($request),
         ]]];
 
         try {
@@ -398,6 +394,32 @@ class EasyParcelShippingService implements ShippingProvider
         }
 
         return $problems;
+    }
+
+    /**
+     * Build the submit_orders `feature` object. Adds Cash on Delivery when a COD
+     * amount is requested — the courier collects `cod_amount` from the recipient
+     * on delivery. Verified against the sandbox: the key must be `cod.cod_amount`
+     * + `cod.cod_currency` nested inside `feature` (a root-level `cod` is ignored).
+     *
+     * @return array<string, mixed>
+     */
+    private function feature(ShipmentRequest $request): array
+    {
+        $feature = [
+            'sms_tracking' => false,
+            'email_tracking' => true,
+            'whatsapp_tracking' => false,
+        ];
+
+        if ($request->codAmount !== null && $request->codAmount > 0) {
+            $feature['cod'] = [
+                'cod_amount' => round($request->codAmount, 2),
+                'cod_currency' => 'MYR',
+            ];
+        }
+
+        return $feature;
     }
 
     /**

@@ -112,6 +112,38 @@ it('marks a shipped order delivered when EasyParcel reports delivery', function 
         ->and($order->notes()->where('message', 'like', '%Auto-marked as delivered%')->exists())->toBeTrue();
 });
 
+it('auto-marks a COD order paid when it is delivered', function () {
+    $order = shippedEasyParcelOrder(['payment_method' => 'cod', 'payment_status' => 'pending']);
+
+    app(EasyParcelTrackingSync::class)->apply($order, 'Delivered');
+
+    $order->refresh();
+    expect($order->status)->toBe('delivered')
+        ->and($order->payment_status)->toBe('paid')
+        ->and($order->paid_time)->not->toBeNull()
+        ->and($order->notes()->where('message', 'like', '%COD payment auto-marked%')->exists())->toBeTrue();
+});
+
+it('auto-marks an EasyParcel-COD (metadata-flagged) order paid on delivery', function () {
+    $order = shippedEasyParcelOrder([
+        'payment_method' => 'fpx',
+        'payment_status' => 'pending',
+        'metadata' => ['easyparcel_cod' => true],
+    ]);
+
+    app(EasyParcelTrackingSync::class)->apply($order, 'Delivered');
+
+    expect($order->fresh()->payment_status)->toBe('paid');
+});
+
+it('leaves a prepaid order payment_status untouched on delivery', function () {
+    $order = shippedEasyParcelOrder(['payment_method' => 'fpx', 'payment_status' => 'pending']);
+
+    app(EasyParcelTrackingSync::class)->apply($order, 'Delivered');
+
+    expect($order->fresh()->payment_status)->toBe('pending');
+});
+
 it('keeps a shipped order shipped for in-transit statuses', function (string $status) {
     $order = shippedEasyParcelOrder();
 

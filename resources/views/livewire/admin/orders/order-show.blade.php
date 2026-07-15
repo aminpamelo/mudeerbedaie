@@ -43,6 +43,9 @@ new class extends Component
     // Inline fix for a missing recipient phone (the #1 cause of booking rejection).
     public string $receiverPhoneInput = '';
 
+    // Book the selected EasyParcel service as Cash on Delivery (courier collects the order total).
+    public bool $easyParcelCod = false;
+
     public function mount(ProductOrder $order): void
     {
         $this->order = $order->load([
@@ -713,11 +716,13 @@ new class extends Component
                 return;
             }
 
+            $this->easyParcelCod = false;
             $this->easyParcelRates = array_map(fn ($rate) => [
                 'service_id' => $rate->serviceCode,
                 'name' => $rate->serviceName,
                 'price' => $rate->cost,
                 'days' => $rate->estimatedDays,
+                'cod' => $this->extractCod($rate->metadata ?? []),
             ], $rates);
 
             // Pre-select the cheapest option.
@@ -728,10 +733,82 @@ new class extends Component
         }
     }
 
+    /**
+     * Pull the Cash-on-Delivery capability out of an EasyParcel quotation's
+     * feature list: whether COD is offered and the min/max collectable amount
+     * (their amounts come as "MYR7.50" strings).
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array{available: bool, min: float|null, max: float|null}
+     */
+    private function extractCod(array $metadata): array
+    {
+        $cod = collect($metadata['features'] ?? [])
+            ->map(fn ($feature) => $feature['cod'] ?? null)
+            ->first(fn ($value) => is_array($value));
+
+        $toAmount = fn (?string $value) => filled($value)
+            ? (float) preg_replace('/[^0-9.]/', '', $value)
+            : null;
+
+        return [
+            'available' => (bool) ($cod['available'] ?? false),
+            'min' => $toAmount($cod['min_cod_amount'] ?? null),
+            'max' => $toAmount($cod['max_cod_amount'] ?? null),
+        ];
+    }
+
+    /**
+     * COD capability of the currently-selected courier, or null when nothing is
+     * selected. Drives the COD toggle in the shipping card.
+     *
+     * @return array{available: bool, min: float|null, max: float|null}|null
+     */
+    public function getSelectedCodProperty(): ?array
+    {
+        return collect($this->easyParcelRates)
+            ->firstWhere('service_id', $this->easyParcelServiceId)['cod'] ?? null;
+    }
+
+    /**
+     * Keep the COD toggle honest: switching to a courier that can't do COD (or
+     * one where the order total falls outside its COD limits) clears it.
+     */
+    public function updatedEasyParcelServiceId(): void
+    {
+        if (! $this->codBookable()) {
+            $this->easyParcelCod = false;
+        }
+    }
+
+    /**
+     * Whether the selected courier can carry this order as COD — available and the
+     * order total is within the courier's min/max collectable amount.
+     */
+    private function codBookable(): bool
+    {
+        $cod = $this->selectedCod;
+
+        if (! $cod || ! $cod['available']) {
+            return false;
+        }
+
+        $amount = (float) $this->order->total_amount;
+
+        return ($cod['min'] === null || $amount >= $cod['min'])
+            && ($cod['max'] === null || $amount <= $cod['max']);
+    }
+
     public function bookEasyParcelShipment(): void
     {
         if (empty($this->easyParcelServiceId)) {
             session()->flash('error', 'Please select a courier service first.');
+
+            return;
+        }
+
+        if ($this->easyParcelCod && ! $this->codBookable()) {
+            session()->flash('error', 'This courier cannot collect COD for this order amount. Uncheck Cash on Delivery or pick a courier that supports it.');
 
             return;
         }
@@ -747,6 +824,8 @@ new class extends Component
         try {
             $sender = app(SettingsService::class)->getShippingSenderDefaults();
             $provider = app(ShippingManager::class)->getProvider('easyparcel');
+
+            $codAmount = $this->easyParcelCod ? (float) $this->order->total_amount : null;
 
             $result = $provider->createShipment(new ShipmentRequest(
                 orderNumber: $this->order->order_number,
@@ -767,6 +846,7 @@ new class extends Component
                 itemValue: (float) $this->order->total_amount,
                 itemQuantity: (int) $this->order->items->sum('quantity_ordered'),
                 serviceCode: $this->easyParcelServiceId,
+                codAmount: $codAmount,
             ));
 
             if ($result->success) {
@@ -776,6 +856,8 @@ new class extends Component
                 $metadata['easyparcel_order_no'] = $result->providerOrderId;
                 $metadata['easyparcel_shipment_number'] = $result->shipmentNumber;
                 $metadata['easyparcel_awb_pending'] = $result->awbPending;
+                $metadata['easyparcel_cod'] = $codAmount !== null;
+                $metadata['easyparcel_cod_amount'] = $codAmount;
 
                 $this->order->update([
                     'tracking_id' => $result->trackingNumber,
@@ -787,9 +869,11 @@ new class extends Component
                 $this->orderStatus = 'shipped';
                 $this->easyParcelRates = [];
                 $this->easyParcelServiceId = null;
+                $this->easyParcelCod = false;
 
                 $ref = $result->shipmentNumber ?: $result->providerOrderId;
-                $this->order->addSystemNote('EasyParcel shipment booked. '.($result->awbPending ? "Ref: {$ref} (AWB pending)" : "AWB: {$result->trackingNumber}"));
+                $codNote = $codAmount !== null ? ' COD: collect MYR '.number_format($codAmount, 2).' on delivery.' : '';
+                $this->order->addSystemNote('EasyParcel shipment booked. '.($result->awbPending ? "Ref: {$ref} (AWB pending)" : "AWB: {$result->trackingNumber}").$codNote);
                 session()->flash('success', $result->awbPending
                     ? "Shipment booked ({$ref}). The AWB & label are generating — click \"Refresh AWB\" in a moment."
                     : "Shipment booked! AWB: {$result->trackingNumber}");
@@ -1705,12 +1789,35 @@ new class extends Component
                                                 </label>
                                             @endforeach
 
+                                            {{-- Cash on Delivery — only couriers that support it, within their COD limits. --}}
+                                            @php
+                                                $cod = $this->selectedCod;
+                                                $codAmount = (float) $order->total_amount;
+                                                $codWithinLimits = $cod && $cod['available']
+                                                    && ($cod['min'] === null || $codAmount >= $cod['min'])
+                                                    && ($cod['max'] === null || $codAmount <= $cod['max']);
+                                            @endphp
+                                            @if($cod && $cod['available'])
+                                                <label class="mt-1 flex items-start gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/60 dark:bg-zinc-800/60 p-3 {{ $codWithinLimits ? 'cursor-pointer' : 'opacity-70' }}">
+                                                    <input type="checkbox" wire:model.live="easyParcelCod" @disabled(! $codWithinLimits) class="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600" />
+                                                    <div class="min-w-0">
+                                                        <flux:text class="text-sm font-medium">Cash on Delivery (COD)</flux:text>
+                                                        <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                            Courier collects <span class="font-semibold">MYR {{ number_format($codAmount, 2) }}</span> from the recipient on delivery.
+                                                            @unless($codWithinLimits)
+                                                                <span class="text-amber-600 dark:text-amber-400">Order total is outside this courier's COD range (MYR {{ number_format($cod['min'] ?? 0, 2) }}–{{ number_format($cod['max'] ?? 0, 2) }}).</span>
+                                                            @endunless
+                                                        </flux:text>
+                                                    </div>
+                                                </label>
+                                            @endif
+
                                             <div class="flex justify-end pt-1">
                                                 <flux:button variant="primary" size="sm" wire:click="bookEasyParcelShipment" wire:loading.attr="disabled" wire:target="bookEasyParcelShipment"
-                                                    wire:confirm="Book this shipment and pay from your EasyParcel credit?">
+                                                    wire:confirm="{{ $easyParcelCod ? 'Book this COD shipment? The courier will collect MYR '.number_format($codAmount, 2).' from the recipient on delivery; shipping is paid from your EasyParcel credit.' : 'Book this shipment and pay from your EasyParcel credit?' }}">
                                                     <div class="flex items-center justify-center">
                                                         <flux:icon name="truck" class="w-4 h-4 mr-1" />
-                                                        <span wire:loading.remove wire:target="bookEasyParcelShipment">Book &amp; Pay</span>
+                                                        <span wire:loading.remove wire:target="bookEasyParcelShipment">{{ $easyParcelCod ? 'Book (COD)' : 'Book & Pay' }}</span>
                                                         <span wire:loading wire:target="bookEasyParcelShipment">Booking...</span>
                                                     </div>
                                                 </flux:button>

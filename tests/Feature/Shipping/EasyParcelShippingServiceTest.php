@@ -45,7 +45,7 @@ function rateRequest(): ShippingRateRequest
     );
 }
 
-function shipmentRequest(string $serviceCode): ShipmentRequest
+function shipmentRequest(string $serviceCode, ?float $codAmount = null): ShipmentRequest
 {
     return new ShipmentRequest(
         orderNumber: 'ORD-1',
@@ -66,6 +66,7 @@ function shipmentRequest(string $serviceCode): ShipmentRequest
         itemValue: 100.0,
         itemQuantity: 1,
         serviceCode: $serviceCode,
+        codAmount: $codAmount,
     );
 }
 
@@ -178,6 +179,33 @@ describe('createShipment', function () {
             ->and($result->message)->toContain('courier service must be selected');
 
         Http::assertNothingSent();
+    });
+
+    it('adds a COD feature to the payload when a COD amount is given', function () {
+        configureEasyParcel();
+        Http::fake(['*' => Http::response([
+            'status_code' => 200,
+            'data' => [['shipments' => [['status' => 'success', 'shipment_number' => 'ES-1', 'awb_number' => '123', 'awb_url' => '']]]],
+        ])]);
+
+        easyParcelService()->createShipment(shipmentRequest('EP-CS050', 60.0));
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/shipment/submit_orders')
+            && (float) data_get($request->data(), 'shipment.0.feature.cod.cod_amount') === 60.0
+            && data_get($request->data(), 'shipment.0.feature.cod.cod_currency') === 'MYR');
+    });
+
+    it('omits COD from the payload for a prepaid shipment', function () {
+        configureEasyParcel();
+        Http::fake(['*' => Http::response([
+            'status_code' => 200,
+            'data' => [['shipments' => [['status' => 'success', 'shipment_number' => 'ES-1', 'awb_number' => '123', 'awb_url' => '']]]],
+        ])]);
+
+        easyParcelService()->createShipment(shipmentRequest('EP-CS096'));
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/shipment/submit_orders')
+            && data_get($request->data(), 'shipment.0.feature.cod') === null);
     });
 
     it('surfaces a per-shipment error', function () {

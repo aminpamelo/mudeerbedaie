@@ -298,6 +298,47 @@ it('books using the customer phone when the shipping address row has none', func
         && data_get($request->data(), 'shipment.0.receiver.phone_number') === '165756060');
 });
 
+it('books a COD shipment and flags the order metadata for payment reconciliation', function () {
+    connectEasyParcel();
+    fakeEasyParcelApi();
+
+    $order = ProductOrder::factory()->create(['status' => 'processing', 'weight_kg' => 1.0, 'total_amount' => 60]);
+    ProductOrderAddress::create([
+        'order_id' => $order->id,
+        'type' => 'shipping',
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane@example.com',
+        'address_line_1' => '2 Lorong Buyer',
+        'city' => 'George Town',
+        'state' => 'Penang',
+        'postal_code' => '10000',
+        'country' => 'Malaysia',
+        'phone' => '0198765432',
+    ]);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order->fresh()])
+        ->set('easyParcelRates', [[
+            'service_id' => 'EP-CS050',
+            'name' => 'J&T Express (Drop-Off)',
+            'price' => 6.50,
+            'days' => 2,
+            'cod' => ['available' => true, 'min' => 7.50, 'max' => 1000.0],
+        ]])
+        ->set('easyParcelServiceId', 'EP-CS050')
+        ->set('easyParcelCod', true)
+        ->call('bookEasyParcelShipment');
+
+    $order->refresh();
+    expect($order->shipping_provider)->toBe('easyparcel')
+        ->and(data_get($order->metadata, 'easyparcel_cod'))->toBeTrue()
+        ->and((float) data_get($order->metadata, 'easyparcel_cod_amount'))->toBe(60.0);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/shipment/submit_orders')
+        && (float) data_get($request->data(), 'shipment.0.feature.cod.cod_amount') === 60.0);
+});
+
 it('offers EasyParcel booking for any pre-shipment status but not after', function (string $status, bool $expected) {
     connectEasyParcel();
     fakeEasyParcelApi();

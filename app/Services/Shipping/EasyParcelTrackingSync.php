@@ -15,10 +15,11 @@ use Illuminate\Support\Facades\Log;
  * ({@see EasyParcelWebhookController}).
  *
  * Automatic order-status transitions: a courier-confirmed "delivered" moves the
- * order to delivered; "returned" and "cancelled" move it accordingly (which also
- * refunds a paid order's payment_status via the model helpers). In-transit and
- * unmapped statuses only update tracking metadata. A protected order (already
- * delivered/cancelled/returned/refunded) is never re-transitioned.
+ * order to delivered (and, for a COD order, auto-marks its payment as paid since
+ * the courier collected the cash); "returned" and "cancelled" move it accordingly
+ * (which also refunds a paid order's payment_status via the model helpers).
+ * In-transit and unmapped statuses only update tracking metadata. A protected
+ * order (already delivered/cancelled/returned/refunded) is never re-transitioned.
  */
 class EasyParcelTrackingSync
 {
@@ -102,6 +103,12 @@ class EasyParcelTrackingSync
         if ($canTransition && $mapped === 'delivered' && ! $order->delivered_at) {
             $order->update(['status' => 'delivered', 'delivered_at' => now()]);
             $order->addSystemNote("Auto-marked as delivered from EasyParcel tracking{$context}.");
+
+            // COD is collected by the courier at the doorstep, so a delivered COD
+            // order is a paid order — reconcile its payment_status automatically.
+            if ($order->isCashOnDelivery()) {
+                $order->markCodPaymentCollected();
+            }
 
             return 'delivered';
         }
