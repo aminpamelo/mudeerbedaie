@@ -197,7 +197,7 @@ Route::middleware(['auth:sanctum'])->prefix('crm')->group(function () {
 | Funnel Builder API Routes (V1)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(function () {
     // Funnel Categories
     Route::get('funnel-categories', [FunnelCategoryController::class, 'index'])->name('api.funnel-categories.index');
     Route::post('funnel-categories', [FunnelCategoryController::class, 'store'])->name('api.funnel-categories.store');
@@ -404,7 +404,7 @@ Route::post('funnel-events/button-click', [FunnelEventController::class, 'trackB
     ->name('api.funnel-events.button-click');
 
 // Pixel test connection (authenticated)
-Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(function () {
     Route::post('funnels/{uuid}/pixel/test', [FunnelPixelController::class, 'testConnection'])->name('api.funnels.pixel.test');
 });
 

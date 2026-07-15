@@ -8,7 +8,7 @@ import { ordersApi } from '../services/api';
 
 // Badge colors for order types
 const ORDER_TYPE_COLORS = {
-    main: 'bg-blue-100 text-blue-800',
+    main: 'bg-orange-100 text-orange-800',
     upsell: 'bg-green-100 text-green-800',
     downsell: 'bg-yellow-100 text-yellow-800',
     bump: 'bg-purple-100 text-purple-800',
@@ -19,8 +19,8 @@ const ORDER_STATUS_COLORS = {
     pending: 'bg-yellow-100 text-yellow-800',
     created: 'bg-gray-100 text-gray-800',
     paid: 'bg-green-100 text-green-800',
-    confirmed: 'bg-blue-100 text-blue-800',
-    processing: 'bg-indigo-100 text-indigo-800',
+    confirmed: 'bg-orange-100 text-orange-800',
+    processing: 'bg-orange-100 text-orange-800',
     shipped: 'bg-purple-100 text-purple-800',
     delivered: 'bg-emerald-100 text-emerald-800',
     cancelled: 'bg-red-100 text-red-800',
@@ -31,7 +31,7 @@ const ORDER_STATUS_COLORS = {
 // Badge colors for cart recovery status
 const CART_STATUS_COLORS = {
     pending: 'bg-yellow-100 text-yellow-800',
-    sent: 'bg-blue-100 text-blue-800',
+    sent: 'bg-orange-100 text-orange-800',
     recovered: 'bg-green-100 text-green-800',
     expired: 'bg-gray-100 text-gray-600',
 };
@@ -42,7 +42,7 @@ function StatCard({ label, value, color = 'gray', icon }) {
         gray: 'text-gray-900',
         green: 'text-green-600',
         orange: 'text-orange-600',
-        blue: 'text-blue-600',
+        blue: 'text-orange-600',
     };
 
     return (
@@ -191,7 +191,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
             </div>
         );
     }
@@ -284,8 +284,8 @@ export default function OrdersTab({ funnelUuid, showToast }) {
                             </p>
                             <p className="text-sm text-gray-500 mt-1">Pending</p>
                         </div>
-                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                            <p className="text-2xl font-bold text-blue-600">
+                        <div className="text-center p-3 bg-orange-50 rounded-lg">
+                            <p className="text-2xl font-bold text-orange-600">
                                 {stats?.cart_stats?.sent || 0}
                             </p>
                             <p className="text-sm text-gray-500 mt-1">Recovery Sent</p>
@@ -330,7 +330,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
                             <select
                                 value={orderTypeFilter}
                                 onChange={(e) => handleOrderTypeChange(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             >
                                 <option value="">All Types</option>
                                 <option value="main">Main</option>
@@ -342,7 +342,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
                             <select
                                 value={orderDateFilter}
                                 onChange={(e) => handleOrderDateChange(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             >
                                 <option value="">All Time</option>
                                 <option value="today">Today</option>
@@ -356,7 +356,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
                 <div className="overflow-x-auto">
                     {ordersLoading && (
                         <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
                         </div>
                     )}
                     <table className="min-w-full">
@@ -437,7 +437,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
                         <select
                             value={cartStatusFilter}
                             onChange={(e) => handleCartStatusChange(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         >
                             <option value="">All Statuses</option>
                             <option value="pending">Pending</option>
@@ -451,7 +451,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
                 <div className="overflow-x-auto relative">
                     {cartsLoading && (
                         <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
                         </div>
                     )}
                     <table className="min-w-full">

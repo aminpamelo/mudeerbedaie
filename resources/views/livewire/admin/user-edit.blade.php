@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Models\Teacher;
 use App\Models\Student;
+use App\Services\Fighter\FighterProvisioner;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -36,7 +37,7 @@ new class extends Component {
             'email' => ['nullable', 'email', Rule::unique('users')->ignore($this->user->id)->whereNull('deleted_at')],
             'phone' => ['nullable', 'string', Rule::unique('users')->ignore($this->user->id), 'regex:/^[0-9]{10,15}$/'],
             'password' => $this->change_password ? ['required', 'string', 'min:8', 'confirmed'] : [],
-            'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee'])],
+            'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee', 'fighter'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
         ];
     }
@@ -114,6 +115,8 @@ new class extends Component {
                 'user_id' => $this->user->id,
                 'status' => $this->status,
             ]);
+        } elseif ($newRole === 'fighter') {
+            app(FighterProvisioner::class)->ensureSalesSource($this->user);
         }
     }
     
@@ -246,6 +249,7 @@ new class extends Component {
                                     <option value="livehost_assistant">Live Host Assistant</option>
                                     <option value="class_admin">Class Admin</option>
                                     <option value="employee">Employee</option>
+                                    <option value="fighter">Fighter</option>
                                 </flux:select>
                                 @if ($user->id === auth()->id())
                                     <flux:description class="text-orange-600">

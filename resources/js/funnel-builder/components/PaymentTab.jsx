@@ -164,7 +164,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
             </div>
         );
     }
@@ -183,7 +183,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
                     >
                         {saving ? (
                             <>
@@ -254,7 +254,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                             <div className="flex items-center gap-2">
                                                 <h4 className="font-medium text-gray-900">{method.name}</h4>
                                                 {isDefault && isEnabled && (
-                                                    <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                                                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">
                                                         Default
                                                     </span>
                                                 )}
@@ -277,7 +277,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                                         value={settings.custom_labels[method.id] || ''}
                                                         onChange={(e) => updateLabel(method.id, e.target.value)}
                                                         placeholder={method.name}
-                                                        className="w-full max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        className="w-full max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                                     />
                                                 </div>
                                             )}
@@ -293,7 +293,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                                 disabled={!isConfigured}
                                                 className={`text-xs font-medium ${
                                                     isDefault
-                                                        ? 'text-blue-600'
+                                                        ? 'text-orange-600'
                                                         : 'text-gray-500 hover:text-gray-700'
                                                 }`}
                                             >
@@ -305,8 +305,8 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                             type="button"
                                             onClick={() => toggleMethod(method.id)}
                                             disabled={!isConfigured}
-                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                                                isEnabled && isConfigured ? 'bg-blue-600' : 'bg-gray-200'
+                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                                                isEnabled && isConfigured ? 'bg-orange-600' : 'bg-gray-200'
                                             } ${!isConfigured ? 'cursor-not-allowed' : ''}`}
                                             role="switch"
                                             aria-checked={isEnabled}
@@ -338,7 +338,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                 ...prev,
                                 show_method_selector: e.target.checked
                             }))}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                         />
                         <div>
                             <span className="text-sm font-medium text-gray-900">
@@ -378,7 +378,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                         key={methodId}
                                         className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                                             isSelected
-                                                ? 'border-blue-500 bg-blue-50'
+                                                ? 'border-orange-500 bg-orange-50'
                                                 : 'border-gray-200 hover:bg-gray-100'
                                         }`}
                                     >
@@ -387,7 +387,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                                             name="preview_method"
                                             checked={isSelected}
                                             readOnly
-                                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                            className="w-4 h-4 text-orange-600 border-gray-300 focus:ring-orange-500"
                                         />
                                         <span className="text-sm font-medium text-gray-900">{label}</span>
                                     </label>

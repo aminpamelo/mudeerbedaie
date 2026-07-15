@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Models\Teacher;
 use App\Models\Student;
+use App\Services\Fighter\FighterProvisioner;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
@@ -31,7 +32,7 @@ new class extends Component {
             'email' => ['nullable', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'phone' => ['nullable', 'string', Rule::unique('users', 'phone')->whereNull('deleted_at'), 'regex:/^[0-9]{10,15}$/'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee'])],
+            'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee', 'fighter'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
         ];
     }
@@ -150,6 +151,8 @@ new class extends Component {
                 'user_id' => $user->id,
                 'status' => $this->status,
             ]);
+        } elseif ($this->role === 'fighter') {
+            app(FighterProvisioner::class)->ensureSalesSource($user);
         }
     }
 
@@ -277,6 +280,7 @@ new class extends Component {
                                     <option value="livehost_assistant">Live Host Assistant</option>
                                     <option value="class_admin">Class Admin</option>
                                     <option value="employee">Employee</option>
+                                    <option value="fighter">Fighter</option>
                                 </flux:select>
                                 <flux:error name="role" />
                             </flux:field>

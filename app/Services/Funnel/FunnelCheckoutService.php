@@ -3,6 +3,7 @@
 namespace App\Services\Funnel;
 
 use App\Models\Funnel;
+use App\Models\FunnelAnalytics;
 use App\Models\FunnelCart;
 use App\Models\FunnelOrder;
 use App\Models\FunnelSession;
@@ -10,12 +11,16 @@ use App\Models\FunnelStep;
 use App\Models\FunnelStepOrderBump;
 use App\Models\FunnelStepProduct;
 use App\Models\PackagePurchase;
+use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\StockMovement;
 use App\Models\StripeCustomer;
 use App\Models\User;
+use App\Notifications\Fighter\NewOrderNotification;
+use App\Services\Fighter\FighterProvisioner;
 use App\Services\SettingsService;
 use App\Services\StripeService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\ApiErrorException;
@@ -184,6 +189,7 @@ class FunnelCheckoutService
         float $total
     ): ProductOrder {
         $user = auth()->user();
+        $tagging = app(FighterProvisioner::class)->orderTaggingFor($session->funnel);
 
         $orderData = [
             'order_number' => ProductOrder::generateOrderNumber(),
@@ -204,7 +210,8 @@ class FunnelCheckoutService
             'payment_method' => 'credit_card',
             'source' => 'funnel',
             'source_reference' => $session->funnel->slug,
-            'hidden_from_admin' => ! $session->funnel->shouldShowOrdersInAdmin(),
+            'sales_source_id' => $tagging['sales_source_id'],
+            'hidden_from_admin' => $tagging['hidden_from_admin'],
             'notes' => 'Funnel purchase: '.$session->funnel->name,
             'metadata' => [
                 'funnel_id' => $session->funnel_id,
@@ -216,6 +223,8 @@ class FunnelCheckoutService
         ];
 
         $order = ProductOrder::create($orderData);
+
+        $this->notifyFighterOfNewOrder($session->funnel, $order);
 
         // Add product items
         foreach ($products as $product) {
@@ -254,6 +263,19 @@ class FunnelCheckoutService
         }
 
         return $order;
+    }
+
+    /**
+     * Notify the funnel's owning Fighter that a new order has come in. No-op
+     * for funnels not owned by a fighter.
+     */
+    protected function notifyFighterOfNewOrder(Funnel $funnel, ProductOrder $order): void
+    {
+        $owner = $funnel->user;
+
+        if ($owner && $owner->isFighter()) {
+            $owner->notify(new NewOrderNotification($order, $funnel));
+        }
     }
 
     /**
@@ -451,6 +473,8 @@ class FunnelCheckoutService
 
         try {
             return DB::transaction(function () use ($session, $upsellStep, $upsellProduct, $originalOrder, $stripeCustomer) {
+                $tagging = app(FighterProvisioner::class)->orderTaggingFor($session->funnel);
+
                 // Create the upsell order
                 $order = ProductOrder::create([
                     'order_number' => ProductOrder::generateOrderNumber(),
@@ -470,7 +494,8 @@ class FunnelCheckoutService
                     'payment_method' => 'credit_card',
                     'source' => 'funnel',
                     'source_reference' => $session->funnel->slug,
-                    'hidden_from_admin' => ! $session->funnel->shouldShowOrdersInAdmin(),
+                    'sales_source_id' => $tagging['sales_source_id'],
+                    'hidden_from_admin' => $tagging['hidden_from_admin'],
                     'notes' => 'Funnel upsell: '.$upsellProduct->name,
                     'metadata' => [
                         'funnel_id' => $session->funnel_id,
@@ -626,14 +651,14 @@ class FunnelCheckoutService
         }
 
         // Update analytics - step level
-        $stepAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday(
+        $stepAnalytics = FunnelAnalytics::getOrCreateForToday(
             $funnelOrder->funnel_id,
             $funnelOrder->step_id
         );
         $stepAnalytics->incrementConversions($funnelOrder->funnel_revenue);
 
         // Update analytics - funnel level (for summary stats)
-        $funnelAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($funnelOrder->funnel_id);
+        $funnelAnalytics = FunnelAnalytics::getOrCreateForToday($funnelOrder->funnel_id);
         $funnelAnalytics->incrementConversions($funnelOrder->funnel_revenue);
     }
 
@@ -656,9 +681,9 @@ class FunnelCheckoutService
     /**
      * Reserve stock for packages and trackable products during checkout.
      *
-     * @return \Illuminate\Support\Collection<int, PackagePurchase>
+     * @return Collection<int, PackagePurchase>
      */
-    protected function reserveStockForProducts($products, array $customerData, FunnelSession $session): \Illuminate\Support\Collection
+    protected function reserveStockForProducts($products, array $customerData, FunnelSession $session): Collection
     {
         $packagePurchases = collect();
 
@@ -705,7 +730,7 @@ class FunnelCheckoutService
     /**
      * Reserve stock for a single product.
      */
-    protected function reserveProductStock(\App\Models\Product $product, int $quantity): void
+    protected function reserveProductStock(Product $product, int $quantity): void
     {
         $stockLevel = $product->stockLevels()->first();
 
@@ -762,7 +787,7 @@ class FunnelCheckoutService
                 continue;
             }
 
-            $product = \App\Models\Product::find($item->product_id);
+            $product = Product::find($item->product_id);
             if (! $product || ! $product->track_quantity) {
                 continue;
             }
@@ -821,7 +846,7 @@ class FunnelCheckoutService
                 continue;
             }
 
-            $product = \App\Models\Product::find($item->product_id);
+            $product = Product::find($item->product_id);
             if (! $product || ! $product->track_quantity) {
                 continue;
             }

@@ -120,7 +120,7 @@ export default function ProductsTab({ funnelUuid, showToast }) {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
             </div>
         );
     }
@@ -147,7 +147,7 @@ export default function ProductsTab({ funnelUuid, showToast }) {
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                            <span className="w-3 h-3 rounded-full bg-orange-500"></span>
                             <span className="text-gray-600">Main</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -243,7 +243,7 @@ function StepProductCard({ step, products, onAddProduct, onEditProduct, onDelete
                 </div>
                 <button
                     onClick={onAddProduct}
-                    className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-1"
+                    className="px-3 py-1.5 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg flex items-center gap-1"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -353,7 +353,7 @@ function ProductCard({ product, onEdit, onDelete }) {
                             </span>
                         )}
                         {product.is_popular && (
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.42 4.37h4.6c.97 0 1.37 1.24.59 1.81l-3.72 2.7 1.42 4.37c.3.92-.75 1.69-1.54 1.12L10 14.97l-3.72 2.7c-.79.57-1.84-.2-1.54-1.12l1.42-4.37-3.72-2.7c-.78-.57-.38-1.81.59-1.81h4.6L9.05 2.93z" />
                                 </svg>
@@ -625,7 +625,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                         onClick={() => { setSearchTab('products'); setSearchResults([]); setSelectedItem(null); }}
                                         className={`px-4 py-2 text-sm font-medium rounded-lg ${
                                             searchTab === 'products'
-                                                ? 'bg-blue-100 text-blue-700'
+                                                ? 'bg-orange-100 text-orange-700'
                                                 : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                     >
@@ -661,11 +661,11 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder={`Search ${searchTab}...`}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     />
                                     {searching && (
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
                                         </div>
                                     )}
                                 </div>
@@ -679,7 +679,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                                 type="button"
                                                 onClick={() => handleSelectItem(item)}
                                                 className={`w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between ${
-                                                    selectedItem?.id === item.id && selectedItem?.source === searchTab ? 'bg-blue-50' : ''
+                                                    selectedItem?.id === item.id && selectedItem?.source === searchTab ? 'bg-orange-50' : ''
                                                 }`}
                                             >
                                                 <div>
@@ -699,7 +699,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                                     </div>
                                                 </div>
                                                 {selectedItem?.id === item.id && selectedItem?.source === searchTab && (
-                                                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                                     </svg>
                                                 )}
@@ -716,7 +716,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                                 <span className={`px-2 py-1 rounded text-xs font-medium ${
                                                     selectedItem.source === 'courses' ? 'bg-purple-100 text-purple-700'
                                                     : selectedItem.source === 'packages' ? 'bg-green-100 text-green-700'
-                                                    : 'bg-blue-100 text-blue-700'
+                                                    : 'bg-orange-100 text-orange-700'
                                                 }`}>
                                                     {selectedItem.source === 'courses' ? 'Course' : selectedItem.source === 'packages' ? 'Package' : 'Product'}
                                                 </span>
@@ -738,7 +738,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                                 <p className="text-xs text-gray-500 mb-1">Package contains:</p>
                                                 {selectedItem.items.map((pkgItem, idx) => (
                                                     <div key={idx} className="text-xs text-gray-600 flex items-center gap-1">
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${pkgItem.type === 'course' ? 'bg-purple-400' : 'bg-blue-400'}`}></span>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${pkgItem.type === 'course' ? 'bg-purple-400' : 'bg-orange-400'}`}></span>
                                                         {pkgItem.quantity > 1 ? `${pkgItem.quantity}x ` : ''}{pkgItem.name}
                                                     </div>
                                                 ))}
@@ -758,7 +758,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                 <select
                                     value={form.type}
                                     onChange={(e) => setForm({ ...form, type: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 >
                                     <option value="main">Main Product</option>
                                     <option value="upsell">Upsell</option>
@@ -776,7 +776,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                 type="text"
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             />
                         </div>
 
@@ -792,7 +792,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                     min="0"
                                     value={form.funnel_price}
                                     onChange={(e) => setForm({ ...form, funnel_price: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     required
                                 />
                             </div>
@@ -806,19 +806,19 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                     min="0"
                                     value={form.compare_at_price}
                                     onChange={(e) => setForm({ ...form, compare_at_price: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
                         </div>
 
                         {/* Popular Badge */}
-                        <div className="mb-4 p-3 bg-indigo-50/60 border border-indigo-100 rounded-lg">
+                        <div className="mb-4 p-3 bg-orange-50/60 border border-orange-100 rounded-lg">
                             <label className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
                                     checked={form.is_popular}
                                     onChange={(e) => setForm({ ...form, is_popular: e.target.checked })}
-                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                 />
                                 <span className="text-sm font-medium text-gray-700">Tunjuk badge "Paling Popular"</span>
                             </label>
@@ -834,7 +834,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                         onChange={(e) => setForm({ ...form, popular_label: e.target.value })}
                                         maxLength={50}
                                         placeholder="Paling Popular"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
                                         Contoh: Paling Popular, Pilihan Terbaik, Jimat Terbaik
@@ -851,7 +851,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                         type="checkbox"
                                         checked={form.is_recurring}
                                         onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })}
-                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                     />
                                     <span className="text-sm text-gray-700">Recurring payment</span>
                                 </label>
@@ -864,7 +864,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                         <select
                                             value={form.billing_interval}
                                             onChange={(e) => setForm({ ...form, billing_interval: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                         >
                                             <option value="weekly">Weekly</option>
                                             <option value="monthly">Monthly</option>
@@ -887,7 +887,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                             <button
                                 type="submit"
                                 disabled={saving || (!product && !selectedItem)}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                             >
                                 {saving ? 'Saving...' : (product ? 'Update Product' : 'Add Product')}
                             </button>
@@ -1016,7 +1016,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Search products..."
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
 
                                 {/* Search Results */}
@@ -1028,7 +1028,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                                 type="button"
                                                 onClick={() => handleSelectItem(item)}
                                                 className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between ${
-                                                    selectedItem?.id === item.id ? 'bg-blue-50' : ''
+                                                    selectedItem?.id === item.id ? 'bg-orange-50' : ''
                                                 }`}
                                             >
                                                 <span className="font-medium">{item.name}</span>
@@ -1039,9 +1039,9 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                 )}
 
                                 {selectedItem && (
-                                    <div className="mt-2 p-2 bg-blue-50 rounded-lg text-sm flex items-center justify-between">
+                                    <div className="mt-2 p-2 bg-orange-50 rounded-lg text-sm flex items-center justify-between">
                                         <span>Selected: <strong>{selectedItem.name}</strong></span>
-                                        <button type="button" onClick={() => setSelectedItem(null)} className="text-blue-600 hover:text-blue-800">
+                                        <button type="button" onClick={() => setSelectedItem(null)} className="text-orange-600 hover:text-orange-800">
                                             Clear
                                         </button>
                                     </div>
@@ -1059,7 +1059,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                 value={form.headline}
                                 onChange={(e) => setForm({ ...form, headline: e.target.value })}
                                 placeholder="e.g., Add this special bonus!"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 required
                             />
                         </div>
@@ -1074,7 +1074,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                                 rows={3}
                                 placeholder="Describe what they'll get..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 required
                             />
                         </div>
@@ -1091,7 +1091,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                     min="0"
                                     value={form.price}
                                     onChange={(e) => setForm({ ...form, price: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     required
                                 />
                             </div>
@@ -1105,7 +1105,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                     min="0"
                                     value={form.compare_at_price}
                                     onChange={(e) => setForm({ ...form, compare_at_price: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
                         </div>
@@ -1117,7 +1117,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                     type="checkbox"
                                     checked={form.is_active}
                                     onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                 />
                                 <span className="text-sm text-gray-700">Active</span>
                             </label>
@@ -1126,7 +1126,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
                                     type="checkbox"
                                     checked={form.is_checked_by_default}
                                     onChange={(e) => setForm({ ...form, is_checked_by_default: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                 />
                                 <span className="text-sm text-gray-700">Pre-checked by default</span>
                             </label>
@@ -1159,7 +1159,7 @@ function AddOrderBumpModal({ funnelUuid, step, bump, onClose, onSaved, showToast
 // Helper functions
 function getStepTypeColor(type) {
     const colors = {
-        landing: 'bg-blue-100 text-blue-800',
+        landing: 'bg-orange-100 text-orange-800',
         optin: 'bg-green-100 text-green-800',
         sales: 'bg-purple-100 text-purple-800',
         checkout: 'bg-orange-100 text-orange-800',
@@ -1172,7 +1172,7 @@ function getStepTypeColor(type) {
 
 function getProductTypeColor(type) {
     const colors = {
-        main: 'bg-blue-100 text-blue-800',
+        main: 'bg-orange-100 text-orange-800',
         upsell: 'bg-green-100 text-green-800',
         downsell: 'bg-orange-100 text-orange-800',
     };

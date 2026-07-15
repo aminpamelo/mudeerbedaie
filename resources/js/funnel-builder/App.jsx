@@ -22,6 +22,16 @@ export default function App() {
     const [selectedStep, setSelectedStep] = useState(null);
     const [initialContent, setInitialContent] = useState(null);
 
+    // "Fighter context" = the builder was entered from the Fighter portal — a
+    // real fighter (by role), or an admin who opened it via /fighter (carrying
+    // ?from=fighter). In this context /fighter IS the funnel list, so every
+    // "back" returns there and the builder's own list is never shown. Computed
+    // once from the entry URL so internal navigation keeps the context.
+    const [fighterContext] = useState(() => {
+        if (window.funnelBuilderConfig?.user?.role === 'fighter') return true;
+        return new URLSearchParams(window.location.search).get('from') === 'fighter';
+    });
+
     // Handle browser back/forward navigation
     useEffect(() => {
         const handlePopState = async () => {
@@ -64,7 +74,11 @@ export default function App() {
                 setSelectedFunnel({ uuid });
                 setCurrentView(VIEWS.DETAIL);
             } else {
-                // List view
+                // List view — but fighters have no builder list; send them home.
+                if (fighterContext) {
+                    window.location.href = '/fighter';
+                    return;
+                }
                 setCurrentView(VIEWS.LIST);
                 setSelectedFunnel(null);
                 setSelectedStep(null);
@@ -86,8 +100,13 @@ export default function App() {
         window.history.pushState({}, '', `/funnel-builder/${funnel.uuid}`);
     };
 
-    // Navigate back to list
+    // Navigate back out of a funnel. Fighters go home to /fighter (their list);
+    // admins/employees go to the builder's internal funnel list.
     const handleBackToList = () => {
+        if (fighterContext) {
+            window.location.href = '/fighter';
+            return;
+        }
         setSelectedFunnel(null);
         setSelectedStep(null);
         setCurrentView(VIEWS.LIST);
@@ -158,6 +177,8 @@ export default function App() {
         }
     };
 
+    const backHref = fighterContext ? '/fighter' : '/admin/funnels';
+
     return (
         <div className="funnel-builder-app min-h-screen bg-zinc-50 dark:bg-zinc-950">
             {currentView === VIEWS.LIST && (
@@ -165,7 +186,7 @@ export default function App() {
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         <div className="flex h-14 items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <a href="/admin/funnels" className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300">
+                                <a href={backHref} className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300">
                                     <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                     </svg>

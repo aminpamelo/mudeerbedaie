@@ -13,6 +13,9 @@ use App\Http\Controllers\Ceo\StaffKpiController;
 use App\Http\Controllers\Ceo\TaskMonitoringController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\Fighter\NotificationController;
+use App\Http\Controllers\Fighter\OrderController;
+use App\Http\Controllers\Fighter\PerformanceController;
 use App\Http\Controllers\FunnelEmbedController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LiveHost\CommissionOverviewController;
@@ -74,6 +77,7 @@ use App\Http\Controllers\TikTok\TikTokAuthController;
 use App\Http\Controllers\TikTok\TikTokWebhookController;
 use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\HandleCeoInertiaRequests;
+use App\Http\Middleware\HandleFighterInertiaRequests;
 use App\Http\Middleware\HandlePocketInertiaRequests;
 use App\Models\CertificateIssue;
 use Illuminate\Http\Request;
@@ -125,6 +129,10 @@ Route::get('dashboard', function () {
 
     if ($user->isSales()) {
         return redirect()->route('pos.index');
+    }
+
+    if ($user->isFighter()) {
+        return redirect()->route('fighter.dashboard');
     }
 
     return view('dashboard');
@@ -405,6 +413,34 @@ Route::middleware(['auth', 'role:admin,ceo', HandleCeoInertiaRequests::class])
         Route::get('{department}', [DepartmentController::class, 'show'])
             ->where('department', 'livehost|education|ecommerce|hr|sales')
             ->name('department');
+    });
+
+// Fighter Portal (Inertia) — a dedicated workspace for the `fighter` role.
+// Fighters build & run their OWN sales funnels (scoped to funnels they own),
+// configure their Conversion API, watch monthly performance, and see the
+// read-only order feed from their funnels. Orders route to the internal
+// e-commerce team tagged with the fighter's own sales-source segment.
+// HandleFighterInertiaRequests overrides the root view to `fighter.app`.
+Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::class])
+    ->prefix('fighter')
+    ->name('fighter.')
+    ->group(function () {
+        Route::get('/', [App\Http\Controllers\Fighter\DashboardController::class, 'index'])
+            ->name('dashboard');
+        Route::get('performance', [PerformanceController::class, 'index'])
+            ->name('performance');
+        Route::get('orders', [OrderController::class, 'index'])
+            ->name('orders');
+        Route::get('notifications', [NotificationController::class, 'index'])
+            ->name('notifications');
+        Route::get('notifications/feed', [NotificationController::class, 'feed'])
+            ->name('notifications.feed');
+        Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])
+            ->name('notifications.unread-count');
+        Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])
+            ->name('notifications.read-all');
+        Route::post('notifications/{id}/read', [NotificationController::class, 'markRead'])
+            ->name('notifications.read');
     });
 
 // Live Host PIC (Inertia) — shared surface for admin + admin_livehost + livehost_assistant,
@@ -1300,7 +1336,10 @@ Route::middleware(['auth', 'role:admin,employee,sales'])->group(function () {
 // ============================================================================
 // FUNNEL BUILDER - React SPA for sales funnel management
 // ============================================================================
-Route::middleware(['auth', 'role:admin,employee'])->group(function () {
+// Fighters get the same builder, scoped to funnels they own: the API is guarded
+// by the `funnel.owner` middleware and FunnelController@index filters to their
+// funnels, so a fighter loading the SPA can only ever list/open/edit their own.
+Route::middleware(['auth', 'role:admin,employee,fighter'])->group(function () {
     // Funnel Builder SPA - catch all routes and serve the React app
     Route::get('funnel-builder', fn () => view('funnel-builder.index'))->name('funnel-builder.index');
     Route::get('funnel-builder/{any}', fn () => view('funnel-builder.index'))->where('any', '.*')->name('funnel-builder.catchall');

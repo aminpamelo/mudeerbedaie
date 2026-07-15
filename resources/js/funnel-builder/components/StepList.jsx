@@ -166,7 +166,7 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 text-sm"
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 text-sm"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -193,7 +193,7 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                     <p className="mt-1 text-sm text-gray-500">Get started by adding your first funnel step.</p>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm"
+                        className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium text-sm"
                     >
                         Add First Step
                     </button>
@@ -254,7 +254,7 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                                 <div className="flex items-center gap-1">
                                     <button
                                         onClick={() => onEditStep && onEditStep(step)}
-                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
                                         title="Edit Content"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,7 +338,7 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                                             value={newStep.name}
                                             onChange={(e) => setNewStep({ ...newStep, name: e.target.value })}
                                             required
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                             placeholder="e.g., Main Landing Page"
                                         />
                                     </div>
@@ -351,7 +351,7 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                                             type="text"
                                             value={newStep.slug}
                                             onChange={(e) => setNewStep({ ...newStep, slug: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                             placeholder="Auto-generated if empty"
                                         />
                                         <p className="text-xs text-gray-500 mt-1">
@@ -371,7 +371,7 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                                     <button
                                         type="submit"
                                         disabled={creating || !newStep.name}
-                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                                     >
                                         {creating ? 'Creating...' : 'Add Step'}
                                     </button>

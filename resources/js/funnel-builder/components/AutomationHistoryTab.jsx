@@ -116,7 +116,7 @@ export default function AutomationHistoryTab({ funnelUuid, automations = [], sho
                     <select
                         value={filters.automation_id}
                         onChange={(e) => handleFilterChange('automation_id', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     >
                         <option value="">All Automations</option>
                         {automations.map((automation) => (
@@ -132,7 +132,7 @@ export default function AutomationHistoryTab({ funnelUuid, automations = [], sho
                     <select
                         value={filters.status}
                         onChange={(e) => handleFilterChange('status', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     >
                         <option value="">All Statuses</option>
                         <option value="executed">Executed</option>
@@ -147,7 +147,7 @@ export default function AutomationHistoryTab({ funnelUuid, automations = [], sho
                     <select
                         value={filters.per_page}
                         onChange={(e) => handleFilterChange('per_page', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     >
                         <option value="10">10</option>
                         <option value="25">25</option>
@@ -186,7 +186,7 @@ export default function AutomationHistoryTab({ funnelUuid, automations = [], sho
             {/* Logs List */}
             {loading ? (
                 <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
                 </div>
             ) : logs.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
@@ -269,7 +269,7 @@ function LogCard({ log, getTriggerConfig, getActionConfig, getStatusBadge, forma
         <div
             onClick={onClick}
             className={`bg-white rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md ${
-                isSelected ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'
+                isSelected ? 'border-orange-500 ring-2 ring-orange-100' : 'border-gray-200'
             }`}
         >
             <div className="flex items-start justify-between">

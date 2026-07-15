@@ -253,7 +253,7 @@ export default function MediaManager({
                 <div
                     className={`mx-6 mt-4 p-6 border-2 border-dashed rounded-lg transition-colors ${
                         dragActive
-                            ? 'border-blue-500 bg-blue-50'
+                            ? 'border-orange-500 bg-orange-50'
                             : 'border-gray-300 hover:border-gray-400'
                     }`}
                     onDragEnter={handleDrag}
@@ -264,7 +264,7 @@ export default function MediaManager({
                     <div className="text-center">
                         {uploading ? (
                             <div className="flex flex-col items-center">
-                                <Spinner className="w-8 h-8 text-blue-500" />
+                                <Spinner className="w-8 h-8 text-orange-500" />
                                 <p className="mt-2 text-sm text-gray-600">
                                     Uploading... {uploadProgress}%
                                 </p>
@@ -277,7 +277,7 @@ export default function MediaManager({
                                     <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="text-blue-600 hover:text-blue-700 font-medium"
+                                        className="text-orange-600 hover:text-orange-700 font-medium"
                                     >
                                         browse
                                     </button>
@@ -333,7 +333,7 @@ export default function MediaManager({
                                             onClick={() => handleSelect(image)}
                                             className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer group border-2 transition-all ${
                                                 isSelected
-                                                    ? 'border-blue-500 ring-2 ring-blue-200'
+                                                    ? 'border-orange-500 ring-2 ring-orange-200'
                                                     : 'border-transparent hover:border-gray-300'
                                             }`}
                                         >
@@ -346,7 +346,7 @@ export default function MediaManager({
 
                                             {/* Selection indicator */}
                                             {isSelected && (
-                                                <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                                                <div className="absolute top-2 right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white">
                                                     <CheckIcon />
                                                 </div>
                                             )}
@@ -385,7 +385,7 @@ export default function MediaManager({
                                     <button
                                         onClick={loadMore}
                                         disabled={loading}
-                                        className="px-4 py-2 text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                                        className="px-4 py-2 text-sm text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50"
                                     >
                                         {loading ? 'Loading...' : 'Load More'}
                                     </button>
@@ -410,7 +410,7 @@ export default function MediaManager({
                         <button
                             onClick={handleConfirm}
                             disabled={selected.length === 0}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {allowMultiple ? 'Insert Images' : 'Select Image'}
                         </button>

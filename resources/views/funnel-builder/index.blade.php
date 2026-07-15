@@ -8,8 +8,9 @@
     <title>{{ config('app.name', 'Laravel') }} - Funnel Builder</title>
 
     <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet" />
 
     <!-- Styles -->
     @viteReactRefresh
@@ -21,13 +22,14 @@
     <!-- Scripts -->
     @vite(['resources/js/funnel-builder/index.jsx'])
 
+    @php($funnelBuilderUser = auth()->user()?->only(['id', 'name', 'email', 'role']))
     <script>
         // Pass server data to the React app
         window.funnelBuilderConfig = {
             csrfToken: '{{ csrf_token() }}',
             apiBaseUrl: '{{ url('/api/v1') }}',
             appUrl: '{{ url('/') }}',
-            user: @json(auth()->user()?->only(['id', 'name', 'email'])),
+            user: @json($funnelBuilderUser),
         };
     </script>
 </body>

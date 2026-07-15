@@ -379,6 +379,15 @@
                     {{ __('CMS Module') }}
                 </flux:navlist.item>
 
+                @if(auth()->user()->isAdmin())
+                    <flux:navlist.item
+                        icon="rocket-launch"
+                        href="/fighter"
+                    >
+                        {{ __('Fighter') }}
+                    </flux:navlist.item>
+                @endif
+
                 <flux:navlist.group
                     expandable
                     heading="Settings"

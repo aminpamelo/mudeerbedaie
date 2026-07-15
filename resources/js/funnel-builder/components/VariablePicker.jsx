@@ -300,10 +300,10 @@ export default function VariablePicker({
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg
                     border border-gray-300 bg-white text-gray-700
                     hover:bg-gray-50 hover:border-gray-400
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+                    focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1
                     transition-all duration-150 ${buttonClassName}`}
             >
-                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
@@ -333,7 +333,7 @@ export default function VariablePicker({
                     onKeyDown={handleKeyDown}
                 >
                     {/* Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                    <div className="px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -352,7 +352,7 @@ export default function VariablePicker({
                                 </svg>
                             </button>
                         </div>
-                        <p className="text-sm text-blue-100 mt-1">Click on a variable to insert it into your message</p>
+                        <p className="text-sm text-orange-100 mt-1">Click on a variable to insert it into your message</p>
                     </div>
 
                     {/* Search Input */}
@@ -370,7 +370,7 @@ export default function VariablePicker({
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-11 pr-4 py-3 text-sm border border-gray-200 rounded-xl
-                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                    focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent
                                     placeholder:text-gray-400"
                             />
                         </div>
@@ -430,17 +430,17 @@ export default function VariablePicker({
                                                     type="button"
                                                     onClick={() => handleSelect(varKey)}
                                                     className="w-full flex items-start gap-4 px-5 py-3 text-left
-                                                        hover:bg-blue-50 transition-colors group"
+                                                        hover:bg-orange-50 transition-colors group"
                                                 >
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-sm font-medium text-gray-900 group-hover:text-blue-700">
+                                                            <span className="text-sm font-medium text-gray-900 group-hover:text-orange-700">
                                                                 {varData.label}
                                                             </span>
                                                         </div>
                                                         <code className="text-xs font-mono bg-gray-200/80
-                                                            group-hover:bg-blue-100 px-2 py-1 rounded
-                                                            text-gray-600 group-hover:text-blue-700 inline-block">
+                                                            group-hover:bg-orange-100 px-2 py-1 rounded
+                                                            text-gray-600 group-hover:text-orange-700 inline-block">
                                                             {`{{${varKey}}}`}
                                                         </code>
                                                         {showPreview && (
@@ -450,7 +450,7 @@ export default function VariablePicker({
                                                         )}
                                                     </div>
                                                     <div className="flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-lg">
+                                                        <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">
                                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                                             </svg>
@@ -512,15 +512,15 @@ export function VariableTag({ variable, onRemove, showExample = false }) {
     };
 
     return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-sm">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 text-sm">
             <code className="font-mono text-xs">{`{{${variable}}}`}</code>
             {showExample && info && (
-                <span className="text-blue-600 text-xs">({info.example})</span>
+                <span className="text-orange-600 text-xs">({info.example})</span>
             )}
             <button
                 type="button"
                 onClick={handleCopy}
-                className="p-0.5 hover:bg-blue-200 rounded transition-colors"
+                className="p-0.5 hover:bg-orange-200 rounded transition-colors"
                 title={copied ? 'Copied!' : 'Copy'}
             >
                 {copied ? (
@@ -615,7 +615,7 @@ export function TextareaWithVariables({
                 placeholder={placeholder}
                 rows={rows}
                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg
-                    focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    focus:ring-2 focus:ring-orange-500 focus:border-transparent
                     font-mono text-sm ${className}`}
             />
 

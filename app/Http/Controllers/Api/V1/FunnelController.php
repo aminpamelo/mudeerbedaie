@@ -31,6 +31,11 @@ class FunnelController extends Controller
             ->withCount('steps')
             ->latest();
 
+        // Fighters only ever see the funnels they own; admin/employee see all.
+        if (($user = $request->user()) && $user->isFighter()) {
+            $query->forUser($user->id);
+        }
+
         // Search filter
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {

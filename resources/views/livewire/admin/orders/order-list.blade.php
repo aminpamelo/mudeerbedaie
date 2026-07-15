@@ -36,6 +36,8 @@ new class extends Component
 
     public string $productFilter = '';
 
+    public string $salesSourceFilter = '';
+
     public string $paymentStatusFilter = 'all';
 
     public string $dateFilter = '';
@@ -165,6 +167,12 @@ new class extends Component
         $this->selectedOrderIds = [];
     }
 
+    public function updatingSalesSourceFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
+    }
+
     public function updatingPaymentStatusFilter(): void
     {
         $this->resetPage();
@@ -227,6 +235,7 @@ new class extends Component
                 'payments',
                 'platform',
                 'platformAccount',
+                'salesSource',
                 'classAssignmentApprovals.class',
                 'whatsAppCampaignRecipients:id,product_order_id,whatsapp_campaign_id,status,created_at',
             ])
@@ -262,6 +271,9 @@ new class extends Component
                     'pos' => $query->where('source', 'pos'),
                     default => $query
                 };
+            })
+            ->when($this->salesSourceFilter !== '', function ($query) {
+                $query->where('sales_source_id', $this->salesSourceFilter);
             })
             ->when($this->productFilter, function ($query) {
                 if (str_starts_with($this->productFilter, 'package:')) {
@@ -520,6 +532,10 @@ new class extends Component
             };
         }
 
+        if ($this->salesSourceFilter !== '') {
+            $query->where('sales_source_id', $this->salesSourceFilter);
+        }
+
         $byStatus = $query
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
@@ -603,6 +619,17 @@ new class extends Component
         }
 
         $this->dispatch('order-updated', message: 'Export file not ready yet. Please wait a moment and try again.');
+    }
+
+    /**
+     * Active sales-source segments for the filter dropdown (includes the
+     * per-fighter segments auto-created for fighter orders).
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\SalesSource>
+     */
+    public function getSalesSources()
+    {
+        return \App\Models\SalesSource::query()->active()->ordered()->get();
     }
 
     public function getSourceCounts(): array
@@ -1666,6 +1693,14 @@ new class extends Component
                             @endforeach
                         </flux:select>
                     </div>
+                    <div class="w-44">
+                        <flux:select wire:model.live="salesSourceFilter" placeholder="All Segments">
+                            <option value="">All Segments</option>
+                            @foreach($this->getSalesSources() as $salesSource)
+                                <option value="{{ $salesSource->id }}">{{ $salesSource->name }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
                     <div class="w-40">
                         <flux:select wire:model.live="paymentStatusFilter" placeholder="All Payments">
                             <option value="all">All Payments</option>
@@ -1925,7 +1960,7 @@ new class extends Component
                                             <flux:text size="xs" class="text-zinc-400 group-hover/src:text-blue-600 transition-colors">{{ $order->agent->name }}</flux:text>
                                         </a>
                                     @elseif($order->source === 'funnel')
-                                        <div class="inline-flex items-center gap-1.5">
+                                        <div class="inline-flex flex-wrap items-center gap-1.5">
                                             <flux:badge size="sm" color="{{ $source['color'] }}">
                                                 <div class="flex items-center justify-center">
                                                     <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
@@ -1934,6 +1969,12 @@ new class extends Component
                                             </flux:badge>
                                             @if($order->source_reference)
                                                 <flux:text size="xs" class="text-zinc-400">{{ $order->source_reference }}</flux:text>
+                                            @endif
+                                            @if($order->salesSource)
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300" title="Sales segment">
+                                                    <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $order->salesSource->color }}"></span>
+                                                    {{ $order->salesSource->name }}
+                                                </span>
                                             @endif
                                         </div>
                                     @elseif($order->source === 'pos')

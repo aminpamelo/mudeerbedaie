@@ -184,7 +184,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                             type="text"
                             value={form.name}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                     </div>
 
@@ -198,7 +198,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                 type="text"
                                 value={form.slug}
                                 onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             />
                         </div>
                     </div>
@@ -211,7 +211,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                             value={form.description}
                             onChange={(e) => setForm({ ...form, description: e.target.value })}
                             rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                     </div>
                 </div>
@@ -231,7 +231,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                             type="text"
                             value={form.meta_title}
                             onChange={(e) => setForm({ ...form, meta_title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                     </div>
 
@@ -243,7 +243,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                             value={form.meta_description}
                             onChange={(e) => setForm({ ...form, meta_description: e.target.value })}
                             rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                     </div>
                 </div>
@@ -268,8 +268,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                     <button
                         type="button"
                         onClick={() => setForm({ ...form, show_orders_in_admin: !form.show_orders_in_admin })}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            form.show_orders_in_admin ? 'bg-blue-600' : 'bg-gray-200'
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                            form.show_orders_in_admin ? 'bg-orange-600' : 'bg-gray-200'
                         }`}
                         role="switch"
                         aria-checked={form.show_orders_in_admin}
@@ -299,8 +299,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                     <button
                         type="button"
                         onClick={() => setForm({ ...form, disable_shipping: !form.disable_shipping })}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            form.disable_shipping ? 'bg-blue-600' : 'bg-gray-200'
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                            form.disable_shipping ? 'bg-orange-600' : 'bg-gray-200'
                         }`}
                         role="switch"
                         aria-checked={form.disable_shipping}
@@ -324,8 +324,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                         <button
                             type="button"
                             onClick={() => setForm({ ...form, product_selection_mode: form.product_selection_mode === 'multi' ? 'single' : 'multi' })}
-                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                                form.product_selection_mode === 'single' ? 'bg-blue-600' : 'bg-gray-200'
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                                form.product_selection_mode === 'single' ? 'bg-orange-600' : 'bg-gray-200'
                             }`}
                             role="switch"
                             aria-checked={form.product_selection_mode === 'single'}
@@ -368,8 +368,8 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                 enabled: !form.shipping_settings.enabled,
                             },
                         })}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            form.shipping_settings.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                            form.shipping_settings.enabled ? 'bg-orange-600' : 'bg-gray-200'
                         }`}
                         role="switch"
                         aria-checked={form.shipping_settings.enabled}
@@ -404,7 +404,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                             },
                                         })}
                                         placeholder="0.00"
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     />
                                 </div>
                                 <p className="text-xs text-gray-400 mt-1">West Malaysia delivery fee</p>
@@ -429,7 +429,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                             },
                                         })}
                                         placeholder="0.00"
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     />
                                 </div>
                                 <p className="text-xs text-gray-400 mt-1">East Malaysia delivery fee</p>
@@ -461,7 +461,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                         setDomainInput('');
                                         setDomainError('');
                                     }}
-                                    className="text-blue-600 focus:ring-blue-500"
+                                    className="text-orange-600 focus:ring-orange-500"
                                 />
                                 <span className="text-sm font-medium text-gray-700">Custom Domain</span>
                             </label>
@@ -476,7 +476,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                         setDomainInput('');
                                         setDomainError('');
                                     }}
-                                    className="text-blue-600 focus:ring-blue-500"
+                                    className="text-orange-600 focus:ring-orange-500"
                                 />
                                 <span className="text-sm font-medium text-gray-700">Platform Subdomain</span>
                             </label>
@@ -496,7 +496,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                         setDomainError('');
                                     }}
                                     placeholder="checkout.yourdomain.com"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             ) : (
                                 <div className="flex items-center">
@@ -508,7 +508,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                             setDomainError('');
                                         }}
                                         placeholder="yourname"
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     />
                                     <span className="px-3 py-2 bg-gray-50 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm">
                                         .kelasify.com
@@ -531,7 +531,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                         <button
                             onClick={handleAddDomain}
                             disabled={domainLoading || !domainInput.trim()}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                         >
                             {domainLoading ? 'Adding...' : 'Add Domain'}
                         </button>
@@ -565,14 +565,14 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
 
                         {/* Pending verification: CNAME instructions */}
                         {customDomain.verification_status === 'pending' && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <p className="text-sm font-medium text-blue-800 mb-2">
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <p className="text-sm font-medium text-orange-800 mb-2">
                                     DNS Configuration Required
                                 </p>
-                                <p className="text-sm text-blue-700 mb-3">
+                                <p className="text-sm text-orange-700 mb-3">
                                     Add the following CNAME record to your domain's DNS settings:
                                 </p>
-                                <div className="bg-white rounded-lg border border-blue-200 p-3 space-y-2">
+                                <div className="bg-white rounded-lg border border-orange-200 p-3 space-y-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-medium text-gray-500 w-14">Type:</span>
                                         <code className="text-sm font-mono text-gray-900 bg-gray-100 px-2 py-0.5 rounded">CNAME</code>
@@ -590,7 +590,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                         </code>
                                     </div>
                                 </div>
-                                <p className="text-xs text-blue-600 mt-2">
+                                <p className="text-xs text-orange-600 mt-2">
                                     DNS changes may take up to 48 hours to propagate. Click "Check Status" to verify.
                                 </p>
                             </div>
@@ -614,7 +614,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                                 <button
                                     onClick={handleCheckDomainStatus}
                                     disabled={domainLoading}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                                 >
                                     {domainLoading ? 'Checking...' : customDomain.verification_status === 'failed' ? 'Retry Verification' : 'Check Status'}
                                 </button>
@@ -636,7 +636,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                    className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                 >
                     {saving ? 'Saving...' : 'Save Settings'}
                 </button>

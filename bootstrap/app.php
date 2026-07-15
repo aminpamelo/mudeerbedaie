@@ -1,8 +1,15 @@
 <?php
 
+use App\Http\Middleware\AffiliateAuth;
+use App\Http\Middleware\EnsureFunnelOwnership;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveCustomDomain;
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,24 +32,25 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'affiliate' => \App\Http\Middleware\AffiliateAuth::class,
+            'role' => RoleMiddleware::class,
+            'affiliate' => AffiliateAuth::class,
+            'funnel.owner' => EnsureFunnelOwnership::class,
         ]);
 
         // Resolve custom domains early so context is available to all middleware
         $middleware->web(prepend: [
-            \App\Http\Middleware\ResolveCustomDomain::class,
+            ResolveCustomDomain::class,
         ]);
 
         // Add SetLocale middleware to web group
         $middleware->web(append: [
-            \App\Http\Middleware\SetLocale::class,
-            \App\Http\Middleware\HandleInertiaRequests::class,
+            SetLocale::class,
+            HandleInertiaRequests::class,
         ]);
 
         // Configure API middleware for Sanctum SPA authentication
         $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            EnsureFrontendRequestsAreStateful::class,
         ]);
 
         // Exclude routes from CSRF verification

@@ -5,15 +5,33 @@
 
 /* Base resets for funnel builder */
 .funnel-builder-app {
-    font-family: inherit;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Puck Editor Customizations */
+/* Puck Editor Customizations — accent matches the Fighter workspace (orange). */
 .funnel-editor {
-    --puck-color-primary: #3b82f6;
-    --puck-color-primary-hover: #2563eb;
+    --puck-color-primary: #f97316;
+    --puck-color-primary-hover: #ea580c;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+
+    /* Puck's built-in primary is a blue "azure" scale defined on :root. Remap
+       the whole scale (dark→light) to orange so the editor's own chrome
+       (Blocks tab, Publish button, focus outlines) matches the Fighter accent.
+       Scoped to .funnel-editor so nothing else in the app is affected. */
+    --puck-color-azure-01: #431407;
+    --puck-color-azure-02: #7c2d12;
+    --puck-color-azure-03: #9a3412;
+    --puck-color-azure-04: #c2410c;
+    --puck-color-azure-05: #ea580c;
+    --puck-color-azure-06: #f97316;
+    --puck-color-azure-07: #fb923c;
+    --puck-color-azure-08: #fdba74;
+    --puck-color-azure-09: #fed7aa;
+    --puck-color-azure-10: #ffedd5;
+    --puck-color-azure-11: #fff7ed;
+    --puck-color-azure-12: #fffbf6;
 }
 
 /* Override Puck header for consistent styling */
@@ -73,8 +91,8 @@
 }
 
 [data-puck-drop-zone][data-puck-drop-zone-active='true'] {
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.05);
 }
 
 /* Component Editor Panel */
@@ -129,8 +147,8 @@
 [data-puck-field] textarea:focus,
 [data-puck-field] select:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
 }
 
 /* Custom Component Styles */
@@ -456,8 +474,8 @@
 }
 
 .drag-over {
-    border: 2px solid #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
+    border: 2px solid #f97316;
+    background: rgba(249, 115, 22, 0.05);
 }
 
 /* Toast notifications */

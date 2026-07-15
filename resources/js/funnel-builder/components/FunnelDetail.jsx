@@ -68,6 +68,8 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState(getTabFromUrl);
     const [toast, setToast] = useState(null);
+    const [editingName, setEditingName] = useState(false);
+    const [nameDraft, setNameDraft] = useState('');
 
     // Handle tab change with URL update
     const handleTabChange = useCallback((tab) => {
@@ -118,6 +120,33 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
         }
     };
 
+    // Inline rename from the header title.
+    const startEditingName = () => {
+        setNameDraft(funnel?.name || '');
+        setEditingName(true);
+    };
+
+    const saveName = async () => {
+        setEditingName(false);
+        const trimmed = nameDraft.trim();
+
+        // Ignore empty names or no-ops (avoids a needless save on blur).
+        if (!trimmed || trimmed === funnel?.name) {
+            return;
+        }
+
+        const previous = funnel?.name;
+        setFunnel((current) => (current ? { ...current, name: trimmed } : current)); // optimistic
+
+        try {
+            await funnelApi.update(funnelUuid, { name: trimmed });
+            showToast('Funnel name updated');
+        } catch (err) {
+            setFunnel((current) => (current ? { ...current, name: previous } : current)); // revert
+            showToast(err.message || 'Failed to rename funnel', 'error');
+        }
+    };
+
     // Publish funnel
     const handlePublish = async () => {
         try {
@@ -149,7 +178,7 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
             </div>
         );
     }
@@ -158,7 +187,7 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
         return (
             <div className="text-center py-12">
                 <p className="text-gray-500">Funnel not found</p>
-                <button onClick={onBack} className="mt-4 text-blue-600 hover:text-blue-700">
+                <button onClick={onBack} className="mt-4 text-orange-600 hover:text-orange-700">
                     Go back
                 </button>
             </div>
@@ -180,7 +209,37 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
                             </svg>
                         </button>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900">{funnel.name}</h1>
+                            {editingName ? (
+                                <input
+                                    autoFocus
+                                    value={nameDraft}
+                                    onChange={(e) => setNameDraft(e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onBlur={saveName}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            saveName();
+                                        } else if (e.key === 'Escape') {
+                                            setEditingName(false);
+                                        }
+                                    }}
+                                    maxLength={255}
+                                    className="w-72 max-w-full -mx-1 rounded-md border-b-2 border-orange-500 bg-transparent px-1 text-xl font-bold text-gray-900 outline-none focus:bg-orange-50/40"
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={startEditingName}
+                                    title="Click to rename"
+                                    className="group -mx-1 flex items-center gap-2 rounded-md px-1 text-left transition-colors hover:bg-gray-50"
+                                >
+                                    <h1 className="text-xl font-bold text-gray-900">{funnel.name}</h1>
+                                    <svg className="h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </button>
+                            )}
                             <div className="flex items-center gap-2 mt-1">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                     funnel.status === 'published'
@@ -287,7 +346,7 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
                                 onClick={() => handleTabChange(tab)}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                                     activeTab === tab
-                                        ? 'border-blue-500 text-blue-600'
+                                        ? 'border-orange-500 text-orange-600'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
                             >
@@ -443,7 +502,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
                             value={customStart}
                             max={customEnd || undefined}
                             onChange={(e) => setCustomStart(e.target.value)}
-                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                         />
                     </label>
                     <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -453,7 +512,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
                             value={customEnd}
                             min={customStart || undefined}
                             onChange={(e) => setCustomEnd(e.target.value)}
-                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                         />
                     </label>
                     {(!customStart || !customEnd) && (
@@ -464,7 +523,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
 
             {loading && (
                 <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
                 </div>
             )}
 
@@ -545,7 +604,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
                                             </div>
                                             <div className="h-8 bg-gray-100 rounded-lg overflow-hidden">
                                                 <div
-                                                    className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg transition-all duration-500 flex items-center justify-end pr-2"
+                                                    className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-lg transition-all duration-500 flex items-center justify-end pr-2"
                                                     style={{ width: `${Math.max(widthPercent, 5)}%` }}
                                                 >
                                                     {step.conversions > 0 && (
@@ -571,7 +630,7 @@ function AnalyticsTab({ funnelUuid, analytics: initialAnalytics }) {
                                 <SimpleBarChart
                                     data={timeSeriesData}
                                     dataKey="visitors"
-                                    color="#3b82f6"
+                                    color="#f97316"
                                     maxValue={maxVisitors}
                                 />
                             ) : (
@@ -748,7 +807,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
     const [embedKey, setEmbedKey] = useState(funnel?.embed_key || '');
     const [embedSettings, setEmbedSettings] = useState(funnel?.embed_settings || {
         theme: 'light',
-        primary_color: '#3b82f6',
+        primary_color: '#f97316',
         border_radius: 'xl',
         show_powered_by: true,
         allowed_domains: [],
@@ -762,7 +821,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
         setEmbedKey(funnel?.embed_key || '');
         setEmbedSettings(funnel?.embed_settings || {
             theme: 'light',
-            primary_color: '#3b82f6',
+            primary_color: '#f97316',
             border_radius: 'xl',
             show_powered_by: true,
             allowed_domains: [],
@@ -902,7 +961,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                         onClick={handleToggleEmbed}
                         disabled={loading}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            embedEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                            embedEnabled ? 'bg-orange-600' : 'bg-gray-200'
                         } ${loading ? 'opacity-50' : ''}`}
                     >
                         <span
@@ -993,7 +1052,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                                 <select
                                     value={embedSettings.theme || 'light'}
                                     onChange={(e) => setEmbedSettings({ ...embedSettings, theme: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                                 >
                                     <option value="light">Light</option>
                                     <option value="dark">Dark</option>
@@ -1009,15 +1068,15 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                                 <div className="flex gap-2">
                                     <input
                                         type="color"
-                                        value={embedSettings.primary_color || '#3b82f6'}
+                                        value={embedSettings.primary_color || '#f97316'}
                                         onChange={(e) => setEmbedSettings({ ...embedSettings, primary_color: e.target.value })}
                                         className="h-10 w-14 rounded border border-gray-300 cursor-pointer"
                                     />
                                     <input
                                         type="text"
-                                        value={embedSettings.primary_color || '#3b82f6'}
+                                        value={embedSettings.primary_color || '#f97316'}
                                         onChange={(e) => setEmbedSettings({ ...embedSettings, primary_color: e.target.value })}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                                     />
                                 </div>
                             </div>
@@ -1030,7 +1089,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                                 <select
                                     value={embedSettings.border_radius || 'xl'}
                                     onChange={(e) => setEmbedSettings({ ...embedSettings, border_radius: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                                 >
                                     <option value="none">None</option>
                                     <option value="sm">Small</option>
@@ -1051,7 +1110,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                                         type="checkbox"
                                         checked={embedSettings.show_powered_by !== false}
                                         onChange={(e) => setEmbedSettings({ ...embedSettings, show_powered_by: e.target.checked })}
-                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                     />
                                     <span className="text-sm text-gray-600">Display powered by attribution</span>
                                 </label>
@@ -1061,7 +1120,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                         <button
                             onClick={handleSaveSettings}
                             disabled={loading}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                         >
                             {loading ? 'Saving...' : 'Save Customization'}
                         </button>
@@ -1098,7 +1157,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                                 href={embedUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:text-blue-700"
+                                className="text-sm text-orange-600 hover:text-orange-700"
                             >
                                 Open in new tab
                             </a>
@@ -1126,7 +1185,7 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
                     <button
                         onClick={handleToggleEmbed}
                         disabled={loading}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                        className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                     >
                         {loading ? 'Enabling...' : 'Enable Embed'}
                     </button>
@@ -1283,7 +1342,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
             <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                             </svg>
@@ -1300,7 +1359,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                         <button
                             onClick={() => setSettings({ ...settings, enabled: !settings.enabled })}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                settings.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                                settings.enabled ? 'bg-orange-600' : 'bg-gray-200'
                             }`}
                         >
                             <span
@@ -1324,7 +1383,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                                 value={settings.pixel_id}
                                 onChange={(e) => setSettings({ ...settings, pixel_id: e.target.value })}
                                 placeholder="Enter your 15-16 digit Pixel ID"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             />
                             <p className="text-xs text-gray-500 mt-1">
                                 Find this in Facebook Events Manager → Data Sources → Your Pixel → Settings
@@ -1342,7 +1401,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                                 value={settings.access_token}
                                 onChange={(e) => setSettings({ ...settings, access_token: e.target.value })}
                                 placeholder="Enter your access token for server-side tracking"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             />
                             <p className="text-xs text-gray-500 mt-1">
                                 Enables server-side tracking for 95%+ accuracy. Get this from Events Manager → Settings → Generate access token
@@ -1360,7 +1419,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                                 value={settings.test_event_code}
                                 onChange={(e) => setSettings({ ...settings, test_event_code: e.target.value })}
                                 placeholder="e.g., TEST12345"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             />
                             <p className="text-xs text-gray-500 mt-1">
                                 Use this to test events in Facebook Events Manager without affecting your real data
@@ -1382,7 +1441,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                                             type="checkbox"
                                             checked={settings.events[key] !== false}
                                             onChange={() => toggleEvent(key)}
-                                            className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            className="mt-1 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                         />
                                         <div>
                                             <div className="font-medium text-gray-900">{label}</div>
@@ -1398,7 +1457,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                             <button
                                 onClick={handleSave}
                                 disabled={loading}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                             >
                                 {loading ? 'Saving...' : 'Save Settings'}
                             </button>
@@ -1416,9 +1475,9 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                 )}
 
                 {!settings.enabled && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                        <h4 className="font-medium text-blue-900 mb-2">Why use Facebook Pixel?</h4>
-                        <ul className="text-sm text-blue-800 space-y-1">
+                    <div className="bg-orange-50 border border-orange-100 rounded-lg p-4">
+                        <h4 className="font-medium text-orange-900 mb-2">Why use Facebook Pixel?</h4>
+                        <ul className="text-sm text-orange-800 space-y-1">
                             <li>• Track conversions from your Facebook & Instagram ads</li>
                             <li>• Build retargeting audiences for abandoned carts</li>
                             <li>• Create lookalike audiences to find new customers</li>

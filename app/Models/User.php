@@ -3,7 +3,10 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -16,7 +19,7 @@ use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, HasPushSubscriptions, Notifiable, SoftDeletes;
 
     /**
@@ -30,6 +33,7 @@ class User extends Authenticatable
         'phone',
         'password',
         'role',
+        'sales_source_id',
         'status',
         'locale',
         'host_color',
@@ -152,6 +156,16 @@ class User extends Authenticatable
     public function isCeo(): bool
     {
         return $this->role === 'ceo';
+    }
+
+    /**
+     * Check if user is a Fighter (external media-buyer/affiliate who owns and
+     * runs their own sales funnels; orders route to the internal team tagged
+     * with the fighter's sales-source segment).
+     */
+    public function isFighter(): bool
+    {
+        return $this->role === 'fighter';
     }
 
     /**
@@ -509,6 +523,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the sales-source segment this user is tagged under (used for Fighters).
+     */
+    public function salesSource(): BelongsTo
+    {
+        return $this->belongsTo(SalesSource::class);
+    }
+
+    /**
+     * Get the sales funnels owned by this user (Fighters build & run their own).
+     */
+    public function funnels(): HasMany
+    {
+        return $this->hasMany(Funnel::class);
+    }
+
+    /**
      * Check if user is HR admin (currently same as admin role)
      */
     public function isHrAdmin(): bool
@@ -547,7 +577,7 @@ class User extends Authenticatable
      * Get the direct (L1) downline hosts — users whose active commission
      * profile points to this user as upline.
      */
-    public function directDownlines(): \Illuminate\Database\Eloquent\Builder
+    public function directDownlines(): Builder
     {
         return User::query()
             ->whereHas('commissionProfile', fn ($q) => $q->where('upline_user_id', $this->id));
@@ -557,7 +587,7 @@ class User extends Authenticatable
      * Get the L2 downline hosts — users whose upline is one of this user's
      * direct downlines.
      */
-    public function l2Downlines(): \Illuminate\Database\Eloquent\Builder
+    public function l2Downlines(): Builder
     {
         $directIds = $this->directDownlines()->pluck('users.id');
 

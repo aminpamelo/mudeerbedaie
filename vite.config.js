@@ -35,6 +35,8 @@ export default defineConfig({
                 'resources/js/livehost-pocket/styles/pocket.css',
                 'resources/js/ceo/app.jsx',
                 'resources/js/ceo/styles/ceo.css',
+                'resources/js/fighter/app.jsx',
+                'resources/js/fighter/styles/fighter.css',
             ],
             refresh: true,
         }),

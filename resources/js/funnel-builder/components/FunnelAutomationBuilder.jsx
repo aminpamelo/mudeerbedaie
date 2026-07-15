@@ -52,11 +52,11 @@ const AnimatedEdge = ({
                 style={{
                     ...style,
                     strokeWidth: selected ? 3 : 2,
-                    stroke: selected ? '#3b82f6' : '#94a3b8',
+                    stroke: selected ? '#f97316' : '#94a3b8',
                 }}
             />
             {/* Animated dot along the edge */}
-            <circle r="4" fill="#3b82f6" className="animate-pulse">
+            <circle r="4" fill="#f97316" className="animate-pulse">
                 <animateMotion dur="2s" repeatCount="indefinite" path={edgePath} />
             </circle>
         </>
@@ -93,7 +93,7 @@ const sourceHandleStyle = {
 
 const targetHandleStyle = {
     ...handleStyle,
-    background: '#3b82f6',
+    background: '#f97316',
     top: -6,
 };
 
@@ -127,8 +127,8 @@ const TriggerNode = ({ data, selected, isConnectable }) => (
 );
 
 const ActionNode = ({ data, selected, isConnectable }) => (
-    <div className={`relative px-4 py-4 rounded-xl border-2 bg-gradient-to-br from-blue-50 to-white shadow-lg min-w-[220px] transition-all duration-200 ${
-        selected ? 'border-blue-500 ring-4 ring-blue-100 shadow-blue-200 scale-105' : 'border-blue-300 hover:border-blue-400 hover:shadow-xl'
+    <div className={`relative px-4 py-4 rounded-xl border-2 bg-gradient-to-br from-orange-50 to-white shadow-lg min-w-[220px] transition-all duration-200 ${
+        selected ? 'border-orange-500 ring-4 ring-orange-100 shadow-orange-200 scale-105' : 'border-orange-300 hover:border-orange-400 hover:shadow-xl'
     }`}>
         {/* Target Handle - Top (actions receive input) */}
         <Handle
@@ -137,19 +137,19 @@ const ActionNode = ({ data, selected, isConnectable }) => (
             id="target"
             isConnectable={isConnectable}
             style={targetHandleStyle}
-            className="!bg-blue-500 hover:!bg-blue-600 hover:scale-125 transition-transform"
+            className="!bg-orange-500 hover:!bg-orange-600 hover:scale-125 transition-transform"
         />
         <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-xl shadow-md text-white">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xl shadow-md text-white">
                 {data.icon || '💬'}
             </div>
             <div className="flex-1">
-                <div className="text-xs text-blue-600 font-bold uppercase tracking-wide">Action</div>
+                <div className="text-xs text-orange-600 font-bold uppercase tracking-wide">Action</div>
                 <div className="text-sm font-semibold text-gray-900">{data.label || 'Select Action'}</div>
             </div>
         </div>
         {data.description && (
-            <div className="text-xs text-gray-500 mt-2 border-t border-blue-100 pt-2">{data.description}</div>
+            <div className="text-xs text-gray-500 mt-2 border-t border-orange-100 pt-2">{data.description}</div>
         )}
         {/* Source Handle - Bottom (actions can chain to other actions) */}
         <Handle
@@ -555,7 +555,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                 <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-[60] px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-bounce ${
                     connectionFeedback.type === 'success' ? 'bg-green-500 text-white' :
                     connectionFeedback.type === 'error' ? 'bg-red-500 text-white' :
-                    'bg-blue-500 text-white'
+                    'bg-orange-500 text-white'
                 }`}>
                     {connectionFeedback.type === 'success' && (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -595,7 +595,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                                 setName(e.target.value);
                                 setIsDirty(true);
                             }}
-                            className="text-lg font-semibold text-gray-900 border-0 border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-0 bg-transparent px-1"
+                            className="text-lg font-semibold text-gray-900 border-0 border-b-2 border-transparent hover:border-gray-300 focus:border-orange-500 focus:ring-0 bg-transparent px-1"
                         />
                         {isDirty && (
                             <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
@@ -613,7 +613,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                             {nodes.filter(n => n.type === 'trigger').length} trigger
                         </span>
                         <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
                             {nodes.filter(n => n.type === 'action').length} actions
                         </span>
                         <span className="flex items-center gap-1">
@@ -627,7 +627,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                     <button
                         onClick={() => setShowNodePalette(!showNodePalette)}
                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            showNodePalette ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            showNodePalette ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
                         {showNodePalette ? 'Hide Palette' : 'Show Palette'}
@@ -643,7 +643,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                         disabled={saving}
                         className={`px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2 ${
                             isDirty
-                                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                                ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-md hover:shadow-lg'
                                 : 'bg-gray-200 text-gray-600'
                         }`}
                     >
@@ -695,7 +695,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                         snapGrid={[15, 15]}
                         connectionLineStyle={{
                             strokeWidth: 3,
-                            stroke: '#3b82f6',
+                            stroke: '#f97316',
                             strokeDasharray: '5,5',
                         }}
                         connectionLineType="smoothstep"
@@ -720,7 +720,7 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                             nodeColor={(node) => {
                                 switch (node.type) {
                                     case 'trigger': return '#10b981';
-                                    case 'action': return '#3b82f6';
+                                    case 'action': return '#f97316';
                                     case 'delay': return '#f97316';
                                     case 'condition': return '#f59e0b';
                                     default: return '#6b7280';
@@ -805,7 +805,7 @@ function NodePalette({ onAddNode, steps }) {
 
     const getNodeTypeColor = (type) => {
         switch (type) {
-            case 'action': return 'from-blue-50 to-blue-100 border-blue-200 hover:border-blue-400';
+            case 'action': return 'from-orange-50 to-orange-100 border-orange-200 hover:border-orange-400';
             case 'delay': return 'from-orange-50 to-orange-100 border-orange-200 hover:border-orange-400';
             case 'condition': return 'from-amber-50 to-amber-100 border-amber-200 hover:border-amber-400';
             default: return 'from-gray-50 to-gray-100 border-gray-200 hover:border-gray-400';
@@ -814,7 +814,7 @@ function NodePalette({ onAddNode, steps }) {
 
     const getIconBgColor = (type) => {
         switch (type) {
-            case 'action': return 'bg-gradient-to-br from-blue-400 to-blue-600';
+            case 'action': return 'bg-gradient-to-br from-orange-400 to-orange-600';
             case 'delay': return 'bg-gradient-to-br from-orange-400 to-orange-600';
             case 'condition': return 'bg-gradient-to-br from-amber-400 to-amber-600';
             default: return 'bg-gradient-to-br from-gray-400 to-gray-600';
@@ -826,7 +826,7 @@ function NodePalette({ onAddNode, steps }) {
             {/* Header */}
             <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                     Add Nodes
@@ -839,7 +839,7 @@ function NodePalette({ onAddNode, steps }) {
                         placeholder="Search nodes..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     />
                     <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -855,7 +855,7 @@ function NodePalette({ onAddNode, steps }) {
                         onClick={() => setActiveCategory(key)}
                         className={`flex-1 px-4 py-3 text-sm font-medium transition-all relative ${
                             activeCategory === key
-                                ? 'text-blue-600 bg-blue-50/50'
+                                ? 'text-orange-600 bg-orange-50/50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                         }`}
                     >
@@ -864,7 +864,7 @@ function NodePalette({ onAddNode, steps }) {
                             <span>{cat.label}</span>
                         </span>
                         {activeCategory === key && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600"></div>
                         )}
                     </button>
                 ))}
@@ -905,16 +905,16 @@ function NodePalette({ onAddNode, steps }) {
             </div>
 
             {/* Help Section */}
-            <div className="p-3 border-t border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="p-3 border-t border-gray-100 bg-gradient-to-r from-orange-50 to-orange-50">
                 <div className="flex items-start gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
                     <div>
-                        <p className="text-xs font-medium text-blue-800">How to connect nodes</p>
-                        <p className="text-xs text-blue-600 mt-0.5">
+                        <p className="text-xs font-medium text-orange-800">How to connect nodes</p>
+                        <p className="text-xs text-orange-600 mt-0.5">
                             Click to add a node, then drag from the <span className="font-semibold">green handle</span> at the bottom to the <span className="font-semibold">blue handle</span> at the top of another node.
                         </p>
                     </div>
@@ -1049,7 +1049,7 @@ function EmailActionConfig({ data, onUpdate, triggerType }) {
                             <select
                                 value={data.config?.template_id || ''}
                                 onChange={(e) => handleTemplateSelect(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             >
                                 <option value="">Select a template...</option>
                                 {templates.map((template) => (
@@ -1087,7 +1087,7 @@ function EmailActionConfig({ data, onUpdate, triggerType }) {
                             type="text"
                             value={data.config?.subject || ''}
                             onChange={(e) => onUpdate({ config: { ...data.config, subject: e.target.value } })}
-                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             placeholder={selectedTemplate?.subject || "Email subject with {{contact.name}}"}
                         />
                     </div>
@@ -1121,7 +1121,7 @@ function EmailActionConfig({ data, onUpdate, triggerType }) {
                             href="/admin/funnel-email-templates"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                            className="text-xs text-orange-600 hover:text-orange-800 hover:underline flex items-center gap-1"
                         >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -1152,7 +1152,7 @@ function EmailActionConfig({ data, onUpdate, triggerType }) {
                             type="text"
                             value={data.config?.subject || ''}
                             onChange={(e) => onUpdate({ config: { ...data.config, subject: e.target.value } })}
-                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             placeholder="Email subject with {{contact.name}}"
                         />
                     </div>
@@ -1206,7 +1206,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
     const getTypeColor = () => {
         switch (nodeType) {
             case 'trigger': return 'from-green-500 to-green-600 border-green-400';
-            case 'action': return 'from-blue-500 to-blue-600 border-blue-400';
+            case 'action': return 'from-orange-500 to-orange-600 border-orange-400';
             case 'delay': return 'from-orange-500 to-orange-600 border-orange-400';
             case 'condition': return 'from-amber-500 to-amber-600 border-amber-400';
             default: return 'from-gray-500 to-gray-600 border-gray-400';
@@ -1216,7 +1216,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
     const getTypeBgColor = () => {
         switch (nodeType) {
             case 'trigger': return 'bg-green-50';
-            case 'action': return 'bg-blue-50';
+            case 'action': return 'bg-orange-50';
             case 'delay': return 'bg-orange-50';
             case 'condition': return 'bg-amber-50';
             default: return 'bg-gray-50';
@@ -1269,7 +1269,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                             type="text"
                             value={data.label || ''}
                             onChange={(e) => onUpdate({ label: e.target.value })}
-                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all hover:border-gray-300"
+                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all hover:border-gray-300"
                         />
                     </div>
 
@@ -1282,7 +1282,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                             type="text"
                             value={data.description || ''}
                             onChange={(e) => onUpdate({ description: e.target.value })}
-                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all hover:border-gray-300"
+                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all hover:border-gray-300"
                             placeholder="Optional description"
                         />
                     </div>
@@ -1299,7 +1299,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                     value={data.delay || 1}
                                     onChange={(e) => onUpdate({ delay: parseInt(e.target.value) || 1 })}
                                     min="1"
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
                             <div>
@@ -1309,7 +1309,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                 <select
                                     value={data.unit || 'hours'}
                                     onChange={(e) => onUpdate({ unit: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 >
                                     <option value="minutes">Minutes</option>
                                     <option value="hours">Hours</option>
@@ -1403,7 +1403,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                                         });
                                                     }
                                                 }}
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                             >
                                                 <option value="">Select template...</option>
                                                 {wabaTemplates.map((tpl) => (
@@ -1478,14 +1478,14 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                             )}
 
                             {/* Phone Number Field Info (shown for both providers) */}
-                            <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                            <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
                                 <div className="flex items-start gap-2">
-                                    <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <div className="text-xs text-blue-700">
+                                    <div className="text-xs text-orange-700">
                                         <p className="font-medium mb-1">Phone Number</p>
-                                        <p>The message will be sent to <code className="bg-blue-100 px-1 rounded">{'{{contact.phone}}'}</code> automatically from the order/contact data.</p>
+                                        <p>The message will be sent to <code className="bg-orange-100 px-1 rounded">{'{{contact.phone}}'}</code> automatically from the order/contact data.</p>
                                     </div>
                                 </div>
                             </div>
@@ -1503,7 +1503,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                     type="url"
                                     value={data.config?.url || ''}
                                     onChange={(e) => onUpdate({ config: { ...data.config, url: e.target.value } })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     placeholder="https://..."
                                 />
                             </div>
@@ -1514,7 +1514,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                 <select
                                     value={data.config?.method || 'POST'}
                                     onChange={(e) => onUpdate({ config: { ...data.config, method: e.target.value } })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 >
                                     <option value="POST">POST</option>
                                     <option value="GET">GET</option>
@@ -1533,7 +1533,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                 <select
                                     value={data.field || ''}
                                     onChange={(e) => onUpdate({ field: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 >
                                     <option value="">Select field...</option>
                                     <option value="email">Email</option>
@@ -1549,7 +1549,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                 <select
                                     value={data.operator || 'equals'}
                                     onChange={(e) => onUpdate({ operator: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 >
                                     <option value="equals">Equals</option>
                                     <option value="not_equals">Not Equals</option>
@@ -1568,7 +1568,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                                     type="text"
                                     value={data.value || ''}
                                     onChange={(e) => onUpdate({ value: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     placeholder="Value to compare"
                                 />
                             </div>
@@ -1584,7 +1584,7 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, waba
                             <select
                                 value={data.config?.step_id || ''}
                                 onChange={(e) => onUpdate({ config: { ...data.config, step_id: e.target.value } })}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             >
                                 <option value="">Any step</option>
                                 {steps.map((step) => (

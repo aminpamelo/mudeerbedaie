@@ -162,7 +162,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-48">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
             </div>
         );
     }
@@ -182,7 +182,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
                         onClick={handleToggleAffiliate}
                         disabled={savingSettings}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings?.affiliate_enabled ? 'bg-blue-600' : 'bg-gray-200'
+                            settings?.affiliate_enabled ? 'bg-orange-600' : 'bg-gray-200'
                         } ${savingSettings ? 'opacity-50' : ''}`}
                     >
                         <span
@@ -208,7 +208,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
                                 value={settings.affiliate_custom_url || ''}
                                 onChange={(e) => setSettings({ ...settings, affiliate_custom_url: e.target.value })}
                                 placeholder="https://example.com/landing-page"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             />
                             <button
                                 onClick={async () => {
@@ -225,7 +225,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
                                     }
                                 }}
                                 disabled={savingSettings}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                             >
                                 {savingSettings ? 'Saving...' : 'Save'}
                             </button>
@@ -249,7 +249,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
                                 onClick={() => setActiveSection(section.key)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                                     activeSection === section.key
-                                        ? 'bg-blue-600 text-white'
+                                        ? 'bg-orange-600 text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
@@ -306,7 +306,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
                     <button
                         onClick={handleToggleAffiliate}
                         disabled={savingSettings}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                        className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                     >
                         {savingSettings ? 'Enabling...' : 'Enable Affiliate Program'}
                     </button>
@@ -465,7 +465,7 @@ function CommissionsSection({ commissions, meta, filter, onFilterChange, page, o
         pending: 'bg-yellow-100 text-yellow-800',
         approved: 'bg-green-100 text-green-800',
         rejected: 'bg-red-100 text-red-800',
-        paid: 'bg-blue-100 text-blue-800',
+        paid: 'bg-orange-100 text-orange-800',
     };
 
     const hasPending = commissions.some(c => c.status === 'pending');
@@ -570,7 +570,7 @@ function CommissionsSection({ commissions, meta, filter, onFilterChange, page, o
                                                 {commission.status === 'approved' && (
                                                     <button
                                                         onClick={() => onMarkPaid(commission.id)}
-                                                        className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-xs font-medium"
+                                                        className="px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded text-xs font-medium"
                                                     >
                                                         Mark Paid
                                                     </button>
@@ -686,7 +686,7 @@ function CommissionRulesSection({ settings, onUpdateRule, onSave, saving }) {
                                             <select
                                                 value={rule.commission_type}
                                                 onChange={(e) => onUpdateRule(product.id, 'commission_type', e.target.value)}
-                                                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
                                             >
                                                 <option value="percentage">Percentage (%)</option>
                                                 <option value="fixed">Fixed Amount (RM)</option>
@@ -702,7 +702,7 @@ function CommissionRulesSection({ settings, onUpdateRule, onSave, saving }) {
                                                     value={rule.commission_value || ''}
                                                     onChange={(e) => onUpdateRule(product.id, 'commission_value', e.target.value)}
                                                     placeholder="0"
-                                                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
                                                 />
                                                 <span className="text-sm text-gray-500">
                                                     {rule.commission_type === 'percentage' ? '%' : 'RM'}
@@ -730,7 +730,7 @@ function CommissionRulesSection({ settings, onUpdateRule, onSave, saving }) {
                 <button
                     onClick={onSave}
                     disabled={saving}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                 >
                     {saving ? 'Saving...' : 'Save Commission Rules'}
                 </button>
