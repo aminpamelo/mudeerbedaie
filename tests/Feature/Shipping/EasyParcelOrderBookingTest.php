@@ -240,6 +240,64 @@ it('saves a recipient phone onto the shipping_address JSON column when there are
     expect(data_get($order->fresh()->shipping_address, 'phone'))->toBe('0198887777');
 });
 
+it('resolves the recipient phone from the linked customer when the address row has none', function () {
+    connectEasyParcel();
+
+    $customer = User::factory()->create(['phone' => '0165756060']);
+    $order = ProductOrder::factory()->create(['status' => 'processing', 'customer_id' => $customer->id]);
+    ProductOrderAddress::create([
+        'order_id' => $order->id,
+        'type' => 'shipping',
+        'first_name' => 'Ahmad',
+        'last_name' => 'Amin',
+        'email' => 'ahmad@example.com',
+        'address_line_1' => 'Lot 1697 Lorong hj daud',
+        'city' => 'Kota Bharu',
+        'state' => 'Kelantan',
+        'postal_code' => '15200',
+        'country' => 'Malaysia',
+        'phone' => '',
+    ]);
+
+    $contact = Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order->fresh()])
+        ->get('shippingContact');
+
+    expect($contact['phone_valid'])->toBeTrue()
+        ->and($contact['phone'])->toBe('0165756060');
+});
+
+it('books using the customer phone when the shipping address row has none', function () {
+    connectEasyParcel();
+    fakeEasyParcelApi();
+
+    $customer = User::factory()->create(['phone' => '0165756060']);
+    $order = ProductOrder::factory()->create(['status' => 'processing', 'customer_id' => $customer->id, 'weight_kg' => 1.0]);
+    ProductOrderAddress::create([
+        'order_id' => $order->id,
+        'type' => 'shipping',
+        'first_name' => 'Ahmad',
+        'last_name' => 'Amin',
+        'email' => 'ahmad@example.com',
+        'address_line_1' => 'Lot 1697 Lorong hj daud',
+        'city' => 'Kota Bharu',
+        'state' => 'Kelantan',
+        'postal_code' => '15200',
+        'country' => 'Malaysia',
+        'phone' => '',
+    ]);
+
+    Volt::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test('admin.orders.order-show', ['order' => $order->fresh()])
+        ->set('easyParcelServiceId', 'EP-CS096')
+        ->call('bookEasyParcelShipment');
+
+    expect($order->fresh()->shipping_provider)->toBe('easyparcel');
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/shipment/submit_orders')
+        && data_get($request->data(), 'shipment.0.receiver.phone_number') === '165756060');
+});
+
 it('rejects an invalid recipient phone', function () {
     connectEasyParcel();
 

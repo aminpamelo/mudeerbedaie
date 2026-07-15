@@ -369,8 +369,8 @@ new class extends Component
                 senderCity: $senderDefaults['city'] ?: '',
                 senderState: $senderDefaults['state'] ?: '',
                 senderPostalCode: $senderDefaults['postal_code'] ?: '',
-                receiverName: trim($shippingAddress->first_name.' '.$shippingAddress->last_name),
-                receiverPhone: $shippingAddress->phone ?: '',
+                receiverName: trim($shippingAddress->first_name.' '.$shippingAddress->last_name) ?: $this->order->getCustomerName(),
+                receiverPhone: $this->resolveReceiverPhone(),
                 receiverAddress: trim($shippingAddress->address_line_1.' '.$shippingAddress->address_line_2),
                 receiverCity: $shippingAddress->city ?: '',
                 receiverState: $shippingAddress->state ?: '',
@@ -531,6 +531,32 @@ new class extends Component
     }
 
     /**
+     * The best recipient phone for this order, resolved across every source:
+     * the shipping/JSON address, then the order's own resolver (customer_phone
+     * field, linked customer/user record, billing address). Returns '' when no
+     * usable number (≥9 digits) exists anywhere.
+     */
+    private function resolveReceiverPhone(): string
+    {
+        $address = $this->orderShippingAddress();
+        $candidates = [
+            (string) ($address->phone ?? ''),
+            $this->order->getCustomerPhone(),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $candidate = trim($candidate);
+
+            if ($candidate !== '' && $candidate !== 'No phone provided'
+                && strlen((string) preg_replace('/\D+/', '', $candidate)) >= 9) {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Recipient name + phone for the shipping card, flagging a missing/invalid
      * phone so the admin can fix it before EasyParcel silently rejects the booking.
      *
@@ -544,12 +570,13 @@ new class extends Component
             return null;
         }
 
-        $phone = trim((string) ($address->phone ?? ''));
+        $phone = $this->resolveReceiverPhone();
+        $name = trim(($address->first_name ?? '').' '.($address->last_name ?? ''));
 
         return [
-            'name' => trim(($address->first_name ?? '').' '.($address->last_name ?? '')),
+            'name' => $name !== '' ? $name : $this->order->getCustomerName(),
             'phone' => $phone,
-            'phone_valid' => strlen((string) preg_replace('/\D+/', '', $phone)) >= 9,
+            'phone_valid' => $phone !== '',
         ];
     }
 
@@ -719,8 +746,8 @@ new class extends Component
                 senderCity: $sender['city'] ?: '',
                 senderState: $sender['state'] ?: '',
                 senderPostalCode: $sender['postal_code'] ?: '',
-                receiverName: trim($shippingAddress->first_name.' '.$shippingAddress->last_name),
-                receiverPhone: $shippingAddress->phone ?: '',
+                receiverName: trim($shippingAddress->first_name.' '.$shippingAddress->last_name) ?: $this->order->getCustomerName(),
+                receiverPhone: $this->resolveReceiverPhone(),
                 receiverAddress: trim($shippingAddress->address_line_1.' '.$shippingAddress->address_line_2),
                 receiverCity: $shippingAddress->city ?: '',
                 receiverState: $shippingAddress->state ?: '',
