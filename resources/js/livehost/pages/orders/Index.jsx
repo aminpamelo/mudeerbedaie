@@ -115,7 +115,7 @@ function StatCard({ label, value, icon: Icon, tint = 'default', accent = false }
 }
 
 export default function PlatformOrdersIndex() {
-  const { orders, summary, shops, filters } = usePage().props;
+  const { orders, summary, shops, filters, filterSession } = usePage().props;
 
   const [search, setSearch] = useState(filters?.search ?? '');
   const [shop, setShop] = useState(filters?.shop ?? '');
@@ -180,6 +180,16 @@ export default function PlatformOrdersIndex() {
             </p>
           </div>
         </div>
+
+        {filterSession && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-[#C7D2FE] bg-[#EEF2FF] px-4 py-2.5">
+            <div className="text-[13px] text-[#3730A3]">
+              Showing orders matched to <span className="font-semibold">live session #{filterSession.id}</span>
+              {filterSession.host_name ? ` · ${filterSession.host_name}` : ''} — check its cancelled / refunded orders here.
+            </div>
+            <Link href="/livehost/orders" className="shrink-0 text-[12px] font-medium text-[#4338CA] hover:underline">Clear filter</Link>
+          </div>
+        )}
 
         {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

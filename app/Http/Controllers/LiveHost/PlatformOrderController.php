@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\ProductOrder;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class PlatformOrderController extends Controller
             'shop' => ['nullable', 'integer', 'exists:platform_accounts,id'],
             'status' => ['nullable', 'string', 'max:50'],
             'unmatched_only' => ['nullable', 'boolean'],
+            'session' => ['nullable', 'integer', 'exists:live_sessions,id'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
             'search' => ['nullable', 'string', 'max:200'],
@@ -42,6 +44,10 @@ class PlatformOrderController extends Controller
 
         if ($request->boolean('unmatched_only')) {
             $query->whereNull('matched_live_session_id');
+        }
+
+        if ($session = $request->query('session')) {
+            $query->where('matched_live_session_id', $session);
         }
 
         if ($from = $request->query('date_from')) {
@@ -77,11 +83,24 @@ class PlatformOrderController extends Controller
             ->whereIn('id', ProductOrder::query()->where('source', 'tiktok_shop')->select('platform_account_id'))
             ->get(['id', 'name']);
 
+        $filterSession = null;
+        if ($sessionId = $request->query('session')) {
+            $s = LiveSession::with('liveHost:id,name')->find($sessionId);
+            if ($s) {
+                $filterSession = [
+                    'id' => $s->id,
+                    'host_name' => $s->liveHost?->name,
+                    'started_at' => $s->actual_start_at?->toIso8601String(),
+                ];
+            }
+        }
+
         return Inertia::render('orders/Index', [
             'orders' => $orders,
             'summary' => $summary,
             'shops' => $shops,
-            'filters' => $request->only(['shop', 'status', 'unmatched_only', 'date_from', 'date_to', 'search']),
+            'filters' => $request->only(['shop', 'status', 'unmatched_only', 'session', 'date_from', 'date_to', 'search']),
+            'filterSession' => $filterSession,
         ]);
     }
 }

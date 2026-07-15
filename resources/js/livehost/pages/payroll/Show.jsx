@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronRight, Download, Loader2, Lock, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Download, ExternalLink, Loader2, Lock, RefreshCw, Wallet } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 
@@ -193,8 +193,15 @@ function ItemBreakdown({ item }) {
                   <tbody>
                     {sessions.map((session) => (
                       <tr key={session.id} className="border-t border-[#F0F0F0]">
-                        <td className="px-3 py-1.5 font-mono text-[11px] text-[#0A0A0A]">
-                          #{session.id}
+                        <td className="px-3 py-1.5 font-mono text-[11px]">
+                          <Link
+                            href={`/livehost/orders?session=${session.id}`}
+                            className="inline-flex items-center gap-1 text-[#4338CA] hover:underline"
+                            title="View this session's orders (incl. cancelled / refunded)"
+                          >
+                            #{session.id}
+                            <ExternalLink className="h-3 w-3" strokeWidth={2} />
+                          </Link>
                         </td>
                         <td className="px-3 py-1.5 text-right tabular-nums">
                           {formatMyr(session.gmv_amount)}
