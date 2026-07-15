@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { accountLabel, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 
@@ -1130,6 +1131,17 @@ function RecapModal({ action, defaultWentLive, onClose }) {
   const [uploadError, setUploadError] = useState('');
   const pendingUrlsRef = useRef([]);
 
+  // Render into the Pocket shell rather than inline in the slot card. Past-day
+  // buckets carry `opacity-70`, which creates a stacking context that traps
+  // this fixed overlay: later sibling day-cards paint over it and the whole
+  // modal inherits the 70% opacity, leaving it dimmed, see-through, and with
+  // parts unclickable. The `.pocket-shell` target keeps the pocket CSS tokens
+  // (`--app-bg`, `--accent`…) in scope while escaping that stacking context.
+  const [portalTarget] = useState(() =>
+    (typeof document !== 'undefined' && document.querySelector('.pocket-shell')) ||
+    (typeof document !== 'undefined' ? document.body : null)
+  );
+
   // Lock body scroll while open + close on Escape.
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1291,7 +1303,11 @@ function RecapModal({ action, defaultWentLive, onClose }) {
   const wentLive = recap.data.went_live;
   const errors = recap.errors ?? {};
 
-  return (
+  if (!portalTarget) {
+    return null;
+  }
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-4"
       role="dialog"
@@ -1401,7 +1417,8 @@ function RecapModal({ action, defaultWentLive, onClose }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    portalTarget
   );
 }
 
