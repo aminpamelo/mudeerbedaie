@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreLiveHostPayrollRunRequest;
 use App\Models\LiveHostPayrollItem;
 use App\Models\LiveHostPayrollRun;
+use App\Models\ProductOrder;
 use App\Services\LiveHost\LiveHostPayrollService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -128,7 +129,69 @@ class LiveHostPayrollRunController extends Controller
                 'status' => $run->status,
             ],
             'item' => $this->shapeItem($item),
+            'orders' => $this->ordersForItem($item),
         ]);
+    }
+
+    /**
+     * The TikTok-Shop orders attributed to this host's live sessions in the run —
+     * a status summary (incl. refunded/cancelled) plus a capped, filterable list.
+     *
+     * @return array<string, mixed>
+     */
+    private function ordersForItem(LiveHostPayrollItem $item): array
+    {
+        $sessionIds = collect($item->calculation_breakdown_json['sessions'] ?? [])
+            ->pluck('id')->filter()->values();
+
+        $empty = ['summary' => ['total' => 0, 'total_amount' => 0.0, 'refunded_count' => 0, 'refunded_amount' => 0.0, 'by_status' => [], 'shown' => 0], 'list' => []];
+
+        if ($sessionIds->isEmpty()) {
+            return $empty;
+        }
+
+        $base = ProductOrder::query()
+            ->where('source', 'tiktok_shop')
+            ->whereIn('matched_live_session_id', $sessionIds->all());
+
+        $refundStatuses = ['refunded', 'cancelled', 'returned'];
+        $limit = 300;
+
+        $byStatus = (clone $base)
+            ->selectRaw('status, count(*) as c, sum(total_amount) as amt')
+            ->groupBy('status')
+            ->get()
+            ->map(fn ($r) => ['status' => (string) $r->status, 'count' => (int) $r->c, 'amount' => round((float) $r->amt, 2)])
+            ->values();
+
+        $total = (int) $byStatus->sum('count');
+
+        $list = (clone $base)
+            ->with('platformAccount:id,name')
+            ->orderByDesc('paid_time')
+            ->limit($limit)
+            ->get(['id', 'order_number', 'platform_order_id', 'platform_account_id', 'matched_live_session_id', 'total_amount', 'status', 'paid_time'])
+            ->map(fn (ProductOrder $o) => [
+                'id' => $o->id,
+                'ref' => $o->platform_order_id ?? $o->order_number,
+                'shop' => $o->platformAccount?->name,
+                'session_id' => $o->matched_live_session_id,
+                'total' => round((float) $o->total_amount, 2),
+                'status' => $o->status,
+                'paid_at' => $o->paid_time?->toIso8601String(),
+            ])->values();
+
+        return [
+            'summary' => [
+                'total' => $total,
+                'total_amount' => round((float) $byStatus->sum('amount'), 2),
+                'refunded_count' => (int) $byStatus->whereIn('status', $refundStatuses)->sum('count'),
+                'refunded_amount' => round((float) $byStatus->whereIn('status', $refundStatuses)->sum('amount'), 2),
+                'by_status' => $byStatus,
+                'shown' => min($limit, $total),
+            ],
+            'list' => $list,
+        ];
     }
 
     public function recompute(Request $request, LiveHostPayrollRun $run): RedirectResponse

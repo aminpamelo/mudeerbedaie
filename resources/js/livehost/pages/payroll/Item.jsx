@@ -1,7 +1,28 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, ExternalLink, ShoppingBag, Wallet } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import PayrollBreakdownBody from '@/livehost/components/payroll/PayrollBreakdown';
+
+const ORDER_STATUS_STYLE = {
+  completed: 'bg-[#DCFCE7] text-[#166534]',
+  delivered: 'bg-[#DCFCE7] text-[#166534]',
+  shipped: 'bg-[#DBEAFE] text-[#1E40AF]',
+  processing: 'bg-[#FEF3C7] text-[#92400E]',
+  confirmed: 'bg-[#F5F5F5] text-[#525252]',
+  cancelled: 'bg-[#FEE2E2] text-[#991B1B]',
+  refunded: 'bg-[#FEE2E2] text-[#991B1B]',
+  returned: 'bg-[#FEE2E2] text-[#991B1B]',
+};
+const orderStatusCls = (s) => ORDER_STATUS_STYLE[s] ?? 'bg-[#F5F5F5] text-[#525252]';
+
+function shortDate(iso) {
+  if (!iso) {
+    return '—';
+  }
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 const STATUS_STYLES = {
   draft: 'bg-[#F5F5F5] text-[#737373] border-[#E5E5E5]',
@@ -55,7 +76,7 @@ function Tile({ label, value, strong = false, accent }) {
 }
 
 export default function PayrollItem() {
-  const { run, item } = usePage().props;
+  const { run, item, orders } = usePage().props;
   const statusCls = STATUS_STYLES[run.status] ?? STATUS_STYLES.draft;
 
   return (
@@ -110,8 +131,127 @@ export default function PayrollItem() {
         <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <PayrollBreakdownBody item={item} />
         </div>
+
+        {/* Orders from this host's lives */}
+        <OrdersSection orders={orders} />
       </div>
     </>
+  );
+}
+
+function OrdersSection({ orders }) {
+  const summary = orders?.summary ?? { total: 0, total_amount: 0, refunded_count: 0, refunded_amount: 0, by_status: [], shown: 0 };
+  const list = orders?.list ?? [];
+  const [status, setStatus] = useState('all');
+  const [session, setSession] = useState('all');
+
+  const sessionIds = useMemo(
+    () => [...new Set(list.map((o) => o.session_id).filter(Boolean))].sort((a, b) => a - b),
+    [list],
+  );
+
+  const visible = useMemo(
+    () => list.filter((o) => (status === 'all' || o.status === status) && (session === 'all' || String(o.session_id) === session)),
+    [list, status, session],
+  );
+
+  return (
+    <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#F5F5F5] text-[#525252]"><ShoppingBag className="h-4 w-4" strokeWidth={2} /></span>
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">Orders from lives</h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">TikTok Shop orders matched to this host's sessions this run</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary tiles */}
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile label="Total orders" value={summary.total.toLocaleString()} />
+        <Tile label="Total value" value={rm(summary.total_amount)} />
+        <Tile label="Refunded / cancelled" value={summary.refunded_count.toLocaleString()} accent="warn" />
+        <Tile label="Refunded value" value={rm(summary.refunded_amount)} accent="warn" />
+      </div>
+
+      {summary.total === 0 ? (
+        <div className="rounded-[12px] border border-dashed border-[#E5E5E5] px-4 py-8 text-center text-[12.5px] text-[#A3A3A3]">
+          No orders matched to this host's sessions.
+        </div>
+      ) : (
+        <>
+          {/* Filters */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1">
+              <FilterChip label={`All (${summary.total})`} active={status === 'all'} onClick={() => setStatus('all')} />
+              {summary.by_status.map((s) => (
+                <FilterChip key={s.status} label={`${s.status} (${s.count})`} active={status === s.status} onClick={() => setStatus(s.status)} tone={orderStatusCls(s.status)} />
+              ))}
+            </div>
+            {sessionIds.length > 1 && (
+              <select value={session} onChange={(e) => setSession(e.target.value)} className="ml-auto h-8 rounded-lg border border-[#EAEAEA] bg-white px-2 text-[12px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20">
+                <option value="all">All sessions</option>
+                {sessionIds.map((sid) => <option key={sid} value={String(sid)}>Session #{sid}</option>)}
+              </select>
+            )}
+          </div>
+
+          <div className="overflow-hidden rounded-[12px] border border-[#EAEAEA]">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="bg-[#F5F5F5] text-[10.5px] font-medium text-[#737373]">
+                  <th className="px-3 py-2 text-left">Order</th>
+                  <th className="px-3 py-2 text-left">Shop</th>
+                  <th className="px-3 py-2 text-right">Session</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-right">Paid</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((o) => (
+                  <tr key={o.id} className="border-t border-[#F0F0F0]">
+                    <td className="px-3 py-1.5 font-mono text-[11px] text-[#0A0A0A]">{o.ref ?? `#${o.id}`}</td>
+                    <td className="px-3 py-1.5 text-[#525252]">{o.shop ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-right">
+                      <Link href={`/livehost/orders?session=${o.session_id}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 font-mono text-[11px] text-[#4338CA] hover:underline">
+                        #{o.session_id}<ExternalLink className="h-2.5 w-2.5" strokeWidth={2} />
+                      </Link>
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{rm(o.total)}</td>
+                    <td className="px-3 py-1.5">
+                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${orderStatusCls(o.status)}`}>{o.status}</span>
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-[#737373]">{shortDate(o.paid_at)}</td>
+                  </tr>
+                ))}
+                {visible.length === 0 && (
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-[12px] text-[#A3A3A3]">No orders match this filter.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {summary.shown < summary.total && (
+            <p className="mt-2 text-[11px] text-[#A3A3A3]">Showing the latest {summary.shown} of {summary.total} orders. Use the per-session filter or open Platform Orders for the full list.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FilterChip({ label, active, onClick, tone }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors ${
+        active ? 'bg-[#0A0A0A] text-white' : `${tone ?? 'bg-[#F5F5F5] text-[#525252]'} hover:opacity-80`
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
