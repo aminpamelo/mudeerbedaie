@@ -259,6 +259,63 @@ it('shows a fighter only the orders attributed to their segment', function () {
         );
 });
 
+it('lets a fighter create, edit and delete their own product', function () {
+    $f = fighter();
+
+    // Create
+    $this->actingAs($f)->post('/fighter/products', [
+        'name' => 'My Special Kit',
+        'base_price' => 120,
+        'status' => 'active',
+        'description' => 'Nice.',
+    ])->assertRedirect();
+
+    $product = Product::query()->where('created_by_fighter_id', $f->id)->firstOrFail();
+    expect($product->name)->toBe('My Special Kit')
+        ->and($product->base_price)->toEqual('120.00')
+        ->and($product->sku)->toStartWith('FGT-');
+
+    // Edit
+    $this->actingAs($f)->put("/fighter/products/{$product->id}", [
+        'name' => 'Renamed Kit',
+        'base_price' => 99,
+        'status' => 'inactive',
+    ])->assertRedirect();
+    expect($product->fresh()->name)->toBe('Renamed Kit')
+        ->and($product->fresh()->status)->toBe('inactive');
+
+    // Delete (no orders → hard delete)
+    $this->actingAs($f)->delete("/fighter/products/{$product->id}")->assertRedirect();
+    expect(Product::query()->whereKey($product->id)->exists())->toBeFalse();
+});
+
+it('stops a fighter editing HQ or another fighter\'s product', function () {
+    $a = fighter();
+    $b = fighter();
+    $hq = Product::factory()->create(['status' => 'active']); // created_by_fighter_id null
+    $bProduct = Product::factory()->create(['status' => 'active', 'created_by_fighter_id' => $b->id]);
+
+    $this->actingAs($a)->put("/fighter/products/{$hq->id}", ['name' => 'x', 'base_price' => 1, 'status' => 'active'])->assertForbidden();
+    $this->actingAs($a)->put("/fighter/products/{$bProduct->id}", ['name' => 'x', 'base_price' => 1, 'status' => 'active'])->assertForbidden();
+    $this->actingAs($a)->delete("/fighter/products/{$bProduct->id}")->assertForbidden();
+
+    expect($hq->fresh()->name)->not->toBe('x');
+});
+
+it('shows a fighter only HQ + their own products in the catalog', function () {
+    $a = fighter();
+    $b = fighter();
+    $hq = Product::factory()->create(['status' => 'active', 'name' => 'HQ Item']);
+    $mine = Product::factory()->create(['status' => 'active', 'name' => 'A Item', 'created_by_fighter_id' => $a->id]);
+    Product::factory()->create(['status' => 'active', 'name' => 'B Item', 'created_by_fighter_id' => $b->id]);
+
+    $names = collect($this->actingAs($a)->getJson('/fighter/catalog')->json('products'))->pluck('name');
+
+    expect($names)->toContain('HQ Item')
+        ->and($names)->toContain('A Item')
+        ->and($names)->not->toContain('B Item');
+});
+
 it('lets a fighter favourite a product and returns it pinned in the catalog', function () {
     $f = fighter();
     $product = Product::factory()->create(['status' => 'active']);

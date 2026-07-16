@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, TrendingUp, ShoppingBag, Bell, LogOut, Menu, X, Swords } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, ShoppingBag, Package, Bell, LogOut, Menu, X, Swords } from 'lucide-react';
 import { cn, initialsFrom } from '@/fighter/lib/utils';
 import NotificationBell from '@/fighter/components/NotificationBell';
 import CreateFunnelButton from '@/fighter/components/CreateFunnelButton';
@@ -9,6 +9,7 @@ const NAV = [
   { label: 'Dashboard', href: '/fighter', icon: LayoutDashboard, exact: true },
   { label: 'Performance', href: '/fighter/performance', icon: TrendingUp },
   { label: 'Orders', href: '/fighter/orders', icon: ShoppingBag },
+  { label: 'Products', href: '/fighter/products', icon: Package },
   { label: 'Notifications', href: '/fighter/notifications', icon: Bell },
 ];
 

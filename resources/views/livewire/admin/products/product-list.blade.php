@@ -26,7 +26,7 @@ new class extends Component
 
         return [
             'products' => Product::query()
-                ->with(['category', 'stockLevels', 'media'])
+                ->with(['category', 'stockLevels', 'media', 'creatorFighter'])
                 ->when($this->search, fn ($query) => $query->search($this->search))
                 ->when($this->categoryFilter, fn ($query) => $query->where('category_id', $this->categoryFilter))
                 ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
@@ -212,7 +212,12 @@ new class extends Component
                                            class="block truncate font-medium text-gray-900 transition-colors hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400">
                                             {{ $product->name }}
                                         </a>
-                                        @if($product->short_description)
+                                        @if($product->creatorFighter)
+                                            <span class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700 ring-1 ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-300">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                                                Fighter: {{ $product->creatorFighter->name }}
+                                            </span>
+                                        @elseif($product->short_description)
                                             <div class="truncate text-sm text-gray-500 dark:text-gray-400">{{ $product->short_description }}</div>
                                         @endif
                                     </div>
