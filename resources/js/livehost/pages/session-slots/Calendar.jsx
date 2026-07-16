@@ -644,12 +644,17 @@ export default function SessionSlotsCalendar() {
     const primaryShop = isReal
       ? (laneAccount.shops?.find((s) => s.isPrimary) ?? laneAccount.shops?.[0])
       : null;
+    // If this account is under an active override for the date, its slots come
+    // from the override — hand them to the form so the clicked slot is selectable
+    // and pre-selected (the normal weekly slots don't include override slots).
+    const activeOverride = isReal ? overrideFor(laneAccount.id, addDays(weekStart, dow)) : null;
     setCreatePrefill({
       dayOfWeek: dow,
       timeSlotId: timeSlot?.id ?? null,
       liveAccountId: isReal ? laneAccount.id : null,
       platformAccountId: timeSlot?.platformAccountId ?? primaryShop?.id ?? null,
       scheduleDate: addDays(weekStart, dow),
+      overrideTimeSlots: activeOverride ? activeOverride.slots : null,
     });
     setCreateOpen(true);
   };

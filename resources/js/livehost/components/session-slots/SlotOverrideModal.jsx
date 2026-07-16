@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
+import { CalendarClock, GripVertical, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 
 const DAYS = [
@@ -117,6 +118,24 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], onClos
   const removeSlot = (k) => setForm((f) => ({ ...f, slots: f.slots.filter((s) => s._k !== k) }));
   const addSlotForDay = (day) => setForm((f) => ({ ...f, slots: [...f.slots, { _k: uid(), day_of_week: day, start_time: '', end_time: '' }] }));
 
+  // Drag to reorder time rows within a day (each day is its own drop list).
+  const onDragEnd = (result) => {
+    const { source, destination } = result;
+    if (!destination || source.droppableId !== destination.droppableId || source.index === destination.index) {
+      return;
+    }
+    const day = Number(source.droppableId.replace('day-', ''));
+    setForm((f) => {
+      const dayKeys = f.slots.filter((s) => s.day_of_week === day).map((s) => s._k);
+      const [movedKey] = dayKeys.splice(source.index, 1);
+      dayKeys.splice(destination.index, 0, movedKey);
+      const byKey = new Map(f.slots.filter((s) => s.day_of_week === day).map((s) => [s._k, s]));
+      let di = 0;
+      const slots = f.slots.map((s) => (s.day_of_week === day ? byKey.get(dayKeys[di++]) : s));
+      return { ...f, slots };
+    });
+  };
+
   const canSave = form && form.effective_from && form.slots.length > 0
     && form.slots.every((s) => s.start_time && s.end_time && s.end_time > s.start_time) && !busy;
 
@@ -209,30 +228,55 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], onClos
                     </button>
                   )}
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  {DAYS.map((d) => {
-                    const daySlots = form.slots.filter((s) => s.day_of_week === d.v);
-                    return (
-                      <div key={d.v} className="flex gap-2.5 rounded-lg border border-[#F0F0F0] bg-[#FCFCFC] px-2.5 py-2">
-                        <div className="w-9 shrink-0 pt-1.5 text-[11.5px] font-semibold text-[#525252]">{d.label}</div>
-                        <div className="flex flex-1 flex-col gap-1.5">
-                          {daySlots.length === 0 && <span className="py-0.5 text-[11px] text-[#C4C4C4]">No slots</span>}
-                          {daySlots.map((s) => (
-                            <div key={s._k} className="flex items-center gap-1.5">
-                              <input type="time" value={s.start_time} onChange={(e) => updateSlot(s._k, { start_time: e.target.value })} className={`${input} flex-1`} />
-                              <span className="text-[#A3A3A3]">–</span>
-                              <input type="time" value={s.end_time} onChange={(e) => updateSlot(s._k, { end_time: e.target.value })} className={`${input} flex-1`} />
-                              <button type="button" onClick={() => removeSlot(s._k)} className="rounded-md p-1.5 text-[#B91C1C] hover:bg-[#FEF2F2]"><Trash2 className="h-3.5 w-3.5" strokeWidth={2} /></button>
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addSlotForDay(d.v)} className="inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[#047857] hover:bg-[#ECFDF5]">
-                            <Plus className="h-3 w-3" strokeWidth={2.5} /> Add time
-                          </button>
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <div className="flex flex-col gap-1.5">
+                    {DAYS.map((d) => {
+                      const daySlots = form.slots.filter((s) => s.day_of_week === d.v);
+                      return (
+                        <div key={d.v} className="flex gap-2.5 rounded-lg border border-[#F0F0F0] bg-[#FCFCFC] px-2.5 py-2">
+                          <div className="w-9 shrink-0 pt-1.5 text-[11.5px] font-semibold text-[#525252]">{d.label}</div>
+                          <div className="flex flex-1 flex-col gap-1.5">
+                            <Droppable droppableId={`day-${d.v}`}>
+                              {(provided) => (
+                                <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-1.5">
+                                  {daySlots.map((s, i) => (
+                                    <Draggable key={s._k} draggableId={s._k} index={i}>
+                                      {(dp, snapshot) => (
+                                        <div
+                                          ref={dp.innerRef}
+                                          {...dp.draggableProps}
+                                          className={`flex items-center gap-1 rounded-lg ${snapshot.isDragging ? 'bg-white shadow-md ring-1 ring-[#EAEAEA]' : ''}`}
+                                        >
+                                          <button
+                                            type="button"
+                                            {...dp.dragHandleProps}
+                                            aria-label="Drag to reorder"
+                                            className="cursor-grab touch-none rounded px-0.5 text-[#C4C4C4] hover:text-[#737373] active:cursor-grabbing"
+                                          >
+                                            <GripVertical className="h-4 w-4" strokeWidth={2} />
+                                          </button>
+                                          <input type="time" value={s.start_time} onChange={(e) => updateSlot(s._k, { start_time: e.target.value })} className={`${input} flex-1`} />
+                                          <span className="text-[#A3A3A3]">–</span>
+                                          <input type="time" value={s.end_time} onChange={(e) => updateSlot(s._k, { end_time: e.target.value })} className={`${input} flex-1`} />
+                                          <button type="button" onClick={() => removeSlot(s._k)} className="rounded-md p-1.5 text-[#B91C1C] hover:bg-[#FEF2F2]"><Trash2 className="h-3.5 w-3.5" strokeWidth={2} /></button>
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {provided.placeholder}
+                                </div>
+                              )}
+                            </Droppable>
+                            {daySlots.length === 0 && <span className="py-0.5 text-[11px] text-[#C4C4C4]">No slots</span>}
+                            <button type="button" onClick={() => addSlotForDay(d.v)} className="inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-[#047857] hover:bg-[#ECFDF5]">
+                              <Plus className="h-3 w-3" strokeWidth={2.5} /> Add time
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                </DragDropContext>
                 {errors.slots && <p className="mt-1.5 text-[11px] text-[#B91C1C]">Add at least one valid slot (end after start).</p>}
               </div>
               {errors._ && <p className="text-[11px] text-[#B91C1C]">{errors._[0]}</p>}

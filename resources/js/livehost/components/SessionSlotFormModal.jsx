@@ -295,6 +295,18 @@ export default function SessionSlotFormModal({
     [liveAccounts, form.data.live_account_id]
   );
 
+  // When assigning onto a per-creator slot override, the account's slots for the
+  // selected day come from the override, not the normal weekly slots — so the
+  // clicked override slot is selectable and its time aligns.
+  const timeSlotOptions = useMemo(() => {
+    const override = mode !== 'edit' ? prefill?.overrideTimeSlots : null;
+    if (override?.length) {
+      const day = Number(form.data.day_of_week);
+      return override.filter((ts) => ts.dayOfWeek == null || Number(ts.dayOfWeek) === day);
+    }
+    return timeSlots;
+  }, [mode, prefill?.overrideTimeSlots, form.data.day_of_week, timeSlots]);
+
   const contextLabel = useMemo(() => {
     if (mode === 'edit') {
       return null;
@@ -302,7 +314,7 @@ export default function SessionSlotFormModal({
     const dow = Number.isFinite(prefill?.dayOfWeek) ? prefill.dayOfWeek : null;
     const dayName = dow !== null ? DAY_NAMES_FULL[dow] : null;
     const matchedSlot = prefill?.timeSlotId
-      ? timeSlots.find((ts) => ts.id === prefill.timeSlotId)
+      ? timeSlotOptions.find((ts) => ts.id === prefill.timeSlotId)
       : null;
     if (!dayName && !matchedSlot) {
       return 'Create a new session slot assignment.';
@@ -312,7 +324,7 @@ export default function SessionSlotFormModal({
     }
     const range = `${formatTimeLabel(matchedSlot.startTime)} – ${formatTimeLabel(matchedSlot.endTime)}`;
     return dayName ? `${dayName}, ${range}` : range;
-  }, [mode, prefill?.dayOfWeek, prefill?.timeSlotId, timeSlots]);
+  }, [mode, prefill?.dayOfWeek, prefill?.timeSlotId, timeSlotOptions]);
 
   const submit = (event) => {
     event.preventDefault();
@@ -414,7 +426,7 @@ export default function SessionSlotFormModal({
               required
             >
               <option value="">Select time slot</option>
-              {timeSlots.map((ts) => (
+              {timeSlotOptions.map((ts) => (
                 <option key={ts.id} value={ts.id}>
                   {ts.label}
                 </option>
