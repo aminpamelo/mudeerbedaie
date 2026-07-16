@@ -13,6 +13,7 @@ import {
   Grid3x3,
   LayoutGrid,
   List,
+  Loader2,
   Pencil,
   Plus,
   Radio,
@@ -398,6 +399,35 @@ export default function SessionSlotsCalendar() {
   const [accountPrefs, setAccountPrefs] = useState(() => readAccountPrefs());
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
   const accountPanelRef = useRef(null);
+
+  // "Run auto-verify" over a chosen date range (backlog catch-up).
+  const [runOpen, setRunOpen] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runFrom, setRunFrom] = useState(() => addDays(todayIso(), -7));
+  const [runUntil, setRunUntil] = useState(() => todayIso());
+  const runPanelRef = useRef(null);
+
+  useEffect(() => {
+    if (!runOpen) return undefined;
+    const onClick = (e) => {
+      if (runPanelRef.current && !runPanelRef.current.contains(e.target)) setRunOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [runOpen]);
+
+  const runAutoVerify = () => {
+    router.post(
+      '/livehost/session-slots/auto-verify/run',
+      { from: runFrom, until: runUntil },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onStart: () => setRunning(true),
+        onFinish: () => { setRunning(false); setRunOpen(false); },
+      },
+    );
+  };
 
   // Every account/lane referenced this week, alphabetical (the raw set before the
   // user's custom order / hidden preferences are applied).
@@ -1038,25 +1068,84 @@ export default function SessionSlotsCalendar() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() =>
-              router.post(
-                '/livehost/session-slots/auto-verify',
-                { enabled: !autoVerifyEnabled },
-                { preserveScroll: true, preserveState: true },
-              )
-            }
-            title="When on, a synced TikTok live that overlaps a hosted schedule slot is auto-assigned to that host and auto-verified (GMV locked). You can still unverify/adjust anytime."
-            className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-              autoVerifyEnabled
-                ? 'border-[#10B981]/40 bg-[#ECFDF5] text-[#047857]'
-                : 'border-[#EAEAEA] bg-white text-[#737373] hover:bg-[#F5F5F5]'
-            }`}
-          >
-            <span className={`h-2 w-2 rounded-full ${autoVerifyEnabled ? 'bg-[#10B981]' : 'bg-[#D4D4D4]'}`}></span>
-            Auto-verify {autoVerifyEnabled ? 'On' : 'Off'}
-          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                router.post(
+                  '/livehost/session-slots/auto-verify',
+                  { enabled: !autoVerifyEnabled },
+                  { preserveScroll: true, preserveState: true },
+                )
+              }
+              title="When on, a synced TikTok live that overlaps a hosted schedule slot is auto-assigned to that host and auto-verified (GMV locked). You can still unverify/adjust anytime."
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                autoVerifyEnabled
+                  ? 'border-[#10B981]/40 bg-[#ECFDF5] text-[#047857]'
+                  : 'border-[#EAEAEA] bg-white text-[#737373] hover:bg-[#F5F5F5]'
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${autoVerifyEnabled ? 'bg-[#10B981]' : 'bg-[#D4D4D4]'}`}></span>
+              Auto-verify {autoVerifyEnabled ? 'On' : 'Off'}
+            </button>
+
+            <div className="relative" ref={runPanelRef}>
+              <button
+                type="button"
+                onClick={() => setRunOpen((o) => !o)}
+                title="Run auto-verify once over a chosen date range — assigns + verifies matched lives even when the toggle is off."
+                className="inline-flex items-center gap-1 rounded-full border border-[#EAEAEA] bg-white px-2.5 py-1 text-[11px] font-medium text-[#525252] transition-colors hover:bg-[#F5F5F5]"
+              >
+                <Sparkles className="h-3 w-3" strokeWidth={2} />
+                Run…
+              </button>
+
+              {runOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-[#EAEAEA] bg-white p-3 text-left shadow-lg">
+                  <div className="text-[11px] font-semibold text-[#0A0A0A]">Run auto-verify for a range</div>
+                  <p className="mt-0.5 text-[10.5px] leading-snug text-[#737373]">
+                    Assigns + verifies matched TikTok lives from → until. Works even when the toggle is off.
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-[#737373]">
+                      From
+                      <input
+                        type="date"
+                        value={runFrom}
+                        max={runUntil}
+                        onChange={(e) => setRunFrom(e.target.value)}
+                        className="mt-1 h-8 w-full rounded-lg border border-[#EAEAEA] bg-white px-2 text-[12px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                      />
+                    </label>
+                    <label className="text-[10px] font-medium uppercase tracking-wide text-[#737373]">
+                      Until
+                      <input
+                        type="date"
+                        value={runUntil}
+                        min={runFrom}
+                        max={todayIso()}
+                        onChange={(e) => setRunUntil(e.target.value)}
+                        className="mt-1 h-8 w-full rounded-lg border border-[#EAEAEA] bg-white px-2 text-[12px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={runAutoVerify}
+                    disabled={running || !runFrom || !runUntil}
+                    className="mt-2.5 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-[#10B981] text-[12px] font-semibold text-white transition-colors hover:bg-[#059669] disabled:opacity-40"
+                  >
+                    {running ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {running ? 'Running…' : 'Run auto-verify'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Unregistered-creator guide — these lives can't be assigned until the

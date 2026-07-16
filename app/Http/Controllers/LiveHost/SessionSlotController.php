@@ -15,6 +15,7 @@ use App\Models\LiveTimeSlotOverride;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
+use App\Services\LiveHost\AutoVerifyService;
 use App\Services\LiveHost\SuggestedSlotFinder;
 use App\Services\SettingsService;
 use Carbon\CarbonImmutable;
@@ -229,6 +230,41 @@ class SessionSlotController extends Controller
         );
 
         return back()->with('success', $enabled ? 'Auto-verify turned on.' : 'Auto-verify turned off.');
+    }
+
+    /**
+     * Run auto-verify once over a chosen date range (backlog catch-up). Runs
+     * regardless of the on/off setting. Admin / desk PIC only.
+     */
+    public function runAutoVerify(Request $request, AutoVerifyService $autoVerify): RedirectResponse
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'admin_livehost'], true), 403);
+
+        $data = $request->validate([
+            'from' => ['required', 'date'],
+            'until' => ['required', 'date', 'after_or_equal:from'],
+        ]);
+
+        $from = CarbonImmutable::parse($data['from'])->startOfDay();
+        $to = CarbonImmutable::parse($data['until'])->endOfDay();
+
+        if ($from->diffInDays($to) > 92) {
+            return back()->withErrors(['until' => 'Range too large — pick 3 months or less.']);
+        }
+
+        $stats = $autoVerify->run($from, $to);
+
+        return back()->with('success', sprintf(
+            'Auto-verify: %d session%s verified (%d record%s) · %d scanned · %d no-match · %d no-host · %d skipped.',
+            $stats['sessions_verified'],
+            $stats['sessions_verified'] === 1 ? '' : 's',
+            $stats['records_linked'],
+            $stats['records_linked'] === 1 ? '' : 's',
+            $stats['scanned'],
+            $stats['no_match'],
+            $stats['no_host'],
+            $stats['skipped'],
+        ));
     }
 
     public function create(): Response

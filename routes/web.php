@@ -17,6 +17,7 @@ use App\Http\Controllers\Fighter\CatalogController;
 use App\Http\Controllers\Fighter\NotificationController;
 use App\Http\Controllers\Fighter\OrderController;
 use App\Http\Controllers\Fighter\PerformanceController;
+use App\Http\Controllers\Fighter\ProductController;
 use App\Http\Controllers\FunnelEmbedController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LiveHost\CommissionOverviewController;
@@ -439,13 +440,13 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
             ->name('catalog');
         Route::post('catalog/favourites', [CatalogController::class, 'toggleFavourite'])
             ->name('catalog.favourites');
-        Route::get('products', [App\Http\Controllers\Fighter\ProductController::class, 'index'])
+        Route::get('products', [ProductController::class, 'index'])
             ->name('products');
-        Route::post('products', [App\Http\Controllers\Fighter\ProductController::class, 'store'])
+        Route::post('products', [ProductController::class, 'store'])
             ->name('products.store');
-        Route::put('products/{product}', [App\Http\Controllers\Fighter\ProductController::class, 'update'])
+        Route::put('products/{product}', [ProductController::class, 'update'])
             ->name('products.update');
-        Route::delete('products/{product}', [App\Http\Controllers\Fighter\ProductController::class, 'destroy'])
+        Route::delete('products/{product}', [ProductController::class, 'destroy'])
             ->name('products.destroy');
         Route::get('notifications', [NotificationController::class, 'index'])
             ->name('notifications');
@@ -943,6 +944,8 @@ Route::middleware(['auth'])
                 ->name('session-slots.preview');
             Route::post('session-slots/auto-verify', [SessionSlotController::class, 'setAutoVerify'])
                 ->name('session-slots.auto-verify');
+            Route::post('session-slots/auto-verify/run', [SessionSlotController::class, 'runAutoVerify'])
+                ->name('session-slots.auto-verify.run');
             Route::get('session-slots', [SessionSlotController::class, 'calendar'])
                 ->name('session-slots.index');
 
