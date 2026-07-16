@@ -6,7 +6,13 @@ use App\Http\Requests\LiveHost\Concerns\ValidatesCommissionTierShape;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreCommissionTierScheduleRequest extends FormRequest
+/**
+ * Create or update a reusable master commission tier template. The tier ladder
+ * is validated with the exact same structural rules a host schedule uses, so a
+ * template can always be applied cleanly. Platform-agnostic — a template holds
+ * only the ladder; the platform is chosen when it is applied to a host.
+ */
+class StoreCommissionTierTemplateRequest extends FormRequest
 {
     use ValidatesCommissionTierShape;
 
@@ -23,9 +29,8 @@ class StoreCommissionTierScheduleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // The platform is a route parameter ({platform:id}); the controller
-            // uses the route-bound model, so it is intentionally NOT a body field.
-            'effective_from' => ['required', 'date'],
+            'name' => ['required', 'string', 'max:120'],
+            'description' => ['nullable', 'string', 'max:500'],
             'tiers' => ['required', 'array', 'min:1'],
             'tiers.*.tier_number' => ['required', 'integer', 'min:1'],
             'tiers.*.min_gmv_myr' => ['required', 'numeric', 'min:0'],

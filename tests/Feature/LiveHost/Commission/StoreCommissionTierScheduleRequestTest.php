@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Validator;
 
 uses(RefreshDatabase::class);
 
-function validateTierSchedule(array $input): \Illuminate\Validation\Validator
+function validateTierSchedule(array $input): Illuminate\Validation\Validator
 {
     $request = new StoreCommissionTierScheduleRequest;
     $validator = Validator::make($input, $request->rules());
@@ -190,7 +190,7 @@ it('rejects when tiers key is missing', function () {
     expect($validator->errors()->has('tiers'))->toBeTrue();
 });
 
-it('rejects when platform_id is missing', function () {
+it('accepts a body without platform_id (platform comes from the route param)', function () {
     $validator = validateTierSchedule([
         'effective_from' => '2026-04-01',
         'tiers' => [
@@ -198,8 +198,8 @@ it('rejects when platform_id is missing', function () {
         ],
     ]);
 
-    expect($validator->fails())->toBeTrue();
-    expect($validator->errors()->has('platform_id'))->toBeTrue();
+    expect($validator->passes())->toBeTrue();
+    expect($validator->errors()->has('platform_id'))->toBeFalse();
 });
 
 it('rejects when effective_from is missing', function () {

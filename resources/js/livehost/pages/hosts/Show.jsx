@@ -90,6 +90,7 @@ export default function HostShow() {
     platforms,
     uplineCandidates,
     commissionTiers,
+    commissionTierTemplates = [],
     auth,
   } = usePage().props;
   const canManageHosts = Boolean(auth?.permissions?.canManageHosts);
@@ -321,6 +322,7 @@ export default function HostShow() {
             platforms={platforms}
             uplineCandidates={uplineCandidates}
             commissionTiers={commissionTiers}
+            commissionTierTemplates={commissionTierTemplates}
             formatDateOnly={formatDateOnly}
             formatMoney={formatMoney}
             formatPercent={formatPercent}
@@ -494,6 +496,7 @@ function CommissionPanel({
   platforms,
   uplineCandidates,
   commissionTiers,
+  commissionTierTemplates = [],
   formatDateOnly,
   formatMoney,
   formatPercent,
@@ -647,13 +650,19 @@ function CommissionPanel({
     );
   };
 
-  const handleAddPlatformSchedule = (platformId, effectiveFrom) => {
-    return new Promise((resolve, reject) => {
-      router.post(
-        `/livehost/hosts/${host.id}/platforms/${platformId}/tiers`,
-        {
-          effective_from: effectiveFrom,
-          tiers: [
+  const handleAddPlatformSchedule = (platformId, effectiveFrom, templateTiers = null) => {
+    const tiers =
+      Array.isArray(templateTiers) && templateTiers.length > 0
+        ? templateTiers.map((t) => ({
+            tier_number: Number(t.tier_number),
+            min_gmv_myr: Number(t.min_gmv_myr),
+            max_gmv_myr:
+              t.max_gmv_myr === null || t.max_gmv_myr === undefined ? null : Number(t.max_gmv_myr),
+            internal_percent: Number(t.internal_percent),
+            l1_percent: Number(t.l1_percent),
+            l2_percent: Number(t.l2_percent),
+          }))
+        : [
             {
               tier_number: 1,
               min_gmv_myr: 0,
@@ -662,7 +671,14 @@ function CommissionPanel({
               l1_percent: 0,
               l2_percent: 0,
             },
-          ],
+          ];
+
+    return new Promise((resolve, reject) => {
+      router.post(
+        `/livehost/hosts/${host.id}/platforms/${platformId}/tiers`,
+        {
+          effective_from: effectiveFrom,
+          tiers,
         },
         {
           preserveScroll: true,
@@ -738,6 +754,7 @@ function CommissionPanel({
           <AddTierScheduleButton
             platforms={platforms}
             existingGroups={commissionTiers}
+            templates={commissionTierTemplates}
             onAdd={handleAddPlatformSchedule}
           />
         }
@@ -1043,9 +1060,10 @@ function LedgerRow({ label, description, field }) {
   );
 }
 
-function AddTierScheduleButton({ platforms, existingGroups, onAdd }) {
+function AddTierScheduleButton({ platforms, existingGroups, templates = [], onAdd }) {
   const [open, setOpen] = useState(false);
   const [platformId, setPlatformId] = useState('');
+  const [templateId, setTemplateId] = useState('');
   const [effectiveFrom, setEffectiveFrom] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -1061,12 +1079,16 @@ function AddTierScheduleButton({ platforms, existingGroups, onAdd }) {
       setError('Pick a platform and effective date.');
       return;
     }
+    const template = templateId
+      ? (templates || []).find((t) => String(t.id) === String(templateId))
+      : null;
     setBusy(true);
     setError(null);
-    onAdd(Number(platformId), effectiveFrom)
+    onAdd(Number(platformId), effectiveFrom, template?.tiers ?? null)
       .then(() => {
         setOpen(false);
         setPlatformId('');
+        setTemplateId('');
       })
       .catch((err) => setError(err ?? 'Save failed'))
       .finally(() => setBusy(false));
@@ -1106,6 +1128,22 @@ function AddTierScheduleButton({ platforms, existingGroups, onAdd }) {
           </option>
         ))}
       </select>
+      {(templates || []).length > 0 ? (
+        <select
+          value={templateId}
+          onChange={(event) => setTemplateId(event.target.value)}
+          className="h-8 rounded-md border border-[#EAEAEA] bg-white px-2 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+          aria-label="Apply commission template"
+          title="Optionally start from a master template"
+        >
+          <option value="">Blank (1 tier)</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <input
         type="date"
         value={effectiveFrom}

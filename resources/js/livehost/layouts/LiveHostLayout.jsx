@@ -25,6 +25,7 @@ import {
   UserMinus,
   GraduationCap,
   Clapperboard,
+  Layers,
   Menu,
   X,
 } from 'lucide-react';
@@ -68,6 +69,7 @@ const NAV_GROUPS = [
       { key: 'session-data', label: 'Session Data', href: '/livehost/session-data', icon: Database },
       { key: 'orders', label: 'Orders', href: '/livehost/orders', icon: ShoppingBag, countKey: 'unmatchedOrders' },
       { key: 'commission', label: 'Commission', href: '/livehost/commission', icon: DollarSign },
+      { key: 'commission-templates', label: 'Commission Templates', href: '/livehost/commission-templates', icon: Layers },
       { key: 'payroll', label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
       { key: 'tiktok-imports', label: 'TikTok Imports', href: '/livehost/tiktok-imports', icon: FileSpreadsheet },
     ],

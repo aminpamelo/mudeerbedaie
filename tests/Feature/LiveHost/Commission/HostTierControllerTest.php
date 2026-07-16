@@ -28,6 +28,26 @@ function canonicalTiersPayload(int $platformId, string $effectiveFrom = '2026-04
     ];
 }
 
+it('stores a tier schedule when the body omits platform_id (platform comes from the route)', function () {
+    // Regression: the UI sends the platform only in the URL. A stray required
+    // platform_id body rule used to reject every save with "platform id required".
+    actingAs($this->pic)
+        ->post(
+            "/livehost/hosts/{$this->host->id}/platforms/{$this->platform->id}/tiers",
+            [
+                'effective_from' => '2026-04-01',
+                'tiers' => [
+                    ['tier_number' => 1, 'min_gmv_myr' => 0, 'max_gmv_myr' => null, 'internal_percent' => 5, 'l1_percent' => 1, 'l2_percent' => 2],
+                ],
+            ],
+        )
+        ->assertRedirect()
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('success');
+
+    expect(LiveHostPlatformCommissionTier::where('user_id', $this->host->id)->where('platform_id', $this->platform->id)->count())->toBe(1);
+});
+
 it('stores a tier schedule with valid payload', function () {
     actingAs($this->pic)
         ->post(

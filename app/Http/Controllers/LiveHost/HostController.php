@@ -7,7 +7,9 @@ use App\Http\Requests\LiveHost\StoreCommissionTierScheduleRequest;
 use App\Http\Requests\LiveHost\StoreHostRequest;
 use App\Http\Requests\LiveHost\UpdateCommissionTierRequest;
 use App\Http\Requests\LiveHost\UpdateHostRequest;
+use App\Models\LiveAccount;
 use App\Models\LiveHostCommissionProfile;
+use App\Models\LiveHostCommissionTierTemplate;
 use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveHostPlatformCommissionTier;
 use App\Models\LiveSession;
@@ -250,17 +252,17 @@ class HostController extends Controller
                 'platform' => $pa->platform?->slug,
                 'platformName' => $pa->platform?->name ?? $pa->platform?->display_name,
             ]),
-            'liveAccounts' => $host->liveAccounts()->with('shops:id,name')->get()->map(fn (\App\Models\LiveAccount $a) => [
+            'liveAccounts' => $host->liveAccounts()->with('shops:id,name')->get()->map(fn (LiveAccount $a) => [
                 'id' => $a->id,
                 'label' => $a->label,
                 'creatorUserId' => $a->creator_user_id,
                 'shops' => $a->shops->pluck('name')->all(),
             ]),
-            'availableLiveAccounts' => \App\Models\LiveAccount::query()
+            'availableLiveAccounts' => LiveAccount::query()
                 ->whereDoesntHave('hosts', fn ($q) => $q->where('users.id', $host->id))
                 ->orderByRaw('COALESCE(nickname, display_name)')
                 ->get(['id', 'nickname', 'display_name'])
-                ->map(fn (\App\Models\LiveAccount $a) => ['id' => $a->id, 'name' => $a->label]),
+                ->map(fn (LiveAccount $a) => ['id' => $a->id, 'name' => $a->label]),
             'recentSessions' => $recentSessions,
             'stats' => [
                 'totalSessions' => $totalSessions,
@@ -274,6 +276,15 @@ class HostController extends Controller
             'platforms' => $platforms,
             'uplineCandidates' => $uplineCandidates,
             'commissionTiers' => $commissionTiers,
+            'commissionTierTemplates' => LiveHostCommissionTierTemplate::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'tiers'])
+                ->map(fn (LiveHostCommissionTierTemplate $t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'tiers' => $t->tiers ?? [],
+                ])
+                ->all(),
         ]);
     }
 
