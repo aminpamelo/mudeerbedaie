@@ -335,6 +335,66 @@ it('lets a fighter favourite a product and returns it pinned in the catalog', fu
     expect($f->fresh()->favouriteProducts()->count())->toBe(0);
 });
 
+it('records a fighter manual order end-to-end: all details saved, shows in orders + visible to the team', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 20, 'track_quantity' => false, 'name' => 'BC Abjad']);
+
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        'customer_name' => 'Siti Aminah',
+        'customer_phone' => '60198887766',
+        'customer_email' => 'siti@example.com',
+        'customer_address' => 'No 12, Jalan Melati',
+        'customer_postcode' => '15200',
+        'customer_city' => 'Kota Bharu',
+        'customer_state' => 'Kelantan',
+        'payment_method' => 'cod',
+        'payment_status' => 'pending',
+        'shipping_cost' => 5,
+        'items' => [
+            ['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 2, 'unit_price' => 20],
+        ],
+    ])->assertSuccessful();
+
+    $order = ProductOrder::query()->where('source', 'pos')->latest('id')->firstOrFail();
+
+    // 1. Every field we set is stored on the order.
+    expect($order->customer_name)->toBe('Siti Aminah')
+        ->and($order->customer_phone)->toBe('60198887766')
+        ->and($order->guest_email)->toBe('siti@example.com')
+        ->and((float) $order->total_amount)->toEqual(45.0)          // 2×20 + 5 shipping
+        ->and($order->hidden_from_admin)->toBeFalse()
+        ->and($order->sales_source_id)->toBe($f->fresh()->sales_source_id);
+
+    // 2. Structured shipping address (postcode/city/state/address).
+    expect($order->shipping_address)->toMatchArray([
+        'address' => 'No 12, Jalan Melati',
+        'postcode' => '15200',
+        'city' => 'Kota Bharu',
+        'state' => 'Kelantan',
+    ]);
+
+    // 3. The line item is stored with the right product + quantity.
+    expect($order->items()->count())->toBe(1);
+    $item = $order->items()->first();
+    expect($item->product_id)->toBe($product->id)
+        ->and((int) $item->quantity_ordered)->toBe(2)
+        ->and((float) $item->unit_price)->toEqual(20.0)
+        ->and($item->product_name)->toBe('BC Abjad');
+
+    // 4. It appears in the fighter's own Orders list (tagged Manual).
+    $this->actingAs($f)->get('/fighter/orders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('orders.data', 1)
+            ->where('orders.data.0.order_number', $order->order_number)
+            ->where('orders.data.0.source_label', 'Manual')
+            ->where('orders.data.0.total', 45)
+        );
+
+    // 5. It's visible to the internal e-commerce team (admin orders list).
+    expect(ProductOrder::query()->visibleInAdmin()->whereKey($order->id)->exists())->toBeTrue();
+});
+
 it('stores a structured shipping address on a fighter manual order', function () {
     $f = fighter();
     $product = Product::factory()->create(['status' => 'active', 'base_price' => 20, 'track_quantity' => false]);
