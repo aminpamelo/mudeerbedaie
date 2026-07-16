@@ -7,7 +7,6 @@ use App\Http\Requests\LiveHost\StoreLiveSessionGmvAdjustmentRequest;
 use App\Models\LiveHostPayrollRun;
 use App\Models\LiveSession;
 use App\Models\LiveSessionGmvAdjustment;
-use App\Services\LiveHost\CommissionCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -138,18 +137,6 @@ class LiveSessionGmvAdjustmentController extends Controller
      */
     private function recomputeSession(LiveSession $session): void
     {
-        $total = (float) LiveSessionGmvAdjustment::query()
-            ->where('live_session_id', $session->id)
-            ->approved()
-            ->sum('amount_myr');
-
-        $session->gmv_adjustment = $total;
-
-        if ($session->gmv_locked_at !== null) {
-            $session->commission_snapshot_json = app(CommissionCalculator::class)
-                ->snapshot($session, auth()->user());
-        }
-
-        $session->save();
+        $session->recalcCachedGmvAdjustment(auth()->user());
     }
 }

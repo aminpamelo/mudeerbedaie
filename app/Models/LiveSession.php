@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\LiveHost\CommissionCalculator;
 use Carbon\Carbon;
 use Database\Factories\LiveSessionFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -86,6 +87,41 @@ class LiveSession extends Model
     public function gmvAdjustments(): HasMany
     {
         return $this->hasMany(LiveSessionGmvAdjustment::class);
+    }
+
+    /**
+     * Recompute the cached `gmv_adjustment` aggregate from approved
+     * adjustments and, if the session is already verified (gmv_locked_at set),
+     * re-snapshot `commission_snapshot_json` so the audit trail reflects the
+     * new net_gmv. Only `approved` rows contribute.
+     */
+    public function recalcCachedGmvAdjustment(?User $actor = null): void
+    {
+        $this->gmv_adjustment = (float) $this->gmvAdjustments()->approved()->sum('amount_myr');
+
+        if ($this->gmv_locked_at !== null) {
+            $this->commission_snapshot_json = app(CommissionCalculator::class)->snapshot($this, $actor);
+        }
+
+        $this->save();
+    }
+
+    /**
+     * True when a locked payroll run already covers this session's end date.
+     * Locked periods are snapshotted, so their feeding numbers must not drift —
+     * callers use this to skip auto-deductions that would break the contract.
+     */
+    public function isInLockedPayrollPeriod(): bool
+    {
+        if ($this->actual_end_at === null) {
+            return false;
+        }
+
+        return LiveHostPayrollRun::query()
+            ->where('status', 'locked')
+            ->where('period_start', '<=', $this->actual_end_at)
+            ->where('period_end', '>=', $this->actual_end_at)
+            ->exists();
     }
 
     public function liveSchedule(): BelongsTo

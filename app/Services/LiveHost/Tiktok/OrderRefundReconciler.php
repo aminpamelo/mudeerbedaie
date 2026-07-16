@@ -4,35 +4,35 @@ declare(strict_types=1);
 
 namespace App\Services\LiveHost\Tiktok;
 
+use App\Models\LiveSession;
 use App\Models\LiveSessionGmvAdjustment;
 use App\Models\ProductOrder;
 use App\Models\TiktokReportImport;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class OrderRefundReconciler
 {
     /**
      * Scan tiktok_shop ProductOrders within the import's period that are
-     * refunded or cancelled and matched to a live session, then propose a
-     * negative LiveSessionGmvAdjustment for each.
+     * refunded or cancelled and matched to a live session, then record an
+     * auto-approved negative LiveSessionGmvAdjustment for each.
      *
      * Trusts the pre-tagged `matched_live_session_id` (populated by the
      * sync hook in TikTokOrderSyncService and the backfill command). The
      * matcher uses "most recently started session wins" semantics; this
      * is looser than the strict-no-multi-match policy of the legacy xlsx
-     * path, but acceptable here because PIC must approve every proposal.
+     * path, but acceptable here.
      *
-     * Proposed adjustments do NOT feed the session's cached gmv_adjustment
-     * aggregate until a PIC approves them
-     * (see LiveSessionGmvAdjustmentController::approve).
+     * Policy (2026-07): refund/cancel adjustments are auto-approved so they
+     * deduct from the session's Net GMV immediately, without PIC sign-off.
+     * Sessions inside a locked payroll period are skipped — those numbers are
+     * frozen and must not drift.
      *
-     * @return array{proposed_count: int, skipped_count: int}
+     * @return array{applied_count: int, skipped_count: int}
      */
     public function reconcile(TiktokReportImport $import): array
     {
-        $proposed = 0;
-        $skipped = 0;
-
         $periodStart = $import->period_start->copy()->startOfDay();
         $periodEnd = $import->period_end->copy()->endOfDay();
 
@@ -49,8 +49,33 @@ class OrderRefundReconciler
             })
             ->get();
 
+        return $this->applyForOrders($orders);
+    }
+
+    /**
+     * Apply auto-approved refund deductions for a collection of ProductOrders,
+     * recomputing each affected session's cached gmv_adjustment. Idempotent —
+     * an order that already has an auto-adjustment (any status) is left alone.
+     *
+     * @param  Collection<int, ProductOrder>  $orders
+     * @return array{applied_count: int, skipped_count: int}
+     */
+    public function applyForOrders($orders): array
+    {
+        $applied = 0;
+        $skipped = 0;
+        $touchedSessionIds = [];
+
         foreach ($orders as $order) {
-            if ($this->alreadyProposed($order)) {
+            if ($this->alreadyRecorded($order)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $session = LiveSession::find($order->matched_live_session_id);
+
+            if ($session === null || $session->isInLockedPayrollPeriod()) {
                 $skipped++;
 
                 continue;
@@ -69,17 +94,22 @@ class OrderRefundReconciler
                     'live_session_id' => $order->matched_live_session_id,
                     'amount_myr' => -1 * $refundAmount,
                     'reason' => "Auto: Order #{$this->orderRef($order)} refunded/cancelled (RM {$refundAmount})",
-                    'status' => 'proposed',
+                    'status' => 'approved',
                     'adjusted_by' => null,
                     'adjusted_at' => now(),
                 ]);
             });
 
-            $proposed++;
+            $touchedSessionIds[$order->matched_live_session_id] = $session;
+            $applied++;
+        }
+
+        foreach ($touchedSessionIds as $session) {
+            $session->recalcCachedGmvAdjustment();
         }
 
         return [
-            'proposed_count' => $proposed,
+            'applied_count' => $applied,
             'skipped_count' => $skipped,
         ];
     }
@@ -111,10 +141,10 @@ class OrderRefundReconciler
     }
 
     /**
-     * Idempotency guard — don't create a duplicate proposal if a prior
-     * reconciler run already recorded one for this order.
+     * Idempotency guard — don't create a duplicate adjustment if a prior
+     * reconciler run already recorded one for this order (any status).
      */
-    private function alreadyProposed(ProductOrder $order): bool
+    private function alreadyRecorded(ProductOrder $order): bool
     {
         return LiveSessionGmvAdjustment::query()
             ->where('reason', 'like', "Auto: Order #{$this->orderRef($order)} %")

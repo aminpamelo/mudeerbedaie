@@ -10,6 +10,7 @@ use App\Models\ProductOrder;
 use App\Models\TiktokLiveReport;
 use App\Models\TiktokReportImport;
 use App\Models\User;
+use Database\Seeders\LiveHostCommissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -75,7 +76,7 @@ beforeEach(function () {
 
 it('end-to-end: host entry → PIC verify → payroll draft → TikTok import + apply → reconcile refunds → lock payroll', function () {
     // 1. Seed commission worked example + pick up canonical TikTok platform.
-    $this->seed(\Database\Seeders\LiveHostCommissionSeeder::class);
+    $this->seed(LiveHostCommissionSeeder::class);
     $ahmad = User::where('email', 'ahmad@livehost.com')->firstOrFail();
     $sarah = User::where('email', 'sarah@livehost.com')->firstOrFail();
     $amin = User::where('email', 'amin@livehost.com')->firstOrFail();
@@ -248,25 +249,19 @@ it('end-to-end: host entry → PIC verify → payroll draft → TikTok import + 
     expect((float) $ahmadSession1->gmv_amount)->toEqual(444.23);
     expect($ahmadSession1->gmv_source)->toBe('tiktok_import');
 
-    // 9. Reconciler should have proposed at least one adjustment for the
+    // 9. Reconciler should have AUTO-APPROVED at least one adjustment for the
     //    April refund/cancelled orders, as a side-effect of the Live Analysis
-    //    import in step 6.
-    $proposed = LiveSessionGmvAdjustment::where('status', 'proposed')
+    //    import in step 6 (2026-07 policy: refunds auto-deduct, no PIC sign-off).
+    $autoApproved = LiveSessionGmvAdjustment::where('status', 'approved')
         ->where('reason', 'like', 'Auto: Order #%')
         ->get();
-    expect($proposed)->not->toBeEmpty();
+    expect($autoApproved)->not->toBeEmpty();
 
-    // 10. PIC approves each proposed adjustment via controller POST.
-    foreach ($proposed as $adj) {
-        actingAs($pic)
-            ->post("/livehost/sessions/{$adj->live_session_id}/adjustments/{$adj->id}/approve")
-            ->assertRedirect();
+    // No auto adjustment should be left dangling in `proposed`.
+    expect(LiveSessionGmvAdjustment::where('status', 'proposed')->where('reason', 'like', 'Auto: Order #%')->count())->toBe(0);
 
-        expect($adj->fresh()->status)->toBe('approved');
-    }
-
-    // Approving recomputes the session's cached gmv_adjustment, so the sum
-    // of negative adjustments must show up on at least one session.
+    // The auto-approve already recomputed each session's cached gmv_adjustment,
+    // so the sum of negative adjustments must show up on at least one session.
     $totalNegativeAdj = (float) LiveSession::query()
         ->whereIn('live_host_id', [$ahmad->id, $sarah->id, $amin->id])
         ->sum('gmv_adjustment');

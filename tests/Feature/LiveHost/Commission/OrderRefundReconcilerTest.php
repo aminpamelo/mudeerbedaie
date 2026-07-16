@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveHostPayrollRun;
 use App\Models\LiveSession;
 use App\Models\LiveSessionGmvAdjustment;
 use App\Models\PlatformAccount;
@@ -8,6 +9,7 @@ use App\Models\ProductOrderPayment;
 use App\Models\TiktokReportImport;
 use App\Models\User;
 use App\Services\LiveHost\Tiktok\OrderRefundReconciler;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -36,7 +38,7 @@ function makeOrderImport(User $pic, PlatformAccount $account): TiktokReportImpor
  * point in time. Tied to the supplied platform account so the reconciler's
  * platform-scope filter accepts matches against it.
  */
-function makeSessionCovering(\Carbon\Carbon $orderedAt, PlatformAccount $account, array $overrides = []): LiveSession
+function makeSessionCovering(Carbon $orderedAt, PlatformAccount $account, array $overrides = []): LiveSession
 {
     return LiveSession::factory()->create(array_merge([
         'platform_account_id' => $account->id,
@@ -55,8 +57,8 @@ beforeEach(function () {
     $this->account = PlatformAccount::factory()->create();
 });
 
-it('proposes a negative adjustment for orders with refunded payments', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+it('auto-approves a negative adjustment for orders with refunded payments', function () {
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = makeSessionCovering($paidAt, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
 
@@ -81,23 +83,23 @@ it('proposes a negative adjustment for orders with refunded payments', function 
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(1);
+    expect($result['applied_count'])->toBe(1);
     expect($result['skipped_count'])->toBe(0);
 
     $adjustment = LiveSessionGmvAdjustment::where('live_session_id', $session->id)->first();
     expect($adjustment)->not->toBeNull();
     expect((float) $adjustment->amount_myr)->toBe(-120.0);
-    expect($adjustment->status)->toBe('proposed');
+    expect($adjustment->status)->toBe('approved');
     expect($adjustment->adjusted_by)->toBeNull();
     expect($adjustment->reason)->toContain('ORDER-REFUND-1');
 
-    // Proposed row must NOT feed the session's cached gmv_adjustment.
+    // Approved row immediately feeds the session's cached gmv_adjustment.
     $session->refresh();
-    expect((float) $session->gmv_adjustment)->toBe(0.0);
+    expect((float) $session->gmv_adjustment)->toBe(-120.0);
 });
 
-it('proposes full refund for cancelled orders without explicit payment refund', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+it('auto-approves a full refund for cancelled orders without explicit payment refund', function () {
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = makeSessionCovering($paidAt, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
 
@@ -114,16 +116,54 @@ it('proposes full refund for cancelled orders without explicit payment refund', 
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(1);
+    expect($result['applied_count'])->toBe(1);
 
     $adjustment = LiveSessionGmvAdjustment::where('live_session_id', $session->id)->first();
     expect((float) $adjustment->amount_myr)->toBe(-150.0);
-    expect($adjustment->status)->toBe('proposed');
+    expect($adjustment->status)->toBe('approved');
+
+    // Net GMV = gross (500) − refund (150) = 350.
+    $session->refresh();
+    expect((float) $session->gmv_adjustment)->toBe(-150.0);
+});
+
+it('skips a session inside a locked payroll period', function () {
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
+    $session = makeSessionCovering($paidAt, $this->account);
+    $import = makeOrderImport($this->pic, $this->account);
+
+    LiveHostPayrollRun::create([
+        'period_start' => '2026-04-01',
+        'period_end' => '2026-04-30',
+        'cutoff_date' => '2026-04-30',
+        'status' => 'locked',
+        'locked_at' => now(),
+        'locked_by' => $this->pic->id,
+    ]);
+
+    ProductOrder::factory()->create([
+        'source' => 'tiktok_shop',
+        'platform_account_id' => $this->account->id,
+        'matched_live_session_id' => $session->id,
+        'platform_order_id' => 'ORDER-LOCKED-1',
+        'status' => 'refunded',
+        'paid_time' => $paidAt,
+        'total_amount' => 200,
+    ]);
+
+    $result = app(OrderRefundReconciler::class)->reconcile($import);
+
+    expect($result['applied_count'])->toBe(0);
+    expect($result['skipped_count'])->toBe(1);
+    expect(LiveSessionGmvAdjustment::count())->toBe(0);
+
+    $session->refresh();
+    expect((float) $session->gmv_adjustment)->toBe(0.0);
 });
 
 it('uses cancelled_at to scope an order whose paid_time falls outside the import period', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-03-20 09:00:00'); // before period
-    $cancelledAt = \Carbon\Carbon::parse('2026-04-05 12:00:00'); // inside period
+    $paidAt = Carbon::parse('2026-03-20 09:00:00'); // before period
+    $cancelledAt = Carbon::parse('2026-04-05 12:00:00'); // inside period
 
     $session = makeSessionCovering($paidAt, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
@@ -141,11 +181,11 @@ it('uses cancelled_at to scope an order whose paid_time falls outside the import
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(1);
+    expect($result['applied_count'])->toBe(1);
 });
 
 it('skips orders without a matched_live_session_id', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $import = makeOrderImport($this->pic, $this->account);
 
     ProductOrder::factory()->create([
@@ -160,12 +200,12 @@ it('skips orders without a matched_live_session_id', function () {
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(0);
+    expect($result['applied_count'])->toBe(0);
     expect(LiveSessionGmvAdjustment::count())->toBe(0);
 });
 
 it('skips orders outside the import period (paid_time and cancelled_at both outside)', function () {
-    $outside = \Carbon\Carbon::parse('2026-05-15 14:30:00');
+    $outside = Carbon::parse('2026-05-15 14:30:00');
     $session = makeSessionCovering($outside, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
 
@@ -181,12 +221,12 @@ it('skips orders outside the import period (paid_time and cancelled_at both outs
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(0);
+    expect($result['applied_count'])->toBe(0);
     expect(LiveSessionGmvAdjustment::count())->toBe(0);
 });
 
 it('ignores orders from a different platform_account', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $otherAccount = PlatformAccount::factory()->create();
     $session = makeSessionCovering($paidAt, $otherAccount);
     $import = makeOrderImport($this->pic, $this->account);
@@ -203,11 +243,11 @@ it('ignores orders from a different platform_account', function () {
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(0);
+    expect($result['applied_count'])->toBe(0);
 });
 
 it('ignores non-refund non-cancelled orders entirely', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = makeSessionCovering($paidAt, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
 
@@ -223,12 +263,12 @@ it('ignores non-refund non-cancelled orders entirely', function () {
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(0);
+    expect($result['applied_count'])->toBe(0);
     expect(LiveSessionGmvAdjustment::count())->toBe(0);
 });
 
 it('is idempotent — rerunning does not double-propose', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = makeSessionCovering($paidAt, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
 
@@ -249,7 +289,7 @@ it('is idempotent — rerunning does not double-propose', function () {
 });
 
 it('falls back to order_number when platform_order_id is missing', function () {
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = makeSessionCovering($paidAt, $this->account);
     $import = makeOrderImport($this->pic, $this->account);
 
@@ -266,7 +306,7 @@ it('falls back to order_number when platform_order_id is missing', function () {
 
     $result = app(OrderRefundReconciler::class)->reconcile($import);
 
-    expect($result['proposed_count'])->toBe(1);
+    expect($result['applied_count'])->toBe(1);
     $adjustment = LiveSessionGmvAdjustment::first();
     expect($adjustment->reason)->toContain('ORD-FALLBACK-1');
 });

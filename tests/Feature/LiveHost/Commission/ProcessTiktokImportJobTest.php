@@ -11,6 +11,11 @@ use App\Models\TiktokLiveReport;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReportImport;
 use App\Models\User;
+use App\Services\LiveHost\Tiktok\AllOrderXlsxParser;
+use App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser;
+use App\Services\LiveHost\Tiktok\LiveSessionMatcher;
+use App\Services\LiveHost\Tiktok\OrderRefundReconciler;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -54,10 +59,10 @@ it('parses Live Analysis xlsx and creates TiktokLiveReport rows', function () {
     ]);
 
     (new ProcessTiktokImportJob($import->id))->handle(
-        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+        app(LiveAnalysisXlsxParser::class),
+        app(AllOrderXlsxParser::class),
+        app(LiveSessionMatcher::class),
+        app(OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -95,7 +100,7 @@ it('attempts to match parsed reports to live sessions', function () {
         'platform_account_id' => $platformAccount->id,
         'live_host_platform_account_id' => $pivot->id,
         'status' => 'ended',
-        'actual_start_at' => \Carbon\Carbon::parse('2026-04-18 22:14:00'),
+        'actual_start_at' => Carbon::parse('2026-04-18 22:14:00'),
     ]);
 
     $path = copyFixtureToStorage('live_analysis_sample.xlsx', 'tiktok-imports/live.xlsx');
@@ -112,10 +117,10 @@ it('attempts to match parsed reports to live sessions', function () {
     ]);
 
     (new ProcessTiktokImportJob($import->id))->handle(
-        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+        app(LiveAnalysisXlsxParser::class),
+        app(AllOrderXlsxParser::class),
+        app(LiveSessionMatcher::class),
+        app(OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -155,10 +160,10 @@ it('parses All Order xlsx and creates TiktokOrder rows', function () {
     ]);
 
     (new ProcessTiktokImportJob($import->id))->handle(
-        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+        app(LiveAnalysisXlsxParser::class),
+        app(AllOrderXlsxParser::class),
+        app(LiveSessionMatcher::class),
+        app(OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -186,13 +191,13 @@ it('marks import failed on parse error', function () {
 
     try {
         (new ProcessTiktokImportJob($import->id))->handle(
-            app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-            app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-            app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-            app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+            app(LiveAnalysisXlsxParser::class),
+            app(AllOrderXlsxParser::class),
+            app(LiveSessionMatcher::class),
+            app(OrderRefundReconciler::class),
         );
         $this->fail('Expected parse exception to be rethrown.');
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         // expected — job rethrows after marking failed
     }
 
@@ -217,7 +222,7 @@ it('runs OrderRefundReconciler after a live_analysis import is processed', funct
     ]);
 
     // A live session covering a refunded order's paid_time inside the period.
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = LiveSession::factory()->create([
         'platform_account_id' => $account->id,
         'status' => 'ended',
@@ -251,21 +256,26 @@ it('runs OrderRefundReconciler after a live_analysis import is processed', funct
     ]);
 
     (new ProcessTiktokImportJob($import->id))->handle(
-        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+        app(LiveAnalysisXlsxParser::class),
+        app(AllOrderXlsxParser::class),
+        app(LiveSessionMatcher::class),
+        app(OrderRefundReconciler::class),
     );
 
     $import->refresh();
     expect($import->status)->toBe('completed');
 
-    // Reconciler must have proposed a negative adjustment for the refunded order.
+    // Reconciler must have recorded an auto-approved negative adjustment that
+    // immediately deducts from the session's Net GMV (2026-07 policy).
     $adjustment = LiveSessionGmvAdjustment::where('live_session_id', $session->id)->first();
     expect($adjustment)->not->toBeNull();
-    expect($adjustment->status)->toBe('proposed');
+    expect($adjustment->status)->toBe('approved');
     expect((float) $adjustment->amount_myr)->toBe(-200.0);
     expect($adjustment->reason)->toContain('JOB-RECONCILE-1');
+
+    // The approved deduction feeds the cached aggregate without any PIC action.
+    $session->refresh();
+    expect((float) $session->gmv_adjustment)->toBe(-200.0);
 });
 
 it('does NOT run OrderRefundReconciler on legacy order_list imports', function () {
@@ -284,7 +294,7 @@ it('does NOT run OrderRefundReconciler on legacy order_list imports', function (
     // ProductOrder data that, if reconciler were triggered, would propose
     // an adjustment. We assert NO adjustment is proposed because Task 9
     // moved the trigger to the live_analysis branch only.
-    $paidAt = \Carbon\Carbon::parse('2026-04-19 14:30:00');
+    $paidAt = Carbon::parse('2026-04-19 14:30:00');
     $session = LiveSession::factory()->create([
         'platform_account_id' => $account->id,
         'status' => 'ended',
@@ -318,10 +328,10 @@ it('does NOT run OrderRefundReconciler on legacy order_list imports', function (
     ]);
 
     (new ProcessTiktokImportJob($import->id))->handle(
-        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+        app(LiveAnalysisXlsxParser::class),
+        app(AllOrderXlsxParser::class),
+        app(LiveSessionMatcher::class),
+        app(OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -347,10 +357,10 @@ it('skips already-completed imports (idempotent re-run)', function () {
     ]);
 
     (new ProcessTiktokImportJob($import->id))->handle(
-        app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
-        app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
-        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
+        app(LiveAnalysisXlsxParser::class),
+        app(AllOrderXlsxParser::class),
+        app(LiveSessionMatcher::class),
+        app(OrderRefundReconciler::class),
     );
 
     $import->refresh();
