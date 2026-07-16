@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Livewire\Actions\Logout;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -15,6 +16,13 @@ Route::middleware('guest')->group(function () {
     // lands on their usual dashboard.
     Volt::route('live-host/login', 'auth.live-host-login')
         ->name('live-host.login');
+
+    // Dedicated Fighter sign-in surface. Same auth backend as `login`, with a
+    // branded orange UI matching the Fighter workspace. Any role can sign in;
+    // the `dashboard` route re-routes by role afterwards, so a fighter lands
+    // on /fighter and anyone else on their usual dashboard.
+    Volt::route('fighter/login', 'auth.fighter-login')
+        ->name('fighter.login');
 
     // Registration disabled — accounts are created manually by admin
     // Volt::route('register', 'auth.register')
@@ -44,5 +52,5 @@ Route::middleware('auth')->group(function () {
         ->name('password.confirm');
 });
 
-Route::post('logout', App\Livewire\Actions\Logout::class)
+Route::post('logout', Logout::class)
     ->name('logout');

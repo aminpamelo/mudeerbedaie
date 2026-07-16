@@ -56,6 +56,17 @@ it('sends a fighter to their dashboard from the generic dashboard route', functi
         ->assertRedirect(route('fighter.dashboard'));
 });
 
+it('serves a dedicated fighter login page to guests', function () {
+    $this->get('/fighter/login')
+        ->assertOk()
+        ->assertSee('Bedaie Fighter')
+        ->assertSee('Ready to run your funnels');
+});
+
+it('keeps the fighter login guest-only', function () {
+    $this->actingAs(fighter())->get('/fighter/login')->assertRedirect();
+});
+
 it('locks a fighter out of the admin area entirely', function () {
     $f = fighter();
 
