@@ -103,24 +103,33 @@ export default function SearchableSelect({
       }
 
       const rect = triggerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const popoverHeight = 320;
-      const openUp = spaceBelow < popoverHeight && rect.top > popoverHeight;
 
       // If our portal target has a transformed ancestor (e.g. Radix
       // DialogContent uses translate to center), `position: fixed` becomes
-      // relative to that ancestor. Subtract the target rect so coords stay
-      // accurate regardless of where we portal.
-      const targetRect =
-        target && target !== document.body
-          ? target.getBoundingClientRect()
-          : { top: 0, left: 0 };
+      // relative to that ancestor AND is clipped by its overflow. So measure
+      // available space — and flip/cap the popover — against the target's box
+      // (the modal) rather than the viewport, so it never spills past a short
+      // modal. Subtracting the target rect also keeps the coords accurate.
+      const inModal = target && target !== document.body;
+      const targetRect = inModal
+        ? target.getBoundingClientRect()
+        : { top: 0, left: 0, bottom: window.innerHeight };
+      const boundTop = inModal ? targetRect.top : 0;
+      const boundBottom = inModal ? targetRect.bottom : window.innerHeight;
+
+      const GAP = 6;
+      const DESIRED = 288;
+      const spaceBelow = boundBottom - rect.bottom - GAP;
+      const spaceAbove = rect.top - boundTop - GAP;
+      const openUp = spaceBelow < DESIRED && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(140, Math.min(DESIRED, openUp ? spaceAbove : spaceBelow));
 
       setCoords({
-        top: (openUp ? rect.top - 6 : rect.bottom + 6) - targetRect.top,
+        top: (openUp ? rect.top - GAP : rect.bottom + GAP) - targetRect.top,
         left: rect.left - targetRect.left,
         width: rect.width,
         openUp,
+        maxHeight,
       });
     };
 
@@ -301,12 +310,12 @@ export default function SearchableSelect({
           onPointerDown={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
           className={cn(
-            'pointer-events-auto fixed z-[2000] overflow-hidden rounded-xl border border-[#EAEAEA] bg-white shadow-[0_16px_40px_-8px_rgba(0,0,0,0.18)]',
+            'pointer-events-auto fixed z-[2000] flex flex-col overflow-hidden rounded-xl border border-[#EAEAEA] bg-white shadow-[0_16px_40px_-8px_rgba(0,0,0,0.18)]',
             coords.openUp && '-translate-y-full'
           )}
-          style={{ top: coords.top, left: coords.left, width: coords.width }}
+          style={{ top: coords.top, left: coords.left, width: coords.width, maxHeight: coords.maxHeight }}
         >
-          <div className="flex items-center gap-2 border-b border-[#F0F0F0] px-3 py-2">
+          <div className="flex shrink-0 items-center gap-2 border-b border-[#F0F0F0] px-3 py-2">
             <Search className="h-3.5 w-3.5 shrink-0 text-[#A3A3A3]" strokeWidth={2} />
             <input
               ref={inputRef}
@@ -328,7 +337,7 @@ export default function SearchableSelect({
             )}
           </div>
 
-          <div className="max-h-56 overflow-y-auto p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {filtered.length === 0 ? (
               <div className="px-3 py-6 text-center text-[12.5px] text-[#737373]">
                 {emptyLabel}
