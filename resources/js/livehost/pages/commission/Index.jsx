@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Search } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 
@@ -148,6 +148,19 @@ export default function CommissionIndex() {
   const { hosts, platforms } = usePage().props;
 
   const [flash, setFlash] = useState(null);
+  const [search, setSearch] = useState('');
+
+  const filteredHosts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return hosts;
+    }
+    return hosts.filter(
+      (host) =>
+        (host.name ?? '').toLowerCase().includes(query) ||
+        (host.email ?? '').toLowerCase().includes(query)
+    );
+  }, [hosts, search]);
 
   const defaultPlatformId = useMemo(() => {
     const tiktok = (platforms ?? []).find((p) => p.slug === 'tiktok-shop');
@@ -245,6 +258,27 @@ export default function CommissionIndex() {
               One row per live host. Click any cell to edit — Enter or blur saves.
             </p>
           </div>
+          <div className="w-full sm:w-72">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A3A3A3]"
+                strokeWidth={2}
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search host by name or email…"
+                aria-label="Search live hosts"
+                className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-sm text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:border-[#10B981] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              />
+            </div>
+            {search.trim() !== '' && (
+              <p className="mt-1.5 text-right text-[11.5px] text-[#737373]">
+                {filteredHosts.length} of {hosts.length} hosts
+              </p>
+            )}
+          </div>
         </div>
 
         {flash && (
@@ -262,6 +296,10 @@ export default function CommissionIndex() {
         <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {hosts.length === 0 ? (
             <div className="py-16 text-center text-sm text-[#737373]">No live hosts yet.</div>
+          ) : filteredHosts.length === 0 ? (
+            <div className="py-16 text-center text-sm text-[#737373]">
+              No hosts match “{search.trim()}”.
+            </div>
           ) : (
             <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm table-fixed">
@@ -284,7 +322,7 @@ export default function CommissionIndex() {
                 </tr>
               </thead>
               <tbody>
-                {hosts.map((host) => (
+                {filteredHosts.map((host) => (
                   <tr
                     key={host.id}
                     className="border-t border-[#F0F0F0] transition-colors hover:bg-[#FAFAFA]"
