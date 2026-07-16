@@ -7,11 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreLiveHostPayrollRunRequest;
 use App\Models\LiveHostPayrollItem;
 use App\Models\LiveHostPayrollRun;
+use App\Models\LiveHostPlatformCommissionRate;
+use App\Models\LiveSession;
 use App\Models\ProductOrder;
 use App\Services\LiveHost\LiveHostPayrollService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -130,7 +133,107 @@ class LiveHostPayrollRunController extends Controller
             ],
             'item' => $this->shapeItem($item),
             'orders' => $this->ordersForItem($item),
+            'rateContext' => $this->rateContextFor($run, $item),
         ]);
+    }
+
+    /**
+     * The commission-rate editor context for a host's payroll item: the
+     * platform(s) their sessions ran on, each with the rate currently in effect
+     * as of the run's period start. Editable only while the run is a draft.
+     *
+     * @return array<string, mixed>
+     */
+    private function rateContextFor(LiveHostPayrollRun $run, LiveHostPayrollItem $item): array
+    {
+        $sessionIds = collect($item->calculation_breakdown_json['sessions'] ?? [])
+            ->pluck('id')->filter()->values();
+
+        $asOf = $run->period_start->copy()->startOfDay();
+
+        $platforms = LiveSession::query()
+            ->whereIn('id', $sessionIds->all())
+            ->with('platformAccount.platform:id,name,display_name')
+            ->get()
+            ->map(fn (LiveSession $s) => $s->platformAccount?->platform)
+            ->filter()
+            ->unique('id')
+            ->values()
+            ->map(function ($platform) use ($item, $asOf) {
+                $rate = LiveHostPlatformCommissionRate::query()
+                    ->where('user_id', $item->user_id)
+                    ->where('platform_id', $platform->id)
+                    ->where('effective_from', '<=', $asOf)
+                    ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>', $asOf))
+                    ->orderByDesc('effective_from')
+                    ->first();
+
+                return [
+                    'platform_id' => $platform->id,
+                    'platform_name' => $platform->display_name ?? $platform->name,
+                    'current_rate' => $rate ? (float) $rate->commission_rate_percent : null,
+                ];
+            });
+
+        return [
+            'editable' => $run->status === 'draft',
+            'period_start' => $run->period_start?->toDateString(),
+            'platforms' => $platforms->all(),
+        ];
+    }
+
+    /**
+     * Set a host's platform commission rate straight from the payroll page —
+     * effective from the run's period start (so this run's sessions earn it) —
+     * then recompute the draft. Draft-only; closes any overlapping active rate.
+     */
+    public function setRate(Request $request, LiveHostPayrollRun $run, LiveHostPayrollItem $item): RedirectResponse
+    {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+        abort_unless($item->payroll_run_id === $run->id, 404);
+        abort_unless($run->status === 'draft', 422, 'Only draft runs can be re-rated here.');
+
+        $data = $request->validate([
+            'platform_id' => ['required', 'integer', 'exists:platforms,id'],
+            'commission_rate_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        DB::transaction(function () use ($item, $run, $data) {
+            $effectiveFrom = $run->period_start->copy()->startOfDay();
+
+            // End any active rate for this host+platform at the new window's start.
+            LiveHostPlatformCommissionRate::query()
+                ->where('user_id', $item->user_id)
+                ->where('platform_id', $data['platform_id'])
+                ->where('is_active', true)
+                ->update(['is_active' => false, 'effective_to' => $effectiveFrom]);
+
+            // The composite unique (user_id, platform_id, effective_from) blocks
+            // exact-timestamp collisions; nudge forward a second if needed.
+            $ef = $effectiveFrom;
+            while (LiveHostPlatformCommissionRate::query()
+                ->where('user_id', $item->user_id)
+                ->where('platform_id', $data['platform_id'])
+                ->where('effective_from', $ef)
+                ->exists()) {
+                $ef = $ef->copy()->addSecond();
+            }
+
+            LiveHostPlatformCommissionRate::create([
+                'user_id' => $item->user_id,
+                'platform_id' => $data['platform_id'],
+                'commission_rate_percent' => $data['commission_rate_percent'],
+                'effective_from' => $ef,
+                'effective_to' => null,
+                'is_active' => true,
+            ]);
+        });
+
+        $this->service->recompute($run);
+
+        return redirect()
+            ->route('livehost.payroll.item', ['run' => $run->id, 'item' => $item->id])
+            ->with('success', 'Commission rate set and payroll recomputed.');
     }
 
     /**

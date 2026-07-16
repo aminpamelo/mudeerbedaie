@@ -623,6 +623,8 @@ Route::middleware(['auth'])
                 ->name('payroll.show');
             Route::get('payroll/{run}/items/{item}', [LiveHostPayrollRunController::class, 'showItem'])
                 ->name('payroll.item');
+            Route::post('payroll/{run}/items/{item}/rate', [LiveHostPayrollRunController::class, 'setRate'])
+                ->name('payroll.item.rate');
             Route::post('payroll/{run}/recompute', [LiveHostPayrollRunController::class, 'recompute'])
                 ->name('payroll.recompute');
             Route::post('payroll/{run}/lock', [LiveHostPayrollRunController::class, 'lock'])

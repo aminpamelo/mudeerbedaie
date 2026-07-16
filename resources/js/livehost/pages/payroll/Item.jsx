@@ -1,6 +1,6 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ExternalLink, ShoppingBag, Wallet } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Loader2, Percent, ShoppingBag, Wallet } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import PayrollBreakdownBody from '@/livehost/components/payroll/PayrollBreakdown';
 
@@ -76,7 +76,7 @@ function Tile({ label, value, strong = false, accent }) {
 }
 
 export default function PayrollItem() {
-  const { run, item, orders } = usePage().props;
+  const { run, item, orders, rateContext } = usePage().props;
   const statusCls = STATUS_STYLES[run.status] ?? STATUS_STYLES.draft;
 
   return (
@@ -127,6 +127,9 @@ export default function PayrollItem() {
           <Tile label="Deductions" value={rm(item.deductions_myr)} accent="warn" />
         </div>
 
+        {/* Commission rate editor (draft runs) */}
+        <RateEditor run={run} item={item} rateContext={rateContext} />
+
         {/* Session detail + overrides (shared with the inline expand) */}
         <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <PayrollBreakdownBody item={item} />
@@ -136,6 +139,72 @@ export default function PayrollItem() {
         <OrdersSection orders={orders} />
       </div>
     </>
+  );
+}
+
+function RateEditor({ run, item, rateContext }) {
+  const platforms = rateContext?.platforms ?? [];
+  if (!rateContext?.editable || platforms.length === 0) {
+    return null;
+  }
+  return (
+    <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#EEF2FF] text-[#4338CA]"><Percent className="h-4 w-4" strokeWidth={2.25} /></span>
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">GMV commission rate</h2>
+          <p className="mt-0.5 text-[12px] text-[#737373]">Applies from {rateContext.period_start} (this run's start) and recomputes the run. Draft only.</p>
+        </div>
+      </div>
+      <div className="flex flex-col divide-y divide-[#F0F0F0]">
+        {platforms.map((p) => <RateRow key={p.platform_id} run={run} item={item} platform={p} />)}
+      </div>
+    </div>
+  );
+}
+
+function RateRow({ run, item, platform }) {
+  const [rate, setRate] = useState(platform.current_rate != null ? String(platform.current_rate) : '');
+  const [busy, setBusy] = useState(false);
+
+  const save = () => {
+    if (rate === '' || busy) {
+      return;
+    }
+    setBusy(true);
+    router.post(
+      `/livehost/payroll/${run.id}/items/${item.id}/rate`,
+      { platform_id: platform.platform_id, commission_rate_percent: Number(rate) },
+      { preserveScroll: true, onFinish: () => setBusy(false) },
+    );
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 py-2.5">
+      <div className="min-w-[140px] flex-1">
+        <div className="text-[13px] font-medium text-[#0A0A0A]">{platform.platform_name}</div>
+        <div className={`text-[11px] ${platform.current_rate == null ? 'text-[#B45309]' : 'text-[#737373]'}`}>
+          {platform.current_rate == null ? 'No rate set — commission is RM 0' : `Current: ${platform.current_rate}%`}
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number" min="0" max="100" step="0.01" value={rate}
+          onChange={(e) => setRate(e.target.value)}
+          placeholder="0.00"
+          className="h-9 w-24 rounded-lg border border-[#EAEAEA] bg-white px-2.5 text-right text-[13px] tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+        />
+        <span className="text-[13px] text-[#737373]">%</span>
+      </div>
+      <button
+        type="button"
+        onClick={save}
+        disabled={busy || rate === ''}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#10B981] px-3 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#059669] disabled:opacity-40"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Save &amp; recompute
+      </button>
+    </div>
   );
 }
 
