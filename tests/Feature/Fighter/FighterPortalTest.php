@@ -56,6 +56,18 @@ it('sends a fighter to their dashboard from the generic dashboard route', functi
         ->assertRedirect(route('fighter.dashboard'));
 });
 
+it('locks a fighter out of the admin area entirely', function () {
+    $f = fighter();
+
+    // A fighter never lands on the admin dashboard — they are redirected home.
+    $this->actingAs($f)->get('/dashboard')->assertRedirect(route('fighter.dashboard'));
+
+    // And admin-gated pages are forbidden outright.
+    $this->actingAs($f)->get('/admin/product-orders')->assertForbidden();
+    $this->actingAs($f)->get('/admin/users')->assertForbidden();
+    $this->actingAs($f)->get('/admin/funnels')->assertForbidden();
+});
+
 it('shows a fighter only their own funnels on the dashboard', function () {
     $a = fighter();
     $b = fighter();
