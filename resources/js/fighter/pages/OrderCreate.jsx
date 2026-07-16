@@ -348,6 +348,7 @@ export default function OrderCreate({ segment }) {
   const removeItem = (key) => setCart((prev) => prev.filter((c) => c.key !== key));
 
   const subtotal = useMemo(() => cart.reduce((sum, c) => sum + c.unitPrice * c.quantity, 0), [cart]);
+  const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
   const shipping = parseFloat(shippingCost) || 0;
   const total = Math.max(0, subtotal + shipping);
 
@@ -400,15 +401,21 @@ export default function OrderCreate({ segment }) {
 
   return (
     <FighterLayout title="New order" subtitle={`Recorded under your segment: ${segment?.name ?? 'Fighter'}`} actions={actions}>
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
-        {/* Left: products + cart */}
-        <div className="flex flex-col gap-4">
-          <ProductBrowser onAdd={addToCart} />
-          <Cart items={cart} onQty={setQty} onRemove={removeItem} />
-        </div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
+        {/* Left: product grid */}
+        <ProductBrowser onAdd={addToCart} />
 
-        {/* Right: customer, payment, summary */}
-        <div className="flex flex-col gap-4">
+        {/* Right: cart + customer + payment + summary — pinned on desktop so the
+            order is always visible while browsing products. */}
+        <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:pr-1 scroll-thin">
+          <div>
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h3 className="text-[13px] font-semibold text-ink">Order items</h3>
+              <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11.5px] font-semibold text-[var(--color-brand-ink)]">{cartCount} {cartCount === 1 ? 'item' : 'items'}</span>
+            </div>
+            <Cart items={cart} onQty={setQty} onRemove={removeItem} />
+          </div>
+
           <CustomerSection mode={customerMode} setMode={setCustomerMode} selected={customer} setSelected={setCustomer} form={customerForm} setForm={setCustomerForm} />
 
           <div className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
