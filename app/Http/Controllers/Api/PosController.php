@@ -262,11 +262,25 @@ class PosController extends Controller
             $shippingCost = $validated['shipping_cost'] ?? 0;
             $totalAmount = max(0, $subtotal - $discountAmount + $shippingCost);
 
-            // Build shipping address from customer address
-            $shippingAddress = null;
+            // Build a structured shipping address (address/city/state/postcode)
+            // so fulfilment + courier booking (EasyParcel) can read the parts.
             $customerAddress = $validated['customer_address'] ?? null;
-            if ($customerAddress) {
-                $shippingAddress = ['full_address' => $customerAddress];
+            $addressParts = array_filter([
+                'address' => $customerAddress,
+                'city' => $validated['customer_city'] ?? null,
+                'state' => $validated['customer_state'] ?? null,
+                'postcode' => $validated['customer_postcode'] ?? null,
+            ], fn ($v) => filled($v));
+
+            $shippingAddress = null;
+            if (! empty($addressParts)) {
+                $shippingAddress = $addressParts + [
+                    'full_address' => implode(', ', array_filter([
+                        $customerAddress,
+                        $validated['customer_city'] ?? null,
+                        trim(($validated['customer_postcode'] ?? '').' '.($validated['customer_state'] ?? '')) ?: null,
+                    ], fn ($v) => filled($v))),
+                ];
             }
 
             // Resolve customer info: use provided values, fall back to User record

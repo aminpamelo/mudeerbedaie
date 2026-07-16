@@ -26,6 +26,11 @@ async function fighterPost(path, body) {
   return res.json();
 }
 
+const MALAYSIA_STATES = [
+  'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan', 'Pahang', 'Perak', 'Perlis',
+  'Pulau Pinang', 'Sabah', 'Sarawak', 'Selangor', 'Terengganu', 'Kuala Lumpur', 'Labuan', 'Putrajaya',
+];
+
 function useDebounced(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -307,11 +312,24 @@ function CustomerSection({ mode, setMode, selected, setSelected, form, setForm }
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           {field('name', 'Name')}
           {field('phone', 'Phone')}
-          {field('email', 'Email', 'email')}
-          {field('address', 'Address')}
+          <div className="col-span-2">{field('email', 'Email', 'email')}</div>
+          <div className="col-span-2">{field('address', 'Address (street, unit)')}</div>
+          {field('postcode', 'Postcode')}
+          {field('city', 'City')}
+          <label className="col-span-2 block">
+            <span className="text-[11.5px] font-semibold uppercase tracking-[0.03em] text-muted-2">State</span>
+            <select
+              value={form.state}
+              onChange={(e) => setForm({ ...form, state: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none focus:border-[var(--color-brand)]"
+            >
+              <option value="">Select state…</option>
+              {MALAYSIA_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
         </div>
       )}
     </div>
@@ -324,7 +342,7 @@ export default function OrderCreate({ segment }) {
   const [cart, setCart] = useState([]);
   const [customerMode, setCustomerMode] = useState('new');
   const [customer, setCustomer] = useState(null);
-  const [customerForm, setCustomerForm] = useState({ name: '', phone: '', email: '', address: '' });
+  const [customerForm, setCustomerForm] = useState({ name: '', phone: '', email: '', address: '', postcode: '', city: '', state: '' });
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [paymentReference, setPaymentReference] = useState('');
@@ -372,7 +390,15 @@ export default function OrderCreate({ segment }) {
       items: cart.map((c) => ({ itemable_type: 'product', itemable_id: c.productId, product_variant_id: c.variantId || null, quantity: c.quantity, unit_price: c.unitPrice })),
       ...(customerMode === 'existing'
         ? { customer_id: customer.id }
-        : { customer_name: customerForm.name, customer_phone: customerForm.phone, customer_email: customerForm.email || null, customer_address: customerForm.address || null }),
+        : {
+            customer_name: customerForm.name,
+            customer_phone: customerForm.phone,
+            customer_email: customerForm.email || null,
+            customer_address: customerForm.address || null,
+            customer_postcode: customerForm.postcode || null,
+            customer_city: customerForm.city || null,
+            customer_state: customerForm.state || null,
+          }),
     };
 
     try {

@@ -335,6 +335,31 @@ it('lets a fighter favourite a product and returns it pinned in the catalog', fu
     expect($f->fresh()->favouriteProducts()->count())->toBe(0);
 });
 
+it('stores a structured shipping address on a fighter manual order', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 20, 'track_quantity' => false]);
+
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        'customer_name' => 'Ali',
+        'customer_phone' => '60123456789',
+        'customer_address' => 'No 1, Jalan Mawar',
+        'customer_postcode' => '15200',
+        'customer_city' => 'Kota Bharu',
+        'customer_state' => 'Kelantan',
+        'payment_method' => 'cod',
+        'payment_status' => 'pending',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 20]],
+    ])->assertSuccessful();
+
+    $order = ProductOrder::query()->where('source', 'pos')->latest('id')->first();
+    expect($order->shipping_address)->toMatchArray([
+        'address' => 'No 1, Jalan Mawar',
+        'postcode' => '15200',
+        'city' => 'Kota Bharu',
+        'state' => 'Kelantan',
+    ]);
+});
+
 it('forces a fighter\'s manual (POS) order onto their own segment', function () {
     $f = fighter();
     $product = Product::factory()->create(['status' => 'active', 'base_price' => 50, 'track_quantity' => false]);
