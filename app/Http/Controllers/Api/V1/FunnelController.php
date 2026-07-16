@@ -79,10 +79,12 @@ class FunnelController extends Controller
         // Generate slug from name
         $data['slug'] = Str::slug($data['name']);
 
-        // Ensure unique slug
+        // Ensure unique slug — include soft-deleted funnels, since their slugs
+        // still occupy the unique index and would otherwise cause an INSERT
+        // collision (e.g. after a draft is deleted and re-created).
         $originalSlug = $data['slug'];
         $counter = 1;
-        while (Funnel::where('slug', $data['slug'])->exists()) {
+        while (Funnel::withTrashed()->where('slug', $data['slug'])->exists()) {
             $data['slug'] = "{$originalSlug}-{$counter}";
             $counter++;
         }

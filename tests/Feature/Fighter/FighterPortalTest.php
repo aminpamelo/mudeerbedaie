@@ -177,6 +177,19 @@ it('lets a fighter create a funnel owned by them (direct-create button path)', f
     expect(Funnel::query()->where('user_id', $f->id)->where('name', 'Untitled funnel')->exists())->toBeTrue();
 });
 
+it('creates a funnel even when a soft-deleted funnel holds the same slug', function () {
+    $f = fighter();
+
+    // Create then soft-delete — the slug now sits in the unique index.
+    $first = $this->actingAs($f)->postJson('/api/v1/funnels', ['name' => 'Untitled funnel'])
+        ->assertCreated()->json('data');
+    $this->actingAs($f)->deleteJson('/api/v1/funnels/'.$first['uuid'])->assertOk();
+
+    // Re-creating with the same name must not collide with the trashed slug.
+    $this->actingAs($f)->postJson('/api/v1/funnels', ['name' => 'Untitled funnel'])->assertCreated();
+    $this->actingAs($f)->postJson('/api/v1/funnels', ['name' => 'Untitled funnel'])->assertCreated();
+});
+
 /*
 |--------------------------------------------------------------------------
 | Order tagging via SalesSource + admin visibility
