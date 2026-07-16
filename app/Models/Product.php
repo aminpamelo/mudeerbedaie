@@ -23,6 +23,7 @@ class Product extends Model
         'cost_price',
         'category_id',
         'status',
+        'created_by_fighter_id',
         'type',
         'track_quantity',
         'min_quantity',
@@ -68,6 +69,46 @@ class Product extends Model
     public function primaryImage(): HasOne
     {
         return $this->hasOne(ProductMedia::class)->where('is_primary', true)->where('type', 'image');
+    }
+
+    /**
+     * The fighter who created this product, or null for official HQ products.
+     */
+    public function creatorFighter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_fighter_id');
+    }
+
+    /**
+     * Whether this product was created by a fighter (vs an official HQ product).
+     */
+    public function isFighterOwned(): bool
+    {
+        return $this->created_by_fighter_id !== null;
+    }
+
+    /** Official HQ products (not created by any fighter). */
+    public function scopeHq($query)
+    {
+        return $query->whereNull('created_by_fighter_id');
+    }
+
+    /** Products a given fighter created. */
+    public function scopeCreatedByFighter($query, int $fighterId)
+    {
+        return $query->where('created_by_fighter_id', $fighterId);
+    }
+
+    /**
+     * Products a fighter may sell: official HQ products + their own. Excludes
+     * other fighters' products.
+     */
+    public function scopeSellableByFighter($query, int $fighterId)
+    {
+        return $query->where(function ($q) use ($fighterId) {
+            $q->whereNull('created_by_fighter_id')
+                ->orWhere('created_by_fighter_id', $fighterId);
+        });
     }
 
     public function attributes(): HasMany

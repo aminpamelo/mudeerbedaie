@@ -259,6 +259,25 @@ it('shows a fighter only the orders attributed to their segment', function () {
         );
 });
 
+it('lets a fighter favourite a product and returns it pinned in the catalog', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active']);
+
+    $this->actingAs($f)->postJson('/fighter/catalog/favourites', ['product_id' => $product->id])
+        ->assertOk()->assertJsonPath('favourited', true);
+    expect($f->favouriteProducts()->count())->toBe(1);
+
+    $this->actingAs($f)->getJson('/fighter/catalog')
+        ->assertOk()
+        ->assertJsonPath('favourites.0.id', $product->id)
+        ->assertJsonPath('favourites.0.is_favourite', true)
+        ->assertJsonPath('products.0.is_favourite', true);
+
+    $this->actingAs($f)->postJson('/fighter/catalog/favourites', ['product_id' => $product->id])
+        ->assertOk()->assertJsonPath('favourited', false);
+    expect($f->fresh()->favouriteProducts()->count())->toBe(0);
+});
+
 it('forces a fighter\'s manual (POS) order onto their own segment', function () {
     $f = fighter();
     $product = Product::factory()->create(['status' => 'active', 'base_price' => 50, 'track_quantity' => false]);

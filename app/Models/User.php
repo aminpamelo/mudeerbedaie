@@ -539,6 +539,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Products a Fighter has pinned as favourites in their order-create screen.
+     */
+    public function favouriteProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'fighter_favourite_products')
+            ->withTimestamps();
+    }
+
+    /**
      * Check if user is HR admin (currently same as admin role)
      */
     public function isHrAdmin(): bool

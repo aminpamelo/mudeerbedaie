@@ -13,6 +13,7 @@ use App\Http\Controllers\Ceo\StaffKpiController;
 use App\Http\Controllers\Ceo\TaskMonitoringController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\Fighter\CatalogController;
 use App\Http\Controllers\Fighter\NotificationController;
 use App\Http\Controllers\Fighter\OrderController;
 use App\Http\Controllers\Fighter\PerformanceController;
@@ -433,6 +434,18 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
             ->name('orders');
         Route::get('orders/create', [OrderController::class, 'create'])
             ->name('orders.create');
+        Route::get('catalog', [CatalogController::class, 'index'])
+            ->name('catalog');
+        Route::post('catalog/favourites', [CatalogController::class, 'toggleFavourite'])
+            ->name('catalog.favourites');
+        Route::get('products', [App\Http\Controllers\Fighter\ProductController::class, 'index'])
+            ->name('products');
+        Route::post('products', [App\Http\Controllers\Fighter\ProductController::class, 'store'])
+            ->name('products.store');
+        Route::put('products/{product}', [App\Http\Controllers\Fighter\ProductController::class, 'update'])
+            ->name('products.update');
+        Route::delete('products/{product}', [App\Http\Controllers\Fighter\ProductController::class, 'destroy'])
+            ->name('products.destroy');
         Route::get('notifications', [NotificationController::class, 'index'])
             ->name('notifications');
         Route::get('notifications/feed', [NotificationController::class, 'feed'])

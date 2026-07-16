@@ -1,12 +1,27 @@
 import { router } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Loader2, User, UserPlus, CheckCircle2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Loader2, User, UserPlus, CheckCircle2, Star, X, Package } from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import { cn, csrfToken, formatMoney } from '@/fighter/lib/utils';
 
-/** Small fetch wrapper for the (session-authed) POS read/write endpoints. */
+/** Fetch helpers (session-authed). POS reads reuse /api/pos; catalog is /fighter. */
 async function posGet(path) {
   const res = await fetch(`/api/pos${path}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) throw new Error('request failed');
+  return res.json();
+}
+async function fighterGet(path) {
+  const res = await fetch(`/fighter${path}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) throw new Error('request failed');
+  return res.json();
+}
+async function fighterPost(path, body) {
+  const res = await fetch(`/fighter${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error('request failed');
   return res.json();
 }
@@ -20,115 +35,190 @@ function useDebounced(value, delay = 300) {
   return debounced;
 }
 
-/* ---------- Product search + cart ---------- */
+/* ---------- Product browsing ---------- */
 
-function ProductPicker({ onAdd }) {
+function ProductCard({ product, onClick, onToggleFav }) {
+  return (
+    <div className="group relative overflow-hidden rounded-2xl bg-white ring-1 ring-line/70 transition-shadow hover:shadow-[0_10px_30px_-16px_rgba(0,0,0,0.35)]">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleFav(product); }}
+        className={cn(
+          'absolute right-2 top-2 z-10 grid h-7 w-7 place-items-center rounded-full backdrop-blur transition-colors',
+          product.is_favourite ? 'bg-amber-400/90 text-white' : 'bg-white/80 text-muted-2 hover:text-amber-500'
+        )}
+        title={product.is_favourite ? 'Remove favourite' : 'Add to favourites'}
+        aria-label="Toggle favourite"
+      >
+        <Star className="h-3.5 w-3.5" strokeWidth={2.2} fill={product.is_favourite ? 'currentColor' : 'none'} />
+      </button>
+
+      <button type="button" onClick={() => onClick(product)} className="block w-full text-left">
+        <div className="aspect-[4/3] w-full bg-surface">
+          {product.image ? (
+            <img src={product.image} alt={product.name} className="h-full w-full object-cover" loading="lazy" />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-muted-2"><Package className="h-7 w-7" strokeWidth={1.6} /></div>
+          )}
+        </div>
+        <div className="p-3">
+          <div className="line-clamp-2 min-h-[34px] text-[12.5px] font-semibold leading-snug text-ink">{product.name}</div>
+          <div className="mt-1 flex items-center justify-between">
+            <span className="text-[13px] font-bold text-ink">{formatMoney(product.base_price)}</span>
+            {product.variants?.length > 0 ? (
+              <span className="text-[10.5px] font-medium text-muted-2">{product.variants.length} variants</span>
+            ) : (
+              <span className="grid h-6 w-6 place-items-center rounded-lg bg-orange-50 text-[var(--color-brand)]"><Plus className="h-3.5 w-3.5" strokeWidth={2.6} /></span>
+            )}
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+function VariantPicker({ product, onPick, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-[15px] font-semibold text-ink">Choose a variant</h3>
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-slate-100 hover:text-ink"><X className="h-4 w-4" strokeWidth={2.2} /></button>
+        </div>
+        <p className="mb-3 truncate text-[12.5px] text-muted">{product.name}</p>
+        <div className="flex flex-col gap-1.5">
+          {product.variants.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => onPick(v)}
+              className="flex items-center justify-between rounded-xl bg-surface px-3.5 py-3 text-left transition-colors hover:bg-orange-50"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-semibold text-ink">{v.name}</span>
+                {v.sku && <span className="block truncate text-[11px] text-muted">SKU: {v.sku}</span>}
+              </span>
+              <span className="ml-3 shrink-0 text-[13px] font-bold text-ink">{formatMoney(v.price)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductBrowser({ onAdd }) {
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [favourites, setFavourites] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [variantProduct, setVariantProduct] = useState(null);
   const debounced = useDebounced(term);
-  const reqId = useRef(0);
 
-  useEffect(() => {
-    if (debounced.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    const id = ++reqId.current;
+  const load = (search) => {
     setLoading(true);
-    posGet(`/products?search=${encodeURIComponent(debounced.trim())}`)
+    fighterGet(`/catalog${search ? `?search=${encodeURIComponent(search)}` : ''}`)
       .then((data) => {
-        if (id === reqId.current) setResults(data.data ?? []);
+        setFavourites(data.favourites ?? []);
+        setProducts(data.products ?? []);
       })
-      .catch(() => id === reqId.current && setResults([]))
-      .finally(() => id === reqId.current && setLoading(false));
-  }, [debounced]);
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(debounced.trim()); }, [debounced]);
+
+  const clickProduct = (product) => {
+    if (product.variants?.length > 0) {
+      setVariantProduct(product);
+    } else {
+      onAdd({ productId: product.id, name: product.name, variantId: null, variantName: null, unitPrice: product.base_price });
+    }
+  };
+
+  const toggleFav = async (product) => {
+    const nowFav = !product.is_favourite;
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_favourite: nowFav } : p)));
+    setFavourites((prev) => {
+      if (nowFav) {
+        if (prev.some((p) => p.id === product.id)) return prev;
+        return [...prev, { ...product, is_favourite: true }].sort((a, b) => a.name.localeCompare(b.name));
+      }
+      return prev.filter((p) => p.id !== product.id);
+    });
+    try {
+      await fighterPost('/catalog/favourites', { product_id: product.id });
+    } catch {
+      load(debounced.trim());
+    }
+  };
+
+  const gridProps = { onClick: clickProduct, onToggleFav: toggleFav };
 
   return (
-    <div className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
+    <div className="flex flex-col gap-4">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-2" />
         <input
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          placeholder="Search products to add…"
-          className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-[13.5px] text-ink outline-none focus:border-[var(--color-brand)]"
+          placeholder="Search products…"
+          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-[13.5px] text-ink outline-none focus:border-[var(--color-brand)]"
         />
-        {loading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-2" />}
       </div>
 
-      {term.trim().length >= 2 && (
-        <div className="mt-3 max-h-[320px] space-y-1 overflow-y-auto scroll-thin">
-          {results.length === 0 && !loading && <p className="px-1 py-3 text-center text-[12.5px] text-muted">No products found.</p>}
-          {results.map((product) => (
-            <ProductRow key={product.id} product={product} onAdd={onAdd} />
-          ))}
-        </div>
+      {loading ? (
+        <div className="grid place-items-center py-16 text-muted-2"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : (
+        <>
+          {favourites.length > 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-muted-2">
+                <Star className="h-3.5 w-3.5 text-amber-400" fill="currentColor" /> Favourites
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {favourites.map((p) => <ProductCard key={`fav-${p.id}`} product={p} {...gridProps} />)}
+              </div>
+            </div>
+          )}
+
+          <div>
+            {favourites.length > 0 && <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-muted-2">All products</div>}
+            {products.length === 0 ? (
+              <p className="py-10 text-center text-[13px] text-muted">No products found.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {products.map((p) => <ProductCard key={p.id} product={p} {...gridProps} />)}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {variantProduct && (
+        <VariantPicker
+          product={variantProduct}
+          onClose={() => setVariantProduct(null)}
+          onPick={(v) => {
+            onAdd({ productId: variantProduct.id, name: variantProduct.name, variantId: v.id, variantName: v.name, unitPrice: v.price });
+            setVariantProduct(null);
+          }}
+        />
       )}
     </div>
   );
 }
 
-function ProductRow({ product, onAdd }) {
-  const [open, setOpen] = useState(false);
-  const variants = product.variants ?? [];
-  const basePrice = parseFloat(product.base_price ?? 0) || 0;
-
-  if (variants.length === 0) {
-    return (
-      <button
-        type="button"
-        onClick={() => onAdd({ productId: product.id, name: product.name, variantId: null, variantName: null, unitPrice: basePrice })}
-        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface"
-      >
-        <span className="min-w-0 truncate text-[13px] font-medium text-ink">{product.name}</span>
-        <span className="flex shrink-0 items-center gap-2">
-          <span className="text-[12.5px] font-semibold text-ink-2">{formatMoney(basePrice)}</span>
-          <Plus className="h-4 w-4 text-[var(--color-brand)]" strokeWidth={2.4} />
-        </span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-xl">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface"
-      >
-        <span className="min-w-0 truncate text-[13px] font-medium text-ink">{product.name}</span>
-        <span className="shrink-0 text-[11.5px] font-medium text-muted-2">{variants.length} variants</span>
-      </button>
-      {open && (
-        <div className="mb-1 ml-3 flex flex-wrap gap-1.5 border-l border-line pl-3">
-          {variants.map((v) => {
-            const price = parseFloat(v.price ?? basePrice) || basePrice;
-            return (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => onAdd({ productId: product.id, name: product.name, variantId: v.id, variantName: v.name, unitPrice: price })}
-                className="flex items-center gap-1.5 rounded-lg bg-orange-50 px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-brand-ink)] transition-colors hover:bg-orange-100"
-              >
-                {v.name} · {formatMoney(price)}
-                <Plus className="h-3 w-3" strokeWidth={2.6} />
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+/* ---------- Cart ---------- */
 
 function Cart({ items, onQty, onRemove }) {
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface px-4 py-10 text-center">
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface px-4 py-8 text-center">
         <ShoppingBag className="h-6 w-6 text-muted-2" strokeWidth={1.8} />
         <p className="mt-2 text-[13px] font-medium text-ink">Cart is empty</p>
-        <p className="text-[12px] text-muted">Search and add products above.</p>
+        <p className="text-[12px] text-muted">Tap a product to add it.</p>
       </div>
     );
   }
@@ -143,18 +233,12 @@ function Cart({ items, onQty, onRemove }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1 rounded-lg bg-surface p-0.5">
-            <button type="button" onClick={() => onQty(item.key, item.quantity - 1)} className="grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-white hover:text-ink">
-              <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
-            </button>
+            <button type="button" onClick={() => onQty(item.key, item.quantity - 1)} className="grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-white hover:text-ink"><Minus className="h-3.5 w-3.5" strokeWidth={2.4} /></button>
             <span className="w-6 text-center text-[13px] font-semibold tabular-nums text-ink">{item.quantity}</span>
-            <button type="button" onClick={() => onQty(item.key, item.quantity + 1)} className="grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-white hover:text-ink">
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-            </button>
+            <button type="button" onClick={() => onQty(item.key, item.quantity + 1)} className="grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-white hover:text-ink"><Plus className="h-3.5 w-3.5" strokeWidth={2.4} /></button>
           </div>
           <div className="w-20 shrink-0 text-right text-[13px] font-bold tabular-nums text-ink">{formatMoney(item.unitPrice * item.quantity)}</div>
-          <button type="button" onClick={() => onRemove(item.key)} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted hover:bg-rose-50 hover:text-rose-600">
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.2} />
-          </button>
+          <button type="button" onClick={() => onRemove(item.key)} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" strokeWidth={2.2} /></button>
         </div>
       ))}
     </div>
@@ -181,12 +265,7 @@ function CustomerSection({ mode, setMode, selected, setSelected, form, setForm }
   const field = (key, label, type = 'text') => (
     <label className="block">
       <span className="text-[11.5px] font-semibold uppercase tracking-[0.03em] text-muted-2">{label}</span>
-      <input
-        type={type}
-        value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none focus:border-[var(--color-brand)]"
-      />
+      <input type={type} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none focus:border-[var(--color-brand)]" />
     </label>
   );
 
@@ -194,12 +273,7 @@ function CustomerSection({ mode, setMode, selected, setSelected, form, setForm }
     <div className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
       <div className="mb-3 flex items-center gap-1 rounded-xl bg-surface p-1">
         {[['new', 'New customer', UserPlus], ['existing', 'Existing', User]].map(([key, label, Icon]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setMode(key)}
-            className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-[12.5px] font-semibold transition-colors', mode === key ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink')}
-          >
+          <button key={key} type="button" onClick={() => setMode(key)} className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-[12.5px] font-semibold transition-colors', mode === key ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink')}>
             <Icon className="h-3.5 w-3.5" strokeWidth={2.2} /> {label}
           </button>
         ))}
@@ -294,13 +368,7 @@ export default function OrderCreate({ segment }) {
       payment_reference: paymentMethod === 'bank_transfer' ? paymentReference : null,
       shipping_cost: shipping || null,
       notes: notes || null,
-      items: cart.map((c) => ({
-        itemable_type: 'product',
-        itemable_id: c.productId,
-        product_variant_id: c.variantId || null,
-        quantity: c.quantity,
-        unit_price: c.unitPrice,
-      })),
+      items: cart.map((c) => ({ itemable_type: 'product', itemable_id: c.productId, product_variant_id: c.variantId || null, quantity: c.quantity, unit_price: c.unitPrice })),
       ...(customerMode === 'existing'
         ? { customer_id: customer.id }
         : { customer_name: customerForm.name, customer_phone: customerForm.phone, customer_email: customerForm.email || null, customer_address: customerForm.address || null }),
@@ -335,7 +403,7 @@ export default function OrderCreate({ segment }) {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
         {/* Left: products + cart */}
         <div className="flex flex-col gap-4">
-          <ProductPicker onAdd={addToCart} />
+          <ProductBrowser onAdd={addToCart} />
           <Cart items={cart} onQty={setQty} onRemove={removeItem} />
         </div>
 
@@ -383,12 +451,7 @@ export default function OrderCreate({ segment }) {
 
             {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-700">{error}</p>}
 
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!canSubmit}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--color-brand-ink)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <button type="button" onClick={submit} disabled={!canSubmit} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--color-brand-ink)] disabled:cursor-not-allowed disabled:opacity-50">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" strokeWidth={2.2} />}
               {submitting ? 'Creating…' : 'Create order'}
             </button>
