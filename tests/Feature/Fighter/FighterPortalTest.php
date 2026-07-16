@@ -151,6 +151,21 @@ it('gives a fighter access to the funnel builder SPA', function () {
     $this->actingAs(User::factory()->create(['role' => 'student']))->get('/funnel-builder')->assertForbidden();
 });
 
+it('lets a fighter delete their own funnel but not another fighter\'s', function () {
+    $a = fighter();
+    $b = fighter();
+    $mine = Funnel::factory()->create(['user_id' => $a->id]);
+    $theirs = Funnel::factory()->create(['user_id' => $b->id]);
+
+    // Owner can delete (soft delete).
+    $this->actingAs($a)->deleteJson('/api/v1/funnels/'.$mine->uuid)->assertOk();
+    expect(Funnel::query()->whereKey($mine->id)->exists())->toBeFalse();
+
+    // A fighter cannot delete a funnel they don't own.
+    $this->actingAs($a)->deleteJson('/api/v1/funnels/'.$theirs->uuid)->assertForbidden();
+    expect(Funnel::query()->whereKey($theirs->id)->exists())->toBeTrue();
+});
+
 it('lets a fighter create a funnel owned by them (direct-create button path)', function () {
     $f = fighter();
 

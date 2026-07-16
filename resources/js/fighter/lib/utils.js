@@ -9,6 +9,21 @@ export function csrfToken() {
 }
 
 /**
+ * Delete (soft-delete) a funnel the current fighter owns. Ownership is enforced
+ * server-side by the funnel.owner middleware. Throws on failure.
+ */
+export async function deleteFunnel(uuid) {
+  const res = await fetch(`/api/v1/funnels/${uuid}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    credentials: 'same-origin',
+  });
+  if (!res.ok) {
+    throw new Error('Failed to delete funnel');
+  }
+}
+
+/**
  * Create a draft funnel (owned by the current fighter) and jump straight into
  * the builder for it — skipping the funnel list. The funnel is named later in
  * the builder. Throws on failure so the caller can surface an error.

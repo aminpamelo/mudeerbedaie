@@ -1,12 +1,28 @@
-import { Link } from '@inertiajs/react';
-import { Layers, CheckCircle2, ShoppingBag, Wallet, ExternalLink, PencilRuler, TrendingUp, Rocket } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Layers, CheckCircle2, ShoppingBag, Wallet, ExternalLink, PencilRuler, TrendingUp, Rocket, Trash2 } from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import StatTile from '@/fighter/components/StatTile';
 import CreateFunnelButton from '@/fighter/components/CreateFunnelButton';
-import { cn, formatMoney, formatNumber, statusMeta } from '@/fighter/lib/utils';
+import { cn, formatMoney, formatNumber, statusMeta, deleteFunnel } from '@/fighter/lib/utils';
 
 function FunnelCard({ funnel }) {
   const status = statusMeta(funnel.status);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    if (!window.confirm(`Delete “${funnel.name}”? This can't be undone.`)) return;
+    setDeleting(true);
+    try {
+      await deleteFunnel(funnel.uuid);
+      router.reload({ only: ['funnels', 'stats'] });
+    } catch {
+      setDeleting(false);
+      window.alert('Could not delete this funnel. Please try again.');
+    }
+  };
+
   return (
     <div className="fade-up flex flex-col rounded-2xl bg-white p-5 ring-1 ring-line/70">
       <div className="flex items-start justify-between gap-3">
@@ -32,6 +48,16 @@ function FunnelCard({ funnel }) {
           <div className="text-[16px] font-bold text-ink">{formatMoney(funnel.revenue)}</div>
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center justify-center rounded-lg bg-slate-100 p-2 text-muted transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+            title="Delete funnel"
+            aria-label="Delete funnel"
+          >
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.2} />
+          </button>
           <a
             href={funnel.public_url}
             target="_blank"
