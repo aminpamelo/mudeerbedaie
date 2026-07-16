@@ -1518,9 +1518,9 @@ export default function SessionSlotsCalendar() {
                                   {heightPx >= 56 && (
                                     <div className="mt-auto min-w-0">
                                       {slot.hostName ? (
-                                        <div className="flex items-center gap-1">
-                                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]"></span>
-                                          <span className="truncate text-[10px] font-medium text-[#0A0A0A]">
+                                        <div className="flex items-start gap-1" title={slot.hostName}>
+                                          <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]"></span>
+                                          <span className="line-clamp-2 text-[10px] font-medium leading-tight text-[#0A0A0A] break-words">
                                             {slot.hostName}
                                           </span>
                                         </div>

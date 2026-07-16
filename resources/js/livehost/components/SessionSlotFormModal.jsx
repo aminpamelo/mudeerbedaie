@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Radio } from 'lucide-react';
+import { ChevronDown, Radio } from 'lucide-react';
 import { Button } from '@/livehost/components/ui/button';
 import {
   Dialog,
@@ -326,6 +326,24 @@ export default function SessionSlotFormModal({
     return dayName ? `${dayName}, ${range}` : range;
   }, [mode, prefill?.dayOfWeek, prefill?.timeSlotId, timeSlotOptions]);
 
+  // Clicking a slot pre-fills account/shop/time/day/date, so the form collapses
+  // to just "who's going live"; everything else lives behind "More options".
+  const isQuickAssign = mode !== 'edit' && Boolean(prefill);
+  const [showMore, setShowMore] = useState(false);
+  useEffect(() => {
+    setShowMore(false);
+  }, [open, prefill?.timeSlotId]);
+
+  const shopName = useMemo(() => {
+    const pa = platformAccounts.find((p) => String(p.id) === String(form.data.platform_account_id));
+    return pa?.name ?? null;
+  }, [platformAccounts, form.data.platform_account_id]);
+
+  const selectedTimeSlotLabel = useMemo(() => {
+    const ts = timeSlotOptions.find((t) => String(t.id) === String(form.data.time_slot_id));
+    return ts?.label ?? null;
+  }, [timeSlotOptions, form.data.time_slot_id]);
+
   const submit = (event) => {
     event.preventDefault();
 
@@ -360,8 +378,8 @@ export default function SessionSlotFormModal({
   };
 
   const title = mode === 'edit' ? 'Edit session slot' : 'Assign session slot';
-  const submitLabel = mode === 'edit' ? 'Save changes' : 'Create session slot';
-  const processingLabel = mode === 'edit' ? 'Saving…' : 'Creating…';
+  const submitLabel = mode === 'edit' ? 'Save changes' : (isQuickAssign ? 'Assign' : 'Create session slot');
+  const processingLabel = mode === 'edit' ? 'Saving…' : (isQuickAssign ? 'Assigning…' : 'Creating…');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -382,94 +400,27 @@ export default function SessionSlotFormModal({
         )}
 
         <form onSubmit={submit} className="space-y-4">
-          {/* The creator account (nickname) is the punca kuasa: chosen first. */}
-          <ModalField
-            label="Creator account"
-            error={form.errors.live_account_id}
-            hint="The account the host goes live on. The shop below is what this broadcast promotes."
-            required
-          >
-            <SearchableSelect
-              value={form.data.live_account_id}
-              onChange={(next) => form.setData('live_account_id', next)}
-              placeholder="Select creator account"
-              searchPlaceholder="Search nickname, handle or shop…"
-              emptyLabel="No accounts match"
-              options={accountOptions}
-            />
-          </ModalField>
+          {/* Quick-assign summary of the pre-filled context. */}
+          {isQuickAssign && (
+            <div className="rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 py-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-[#525252]">
+                <span className="font-medium text-[#0A0A0A]">{selectedAccount?.label ?? 'No account'}</span>
+                {shopName && (<><span className="text-[#C4C4C4]">·</span><span>{shopName}</span></>)}
+                {selectedTimeSlotLabel && (<><span className="text-[#C4C4C4]">·</span><span className="tabular-nums">{selectedTimeSlotLabel}</span></>)}
+                <span className="text-[#C4C4C4]">·</span>
+                <span className="tabular-nums">{form.data.is_template ? 'Weekly' : (form.data.schedule_date || DAY_NAMES_FULL[Number(form.data.day_of_week)] || '')}</span>
+              </div>
+            </div>
+          )}
 
-          <ModalField
-            label="Shop (promoted)"
-            error={form.errors.platform_account_id}
-            hint={
-              selectedAccount && (selectedAccount.shops ?? []).length === 0
-                ? 'This account has no linked shops yet — pick any, then link it in Creators.'
-                : 'Limited to the shops this account is affiliated with.'
-            }
-            required
-          >
-            <SearchableSelect
-              value={form.data.platform_account_id}
-              onChange={(next) => form.setData('platform_account_id', next)}
-              placeholder="Select shop"
-              searchPlaceholder="Search shop or platform…"
-              emptyLabel="No shops match"
-              options={shopChoices}
-            />
-          </ModalField>
-
-          <ModalField label="Time slot" error={form.errors.time_slot_id} required>
-            <ModalSelect
-              value={form.data.time_slot_id}
-              onChange={(e) => form.setData('time_slot_id', e.target.value)}
-              required
-            >
-              <option value="">Select time slot</option>
-              {timeSlotOptions.map((ts) => (
-                <option key={ts.id} value={ts.id}>
-                  {ts.label}
-                </option>
-              ))}
-            </ModalSelect>
-          </ModalField>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <ModalField label="Day of week" error={form.errors.day_of_week} required>
-              <ModalSelect
-                value={form.data.day_of_week}
-                onChange={(e) => form.setData('day_of_week', e.target.value)}
-                required
-              >
-                {DAY_NAMES_FULL.map((label, value) => (
-                  <option key={label} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </ModalSelect>
-            </ModalField>
-
-            <ModalField label="Status" error={form.errors.status}>
-              <ModalSelect
-                value={form.data.status}
-                onChange={(e) => form.setData('status', e.target.value)}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </ModalSelect>
-            </ModalField>
-          </div>
-
+          {/* Who's going live — the one thing to set for a quick assign. */}
           <ModalField
             label="Live host (who’s broadcasting)"
             error={form.errors.live_host_id}
             hint={
               selectedAccount && (selectedAccount.hostIds ?? []).length > 1
                 ? 'Several hosts share this account — pick who is doing this live.'
-                : 'Identify which host goes live on this account.'
+                : 'Pick who goes live at this time.'
             }
             required
           >
@@ -483,49 +434,146 @@ export default function SessionSlotFormModal({
             />
           </ModalField>
 
-          <ModalField
-            label={form.data.is_template ? 'Specific date (optional)' : 'Specific date'}
-            error={form.errors.schedule_date}
-            hint={
-              form.data.is_template
-                ? 'Leave blank to use this slot as part of the weekly template.'
-                : 'Required for one-off sessions. Tick “Weekly template” above to make this optional.'
-            }
-            required={!form.data.is_template}
-          >
-            <Input
-              type="date"
-              value={form.data.schedule_date}
-              onChange={(e) => form.setData('schedule_date', e.target.value)}
-              required={!form.data.is_template}
-            />
-          </ModalField>
+          {isQuickAssign && (
+            <button
+              type="button"
+              onClick={() => setShowMore((v) => !v)}
+              className="flex w-full items-center gap-1.5 text-[12.5px] font-medium text-[#525252] transition-colors hover:text-[#0A0A0A]"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${showMore ? '' : '-rotate-90'}`} strokeWidth={2} />
+              {showMore ? 'Fewer options' : 'More options'}
+              <span className="text-[11px] font-normal text-[#A3A3A3]">· account, shop, time, day, date, remarks</span>
+            </button>
+          )}
 
-          <ModalField label="Remarks (optional)" error={form.errors.remarks}>
-            <textarea
-              value={form.data.remarks}
-              onChange={(e) => form.setData('remarks', e.target.value)}
-              rows={2}
-              maxLength={1000}
-              placeholder="Notes for this assignment…"
-              className="w-full resize-none rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-            />
-          </ModalField>
+          {(!isQuickAssign || showMore) && (
+            <div className={isQuickAssign ? 'space-y-4 border-t border-[#F0F0F0] pt-4' : 'space-y-4'}>
+              {/* The creator account (nickname) is the punca kuasa. */}
+              <ModalField
+                label="Creator account"
+                error={form.errors.live_account_id}
+                hint="The account the host goes live on. The shop below is what this broadcast promotes."
+                required
+              >
+                <SearchableSelect
+                  value={form.data.live_account_id}
+                  onChange={(next) => form.setData('live_account_id', next)}
+                  placeholder="Select creator account"
+                  searchPlaceholder="Search nickname, handle or shop…"
+                  emptyLabel="No accounts match"
+                  options={accountOptions}
+                />
+              </ModalField>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#F0F0F0] bg-[#FAFAFA] p-3">
-            <input
-              type="checkbox"
-              checked={form.data.is_template}
-              onChange={(e) => form.setData('is_template', e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-[#D4D4D4] text-[#10B981] focus:ring-[#10B981]/30"
-            />
-            <span className="min-w-0">
-              <span className="text-[13px] font-medium text-[#0A0A0A]">Weekly template</span>
-              <span className="mt-0.5 block text-[11.5px] text-[#737373]">
-                On: recurs every week on this day. Off: one-off for the specific date above.
-              </span>
-            </span>
-          </label>
+              <ModalField
+                label="Shop (promoted)"
+                error={form.errors.platform_account_id}
+                hint={
+                  selectedAccount && (selectedAccount.shops ?? []).length === 0
+                    ? 'This account has no linked shops yet — pick any, then link it in Creators.'
+                    : 'Limited to the shops this account is affiliated with.'
+                }
+                required
+              >
+                <SearchableSelect
+                  value={form.data.platform_account_id}
+                  onChange={(next) => form.setData('platform_account_id', next)}
+                  placeholder="Select shop"
+                  searchPlaceholder="Search shop or platform…"
+                  emptyLabel="No shops match"
+                  options={shopChoices}
+                />
+              </ModalField>
+
+              <ModalField label="Time slot" error={form.errors.time_slot_id} required>
+                <ModalSelect
+                  value={form.data.time_slot_id}
+                  onChange={(e) => form.setData('time_slot_id', e.target.value)}
+                  required
+                >
+                  <option value="">Select time slot</option>
+                  {timeSlotOptions.map((ts) => (
+                    <option key={ts.id} value={ts.id}>
+                      {ts.label}
+                    </option>
+                  ))}
+                </ModalSelect>
+              </ModalField>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ModalField label="Day of week" error={form.errors.day_of_week} required>
+                  <ModalSelect
+                    value={form.data.day_of_week}
+                    onChange={(e) => form.setData('day_of_week', e.target.value)}
+                    required
+                  >
+                    {DAY_NAMES_FULL.map((label, value) => (
+                      <option key={label} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </ModalSelect>
+                </ModalField>
+
+                <ModalField label="Status" error={form.errors.status}>
+                  <ModalSelect
+                    value={form.data.status}
+                    onChange={(e) => form.setData('status', e.target.value)}
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </ModalSelect>
+                </ModalField>
+              </div>
+
+              <ModalField
+                label={form.data.is_template ? 'Specific date (optional)' : 'Specific date'}
+                error={form.errors.schedule_date}
+                hint={
+                  form.data.is_template
+                    ? 'Leave blank to use this slot as part of the weekly template.'
+                    : 'Required for one-off sessions. Tick “Weekly template” below to make this optional.'
+                }
+                required={!form.data.is_template}
+              >
+                <Input
+                  type="date"
+                  value={form.data.schedule_date}
+                  onChange={(e) => form.setData('schedule_date', e.target.value)}
+                  required={!form.data.is_template}
+                />
+              </ModalField>
+
+              <ModalField label="Remarks (optional)" error={form.errors.remarks}>
+                <textarea
+                  value={form.data.remarks}
+                  onChange={(e) => form.setData('remarks', e.target.value)}
+                  rows={2}
+                  maxLength={1000}
+                  placeholder="Notes for this assignment…"
+                  className="w-full resize-none rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                />
+              </ModalField>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#F0F0F0] bg-[#FAFAFA] p-3">
+                <input
+                  type="checkbox"
+                  checked={form.data.is_template}
+                  onChange={(e) => form.setData('is_template', e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#D4D4D4] text-[#10B981] focus:ring-[#10B981]/30"
+                />
+                <span className="min-w-0">
+                  <span className="text-[13px] font-medium text-[#0A0A0A]">Weekly template</span>
+                  <span className="mt-0.5 block text-[11.5px] text-[#737373]">
+                    On: recurs every week on this day. Off: one-off for the specific date above.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
 
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
