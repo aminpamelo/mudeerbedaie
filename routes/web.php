@@ -20,6 +20,7 @@ use App\Http\Controllers\Fighter\PerformanceController;
 use App\Http\Controllers\FunnelEmbedController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LiveHost\CommissionOverviewController;
+use App\Http\Controllers\LiveHost\CommissionTierTemplateController;
 use App\Http\Controllers\LiveHost\CreatorController;
 use App\Http\Controllers\LiveHost\HostController;
 use App\Http\Controllers\LiveHost\HostPlatformAccountController;
@@ -548,6 +549,16 @@ Route::middleware(['auth'])
             Route::delete('hosts/{host}/tiers/{tier}', [HostController::class, 'destroyTier'])
                 ->name('hosts.tiers.destroy');
 
+            // Master commission tier templates — reusable ladders applied to hosts.
+            Route::get('commission-templates', [CommissionTierTemplateController::class, 'index'])
+                ->name('commission-templates.index');
+            Route::post('commission-templates', [CommissionTierTemplateController::class, 'store'])
+                ->name('commission-templates.store');
+            Route::put('commission-templates/{template}', [CommissionTierTemplateController::class, 'update'])
+                ->name('commission-templates.update');
+            Route::delete('commission-templates/{template}', [CommissionTierTemplateController::class, 'destroy'])
+                ->name('commission-templates.destroy');
+
             // Task 24: pivot CRUD for (host, platform_account) with creator identity.
             Route::post('hosts/{host}/platform-accounts/{platformAccount}', [HostPlatformAccountController::class, 'attach'])
                 ->name('hosts.platform-accounts.attach');
@@ -930,6 +941,8 @@ Route::middleware(['auth'])
                 ->name('session-slots.table');
             Route::get('session-slots/preview', fn () => Inertia::render('session-slots/CalendarPreview'))
                 ->name('session-slots.preview');
+            Route::post('session-slots/auto-verify', [SessionSlotController::class, 'setAutoVerify'])
+                ->name('session-slots.auto-verify');
             Route::get('session-slots', [SessionSlotController::class, 'calendar'])
                 ->name('session-slots.index');
 

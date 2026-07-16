@@ -49,6 +49,7 @@ class LiveSession extends Model
         'verified_by',
         'verified_at',
         'verification_notes',
+        'auto_verified',
         'matched_actual_live_record_id',
     ];
 
@@ -66,6 +67,7 @@ class LiveSession extends Model
             'gmv_adjustment' => 'decimal:2',
             'gmv_locked_at' => 'datetime',
             'commission_snapshot_json' => 'array',
+            'auto_verified' => 'boolean',
         ];
     }
 

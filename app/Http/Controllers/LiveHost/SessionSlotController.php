@@ -16,6 +16,7 @@ use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
 use App\Services\LiveHost\SuggestedSlotFinder;
+use App\Services\SettingsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -203,7 +204,31 @@ class SessionSlotController extends Controller
             'timeSlots' => $timeSlots,
             'slotOverrides' => $this->slotOverridesForWeek($weekStart, $weekEnd),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
+            'autoVerifyEnabled' => filter_var(
+                app(SettingsService::class)->get('livehost.auto_verify_enabled', false),
+                FILTER_VALIDATE_BOOLEAN,
+            ),
         ]);
+    }
+
+    /**
+     * Toggle the desk-wide auto-verify setting (auto-assign the scheduled host and
+     * verify matched TikTok lives). Admin / desk PIC only.
+     */
+    public function setAutoVerify(Request $request): RedirectResponse
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'admin_livehost'], true), 403);
+
+        $enabled = $request->boolean('enabled');
+        app(SettingsService::class)->set(
+            'livehost.auto_verify_enabled',
+            $enabled,
+            'boolean',
+            'livehost',
+            'Auto-assign the scheduled host and verify matched TikTok lives.',
+        );
+
+        return back()->with('success', $enabled ? 'Auto-verify turned on.' : 'Auto-verify turned off.');
     }
 
     public function create(): Response
@@ -512,6 +537,7 @@ class SessionSlotController extends Controller
             'attachments' => $attachments,
             'attachmentCount' => count($attachments),
             'verificationStatus' => $s->verification_status ?? 'pending',
+            'autoVerified' => (bool) $s->auto_verified,
             'verificationNotes' => $s->verification_notes,
             'verifiedByName' => $s->verifiedBy?->name,
             'verifiedAt' => $s->verified_at?->toIso8601String(),

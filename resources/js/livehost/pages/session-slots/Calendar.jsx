@@ -178,8 +178,10 @@ function resolveSessionState(session) {
   if (verification === 'verified') {
     return {
       key: 'verified',
-      label: 'Verified',
-      title: 'Verified against the imported TikTok record',
+      label: session.autoVerified ? 'Auto ✓' : 'Verified',
+      title: session.autoVerified
+        ? 'Auto-verified from the schedule — click to review or unverify'
+        : 'Verified against the imported TikTok record',
       icon: ShieldCheck,
       dot: '#10B981',
       bg: '#DCFCE7',
@@ -308,6 +310,7 @@ export default function SessionSlotsCalendar() {
     timeSlots,
     slotOverrides = [],
     hostPlatformPivots,
+    autoVerifyEnabled = false,
     flash,
   } = usePage().props;
 
@@ -1034,6 +1037,26 @@ export default function SessionSlotsCalendar() {
               <span className="text-[#525252]">TikTok suggestion</span>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() =>
+              router.post(
+                '/livehost/session-slots/auto-verify',
+                { enabled: !autoVerifyEnabled },
+                { preserveScroll: true, preserveState: true },
+              )
+            }
+            title="When on, a synced TikTok live that overlaps a hosted schedule slot is auto-assigned to that host and auto-verified (GMV locked). You can still unverify/adjust anytime."
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              autoVerifyEnabled
+                ? 'border-[#10B981]/40 bg-[#ECFDF5] text-[#047857]'
+                : 'border-[#EAEAEA] bg-white text-[#737373] hover:bg-[#F5F5F5]'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${autoVerifyEnabled ? 'bg-[#10B981]' : 'bg-[#D4D4D4]'}`}></span>
+            Auto-verify {autoVerifyEnabled ? 'On' : 'Off'}
+          </button>
         </div>
 
         {/* Unregistered-creator guide — these lives can't be assigned until the
