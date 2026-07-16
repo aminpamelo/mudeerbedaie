@@ -163,6 +163,37 @@ class SessionDetailController extends Controller
             ->with('success', 'Attachment added.');
     }
 
+    /**
+     * Swap the file on an existing attachment in place — for when a host
+     * uploaded the wrong proof and wants to correct it. The row keeps its id,
+     * attachment_type and description; only the file is replaced. The new file
+     * is stored first and the old one removed only after the row is updated, so
+     * a failure never leaves the host with no proof.
+     */
+    public function replaceAttachment(AddAttachmentRequest $request, LiveSession $session, LiveSessionAttachment $attachment): RedirectResponse
+    {
+        abort_unless($session->live_host_id === $request->user()->id, 403);
+        abort_unless($attachment->live_session_id === $session->id, 404);
+
+        $file = $request->file('file');
+        $newPath = $file->store("live-sessions/{$session->id}/attachments", 'public');
+        $oldPath = $attachment->file_path;
+
+        $attachment->update([
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $newPath,
+            'file_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        if ($oldPath && $oldPath !== $newPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return back()->with('success', 'Proof replaced.');
+    }
+
     public function deleteAttachment(Request $request, LiveSession $session, LiveSessionAttachment $attachment): RedirectResponse
     {
         abort_unless($session->live_host_id === $request->user()->id, 403);

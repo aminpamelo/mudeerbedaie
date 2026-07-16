@@ -297,6 +297,9 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
         Route::post('sessions/{session}/attachments', [SessionDetailController::class, 'addAttachment'])
             ->name('sessions.attachments.store');
 
+        Route::post('sessions/{session}/attachments/{attachment}/replace', [SessionDetailController::class, 'replaceAttachment'])
+            ->name('sessions.attachments.replace');
+
         Route::delete('sessions/{session}/attachments/{attachment}', [SessionDetailController::class, 'deleteAttachment'])
             ->name('sessions.attachments.destroy');
 

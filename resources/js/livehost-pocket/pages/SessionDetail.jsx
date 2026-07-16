@@ -6,9 +6,10 @@ import {
   FileText,
   Video,
   File,
-  X,
   Plus,
   UploadCloud,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { cn } from '@/livehost-pocket/lib/utils';
@@ -103,26 +104,42 @@ export default function SessionDetail() {
     recap.clearErrors();
   };
 
+  // Which attachment (if any) the next file pick should REPLACE. A ref (not
+  // state) so the change handler never reads a stale value between the picker
+  // opening and the file being chosen.
+  const replaceTargetRef = useRef(null);
+
+  const openFilePicker = (replaceAttachmentId = null) => {
+    replaceTargetRef.current = replaceAttachmentId;
+    attachmentInputRef.current?.click();
+  };
+
   const handleAttachmentUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
+    const targetId = replaceTargetRef.current;
+    const url = targetId
+      ? `/live-host/sessions/${session.id}/attachments/${targetId}/replace`
+      : `/live-host/sessions/${session.id}/attachments`;
+
     const data = new FormData();
     data.append('file', file);
-    router.post(`/live-host/sessions/${session.id}/attachments`, data, {
+    router.post(url, data, {
       preserveScroll: true,
       forceFormData: true,
       onFinish: () => {
         if (attachmentInputRef.current) {
           attachmentInputRef.current.value = '';
         }
+        replaceTargetRef.current = null;
       },
     });
   };
 
   const handleAttachmentDelete = (attachmentId) => {
-    if (!window.confirm('Remove this attachment?')) {
+    if (!window.confirm('Delete this file? You can upload a new one after.')) {
       return;
     }
     router.delete(
@@ -151,7 +168,7 @@ export default function SessionDetail() {
                 {!hasVisualProof ? (
                   <button
                     type="button"
-                    onClick={() => attachmentInputRef.current?.click()}
+                    onClick={() => openFilePicker()}
                     className="group relative flex aspect-square w-full flex-col items-center justify-center gap-[14px] overflow-hidden rounded-[18px] border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] px-[20px] text-center transition hover:scale-[1.01]"
                   >
                     <span className="grid h-[56px] w-[56px] place-items-center rounded-full bg-[var(--accent)] text-[var(--accent-ink)] shadow-sm transition group-hover:scale-110">
@@ -176,6 +193,7 @@ export default function SessionDetail() {
                       <AttachmentRow
                         key={attachment.id}
                         attachment={attachment}
+                        onReplace={() => openFilePicker(attachment.id)}
                         onDelete={() => handleAttachmentDelete(attachment.id)}
                       />
                     ))
@@ -184,7 +202,7 @@ export default function SessionDetail() {
                 {hasVisualProof ? (
                   <button
                     type="button"
-                    onClick={() => attachmentInputRef.current?.click()}
+                    onClick={() => openFilePicker()}
                     className="flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[12px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                   >
                     <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
@@ -405,7 +423,7 @@ function DateTimeField({ label, value, onChange, error }) {
   );
 }
 
-function AttachmentRow({ attachment, onDelete }) {
+function AttachmentRow({ attachment, onReplace, onDelete }) {
   const Icon = pickIcon(attachment.fileType);
   const typeLabel = shortType(attachment.fileType);
   const sizeLabel = formatBytes(attachment.fileSize);
@@ -468,13 +486,27 @@ function AttachmentRow({ attachment, onDelete }) {
             ) : null}
           </div>
         </div>
+      </div>
+
+      {/* Wrong file? Swap it or remove it — clear, labelled actions. */}
+      <div className="grid grid-cols-2 gap-[8px] border-t border-[var(--hair)] bg-[var(--app-bg)] px-[10px] py-[8px]">
+        <button
+          type="button"
+          onClick={onReplace}
+          className="flex items-center justify-center gap-[6px] rounded-[10px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] py-[9px] text-[12px] font-bold text-[var(--fg)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] active:scale-[0.98]"
+          aria-label={`Replace ${attachment.fileName}`}
+        >
+          <RefreshCw className="h-[13px] w-[13px]" strokeWidth={2.2} />
+          Replace
+        </button>
         <button
           type="button"
           onClick={onDelete}
-          className="grid h-[28px] w-[28px] place-items-center rounded-full border border-[var(--hair)] text-[var(--fg-3)] transition hover:border-[var(--hot)] hover:text-[var(--hot)]"
-          aria-label={`Remove ${attachment.fileName}`}
+          className="flex items-center justify-center gap-[6px] rounded-[10px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] py-[9px] text-[12px] font-bold text-[var(--fg-2)] transition hover:border-[var(--hot)] hover:text-[var(--hot)] active:scale-[0.98]"
+          aria-label={`Delete ${attachment.fileName}`}
         >
-          <X className="h-[12px] w-[12px]" strokeWidth={2} />
+          <Trash2 className="h-[13px] w-[13px]" strokeWidth={2.2} />
+          Delete
         </button>
       </div>
     </div>

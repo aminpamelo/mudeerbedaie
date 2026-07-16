@@ -286,6 +286,67 @@ it('forbids another host from deleting an attachment', function () {
         ->assertForbidden();
 });
 
+it('replaces an attachment file in place, keeping the same row', function () {
+    Storage::fake('public');
+
+    actingAs($this->host)->post("/live-host/sessions/{$this->session->id}/attachments", [
+        'file' => UploadedFile::fake()->create('wrong.jpg', 100, 'image/jpeg'),
+    ]);
+
+    $attachment = LiveSessionAttachment::where('live_session_id', $this->session->id)->firstOrFail();
+    $oldPath = $attachment->file_path;
+
+    actingAs($this->host)
+        ->post("/live-host/sessions/{$this->session->id}/attachments/{$attachment->id}/replace", [
+            'file' => UploadedFile::fake()->create('correct.png', 150, 'image/png'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $fresh = $attachment->fresh();
+    // Same row id, new file details, old file removed, no extra rows.
+    expect($fresh->id)->toBe($attachment->id);
+    expect($fresh->file_name)->toBe('correct.png');
+    expect($fresh->file_type)->toBe('image/png');
+    expect($fresh->file_path)->not->toBe($oldPath);
+    expect(LiveSessionAttachment::where('live_session_id', $this->session->id)->count())->toBe(1);
+    Storage::disk('public')->assertExists($fresh->file_path);
+    Storage::disk('public')->assertMissing($oldPath);
+});
+
+it('returns 404 when replacing an attachment that belongs to another session', function () {
+    Storage::fake('public');
+    $otherSession = LiveSession::factory()->create([
+        'live_host_id' => $this->host->id,
+        'status' => 'ended',
+    ]);
+    $attachment = LiveSessionAttachment::factory()->create([
+        'live_session_id' => $otherSession->id,
+        'uploaded_by' => $this->host->id,
+    ]);
+
+    actingAs($this->host)
+        ->post("/live-host/sessions/{$this->session->id}/attachments/{$attachment->id}/replace", [
+            'file' => UploadedFile::fake()->create('new.jpg', 100, 'image/jpeg'),
+        ])
+        ->assertNotFound();
+});
+
+it('forbids another host from replacing an attachment', function () {
+    Storage::fake('public');
+    $other = User::factory()->create(['role' => 'live_host']);
+    $attachment = LiveSessionAttachment::factory()->create([
+        'live_session_id' => $this->session->id,
+        'uploaded_by' => $this->host->id,
+    ]);
+
+    actingAs($other)
+        ->post("/live-host/sessions/{$this->session->id}/attachments/{$attachment->id}/replace", [
+            'file' => UploadedFile::fake()->create('new.jpg', 100, 'image/jpeg'),
+        ])
+        ->assertForbidden();
+});
+
 it('requires auth to view session detail', function () {
     $this->get("/live-host/sessions/{$this->session->id}")
         ->assertRedirect('/login');
