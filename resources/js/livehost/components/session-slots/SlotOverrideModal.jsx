@@ -6,8 +6,6 @@ const DAYS = [
   { v: 0, label: 'Sun' }, { v: 1, label: 'Mon' }, { v: 2, label: 'Tue' }, { v: 3, label: 'Wed' },
   { v: 4, label: 'Thu' }, { v: 5, label: 'Fri' }, { v: 6, label: 'Sat' },
 ];
-const dayLabel = (v) => DAYS.find((d) => d.v === v)?.label ?? '—';
-
 function csrf() {
   return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 }
@@ -26,7 +24,7 @@ async function jsonFetch(url, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw data;
+    throw { ...data, status: res.status };
   }
   return data;
 }
@@ -53,7 +51,7 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], onClos
 
   const load = useCallback(() => {
     setLoading(true);
-    jsonFetch(`/livehost/session-slots/slot-overrides?live_account=${account.id}`)
+    jsonFetch(`/livehost/slot-overrides?live_account=${account.id}`)
       .then((d) => setOverrides(d.overrides ?? []))
       .catch(() => setOverrides([]))
       .finally(() => setLoading(false));
@@ -89,15 +87,18 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], onClos
     };
     try {
       if (form.id) {
-        await jsonFetch(`/livehost/session-slots/slot-overrides/${form.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        await jsonFetch(`/livehost/slot-overrides/${form.id}`, { method: 'PUT', body: JSON.stringify(payload) });
       } else {
-        await jsonFetch('/livehost/session-slots/slot-overrides', { method: 'POST', body: JSON.stringify(payload) });
+        await jsonFetch('/livehost/slot-overrides', { method: 'POST', body: JSON.stringify(payload) });
       }
       setForm(null);
       load();
       onSaved?.();
     } catch (e) {
-      setErrors(e.errors ?? { _: ['Could not save. Check the fields.'] });
+      const detail = e.status === 419
+        ? 'Your session expired — refresh the page and try again.'
+        : [e.status ? `(${e.status})` : null, e.message].filter(Boolean).join(' ') || 'Could not save. Please try again.';
+      setErrors(e.errors ?? { _: [detail] });
     } finally {
       setBusy(false);
     }
@@ -107,7 +108,7 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], onClos
     if (!window.confirm('Delete this slot override?')) {
       return;
     }
-    await jsonFetch(`/livehost/session-slots/slot-overrides/${o.id}`, { method: 'DELETE' });
+    await jsonFetch(`/livehost/slot-overrides/${o.id}`, { method: 'DELETE' });
     load();
     onSaved?.();
   };
@@ -156,9 +157,19 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], onClos
                           <button type="button" onClick={() => remove(o)} className="rounded-md p-1.5 text-[#B91C1C] hover:bg-[#FEF2F2]" title="Delete"><Trash2 className="h-3.5 w-3.5" strokeWidth={2} /></button>
                         </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {o.slots.map((s) => (
-                          <span key={s.id} className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[10.5px] font-medium text-[#525252] tabular-nums">{dayLabel(s.day_of_week)} {s.start_time}–{s.end_time}</span>
+                      <div className="mt-2 flex flex-col gap-1">
+                        {DAYS.filter((d) => o.slots.some((s) => s.day_of_week === d.v)).map((d) => (
+                          <div key={d.v} className="flex items-start gap-2">
+                            <span className="w-8 shrink-0 pt-0.5 text-[10.5px] font-semibold text-[#737373]">{d.label}</span>
+                            <div className="flex flex-wrap gap-1">
+                              {o.slots
+                                .filter((s) => s.day_of_week === d.v)
+                                .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
+                                .map((s) => (
+                                  <span key={s.id} className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[10.5px] font-medium text-[#525252] tabular-nums">{s.start_time}–{s.end_time}</span>
+                                ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
