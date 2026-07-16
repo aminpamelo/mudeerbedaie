@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Funnel;
-use App\Models\FunnelOrder;
+use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\SalesSource;
 use App\Models\User;
@@ -237,26 +237,53 @@ it('leaves non-fighter funnels untagged and respects their admin-visibility sett
 |--------------------------------------------------------------------------
 */
 
-it('shows a fighter only the orders from their own funnels', function () {
+it('shows a fighter only the orders attributed to their segment', function () {
     $a = fighter();
+    $segA = app(FighterProvisioner::class)->ensureSalesSource($a);
     $b = fighter();
+    $segB = app(FighterProvisioner::class)->ensureSalesSource($b);
 
-    $funnelA = Funnel::factory()->create(['user_id' => $a->id]);
-    $orderA = ProductOrder::factory()->create(['source' => 'funnel', 'order_number' => 'PO-AAA']);
-    FunnelOrder::factory()->create(['funnel_id' => $funnelA->id, 'product_order_id' => $orderA->id, 'order_type' => 'main']);
-
-    $funnelB = Funnel::factory()->create(['user_id' => $b->id]);
-    $orderB = ProductOrder::factory()->create(['source' => 'funnel', 'order_number' => 'PO-BBB']);
-    FunnelOrder::factory()->create(['funnel_id' => $funnelB->id, 'product_order_id' => $orderB->id, 'order_type' => 'main']);
+    // A funnel order and a manual order, both under fighter A's segment.
+    ProductOrder::factory()->create(['source' => 'funnel', 'order_number' => 'PO-AAA', 'sales_source_id' => $segA->id]);
+    ProductOrder::factory()->create(['source' => 'pos', 'order_number' => 'PO-MANUAL', 'sales_source_id' => $segA->id]);
+    // Fighter B's order must not leak in.
+    ProductOrder::factory()->create(['source' => 'pos', 'order_number' => 'PO-BBB', 'sales_source_id' => $segB->id]);
 
     $this->actingAs($a)
         ->get('/fighter/orders')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Orders', false)
-            ->has('orders.data', 1)
-            ->where('orders.data.0.order_number', 'PO-AAA')
+            ->has('orders.data', 2)
+            ->where('orders.data', fn ($rows) => collect($rows)->pluck('order_number')->sort()->values()->all() === ['PO-AAA', 'PO-MANUAL'])
         );
+});
+
+it('forces a fighter\'s manual (POS) order onto their own segment', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 50, 'track_quantity' => false]);
+    $otherSegment = SalesSource::factory()->create(['name' => 'Sales Team']);
+
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        // A fighter tries to attribute the sale to another (sales-team) segment...
+        'sales_source_id' => $otherSegment->id,
+        'customer_name' => 'Walk In',
+        'customer_phone' => '60123456789',
+        'payment_method' => 'cash',
+        'payment_status' => 'paid',
+        'items' => [[
+            'itemable_type' => 'product',
+            'itemable_id' => $product->id,
+            'quantity' => 1,
+            'unit_price' => 50,
+        ]],
+    ])->assertSuccessful();
+
+    $order = ProductOrder::query()->where('source', 'pos')->latest('id')->first();
+
+    // ...but the server forces it onto the fighter's own segment.
+    expect($order->sales_source_id)->toBe($f->fresh()->sales_source_id)
+        ->and($order->sales_source_id)->not->toBe($otherSegment->id);
 });
 
 /*

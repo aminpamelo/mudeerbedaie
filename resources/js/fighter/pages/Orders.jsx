@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, ShoppingBag, Plus } from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import { cn, formatMoney, formatDate } from '@/fighter/lib/utils';
 
@@ -30,6 +30,16 @@ function Pill({ value, map }) {
   );
 }
 
+function CreateOrderButton({ variant = 'header' }) {
+  const base = 'flex items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] font-semibold text-white transition-colors hover:bg-[var(--color-brand-ink)]';
+  return (
+    <Link href="/fighter/orders/create" className={cn(base, variant === 'header' ? 'px-3.5 py-2.5 text-[13px]' : 'mt-5 px-4 py-2.5 text-[13.5px]')}>
+      <Plus className="h-4 w-4" strokeWidth={2.4} />
+      Create order
+    </Link>
+  );
+}
+
 function goToPage(page) {
   router.get('/fighter/orders', { page }, { preserveScroll: true, preserveState: true });
 }
@@ -39,7 +49,11 @@ export default function Orders({ orders }) {
   const meta = orders?.meta ?? { current_page: 1, last_page: 1, total: 0 };
 
   return (
-    <FighterLayout title="Orders" subtitle="Orders that came in from your funnels. Fulfilment is handled by the team.">
+    <FighterLayout
+      title="Orders"
+      subtitle="Orders from your funnels and manual orders. Fulfilment is handled by the team."
+      actions={<CreateOrderButton />}
+    >
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface px-6 py-16 text-center">
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-orange-50 text-[var(--color-brand)]">
@@ -47,8 +61,9 @@ export default function Orders({ orders }) {
           </div>
           <h3 className="mt-4 text-[16px] font-semibold text-ink">No orders yet</h3>
           <p className="mt-1 max-w-sm text-[13.5px] text-muted">
-            When a customer buys through one of your funnels, the order will appear here.
+            Orders from your funnels show up here. You can also record an order manually.
           </p>
+          <CreateOrderButton variant="empty" />
         </div>
       ) : (
         <>
@@ -58,7 +73,7 @@ export default function Orders({ orders }) {
                 <thead className="bg-surface">
                   <tr>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Order</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Funnel</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Source</th>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Status</th>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Payment</th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Total</th>
@@ -69,7 +84,7 @@ export default function Orders({ orders }) {
                   {rows.map((order) => (
                     <tr key={order.id} className="transition-colors hover:bg-surface/60">
                       <td className="px-4 py-3 text-[13px] font-semibold text-ink">{order.order_number}</td>
-                      <td className="px-4 py-3 text-[13px] text-ink-2">{order.funnel_name ?? '—'}</td>
+                      <td className="px-4 py-3 text-[13px] text-ink-2">{order.source_label ?? '—'}</td>
                       <td className="px-4 py-3"><Pill value={order.status} map={STATUS_STYLES} /></td>
                       <td className="px-4 py-3"><Pill value={order.payment_status} map={PAYMENT_STYLES} /></td>
                       <td className="px-4 py-3 text-right text-[13px] font-semibold tabular-nums text-ink">{formatMoney(order.total)}</td>

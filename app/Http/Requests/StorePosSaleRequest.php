@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePosSaleRequest extends FormRequest
 {
@@ -17,12 +19,13 @@ class StorePosSaleRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'sales_source_id' => ['required', 'exists:sales_sources,id'],
+            // Fighters don't pick a segment — the controller forces their own.
+            'sales_source_id' => [Rule::requiredIf(fn (): bool => ! optional($this->user())->isFighter()), 'nullable', 'exists:sales_sources,id'],
             'customer_id' => ['nullable', 'exists:users,id'],
             'customer_name' => ['required_without:customer_id', 'nullable', 'string', 'max:255'],
             'customer_phone' => ['required_without:customer_id', 'nullable', 'string', 'max:20'],

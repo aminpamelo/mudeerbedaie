@@ -431,6 +431,8 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
             ->name('performance');
         Route::get('orders', [OrderController::class, 'index'])
             ->name('orders');
+        Route::get('orders/create', [OrderController::class, 'create'])
+            ->name('orders.create');
         Route::get('notifications', [NotificationController::class, 'index'])
             ->name('notifications');
         Route::get('notifications/feed', [NotificationController::class, 'feed'])

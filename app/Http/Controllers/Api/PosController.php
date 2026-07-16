@@ -14,6 +14,8 @@ use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\SalesSource;
 use App\Models\User;
+use App\Services\Fighter\FighterProvisioner;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -282,6 +284,14 @@ class PosController extends Controller
                 }
             }
 
+            // Fighters can't attribute a sale to another segment — force their
+            // own auto-provisioned segment so the order lands under them, not
+            // the sales team. Everyone else uses the picked sales source.
+            $user = $request->user();
+            $salesSourceId = $user->isFighter()
+                ? app(FighterProvisioner::class)->ensureSalesSource($user)->id
+                : ($validated['sales_source_id'] ?? null);
+
             // Create ProductOrder with source = 'pos'
             $order = ProductOrder::create([
                 'order_number' => ProductOrder::generateOrderNumber(),
@@ -292,7 +302,7 @@ class PosController extends Controller
                 'shipping_address' => $shippingAddress,
                 'source' => 'pos',
                 'source_reference' => 'salesperson:'.$request->user()->id,
-                'sales_source_id' => $validated['sales_source_id'],
+                'sales_source_id' => $salesSourceId,
                 'status' => 'pending',
                 'order_type' => 'product',
                 'subtotal' => $subtotal,
@@ -765,7 +775,7 @@ class PosController extends Controller
 
         $sale->load(['items.itemable', 'customer']);
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.pos-receipt', ['order' => $sale]);
+        $pdf = Pdf::loadView('pdf.pos-receipt', ['order' => $sale]);
 
         return $pdf->download("receipt-{$sale->order_number}.pdf");
     }

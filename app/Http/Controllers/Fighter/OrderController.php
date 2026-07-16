@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Fighter;
 
 use App\Http\Controllers\Controller;
-use App\Models\Funnel;
-use App\Models\FunnelOrder;
+use App\Models\ProductOrder;
+use App\Services\Fighter\FighterProvisioner;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,40 +12,38 @@ use Inertia\Response;
 class OrderController extends Controller
 {
     /**
-     * Read-only feed of the orders that came in from the fighter's own funnels.
+     * Read-only feed of every order attributed to the fighter — both funnel
+     * orders and manually-created (POS) orders, unified by the fighter's own
+     * sales-source segment.
      *
-     * Deliberately excludes customer PII (name/email/phone/address) — the
-     * internal e-commerce team owns customer data and fulfilment; the fighter
-     * only sees the order reference, amount, status and which funnel it came
-     * from.
+     * Deliberately excludes customer PII (email/phone/address); the fighter
+     * sees the reference, amount, status and source only.
      */
     public function index(Request $request): Response
     {
-        $userId = (int) $request->user()->id;
-        $funnelIds = Funnel::query()->forUser($userId)->pluck('id');
+        $segmentId = $request->user()->sales_source_id;
 
-        $page = FunnelOrder::query()
-            ->whereIn('funnel_id', $funnelIds)
-            ->where('order_type', 'main')
-            ->with(['productOrder:id,order_number,status,payment_status,total_amount,currency,created_at', 'funnel:id,uuid,name'])
+        $page = ProductOrder::query()
+            ->when(
+                $segmentId,
+                fn ($q) => $q->where('sales_source_id', $segmentId),
+                fn ($q) => $q->whereRaw('1 = 0'),
+            )
             ->latest()
             ->paginate(20);
 
         return Inertia::render('Orders', [
             'orders' => [
-                'data' => $page->getCollection()
-                    ->filter(fn (FunnelOrder $fo) => $fo->productOrder !== null)
-                    ->map(fn (FunnelOrder $fo): array => [
-                        'id' => $fo->productOrder->id,
-                        'order_number' => $fo->productOrder->order_number,
-                        'status' => $fo->productOrder->status,
-                        'payment_status' => $fo->productOrder->payment_status,
-                        'total' => (float) $fo->productOrder->total_amount,
-                        'currency' => $fo->productOrder->currency,
-                        'funnel_name' => $fo->funnel?->name,
-                        'created_at' => optional($fo->productOrder->created_at)->toIso8601String(),
-                    ])
-                    ->values(),
+                'data' => $page->getCollection()->map(fn (ProductOrder $o): array => [
+                    'id' => $o->id,
+                    'order_number' => $o->order_number,
+                    'status' => $o->status,
+                    'payment_status' => $o->payment_status,
+                    'total' => (float) $o->total_amount,
+                    'currency' => $o->currency,
+                    'source_label' => $this->sourceLabel($o->source),
+                    'created_at' => optional($o->created_at)->toIso8601String(),
+                ])->values(),
                 'meta' => [
                     'current_page' => $page->currentPage(),
                     'last_page' => $page->lastPage(),
@@ -54,5 +52,29 @@ class OrderController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * The manual "create order" form. Ensures the fighter has a sales-source
+     * segment so the created order is attributed to them.
+     */
+    public function create(Request $request): Response
+    {
+        $segment = app(FighterProvisioner::class)->ensureSalesSource($request->user());
+
+        return Inertia::render('OrderCreate', [
+            'segment' => ['id' => $segment->id, 'name' => $segment->name],
+            'currency' => 'MYR',
+        ]);
+    }
+
+    private function sourceLabel(?string $source): string
+    {
+        return match ($source) {
+            'funnel' => 'Funnel',
+            'pos' => 'Manual',
+            null => '—',
+            default => ucfirst($source),
+        };
     }
 }
