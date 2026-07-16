@@ -287,7 +287,10 @@ export default function CommissionTemplatesIndex() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent
+          style={{ maxWidth: 'min(56rem, calc(100vw - 2rem))' }}
+          className="max-h-[85vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
+        >
           <DialogHeader>
             <DialogTitle>{isEditing ? 'Edit template' : 'New commission template'}</DialogTitle>
             <DialogDescription>
@@ -295,7 +298,7 @@ export default function CommissionTemplatesIndex() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="min-h-0 min-w-0 space-y-4 overflow-y-auto">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="tpl-name">Name</Label>
@@ -318,15 +321,17 @@ export default function CommissionTemplatesIndex() {
               </div>
             </div>
 
-            <CommissionTierTable
-              platform={{ id: 0, name: draft.name || 'Template' }}
-              effectiveFrom={null}
-              tiers={draft.tiers}
-              onEditRow={editRow}
-              onAddTier={addTier}
-              onRemoveTier={removeTier}
-              readOnly={false}
-            />
+            <div className="min-w-0 overflow-x-auto">
+              <CommissionTierTable
+                platform={{ id: 0, name: draft.name || 'Template' }}
+                effectiveFrom={null}
+                tiers={draft.tiers}
+                onEditRow={editRow}
+                onAddTier={addTier}
+                onRemoveTier={removeTier}
+                readOnly={false}
+              />
+            </div>
 
             {error && (
               <div className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12.5px] text-[#DC2626]">
