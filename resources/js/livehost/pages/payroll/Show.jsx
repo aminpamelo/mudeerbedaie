@@ -175,10 +175,48 @@ function ItemBreakdown({ item }) {
   );
 }
 
+const COMMISSION_SEGMENTS = [
+  { value: 'all', label: 'All' },
+  { value: 'with', label: 'With Commission' },
+  { value: 'without', label: 'No Commission' },
+];
+
+function CommissionFilterToggle({ value, onChange, counts }) {
+  return (
+    <div className="inline-flex items-center rounded-[10px] border border-[#EAEAEA] bg-[#F5F5F5] p-0.5 text-[12.5px]">
+      {COMMISSION_SEGMENTS.map((seg) => {
+        const active = value === seg.value;
+        return (
+          <button
+            key={seg.value}
+            type="button"
+            onClick={() => onChange(seg.value)}
+            className={`rounded-[8px] px-3 py-1.5 font-medium transition-colors ${
+              active
+                ? 'bg-white text-[#0A0A0A] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                : 'text-[#737373] hover:text-[#0A0A0A]'
+            }`}
+          >
+            {seg.label}
+            <span
+              className={`ml-1.5 tabular-nums text-[11px] ${
+                active ? 'text-[#737373]' : 'text-[#A3A3A3]'
+              }`}
+            >
+              {counts[seg.value]}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PayrollShow() {
   const { run, flash } = usePage().props;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [actionPending, setActionPending] = useState(null);
+  const [commissionFilter, setCommissionFilter] = useState('all');
 
   const toggleRow = (id) => {
     setExpandedIds((prev) => {
@@ -209,6 +247,41 @@ export default function PayrollShow() {
 
   const totals = run.totals ?? {};
   const items = run.items ?? [];
+
+  const hasCommission = (item) => Number(item.gmv_commission_myr ?? 0) > 0;
+  const withCommissionCount = items.filter(hasCommission).length;
+  const filterCounts = {
+    all: items.length,
+    with: withCommissionCount,
+    without: items.length - withCommissionCount,
+  };
+
+  const filteredItems = items.filter((item) => {
+    if (commissionFilter === 'with') {
+      return hasCommission(item);
+    }
+    if (commissionFilter === 'without') {
+      return !hasCommission(item);
+    }
+    return true;
+  });
+
+  const sumField = (field) =>
+    filteredItems.reduce((acc, item) => acc + Number(item[field] ?? 0), 0);
+  const displayTotals =
+    commissionFilter === 'all'
+      ? totals
+      : {
+          base_salary_myr: sumField('base_salary_myr'),
+          total_per_live_myr: sumField('total_per_live_myr'),
+          net_gmv_myr: sumField('net_gmv_myr'),
+          gmv_commission_myr: sumField('gmv_commission_myr'),
+          override_l1_myr: sumField('override_l1_myr'),
+          override_l2_myr: sumField('override_l2_myr'),
+          gross_total_myr: sumField('gross_total_myr'),
+          deductions_myr: sumField('deductions_myr'),
+          net_payout_myr: sumField('net_payout_myr'),
+        };
 
   return (
     <>
@@ -349,12 +422,29 @@ export default function PayrollShow() {
         </div>
 
         {/* Items table */}
-        <div className="overflow-auto rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          {items.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F0F0] px-4 py-3">
+              <div className="text-[13px] font-medium text-[#0A0A0A]">
+                Hosts <span className="font-normal text-[#737373]">({filteredItems.length})</span>
+              </div>
+              <CommissionFilterToggle
+                value={commissionFilter}
+                onChange={setCommissionFilter}
+                counts={filterCounts}
+              />
+            </div>
+          )}
           {items.length === 0 ? (
             <div className="py-16 text-center text-sm text-[#737373]">
               No payroll items generated for this run.
             </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="py-16 text-center text-sm text-[#737373]">
+              No hosts match this filter.
+            </div>
           ) : (
+            <div className="overflow-auto">
             <table className="w-full min-w-[1400px] text-sm">
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11px] font-medium text-[#737373]">
@@ -375,7 +465,7 @@ export default function PayrollShow() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <ItemRow
                     key={item.id}
                     item={item}
@@ -388,40 +478,43 @@ export default function PayrollShow() {
               <tfoot>
                 <tr className="border-t-2 border-[#E5E5E5] bg-[#FAFAFA] text-[12.5px] font-semibold text-[#0A0A0A]">
                   <td className="px-3 py-3.5"></td>
-                  <td className="px-3 py-3.5">Totals</td>
+                  <td className="px-3 py-3.5">
+                    {commissionFilter === 'all' ? 'Totals' : 'Filtered Totals'}
+                  </td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.base_salary_myr)}
+                    {formatMyr(displayTotals.base_salary_myr)}
                   </td>
                   <td className="px-3 py-3.5"></td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.total_per_live_myr)}
+                    {formatMyr(displayTotals.total_per_live_myr)}
                   </td>
                   <td className="px-3 py-3.5"></td>
                   <td className="px-3 py-3.5"></td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.net_gmv_myr)}
+                    {formatMyr(displayTotals.net_gmv_myr)}
                   </td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.gmv_commission_myr)}
+                    {formatMyr(displayTotals.gmv_commission_myr)}
                   </td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.override_l1_myr)}
+                    {formatMyr(displayTotals.override_l1_myr)}
                   </td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.override_l2_myr)}
+                    {formatMyr(displayTotals.override_l2_myr)}
                   </td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.gross_total_myr)}
+                    {formatMyr(displayTotals.gross_total_myr)}
                   </td>
                   <td className="px-3 py-3.5 text-right tabular-nums">
-                    {formatMyr(totals.deductions_myr)}
+                    {formatMyr(displayTotals.deductions_myr)}
                   </td>
                   <td className="px-3 py-3.5 text-right tabular-nums text-[#10B981]">
-                    {formatMyr(totals.net_payout_myr)}
+                    {formatMyr(displayTotals.net_payout_myr)}
                   </td>
                 </tr>
               </tfoot>
             </table>
+            </div>
           )}
         </div>
 
