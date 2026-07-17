@@ -707,14 +707,44 @@ export default function SessionSlotsCalendar() {
       return;
     }
 
+    // If this creator is under an active slot override for the live's date, the
+    // assign form must offer the override slots (not the pre-override weekly
+    // slots) and pre-select the override slot nearest the live's start time —
+    // otherwise the suggestion falls back to the old template window (e.g. the
+    // override trimmed 6:30–8:30 down to 6:30–8:00 but the suggestion still
+    // showed 6:30–8:30). Mirrors handleScaffoldClick's override handling.
+    const activeOverride = suggestion.liveAccountId != null
+      ? overrideFor(suggestion.liveAccountId, suggestion.scheduleDate)
+      : null;
+
+    let timeSlotId = suggestion.suggestedTimeSlotId ?? null;
+    if (activeOverride) {
+      const minutesOf = (t) => {
+        const { h, m } = parseHM(t);
+        return h * 60 + m;
+      };
+      const day = Number(suggestion.dayOfWeek);
+      const startMin = minutesOf(suggestion.startTime);
+      const candidates = activeOverride.slots.filter(
+        (ts) => ts.dayOfWeek == null || Number(ts.dayOfWeek) === day
+      );
+      if (candidates.length) {
+        const best = candidates.reduce((a, b) =>
+          Math.abs(minutesOf(b.startTime) - startMin) < Math.abs(minutesOf(a.startTime) - startMin) ? b : a
+        );
+        timeSlotId = best.id;
+      }
+    }
+
     setCreatePrefill({
       dayOfWeek: suggestion.dayOfWeek,
-      timeSlotId: suggestion.suggestedTimeSlotId ?? null,
+      timeSlotId,
       liveAccountId: suggestion.liveAccountId,
       platformAccountId: suggestion.platformAccountId,
       scheduleDate: suggestion.scheduleDate,
       suggestionId: suggestion.id,
       suggestion,
+      overrideTimeSlots: activeOverride ? activeOverride.slots : null,
     });
     setCreateOpen(true);
   };
