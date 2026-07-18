@@ -317,6 +317,24 @@ class ProductOrder extends Model
             return null;
         }
 
+        // POS / lead / free-text orders often type the WHOLE address — including a
+        // 5-digit Malaysian postcode — into a single field, leaving no separate
+        // postcode. Extract it from the address text so courier booking isn't
+        // blocked. Malaysian postcodes are exactly 5 digits; take the last group
+        // (the postcode sits after the street/house number).
+        if (blank($postal)) {
+            $haystack = implode(' ', array_filter([
+                (string) $line1,
+                (string) ($pick(['full_address']) ?? ''),
+                (string) ($pick(['city', 'town']) ?? ''),
+                (string) ($pick(['state', 'region', 'province']) ?? ''),
+            ]));
+
+            if (preg_match_all('/(?<!\d)\d{5}(?!\d)/', $haystack, $matches) && ! empty($matches[0])) {
+                $postal = end($matches[0]);
+            }
+        }
+
         $name = (string) ($pick(['name', 'full_name', 'recipient_name']) ?? '');
         $first = (string) ($pick(['first_name']) ?? '');
         $last = (string) ($pick(['last_name']) ?? '');
