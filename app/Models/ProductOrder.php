@@ -232,6 +232,113 @@ class ProductOrder extends Model
         return $this->addresses()->where('type', 'shipping')->first();
     }
 
+    /**
+     * The effective address for shipping/rate/booking purposes, resolved across
+     * BOTH stores: the typed address row (preferred) with every blank field
+     * backfilled from the `shipping_address`/`billing_address` JSON column.
+     *
+     * Funnel, POS, lead (e.g. "Lead FB") and platform orders keep the address
+     * in the JSON column with varied key names instead of as address rows —
+     * and sometimes leave a row with a missing postcode while the full address
+     * sits in the JSON. Reading only the row (as the edit form and J&T/EasyParcel
+     * callers used to) made those orders look like they had "no shipping
+     * postcode" even when one was on file. Returns null only when neither store
+     * has a usable address.
+     *
+     * @param  'shipping'|'billing'  $type
+     */
+    public function effectiveAddress(string $type = 'shipping', bool $rowFallback = false): ?object
+    {
+        $row = $this->addresses()->where('type', $type)->first();
+
+        if ($row === null && $rowFallback) {
+            $other = $type === 'shipping' ? 'billing' : 'shipping';
+            $row = $this->addresses()->where('type', $other)->first();
+        }
+
+        $json = static::normalizeAddressData($this->addressJson($type))
+            ?? static::normalizeAddressData($this->addressJson($type === 'shipping' ? 'billing' : 'shipping'));
+
+        if ($row === null && $json === null) {
+            return null;
+        }
+
+        $fields = ['first_name', 'last_name', 'company', 'phone', 'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country'];
+        $merged = [];
+
+        foreach ($fields as $field) {
+            $rowValue = $row?->getAttribute($field);
+            $merged[$field] = filled($rowValue) ? $rowValue : (string) ($json->{$field} ?? '');
+        }
+
+        return (object) $merged;
+    }
+
+    /**
+     * Read one of the loose JSON address columns as an array, tolerating the
+     * `billing_address` column not being cast (it may return a JSON string).
+     *
+     * @return array<string, mixed>
+     */
+    private function addressJson(string $type): array
+    {
+        $raw = $type === 'billing' ? $this->getAttribute('billing_address') : $this->shipping_address;
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($raw) ? $raw : [];
+    }
+
+    /**
+     * Normalise a loose address array (varied key names across funnel/POS/
+     * platform/lead sources) into a consistent object. Returns null when
+     * there's nothing usable to ship with.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function normalizeAddressData(array $data): ?object
+    {
+        if (empty($data)) {
+            return null;
+        }
+
+        $pick = fn (array $keys) => collect($keys)
+            ->map(fn ($key) => $data[$key] ?? null)
+            ->first(fn ($value) => filled($value));
+
+        $postal = $pick(['postal_code', 'postcode', 'zipcode', 'zip']);
+        $line1 = $pick(['address_line_1', 'address_line1', 'address_1', 'full_address', 'address']);
+
+        if (blank($postal) && blank($line1)) {
+            return null;
+        }
+
+        $name = (string) ($pick(['name', 'full_name', 'recipient_name']) ?? '');
+        $first = (string) ($pick(['first_name']) ?? '');
+        $last = (string) ($pick(['last_name']) ?? '');
+
+        if ($name === '') {
+            $name = trim($first.' '.$last);
+        }
+
+        return (object) [
+            'first_name' => $name !== '' ? $name : $first,
+            'last_name' => $name !== '' ? '' : $last,
+            'company' => (string) ($pick(['company']) ?? ''),
+            'phone' => (string) ($pick(['phone', 'phone_number', 'mobile']) ?? ''),
+            'address_line_1' => (string) ($line1 ?? ''),
+            'address_line_2' => (string) ($pick(['address_line_2', 'address_line2', 'address_2']) ?? ''),
+            'city' => (string) ($pick(['city', 'town']) ?? ''),
+            'state' => (string) ($pick(['state', 'region', 'province']) ?? ''),
+            'postal_code' => (string) ($postal ?? ''),
+            'country' => (string) ($pick(['country']) ?? ''),
+        ];
+    }
+
     // Status management
     public function markAsConfirmed(): void
     {

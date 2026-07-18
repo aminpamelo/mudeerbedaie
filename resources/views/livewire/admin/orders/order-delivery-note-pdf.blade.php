@@ -308,7 +308,7 @@
             <tr>
                 <!-- Billing Address -->
                 <td class="address-column">
-                    @php $billingAddress = $order->billingAddress(); @endphp
+                    @php $billingAddress = $order->effectiveAddress('billing'); @endphp
                     <div class="address-label">Billing Address</div>
                     <div class="address-company">
                         @if($billingAddress?->company)
@@ -335,7 +335,7 @@
 
                 <!-- Delivery Address -->
                 <td class="address-column">
-                    @php $shippingAddress = $order->shippingAddress() ?? $billingAddress; @endphp
+                    @php $shippingAddress = $order->effectiveAddress('shipping', true) ?? $billingAddress; @endphp
                     <div class="address-label">Delivery Address</div>
                     <div class="address-company">
                         @if($shippingAddress?->company)

@@ -36,9 +36,12 @@ new class extends Component
         $this->paymentStatus = $latestPayment?->status ?? 'pending';
         $this->paymentMethod = $latestPayment?->payment_method ?? 'cash';
 
-        // Initialize form with existing order data
-        $billingAddress = $this->order->billingAddress();
-        $shippingAddress = $this->order->shippingAddress();
+        // Initialize form with existing order data. Resolve across the address
+        // row AND the JSON column (funnel/POS/lead orders keep the address in
+        // the JSON) so the form pre-fills the real address instead of showing
+        // blank fields the admin would have to re-type. See effectiveAddress().
+        $billingAddress = $this->order->effectiveAddress('billing');
+        $shippingAddress = $this->order->effectiveAddress('shipping');
 
         $this->form = [
             'customer_type' => $this->order->customer_id ? 'existing' : 'new',

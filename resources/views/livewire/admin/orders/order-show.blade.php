@@ -355,8 +355,7 @@ new class extends Component
             $shippingManager = app(ShippingManager::class);
             $jntService = $shippingManager->getProvider('jnt');
             $senderDefaults = app(SettingsService::class)->getShippingSenderDefaults();
-            $shippingAddress = $this->order->addresses()->where('type', 'shipping')->first()
-                ?? $this->order->addresses()->where('type', 'billing')->first();
+            $shippingAddress = $this->orderShippingAddress();
 
             if (! $shippingAddress) {
                 session()->flash('error', 'No shipping address found for this order.');
@@ -530,17 +529,11 @@ new class extends Component
 
     private function orderShippingAddress()
     {
-        $row = $this->order->addresses()->where('type', 'shipping')->first()
-            ?? $this->order->addresses()->where('type', 'billing')->first();
-
-        if ($row) {
-            return $row;
-        }
-
-        // Platform orders (TikTok Shop, POS, some funnel flows) keep the address
-        // in the `shipping_address` JSON column with varied key names instead of
-        // as address rows. Normalise it to the shape the rate/booking code reads.
-        return $this->normalizeJsonShippingAddress($this->order->shipping_address ?? []);
+        // Resolve across BOTH stores (address row + shipping/billing JSON column)
+        // so a postcode kept only in the JSON — or a row whose postcode is blank
+        // while the JSON has it — is never missed. Funnel/POS/lead orders keep
+        // the address in the JSON column. See ProductOrder::effectiveAddress().
+        return $this->order->effectiveAddress('shipping', rowFallback: true);
     }
 
     /**
@@ -626,47 +619,6 @@ new class extends Component
         $this->receiverPhoneInput = '';
         $this->order->refresh();
         session()->flash('success', 'Recipient phone number saved. You can book the shipment now.');
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function normalizeJsonShippingAddress(array $data): ?object
-    {
-        if (empty($data)) {
-            return null;
-        }
-
-        $pick = fn (array $keys) => collect($keys)
-            ->map(fn ($key) => $data[$key] ?? null)
-            ->first(fn ($value) => filled($value));
-
-        $postal = $pick(['postal_code', 'postcode', 'zipcode', 'zip']);
-        $line1 = $pick(['address_line_1', 'address_line1', 'address_1', 'full_address', 'address']);
-
-        // Nothing usable to ship with — treat as no address.
-        if (blank($postal) && blank($line1)) {
-            return null;
-        }
-
-        $name = (string) ($pick(['name', 'full_name', 'recipient_name']) ?? '');
-        $first = (string) ($pick(['first_name']) ?? '');
-        $last = (string) ($pick(['last_name']) ?? '');
-
-        if ($name === '') {
-            $name = trim($first.' '.$last);
-        }
-
-        return (object) [
-            'first_name' => $name !== '' ? $name : $first,
-            'last_name' => $name !== '' ? '' : $last,
-            'phone' => (string) ($pick(['phone', 'phone_number', 'mobile']) ?? ''),
-            'address_line_1' => (string) ($line1 ?? ''),
-            'address_line_2' => (string) ($pick(['address_line_2', 'address_line2', 'address_2']) ?? ''),
-            'city' => (string) ($pick(['city', 'town']) ?? ''),
-            'state' => (string) ($pick(['state', 'region', 'province']) ?? ''),
-            'postal_code' => (string) ($postal ?? ''),
-        ];
     }
 
     public function getEasyParcelRates(): void
