@@ -24,6 +24,7 @@ import {
   Trash2,
   Upload,
   UserPlus,
+  X,
   XCircle,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
@@ -785,6 +786,18 @@ export default function SessionSlotsCalendar() {
     );
   };
 
+  // Cut the link between a TikTok live and its session (returns it to the pool).
+  const handleUnlinkLive = (recordId) => {
+    if (!recordId) {
+      return;
+    }
+    router.post(
+      '/livehost/session-slots/unlink-live',
+      { actual_live_record_id: recordId },
+      { preserveScroll: true },
+    );
+  };
+
   const openCreateModal = () => {
     setCreatePrefill(null);
     setCreateOpen(true);
@@ -1261,6 +1274,7 @@ export default function SessionSlotsCalendar() {
             onAssign={handleSuggestionClick}
             onScheduleClick={(slot) => setDetailTarget(slot)}
             onLink={handleLinkLive}
+            onUnlink={handleUnlinkLive}
             colorForAccount={colorForAccount}
           />
         )}
@@ -1993,6 +2007,7 @@ function TikTokAuditView({
   onAssign,
   onScheduleClick,
   onLink,
+  onUnlink,
   colorForAccount,
 }) {
   const perAccount = useMemo(() => {
@@ -2079,6 +2094,7 @@ function TikTokAuditView({
               onAssign={onAssign}
               onScheduleClick={onScheduleClick}
               onLink={onLink}
+              onUnlink={onUnlink}
             />
           ))}
         </div>
@@ -2087,7 +2103,7 @@ function TikTokAuditView({
   );
 }
 
-function AuditAccountBlock({ account, tiktokCount, days, color, onAssign, onScheduleClick, onLink }) {
+function AuditAccountBlock({ account, tiktokCount, days, color, onAssign, onScheduleClick, onLink, onUnlink }) {
   const firstShop = Array.isArray(account.shops) && account.shops.length > 0 ? account.shops[0] : null;
   const shopName = typeof firstShop === 'string' ? firstShop : firstShop?.name ?? null;
   return (
@@ -2114,6 +2130,7 @@ function AuditAccountBlock({ account, tiktokCount, days, color, onAssign, onSche
             onAssign={onAssign}
             onScheduleClick={onScheduleClick}
             onLink={onLink}
+            onUnlink={onUnlink}
           />
         ))}
       </div>
@@ -2127,7 +2144,7 @@ function AuditAccountBlock({ account, tiktokCount, days, color, onAssign, onSche
  * blocks — Schedule on the left, TikTok on the right — so a 06:30–08:30 slot
  * actually spans two hours and lines up with any TikTok live in that window.
  */
-function AuditDayGrid({ day, onAssign, onScheduleClick, onLink }) {
+function AuditDayGrid({ day, onAssign, onScheduleClick, onLink, onUnlink }) {
   const [dropTarget, setDropTarget] = useState(null);
 
   const daySched = day?.sched ?? [];
@@ -2247,6 +2264,7 @@ function AuditDayGrid({ day, onAssign, onScheduleClick, onLink }) {
                   e.dataTransfer.setData('text/plain', String(item.id));
                   e.dataTransfer.effectAllowed = 'link';
                 }}
+                onUnlink={() => onUnlink?.(item.id)}
               />
             ) : (
               <AuditTikTokBlock
@@ -2324,14 +2342,14 @@ function AuditScheduleBlock({ slot, style, onClick, isDropTarget, onDragOver, on
   );
 }
 
-function AuditMatchedBlock({ live, style, onDragStart }) {
+function AuditMatchedBlock({ live, style, onDragStart, onUnlink }) {
   const gmvLabel = formatGmv(live.gmv);
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      title={`Linked TikTok live ${formatTimeLabel(live.startTime)}–${formatTimeLabel(live.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — drag onto another slot to move it`}
-      className="absolute cursor-grab overflow-hidden rounded-[7px] border border-[#10B981]/50 bg-[#ECFDF5] px-1.5 py-1 active:cursor-grabbing"
+      title={`Linked TikTok live ${formatTimeLabel(live.startTime)}–${formatTimeLabel(live.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — drag onto another slot to move it, or click ✕ to unlink`}
+      className="group/matched absolute cursor-grab overflow-hidden rounded-[7px] border border-[#10B981]/50 bg-[#ECFDF5] px-1.5 py-1 active:cursor-grabbing"
       style={style}
     >
       <div className="flex items-center gap-1">
@@ -2340,6 +2358,20 @@ function AuditMatchedBlock({ live, style, onDragStart }) {
           <ShieldCheck className="h-2 w-2" strokeWidth={2.6} />
           Linked
         </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm('Unlink this TikTok live from its session?')) {
+              onUnlink?.();
+            }
+          }}
+          title="Unlink"
+          className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border border-[#10B981]/40 bg-white text-[#047857] opacity-0 transition-opacity hover:border-[#DC2626] hover:text-[#DC2626] group-hover/matched:opacity-100"
+          aria-label="Unlink this live"
+        >
+          <X className="h-2 w-2" strokeWidth={3} />
+        </button>
       </div>
       <div className="mt-0.5 truncate text-[10.5px] font-medium text-[#065F46]">
         {gmvLabel || (live.viewers ? `${live.viewers.toLocaleString()} viewers` : 'live')}

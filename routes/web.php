@@ -951,6 +951,8 @@ Route::middleware(['auth'])
                 ->name('session-slots.auto-verify.run');
             Route::post('session-slots/link-live', [SessionSlotController::class, 'linkLive'])
                 ->name('session-slots.link-live');
+            Route::post('session-slots/unlink-live', [SessionSlotController::class, 'unlinkLive'])
+                ->name('session-slots.unlink-live');
             Route::get('session-slots', [SessionSlotController::class, 'calendar'])
                 ->name('session-slots.index');
 

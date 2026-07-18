@@ -354,6 +354,27 @@ function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
         </div>
       </div>
 
+      {session.linkedRecords?.length > 0 && (
+        <div className="mt-3 rounded-lg border border-[#10B981]/30 bg-[#ECFDF5] px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#047857]">
+            <Radio className="h-3.5 w-3.5" strokeWidth={2.2} />
+            Verified against {session.linkedRecords.length} TikTok live
+            {session.linkedRecords.length === 1 ? '' : 's'}
+          </div>
+          <div className="mt-1.5 space-y-1">
+            {session.linkedRecords.map((r) => (
+              <div key={r.id} className="flex items-center justify-between text-[12px] text-[#065F46]">
+                <span className="font-mono tabular-nums">
+                  {r.startTime}
+                  {r.endTime ? `–${r.endTime}` : ''}
+                </span>
+                <span className="font-semibold tabular-nums">{formatGmv(r.gmv)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Inline TikTok-record verification — pick a record and Verify / Reject
           right here, without opening the full Live Session modal. */}
       <div className="mt-3">

@@ -200,6 +200,28 @@ class AutoVerifyService
     }
 
     /**
+     * Break the link between a TikTok live and its session — the "cut" button on
+     * the calendar. The live returns to the unmatched pool; the session is
+     * re-settled (re-verified against any remaining lives, or reverted to
+     * pending if it now has none).
+     *
+     * @throws \RuntimeException when the session sits in a locked payroll period.
+     */
+    public function unlinkLive(ActualLiveRecord $live): void
+    {
+        $session = $this->sessionHolding($live);
+        if ($session === null) {
+            return;
+        }
+
+        if ($this->isPayrollLocked($session)) {
+            throw new \RuntimeException('Payroll is locked for this period — unlinking is no longer allowed.');
+        }
+
+        $this->detachAndRecompute($session, $live);
+    }
+
+    /**
      * The session a live is currently linked to (via the pivot or the legacy
      * denormalized pointer), or null.
      */

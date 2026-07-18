@@ -294,6 +294,29 @@ class SessionSlotController extends Controller
         return back()->with('success', 'TikTok live linked and verified.');
     }
 
+    /**
+     * Break the link between a TikTok live and its session (the "cut" button).
+     * Admin / desk PIC only.
+     */
+    public function unlinkLive(Request $request, AutoVerifyService $autoVerify): RedirectResponse
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'admin_livehost'], true), 403);
+
+        $data = $request->validate([
+            'actual_live_record_id' => ['required', 'integer', 'exists:actual_live_records,id'],
+        ]);
+
+        $live = ActualLiveRecord::findOrFail($data['actual_live_record_id']);
+
+        try {
+            $autoVerify->unlinkLive($live);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['link' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'TikTok live unlinked.');
+    }
+
     public function create(): Response
     {
         return Inertia::render('session-slots/Create', [
@@ -602,10 +625,24 @@ class SessionSlotController extends Controller
         // start (the window to go live has closed). Cancelled / missed sessions
         // are excluded — they're already accounted for. "Overdue" is the loudest
         // case: the slot's time passed and it was never even ended.
-        $isActionable = ! in_array($s->status, ['cancelled', 'missed'], true);
+        // A session already verified against a TikTok record has its proof (the
+        // live data) — it owes no manual upload, so it is never "needs upload".
+        $isVerified = ($s->verification_status ?? 'pending') === 'verified';
+        $isActionable = ! in_array($s->status, ['cancelled', 'missed'], true) && ! $isVerified;
         $isPast = $s->scheduled_start_at !== null && $s->scheduled_start_at->isPast();
         $needsUpload = $isActionable && ! $uploaded && ($s->status === 'ended' || $isPast);
         $overdue = $isActionable && ! $uploaded && $s->status !== 'ended' && $isPast;
+
+        $linkedRecords = $s->relationLoaded('actualLiveRecords')
+            ? $s->actualLiveRecords->map(fn (ActualLiveRecord $r): array => [
+                'id' => $r->id,
+                'startTime' => CarbonImmutable::parse($r->launched_time)->setTimezone('Asia/Kuala_Lumpur')->format('H:i'),
+                'endTime' => $r->ended_time
+                    ? CarbonImmutable::parse($r->ended_time)->setTimezone('Asia/Kuala_Lumpur')->format('H:i')
+                    : null,
+                'gmv' => (float) ($r->pivot->live_attributed_gmv_myr ?? $r->live_attributed_gmv_myr),
+            ])->values()->all()
+            : [];
 
         return [
             'id' => $s->id,
@@ -644,6 +681,7 @@ class SessionSlotController extends Controller
             'hasScreenshot' => $hasScreenshot,
             'needsUpload' => $needsUpload,
             'overdue' => $overdue,
+            'linkedRecords' => $linkedRecords,
         ];
     }
 

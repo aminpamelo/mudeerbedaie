@@ -114,6 +114,32 @@ it('moves a linked live to another slot, reverting the emptied source session', 
     expect((float) $sessionA->gmv_amount)->toBe(0.0);
 });
 
+it('unlinks a live, reverting its session to pending and freeing the live', function () {
+    actingAs($this->pic)->post('/livehost/session-slots/link-live', [
+        'assignment_id' => $this->assignment->id,
+        'actual_live_record_id' => $this->live->id,
+    ])->assertSessionHas('success');
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots/unlink-live', ['actual_live_record_id' => $this->live->id])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $session = LiveSession::where('live_schedule_assignment_id', $this->assignment->id)->firstOrFail();
+    expect($session->verification_status)->toBe('pending');
+    expect((float) $session->gmv_amount)->toBe(0.0);
+    expect($session->actualLiveRecords()->count())->toBe(0);
+    $this->assertDatabaseMissing('live_session_actual_live_record', [
+        'actual_live_record_id' => $this->live->id,
+    ]);
+});
+
+it('forbids a live_host from unlinking', function () {
+    actingAs($this->host)
+        ->post('/livehost/session-slots/unlink-live', ['actual_live_record_id' => $this->live->id])
+        ->assertForbidden();
+});
+
 it('forbids a live_host from linking', function () {
     actingAs($this->host)
         ->post('/livehost/session-slots/link-live', [
