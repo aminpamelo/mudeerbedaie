@@ -371,6 +371,39 @@ class ProductOrder extends Model
         ];
     }
 
+    /**
+     * A human-readable parcel content line for courier AWBs — the item names and
+     * quantities so the logistics team can pack straight from the label, with
+     * the order number kept for traceability. Falls back to the order number
+     * alone when there are no items.
+     */
+    public function parcelContentDescription(int $maxLength = 220): string
+    {
+        $items = $this->relationLoaded('items') ? $this->items : $this->items()->get();
+
+        $parts = $items
+            ->map(function (ProductOrderItem $item): string {
+                $name = trim((string) $item->getDisplayName());
+
+                return ($name !== '' ? $name : 'Item').' x'.max(1, (int) $item->quantity_ordered);
+            })
+            ->filter(fn (string $line) => trim($line) !== '')
+            ->implode(', ');
+
+        if ($parts === '') {
+            return 'Order '.$this->order_number;
+        }
+
+        $suffix = ' (Order '.$this->order_number.')';
+        $room = $maxLength - mb_strlen($suffix);
+
+        if (mb_strlen($parts) > $room) {
+            $parts = rtrim(mb_substr($parts, 0, max(0, $room - 1))).'…';
+        }
+
+        return $parts.$suffix;
+    }
+
     // Status management
     public function markAsConfirmed(): void
     {
