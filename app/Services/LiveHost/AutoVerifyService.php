@@ -112,8 +112,13 @@ class AutoVerifyService
      * dated slot + session (creating the session if the host never recapped),
      * then links the live and locks GMV via the same verify() path.
      *
-     * @throws \RuntimeException on a guard violation (no host, payroll locked,
-     *                           live already linked elsewhere).
+     * If the live is already linked to a DIFFERENT session, it is MOVED here:
+     * detached from the old session (which is re-verified against its remaining
+     * lives, or reverted to pending if it now has none) before being linked to
+     * this one — so a PIC can drag a matched live onto the correct slot.
+     *
+     * @throws \RuntimeException on a guard violation (no host, payroll locked on
+     *                           either the source or the target session).
      */
     public function linkLiveToAssignment(ActualLiveRecord $live, LiveScheduleAssignment $assignment): LiveSession
     {
@@ -121,9 +126,7 @@ class AutoVerifyService
             throw new \RuntimeException('This slot has no host assigned yet — assign a host before linking.');
         }
 
-        if ($this->anyLinkedElsewhere(collect([$live]), new LiveSession(['id' => 0]))) {
-            throw new \RuntimeException('This live is already linked to another session.');
-        }
+        $currentSession = $this->sessionHolding($live);
 
         $klStart = CarbonImmutable::parse($live->launched_time)->setTimezone(self::TIMEZONE);
 
@@ -174,6 +177,15 @@ class AutoVerifyService
             throw new \RuntimeException('Payroll is locked for this period — linking is no longer allowed.');
         }
 
+        // Re-link: peel the live off its previous session first (recomputing that
+        // session's GMV, or reverting it to pending if it is left with no lives).
+        if ($currentSession !== null && $currentSession->id !== $session->id) {
+            if ($this->isPayrollLocked($currentSession)) {
+                throw new \RuntimeException('This live is on a payroll-locked session — unlink it there first.');
+            }
+            $this->detachAndRecompute($currentSession, $live);
+        }
+
         // A session can hold many lives (a split broadcast: went live, stopped,
         // resumed — same host). Accumulate onto whatever is already linked so a
         // second drop ADDS a live and re-sums GMV rather than replacing.
@@ -185,6 +197,55 @@ class AutoVerifyService
         $this->verify($session, $records, false);
 
         return $session->refresh();
+    }
+
+    /**
+     * The session a live is currently linked to (via the pivot or the legacy
+     * denormalized pointer), or null.
+     */
+    private function sessionHolding(ActualLiveRecord $live): ?LiveSession
+    {
+        $sessionId = DB::table('live_session_actual_live_record')
+            ->where('actual_live_record_id', $live->id)
+            ->value('live_session_id')
+            ?? LiveSession::query()
+                ->where('matched_actual_live_record_id', $live->id)
+                ->value('id');
+
+        return $sessionId ? LiveSession::find($sessionId) : null;
+    }
+
+    /**
+     * Remove one live from a session and re-settle it: re-verify against the
+     * remaining lives, or — if none remain — revert the session to pending so it
+     * no longer claims verified GMV it can't back up.
+     */
+    private function detachAndRecompute(LiveSession $session, ActualLiveRecord $live): void
+    {
+        $remaining = $session->actualLiveRecords()->get()
+            ->reject(fn (ActualLiveRecord $r) => $r->id === $live->id)
+            ->values();
+
+        if ($remaining->isEmpty()) {
+            DB::transaction(function () use ($session) {
+                $session->actualLiveRecords()->detach();
+                $session->update([
+                    'matched_actual_live_record_id' => null,
+                    'gmv_amount' => 0,
+                    'gmv_source' => 'manual',
+                    'gmv_locked_at' => null,
+                    'verification_status' => 'pending',
+                    'verified_by' => null,
+                    'verified_at' => null,
+                    'auto_verified' => false,
+                    'status' => 'scheduled',
+                ]);
+            });
+
+            return;
+        }
+
+        $this->verify($session, $remaining, false);
     }
 
     /**

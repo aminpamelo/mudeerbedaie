@@ -80,6 +80,40 @@ it('accumulates a second live onto the same slot (split live), summing GMV', fun
     expect((float) $session->gmv_amount)->toBe(2300.0); // 1500 + 800
 });
 
+it('moves a linked live to another slot, reverting the emptied source session', function () {
+    actingAs($this->pic)->post('/livehost/session-slots/link-live', [
+        'assignment_id' => $this->assignment->id,
+        'actual_live_record_id' => $this->live->id,
+    ])->assertSessionHas('success');
+
+    $sessionA = LiveSession::where('live_schedule_assignment_id', $this->assignment->id)->firstOrFail();
+    expect($sessionA->verification_status)->toBe('verified');
+
+    // Re-link the SAME live to a different slot.
+    $b = LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $this->account->id,
+        'live_host_id' => $this->host->id,
+        'is_template' => false,
+        'schedule_date' => '2026-04-20',
+    ]);
+
+    actingAs($this->pic)->post('/livehost/session-slots/link-live', [
+        'assignment_id' => $b->id,
+        'actual_live_record_id' => $this->live->id,
+    ])->assertSessionHas('success');
+
+    $sessionB = LiveSession::where('live_schedule_assignment_id', $b->id)->firstOrFail();
+    expect($sessionB->actualLiveRecords()->count())->toBe(1);
+    expect((float) $sessionB->gmv_amount)->toBe(1500.0);
+    expect($sessionB->verification_status)->toBe('verified');
+
+    // Source A lost its only live → reverted to pending with no GMV.
+    $sessionA->refresh();
+    expect($sessionA->actualLiveRecords()->count())->toBe(0);
+    expect($sessionA->verification_status)->toBe('pending');
+    expect((float) $sessionA->gmv_amount)->toBe(0.0);
+});
+
 it('forbids a live_host from linking', function () {
     actingAs($this->host)
         ->post('/livehost/session-slots/link-live', [
@@ -108,25 +142,4 @@ it('errors when the slot has no host assigned', function () {
     // verified it.
     $session = LiveSession::where('live_schedule_assignment_id', $noHost->id)->first();
     expect($session?->verification_status)->not->toBe('verified');
-});
-
-it('errors when the live is already linked to another session', function () {
-    // First link succeeds.
-    actingAs($this->pic)->post('/livehost/session-slots/link-live', [
-        'assignment_id' => $this->assignment->id,
-        'actual_live_record_id' => $this->live->id,
-    ])->assertSessionHas('success');
-
-    // A second slot cannot claim the same live.
-    $other = LiveScheduleAssignment::factory()->create([
-        'platform_account_id' => $this->account->id,
-        'live_host_id' => $this->host->id,
-        'is_template' => false,
-        'schedule_date' => '2026-04-20',
-    ]);
-
-    actingAs($this->pic)->post('/livehost/session-slots/link-live', [
-        'assignment_id' => $other->id,
-        'actual_live_record_id' => $this->live->id,
-    ])->assertSessionHasErrors('link');
 });
