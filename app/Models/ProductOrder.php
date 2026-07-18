@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Observers\ProductOrderObserver;
+use App\Support\MalaysianPostcode;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -269,6 +270,19 @@ class ProductOrder extends Model
         foreach ($fields as $field) {
             $rowValue = $row?->getAttribute($field);
             $merged[$field] = filled($rowValue) ? $rowValue : (string) ($json->{$field} ?? '');
+        }
+
+        // Courier booking (EasyParcel) requires a non-empty city + state even
+        // though routing is by postcode. Free-text POS/lead addresses bury both
+        // in one field, so derive them: state from the postcode (deterministic),
+        // city best-effort from the address text. Only fills genuine blanks.
+        if (blank($merged['state']) && filled($merged['postal_code'])) {
+            $merged['state'] = (string) (MalaysianPostcode::state($merged['postal_code']) ?? '');
+        }
+
+        if (blank($merged['city'])) {
+            $addressText = trim($merged['address_line_1'].' '.$merged['address_line_2']);
+            $merged['city'] = (string) (MalaysianPostcode::city($addressText, $merged['state'] ?: null, $merged['postal_code'] ?: null) ?? '');
         }
 
         return (object) $merged;

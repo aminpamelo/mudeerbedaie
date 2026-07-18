@@ -10,6 +10,7 @@ use App\DTOs\Shipping\ShippingRate;
 use App\DTOs\Shipping\ShippingRateRequest;
 use App\DTOs\Shipping\TrackingResult;
 use App\Services\SettingsService;
+use App\Support\MalaysianPostcode;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -429,6 +430,18 @@ class EasyParcelShippingService implements ShippingProvider
      */
     private function party(string $name, string $phone, string $address, string $city, string $state, string $postcode): array
     {
+        // Free-text addresses (POS/lead) and sender defaults sometimes omit a
+        // separate city/state even though EasyParcel requires both. Derive them
+        // from the postcode (state, deterministic) and address text (city,
+        // best-effort) so a valid postcode isn't rejected over a missing label.
+        if (blank($state) && filled($postcode)) {
+            $state = (string) (MalaysianPostcode::state($postcode) ?? '');
+        }
+
+        if (blank($city)) {
+            $city = (string) (MalaysianPostcode::city($address, $state ?: null, $postcode ?: null) ?? '');
+        }
+
         return [
             'name' => $name ?: 'N/A',
             'phone_number_country_code' => 'MY',
