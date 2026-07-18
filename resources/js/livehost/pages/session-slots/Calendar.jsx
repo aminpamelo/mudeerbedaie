@@ -39,6 +39,19 @@ const UNREGISTERED_LANE_ID = '__unregistered__';
 // arrangement survives reloads and revisits (per browser).
 const ACCOUNT_PREF_KEY = 'livehost:session-slots:calendar:accounts';
 
+// "TikTok only" audit toggle — persisted so it survives week navigation (which
+// remounts the page) and revisits, letting the PIC audit week by week.
+const AUDIT_PREF_KEY = 'livehost:session-slots:calendar:tiktok-only';
+
+function readAuditPref() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(AUDIT_PREF_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 function readAccountPrefs() {
   if (typeof window === 'undefined') return { order: [], hidden: [] };
   try {
@@ -321,6 +334,17 @@ export default function SessionSlotsCalendar() {
   const [status, setStatus] = useState(filters?.status ?? '');
   const [mode, setMode] = useState(filters?.mode ?? '');
   const [showSuggestions, setShowSuggestions] = useState((filters?.show_suggestions ?? '1') !== '0');
+  // Audit mode: hide the schedule and show ONLY the TikTok suggestions, so the
+  // PIC can verify every unassigned live has been handled (due diligence).
+  const [tiktokOnly, setTiktokOnly] = useState(readAuditPref);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AUDIT_PREF_KEY, tiktokOnly ? '1' : '0');
+    } catch {
+      // ignore storage failures (private mode, etc.)
+    }
+  }, [tiktokOnly]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefill, setCreatePrefill] = useState(null);
@@ -749,6 +773,18 @@ export default function SessionSlotsCalendar() {
     setCreateOpen(true);
   };
 
+  // Drag-and-drop: link a TikTok live to a schedule slot (assign + verify GMV).
+  const handleLinkLive = (assignmentId, recordId) => {
+    if (!assignmentId || !recordId) {
+      return;
+    }
+    router.post(
+      '/livehost/session-slots/link-live',
+      { assignment_id: assignmentId, actual_live_record_id: recordId },
+      { preserveScroll: true },
+    );
+  };
+
   const openCreateModal = () => {
     setCreatePrefill(null);
     setCreateOpen(true);
@@ -1101,6 +1137,28 @@ export default function SessionSlotsCalendar() {
           <div className="ml-auto flex items-center gap-1.5">
             <button
               type="button"
+              onClick={() => {
+                setTiktokOnly((v) => {
+                  const next = !v;
+                  if (next && !showSuggestions) {
+                    setShowSuggestions(true);
+                  }
+                  return next;
+                });
+              }}
+              title="Audit view: hide the schedule and show only TikTok suggestions, so you can check every unassigned live has been handled."
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                tiktokOnly
+                  ? 'border-[#EC4899]/40 bg-[#FDF2F8] text-[#BE185D]'
+                  : 'border-[#EAEAEA] bg-white text-[#737373] hover:bg-[#F5F5F5]'
+              }`}
+            >
+              <Radio className="h-3 w-3" strokeWidth={2} />
+              TikTok only{suggestions.length > 0 ? ` · ${suggestions.length}` : ''}
+            </button>
+
+            <button
+              type="button"
               onClick={() =>
                 router.post(
                   '/livehost/session-slots/auto-verify',
@@ -1193,7 +1251,21 @@ export default function SessionSlotsCalendar() {
           </div>
         )}
 
-        {timeSlots.length === 0 && (
+        {tiktokOnly && (
+          <TikTokAuditView
+            accounts={activeAccounts}
+            sessionSlots={sessionSlots}
+            suggestions={visibleSuggestions}
+            weekStart={weekStart}
+            weekEnd={weekEnd}
+            onAssign={handleSuggestionClick}
+            onScheduleClick={(slot) => setDetailTarget(slot)}
+            onLink={handleLinkLive}
+            colorForAccount={colorForAccount}
+          />
+        )}
+
+        {!tiktokOnly && timeSlots.length === 0 && (
           <div className="rounded-[16px] border border-dashed border-[#EAEAEA] bg-white p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h3 className="text-[15px] font-semibold text-[#0A0A0A]">No time slots defined yet</h3>
             <p className="mt-1 text-[13px] text-[#737373]">
@@ -1210,7 +1282,7 @@ export default function SessionSlotsCalendar() {
         )}
 
         {/* Grid */}
-        <div className="overflow-x-auto rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className={`overflow-x-auto rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]${tiktokOnly ? ' hidden' : ''}`}>
           {/* Header row */}
           <div
             className="sticky top-0 z-30 grid border-b border-[#EAEAEA] bg-white/90 backdrop-blur"
@@ -1832,3 +1904,469 @@ export default function SessionSlotsCalendar() {
 }
 
 SessionSlotsCalendar.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
+
+/**
+ * Audit view for the "TikTok only" toggle. Per account, a two-column time grid
+ * — SCHEDULE (assigned host slots) beside TIKTOK (the API's unassigned lives) —
+ * grouped by day and aligned into the same hour row, so the PIC can eyeball the
+ * pairing: a TikTok live sitting beside a schedule block is a match candidate,
+ * one sitting alone still needs assigning. Empty overall = due-diligence clear.
+ */
+const AUDIT_HOUR_PX = 46; // compact vertical scale for the audit time axis
+
+function auditMinsOf(time) {
+  const { h, m } = parseHM(time);
+  return h * 60 + m;
+}
+
+function auditEndMins(item) {
+  const start = auditMinsOf(item.startTime);
+  const end = item.endTime ? auditMinsOf(item.endTime) : start + 60;
+  return end > start ? end : start + 60;
+}
+
+function auditHourLabel(hr) {
+  const ampm = hr < 12 || hr === 24 ? 'AM' : 'PM';
+  const h = hr % 24;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}${ampm}`;
+}
+
+// Pack overlapping blocks into side-by-side lanes so nothing collides.
+function auditPackLanes(items) {
+  const sorted = [...items].sort((a, b) => auditMinsOf(a.startTime) - auditMinsOf(b.startTime));
+  const laneEnds = [];
+  const placed = sorted.map((item) => {
+    const start = auditMinsOf(item.startTime);
+    const end = auditEndMins(item);
+    let lane = laneEnds.findIndex((e) => e <= start);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(end);
+    } else {
+      laneEnds[lane] = end;
+    }
+    return { item, lane };
+  });
+  return { placed, lanes: Math.max(1, laneEnds.length) };
+}
+
+// Linking a TikTok live materializes a dated copy of a recurring template slot,
+// so the same 06:30 slot can appear twice (template + dated). Collapse them per
+// time slot, keeping the richer one (the dated instance that owns the session +
+// linked lives) so the audit view shows a single block per slot.
+function auditSlotScore(s) {
+  return (s.linkedLives?.length ? 4 : 0) + (s.session ? 2 : 0) + (s.isTemplate ? 0 : 1);
+}
+
+function dedupeAuditSlots(slots) {
+  const byKey = new Map();
+  for (const s of slots) {
+    const key = s.timeSlotId ?? `${s.startTime}-${s.endTime}`;
+    const cur = byKey.get(key);
+    if (!cur || auditSlotScore(s) > auditSlotScore(cur)) {
+      byKey.set(key, s);
+    }
+  }
+  return [...byKey.values()];
+}
+
+function buildAuditDays(sched, tt) {
+  const days = {};
+  const push = (col, item) => {
+    const dow = Number(item.dayOfWeek);
+    (days[dow] ??= { sched: [], tt: [] })[col].push(item);
+  };
+  sched.forEach((s) => push('sched', s));
+  tt.forEach((s) => push('tt', s));
+  return Object.entries(days)
+    .map(([dow, cell]) => ({ dow: Number(dow), sched: dedupeAuditSlots(cell.sched), tt: cell.tt }))
+    .sort((a, b) => a.dow - b.dow);
+}
+
+function TikTokAuditView({
+  accounts = [],
+  sessionSlots = [],
+  suggestions = [],
+  weekStart,
+  weekEnd,
+  onAssign,
+  onScheduleClick,
+  onLink,
+  colorForAccount,
+}) {
+  const perAccount = useMemo(() => {
+    const out = [];
+    for (const acc of accounts) {
+      const isUnregistered = Boolean(acc.isUnregistered);
+      const isNone = Boolean(acc.isNone) || acc.id === '__none__';
+      const tt = suggestions.filter((s) => {
+        if (isUnregistered) return !s.isRegistered;
+        if (isNone) return false;
+        return s.isRegistered && Number(s.liveAccountId) === Number(acc.id);
+      });
+      // The audit is about TikTok coverage — skip accounts with no live this week.
+      if (tt.length === 0) continue;
+      const sched = sessionSlots.filter((s) => {
+        if (isUnregistered || isNone) return false;
+        return Number(s.liveAccountId) === Number(acc.id);
+      });
+      out.push({ acc, sched, tt, days: buildAuditDays(sched, tt) });
+    }
+    return out;
+  }, [accounts, sessionSlots, suggestions]);
+
+  const total = suggestions.length;
+  const nearSlot = suggestions.filter((s) => s.isRegistered && s.matchType === 'near_slot').length;
+  const gaps = suggestions.filter((s) => s.isRegistered && s.matchType !== 'near_slot').length;
+  const unregistered = suggestions.filter((s) => !s.isRegistered).length;
+
+  return (
+    <div className="rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F0F0] px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#FDF2F8] text-[#BE185D]">
+            <Radio className="h-4 w-4" strokeWidth={2.2} />
+          </span>
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">TikTok vs schedule — audit</h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">
+              Per account, {formatWeekLabel(weekStart, weekEnd)}: schedule beside the TikTok API's lives. A live with no slot beside it still needs assigning.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#EAEAEA] bg-[#FAFAFA] px-2.5 py-1 text-[11.5px] font-semibold text-[#0A0A0A]">
+            {total} unassigned
+          </span>
+          {nearSlot > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#10B981]/30 bg-[#ECFDF5] px-2.5 py-1 text-[11px] font-medium text-[#047857]">
+              <ShieldCheck className="h-3 w-3" strokeWidth={2.2} /> {nearSlot} host slot ready
+            </span>
+          ) : null}
+          {gaps > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#F59E0B]/30 bg-[#FFFBEB] px-2.5 py-1 text-[11px] font-medium text-[#92400E]">
+              <AlertTriangle className="h-3 w-3" strokeWidth={2.2} /> {gaps} no slot
+            </span>
+          ) : null}
+          {unregistered > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#EF4444]/30 bg-[#FEF2F2] px-2.5 py-1 text-[11px] font-medium text-[#B91C1C]">
+              <UserPlus className="h-3 w-3" strokeWidth={2.2} /> {unregistered} unregistered
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {perAccount.length === 0 ? (
+        <div className="px-5 py-12 text-center">
+          <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-[#ECFDF5] text-[#10B981]">
+            <ShieldCheck className="h-5 w-5" strokeWidth={2.2} />
+          </div>
+          <p className="text-[14px] font-semibold text-[#0A0A0A]">All clear</p>
+          <p className="mx-auto mt-1 max-w-[420px] text-[13px] text-[#737373]">
+            Every TikTok live this week is already assigned to a session. Nothing outstanding.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[#EDEDED]">
+          {perAccount.map(({ acc, tt, days }) => (
+            <AuditAccountBlock
+              key={acc.id}
+              account={acc}
+              tiktokCount={tt.length}
+              days={days}
+              color={colorForAccount?.(acc.id)}
+              onAssign={onAssign}
+              onScheduleClick={onScheduleClick}
+              onLink={onLink}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditAccountBlock({ account, tiktokCount, days, color, onAssign, onScheduleClick, onLink }) {
+  const firstShop = Array.isArray(account.shops) && account.shops.length > 0 ? account.shops[0] : null;
+  const shopName = typeof firstShop === 'string' ? firstShop : firstShop?.name ?? null;
+  return (
+    <div className="px-4 py-4 sm:px-5">
+      <div className="mb-2.5 flex items-center gap-2">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: color?.dot ?? '#A3A3A3' }} />
+        <span className="text-[13.5px] font-semibold text-[#0A0A0A]">{account.label}</span>
+        {shopName ? <span className="truncate font-mono text-[10px] uppercase tracking-wide text-[#A3A3A3]">{shopName}</span> : null}
+        <span className="ml-auto rounded-full border border-[#EC4899]/30 bg-[#FDF2F8] px-2 py-[2px] text-[10.5px] font-semibold text-[#BE185D]">
+          {tiktokCount} TikTok
+        </span>
+      </div>
+
+      <div className="overflow-hidden rounded-[12px] border border-[#EEEEEE]">
+        <div className="grid grid-cols-[44px_1fr_1fr] border-b border-[#F0F0F0] bg-[#FAFAFA] text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#A3A3A3]">
+          <div className="px-2 py-1.5" />
+          <div className="border-l border-[#F0F0F0] px-2.5 py-1.5">Schedule</div>
+          <div className="border-l border-[#F0F0F0] px-2.5 py-1.5">TikTok live</div>
+        </div>
+        {(days ?? []).map((day) => (
+          <AuditDayGrid
+            key={day.dow}
+            day={day}
+            onAssign={onAssign}
+            onScheduleClick={onScheduleClick}
+            onLink={onLink}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One day's slice for an account: a shared vertical time axis (each hour =
+ * AUDIT_HOUR_PX) with two columns of duration-sized, absolutely-positioned
+ * blocks — Schedule on the left, TikTok on the right — so a 06:30–08:30 slot
+ * actually spans two hours and lines up with any TikTok live in that window.
+ */
+function AuditDayGrid({ day, onAssign, onScheduleClick, onLink }) {
+  const [dropTarget, setDropTarget] = useState(null);
+
+  const daySched = day?.sched ?? [];
+  const dayTt = day?.tt ?? [];
+
+  // TikTok lives already linked to a slot's session — shown green in the TikTok
+  // column and drawn back to their slot with a connector line.
+  const matched = daySched.flatMap((slot) =>
+    (slot.linkedLives ?? []).map((live) => ({
+      ...live,
+      _matched: true,
+      _assignmentId: slot.id,
+      isRegistered: true,
+    })),
+  );
+  const ttAll = [...dayTt, ...matched];
+  const all = [...daySched, ...ttAll];
+  if (all.length === 0) {
+    return null;
+  }
+
+  const winStart = Math.floor(Math.min(...all.map((i) => auditMinsOf(i.startTime))) / 60) * 60;
+  const winEnd = Math.ceil(Math.max(...all.map((i) => auditEndMins(i))) / 60) * 60;
+  const height = ((winEnd - winStart) / 60) * AUDIT_HOUR_PX;
+
+  const hours = [];
+  for (let m = winStart; m <= winEnd; m += 60) {
+    hours.push(m);
+  }
+  const gridBg = {
+    backgroundImage: 'linear-gradient(to bottom, #F5F5F5 1px, transparent 1px)',
+    backgroundSize: `100% ${AUDIT_HOUR_PX}px`,
+  };
+
+  const rawTopH = (item) => {
+    const start = auditMinsOf(item.startTime);
+    const end = auditEndMins(item);
+    return {
+      top: ((start - winStart) / 60) * AUDIT_HOUR_PX,
+      height: Math.max(20, ((end - start) / 60) * AUDIT_HOUR_PX - 2),
+    };
+  };
+  const styleFor = (item, lanes, lane) => {
+    const width = 100 / lanes;
+    return { ...rawTopH(item), left: `calc(${lane * width}% + 2px)`, width: `calc(${width}% - 4px)` };
+  };
+
+  const sched = auditPackLanes(daySched);
+  const tt = auditPackLanes(ttAll);
+
+  // Connector: from each matched live's centre to its slot's centre. Positions
+  // are lane-independent, so a plain time→y lookup is enough.
+  const connectors = matched
+    .map((live) => {
+      const slot = daySched.find((s) => s.id === live._assignmentId);
+      if (!slot) {
+        return null;
+      }
+      const s = rawTopH(slot);
+      const t = rawTopH(live);
+      return { key: live.id, schedY: s.top + s.height / 2, ttY: t.top + t.height / 2 };
+    })
+    .filter(Boolean);
+
+  return (
+    <div className="border-b border-[#F5F5F5] last:border-b-0">
+      <div className="bg-white px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-[#525252]">
+        {DAY_NAMES_FULL[day.dow]}
+      </div>
+      <div className="relative grid grid-cols-[44px_1fr_1fr]">
+        <div className="relative" style={{ height }}>
+          {hours.map((m) => (
+            <div
+              key={m}
+              className="absolute right-1.5 -translate-y-1/2 font-mono text-[9px] tabular-nums text-[#B4B4B4]"
+              style={{ top: ((m - winStart) / 60) * AUDIT_HOUR_PX }}
+            >
+              {auditHourLabel(m / 60)}
+            </div>
+          ))}
+        </div>
+        <div className="relative border-l border-[#F0F0F0]" style={{ ...gridBg, height }}>
+          {sched.placed.map(({ item, lane }) => (
+            <AuditScheduleBlock
+              key={item.id ?? `${item.dayOfWeek}-${item.startTime}`}
+              slot={item}
+              style={styleFor(item, sched.lanes, lane)}
+              isDropTarget={dropTarget === item.id}
+              onClick={() => onScheduleClick?.(item)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'link';
+                if (dropTarget !== item.id) {
+                  setDropTarget(item.id);
+                }
+              }}
+              onDragLeave={() => setDropTarget((id) => (id === item.id ? null : id))}
+              onDrop={(e) => {
+                e.preventDefault();
+                const recordId = Number(e.dataTransfer.getData('text/plain'));
+                setDropTarget(null);
+                if (recordId) {
+                  onLink?.(item.id, recordId);
+                }
+              }}
+            />
+          ))}
+        </div>
+        <div className="relative border-l border-[#F0F0F0]" style={{ ...gridBg, height }}>
+          {tt.placed.map(({ item, lane }) =>
+            item._matched ? (
+              <AuditMatchedBlock key={`m-${item.id}`} live={item} style={styleFor(item, tt.lanes, lane)} />
+            ) : (
+              <AuditTikTokBlock
+                key={item.id}
+                suggestion={item}
+                style={styleFor(item, tt.lanes, lane)}
+                onClick={() => onAssign?.(item)}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', String(item.id));
+                  e.dataTransfer.effectAllowed = 'link';
+                }}
+              />
+            ),
+          )}
+        </div>
+
+        {connectors.length > 0 ? (
+          <svg
+            className="pointer-events-none absolute top-0"
+            style={{ left: 44, width: 'calc(100% - 44px)', height }}
+            viewBox={`0 0 100 ${height}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {connectors.map((c) => (
+              <path
+                key={c.key}
+                d={`M 47 ${c.schedY} C 51 ${c.schedY}, 49 ${c.ttY}, 53 ${c.ttY}`}
+                fill="none"
+                stroke="#10B981"
+                strokeWidth="1.5"
+                strokeDasharray="3 2"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </svg>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AuditScheduleBlock({ slot, style, onClick, isDropTarget, onDragOver, onDragLeave, onDrop }) {
+  const state = resolveSessionState(slot.session);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      title={`${formatTimeLabel(slot.startTime)}–${formatTimeLabel(slot.endTime)} · ${slot.hostName ?? 'no host yet'} · drop a TikTok live here to link it`}
+      className={`absolute overflow-hidden rounded-[7px] border px-1.5 py-1 text-left transition-colors ${
+        isDropTarget
+          ? 'border-[#10B981] bg-[#ECFDF5] ring-2 ring-[#10B981]/30'
+          : 'border-[#E5E5E5] bg-white hover:border-[#0A0A0A]/30'
+      }`}
+      style={style}
+    >
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-[9px] tabular-nums text-[#737373]">{formatTimeLabel(slot.startTime)}</span>
+        {state ? (
+          <span
+            className="ml-auto inline-flex shrink-0 items-center rounded-full px-1 py-px text-[8px] font-bold uppercase tracking-wide"
+            style={{ backgroundColor: state.bg, color: state.fg }}
+          >
+            {state.label}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-0.5 truncate text-[11px] font-semibold text-[#0A0A0A]">
+        {slot.hostName ?? <span className="text-[#A3A3A3]">No host</span>}
+      </div>
+    </button>
+  );
+}
+
+function AuditMatchedBlock({ live, style }) {
+  const gmvLabel = formatGmv(live.gmv);
+  return (
+    <div
+      title={`Linked TikTok live ${formatTimeLabel(live.startTime)}–${formatTimeLabel(live.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''}`}
+      className="absolute overflow-hidden rounded-[7px] border border-[#10B981]/50 bg-[#ECFDF5] px-1.5 py-1"
+      style={style}
+    >
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-[9px] tabular-nums text-[#047857]">{formatTimeLabel(live.startTime)}</span>
+        <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded-full bg-white/70 px-1 py-px text-[8px] font-bold text-[#047857]">
+          <ShieldCheck className="h-2 w-2" strokeWidth={2.6} />
+          Linked
+        </span>
+      </div>
+      <div className="mt-0.5 truncate text-[10.5px] font-medium text-[#065F46]">
+        {gmvLabel || (live.viewers ? `${live.viewers.toLocaleString()} viewers` : 'live')}
+      </div>
+    </div>
+  );
+}
+
+function AuditTikTokBlock({ suggestion: s, style, onClick, onDragStart }) {
+  const gmvLabel = formatGmv(s.liveAttributedGmv ?? s.gmv);
+  const badge = !s.isRegistered
+    ? { cls: 'bg-[#FEF2F2] text-[#B91C1C]', Icon: UserPlus, label: 'Register' }
+    : s.matchType === 'near_slot'
+      ? { cls: 'bg-[#ECFDF5] text-[#047857]', Icon: ShieldCheck, label: 'Slot ready' }
+      : { cls: 'bg-[#FFFBEB] text-[#92400E]', Icon: AlertTriangle, label: 'No slot' };
+  return (
+    <button
+      type="button"
+      draggable={s.isRegistered}
+      onDragStart={s.isRegistered ? onDragStart : undefined}
+      onClick={onClick}
+      title={`TikTok live ${formatTimeLabel(s.startTime)}–${formatTimeLabel(s.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — ${s.isRegistered ? 'drag onto a schedule slot to link, or click to assign' : 'creator not registered — click to register'}`}
+      className={`absolute overflow-hidden rounded-[7px] border border-dashed border-[#EC4899]/50 bg-[#FDF2F8]/70 px-1.5 py-1 text-left transition-colors hover:bg-[#FDF2F8] ${
+        s.isRegistered ? 'cursor-grab active:cursor-grabbing' : ''
+      }`}
+      style={style}
+    >
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-[9px] tabular-nums text-[#BE185D]">{formatTimeLabel(s.startTime)}</span>
+        <span className={`ml-auto inline-flex shrink-0 items-center gap-0.5 rounded-full px-1 py-px text-[8px] font-bold ${badge.cls}`}>
+          <badge.Icon className="h-2 w-2" strokeWidth={2.6} />
+          {badge.label}
+        </span>
+      </div>
+      <div className="mt-0.5 truncate text-[10.5px] text-[#525252]">
+        {gmvLabel ? gmvLabel : (s.viewers ? `${s.viewers.toLocaleString()} viewers` : (s.creatorHandle ? `@${s.creatorHandle}` : 'live'))}
+      </div>
+    </button>
+  );
+}
