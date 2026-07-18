@@ -106,6 +106,88 @@ class AutoVerifyService
     }
 
     /**
+     * Manually link ONE TikTok live to a chosen schedule slot — the backend of
+     * the calendar's drag-and-drop matching. Unlike run(), the PIC has already
+     * decided the pairing, so this skips the auto-matcher: it materializes the
+     * dated slot + session (creating the session if the host never recapped),
+     * then links the live and locks GMV via the same verify() path.
+     *
+     * @throws \RuntimeException on a guard violation (no host, payroll locked,
+     *                           live already linked elsewhere).
+     */
+    public function linkLiveToAssignment(ActualLiveRecord $live, LiveScheduleAssignment $assignment): LiveSession
+    {
+        if ($assignment->live_host_id === null) {
+            throw new \RuntimeException('This slot has no host assigned yet — assign a host before linking.');
+        }
+
+        if ($this->anyLinkedElsewhere(collect([$live]), new LiveSession(['id' => 0]))) {
+            throw new \RuntimeException('This live is already linked to another session.');
+        }
+
+        $klStart = CarbonImmutable::parse($live->launched_time)->setTimezone(self::TIMEZONE);
+
+        $dated = $assignment->is_template
+            ? LiveScheduleAssignment::firstOrCreate(
+                [
+                    'live_account_id' => $assignment->live_account_id,
+                    'time_slot_id' => $assignment->time_slot_id,
+                    'schedule_date' => $klStart->toDateString(),
+                    'is_template' => false,
+                ],
+                [
+                    'platform_account_id' => $assignment->platform_account_id,
+                    'live_host_platform_account_id' => $assignment->live_host_platform_account_id,
+                    'live_host_id' => $assignment->live_host_id,
+                    'day_of_week' => (int) $klStart->format('w'),
+                    'status' => 'scheduled',
+                    'created_by' => $assignment->created_by,
+                ]
+            )
+            : $assignment;
+
+        $session = $dated->liveSession()->first();
+
+        if ($session === null) {
+            $scheduledStart = $klStart;
+            $slot = $dated->timeSlot()->first();
+            if ($slot && $slot->start_time) {
+                $scheduledStart = CarbonImmutable::parse(
+                    $klStart->toDateString().' '.$slot->start_time,
+                    self::TIMEZONE
+                );
+            }
+
+            $session = LiveSession::create([
+                'platform_account_id' => $dated->platform_account_id,
+                'live_host_platform_account_id' => $dated->live_host_platform_account_id,
+                'live_account_id' => $dated->live_account_id,
+                'live_schedule_assignment_id' => $dated->id,
+                'live_host_id' => $dated->live_host_id,
+                'title' => 'Live',
+                'scheduled_start_at' => $scheduledStart,
+                'status' => 'scheduled',
+            ]);
+        }
+
+        if ($this->isPayrollLocked($session)) {
+            throw new \RuntimeException('Payroll is locked for this period — linking is no longer allowed.');
+        }
+
+        // A session can hold many lives (a split broadcast: went live, stopped,
+        // resumed — same host). Accumulate onto whatever is already linked so a
+        // second drop ADDS a live and re-sums GMV rather than replacing.
+        $records = $session->actualLiveRecords()->get()
+            ->reject(fn (ActualLiveRecord $r) => $r->id === $live->id)
+            ->push($live)
+            ->values();
+
+        $this->verify($session, $records, false);
+
+        return $session->refresh();
+    }
+
+    /**
      * @return Collection<int, ActualLiveRecord>
      */
     private function unmatchedLives(CarbonImmutable $from, CarbonImmutable $to): Collection
@@ -292,9 +374,9 @@ class AutoVerifyService
     /**
      * @param  Collection<int, ActualLiveRecord>  $records
      */
-    private function verify(LiveSession $session, Collection $records): void
+    private function verify(LiveSession $session, Collection $records, bool $auto = true): void
     {
-        DB::transaction(function () use ($session, $records) {
+        DB::transaction(function () use ($session, $records, $auto) {
             $primary = $records->sortBy('launched_time')->first();
             $summedGmv = $records->sum(fn (ActualLiveRecord $r) => max(0.0, (float) $r->live_attributed_gmv_myr));
             $lastEnd = $records->map(fn (ActualLiveRecord $r) => $this->liveEndUtc($r))->max();
@@ -318,8 +400,8 @@ class AutoVerifyService
                 'verification_status' => 'verified',
                 'verified_by' => null,
                 'verified_at' => now(),
-                'verification_notes' => 'Auto-verified from schedule.',
-                'auto_verified' => true,
+                'verification_notes' => $auto ? 'Auto-verified from schedule.' : 'Linked from the calendar (drag & drop).',
+                'auto_verified' => $auto,
                 'status' => 'ended',
                 'actual_start_at' => $primary->launched_time,
                 'actual_end_at' => $lastEnd,

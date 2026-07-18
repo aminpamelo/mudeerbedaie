@@ -5,6 +5,7 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreSessionSlotRequest;
 use App\Http\Requests\LiveHost\UpdateSessionSlotRequest;
+use App\Models\ActualLiveRecord;
 use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
@@ -133,6 +134,7 @@ class SessionSlotController extends Controller
                 'liveSession.attachments.uploader:id,name',
                 'liveSession.verifiedBy:id,name',
                 'liveSession.analytics',
+                'liveSession.actualLiveRecords:id,launched_time,ended_time,live_attributed_gmv_myr,viewers',
             ])
             ->when(
                 $host === 'unassigned',
@@ -265,6 +267,31 @@ class SessionSlotController extends Controller
             $stats['no_host'],
             $stats['skipped'],
         ));
+    }
+
+    /**
+     * Drag-and-drop link: attach one TikTok live to a chosen schedule slot and
+     * verify its GMV against it. Admin / desk PIC only.
+     */
+    public function linkLive(Request $request, AutoVerifyService $autoVerify): RedirectResponse
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'admin_livehost'], true), 403);
+
+        $data = $request->validate([
+            'assignment_id' => ['required', 'integer', 'exists:live_schedule_assignments,id'],
+            'actual_live_record_id' => ['required', 'integer', 'exists:actual_live_records,id'],
+        ]);
+
+        $assignment = LiveScheduleAssignment::findOrFail($data['assignment_id']);
+        $live = ActualLiveRecord::findOrFail($data['actual_live_record_id']);
+
+        try {
+            $autoVerify->linkLiveToAssignment($live, $assignment);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['link' => $e->getMessage()]);
+        }
+
+        return back()->with('success', 'TikTok live linked and verified.');
     }
 
     public function create(): Response
@@ -492,7 +519,39 @@ class SessionSlotController extends Controller
             'session' => $a->relationLoaded('liveSession') && $a->liveSession
                 ? $this->mapLinkedSession($a->liveSession)
                 : null,
+            // TikTok lives already linked to this slot's session — rendered as
+            // green "matched" blocks in the audit view, each drawn to this slot
+            // with a connector line. Positioned on the slot's own weekday so the
+            // line stays inside one day grid.
+            'linkedLives' => $this->linkedLivesFor($a),
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function linkedLivesFor(LiveScheduleAssignment $a): array
+    {
+        $session = $a->relationLoaded('liveSession') ? $a->liveSession : null;
+        if ($session === null || ! $session->relationLoaded('actualLiveRecords')) {
+            return [];
+        }
+
+        return $session->actualLiveRecords->map(function (ActualLiveRecord $r) use ($a): array {
+            $start = CarbonImmutable::parse($r->launched_time)->setTimezone('Asia/Kuala_Lumpur');
+            $end = $r->ended_time
+                ? CarbonImmutable::parse($r->ended_time)->setTimezone('Asia/Kuala_Lumpur')
+                : $start->addHour();
+
+            return [
+                'id' => $r->id,
+                'dayOfWeek' => (int) $a->day_of_week,
+                'startTime' => $start->format('H:i'),
+                'endTime' => $end->format('H:i'),
+                'gmv' => (float) ($r->pivot->live_attributed_gmv_myr ?? $r->live_attributed_gmv_myr),
+                'viewers' => (int) $r->viewers,
+            ];
+        })->values()->all();
     }
 
     /**
