@@ -1,13 +1,12 @@
 <?php
 
-use App\Models\ProductOrder;
-use App\Models\ProductOrderPayment;
-use App\Models\Product;
 use App\Models\Package;
-use App\Models\Warehouse;
+use App\Models\Product;
+use App\Models\ProductOrder;
 use App\Models\User;
-use Livewire\Volt\Component;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
+use Livewire\Volt\Component;
 
 new class extends Component
 {
@@ -17,14 +16,25 @@ new class extends Component
     }
 
     public ProductOrder $order;
+
     public array $form = [];
+
+    public string $customerSearch = '';
+
     public array $orderItems = [];
+
     public float $subtotal = 0;
+
     public float $shippingCost = 0;
+
     public float $taxRate = 6.0; // GST percentage (editable)
+
     public float $taxAmount = 0;
+
     public float $total = 0;
+
     public string $paymentStatus = 'pending';
+
     public string $paymentMethod = 'cash';
 
     public function mount(ProductOrder $order): void
@@ -76,6 +86,13 @@ new class extends Component
             'notes' => $this->order->customer_notes ?? '',
         ];
 
+        // Pre-fill the searchable customer input with the currently assigned
+        // customer so the admin sees who's on the order without the component
+        // loading every student/user into memory.
+        if ($this->form['customer_type'] === 'existing' && $this->order->customer) {
+            $this->customerSearch = $this->order->customer->name.' ('.$this->order->customer->email.')';
+        }
+
         // Initialize order items (support both products and packages)
         foreach ($this->order->items as $item) {
             $this->orderItems[] = [
@@ -105,7 +122,9 @@ new class extends Component
 
     private function addressesAreSame($billing, $shipping): bool
     {
-        if (!$billing || !$shipping) return false;
+        if (! $billing || ! $shipping) {
+            return false;
+        }
 
         return $billing->first_name === $shipping->first_name &&
                $billing->last_name === $shipping->last_name &&
@@ -115,19 +134,28 @@ new class extends Component
                $billing->postal_code === $shipping->postal_code;
     }
 
-    public function updatedFormCustomerId(): void
+    public function selectCustomer(int $customerId): void
     {
-        if ($this->form['customer_id']) {
-            $customer = User::find($this->form['customer_id']);
-            if ($customer) {
-                $this->form['customer_email'] = $customer->email;
-                $this->form['customer_name'] = $customer->name;
+        $this->form['customer_id'] = $customerId;
+        $customer = User::find($customerId);
 
-                // Auto-fill billing address with customer name
-                $this->form['billing_address']['first_name'] = explode(' ', $customer->name)[0] ?? '';
-                $this->form['billing_address']['last_name'] = explode(' ', $customer->name, 2)[1] ?? '';
-            }
+        if ($customer) {
+            $this->customerSearch = $customer->name.' ('.$customer->email.')';
+            $this->form['customer_email'] = $customer->email;
+            $this->form['customer_name'] = $customer->name;
+
+            // Auto-fill billing address with customer name
+            $this->form['billing_address']['first_name'] = explode(' ', $customer->name)[0] ?? '';
+            $this->form['billing_address']['last_name'] = explode(' ', $customer->name, 2)[1] ?? '';
         }
+
+        $this->dispatch('close-dropdown');
+    }
+
+    public function clearCustomerSelection(): void
+    {
+        $this->form['customer_id'] = '';
+        $this->customerSearch = '';
     }
 
     public function updatedOrderItems(): void
@@ -231,16 +259,19 @@ new class extends Component
         // Validate required fields
         if (empty($this->orderItems)) {
             session()->flash('error', 'Please add at least one item to the order.');
+
             return;
         }
 
         if ($this->form['customer_type'] === 'existing' && empty($this->form['customer_id'])) {
             session()->flash('error', 'Please select a customer.');
+
             return;
         }
 
         if ($this->form['customer_type'] === 'new' && (empty($this->form['customer_email']) || empty($this->form['customer_name']))) {
             session()->flash('error', 'Please provide customer email and name.');
+
             return;
         }
 
@@ -248,6 +279,7 @@ new class extends Component
         foreach ($this->orderItems as $item) {
             if (empty($item['warehouse_id'])) {
                 session()->flash('error', 'Please select warehouse for all items.');
+
                 return;
             }
 
@@ -255,30 +287,35 @@ new class extends Component
             if ($item['item_type'] === 'product') {
                 if (empty($item['product_id'])) {
                     session()->flash('error', 'Please select product for all product items.');
+
                     return;
                 }
 
                 $productExists = Product::where('id', $item['product_id'])->exists();
-                if (!$productExists) {
+                if (! $productExists) {
                     session()->flash('error', 'Invalid product selected.');
+
                     return;
                 }
             } elseif ($item['item_type'] === 'package') {
                 if (empty($item['package_id'])) {
                     session()->flash('error', 'Please select package for all package items.');
+
                     return;
                 }
 
                 $packageExists = Package::where('id', $item['package_id'])->exists();
-                if (!$packageExists) {
+                if (! $packageExists) {
                     session()->flash('error', 'Invalid package selected.');
+
                     return;
                 }
             }
 
             $warehouseExists = Warehouse::where('id', $item['warehouse_id'])->exists();
-            if (!$warehouseExists) {
+            if (! $warehouseExists) {
                 session()->flash('error', 'Invalid warehouse selected.');
+
                 return;
             }
         }
@@ -312,7 +349,7 @@ new class extends Component
                     'package_id' => $package->id,
                     'warehouse_id' => $item['warehouse_id'],
                     'product_name' => $package->name,
-                    'sku' => 'PKG-' . $package->id,
+                    'sku' => 'PKG-'.$package->id,
                     'quantity_ordered' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total_price' => $item['total_price'],
@@ -395,7 +432,7 @@ new class extends Component
         // Get or create payment record
         $payment = $this->order->payments()->latest()->first();
 
-        if (!$payment) {
+        if (! $payment) {
             // Create new payment record
             $this->order->payments()->create([
                 'payment_method' => $this->paymentMethod,
@@ -420,11 +457,23 @@ new class extends Component
 
     public function with(): array
     {
+        // Never load every student/user: on production this table is huge and
+        // rendering all of them as <option>s exhausts memory/time (500). Bound
+        // the list and let the admin search, matching the create page.
+        $customersQuery = User::whereIn('role', ['student', 'user']);
+
+        if ($this->customerSearch) {
+            $customersQuery->where(function ($query) {
+                $query->where('name', 'like', '%'.$this->customerSearch.'%')
+                    ->orWhere('email', 'like', '%'.$this->customerSearch.'%');
+            });
+        }
+
         return [
             'products' => Product::active()->get(),
             'packages' => Package::active()->with(['products', 'courses'])->get(),
             'warehouses' => Warehouse::all(),
-            'customers' => User::whereIn('role', ['student', 'user'])->get(),
+            'customers' => $customersQuery->orderBy('name')->limit(50)->get(),
         ];
     }
 }; ?>
@@ -480,15 +529,63 @@ new class extends Component
                     </div>
 
                     @if($form['customer_type'] === 'existing')
-                        <div>
-                            <flux:field>
-                                <flux:label>Select Customer</flux:label>
-                                <flux:select wire:model.live="form.customer_id" placeholder="Choose a customer...">
-                                    @foreach($customers as $customer)
-                                        <option value="{{ $customer->id }}">{{ $customer->name }} ({{ $customer->email }})</option>
-                                    @endforeach
-                                </flux:select>
-                            </flux:field>
+                        <!-- Searchable Customer Selection -->
+                        <div class="space-y-2" x-data="customerSearchComponent()">
+                            <flux:label>Select Customer</flux:label>
+                            <div class="relative">
+                                <input
+                                    type="text"
+                                    x-model="search"
+                                    @input.debounce.300ms="$wire.set('customerSearch', search)"
+                                    @focus="showDropdown = true"
+                                    placeholder="Search by name or email..."
+                                    class="w-full rounded-lg border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-10"
+                                />
+                                <template x-if="!$wire.form.customer_id">
+                                    <flux:icon name="magnifying-glass" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                </template>
+                                <template x-if="$wire.form.customer_id">
+                                    <button
+                                        type="button"
+                                        @click="clearSelection()"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+                                    >
+                                        <flux:icon name="x-mark" class="w-4 h-4" />
+                                    </button>
+                                </template>
+
+                                <!-- Dropdown Results -->
+                                <div
+                                    x-show="showDropdown && search.length > 0"
+                                    @click.away="showDropdown = false"
+                                    x-transition
+                                    class="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                    style="display: none;"
+                                >
+                                    @if($customers->count() > 0)
+                                        <ul class="py-1">
+                                            @foreach($customers as $customer)
+                                                <li>
+                                                    <button
+                                                        type="button"
+                                                        @click="selectCustomer({{ $customer->id }}, @js($customer->name), @js($customer->email))"
+                                                        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
+                                                    >
+                                                        <div class="flex flex-col">
+                                                            <span class="font-medium text-gray-900 dark:text-white">{{ $customer->name }}</span>
+                                                            <span class="text-sm text-gray-500 dark:text-zinc-400">{{ $customer->email }}</span>
+                                                        </div>
+                                                    </button>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        <div class="px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">
+                                            No customers found matching "{{ $customerSearch }}"
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                     @endif
 
@@ -841,4 +938,23 @@ new class extends Component
             </div>
         </div>
     </div>
+
+    <script>
+        function customerSearchComponent() {
+            return {
+                search: @entangle('customerSearch').live,
+                showDropdown: false,
+                selectCustomer(id, name, email) {
+                    this.$wire.selectCustomer(id);
+                    this.search = name + ' (' + email + ')';
+                    this.showDropdown = false;
+                },
+                clearSelection() {
+                    this.$wire.clearCustomerSelection();
+                    this.search = '';
+                    this.showDropdown = true;
+                }
+            }
+        }
+    </script>
 </div>
