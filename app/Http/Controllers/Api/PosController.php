@@ -853,6 +853,7 @@ class PosController extends Controller
 
         $itemStats = DB::table('product_order_items')
             ->join('product_orders', 'product_orders.id', '=', 'product_order_items.order_id')
+            ->whereNull('product_orders.deleted_at')
             ->where('product_orders.source', 'pos')
             ->whereNotNull('product_orders.paid_time')
             ->whereYear('product_orders.order_date', $year)

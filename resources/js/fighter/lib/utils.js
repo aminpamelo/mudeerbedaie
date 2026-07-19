@@ -52,6 +52,34 @@ export async function createFunnelAndOpen() {
   window.location.href = `/funnel-builder/${uuid}?from=fighter`;
 }
 
+/** GET a JSON endpoint in the fighter app (session-authed). Throws on failure. */
+export async function fighterJson(path) {
+  const res = await fetch(path, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) {
+    throw new Error('Request failed');
+  }
+  return res.json();
+}
+
+/**
+ * Send a write request (POST/DELETE) to the fighter app. Pass `form: true` with
+ * a FormData body for multipart (file) uploads. Throws with the server message.
+ */
+export async function fighterSend(path, { method = 'POST', body = null, form = false } = {}) {
+  const headers = { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' };
+  let payload = body;
+  if (body && !form) {
+    headers['Content-Type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
+  const res = await fetch(path, { method, headers, credentials: 'same-origin', body: payload });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.message || 'Request failed');
+  }
+  return res.json().catch(() => ({}));
+}
+
 /** Up-to-two-letter initials from a name. */
 export function initialsFrom(name) {
   if (!name) return '?';

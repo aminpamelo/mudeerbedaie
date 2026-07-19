@@ -47,6 +47,7 @@ class FighterDemoDataSeeder extends Seeder
                 $total = fake()->randomFloat(2, 59, 349);
                 $status = fake()->randomElement(['processing', 'shipped', 'delivered']);
                 $shipped = in_array($status, ['shipped', 'delivered'], true);
+                $awb = $shipped ? (string) fake()->numerify('6321########') : null;
 
                 $order = ProductOrder::factory()->create([
                     'sales_source_id' => $segment->id,
@@ -57,8 +58,10 @@ class FighterDemoDataSeeder extends Seeder
                     'subtotal' => $total,
                     'shipping_cost' => 0,
                     'total_amount' => $total,
-                    'shipping_provider' => $shipped ? fake()->randomElement(['J&T Express', 'City-Link', 'Ninja Van', 'Pos Laju']) : null,
-                    'tracking_id' => $shipped ? strtoupper(fake()->bothify('MY#########??')) : null,
+                    'shipping_provider' => $shipped ? 'easyparcel' : null,
+                    'tracking_id' => $awb,
+                    'shipped_at' => $shipped ? ($date = fake()->dateTimeBetween('-25 days', 'now')) : null,
+                    'metadata' => $shipped ? ['shipping_tracking_url' => 'https://easyparcel.com/my/en/track/details/?awb_no='.$awb] : null,
                     'order_date' => $date = fake()->dateTimeBetween('-25 days', 'now'),
                     'created_at' => $date,
                     'updated_at' => $date,
@@ -94,8 +97,11 @@ class FighterDemoDataSeeder extends Seeder
                 'subtotal' => $total,
                 'shipping_cost' => 0,
                 'total_amount' => $total,
-                'shipping_provider' => $shipped ? fake()->randomElement(['J&T Express', 'City-Link', 'Ninja Van', 'Pos Laju']) : null,
-                'tracking_id' => $shipped ? strtoupper(fake()->bothify('MY#########??')) : null,
+                // Manual orders often carry only an AWB with no recorded courier —
+                // the Orders feed falls back to EasyParcel's universal tracker.
+                'shipping_provider' => null,
+                'tracking_id' => $shipped ? (string) fake()->numerify('6321########') : null,
+                'shipped_at' => $shipped ? fake()->dateTimeBetween('-15 days', 'now') : null,
                 'order_date' => $date = fake()->dateTimeBetween('-15 days', 'now'),
                 'created_at' => $date,
                 'updated_at' => $date,

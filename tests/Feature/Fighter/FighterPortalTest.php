@@ -9,12 +9,15 @@ use App\Models\SalesSource;
 use App\Models\User;
 use App\Notifications\Fighter\NewOrderNotification;
 use App\Services\Fighter\FighterProvisioner;
+use App\Services\Funnel\FunnelCheckoutService;
+use App\Services\StripeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Stripe\StripeClient;
 
 uses(RefreshDatabase::class);
 
@@ -261,7 +264,7 @@ it('shows a fighter only the orders attributed to their segment', function () {
         );
 });
 
-it('exposes tracking details on the fighter orders feed', function () {
+it('exposes provider label and stored tracking url on the fighter orders feed', function () {
     $f = fighter();
     $seg = app(FighterProvisioner::class)->ensureSalesSource($f);
 
@@ -270,8 +273,9 @@ it('exposes tracking details on the fighter orders feed', function () {
         'order_number' => 'PO-TRACK',
         'sales_source_id' => $seg->id,
         'status' => 'shipped',
-        'shipping_provider' => 'J&T Express',
-        'tracking_id' => 'MY123456789AB',
+        'shipping_provider' => 'easyparcel',
+        'tracking_id' => '632118771195',
+        'metadata' => ['shipping_tracking_url' => 'https://easyparcel.com/my/track/632118771195'],
     ]);
 
     $this->actingAs($f)
@@ -279,8 +283,33 @@ it('exposes tracking details on the fighter orders feed', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Orders', false)
-            ->where('orders.data.0.tracking_id', 'MY123456789AB')
-            ->where('orders.data.0.shipping_provider', 'J&T Express')
+            ->where('orders.data.0.tracking_id', '632118771195')
+            ->where('orders.data.0.shipping_provider', 'EasyParcel')
+            ->where('orders.data.0.tracking_url', 'https://easyparcel.com/my/track/632118771195')
+        );
+});
+
+it('falls back to the EasyParcel tracker for manual orders with no recorded courier', function () {
+    $f = fighter();
+    $seg = app(FighterProvisioner::class)->ensureSalesSource($f);
+
+    ProductOrder::factory()->create([
+        'source' => 'pos',
+        'order_number' => 'PO-MANUAL-TRACK',
+        'sales_source_id' => $seg->id,
+        'status' => 'delivered',
+        'shipping_provider' => null,
+        'tracking_id' => '632120810306',
+        'metadata' => null,
+    ]);
+
+    $this->actingAs($f)
+        ->get('/fighter/orders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Orders', false)
+            ->where('orders.data.0.shipping_provider', 'EasyParcel')
+            ->where('orders.data.0.tracking_url', 'https://easyparcel.com/my/easytrack/')
         );
 });
 
@@ -576,4 +605,223 @@ it('leaves the receipt url null on a fighter order with no attachment', function
         ->assertInertia(fn (Assert $page) => $page
             ->where('orders.data.0.receipt_url', null)
         );
+});
+
+/*
+|--------------------------------------------------------------------------
+| Order view / edit / soft-delete / restore
+|--------------------------------------------------------------------------
+*/
+
+function makeFighterOrder(User $fighter, Product $product, int $qty = 1, float $price = 30): ProductOrder
+{
+    test()->actingAs($fighter)->postJson('/api/pos/sales', [
+        'customer_name' => 'Buyer One',
+        'customer_phone' => '60123456789',
+        'payment_method' => 'cash',
+        'payment_status' => 'pending',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => $qty, 'unit_price' => $price]],
+    ])->assertSuccessful();
+
+    return ProductOrder::query()->where('source', 'pos')->latest('id')->firstOrFail();
+}
+
+it('lets a fighter view the full detail of their own order', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false, 'name' => 'Kitab A']);
+    $order = makeFighterOrder($f, $product);
+
+    $this->actingAs($f)->getJson("/fighter/orders/{$order->id}")
+        ->assertOk()
+        ->assertJsonPath('data.order_number', $order->order_number)
+        ->assertJsonPath('data.customer.name', 'Buyer One')
+        ->assertJsonPath('data.items.0.product_name', 'Kitab A')
+        ->assertJsonPath('data.total', 30);
+});
+
+it('blocks a fighter from viewing another fighter\'s order', function () {
+    $a = fighter();
+    $b = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($b, $product);
+
+    $this->actingAs($a)->getJson("/fighter/orders/{$order->id}")->assertNotFound();
+});
+
+it('lets a fighter edit their own order items, customer and payment', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($f, $product, 1, 30);
+    $itemId = $order->items()->first()->id;
+
+    $this->actingAs($f)->post("/fighter/orders/{$order->id}", [
+        'customer_name' => 'Updated Name',
+        'customer_phone' => '60111111111',
+        'customer_email' => 'updated@example.com',
+        'payment_method' => 'bank_transfer',
+        'payment_reference' => 'TRX-777',
+        'payment_status' => 'paid',
+        'shipping_cost' => 5,
+        'items' => [
+            ['id' => $itemId, 'itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 3, 'unit_price' => 30],
+        ],
+    ])->assertOk();
+
+    $order->refresh();
+    expect($order->customer_name)->toBe('Updated Name')
+        ->and($order->payment_method)->toBe('bank_transfer')
+        ->and($order->payment_status)->toBe('paid')
+        ->and($order->paid_time)->not->toBeNull()
+        ->and((float) $order->total_amount)->toEqual(95.0)   // 3×30 + 5 shipping
+        ->and((int) $order->items()->first()->quantity_ordered)->toBe(3)
+        ->and($order->metadata['payment_reference'])->toBe('TRX-777');
+});
+
+it('edits an item-less funnel order without wiping its stored total', function () {
+    $f = fighter();
+    $segment = app(FighterProvisioner::class)->ensureSalesSource($f);
+    $order = ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'sales_source_id' => $segment->id,
+        'subtotal' => 63.03,
+        'total_amount' => 63.03,
+        'customer_name' => null,
+        'guest_email' => 'No email provided',
+    ]);
+    expect($order->items()->count())->toBe(0);
+
+    $this->actingAs($f)->post("/fighter/orders/{$order->id}", [
+        'customer_name' => 'Filled In',
+        'customer_phone' => '60122223333',
+        'payment_method' => 'cash',
+        'payment_status' => 'paid',
+        'items' => [],
+    ])->assertOk();
+
+    $order->refresh();
+    expect($order->customer_name)->toBe('Filled In')
+        ->and($order->payment_status)->toBe('paid')
+        ->and((float) $order->total_amount)->toEqual(63.03)   // total preserved, not zeroed
+        ->and($order->items()->count())->toBe(0);
+});
+
+it('cleans the funnel "No email provided" placeholder in order detail', function () {
+    $f = fighter();
+    $segment = app(FighterProvisioner::class)->ensureSalesSource($f);
+    $order = ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'sales_source_id' => $segment->id,
+        'guest_email' => 'No email provided',
+    ]);
+
+    $this->actingAs($f)->getJson("/fighter/orders/{$order->id}")
+        ->assertOk()
+        ->assertJsonPath('data.customer.email', null);
+});
+
+it('blocks a fighter from editing another fighter\'s order', function () {
+    $a = fighter();
+    $b = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($b, $product);
+
+    $this->actingAs($a)->post("/fighter/orders/{$order->id}", [
+        'customer_name' => 'Hacker',
+        'customer_phone' => '60100000000',
+        'payment_method' => 'cash',
+        'payment_status' => 'pending',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 30]],
+    ])->assertNotFound();
+
+    expect($order->fresh()->customer_name)->not->toBe('Hacker');
+});
+
+it('lets a fighter soft-delete their own order and it leaves the team view', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($f, $product);
+
+    $this->actingAs($f)->deleteJson("/fighter/orders/{$order->id}")->assertOk();
+
+    // Soft-deleted (restorable), not gone.
+    expect(ProductOrder::withTrashed()->whereKey($order->id)->exists())->toBeTrue()
+        ->and(ProductOrder::query()->whereKey($order->id)->exists())->toBeFalse();
+
+    // Gone from the fighter's active list, present in the bin with a count.
+    $this->actingAs($f)->get('/fighter/orders')
+        ->assertInertia(fn (Assert $page) => $page->has('orders.data', 0)->where('trashCount', 1));
+
+    $this->actingAs($f)->get('/fighter/orders?view=trash')
+        ->assertInertia(fn (Assert $page) => $page->where('view', 'trash')->has('orders.data', 1)
+            ->where('orders.data.0.order_number', $order->order_number));
+});
+
+it('blocks a fighter from deleting another fighter\'s order', function () {
+    $a = fighter();
+    $b = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($b, $product);
+
+    $this->actingAs($a)->deleteJson("/fighter/orders/{$order->id}")->assertNotFound();
+    expect(ProductOrder::query()->whereKey($order->id)->exists())->toBeTrue();
+});
+
+it('lets a fighter restore a trashed order from the bin', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($f, $product);
+    $order->delete();
+
+    $this->actingAs($f)->postJson("/fighter/orders/{$order->id}/restore")->assertOk();
+
+    expect(ProductOrder::query()->whereKey($order->id)->exists())->toBeTrue();
+    $this->actingAs($f)->get('/fighter/orders')
+        ->assertInertia(fn (Assert $page) => $page->has('orders.data', 1)->where('trashCount', 0));
+});
+
+it('blocks a fighter from restoring another fighter\'s trashed order', function () {
+    $a = fighter();
+    $b = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+    $order = makeFighterOrder($b, $product);
+    $order->delete();
+
+    $this->actingAs($a)->postJson("/fighter/orders/{$order->id}/restore")->assertNotFound();
+    expect(ProductOrder::onlyTrashed()->whereKey($order->id)->exists())->toBeTrue();
+});
+
+it('fires a new-order notification to the funnel-owning fighter on checkout', function () {
+    $f = fighter();
+    $funnel = Funnel::factory()->create(['user_id' => $f->id, 'name' => 'My Sales Funnel']);
+    $order = ProductOrder::factory()->create(['source' => 'funnel', 'total_amount' => 99]);
+
+    // Drive the exact hook the real checkout flow calls after creating the order.
+    // Stripe isn't configured in tests, so stub it out of the service constructor.
+    $this->mock(StripeService::class, fn ($m) => $m->shouldReceive('getStripe')->andReturn(Mockery::mock(StripeClient::class)));
+    $service = app(FunnelCheckoutService::class);
+    $method = new ReflectionMethod($service, 'notifyFighterOfNewOrder');
+    $method->setAccessible(true);
+    $method->invoke($service, $funnel, $order);
+
+    expect($f->fresh()->notifications()->where('type', NewOrderNotification::class)->count())->toBe(1);
+
+    // ...and it surfaces in the fighter's bell feed.
+    $this->actingAs($f)->getJson('/fighter/notifications/feed')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1)
+        ->assertJsonPath('notifications.0.title', 'New order · RM 99.00');
+});
+
+it('does not notify when the funnel owner is not a fighter', function () {
+    $employee = User::factory()->create(['role' => 'employee']);
+    $funnel = Funnel::factory()->create(['user_id' => $employee->id]);
+    $order = ProductOrder::factory()->create(['source' => 'funnel', 'total_amount' => 50]);
+
+    $this->mock(StripeService::class, fn ($m) => $m->shouldReceive('getStripe')->andReturn(Mockery::mock(StripeClient::class)));
+    $service = app(FunnelCheckoutService::class);
+    $method = new ReflectionMethod($service, 'notifyFighterOfNewOrder');
+    $method->setAccessible(true);
+    $method->invoke($service, $funnel, $order);
+
+    expect($employee->fresh()->notifications()->count())->toBe(0);
 });

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -16,6 +17,7 @@ use Illuminate\Support\Str;
 class ProductOrder extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'order_number',
@@ -138,6 +140,49 @@ class ProductOrder extends Model
         }
 
         return Storage::disk('public')->url($this->receipt_attachment);
+    }
+
+    /**
+     * Human-friendly courier/provider name for display.
+     *
+     * Maps stored provider codes to labels; already-friendly values are
+     * title-cased. When no provider is recorded but a tracking number exists,
+     * the parcel was shipped through EasyParcel (the platform aggregator).
+     */
+    public function getShippingProviderLabelAttribute(): ?string
+    {
+        $provider = $this->shipping_provider;
+
+        if (! $provider) {
+            return $this->tracking_id ? 'EasyParcel' : null;
+        }
+
+        return match (strtolower($provider)) {
+            'jnt', 'jnt_express', 'j&t', 'j&t express' => 'J&T Express',
+            'easyparcel' => 'EasyParcel',
+            default => ucwords(str_replace(['_', '-'], ' ', $provider)),
+        };
+    }
+
+    /**
+     * Public tracking URL a customer/fighter can open.
+     *
+     * Prefers the authoritative link EasyParcel returns at booking time.
+     * Otherwise falls back to EasyParcel's universal EasyTrack tracker, which
+     * auto-detects the courier from the AWB (all shipments go through EasyParcel).
+     */
+    public function getTrackingUrlAttribute(): ?string
+    {
+        $stored = data_get($this->metadata, 'shipping_tracking_url');
+        if (filled($stored)) {
+            return $stored;
+        }
+
+        if (! $this->tracking_id) {
+            return null;
+        }
+
+        return 'https://easyparcel.com/my/easytrack/';
     }
 
     // Relationships

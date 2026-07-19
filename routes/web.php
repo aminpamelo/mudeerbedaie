@@ -439,6 +439,14 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
             ->name('orders');
         Route::get('orders/create', [OrderController::class, 'create'])
             ->name('orders.create');
+        Route::get('orders/{order}', [OrderController::class, 'show'])
+            ->name('orders.show');
+        Route::post('orders/{order}', [OrderController::class, 'update'])
+            ->name('orders.update');
+        Route::delete('orders/{order}', [OrderController::class, 'destroy'])
+            ->name('orders.destroy');
+        Route::post('orders/{order}/restore', [OrderController::class, 'restore'])
+            ->name('orders.restore');
         Route::get('catalog', [CatalogController::class, 'index'])
             ->name('catalog');
         Route::post('catalog/favourites', [CatalogController::class, 'toggleFavourite'])
