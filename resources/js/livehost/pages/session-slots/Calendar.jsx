@@ -30,6 +30,7 @@ import {
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import SessionSlotFormModal from '@/livehost/components/SessionSlotFormModal';
+import SearchableSelect, { colorFor, initialsFrom } from '@/livehost/components/SearchableSelect';
 import SessionSlotDetailModal from '@/livehost/components/SessionSlotDetailModal';
 import LiveSessionModal from '@/livehost/components/LiveSessionModal';
 import RegisterCreatorModal from '@/livehost/components/RegisterCreatorModal';
@@ -346,6 +347,47 @@ export default function SessionSlotsCalendar() {
       // ignore storage failures (private mode, etc.)
     }
   }, [tiktokOnly]);
+
+  // Searchable filter options — hosts (55+) and creator accounts (200+) are too
+  // many for a plain <select>, so the PIC can type a name/nickname to narrow.
+  const hostFilterOptions = useMemo(
+    () => [
+      { value: '', label: 'All hosts', empty: true },
+      { value: 'unassigned', label: 'Unassigned only', empty: true },
+      ...hosts.map((h) => ({
+        value: String(h.id),
+        label: h.name,
+        hint: h.email ?? null,
+        keywords: [h.name, h.email].filter(Boolean).join(' '),
+        avatar: { initials: initialsFrom(h.name), color: colorFor(h.name) },
+      })),
+    ],
+    [hosts]
+  );
+
+  const accountFilterOptions = useMemo(
+    () => [
+      { value: '', label: 'All accounts', empty: true },
+      ...liveAccounts.map((a) => {
+        const shopNames = (a.shops ?? []).map((s) => s.name).filter(Boolean);
+
+        return {
+          value: String(a.id),
+          label: a.label,
+          hint: shopNames.length
+            ? shopNames.join(', ')
+            : a.creatorUserId
+              ? `ID ${a.creatorUserId}`
+              : null,
+          keywords: [a.label, a.nickname, a.displayName, a.creatorUserId, ...shopNames]
+            .filter(Boolean)
+            .join(' '),
+          avatar: { initials: initialsFrom(a.label), color: colorFor(a.label) },
+        };
+      }),
+    ],
+    [liveAccounts]
+  );
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefill, setCreatePrefill] = useState(null);
@@ -899,31 +941,26 @@ export default function SessionSlotsCalendar() {
         {/* Filters + week nav */}
         <div className="flex flex-col gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3">
-            <select
+            <SearchableSelect
               value={host}
-              onChange={(e) => setHost(e.target.value)}
-              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
-            >
-              <option value="">All hosts</option>
-              <option value="unassigned">Unassigned only</option>
-              {hosts.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
-            <select
+              onChange={setHost}
+              options={hostFilterOptions}
+              placeholder="All hosts"
+              searchPlaceholder="Search host by name…"
+              emptyLabel="No host found"
+              allowClear
+              className="w-full min-w-0 sm:w-48"
+            />
+            <SearchableSelect
               value={liveAccount}
-              onChange={(e) => setLiveAccount(e.target.value)}
-              className="h-9 w-full min-w-0 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 sm:w-auto"
-            >
-              <option value="">All accounts</option>
-              {liveAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+              onChange={setLiveAccount}
+              options={accountFilterOptions}
+              placeholder="All accounts"
+              searchPlaceholder="Search nickname, handle or shop…"
+              emptyLabel="No account found"
+              allowClear
+              className="w-full min-w-0 sm:w-52"
+            />
             <select
               value={platformAccount}
               onChange={(e) => setPlatformAccount(e.target.value)}
