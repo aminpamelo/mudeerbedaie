@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Loader2, User, UserPlus, CheckCircle2, Star, X, Package } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingBag, ArrowLeft, Loader2, User, UserPlus, CheckCircle2, Star, X, Package, Banknote, Landmark, Truck, Upload, FileText, Paperclip, CreditCard } from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import { cn, csrfToken, formatMoney } from '@/fighter/lib/utils';
 
@@ -336,6 +336,116 @@ function CustomerSection({ mode, setMode, selected, setSelected, form, setForm }
   );
 }
 
+/* ---------- Payment ---------- */
+
+const PAYMENT_METHODS = [
+  { key: 'cash', label: 'Cash', Icon: Banknote },
+  { key: 'bank_transfer', label: 'Bank', Icon: Landmark },
+  { key: 'cod', label: 'COD', Icon: Truck },
+];
+
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+
+/** Upload / preview a payment receipt. Only shown for Cash & Bank. */
+function ReceiptUploader({ file, preview, onChange, onRemove }) {
+  return (
+    <div className="mt-3">
+      <span className="text-[11.5px] font-semibold uppercase tracking-[0.03em] text-muted-2">Payment receipt (optional)</span>
+      {!file ? (
+        <label className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line py-4 text-center transition-colors hover:border-[var(--color-brand)] hover:bg-orange-50/40">
+          <Upload className="h-5 w-5 text-muted-2" strokeWidth={1.8} />
+          <span className="mt-1 text-[12px] font-medium text-ink-2">Upload receipt</span>
+          <span className="text-[11px] text-muted-2">JPG, PNG, PDF, WebP · max 5MB</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={onChange} className="hidden" />
+        </label>
+      ) : (
+        <div className="mt-1 flex items-center gap-3 rounded-xl border border-line p-2.5">
+          {preview ? (
+            <img src={preview} alt="Receipt preview" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-500"><FileText className="h-5 w-5" strokeWidth={1.8} /></div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-medium text-ink">{file.name}</p>
+            <p className="text-[11px] text-muted-2">{(file.size / 1024).toFixed(0)} KB</p>
+          </div>
+          <button type="button" onClick={onRemove} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted hover:bg-rose-50 hover:text-rose-600" aria-label="Remove receipt"><X className="h-4 w-4" strokeWidth={2.2} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Review / confirm ---------- */
+
+function ReviewRow({ label, value, sub }) {
+  return (
+    <div className="rounded-xl bg-surface px-3 py-2.5">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.03em] text-muted-2">{label}</div>
+      <div className="mt-0.5 truncate text-[13px] font-medium text-ink">{value || '—'}</div>
+      {sub && <div className="truncate text-[11.5px] text-muted">{sub}</div>}
+    </div>
+  );
+}
+
+function ReviewModal({ cart, subtotal, shipping, total, customerLine, paymentLine, paymentSub, receiptFile, notes, submitting, error, onConfirm, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={submitting ? undefined : onClose} />
+      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-line/70 px-5 py-4">
+          <h3 className="text-[15px] font-semibold text-ink">Confirm order</h3>
+          <button type="button" onClick={onClose} disabled={submitting} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-slate-100 hover:text-ink disabled:opacity-40" aria-label="Close"><X className="h-4 w-4" strokeWidth={2.2} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 scroll-thin">
+          <div className="mb-1 text-[11.5px] font-semibold uppercase tracking-[0.03em] text-muted-2">Items</div>
+          <div className="divide-y divide-line/70 overflow-hidden rounded-xl bg-surface">
+            {cart.map((item) => (
+              <div key={item.key} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] font-medium text-ink">{item.name}</div>
+                  <div className="text-[11.5px] text-muted">{item.variantName ? `${item.variantName} · ` : ''}{item.quantity} × {formatMoney(item.unitPrice)}</div>
+                </div>
+                <div className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">{formatMoney(item.unitPrice * item.quantity)}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <ReviewRow label="Customer" value={customerLine.name} sub={customerLine.contact} />
+            <ReviewRow label="Payment" value={paymentLine} sub={paymentSub} />
+          </div>
+
+          {receiptFile && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5">
+              <Paperclip className="h-4 w-4 shrink-0 text-muted-2" />
+              <span className="truncate text-[12.5px] text-ink-2">{receiptFile.name}</span>
+            </div>
+          )}
+          {notes && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-surface px-3 py-2.5 text-[12.5px] text-ink-2">{notes}</p>}
+
+          <div className="mt-4 border-t border-line/70 pt-3">
+            <div className="flex items-center justify-between text-[13px] text-ink-2"><span>Subtotal</span><span className="tabular-nums">{formatMoney(subtotal)}</span></div>
+            {shipping > 0 && <div className="mt-1 flex items-center justify-between text-[13px] text-ink-2"><span>Shipping</span><span className="tabular-nums">{formatMoney(shipping)}</span></div>}
+            <div className="mt-2 flex items-center justify-between text-[16px] font-bold text-ink"><span>Total</span><span className="tabular-nums">{formatMoney(total)}</span></div>
+          </div>
+
+          {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-700">{error}</p>}
+        </div>
+
+        <div className="flex gap-2 border-t border-line/70 px-5 py-4">
+          <button type="button" onClick={onClose} disabled={submitting} className="flex-1 rounded-xl bg-slate-100 py-3 text-[13.5px] font-semibold text-ink-2 transition-colors hover:bg-slate-200 disabled:opacity-40">Back to edit</button>
+          <button type="button" onClick={onConfirm} disabled={submitting} className="flex flex-[1.4] items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] py-3 text-[13.5px] font-semibold text-white transition-colors hover:bg-[var(--color-brand-ink)] disabled:opacity-50">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" strokeWidth={2.2} />}
+            {submitting ? 'Creating…' : 'Confirm & create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Page ---------- */
 
 export default function OrderCreate({ segment }) {
@@ -348,6 +458,9 @@ export default function OrderCreate({ segment }) {
   const [paymentReference, setPaymentReference] = useState('');
   const [shippingCost, setShippingCost] = useState('');
   const [notes, setNotes] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState(null);
+  const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -365,6 +478,32 @@ export default function OrderCreate({ segment }) {
   };
   const removeItem = (key) => setCart((prev) => prev.filter((c) => c.key !== key));
 
+  const removeReceipt = () => { setReceiptFile(null); setReceiptPreview(null); };
+
+  const handleReceiptChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_RECEIPT_BYTES) {
+      setError('Receipt must be 5MB or smaller.');
+      return;
+    }
+    setError(null);
+    setReceiptFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setReceiptPreview(ev.target?.result ?? null);
+      reader.readAsDataURL(file);
+    } else {
+      setReceiptPreview(null);
+    }
+  };
+
+  // COD has no payment receipt — drop any attached file when switching to it.
+  const changePaymentMethod = (m) => {
+    setPaymentMethod(m);
+    if (m === 'cod') removeReceipt();
+  };
+
   const subtotal = useMemo(() => cart.reduce((sum, c) => sum + c.unitPrice * c.quantity, 0), [cart]);
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
   const shipping = parseFloat(shippingCost) || 0;
@@ -376,38 +515,61 @@ export default function OrderCreate({ segment }) {
     (customerMode === 'existing' ? !!customer : customerForm.name.trim() && customerForm.phone.trim()) &&
     (paymentMethod !== 'bank_transfer' || paymentReference.trim());
 
+  const buildPayload = () => ({
+    payment_method: paymentMethod,
+    payment_status: paymentStatus,
+    payment_reference: paymentMethod === 'bank_transfer' ? paymentReference : null,
+    shipping_cost: shipping || null,
+    notes: notes || null,
+    items: cart.map((c) => ({ itemable_type: 'product', itemable_id: c.productId, product_variant_id: c.variantId || null, quantity: c.quantity, unit_price: c.unitPrice })),
+    ...(customerMode === 'existing'
+      ? { customer_id: customer.id }
+      : {
+          customer_name: customerForm.name,
+          customer_phone: customerForm.phone,
+          customer_email: customerForm.email || null,
+          customer_address: customerForm.address || null,
+          customer_postcode: customerForm.postcode || null,
+          customer_city: customerForm.city || null,
+          customer_state: customerForm.state || null,
+        }),
+  });
+
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
 
-    const payload = {
-      payment_method: paymentMethod,
-      payment_status: paymentStatus,
-      payment_reference: paymentMethod === 'bank_transfer' ? paymentReference : null,
-      shipping_cost: shipping || null,
-      notes: notes || null,
-      items: cart.map((c) => ({ itemable_type: 'product', itemable_id: c.productId, product_variant_id: c.variantId || null, quantity: c.quantity, unit_price: c.unitPrice })),
-      ...(customerMode === 'existing'
-        ? { customer_id: customer.id }
-        : {
-            customer_name: customerForm.name,
-            customer_phone: customerForm.phone,
-            customer_email: customerForm.email || null,
-            customer_address: customerForm.address || null,
-            customer_postcode: customerForm.postcode || null,
-            customer_city: customerForm.city || null,
-            customer_state: customerForm.state || null,
-          }),
-    };
+    const payload = buildPayload();
+    const authHeaders = { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' };
 
     try {
-      const res = await fetch('/api/pos/sales', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(payload),
-      });
+      let res;
+      // A receipt file forces a multipart request; otherwise send plain JSON.
+      if (receiptFile) {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value === null || value === undefined) return;
+          if (key === 'items') {
+            value.forEach((item, i) => {
+              Object.entries(item).forEach(([k, v]) => {
+                if (v !== null && v !== undefined) fd.append(`items[${i}][${k}]`, v);
+              });
+            });
+          } else {
+            fd.append(key, value);
+          }
+        });
+        fd.append('receipt_attachment', receiptFile);
+        res = await fetch('/api/pos/sales', { method: 'POST', headers: authHeaders, credentials: 'same-origin', body: fd });
+      } else {
+        res = await fetch('/api/pos/sales', {
+          method: 'POST',
+          headers: { ...authHeaders, 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload),
+        });
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.message || 'Could not create the order.');
@@ -418,6 +580,12 @@ export default function OrderCreate({ segment }) {
       setSubmitting(false);
     }
   };
+
+  const customerLine = customerMode === 'existing'
+    ? { name: customer?.name, contact: customer?.phone || customer?.email }
+    : { name: customerForm.name, contact: customerForm.phone };
+  const paymentLine = `${paymentMethod === 'bank_transfer' ? 'Bank transfer' : paymentMethod.toUpperCase()} · ${paymentStatus}`;
+  const paymentSub = paymentMethod === 'bank_transfer' && paymentReference ? `Ref: ${paymentReference}` : null;
 
   const actions = (
     <button type="button" onClick={() => router.visit('/fighter/orders')} className="flex items-center gap-2 rounded-xl bg-slate-100 px-3.5 py-2.5 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-slate-200">
@@ -436,7 +604,7 @@ export default function OrderCreate({ segment }) {
         <div className="flex flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:pr-1 scroll-thin">
           <div>
             <div className="mb-2 flex items-center justify-between px-1">
-              <h3 className="text-[13px] font-semibold text-ink">Order items</h3>
+              <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink"><ShoppingBag className="h-3.5 w-3.5 text-muted-2" strokeWidth={2.2} /> Order items</h3>
               <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11.5px] font-semibold text-[var(--color-brand-ink)]">{cartCount} {cartCount === 1 ? 'item' : 'items'}</span>
             </div>
             <Cart items={cart} onQty={setQty} onRemove={removeItem} />
@@ -445,11 +613,11 @@ export default function OrderCreate({ segment }) {
           <CustomerSection mode={customerMode} setMode={setCustomerMode} selected={customer} setSelected={setCustomer} form={customerForm} setForm={setCustomerForm} />
 
           <div className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
-            <h3 className="text-[13px] font-semibold text-ink">Payment</h3>
+            <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink"><CreditCard className="h-3.5 w-3.5 text-muted-2" strokeWidth={2.2} /> Payment</h3>
             <div className="mt-3 grid grid-cols-3 gap-1.5">
-              {['cash', 'bank_transfer', 'cod'].map((m) => (
-                <button key={m} type="button" onClick={() => setPaymentMethod(m)} className={cn('rounded-lg py-2 text-[11.5px] font-semibold capitalize transition-colors', paymentMethod === m ? 'bg-[var(--color-brand)] text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>
-                  {m === 'bank_transfer' ? 'Bank' : m.toUpperCase()}
+              {PAYMENT_METHODS.map(({ key, label, Icon }) => (
+                <button key={key} type="button" onClick={() => changePaymentMethod(key)} className={cn('flex flex-col items-center justify-center gap-1 rounded-lg py-2 text-[11.5px] font-semibold transition-colors', paymentMethod === key ? 'bg-[var(--color-brand)] text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>
+                  <Icon className="h-4 w-4" strokeWidth={2} /> {label}
                 </button>
               ))}
             </div>
@@ -463,6 +631,12 @@ export default function OrderCreate({ segment }) {
                 </button>
               ))}
             </div>
+
+            {/* Receipt upload — for Cash & Bank only (COD is paid on delivery). */}
+            {paymentMethod !== 'cod' && (
+              <ReceiptUploader file={receiptFile} preview={receiptPreview} onChange={handleReceiptChange} onRemove={removeReceipt} />
+            )}
+
             <label className="mt-3 block">
               <span className="text-[11.5px] font-semibold uppercase tracking-[0.03em] text-muted-2">Shipping (optional)</span>
               <input type="number" min="0" step="0.01" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none focus:border-[var(--color-brand)]" />
@@ -482,15 +656,33 @@ export default function OrderCreate({ segment }) {
               <span>Total</span><span className="tabular-nums">{formatMoney(total)}</span>
             </div>
 
-            {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-700">{error}</p>}
+            {error && !reviewing && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-700">{error}</p>}
 
-            <button type="button" onClick={submit} disabled={!canSubmit} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--color-brand-ink)] disabled:cursor-not-allowed disabled:opacity-50">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" strokeWidth={2.2} />}
-              {submitting ? 'Creating…' : 'Create order'}
+            <button type="button" onClick={() => { setError(null); setReviewing(true); }} disabled={!canSubmit} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand)] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--color-brand-ink)] disabled:cursor-not-allowed disabled:opacity-50">
+              <CheckCircle2 className="h-4 w-4" strokeWidth={2.2} />
+              Review &amp; create
             </button>
           </div>
         </div>
       </div>
+
+      {reviewing && (
+        <ReviewModal
+          cart={cart}
+          subtotal={subtotal}
+          shipping={shipping}
+          total={total}
+          customerLine={customerLine}
+          paymentLine={paymentLine}
+          paymentSub={paymentSub}
+          receiptFile={receiptFile}
+          notes={notes}
+          submitting={submitting}
+          error={error}
+          onConfirm={submit}
+          onClose={() => { if (!submitting) { setReviewing(false); } }}
+        />
+      )}
     </FighterLayout>
   );
 }

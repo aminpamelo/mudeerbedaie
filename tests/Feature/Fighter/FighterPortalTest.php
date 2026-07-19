@@ -10,7 +10,9 @@ use App\Models\User;
 use App\Notifications\Fighter\NewOrderNotification;
 use App\Services\Fighter\FighterProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -259,6 +261,29 @@ it('shows a fighter only the orders attributed to their segment', function () {
         );
 });
 
+it('exposes tracking details on the fighter orders feed', function () {
+    $f = fighter();
+    $seg = app(FighterProvisioner::class)->ensureSalesSource($f);
+
+    ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'order_number' => 'PO-TRACK',
+        'sales_source_id' => $seg->id,
+        'status' => 'shipped',
+        'shipping_provider' => 'J&T Express',
+        'tracking_id' => 'MY123456789AB',
+    ]);
+
+    $this->actingAs($f)
+        ->get('/fighter/orders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Orders', false)
+            ->where('orders.data.0.tracking_id', 'MY123456789AB')
+            ->where('orders.data.0.shipping_provider', 'J&T Express')
+        );
+});
+
 it('lets a fighter create, edit and delete their own product', function () {
     $f = fighter();
 
@@ -495,4 +520,60 @@ it('keeps non-fighter notifications out of the fighter feed', function () {
         ->assertOk()
         ->assertJsonCount(1, 'notifications')
         ->assertJsonPath('unread_count', 1);
+});
+
+it('stores a payment receipt on a fighter manual order and surfaces it in the orders list', function () {
+    Storage::fake('public');
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+
+    $this->actingAs($f)->post('/api/pos/sales', [
+        'customer_name' => 'Nurul',
+        'customer_phone' => '60111222333',
+        'payment_method' => 'bank_transfer',
+        'payment_reference' => 'TRX-9001',
+        'payment_status' => 'paid',
+        'items' => [
+            ['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 30],
+        ],
+        'receipt_attachment' => UploadedFile::fake()->image('receipt.jpg'),
+    ])->assertSuccessful();
+
+    $order = ProductOrder::query()->where('source', 'pos')->latest('id')->firstOrFail();
+
+    // The uploaded file is stored on the public disk and linked to the order.
+    expect($order->receipt_attachment)->not->toBeNull();
+    Storage::disk('public')->assertExists($order->receipt_attachment);
+
+    // The fighter's Orders list exposes a viewable receipt URL for the order.
+    $this->actingAs($f)->get('/fighter/orders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('orders.data', 1)
+            ->where('orders.data.0.order_number', $order->order_number)
+            ->where('orders.data.0.receipt_url', $order->receipt_attachment_url)
+            ->whereNot('orders.data.0.receipt_url', null)
+        );
+});
+
+it('leaves the receipt url null on a fighter order with no attachment', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'base_price' => 30, 'track_quantity' => false]);
+
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        'customer_name' => 'Aiman',
+        'customer_phone' => '60199990000',
+        'payment_method' => 'cash',
+        'payment_status' => 'pending',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 30]],
+    ])->assertSuccessful();
+
+    $order = ProductOrder::query()->where('source', 'pos')->latest('id')->firstOrFail();
+    expect($order->receipt_attachment)->toBeNull();
+
+    $this->actingAs($f)->get('/fighter/orders')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('orders.data.0.receipt_url', null)
+        );
 });

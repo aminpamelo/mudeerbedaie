@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, ShoppingBag, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingBag, Plus, Paperclip } from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import { cn, formatMoney, formatDate } from '@/fighter/lib/utils';
 
@@ -76,6 +76,8 @@ export default function Orders({ orders }) {
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Source</th>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Status</th>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Payment</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Tracking</th>
+                    <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Receipt</th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Total</th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-2">Date</th>
                   </tr>
@@ -87,6 +89,33 @@ export default function Orders({ orders }) {
                       <td className="px-4 py-3 text-[13px] text-ink-2">{order.source_label ?? '—'}</td>
                       <td className="px-4 py-3"><Pill value={order.status} map={STATUS_STYLES} /></td>
                       <td className="px-4 py-3"><Pill value={order.payment_status} map={PAYMENT_STYLES} /></td>
+                      <td className="px-4 py-3">
+                        {order.tracking_id ? (
+                          <div className="flex flex-col">
+                            <span className="font-mono text-[12.5px] font-semibold text-ink">{order.tracking_id}</span>
+                            {order.shipping_provider && (
+                              <span className="text-[11px] text-muted-2">{order.shipping_provider}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[12.5px] text-muted-2">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {order.receipt_url ? (
+                          <a
+                            href={order.receipt_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View payment receipt"
+                            className="inline-grid h-7 w-7 place-items-center rounded-lg text-[var(--color-brand)] ring-1 ring-orange-600/20 transition-colors hover:bg-orange-50"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" strokeWidth={2.2} />
+                          </a>
+                        ) : (
+                          <span className="text-[12.5px] text-muted-2">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-[13px] font-semibold tabular-nums text-ink">{formatMoney(order.total)}</td>
                       <td className="px-4 py-3 text-right text-[12.5px] text-muted">{formatDate(order.created_at)}</td>
                     </tr>

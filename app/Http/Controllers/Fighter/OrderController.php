@@ -39,9 +39,13 @@ class OrderController extends Controller
                     'order_number' => $o->order_number,
                     'status' => $o->status,
                     'payment_status' => $o->payment_status,
+                    'payment_method' => $o->payment_method,
                     'total' => (float) $o->total_amount,
                     'currency' => $o->currency,
                     'source_label' => $this->sourceLabel($o->source),
+                    'receipt_url' => $o->receipt_attachment_url,
+                    'tracking_id' => $o->tracking_id ?: null,
+                    'shipping_provider' => $o->shipping_provider ?: null,
                     'created_at' => optional($o->created_at)->toIso8601String(),
                 ])->values(),
                 'meta' => [
