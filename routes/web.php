@@ -48,6 +48,7 @@ use App\Http\Controllers\LiveHost\Reports\GmvController;
 use App\Http\Controllers\LiveHost\Reports\HostScorecardController;
 use App\Http\Controllers\LiveHost\Reports\ReplacementsController;
 use App\Http\Controllers\LiveHost\Reports\ReportsController;
+use App\Http\Controllers\LiveHost\SalesLeaderboardController;
 use App\Http\Controllers\LiveHost\SessionController;
 use App\Http\Controllers\LiveHost\SessionCoverageController;
 use App\Http\Controllers\LiveHost\SessionDataController;
@@ -774,6 +775,11 @@ Route::middleware(['auth'])
                 // parameterized program routes.
                 Route::get('overview', [MentoringProgramController::class, 'overview'])
                     ->name('overview');
+
+                // Sales Leaderboard: every host ranked by effective sales (Net GMV
+                // + PIC overrides) over a month window, grouped by PIC or program.
+                Route::get('leaderboard', [SalesLeaderboardController::class, 'index'])
+                    ->name('leaderboard');
 
                 // Video Report: host × content-category matrix of logged videos,
                 // with a two-way comment thread per video (staff feedback → host

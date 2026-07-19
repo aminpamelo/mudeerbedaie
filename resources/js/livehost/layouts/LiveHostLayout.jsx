@@ -26,6 +26,7 @@ import {
   GraduationCap,
   Clapperboard,
   Layers,
+  Trophy,
   Menu,
   X,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ const NAV_GROUPS = [
       { key: 'recruitment', label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
       { key: 'mentoring', label: 'Mentoring', href: '/livehost/mentoring/programs', icon: GraduationCap, countKey: 'activeMentees' },
       { key: 'mentoring-overview', label: 'Mentoring Overview', href: '/livehost/mentoring/overview', icon: Gauge },
+      { key: 'leaderboard', label: 'Leaderboard', href: '/livehost/mentoring/leaderboard', icon: Trophy },
       { key: 'video-report', label: 'Video Report', href: '/livehost/mentoring/video-report', icon: Clapperboard },
     ],
   },
@@ -92,6 +94,7 @@ const NAV_ITEM_PERMISSION = {
   recruitment: 'canSeeRecruitment',
   mentoring: 'canSeeMentoring',
   'mentoring-overview': 'canSeeMentoring',
+  leaderboard: 'canSeeMentoring',
   'video-report': 'canSeeMentoring',
   'time-slots': null,
   'session-slots': null,
