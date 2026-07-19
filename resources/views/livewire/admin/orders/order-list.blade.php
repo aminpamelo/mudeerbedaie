@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
+use App\Models\SalesSource;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\WhatsAppTemplate;
@@ -14,6 +15,7 @@ use App\Services\WhatsApp\WhatsAppBlastService;
 use App\Services\WhatsApp\WhatsAppManager;
 use App\Services\WhatsAppService;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
@@ -62,6 +64,8 @@ new class extends Component
     protected mixed $ordersCache = null;
 
     protected ?array $statusCountsCache = null;
+
+    protected ?array $fighterSourceIdsCache = null;
 
     // Inline phone editing
     public ?int $editingPhoneOrderId = null;
@@ -269,6 +273,7 @@ new class extends Component
                     }),
                     'funnel' => $query->where('source', 'funnel'),
                     'pos' => $query->where('source', 'pos'),
+                    'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
                     default => $query
                 };
             })
@@ -528,6 +533,7 @@ new class extends Component
                 }),
                 'funnel' => $query->where('source', 'funnel'),
                 'pos' => $query->where('source', 'pos'),
+                'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
                 default => $query
             };
         }
@@ -625,15 +631,37 @@ new class extends Component
      * Active sales-source segments for the filter dropdown (includes the
      * per-fighter segments auto-created for fighter orders).
      *
-     * @return \Illuminate\Support\Collection<int, \App\Models\SalesSource>
+     * @return Collection<int, SalesSource>
      */
     public function getSalesSources()
     {
-        return \App\Models\SalesSource::query()->active()->ordered()->get();
+        return SalesSource::query()->active()->ordered()->get();
+    }
+
+    /**
+     * Sales-source segment ids that belong to a Fighter. Orders carrying one
+     * of these ids were driven by that fighter's own funnel or manual sale, so
+     * together they make up the "Fighter" source. Memoized per request.
+     *
+     * @return array<int, int>
+     */
+    protected function fighterSalesSourceIds(): array
+    {
+        return $this->fighterSourceIdsCache ??= User::query()
+            ->withTrashed()
+            ->where('role', 'fighter')
+            ->whereNotNull('sales_source_id')
+            ->pluck('sales_source_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function getSourceCounts(): array
     {
+        $fighterSourceIds = $this->fighterSalesSourceIds();
+
         $counts = ProductOrder::visibleInAdmin()->selectRaw("
             COUNT(*) as total,
             SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform,
@@ -650,6 +678,9 @@ new class extends Component
             'agent_company' => $counts->agent_company ?? 0,
             'funnel' => $counts->funnel ?? 0,
             'pos' => $counts->pos ?? 0,
+            'fighter' => empty($fighterSourceIds)
+                ? 0
+                : ProductOrder::visibleInAdmin()->whereIn('sales_source_id', $fighterSourceIds)->count(),
         ];
     }
 
@@ -1552,6 +1583,7 @@ new class extends Component
                         'agent_company' => ['label' => 'Agent & Co', 'icon' => 'building-office', 'count' => $sourceCounts['agent_company'], 'color' => 'blue'],
                         'funnel' => ['label' => 'Funnel', 'icon' => 'funnel', 'count' => $sourceCounts['funnel'], 'color' => 'green'],
                         'pos' => ['label' => 'POS', 'icon' => 'calculator', 'count' => $sourceCounts['pos'], 'color' => 'orange'],
+                        'fighter' => ['label' => 'Fighter', 'icon' => 'fire', 'count' => $sourceCounts['fighter'], 'color' => 'red'],
                     ];
                 @endphp
                 @foreach($sourceTabs as $key => $tab)
@@ -1562,6 +1594,7 @@ new class extends Component
                             'green' => 'bg-green-600 text-white dark:bg-green-500 shadow-sm',
                             'orange' => 'bg-orange-500 text-white dark:bg-orange-500 shadow-sm',
                             'emerald' => 'bg-emerald-600 text-white dark:bg-emerald-500 shadow-sm',
+                            'red' => 'bg-red-600 text-white dark:bg-red-500 shadow-sm',
                             default => 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm',
                         };
                         $sourceInactiveStyles = match($tab['color']) {
@@ -1570,6 +1603,7 @@ new class extends Component
                             'green' => 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30',
                             'orange' => 'bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/30',
                             'emerald' => 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30',
+                            'red' => 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30',
                             default => 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-600',
                         };
                         $sourceCountStyles = match($tab['color']) {
@@ -1578,6 +1612,7 @@ new class extends Component
                             'green' => $sourceTab === $key ? 'text-green-200' : 'text-green-400 dark:text-green-500',
                             'orange' => $sourceTab === $key ? 'text-orange-200' : 'text-orange-400 dark:text-orange-500',
                             'emerald' => $sourceTab === $key ? 'text-emerald-200' : 'text-emerald-400 dark:text-emerald-500',
+                            'red' => $sourceTab === $key ? 'text-red-200' : 'text-red-400 dark:text-red-500',
                             default => $sourceTab === $key ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-400 dark:text-zinc-500',
                         };
                     @endphp
