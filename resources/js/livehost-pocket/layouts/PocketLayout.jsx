@@ -8,6 +8,8 @@ import {
   TrendingUp,
   CheckCircle2,
   AlertCircle,
+  Eye,
+  LogOut,
 } from 'lucide-react';
 import { cn, initialsFrom } from '@/livehost-pocket/lib/utils';
 import InstallButton from '@/livehost-pocket/components/InstallButton';
@@ -148,12 +150,74 @@ export default function PocketLayout({ children }) {
   return (
     <div className="pocket-shell">
       <StatusBar user={props?.pocketUser} />
+      <ImpersonationBanner
+        active={Boolean(props?.auth?.isImpersonating)}
+        hostName={props?.pocketUser?.name}
+      />
       <FlashToast message={flashSuccess} tone="success" />
       <FlashToast message={flashError} tone="error" />
       <NotificationOptIn />
       <InstallButton />
       <main className="px-5 pb-32">{children}</main>
       <TabBar currentPath={url.split('?')[0] ?? url} />
+    </div>
+  );
+}
+
+/**
+ * Native <form> POST to the stop-impersonation endpoint. Inertia's router.post
+ * can't be used here: the endpoint redirects to a non-Inertia (Volt) admin page,
+ * which Inertia would surface inside an error modal instead of following. This
+ * mirrors the Live Host Desk sidebar's stop-impersonation handler.
+ */
+function submitStopImpersonation() {
+  const csrfToken = document
+    .querySelector('meta[name="csrf-token"]')
+    ?.getAttribute('content');
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/stop-impersonation';
+  form.style.display = 'none';
+
+  if (csrfToken) {
+    const tokenField = document.createElement('input');
+    tokenField.type = 'hidden';
+    tokenField.name = '_token';
+    tokenField.value = csrfToken;
+    form.appendChild(tokenField);
+  }
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+/**
+ * Amber warning bar shown while an admin is impersonating this host, with a
+ * one-tap way back to the admin account. Sticks below the status bar so it
+ * stays reachable while the host feed scrolls.
+ */
+function ImpersonationBanner({ active, hostName }) {
+  if (!active) {
+    return null;
+  }
+
+  return (
+    <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-amber-600/30 bg-amber-500 px-4 py-2 text-white shadow-sm">
+      <div className="flex min-w-0 items-center gap-2">
+        <Eye className="h-4 w-4 shrink-0" strokeWidth={2} />
+        <span className="min-w-0 truncate text-[12.5px] font-medium">
+          Menyamar sebagai <span className="font-semibold">{hostName ?? 'host'}</span>
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={submitStopImpersonation}
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[12px] font-semibold text-amber-700 transition active:scale-95"
+      >
+        <LogOut className="h-3.5 w-3.5" strokeWidth={2.2} />
+        Keluar
+      </button>
     </div>
   );
 }
