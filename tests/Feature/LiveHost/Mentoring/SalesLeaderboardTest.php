@@ -167,3 +167,25 @@ it('forbids a plain live host from viewing the leaderboard', function () {
         ->get(LB_URL)
         ->assertForbidden();
 });
+
+it('excludes archived programs (and their hosts) from the leaderboard', function () {
+    $live = LiveHostMentoringProgram::factory()->active()->create(['title' => 'Live Cohort']);
+    $archived = LiveHostMentoringProgram::factory()->active()->create(['title' => 'Old Cohort', 'archived_at' => now()]);
+
+    $liveHost = lbMentee($live);
+    $archivedHost = lbMentee($archived);
+    lbSession($liveHost->mentee_user_id, '2026-05-03 10:00:00', 1000);
+    lbSession($archivedHost->mentee_user_id, '2026-05-03 10:00:00', 9999);
+
+    $this->actingAs(lbPic())
+        ->get(LB_URL)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            // Only the live-program host ranks; the archived program's host is gone.
+            ->has('hosts', 1)
+            ->where('hosts.0.host_id', $liveHost->mentee_user_id)
+            // Archived program is dropped from the program filter too.
+            ->has('programs', 1)
+            ->where('programs.0.title', 'Live Cohort')
+        );
+});

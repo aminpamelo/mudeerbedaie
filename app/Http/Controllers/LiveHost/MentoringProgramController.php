@@ -261,6 +261,7 @@ class MentoringProgramController extends Controller
     {
         $programs = LiveHostMentoringProgram::query()
             ->where('status', 'active')
+            ->archived(false)
             ->with('leader:id,name')
             ->withCount([
                 'mentees as active_mentees_count' => fn ($q) => $q->where('status', 'active'),

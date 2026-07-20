@@ -36,8 +36,12 @@ class SalesLeaderboardController extends Controller
         $from = CarbonImmutable::create($window['year'], $window['from'], 1)->startOfMonth();
         $to = CarbonImmutable::create($window['year'], $window['to'], 1)->endOfMonth();
 
+        // Live programs only — active status and NOT archived. Everything below
+        // (mentees, ranking, program filter, grouping) flows from this set, so an
+        // archived program drops out of the leaderboard entirely.
         $programs = LiveHostMentoringProgram::query()
             ->where('status', 'active')
+            ->archived(false)
             ->with('leader:id,name')
             ->orderBy('title')
             ->get(['id', 'title', 'leader_user_id', 'starts_at']);

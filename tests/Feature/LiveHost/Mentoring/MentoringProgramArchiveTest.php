@@ -63,6 +63,17 @@ it('excludes archived programs from the default list and shows them under view=a
             ->where('programs.data.0.archived', true));
 });
 
+it('excludes archived programs from the Mentoring Overview grid', function () {
+    LiveHostMentoringProgram::factory()->active()->create(['title' => 'Live Cohort']);
+    LiveHostMentoringProgram::factory()->active()->create(['title' => 'Old Cohort', 'archived_at' => now()]);
+
+    $this->actingAs(archivePic())->get('/livehost/mentoring/overview')
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p
+            ->has('programs', 1)
+            ->where('programs.0.program.title', 'Live Cohort'));
+});
+
 /*
 |--------------------------------------------------------------------------
 | Pocket: an archived program's performance is hidden from the host
