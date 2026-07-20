@@ -278,7 +278,7 @@ function StatChip({ icon, label, value }) {
 export default function Leaderboard() {
   const { hosts = [], programs = [], scope = 'mentees', window: win } = usePage().props;
 
-  const [groupBy, setGroupBy] = useState('pic'); // 'pic' | 'program'
+  const [groupBy, setGroupBy] = useState('program'); // 'pic' | 'program' — default to program view
   const [programFilter, setProgramFilter] = useState('all'); // 'all' | String(programId)
   const [search, setSearch] = useState('');
 
