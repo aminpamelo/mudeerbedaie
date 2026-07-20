@@ -293,9 +293,10 @@ class ScheduleController extends Controller
         $attachmentsCount = (int) ($session->attachments_count ?? 0);
 
         $state = match (true) {
-            // A TikTok-recorded live needs no manual proof — count it as done
-            // rather than nagging the host to "upload" for it.
-            $session->status === 'ended' && ($attachmentsCount > 0 || $session->isAutoRecorded()) => 'submitted',
+            // Already settled (verified/locked by the PIC or auto-recorded from
+            // TikTok) or has proof → done. Only genuinely-unsettled sessions
+            // still nag the host to upload.
+            $session->status === 'ended' && ($attachmentsCount > 0 || $session->isRecapSettled()) => 'submitted',
             $session->status === 'ended' && $attachmentsCount === 0 => 'needs_upload',
             $session->status === 'scheduled' && $session->canRecap() => 'pending_recap',
             default => null,
@@ -344,9 +345,9 @@ class ScheduleController extends Controller
             ->get()
             ->filter(function (LiveSession $session): bool {
                 if ($session->status === 'ended') {
-                    // TikTok-recorded lives need no manual proof — never overdue.
+                    // Settled (verified/TikTok) sessions are done — never overdue.
                     return ((int) ($session->attachments_count ?? 0)) === 0
-                        && ! $session->isAutoRecorded();
+                        && ! $session->isRecapSettled();
                 }
 
                 return $session->canRecap();

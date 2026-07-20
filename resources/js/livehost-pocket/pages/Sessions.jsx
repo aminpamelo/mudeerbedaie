@@ -135,9 +135,9 @@ function SessionCard({ session }) {
   const canRecap = Boolean(session.canRecap);
   const isAwaitingRecap = isScheduled && canRecap;
   const attachmentsCount = Number(session.attachmentsCount ?? 0);
-  // TikTok-recorded lives are already logged by the platform — no manual proof
-  // to upload, so don't flag them "PERLU UPLOAD".
-  const needsUpload = isEnded && attachmentsCount === 0 && !session.autoRecorded;
+  // Settled sessions (verified/GMV-locked by the PIC, or auto-recorded from
+  // TikTok) need no manual proof, so don't flag them "PERLU UPLOAD".
+  const needsUpload = isEnded && attachmentsCount === 0 && !session.recapSettled;
   // Both "needs upload" and "awaiting recap" are unfinished-action states.
   // Apply the same amber rail + amber wash to whichever applies so the host
   // can scan the list and immediately spot the cards that owe them work.

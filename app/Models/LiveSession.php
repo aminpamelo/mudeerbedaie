@@ -342,6 +342,17 @@ class LiveSession extends Model
     }
 
     /**
+     * Nothing left for the host to do on this session: it's already been
+     * verified / GMV-locked by the PIC, or it's auto-recorded from TikTok.
+     * Either way there is no manual proof to upload and no recap to submit, so
+     * every host-facing recap surface shows it as done rather than nagging.
+     */
+    public function isRecapSettled(): bool
+    {
+        return $this->gmv_locked_at !== null || $this->isAutoRecorded();
+    }
+
+    /**
      * Proof of live: at least one image or video attachment exists for this
      * session. Used by SaveRecapRequest when went_live=true to block the
      * status transition until the host has uploaded visible evidence.
