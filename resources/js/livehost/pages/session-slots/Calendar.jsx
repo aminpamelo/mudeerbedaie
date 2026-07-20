@@ -30,7 +30,7 @@ import {
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import SessionSlotFormModal from '@/livehost/components/SessionSlotFormModal';
-import SearchableSelect, { colorFor, initialsFrom } from '@/livehost/components/SearchableSelect';
+import SearchableSelect, { buildAccountOptions, buildHostOptions } from '@/livehost/components/SearchableSelect';
 import SessionSlotDetailModal from '@/livehost/components/SessionSlotDetailModal';
 import LiveSessionModal from '@/livehost/components/LiveSessionModal';
 import RegisterCreatorModal from '@/livehost/components/RegisterCreatorModal';
@@ -350,44 +350,8 @@ export default function SessionSlotsCalendar() {
 
   // Searchable filter options — hosts (55+) and creator accounts (200+) are too
   // many for a plain <select>, so the PIC can type a name/nickname to narrow.
-  const hostFilterOptions = useMemo(
-    () => [
-      { value: '', label: 'All hosts', empty: true },
-      { value: 'unassigned', label: 'Unassigned only', empty: true },
-      ...hosts.map((h) => ({
-        value: String(h.id),
-        label: h.name,
-        hint: h.email ?? null,
-        keywords: [h.name, h.email].filter(Boolean).join(' '),
-        avatar: { initials: initialsFrom(h.name), color: colorFor(h.name) },
-      })),
-    ],
-    [hosts]
-  );
-
-  const accountFilterOptions = useMemo(
-    () => [
-      { value: '', label: 'All accounts', empty: true },
-      ...liveAccounts.map((a) => {
-        const shopNames = (a.shops ?? []).map((s) => s.name).filter(Boolean);
-
-        return {
-          value: String(a.id),
-          label: a.label,
-          hint: shopNames.length
-            ? shopNames.join(', ')
-            : a.creatorUserId
-              ? `ID ${a.creatorUserId}`
-              : null,
-          keywords: [a.label, a.nickname, a.displayName, a.creatorUserId, ...shopNames]
-            .filter(Boolean)
-            .join(' '),
-          avatar: { initials: initialsFrom(a.label), color: colorFor(a.label) },
-        };
-      }),
-    ],
-    [liveAccounts]
-  );
+  const hostFilterOptions = useMemo(() => buildHostOptions(hosts, { unassigned: true }), [hosts]);
+  const accountFilterOptions = useMemo(() => buildAccountOptions(liveAccounts), [liveAccounts]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefill, setCreatePrefill] = useState(null);
@@ -583,9 +547,44 @@ export default function SessionSlotsCalendar() {
     return [...visible, ...synthetic];
   }, [orderedManageable, allAccounts, accountPrefs.hidden]);
 
-  const laneCount = Math.max(1, activeAccounts.length);
-  const showLanes = activeAccounts.length > 1;
-  const minGridWidth = 64 + 7 * laneCount * LANE_MIN_WIDTH;
+  // Host-focus mode: filtering by a single host (or "unassigned") collapses the
+  // grid to that host's actual schedule — empty "+Assign" scaffolds, TikTok
+  // ghosts, and account lanes with no session for them are all hidden.
+  const hostFocused = host !== '';
+
+  const focusedAccountIds = useMemo(() => {
+    if (!hostFocused) {
+      return null;
+    }
+    const ids = new Set();
+    for (const slot of sessionSlots) {
+      ids.add(slot.liveAccountId == null ? '__none__' : String(slot.liveAccountId));
+    }
+    return ids;
+  }, [hostFocused, sessionSlots]);
+
+  // Lanes actually drawn: in focus mode, every lane the host has a session in
+  // (including accounts hidden from the full grid), minus the Unregistered lane
+  // which only ever holds suggestions.
+  const displayAccounts = useMemo(() => {
+    if (!focusedAccountIds) {
+      return activeAccounts;
+    }
+    const synthetic = allAccounts.filter((a) => a.isNone || a.isUnregistered);
+    return [...orderedManageable, ...synthetic].filter((a) => {
+      if (a.isUnregistered) {
+        return false;
+      }
+      if (a.isNone) {
+        return focusedAccountIds.has('__none__');
+      }
+      return focusedAccountIds.has(String(a.id));
+    });
+  }, [focusedAccountIds, activeAccounts, orderedManageable, allAccounts]);
+
+  const displayLaneCount = Math.max(1, displayAccounts.length);
+  const displayShowLanes = displayAccounts.length > 1;
+  const displayMinGridWidth = 64 + 7 * displayLaneCount * LANE_MIN_WIDTH;
 
   useEffect(() => {
     writeAccountPrefs(accountPrefs);
@@ -1332,6 +1331,29 @@ export default function SessionSlotsCalendar() {
           </div>
         )}
 
+        {/* Host-focus banner — makes the collapsed view obvious + offers a way back */}
+        {!tiktokOnly && hostFocused && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-[#DBEAFE] bg-[#EFF6FF] px-4 py-2.5 text-[13px] text-[#1E40AF]">
+            <span className="flex items-center gap-1.5">
+              <CalendarClock className="h-[14px] w-[14px] shrink-0" strokeWidth={2} />
+              Menunjukkan jadual{' '}
+              <span className="font-semibold">
+                {host === 'unassigned'
+                  ? 'Belum ditugaskan'
+                  : hosts.find((h) => String(h.id) === String(host))?.name ?? 'host'}
+              </span>{' '}
+              sahaja — {sessionSlots.length} sesi minggu ini. Slot kosong &amp; lane lain disembunyikan.
+            </span>
+            <button
+              type="button"
+              onClick={() => setHost('')}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium text-[#1D4ED8] hover:bg-[#DBEAFE]"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2.4} /> Papar grid penuh
+            </button>
+          </div>
+        )}
+
         {/* Grid */}
         <div className={`overflow-x-auto rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]${tiktokOnly ? ' hidden' : ''}`}>
           {/* Header row */}
@@ -1339,7 +1361,7 @@ export default function SessionSlotsCalendar() {
             className="sticky top-0 z-30 grid border-b border-[#EAEAEA] bg-white/90 backdrop-blur"
             style={{
               gridTemplateColumns: '64px repeat(7, 1fr)',
-              minWidth: `${minGridWidth}px`,
+              minWidth: `${displayMinGridWidth}px`,
             }}
           >
             <div className="border-r border-[#EAEAEA] px-2 py-3"></div>
@@ -1396,12 +1418,12 @@ export default function SessionSlotsCalendar() {
                   </div>
 
                   {/* Swim lane sub-header — only when >1 account is active */}
-                  {showLanes && (
+                  {displayShowLanes && (
                     <div
                       className="grid border-t border-[#F5F5F5]"
-                      style={{ gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))` }}
+                      style={{ gridTemplateColumns: `repeat(${displayLaneCount}, minmax(0, 1fr))` }}
                     >
-                      {activeAccounts.map((account) => {
+                      {displayAccounts.map((account) => {
                         const color = colorForAccount(account.id);
                         if (account.isUnregistered) {
                           return (
@@ -1453,7 +1475,7 @@ export default function SessionSlotsCalendar() {
               gridTemplateColumns: '64px repeat(7, 1fr)',
               maxHeight: 'calc(100vh - 360px)',
               minHeight: '540px',
-              minWidth: `${minGridWidth}px`,
+              minWidth: `${displayMinGridWidth}px`,
             }}
           >
             {/* Hour axis */}
@@ -1482,7 +1504,7 @@ export default function SessionSlotsCalendar() {
               const isToday = isCurrentWeek && dow === todayDow;
               const slots = slotsByDay[dow];
 
-              const lanes = activeAccounts.length > 0 ? activeAccounts : [null];
+              const lanes = displayAccounts.length > 0 ? displayAccounts : [null];
 
               return (
                 <div
@@ -1492,7 +1514,7 @@ export default function SessionSlotsCalendar() {
                   }`}
                   style={{
                     height: `${totalHeight}px`,
-                    gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))`,
+                    gridTemplateColumns: `repeat(${displayLaneCount}, minmax(0, 1fr))`,
                   }}
                 >
                   {/* Today line (spans all lanes in this day) */}
@@ -1583,8 +1605,8 @@ export default function SessionSlotsCalendar() {
                           backgroundSize: `100% ${HOUR_PX}px`,
                         }}
                       >
-                        {/* Scaffolds for this lane's account */}
-                        {laneScaffolds.map((ts) => {
+                        {/* Scaffolds for this lane's account — hidden in host-focus mode */}
+                        {!hostFocused && laneScaffolds.map((ts) => {
                           const hasAssignment = laneSlots.some((s) => s.timeSlotId === ts.id);
                           if (hasAssignment) {
                             return null;
@@ -1619,8 +1641,8 @@ export default function SessionSlotsCalendar() {
                           );
                         })}
 
-                        {/* TikTok suggestion ghosts — lives with no session slot yet */}
-                        {laneSuggestions.map((sg) => {
+                        {/* TikTok suggestion ghosts — lives with no session slot yet; hidden in host-focus mode */}
+                        {!hostFocused && laneSuggestions.map((sg) => {
                           const { h: sh, m: sm } = parseHM(sg.startTime);
                           const { h: eh, m: em } = parseHM(sg.endTime);
                           const startMin = sh * 60 + sm;

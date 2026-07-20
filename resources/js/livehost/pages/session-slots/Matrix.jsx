@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
+import SearchableSelect, { buildAccountOptions, buildHostOptions } from '@/livehost/components/SearchableSelect';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -309,6 +310,11 @@ export default function SessionCoverageMatrix() {
   const [liveAccount, setLiveAccount] = useState(propFilters.live_account ?? '');
   const [includeUnlinked, setIncludeUnlinked] = useState(Boolean(propFilters.include_unlinked));
 
+  // Searchable filter options so a specific host/account can be typed instead of
+  // hunted for in a long native <select>.
+  const hostFilterOptions = useMemo(() => buildHostOptions(hosts), [hosts]);
+  const accountFilterOptions = useMemo(() => buildAccountOptions(liveAccounts), [liveAccounts]);
+
   const [query, setQuery] = useState('');
   const [groupByHost, setGroupByHost] = useState(() => { const p = readPrefs(); return typeof p?.groupByHost === 'boolean' ? p.groupByHost : true; });
   const [dayView, setDayView] = useState(() => (readPrefs()?.dayView === 'dots' ? 'dots' : 'detailed')); // 'detailed' | 'dots'
@@ -522,14 +528,26 @@ export default function SessionCoverageMatrix() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 border-t border-[#F0F0F0] pt-3">
-            <select value={host} onChange={(e) => setHost(e.target.value)} className={select}>
-              <option value="">All hosts</option>
-              {hosts.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-            </select>
-            <select value={liveAccount} onChange={(e) => setLiveAccount(e.target.value)} className={select}>
-              <option value="">All accounts</option>
-              {liveAccounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-            </select>
+            <SearchableSelect
+              value={host}
+              onChange={setHost}
+              options={hostFilterOptions}
+              placeholder="All hosts"
+              searchPlaceholder="Search host by name…"
+              emptyLabel="No host found"
+              allowClear
+              className="w-full min-w-0 sm:w-48"
+            />
+            <SearchableSelect
+              value={liveAccount}
+              onChange={setLiveAccount}
+              options={accountFilterOptions}
+              placeholder="All accounts"
+              searchPlaceholder="Search nickname, handle or shop…"
+              emptyLabel="No account found"
+              allowClear
+              className="w-full min-w-0 sm:w-52"
+            />
             <select value={platformAccount} onChange={(e) => setPlatformAccount(e.target.value)} className={select}>
               <option value="">All shops</option>
               {platformAccounts.map((pa) => <option key={pa.id} value={pa.id}>{pa.name}{pa.platform ? ` · ${pa.platform}` : ''}</option>)}

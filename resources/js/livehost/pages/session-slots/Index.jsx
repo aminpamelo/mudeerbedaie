@@ -1,8 +1,9 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
+import SearchableSelect, { buildHostOptions } from '@/livehost/components/SearchableSelect';
 import { Button } from '@/livehost/components/ui/button';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -54,6 +55,9 @@ export default function SessionSlotsIndex() {
   const [dayOfWeek, setDayOfWeek] = useState(filters?.day_of_week ?? '');
   const [mode, setMode] = useState(filters?.mode ?? '');
   const [scheduleDate, setScheduleDate] = useState(filters?.schedule_date ?? '');
+
+  // Searchable host filter — typing a name beats scrolling a 55-entry <select>.
+  const hostFilterOptions = useMemo(() => buildHostOptions(hosts, { unassigned: true }), [hosts]);
 
   useEffect(() => {
     const initial = filters ?? {};
@@ -143,19 +147,16 @@ export default function SessionSlotsIndex() {
 
         {/* Filter bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <select
+          <SearchableSelect
             value={host}
-            onChange={(event) => setHost(event.target.value)}
-            className="h-9 w-full sm:w-auto rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-          >
-            <option value="">All hosts</option>
-            <option value="unassigned">Unassigned only</option>
-            {hosts.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
+            onChange={setHost}
+            options={hostFilterOptions}
+            placeholder="All hosts"
+            searchPlaceholder="Search host by name…"
+            emptyLabel="No host found"
+            allowClear
+            className="w-full min-w-0 sm:w-48"
+          />
           <select
             value={platformAccount}
             onChange={(event) => setPlatformAccount(event.target.value)}

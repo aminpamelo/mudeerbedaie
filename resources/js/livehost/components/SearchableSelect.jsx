@@ -43,6 +43,56 @@ export function colorFor(name) {
   return HOST_PALETTE[Math.abs(hash) % HOST_PALETTE.length];
 }
 
+/**
+ * Build SearchableSelect options for a live-host filter. Handles both the rich
+ * shape ({ id, name, email }) and the lean coverage shape ({ id, name }).
+ */
+export function buildHostOptions(hosts = [], { unassigned = false } = {}) {
+  const head = [{ value: '', label: 'All hosts', empty: true }];
+
+  if (unassigned) {
+    head.push({ value: 'unassigned', label: 'Unassigned only', empty: true });
+  }
+
+  return [
+    ...head,
+    ...hosts.map((h) => ({
+      value: String(h.id),
+      label: h.name,
+      hint: h.email ?? null,
+      keywords: [h.name, h.email].filter(Boolean).join(' '),
+      avatar: { initials: initialsFrom(h.name), color: colorFor(h.name) },
+    })),
+  ];
+}
+
+/**
+ * Build SearchableSelect options for a creator-account filter. Extra fields
+ * (shops, nickname, creatorUserId) enrich the hint/keywords when present.
+ */
+export function buildAccountOptions(liveAccounts = []) {
+  return [
+    { value: '', label: 'All accounts', empty: true },
+    ...liveAccounts.map((a) => {
+      const shopNames = (a.shops ?? []).map((s) => s.name).filter(Boolean);
+
+      return {
+        value: String(a.id),
+        label: a.label,
+        hint: shopNames.length
+          ? shopNames.join(', ')
+          : a.creatorUserId
+            ? `ID ${a.creatorUserId}`
+            : null,
+        keywords: [a.label, a.nickname, a.displayName, a.creatorUserId, ...shopNames]
+          .filter(Boolean)
+          .join(' '),
+        avatar: { initials: initialsFrom(a.label), color: colorFor(a.label) },
+      };
+    }),
+  ];
+}
+
 export default function SearchableSelect({
   value,
   onChange,
