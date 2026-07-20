@@ -192,6 +192,38 @@ class AutoVerifyService
     }
 
     /**
+     * Session-driven verify: verify this session from the finder's suggested
+     * cluster IF every gate is clear (same checks as run(), re-evaluated live).
+     * Complements the live-driven run(), which misses sessions whose live's
+     * account can't be resolved from the live side even though the slot clearly
+     * matches. Returns true when it verified. Read model of a PIC clicking
+     * "Verify" in the modal, applied in bulk.
+     */
+    public function verifyIfClear(LiveSession $session): bool
+    {
+        $candidates = $this->candidateFinder->forSession($session);
+        if ($candidates->isEmpty()) {
+            return false;
+        }
+
+        $clusterIds = $this->candidateFinder->suggestedClusterIds($candidates, $session);
+        $records = $candidates->whereIn('id', $clusterIds)->values();
+
+        if ($records->isEmpty()
+            || $session->verification_status !== 'pending'
+            || $this->hasVerificationHistory($session)
+            || $this->isPayrollLocked($session)
+            || $this->anyLinkedElsewhere($records, $session)
+            || ! $this->clusterHasSettled($records)) {
+            return false;
+        }
+
+        $this->verify($session, $records);
+
+        return true;
+    }
+
+    /**
      * Keep already auto-verified sessions honest as fresh sync data lands. For
      * every session auto-verify locked (and that no human has since touched, and
      * whose payroll is still open, and whose live is recent enough that GMV may

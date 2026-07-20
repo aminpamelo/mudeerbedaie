@@ -25,7 +25,8 @@ class ExplainAutoVerify extends Command
         {--session= : A single live_session id to explain}
         {--from= : Scan pending sessions scheduled from this date (Y-m-d)}
         {--until= : ...until this date (Y-m-d)}
-        {--host= : Limit the range scan to one live_host_id}';
+        {--host= : Limit the range scan to one live_host_id}
+        {--apply : Actually verify every session whose verdict is WOULD VERIFY (default is read-only)}';
 
     /**
      * @var string
@@ -34,6 +35,8 @@ class ExplainAutoVerify extends Command
 
     public function handle(AutoVerifyService $service): int
     {
+        $apply = (bool) $this->option('apply');
+
         if ($this->option('session')) {
             $session = LiveSession::find((int) $this->option('session'));
 
@@ -44,6 +47,10 @@ class ExplainAutoVerify extends Command
             }
 
             $this->render($service->explainSession($session));
+
+            if ($apply && $service->verifyIfClear($session)) {
+                $this->info("→ Verified session {$session->id}.");
+            }
 
             return self::SUCCESS;
         }
@@ -71,8 +78,22 @@ class ExplainAutoVerify extends Command
             return self::SUCCESS;
         }
 
-        $rows = $sessions->map(function (LiveSession $s) use ($service): array {
+        $wouldVerify = 0;
+        $applied = 0;
+
+        $rows = $sessions->map(function (LiveSession $s) use ($service, $apply, &$wouldVerify, &$applied): array {
             $x = $service->explainSession($s);
+            $clear = str_starts_with($x['verdict'], 'WOULD');
+            $action = '';
+
+            if ($clear) {
+                $wouldVerify++;
+
+                if ($apply && $service->verifyIfClear($s)) {
+                    $applied++;
+                    $action = ' → verified';
+                }
+            }
 
             return [
                 $s->id,
@@ -80,7 +101,7 @@ class ExplainAutoVerify extends Command
                 $x['candidate_count'],
                 $x['suggested_cluster'] === [] ? '—' : implode(',', $x['suggested_cluster']),
                 $x['held_by_other_sessions'] === [] ? '—' : implode(',', $x['held_by_other_sessions']),
-                $x['verdict'],
+                $x['verdict'].$action,
             ];
         })->all();
 
@@ -89,9 +110,10 @@ class ExplainAutoVerify extends Command
             $rows,
         );
 
-        $verifiable = $sessions->filter(fn (LiveSession $s) => str_starts_with($service->explainSession($s)['verdict'], 'WOULD'))->count();
         $this->newLine();
-        $this->info("{$sessions->count()} pending session(s) · {$verifiable} would verify on the next run.");
+        $this->info($apply
+            ? "{$sessions->count()} pending session(s) · verified {$applied}."
+            : "{$sessions->count()} pending session(s) · {$wouldVerify} would verify — re-run with --apply to verify them.");
 
         return self::SUCCESS;
     }
