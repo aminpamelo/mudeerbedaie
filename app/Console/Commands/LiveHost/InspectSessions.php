@@ -70,8 +70,8 @@ class InspectSessions extends Command
                 $s->live_host_id,
                 $s->live_schedule_assignment_id ?? '—',
                 $s->time_slot_id ?? '—',
-                $s->scheduled_start_at?->format('H:i') ?? '—',
-                $s->actual_start_at?->format('H:i') ?? '—',
+                $s->scheduled_start_at?->format('m-d H:i') ?? '—',
+                $s->actual_start_at?->format('m-d H:i') ?? '—',
                 $s->status,
                 (int) $s->attachments_count,
                 $lives->count(),
@@ -105,6 +105,27 @@ class InspectSessions extends Command
             $sessions->where('status', 'ended')->where('attachments_count', 0)->count(),
             $sessions->pluck('live_schedule_assignment_id')->unique()->count(),
         ));
+
+        // Smoking gun: sessions stamped onto THIS day whose real live happened
+        // on a different day — the reason a schedule day balloons.
+        $mismatched = $sessions->filter(fn (LiveSession $s): bool => $s->actual_start_at !== null
+            && $s->scheduled_start_at !== null
+            && ! $s->actual_start_at->isSameDay($s->scheduled_start_at));
+
+        if ($mismatched->isNotEmpty()) {
+            $byActualDay = $mismatched
+                ->groupBy(fn (LiveSession $s): string => $s->actual_start_at->toDateString())
+                ->map->count()
+                ->sortKeys();
+
+            $this->warn(sprintf(
+                '%d of %d session(s) have scheduled DATE != actual-live DATE.',
+                $mismatched->count(),
+                $sessions->count(),
+            ));
+            $this->line('Real live dates hidden behind this day: '
+                .$byActualDay->map(fn (int $n, string $d): string => "{$d}={$n}")->implode('  '));
+        }
 
         if ($splits !== []) {
             $this->warn(sprintf(
