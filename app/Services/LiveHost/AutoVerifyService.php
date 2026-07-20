@@ -132,6 +132,66 @@ class AutoVerifyService
     }
 
     /**
+     * Read-only: explain why the auto-verifier would (or would not) verify a
+     * single session — mirrors the per-session gates in run(), and names the
+     * other session(s) already holding the candidate lives when that's the
+     * blocker. For the livehost:explain-autoverify diagnostic.
+     *
+     * @return array<string, mixed>
+     */
+    public function explainSession(LiveSession $session): array
+    {
+        $candidates = $this->candidateFinder->forSession($session);
+        $clusterIds = $candidates->isEmpty() ? [] : $this->candidateFinder->suggestedClusterIds($candidates, $session);
+        $records = $candidates->whereIn('id', $clusterIds)->values();
+        $recordIds = $records->pluck('id')->all();
+
+        $heldByOthers = [];
+        if ($recordIds !== []) {
+            $heldByOthers = DB::table('live_session_actual_live_record')
+                ->whereIn('actual_live_record_id', $recordIds)
+                ->where('live_session_id', '!=', $session->id)
+                ->pluck('live_session_id')
+                ->merge(
+                    LiveSession::query()
+                        ->whereIn('matched_actual_live_record_id', $recordIds)
+                        ->where('id', '!=', $session->id)
+                        ->pluck('id')
+                )
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $hasHistory = $this->hasVerificationHistory($session);
+        $payrollLocked = $this->isPayrollLocked($session);
+        $linkedElsewhere = $records->isNotEmpty() && $this->anyLinkedElsewhere($records, $session);
+        $settled = $records->isEmpty() ? true : $this->clusterHasSettled($records);
+
+        $verdict = match (true) {
+            $session->verification_status !== 'pending' => "skip: not pending (already {$session->verification_status})",
+            $hasHistory => 'skip: has verification history (touched before)',
+            $payrollLocked => 'skip: payroll period locked',
+            $records->isEmpty() => 'no-match: no candidate TikTok live for this slot',
+            $linkedElsewhere => 'skip: candidate live(s) already linked to session(s) '.implode(', ', $heldByOthers),
+            ! $settled => 'wait: cluster not settled yet',
+            default => 'WOULD VERIFY',
+        };
+
+        return [
+            'session_id' => $session->id,
+            'verification_status' => $session->verification_status,
+            'candidate_count' => $candidates->count(),
+            'suggested_cluster' => $recordIds,
+            'held_by_other_sessions' => $heldByOthers,
+            'has_verification_history' => $hasHistory,
+            'payroll_locked' => $payrollLocked,
+            'cluster_settled' => $settled,
+            'verdict' => $verdict,
+        ];
+    }
+
+    /**
      * Keep already auto-verified sessions honest as fresh sync data lands. For
      * every session auto-verify locked (and that no human has since touched, and
      * whose payroll is still open, and whose live is recent enough that GMV may
