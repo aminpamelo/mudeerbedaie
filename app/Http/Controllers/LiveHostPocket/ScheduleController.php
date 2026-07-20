@@ -292,7 +292,9 @@ class ScheduleController extends Controller
         $attachmentsCount = (int) ($session->attachments_count ?? 0);
 
         $state = match (true) {
-            $session->status === 'ended' && $attachmentsCount > 0 => 'submitted',
+            // A TikTok-recorded live needs no manual proof — count it as done
+            // rather than nagging the host to "upload" for it.
+            $session->status === 'ended' && ($attachmentsCount > 0 || $session->isAutoRecorded()) => 'submitted',
             $session->status === 'ended' && $attachmentsCount === 0 => 'needs_upload',
             $session->status === 'scheduled' && $session->canRecap() => 'pending_recap',
             default => null,
@@ -341,7 +343,9 @@ class ScheduleController extends Controller
             ->get()
             ->filter(function (LiveSession $session): bool {
                 if ($session->status === 'ended') {
-                    return ((int) ($session->attachments_count ?? 0)) === 0;
+                    // TikTok-recorded lives need no manual proof — never overdue.
+                    return ((int) ($session->attachments_count ?? 0)) === 0
+                        && ! $session->isAutoRecorded();
                 }
 
                 return $session->canRecap();

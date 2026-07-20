@@ -29,6 +29,8 @@ class SendRecapRemindersCommand extends Command
         LiveSession::query()
             ->where('status', 'ended')
             ->whereNotNull('live_host_id')
+            // TikTok-recorded lives need no manual proof — don't nag hosts for them.
+            ->where('gmv_source', '!=', 'tiktok_actual')
             ->whereNull('recap_reminder_sent_at')
             ->whereDoesntHave('attachments')
             ->where(function ($query) use ($cutoff): void {

@@ -331,6 +331,17 @@ class LiveSession extends Model
     }
 
     /**
+     * A session sourced from TikTok's own live data is already recorded by the
+     * platform — the host has no manual proof to upload. Only manual ("Go Live")
+     * sessions still owe a proof upload, so the "PERLU UPLOAD" nag (Pocket
+     * schedule/recap list + overdue reminders) skips auto-recorded sessions.
+     */
+    public function isAutoRecorded(): bool
+    {
+        return $this->gmv_source === 'tiktok_actual';
+    }
+
+    /**
      * Proof of live: at least one image or video attachment exists for this
      * session. Used by SaveRecapRequest when went_live=true to block the
      * status transition until the host has uploaded visible evidence.

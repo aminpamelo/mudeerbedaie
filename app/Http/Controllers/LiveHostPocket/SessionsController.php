@@ -83,6 +83,9 @@ class SessionsController extends Controller
                 'giftsValue' => (float) $analytics->gifts_value,
             ] : null,
             'attachmentsCount' => (int) ($session->attachments_count ?? 0),
+            // TikTok-recorded lives need no manual proof — the UI treats them as
+            // done rather than showing a "PERLU UPLOAD" prompt.
+            'autoRecorded' => $session->isAutoRecorded(),
         ];
     }
 }
