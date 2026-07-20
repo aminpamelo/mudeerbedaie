@@ -147,6 +147,15 @@ class LiveHostMentee extends Model
         });
     }
 
+    /**
+     * Only enrolments whose program is NOT archived. Used by the Live Host
+     * Pocket app so an archived program's performance is hidden from the host.
+     */
+    public function scopeInLiveProgram(Builder $query): Builder
+    {
+        return $query->whereHas('program', fn (Builder $p) => $p->whereNull('archived_at'));
+    }
+
     public function getNameAttribute(): ?string
     {
         return $this->menteeUser?->name;

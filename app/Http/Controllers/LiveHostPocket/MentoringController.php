@@ -170,18 +170,15 @@ class MentoringController extends Controller
     }
 
     /**
-     * Prefer the active enrollment; fall back to the most recent graduated one so
-     * a host who finished the program still sees their performance history.
+     * The host's mentoring path/performance shows ONLY while they are actively
+     * enrolled in a live (non-archived) program. Once they graduate — or the
+     * program is archived — nothing surfaces in the Pocket app.
      *
      * @param  array<string, mixed>  $eagerLoad
      */
     private function resolveMentee(User $user, array $eagerLoad): ?LiveHostMentee
     {
-        return $user->activeMenteeEnrollment()->with($eagerLoad)->first()
-            ?? $user->menteeEnrollments()->with($eagerLoad)
-                ->where('status', 'graduated')
-                ->latest('enrolled_at')
-                ->first();
+        return $user->activeMenteeEnrollment()->inLiveProgram()->with($eagerLoad)->first();
     }
 
     /**

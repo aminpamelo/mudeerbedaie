@@ -818,6 +818,10 @@ Route::middleware(['auth'])
                     ->name('programs.complete');
                 Route::post('programs/{program}/duplicate', [MentoringProgramController::class, 'duplicate'])
                     ->name('programs.duplicate');
+                Route::patch('programs/{program}/archive', [MentoringProgramController::class, 'archive'])
+                    ->name('programs.archive');
+                Route::patch('programs/{program}/restore', [MentoringProgramController::class, 'restore'])
+                    ->name('programs.restore');
                 Route::delete('programs/{program}', [MentoringProgramController::class, 'destroy'])
                     ->name('programs.destroy');
 

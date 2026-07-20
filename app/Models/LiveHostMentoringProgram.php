@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ class LiveHostMentoringProgram extends Model
     protected $fillable = [
         'title', 'slug', 'description', 'status',
         'leader_user_id', 'starts_at', 'ends_at', 'created_by',
-        'checklist_template',
+        'checklist_template', 'archived_at',
     ];
 
     protected function casts(): array
@@ -22,8 +23,22 @@ class LiveHostMentoringProgram extends Model
         return [
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'archived_at' => 'datetime',
             'checklist_template' => 'array',
         ];
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    /**
+     * @param  Builder<LiveHostMentoringProgram>  $query
+     */
+    public function scopeArchived($query, bool $archived = true): void
+    {
+        $archived ? $query->whereNotNull('archived_at') : $query->whereNull('archived_at');
     }
 
     /**

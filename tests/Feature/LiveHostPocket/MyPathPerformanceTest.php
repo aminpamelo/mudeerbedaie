@@ -182,20 +182,18 @@ it('surfaces the daily sales strip, PIC comments and conduct records', function 
         );
 });
 
-it('shows a graduated host their performance history', function () {
+it('hides performance from a graduated host — Pocket shows only active enrollments', function () {
     $host = User::factory()->create(['role' => 'live_host']);
     $level = LiveHostMentoringLevel::factory()->create(['monthly_sales_target' => 100, 'position' => 1]);
     $mentee = enrolHost($host, $level, 'graduated');
 
     seedMonth($mentee, $host, CarbonImmutable::now()->startOfMonth(), 90, 90);
 
+    // Once graduated, the host is no longer actively enrolled — My Path is empty.
     $this->actingAs($host)
         ->get('/live-host/my-path')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('enrollment.status', 'graduated')
-            ->where('enrollment.performance.has_scores', true)
-        );
+        ->assertInertia(fn (Assert $page) => $page->where('enrollment', null));
 });
 
 it('does not leak one host performance into another host props', function () {

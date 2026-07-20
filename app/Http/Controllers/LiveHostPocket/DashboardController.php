@@ -65,7 +65,10 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (LiveSession $session): array => $this->upcomingDto($session));
 
+        // Exclude archived programs so their mentoring glance + performance
+        // summary don't show on the host's home screen.
         $mentee = $host->activeMenteeEnrollment()
+            ->inLiveProgram()
             ->with(['level:id,name,color,monthly_sales_target', 'monthlyScores'])
             ->first();
 

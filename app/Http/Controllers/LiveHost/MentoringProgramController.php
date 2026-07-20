@@ -38,7 +38,10 @@ class MentoringProgramController extends Controller
 
     public function index(Request $request): Response
     {
+        $showArchived = $request->query('view') === 'archived';
+
         $paginator = LiveHostMentoringProgram::query()
+            ->archived($showArchived)
             ->with('leader:id,name')
             ->withCount([
                 'mentees',
@@ -46,7 +49,8 @@ class MentoringProgramController extends Controller
                 'mentees as graduated_mentees_count' => fn ($q) => $q->where('status', 'graduated'),
             ])
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         $indicators = app(MentorActivityIndicator::class)
             ->forLeaders($paginator->getCollection()->pluck('leader_user_id')->all());
@@ -56,6 +60,8 @@ class MentoringProgramController extends Controller
             'title' => $p->title,
             'slug' => $p->slug,
             'status' => $p->status,
+            'archived' => $p->archived_at !== null,
+            'archived_at' => $p->archived_at?->toIso8601String(),
             'leader' => $p->leader ? [
                 'id' => $p->leader->id,
                 'name' => $p->leader->name,
@@ -73,6 +79,8 @@ class MentoringProgramController extends Controller
 
         return Inertia::render('mentoring/programs/Index', [
             'programs' => $programs,
+            'view' => $showArchived ? 'archived' : 'active',
+            'archivedCount' => LiveHostMentoringProgram::query()->archived()->count(),
         ]);
     }
 
@@ -543,6 +551,36 @@ class MentoringProgramController extends Controller
         return redirect()
             ->route('livehost.mentoring.programs.index')
             ->with('success', "Program \"{$title}\" deleted.");
+    }
+
+    /**
+     * Archive a program: it drops out of the desk list and its mentees'
+     * performance is hidden in the Live Host Pocket app. Nothing is deleted —
+     * archiving is fully reversible via restore().
+     */
+    public function archive(Request $request, LiveHostMentoringProgram $program): RedirectResponse
+    {
+        if ($program->archived_at === null) {
+            $program->update(['archived_at' => now()]);
+        }
+
+        return redirect()
+            ->route('livehost.mentoring.programs.index')
+            ->with('success', "Program \"{$program->title}\" archived.");
+    }
+
+    /**
+     * Restore a previously archived program back into the active list.
+     */
+    public function restore(Request $request, LiveHostMentoringProgram $program): RedirectResponse
+    {
+        if ($program->archived_at !== null) {
+            $program->update(['archived_at' => null]);
+        }
+
+        return redirect()
+            ->route('livehost.mentoring.programs.index', ['view' => 'archived'])
+            ->with('success', "Program \"{$program->title}\" restored.");
     }
 
     /**

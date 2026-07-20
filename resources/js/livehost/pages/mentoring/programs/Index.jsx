@@ -1,6 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import {
+  Archive,
+  ArchiveRestore,
   CheckCircle2,
   Copy,
   Flag,
@@ -59,11 +61,33 @@ function ActivityDot({ activity }) {
 }
 
 export default function ProgramsIndex() {
-  const { programs } = usePage().props;
+  const { programs, view = 'active', archivedCount = 0 } = usePage().props;
   const rows = useMemo(() => programs?.data ?? [], [programs]);
+  const isArchived = view === 'archived';
+
+  const switchView = (next) => {
+    router.get('/livehost/mentoring/programs', next === 'archived' ? { view: 'archived' } : {}, {
+      preserveScroll: true,
+      preserveState: true,
+    });
+  };
 
   const runLifecycle = (verb, program) => {
     router.patch(`/livehost/mentoring/programs/${program.id}/${verb}`, {}, { preserveScroll: true });
+  };
+
+  const handleArchive = (program) => {
+    const note = program.mentees_count > 0
+      ? ` Its ${program.mentees_count} mentee${program.mentees_count === 1 ? '' : 's'} will keep all data, but their performance is hidden in the host's Pocket app until you restore it.`
+      : '';
+    if (!window.confirm(`Archive "${program.title}"?${note}`)) {
+      return;
+    }
+    router.patch(`/livehost/mentoring/programs/${program.id}/archive`, {}, { preserveScroll: true });
+  };
+
+  const handleRestore = (program) => {
+    router.patch(`/livehost/mentoring/programs/${program.id}/restore`, {}, { preserveScroll: true });
   };
 
   const handleDelete = (program) => {
@@ -109,23 +133,62 @@ export default function ProgramsIndex() {
               Mentoring Programs
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
-              {programs?.total ?? 0} total program{(programs?.total ?? 0) === 1 ? '' : 's'} · turn newly-hired hosts into top hosts
+              {isArchived
+                ? `${programs?.total ?? 0} archived program${(programs?.total ?? 0) === 1 ? '' : 's'} · hidden from the desk & the host's Pocket`
+                : `${programs?.total ?? 0} total program${(programs?.total ?? 0) === 1 ? '' : 's'} · turn newly-hired hosts into top hosts`}
             </p>
+          </div>
+
+          <div className="inline-flex items-center gap-1 rounded-lg border border-[#EAEAEA] bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => switchView('active')}
+              className={`inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium transition-colors ${!isArchived ? 'bg-[#0A0A0A] text-white' : 'text-[#737373] hover:bg-[#F5F5F5]'}`}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              onClick={() => switchView('archived')}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium transition-colors ${isArchived ? 'bg-[#0A0A0A] text-white' : 'text-[#737373] hover:bg-[#F5F5F5]'}`}
+            >
+              <Archive className="h-[13px] w-[13px]" strokeWidth={2} />
+              Archived
+              {archivedCount > 0 && (
+                <span className={`inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[10.5px] font-semibold ${isArchived ? 'bg-white/20 text-white' : 'bg-[#F5F5F5] text-[#525252]'}`}>
+                  {archivedCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
         <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {rows.length === 0 ? (
-            <div className="py-16 text-center">
-              <GraduationCap className="mx-auto mb-3 h-10 w-10 text-[#D4D4D4]" strokeWidth={1.5} />
-              <div className="text-sm text-[#737373]">No mentoring programs yet.</div>
-              <Link
-                href="/livehost/mentoring/programs/create"
-                className="mt-2 inline-block text-sm font-medium text-[#059669] hover:text-[#047857]"
-              >
-                Create your first program
-              </Link>
-            </div>
+            isArchived ? (
+              <div className="py-16 text-center">
+                <Archive className="mx-auto mb-3 h-10 w-10 text-[#D4D4D4]" strokeWidth={1.5} />
+                <div className="text-sm text-[#737373]">No archived programs.</div>
+                <button
+                  type="button"
+                  onClick={() => switchView('active')}
+                  className="mt-2 inline-block text-sm font-medium text-[#059669] hover:text-[#047857]"
+                >
+                  Back to active programs
+                </button>
+              </div>
+            ) : (
+              <div className="py-16 text-center">
+                <GraduationCap className="mx-auto mb-3 h-10 w-10 text-[#D4D4D4]" strokeWidth={1.5} />
+                <div className="text-sm text-[#737373]">No mentoring programs yet.</div>
+                <Link
+                  href="/livehost/mentoring/programs/create"
+                  className="mt-2 inline-block text-sm font-medium text-[#059669] hover:text-[#047857]"
+                >
+                  Create your first program
+                </Link>
+              </div>
+            )
           ) : (
             <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
@@ -190,57 +253,78 @@ export default function ProgramsIndex() {
                         >
                           <Users className="h-[12px] w-[12px]" strokeWidth={2.25} /> Mentees
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicate(program)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
-                          title="Duplicate program"
-                        >
-                          <Copy className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </button>
-                        {program.status === 'draft' && (
+                        {isArchived ? (
                           <button
                             type="button"
-                            onClick={() => runLifecycle('activate', program)}
+                            onClick={() => handleRestore(program)}
                             className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#059669] hover:bg-[#ECFDF5]"
-                            title="Activate"
+                            title="Restore program to the active list"
                           >
-                            <Play className="h-[12px] w-[12px]" strokeWidth={2.25} /> Activate
+                            <ArchiveRestore className="h-[12px] w-[12px]" strokeWidth={2.25} /> Restore
                           </button>
-                        )}
-                        {program.status === 'active' && (
-                          <button
-                            type="button"
-                            onClick={() => runLifecycle('pause', program)}
-                            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#B45309] hover:bg-[#FEF3C7]"
-                            title="Pause"
-                          >
-                            <Pause className="h-[12px] w-[12px]" strokeWidth={2.25} /> Pause
-                          </button>
-                        )}
-                        {program.status === 'paused' && (
-                          <button
-                            type="button"
-                            onClick={() => runLifecycle('activate', program)}
-                            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#059669] hover:bg-[#ECFDF5]"
-                            title="Resume"
-                          >
-                            <Play className="h-[12px] w-[12px]" strokeWidth={2.25} /> Resume
-                          </button>
-                        )}
-                        {(program.status === 'active' || program.status === 'paused') && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Mark "${program.title}" as completed?`)) {
-                                runLifecycle('complete', program);
-                              }
-                            }}
-                            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#4338CA] hover:bg-[#E0E7FF]"
-                            title="Complete"
-                          >
-                            <Flag className="h-[12px] w-[12px]" strokeWidth={2.25} /> Complete
-                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicate(program)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                              title="Duplicate program"
+                            >
+                              <Copy className="h-[14px] w-[14px]" strokeWidth={2} />
+                            </button>
+                            {program.status === 'draft' && (
+                              <button
+                                type="button"
+                                onClick={() => runLifecycle('activate', program)}
+                                className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#059669] hover:bg-[#ECFDF5]"
+                                title="Activate"
+                              >
+                                <Play className="h-[12px] w-[12px]" strokeWidth={2.25} /> Activate
+                              </button>
+                            )}
+                            {program.status === 'active' && (
+                              <button
+                                type="button"
+                                onClick={() => runLifecycle('pause', program)}
+                                className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#B45309] hover:bg-[#FEF3C7]"
+                                title="Pause"
+                              >
+                                <Pause className="h-[12px] w-[12px]" strokeWidth={2.25} /> Pause
+                              </button>
+                            )}
+                            {program.status === 'paused' && (
+                              <button
+                                type="button"
+                                onClick={() => runLifecycle('activate', program)}
+                                className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#059669] hover:bg-[#ECFDF5]"
+                                title="Resume"
+                              >
+                                <Play className="h-[12px] w-[12px]" strokeWidth={2.25} /> Resume
+                              </button>
+                            )}
+                            {(program.status === 'active' || program.status === 'paused') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Mark "${program.title}" as completed?`)) {
+                                    runLifecycle('complete', program);
+                                  }
+                                }}
+                                className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#4338CA] hover:bg-[#E0E7FF]"
+                                title="Complete"
+                              >
+                                <Flag className="h-[12px] w-[12px]" strokeWidth={2.25} /> Complete
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleArchive(program)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FEF3C7] hover:text-[#B45309]"
+                              title="Archive program"
+                            >
+                              <Archive className="h-[14px] w-[14px]" strokeWidth={2} />
+                            </button>
+                          </>
                         )}
                         {program.mentees_count === 0 && (
                           <button
