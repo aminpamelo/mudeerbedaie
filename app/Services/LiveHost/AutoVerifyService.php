@@ -128,6 +128,24 @@ class AutoVerifyService
             }
         }
 
+        // Second pass — session-driven. The live-first matcher above can't
+        // resolve some lives to an account (unregistered/affiliate/needs-review
+        // creators), so a clearly-matching hosted slot is left unverified even
+        // though the finder pairs them. Sweep the window's still-pending
+        // sessions and verify any whose suggested cluster is clean. Lives the
+        // first pass already claimed are skipped (anyLinkedElsewhere), so this
+        // never double-links.
+        LiveSession::query()
+            ->where('verification_status', 'pending')
+            ->whereDate('scheduled_start_at', '>=', $from->toDateString())
+            ->whereDate('scheduled_start_at', '<=', $to->toDateString())
+            ->get()
+            ->each(function (LiveSession $session) use (&$stats): void {
+                if ($this->verifyIfClear($session)) {
+                    $stats['sessions_verified']++;
+                }
+            });
+
         return $stats;
     }
 
