@@ -28,6 +28,22 @@ class AutoVerifyService
 {
     private const TIMEZONE = 'Asia/Kuala_Lumpur';
 
+    /**
+     * Don't lock a live until its last segment ended at least this long ago. A
+     * still-running or only-just-ended broadcast has partial 24h-attributed GMV
+     * and may still gain reconnect segments on a later sync — locking it now
+     * captures the wrong (early) number and the wrong composition. The refresh
+     * pass keeps the GMV current after the first verify.
+     */
+    private const SETTLE_MINUTES = 30;
+
+    /**
+     * Keep re-summing an auto-verified session's GMV until its live ended this
+     * many hours ago — long enough for TikTok's 24h live-GMV attribution window
+     * to close. Past this the numbers are final and the session is left frozen.
+     */
+    private const REFRESH_WINDOW_HOURS = 30;
+
     public function __construct(private readonly ActualLiveRecordCandidateFinder $candidateFinder) {}
 
     /**
@@ -42,6 +58,7 @@ class AutoVerifyService
             'records_linked' => 0,
             'no_match' => 0,
             'no_host' => 0,
+            'unsettled' => 0,
             'skipped' => 0,
         ];
 
@@ -94,6 +111,15 @@ class AutoVerifyService
                 continue;
             }
 
+            // Settle delay: skip a cluster whose last segment is still running or
+            // only just ended — its GMV and split segments are not final yet. The
+            // next cycle (once settled) picks it up.
+            if (! $this->clusterHasSettled($records)) {
+                $stats['unsettled']++;
+
+                continue;
+            }
+
             $this->verify($session, $records);
             $stats['sessions_verified']++;
             $stats['records_linked'] += $records->count();
@@ -103,6 +129,256 @@ class AutoVerifyService
         }
 
         return $stats;
+    }
+
+    /**
+     * Keep already auto-verified sessions honest as fresh sync data lands. For
+     * every session auto-verify locked (and that no human has since touched, and
+     * whose payroll is still open, and whose live is recent enough that GMV may
+     * still be moving), re-derive the linked cluster and re-sum GMV from the
+     * LATEST synced records — so a session locked early tracks TikTok's growing
+     * 24h attribution instead of freezing at a partial number. It also pulls in
+     * reconnect segments that only synced after the first lock, and reconciles
+     * drift (a live whose slot no longer matches where it is linked).
+     *
+     * Only ever GROWS a session's record set on a plain refresh — a shrink (the
+     * algorithm would drop a currently-linked live) is flagged for a human, never
+     * applied silently, so we can't quietly erase attributed GMV.
+     *
+     * @return array{stats: array<string, int>, findings: array<int, array<string, mixed>>}
+     */
+    public function refresh(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $stats = [
+            'refresh_scanned' => 0,
+            'gmv_updated' => 0,
+            'segments_added' => 0,
+            'drift_fixed' => 0,
+            'drift_flagged' => 0,
+        ];
+        /** @var array<int, array<string, mixed>> $findings */
+        $findings = [];
+
+        $cutoff = $to->subHours(self::REFRESH_WINDOW_HOURS);
+
+        $sessions = LiveSession::query()
+            ->where('auto_verified', true)
+            ->where('verification_status', 'verified')
+            ->whereNotNull('matched_actual_live_record_id')
+            ->where(function ($q) use ($cutoff) {
+                $q->where('actual_end_at', '>=', $cutoff)
+                    ->orWhere('actual_start_at', '>=', $cutoff);
+            })
+            ->with(['actualLiveRecords', 'liveAccount', 'matchedActualLiveRecord', 'liveScheduleAssignment.timeSlot'])
+            ->orderBy('scheduled_start_at')
+            ->get()
+            ->filter(fn (LiveSession $s) => ! $this->hasVerificationHistory($s) && ! $this->isPayrollLocked($s))
+            ->values();
+
+        $stats['refresh_scanned'] = $sessions->count();
+
+        foreach ($sessions as $session) {
+            // Drift first: if the primary live's slot no longer matches this
+            // session and it clearly belongs elsewhere, move (or flag) it. A move
+            // re-verifies the target, so we skip the same-session refresh below.
+            if ($this->reconcileDrift($session, $stats, $findings)) {
+                continue;
+            }
+
+            $this->refreshSession($session, $stats, $findings);
+        }
+
+        return ['stats' => $stats, 'findings' => $findings];
+    }
+
+    /**
+     * Re-sum an auto-verified session against the latest synced records and pull
+     * in any newly-synced contiguous segments. Never drops a currently-linked
+     * record (that is flagged as drift instead).
+     *
+     * @param  array<string, int>  $stats
+     * @param  array<int, array<string, mixed>>  $findings
+     */
+    private function refreshSession(LiveSession $session, array &$stats, array &$findings): void
+    {
+        $current = $session->actualLiveRecords()->get();
+        if ($current->isEmpty()) {
+            return;
+        }
+
+        $records = $this->clusterFor($session);
+        if ($records->isEmpty()) {
+            return;
+        }
+
+        $recordIds = $records->pluck('id')->map(fn ($v) => (int) $v)->all();
+        $currentIds = $current->pluck('id')->map(fn ($v) => (int) $v)->all();
+
+        // A plain refresh only ever adds segments. If the cluster algorithm now
+        // wants to DROP a linked live, that is a composition change a human should
+        // review — flag it, don't erase attributed GMV automatically.
+        $dropped = array_values(array_diff($currentIds, $recordIds));
+        if ($dropped !== []) {
+            $findings[] = [
+                'type' => 'shrink',
+                'session_id' => $session->id,
+                'would_drop' => $dropped,
+            ];
+            $stats['drift_flagged']++;
+
+            return;
+        }
+
+        if ($this->anyLinkedElsewhere($records, $session)) {
+            return;
+        }
+
+        $added = array_values(array_diff($recordIds, $currentIds));
+        $newGmv = round($records->sum(fn (ActualLiveRecord $r) => max(0.0, (float) $r->live_attributed_gmv_myr)), 2);
+        $currentGmv = round((float) $session->gmv_amount, 2);
+
+        if ($added === [] && abs($newGmv - $currentGmv) < 0.005) {
+            return;
+        }
+
+        $this->verify($session, $records);
+        $stats['gmv_updated']++;
+        if ($added !== []) {
+            $stats['segments_added'] += count($added);
+        }
+    }
+
+    /**
+     * Detect and (when clearly safe) repair a session whose primary live no
+     * longer sits in the slot it is linked to — e.g. the schedule was edited
+     * after auto-verify locked it. Auto-heal only fires when the correct slot is
+     * genuinely empty and pending and nothing is payroll-locked; anything more
+     * ambiguous is flagged for a human. Returns true when the session was moved.
+     *
+     * @param  array<string, int>  $stats
+     * @param  array<int, array<string, mixed>>  $findings
+     */
+    private function reconcileDrift(LiveSession $session, array &$stats, array &$findings): bool
+    {
+        $primary = $session->matchedActualLiveRecord;
+        $account = $session->liveAccount;
+        if ($primary === null || $account === null || $primary->launched_time === null) {
+            return false;
+        }
+
+        $klStart = CarbonImmutable::parse($primary->launched_time)->setTimezone(self::TIMEZONE);
+
+        // Still sitting in its own slot? Then there is no drift to reconcile.
+        $own = $session->liveScheduleAssignment;
+        if ($own !== null && $this->assignmentOverlapsLive($own, $primary, $klStart)) {
+            return false;
+        }
+
+        $correct = $this->matchingAssignment($account, $primary, $klStart);
+        if ($correct === null) {
+            $findings[] = [
+                'type' => 'orphaned',
+                'session_id' => $session->id,
+                'live_id' => $primary->id,
+            ];
+            $stats['drift_flagged']++;
+
+            return false;
+        }
+
+        $target = $this->sessionFor($correct, $klStart);
+        if ($target === null || $target->id === $session->id) {
+            return false;
+        }
+
+        $safe = $correct->live_host_id !== null
+            && $target->verification_status === 'pending'
+            && ! $this->hasVerificationHistory($target)
+            && $target->actualLiveRecords()->doesntExist()
+            && ! $this->isPayrollLocked($session)
+            && ! $this->isPayrollLocked($target);
+
+        if (! $safe) {
+            $findings[] = [
+                'type' => 'conflict',
+                'session_id' => $session->id,
+                'suggested_session_id' => $target->id,
+                'live_id' => $primary->id,
+            ];
+            $stats['drift_flagged']++;
+
+            return false;
+        }
+
+        // Move the whole cluster to the correct slot: strip the source session
+        // (revert to pending) and re-verify the target with the same records.
+        $records = $session->actualLiveRecords()->get();
+        DB::transaction(function () use ($session): void {
+            $session->actualLiveRecords()->detach();
+            $session->update([
+                'matched_actual_live_record_id' => null,
+                'gmv_amount' => 0,
+                'gmv_source' => 'manual',
+                'gmv_locked_at' => null,
+                'verification_status' => 'pending',
+                'verified_by' => null,
+                'verified_at' => null,
+                'auto_verified' => false,
+                'status' => 'scheduled',
+            ]);
+        });
+        $this->verify($target, $records);
+
+        $findings[] = [
+            'type' => 'moved',
+            'session_id' => $session->id,
+            'target_session_id' => $target->id,
+            'live_id' => $primary->id,
+        ];
+        $stats['drift_fixed']++;
+
+        return true;
+    }
+
+    /**
+     * Whether the given schedule slot's time window overlaps the live's window
+     * (both reduced to KL minutes-of-day). Shared by the matcher and drift check.
+     */
+    private function assignmentOverlapsLive(LiveScheduleAssignment $assignment, ActualLiveRecord $live, CarbonImmutable $klStart): bool
+    {
+        $slot = $assignment->timeSlot;
+        if (! $slot) {
+            return false;
+        }
+
+        $liveStartMin = ((int) $klStart->format('G')) * 60 + (int) $klStart->format('i');
+        $klEnd = $this->liveEndKl($live, $klStart);
+        $liveEndMin = ((int) $klEnd->format('G')) * 60 + (int) $klEnd->format('i');
+        if ($liveEndMin <= $liveStartMin) {
+            $liveEndMin = $liveStartMin + 1;
+        }
+
+        $slotStart = $this->toMinutes($slot->start_time);
+        $slotEnd = $this->toMinutes($slot->end_time);
+
+        return $liveStartMin < $slotEnd && $liveEndMin > $slotStart;
+    }
+
+    /**
+     * True once every segment of the cluster ended at least SETTLE_MINUTES ago —
+     * i.e. the broadcast is finished and its 24h GMV has begun to accrue, so it
+     * is safe to lock (the refresh pass then tracks the growing attribution).
+     *
+     * @param  Collection<int, ActualLiveRecord>  $records
+     */
+    private function clusterHasSettled(Collection $records): bool
+    {
+        $lastEnd = $records->map(fn (ActualLiveRecord $r) => $this->liveEndUtc($r))->max();
+        if ($lastEnd === null) {
+            return true;
+        }
+
+        return $lastEnd->lessThanOrEqualTo(CarbonImmutable::now()->subMinutes(self::SETTLE_MINUTES));
     }
 
     /**
@@ -342,12 +618,6 @@ class AutoVerifyService
     {
         $date = $klStart->toDateString();
         $dow = (int) $klStart->format('w');
-        $liveStartMin = ((int) $klStart->format('G')) * 60 + (int) $klStart->format('i');
-        $klEnd = $this->liveEndKl($live, $klStart);
-        $liveEndMin = ((int) $klEnd->format('G')) * 60 + (int) $klEnd->format('i');
-        if ($liveEndMin <= $liveStartMin) {
-            $liveEndMin = $liveStartMin + 1;
-        }
 
         return LiveScheduleAssignment::query()
             ->where('live_account_id', $account->id)
@@ -358,15 +628,7 @@ class AutoVerifyService
             })
             ->with('timeSlot')
             ->get()
-            ->filter(function (LiveScheduleAssignment $a) use ($liveStartMin, $liveEndMin) {
-                if (! $a->timeSlot) {
-                    return false;
-                }
-                $slotStart = $this->toMinutes($a->timeSlot->start_time);
-                $slotEnd = $this->toMinutes($a->timeSlot->end_time);
-
-                return $liveStartMin < $slotEnd && $liveEndMin > $slotStart;
-            })
+            ->filter(fn (LiveScheduleAssignment $a) => $this->assignmentOverlapsLive($a, $live, $klStart))
             ->sortBy(fn (LiveScheduleAssignment $a) => $a->is_template ? 1 : 0)
             ->first();
     }

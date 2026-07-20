@@ -1,5 +1,12 @@
 <?php
 
+use App\Console\Commands\TikTokRefreshTokens;
+use App\Jobs\Funnel\CleanupFailedDomains;
+use App\Jobs\Funnel\DetectAbandonedSessions;
+use App\Jobs\Funnel\ProcessCartAbandonment;
+use App\Jobs\Funnel\UpdateFunnelAnalytics;
+use App\Jobs\Funnel\VerifyCustomDomains;
+use App\Jobs\SyncWhatsAppCostAnalyticsJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -16,13 +23,13 @@ Schedule::command('notifications:schedule --days=7')->dailyAt('00:30');
 Schedule::command('notifications:process --limit=50')->everyFiveMinutes();
 
 // Funnel automation jobs
-Schedule::job(new \App\Jobs\Funnel\DetectAbandonedSessions)->everyFifteenMinutes();
-Schedule::job(new \App\Jobs\Funnel\ProcessCartAbandonment)->everyThirtyMinutes();
-Schedule::job(new \App\Jobs\Funnel\UpdateFunnelAnalytics)->dailyAt('02:00');
+Schedule::job(new DetectAbandonedSessions)->everyFifteenMinutes();
+Schedule::job(new ProcessCartAbandonment)->everyThirtyMinutes();
+Schedule::job(new UpdateFunnelAnalytics)->dailyAt('02:00');
 
 // Custom domain verification
-Schedule::job(new \App\Jobs\Funnel\VerifyCustomDomains)->everyFiveMinutes()->withoutOverlapping();
-Schedule::job(new \App\Jobs\Funnel\CleanupFailedDomains)->daily()->at('03:30');
+Schedule::job(new VerifyCustomDomains)->everyFiveMinutes()->withoutOverlapping();
+Schedule::job(new CleanupFailedDomains)->daily()->at('03:30');
 
 // TikTok Shop order sync - runs every 15 minutes for active accounts with auto-sync enabled
 Schedule::command('tiktok:sync-orders --all --queue --days=1')
@@ -31,10 +38,10 @@ Schedule::command('tiktok:sync-orders --all --queue --days=1')
     ->runInBackground();
 
 // WhatsApp cost analytics sync - fetches previous day's costs from Meta API
-Schedule::job(new \App\Jobs\SyncWhatsAppCostAnalyticsJob)->dailyAt('06:00');
+Schedule::job(new SyncWhatsAppCostAnalyticsJob)->dailyAt('06:00');
 
 // TikTok token refresh - runs daily to ensure tokens don't expire
-Schedule::command(\App\Console\Commands\TikTokRefreshTokens::class)
+Schedule::command(TikTokRefreshTokens::class)
     ->daily()
     ->at('03:00');
 
@@ -93,9 +100,11 @@ Schedule::command('tiktok:sync-analytics')->dailyAt('04:00');
 // TikTok Shop per-LIVE performance sync - every 15 minutes (withoutOverlapping guards against a slow run piling up)
 Schedule::command('tiktok:sync-live')->everyFifteenMinutes()->withoutOverlapping();
 
-// Auto-assign + verify matched lives from the schedule - every 30 minutes, a
-// little after the live sync. Gated by the livehost.auto_verify_enabled setting.
-Schedule::command('livehost:auto-verify-sessions')->everyThirtyMinutes()->withoutOverlapping();
+// Auto-assign + verify matched lives from the schedule, then refresh already
+// auto-verified sessions against the latest sync (TikTok's 24h live-GMV keeps
+// growing after a live ends). Every 15 minutes to track each live sync. Gated by
+// the livehost.auto_verify_enabled setting.
+Schedule::command('livehost:auto-verify-sessions')->everyFifteenMinutes()->withoutOverlapping();
 
 // TikTok Shop affiliate sync - daily at 5 AM
 Schedule::command('tiktok:sync-affiliates')->dailyAt('05:00');
