@@ -1487,6 +1487,9 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                 )}
             </div>
 
+            {/* Google (GA4 + Google Ads) Section */}
+            <GoogleTrackingCard funnelUuid={funnelUuid} funnel={funnel} onRefresh={onRefresh} showToast={showToast} />
+
             {/* Info Box */}
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
                 <div className="flex gap-3">
@@ -1518,6 +1521,220 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// Google Tracking Card - GA4 + Google Ads conversion tracking (gtag.js)
+function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
+    const defaultEvents = {
+        page_view: true,
+        view_item: true,
+        add_to_cart: true,
+        begin_checkout: true,
+        purchase: true,
+    };
+
+    const readSettings = () => ({
+        enabled: funnel?.settings?.pixel_settings?.google?.enabled || false,
+        ga4_measurement_id: funnel?.settings?.pixel_settings?.google?.ga4_measurement_id || '',
+        ads_conversion_id: funnel?.settings?.pixel_settings?.google?.ads_conversion_id || '',
+        ads_purchase_label: funnel?.settings?.pixel_settings?.google?.ads_purchase_label || '',
+        events: funnel?.settings?.pixel_settings?.google?.events || { ...defaultEvents },
+    });
+
+    const [loading, setLoading] = useState(false);
+    const [settings, setSettings] = useState(readSettings);
+
+    useEffect(() => {
+        if (funnel?.settings?.pixel_settings?.google) {
+            setSettings(readSettings());
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [funnel]);
+
+    const getCsrfToken = () =>
+        document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('XSRF-TOKEN='))
+            ?.split('=')[1]
+            ?.replace(/%3D/g, '=') || '';
+
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/v1/funnels/${funnelUuid}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    settings: {
+                        ...funnel.settings,
+                        pixel_settings: {
+                            ...funnel.settings?.pixel_settings,
+                            google: settings,
+                        },
+                    },
+                }),
+            });
+
+            if (response.ok) {
+                showToast('Google tracking saved', 'success');
+                onRefresh();
+            } else {
+                const error = await response.json();
+                showToast(error.message || 'Failed to save settings', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to save settings', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleEvent = (eventKey) => {
+        setSettings({
+            ...settings,
+            events: { ...settings.events, [eventKey]: !settings.events[eventKey] },
+        });
+    };
+
+    const eventDescriptions = {
+        page_view: { label: 'page_view', desc: 'Track when visitors view any funnel page' },
+        view_item: { label: 'view_item', desc: 'Track product / landing page views' },
+        add_to_cart: { label: 'add_to_cart', desc: 'Track when visitors add products to cart' },
+        begin_checkout: { label: 'begin_checkout', desc: 'Track when visitors start the checkout' },
+        purchase: { label: 'purchase', desc: 'Completed purchases (GA4 + Google Ads conversion)' },
+    };
+
+    return (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
+                        <svg className="w-6 h-6" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0012 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 010-4.2V7.06H2.18a11 11 0 000 9.88l3.66-2.84z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Google</h3>
+                        <p className="text-sm text-gray-500">Google Analytics 4 &amp; Google Ads conversions</p>
+                    </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-sm text-gray-600">{settings.enabled ? 'Enabled' : 'Disabled'}</span>
+                    <button
+                        onClick={() => setSettings({ ...settings, enabled: !settings.enabled })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.enabled ? 'bg-orange-600' : 'bg-gray-200'}`}
+                    >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                </label>
+            </div>
+
+            {settings.enabled ? (
+                <div className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            GA4 Measurement ID
+                            <span className="ml-2 text-xs font-normal text-gray-500">(for Google Analytics)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={settings.ga4_measurement_id}
+                            onChange={(e) => setSettings({ ...settings, ga4_measurement_id: e.target.value })}
+                            placeholder="G-XXXXXXXXXX"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Google Analytics &rarr; Admin &rarr; Data Streams &rarr; your web stream &rarr; Measurement ID
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Google Ads Conversion ID
+                            <span className="ml-2 text-xs font-normal text-gray-500">(for ad conversions)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={settings.ads_conversion_id}
+                            onChange={(e) => setSettings({ ...settings, ads_conversion_id: e.target.value })}
+                            placeholder="AW-XXXXXXXXX"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Google Ads &rarr; Goals &rarr; Conversions &rarr; your conversion &rarr; Tag setup (starts with AW-)
+                        </p>
+                    </div>
+
+                    {settings.ads_conversion_id && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Purchase Conversion Label
+                                <span className="ml-2 text-xs font-normal text-gray-500">(Optional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.ads_purchase_label}
+                                onChange={(e) => setSettings({ ...settings, ads_purchase_label: e.target.value })}
+                                placeholder="e.g., AbC-D_efGh12ijkLmn"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                The conversion label paired with your Ads ID &mdash; fires on purchase as {settings.ads_conversion_id}/LABEL
+                            </p>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Events to Track</label>
+                        <div className="space-y-3">
+                            {Object.entries(eventDescriptions).map(([key, { label, desc }]) => (
+                                <label key={key} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.events[key] !== false}
+                                        onChange={() => toggleEvent(key)}
+                                        className="mt-1 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <div>
+                                        <div className="font-medium text-gray-900">{label}</div>
+                                        <div className="text-sm text-gray-500">{desc}</div>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+                        <button
+                            onClick={handleSave}
+                            disabled={loading}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
+                        >
+                            {loading ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-orange-50 border border-orange-100 rounded-lg p-4">
+                    <h4 className="font-medium text-orange-900 mb-2">Why use Google tracking?</h4>
+                    <ul className="text-sm text-orange-800 space-y-1">
+                        <li>&bull; Measure traffic &amp; funnel behaviour in Google Analytics 4</li>
+                        <li>&bull; Track purchases as Google Ads conversions for smart bidding</li>
+                        <li>&bull; Attribute revenue to your Google &amp; YouTube campaigns</li>
+                        <li>&bull; Build remarketing audiences from funnel visitors</li>
+                    </ul>
+                </div>
+            )}
         </div>
     );
 }

@@ -122,6 +122,14 @@
         'purchaseEventId' => null,
         'purchaseData' => null,
     ])
+
+    {{-- Google (GA4 + Google Ads) --}}
+    @include('funnel.partials.google-tracking', [
+        'funnel' => $funnel,
+        'viewContentData' => null,
+        'checkoutData' => $checkoutData ?? null,
+        'purchaseData' => null,
+    ])
 </head>
 <body>
     @livewire('funnel.embed-checkout-form', [

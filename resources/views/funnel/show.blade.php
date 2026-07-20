@@ -690,6 +690,9 @@
 
     <!-- Facebook Pixel -->
     @include('funnel.partials.facebook-pixel')
+
+    <!-- Google (GA4 + Google Ads) -->
+    @include('funnel.partials.google-tracking')
 </head>
 <body>
     <!-- Progress Bar (if enabled) -->

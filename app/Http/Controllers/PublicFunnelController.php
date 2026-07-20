@@ -5,11 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Traits\ResolvesAffiliateId;
 use App\Models\Funnel;
 use App\Models\FunnelAffiliate;
+use App\Models\FunnelAnalytics;
 use App\Models\FunnelSession;
 use App\Models\FunnelStep;
+use App\Models\FunnelStepContent;
+use App\Models\ProductOrder;
 use App\Services\Funnel\FacebookPixelService;
+use App\Services\Funnel\GoogleTrackingService;
 use App\Services\Funnel\PuckRenderer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -19,13 +26,14 @@ class PublicFunnelController extends Controller
 
     public function __construct(
         protected PuckRenderer $renderer,
-        protected FacebookPixelService $pixelService
+        protected FacebookPixelService $pixelService,
+        protected GoogleTrackingService $googleService
     ) {}
 
     /**
      * Show funnel landing page with affiliate ref code (path-based).
      */
-    public function showWithRef(Request $request, string $slug, string $refCode): View|\Illuminate\Http\Response
+    public function showWithRef(Request $request, string $slug, string $refCode): View|Response
     {
         $this->storeAffiliateRef($request, $slug, $refCode);
 
@@ -35,7 +43,7 @@ class PublicFunnelController extends Controller
     /**
      * Show specific funnel step with affiliate ref code (path-based).
      */
-    public function showStepWithRef(Request $request, string $slug, string $stepSlug, string $refCode): View|\Illuminate\Http\Response
+    public function showStepWithRef(Request $request, string $slug, string $stepSlug, string $refCode): View|Response
     {
         $this->storeAffiliateRef($request, $slug, $refCode);
 
@@ -70,7 +78,7 @@ class PublicFunnelController extends Controller
     /**
      * Show funnel landing page (first step).
      */
-    public function show(Request $request, string $slug): View|\Illuminate\Http\Response
+    public function show(Request $request, string $slug): View|Response
     {
         $funnel = Funnel::where('slug', $slug)
             ->where('status', 'published')
@@ -90,7 +98,7 @@ class PublicFunnelController extends Controller
     /**
      * Show specific funnel step.
      */
-    public function showStep(Request $request, string $slug, string $stepSlug): View|\Illuminate\Http\Response
+    public function showStep(Request $request, string $slug, string $stepSlug): View|Response
     {
         $funnel = Funnel::where('slug', $slug)
             ->where('status', 'published')
@@ -107,7 +115,7 @@ class PublicFunnelController extends Controller
     /**
      * Render a funnel step.
      */
-    protected function renderStep(Request $request, Funnel $funnel, FunnelStep $step): View|\Illuminate\Http\Response
+    protected function renderStep(Request $request, Funnel $funnel, FunnelStep $step): View|Response
     {
         // Get or create session
         $session = $this->getOrCreateSession($request, $funnel);
@@ -152,7 +160,7 @@ class PublicFunnelController extends Controller
             // Replace content placeholders
             $orderNumber = $request->query('order');
             if ($orderNumber) {
-                $renderedContent = new \Illuminate\Support\HtmlString(
+                $renderedContent = new HtmlString(
                     str_replace('[ORDER_NUMBER]', e($orderNumber), (string) $renderedContent)
                 );
             }
@@ -208,8 +216,8 @@ class PublicFunnelController extends Controller
         Funnel $funnel,
         FunnelStep $step,
         FunnelSession $session,
-        \App\Models\FunnelStepContent $content
-    ): \Illuminate\Http\Response {
+        FunnelStepContent $content
+    ): Response {
         $nextStep = $step->next_step_id
             ? $funnel->steps()->find($step->next_step_id)
             : $funnel->steps()->where('sort_order', '>', $step->sort_order)->first();
@@ -254,6 +262,13 @@ class PublicFunnelController extends Controller
             $pixelHtml = view('funnel.partials.facebook-pixel', compact('funnel', 'step', 'session')
                 + $pixelData)->render();
             $trackingScripts[] = $pixelHtml;
+        }
+
+        // Google (GA4 + Google Ads) tracking
+        if ($this->googleService->isEnabled($funnel)) {
+            $googleHtml = view('funnel.partials.google-tracking', compact('funnel', 'step', 'session')
+                + $pixelData)->render();
+            $trackingScripts[] = $googleHtml;
         }
 
         // Tracking codes from funnel settings
@@ -302,7 +317,7 @@ class PublicFunnelController extends Controller
 
                 // Track daily unique visitor at funnel level
                 if ($isNewVisitorToday) {
-                    $funnelAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($funnel->id);
+                    $funnelAnalytics = FunnelAnalytics::getOrCreateForToday($funnel->id);
                     $funnelAnalytics->incrementVisitors();
                 }
 
@@ -331,7 +346,7 @@ class PublicFunnelController extends Controller
         $isNewSession = true;
 
         // Track new unique visitor in analytics (funnel level)
-        $funnelAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($funnel->id);
+        $funnelAnalytics = FunnelAnalytics::getOrCreateForToday($funnel->id);
         $funnelAnalytics->incrementVisitors();
 
         // Store session UUID in cookie (30 days) and session
@@ -393,11 +408,11 @@ class PublicFunnelController extends Controller
     protected function updateAnalytics(int $funnelId, int $stepId, bool $isFirstStepVisitToday = false): void
     {
         // Update funnel-level analytics (pageviews only, visitors tracked in getOrCreateSession)
-        $funnelAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($funnelId);
+        $funnelAnalytics = FunnelAnalytics::getOrCreateForToday($funnelId);
         $funnelAnalytics->incrementPageviews();
 
         // Update step-level analytics
-        $stepAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($funnelId, $stepId);
+        $stepAnalytics = FunnelAnalytics::getOrCreateForToday($funnelId, $stepId);
         $stepAnalytics->incrementPageviews();
 
         // Track step-level unique visitor (first visit to this step today)
@@ -410,7 +425,7 @@ class PublicFunnelController extends Controller
      * Track Facebook Pixel events and return event IDs for browser-side deduplication.
      */
     protected function trackPixelEvents(
-        \Illuminate\Http\Request $request,
+        Request $request,
         Funnel $funnel,
         FunnelStep $step,
         FunnelSession $session,
@@ -418,12 +433,14 @@ class PublicFunnelController extends Controller
     ): array {
         $data = [];
 
-        // Skip if pixel is not enabled
-        if (! $this->pixelService->isEnabled($funnel)) {
+        // Skip only when neither Facebook nor Google tracking is active. The
+        // event data below (content ids, values) is platform-agnostic and shared
+        // by both the facebook-pixel and google-tracking partials.
+        if (! $this->pixelService->isEnabled($funnel) && ! $this->googleService->isEnabled($funnel)) {
             return $data;
         }
 
-        // Track PageView (always)
+        // Track PageView (always). Facebook server-side call no-ops if FB is off.
         $data['pageViewEventId'] = $this->pixelService->trackPageView($funnel, $request, $session);
 
         // Track ViewContent for landing/sales pages with products
@@ -476,18 +493,19 @@ class PublicFunnelController extends Controller
             if (! $order) {
                 $orderNumber = $request->query('order');
                 if ($orderNumber) {
-                    $order = \App\Models\ProductOrder::where('order_number', $orderNumber)
+                    $order = ProductOrder::where('order_number', $orderNumber)
                         ->with('items')
                         ->first();
                 }
             }
 
             if ($order && $order->items->isNotEmpty()) {
-                // Use existing event ID from server-side tracking, or generate a new one
+                // Facebook: reuse the server-side event ID (for browser/server
+                // deduplication), generating one if it wasn't tracked yet. Only
+                // when the FB pixel is enabled.
                 $purchaseEventId = $order->metadata['fb_purchase_event_id'] ?? null;
 
-                if (! $purchaseEventId) {
-                    // Generate new event ID and track server-side if not already done
+                if (! $purchaseEventId && $this->pixelService->isEnabled($funnel)) {
                     $purchaseEventId = $this->pixelService->trackPurchase(
                         $funnel,
                         $order,
@@ -497,22 +515,24 @@ class PublicFunnelController extends Controller
                     );
                 }
 
-                if ($purchaseEventId) {
-                    $contentIds = $order->items->pluck('product_id')->filter()->map(fn ($id) => (string) $id)->toArray();
+                $data['purchaseEventId'] = $purchaseEventId;
 
-                    $data['purchaseEventId'] = $purchaseEventId;
-                    $data['purchaseData'] = [
-                        'content_ids' => $contentIds,
-                        'contents' => $order->items->map(fn ($item) => [
-                            'id' => (string) ($item->product_id ?? $item->id),
-                            'quantity' => $item->quantity,
-                            'item_price' => (float) $item->unit_price,
-                        ])->toArray(),
-                        'value' => (float) $order->total_amount,
-                        'currency' => strtoupper($order->currency ?? 'MYR'),
-                        'num_items' => $order->items->sum('quantity'),
-                    ];
-                }
+                // Purchase payload is shared by both partials. `transaction_id`
+                // (the order number) lets GA4/Google Ads deduplicate conversions.
+                $contentIds = $order->items->pluck('product_id')->filter()->map(fn ($id) => (string) $id)->toArray();
+
+                $data['purchaseData'] = [
+                    'transaction_id' => $order->order_number,
+                    'content_ids' => $contentIds,
+                    'contents' => $order->items->map(fn ($item) => [
+                        'id' => (string) ($item->product_id ?? $item->id),
+                        'quantity' => $item->quantity,
+                        'item_price' => (float) $item->unit_price,
+                    ])->toArray(),
+                    'value' => (float) $order->total_amount,
+                    'currency' => strtoupper($order->currency ?? 'MYR'),
+                    'num_items' => $order->items->sum('quantity'),
+                ];
             }
         }
 
@@ -522,7 +542,7 @@ class PublicFunnelController extends Controller
     /**
      * Handle opt-in form submission.
      */
-    public function submitOptin(Request $request, string $slug): \Illuminate\Http\JsonResponse
+    public function submitOptin(Request $request, string $slug): JsonResponse
     {
         $request->validate([
             'email' => ['required', 'email'],
@@ -582,7 +602,7 @@ class PublicFunnelController extends Controller
     /**
      * Serve funnel landing page via custom domain.
      */
-    public function showFromCustomDomain(Request $request): View|\Illuminate\Http\Response
+    public function showFromCustomDomain(Request $request): View|Response
     {
         $customDomain = $request->attributes->get('custom_domain');
 
@@ -609,7 +629,7 @@ class PublicFunnelController extends Controller
     /**
      * Serve a specific funnel step via custom domain.
      */
-    public function showStepFromCustomDomain(Request $request, string $stepSlug): View|\Illuminate\Http\Response
+    public function showStepFromCustomDomain(Request $request, string $stepSlug): View|Response
     {
         $customDomain = $request->attributes->get('custom_domain');
 
@@ -634,7 +654,7 @@ class PublicFunnelController extends Controller
     /**
      * Handle opt-in submission via custom domain.
      */
-    public function submitOptinFromCustomDomain(Request $request): \Illuminate\Http\JsonResponse
+    public function submitOptinFromCustomDomain(Request $request): JsonResponse
     {
         $customDomain = $request->attributes->get('custom_domain');
 
