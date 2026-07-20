@@ -114,18 +114,40 @@ class GoLiveController extends Controller
         abort_if($replaced, 422, 'Slot ini telah diganti. Sila hubungi PIC.');
 
         $assignment = LiveScheduleAssignment::findOrFail($assignmentId);
+        $hostId = $request->user()->id;
 
-        $session = LiveSession::create([
-            'platform_account_id' => $assignment->platform_account_id,
-            'live_host_platform_account_id' => $assignment->live_host_platform_account_id,
-            'live_schedule_assignment_id' => $assignment->id,
-            'live_host_id' => $request->user()->id,
-            'title' => 'Live Session',
-            'status' => 'live',
-            'scheduled_start_at' => now(),
-            'actual_start_at' => now(),
-            'gmv_source' => 'manual',
-        ]);
+        // Idempotent start: reuse the slot's existing session for today rather
+        // than spawning a parallel one. A dated slot already materialises a
+        // 'scheduled' session (LiveScheduleAssignmentObserver); a rapid
+        // double-tap can leave a 'live' one. Either is promoted to live here —
+        // creating a fresh row on every tap is what buried hosts under piles of
+        // duplicate "PERLU UPLOAD" sessions.
+        $session = LiveSession::query()
+            ->where('live_schedule_assignment_id', $assignment->id)
+            ->where('live_host_id', $hostId)
+            ->whereIn('status', ['scheduled', 'live'])
+            ->whereDate('scheduled_start_at', now()->toDateString())
+            ->orderByDesc('id')
+            ->first();
+
+        if ($session) {
+            if ($session->status !== 'live') {
+                $session->startLive();
+            }
+        } else {
+            $session = LiveSession::create([
+                'platform_account_id' => $assignment->platform_account_id,
+                'live_host_platform_account_id' => $assignment->live_host_platform_account_id,
+                'live_account_id' => $assignment->live_account_id,
+                'live_schedule_assignment_id' => $assignment->id,
+                'live_host_id' => $hostId,
+                'title' => 'Live Session',
+                'status' => 'live',
+                'scheduled_start_at' => now(),
+                'actual_start_at' => now(),
+                'gmv_source' => 'manual',
+            ]);
+        }
 
         return redirect()
             ->route('live-host.sessions.show', $session)
