@@ -496,7 +496,10 @@ function MonthDayCard({ item }) {
   return (
     <div className="mb-[8px] rounded-[14px] border border-[var(--hair)] px-[14px] py-[12px]">
       <div className="flex items-center justify-between gap-2">
-        <div className="font-mono text-[15px] font-bold tabular-nums text-[var(--fg)]">{item.startTime || '—'}</div>
+        <div className="font-mono text-[15px] font-bold tabular-nums text-[var(--fg)]">
+          {item.startTime || '—'}
+          {item.endTime ? <span className="text-[var(--fg-3)]"> – {item.endTime}</span> : null}
+        </div>
         {item.platformAccount ? (
           <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--fg-3)]">{item.platformAccount}</div>
         ) : null}

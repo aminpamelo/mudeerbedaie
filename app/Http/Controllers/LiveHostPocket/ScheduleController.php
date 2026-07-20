@@ -208,6 +208,7 @@ class ScheduleController extends Controller
                 'creatorAccount' => $session->liveAccount?->display_name ?: $session->liveAccount?->nickname,
                 'platformAccount' => $session->platformAccount?->name,
                 'startTime' => $this->formatTime($session->scheduled_start_at),
+                'endTime' => $this->sessionEndTime($session),
                 'state' => $recap['state'],
                 'recapAction' => $recap,
             ];
@@ -446,5 +447,21 @@ class ScheduleController extends Controller
         }
 
         return substr((string) $value, 0, 5);
+    }
+
+    /**
+     * The session's end time as "HH:MM" — the scheduled window (start +
+     * duration) when a duration is known, otherwise the actual end. Empty
+     * string when neither is available.
+     */
+    private function sessionEndTime(LiveSession $session): string
+    {
+        if ($session->scheduled_start_at !== null && $session->duration_minutes) {
+            return $this->formatTime(
+                $session->scheduled_start_at->copy()->addMinutes((int) $session->duration_minutes)
+            );
+        }
+
+        return $this->formatTime($session->actual_end_at);
     }
 }
