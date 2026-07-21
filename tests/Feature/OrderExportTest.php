@@ -2,15 +2,26 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ExportProductOrders;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
+use App\Models\SalesSource;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
     $this->admin = User::factory()->create(['role' => 'admin']);
     $this->actingAs($this->admin);
 });
+
+function runExport(User $user, array $filters): string
+{
+    $filename = 'orders-export-test.csv';
+    (new ExportProductOrders($user->id, $filename, $filters))->handle();
+
+    return Storage::disk('local')->get('exports/'.$filename);
+}
 
 it('exports orders as CSV file', function () {
     $order = ProductOrder::factory()->create([
@@ -64,6 +75,46 @@ it('exports only filtered orders by source', function () {
         ->set('sourceTab', 'pos')
         ->call('exportOrders')
         ->assertFileDownloaded();
+});
+
+it('exports only fighter orders when the fighter tab is selected', function () {
+    $fighterSource = SalesSource::factory()->create(['name' => 'Fighter: Ali']);
+    User::factory()->create(['role' => 'fighter', 'sales_source_id' => $fighterSource->id]);
+
+    ProductOrder::factory()->create([
+        'order_number' => 'ORD-FIGHTER-EXP',
+        'source' => 'pos',
+        'sales_source_id' => $fighterSource->id,
+    ]);
+    ProductOrder::factory()->create(['order_number' => 'ORD-PLAIN-POS-EXP', 'source' => 'pos']);
+    ProductOrder::factory()->create(['order_number' => 'ORD-PLAIN-FUNNEL-EXP', 'source' => 'funnel']);
+
+    $csv = runExport($this->admin, ['sourceTab' => 'fighter']);
+
+    expect($csv)->toContain('ORD-FIGHTER-EXP')
+        ->not->toContain('ORD-PLAIN-POS-EXP')
+        ->not->toContain('ORD-PLAIN-FUNNEL-EXP');
+});
+
+it('excludes fighter orders from the pos export', function () {
+    $fighterSource = SalesSource::factory()->create(['name' => 'Fighter: Ali']);
+    User::factory()->create(['role' => 'fighter', 'sales_source_id' => $fighterSource->id]);
+
+    ProductOrder::factory()->create([
+        'order_number' => 'ORD-FIGHTER-POS-EXP',
+        'source' => 'pos',
+        'sales_source_id' => $fighterSource->id,
+    ]);
+    ProductOrder::factory()->create([
+        'order_number' => 'ORD-PLAIN-POS-EXP',
+        'source' => 'pos',
+        'sales_source_id' => null,
+    ]);
+
+    $csv = runExport($this->admin, ['sourceTab' => 'pos']);
+
+    expect($csv)->toContain('ORD-PLAIN-POS-EXP')
+        ->not->toContain('ORD-FIGHTER-POS-EXP');
 });
 
 it('exports orders with correct CSV filename format', function () {

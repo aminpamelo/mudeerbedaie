@@ -14,6 +14,7 @@ use App\Models\WhatsAppTemplate;
 use App\Services\WhatsApp\WhatsAppBlastService;
 use App\Services\WhatsApp\WhatsAppManager;
 use App\Services\WhatsAppService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -271,8 +272,8 @@ new class extends Component
                         $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
                             ->orWhereNull('source');
                     }),
-                    'funnel' => $query->where('source', 'funnel'),
-                    'pos' => $query->where('source', 'pos'),
+                    'funnel' => $this->excludeFighterSources($query->where('source', 'funnel')),
+                    'pos' => $this->excludeFighterSources($query->where('source', 'pos')),
                     'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
                     default => $query
                 };
@@ -531,8 +532,8 @@ new class extends Component
                     $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
                         ->orWhereNull('source');
                 }),
-                'funnel' => $query->where('source', 'funnel'),
-                'pos' => $query->where('source', 'pos'),
+                'funnel' => $this->excludeFighterSources($query->where('source', 'funnel')),
+                'pos' => $this->excludeFighterSources($query->where('source', 'pos')),
                 'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
                 default => $query
             };
@@ -658,15 +659,43 @@ new class extends Component
             ->all();
     }
 
+    /**
+     * Exclude fighter-owned sales sources from a query so fighter orders
+     * (which carry source='pos'/'funnel' plus a fighter sales_source_id)
+     * are not double-counted under the POS/Funnel tabs. Guards the SQL
+     * `NOT IN` + NULL pitfall by keeping rows with a null sales_source_id.
+     */
+    protected function excludeFighterSources(Builder $query): Builder
+    {
+        $ids = $this->fighterSalesSourceIds();
+
+        if (empty($ids)) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($ids) {
+            $q->whereNotIn('sales_source_id', $ids)
+                ->orWhereNull('sales_source_id');
+        });
+    }
+
     public function getSourceCounts(): array
     {
         $fighterSourceIds = $this->fighterSalesSourceIds();
 
+        // Exclude fighter-owned sales sources from the POS/Funnel totals so
+        // fighter orders (source='pos'/'funnel' + fighter sales_source_id)
+        // are only counted under the Fighter tab. Ids are cast to int, so the
+        // inlined list is injection-safe.
+        $fighterExclusion = empty($fighterSourceIds)
+            ? ''
+            : ' AND (sales_source_id IS NULL OR sales_source_id NOT IN ('.implode(',', $fighterSourceIds).'))';
+
         $counts = ProductOrder::visibleInAdmin()->selectRaw("
             COUNT(*) as total,
             SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform,
-            SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel,
-            SUM(CASE WHEN source = 'pos' THEN 1 ELSE 0 END) as pos,
+            SUM(CASE WHEN source = 'funnel'{$fighterExclusion} THEN 1 ELSE 0 END) as funnel,
+            SUM(CASE WHEN source = 'pos'{$fighterExclusion} THEN 1 ELSE 0 END) as pos,
             SUM(CASE WHEN source = 'storefront' THEN 1 ELSE 0 END) as storefront,
             SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos', 'storefront')) THEN 1 ELSE 0 END) as agent_company
         ")->first();

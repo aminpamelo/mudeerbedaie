@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\ProductOrder;
+use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
 
@@ -12,6 +14,9 @@ class ExportProductOrders implements ShouldQueue
     use Queueable;
 
     public int $timeout = 600;
+
+    /** @var array<int, int>|null */
+    protected ?array $fighterSourceIdsCache = null;
 
     public function __construct(
         public int $userId,
@@ -147,12 +152,14 @@ class ExportProductOrders implements ShouldQueue
         if (! empty($filters['sourceTab']) && $filters['sourceTab'] !== 'all') {
             match ($filters['sourceTab']) {
                 'platform' => $query->whereNotNull('platform_id'),
+                'storefront' => $query->where('source', 'storefront'),
                 'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                    $q->whereNotIn('source', ['funnel', 'pos'])
+                    $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
                         ->orWhereNull('source');
                 }),
-                'funnel' => $query->where('source', 'funnel'),
-                'pos' => $query->where('source', 'pos'),
+                'funnel' => $this->excludeFighterSources($query->where('source', 'funnel')),
+                'pos' => $this->excludeFighterSources($query->where('source', 'pos')),
+                'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
                 default => $query
             };
         }
@@ -187,6 +194,45 @@ class ExportProductOrders implements ShouldQueue
         if (! empty($filters['dateTo'])) {
             $query->whereDate('created_at', '<=', $filters['dateTo']);
         }
+    }
+
+    /**
+     * Sales source ids owned by fighter users. Together these make up the
+     * "Fighter" source, mirroring the order-list Volt component.
+     *
+     * @return array<int, int>
+     */
+    protected function fighterSalesSourceIds(): array
+    {
+        return $this->fighterSourceIdsCache ??= User::query()
+            ->withTrashed()
+            ->where('role', 'fighter')
+            ->whereNotNull('sales_source_id')
+            ->pluck('sales_source_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Exclude fighter-owned sales sources from a query so fighter orders
+     * (source='pos'/'funnel' + fighter sales_source_id) are not exported
+     * under the POS/Funnel tabs. Keeps rows with a null sales_source_id so
+     * the SQL `NOT IN` + NULL pitfall doesn't drop non-fighter orders.
+     */
+    protected function excludeFighterSources(Builder $query): Builder
+    {
+        $ids = $this->fighterSalesSourceIds();
+
+        if (empty($ids)) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($ids) {
+            $q->whereNotIn('sales_source_id', $ids)
+                ->orWhereNull('sales_source_id');
+        });
     }
 
     /**
@@ -264,6 +310,10 @@ class ExportProductOrders implements ShouldQueue
 
         if ($order->agent_id) {
             return ['label' => 'Agent'];
+        }
+
+        if ($order->sales_source_id && in_array((int) $order->sales_source_id, $this->fighterSalesSourceIds(), true)) {
+            return ['label' => 'Fighter'];
         }
 
         if ($order->source === 'funnel') {

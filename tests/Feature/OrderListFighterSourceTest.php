@@ -105,3 +105,57 @@ test('a fighter funnel order still counts under fighter even though its channel 
         ->set('sourceTab', 'fighter')
         ->assertSee($order->order_number);
 });
+
+test('a fighter pos order does not also count under the pos tab', function () {
+    $fighterSource = makeFighterWithSource();
+
+    $fighterPosOrder = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'sales_source_id' => $fighterSource->id,
+        'hidden_from_admin' => false,
+    ]);
+    $plainPosOrder = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'sales_source_id' => null,
+        'hidden_from_admin' => false,
+    ]);
+
+    actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-list');
+    $counts = $component->instance()->getSourceCounts();
+
+    expect($counts['pos'])->toBe(1);
+    expect($counts['fighter'])->toBe(1);
+
+    $component->set('sourceTab', 'pos')
+        ->assertSee($plainPosOrder->order_number)
+        ->assertDontSee($fighterPosOrder->order_number);
+});
+
+test('a fighter funnel order does not also count under the funnel tab', function () {
+    $fighterSource = makeFighterWithSource();
+
+    $fighterFunnelOrder = ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'sales_source_id' => $fighterSource->id,
+        'hidden_from_admin' => false,
+    ]);
+    $plainFunnelOrder = ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'sales_source_id' => null,
+        'hidden_from_admin' => false,
+    ]);
+
+    actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-list');
+    $counts = $component->instance()->getSourceCounts();
+
+    expect($counts['funnel'])->toBe(1);
+    expect($counts['fighter'])->toBe(1);
+
+    $component->set('sourceTab', 'funnel')
+        ->assertSee($plainFunnelOrder->order_number)
+        ->assertDontSee($fighterFunnelOrder->order_number);
+});
