@@ -6,9 +6,12 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   GripVertical,
   Inbox,
+  LayoutGrid,
   Link as LinkIcon,
   Mail,
   MapPin,
@@ -283,7 +286,14 @@ function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen, compa
   );
 }
 
-function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false, onOpen, compact = false }) {
+function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false, onOpen, onExpand, compact = false }) {
+  const [showAll, setShowAll] = useState(false);
+  const collapseLimit = compact ? 12 : 8;
+  const total = applicants.length;
+  const overflowing = total > collapseLimit;
+  const visible = showAll ? applicants : applicants.slice(0, collapseLimit);
+  const hidden = total - visible.length;
+
   return (
     <div className="flex w-[280px] shrink-0 flex-col rounded-[12px] bg-[#F5F5F5]">
       <div className="flex items-center justify-between border-b border-[#EAEAEA] px-3 py-2.5">
@@ -297,9 +307,22 @@ function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled =
             </span>
           )}
         </div>
-        <span className="inline-flex min-w-[24px] justify-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#525252]">
-          {applicants.length}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {overflowing && typeof onExpand === 'function' && (
+            <button
+              type="button"
+              onClick={() => onExpand(stage)}
+              title="Buka paparan grid"
+              aria-label={`Buka paparan grid ${stage.name}`}
+              className="grid h-6 w-6 place-items-center rounded-md text-[#737373] transition-colors hover:bg-white hover:text-[#0A0A0A]"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          )}
+          <span className="inline-flex min-w-[24px] justify-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#525252]">
+            {total}
+          </span>
+        </div>
       </div>
       <Droppable droppableId={String(stage.id)} isDropDisabled={isDropDisabled}>
         {(provided, snapshot) => (
@@ -313,7 +336,7 @@ function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled =
                 : '',
             ].join(' ')}
           >
-            {applicants.length === 0 ? (
+            {total === 0 ? (
               <div
                 className={[
                   'flex h-full min-h-[100px] flex-col items-center justify-center rounded-md border border-dashed text-center text-[11px] transition-colors',
@@ -325,7 +348,7 @@ function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled =
                 {snapshot.isDraggingOver && !isDropDisabled ? 'Drop to move here' : 'Nothing here yet'}
               </div>
             ) : (
-              applicants.map((a, index) => (
+              visible.map((a, index) => (
                 <ApplicantCard key={a.id} applicant={a} index={index} isDragDisabled={dragDisabled} onOpen={onOpen} compact={compact} />
               ))
             )}
@@ -333,7 +356,151 @@ function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled =
           </div>
         )}
       </Droppable>
+      {overflowing && (
+        <div className="px-2 pb-2">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="flex w-full items-center justify-center gap-1 rounded-md border border-[#EAEAEA] bg-white py-1.5 text-[11.5px] font-medium text-[#525252] transition-colors hover:border-[#D4D4D4] hover:bg-[#FAFAFA]"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} /> Tunjuk kurang
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} /> + {hidden} lagi
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+function StageGridModal({ stage, applicants, onOpen, onClose }) {
+  const [q, setQ] = useState('');
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const query = q.trim().toLowerCase();
+  const list = query
+    ? applicants.filter((a) =>
+        [a.full_name, a.applicant_number, a.email, a.phone, a.domicile]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(query)),
+      )
+    : applicants;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 p-4 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_-16px_rgba(0,0,0,0.35)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-[#EAEAEA] px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#0A0A0A]">
+              {stage.name}
+            </span>
+            <span className="inline-flex min-w-[24px] justify-center rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#525252]">
+              {applicants.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative hidden sm:block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A3A3A3]" strokeWidth={2} />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Cari dalam stage…"
+                className="h-9 w-56 rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-3 text-[13px] text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Tutup"
+              className="grid h-9 w-9 place-items-center rounded-lg text-[#737373] transition-colors hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
+            >
+              <X className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {list.length === 0 ? (
+            <div className="grid place-items-center py-16 text-center text-[13px] text-[#A3A3A3]">
+              Tiada calon sepadan.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {list.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onOpen(a)}
+                  className="group rounded-lg border border-[#EAEAEA] bg-white p-3 text-left transition-all hover:border-[#D4D4D4] hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)]"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
+                        {a.full_name}
+                      </div>
+                      <div className="mt-0.5 truncate font-mono text-[10.5px] text-[#737373]">
+                        {a.applicant_number}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <RatingStars value={a.rating} />
+                      {a.assignment?.assignee && (
+                        <span
+                          title={a.assignment.assignee.name}
+                          className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#E5E7EB] text-[8px] font-semibold text-[#374151]"
+                        >
+                          {a.assignment.assignee.initials}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {a.applied_at_display && (
+                    <div className="mt-1.5 flex items-center gap-1 text-[11px] tabular-nums text-[#737373]">
+                      <CalendarDays className="h-3 w-3 shrink-0 text-[#A3A3A3]" strokeWidth={2} />
+                      {a.applied_at_display}
+                    </div>
+                  )}
+                  {a.platforms?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {a.platforms.map((p) => (
+                        <span
+                          key={p}
+                          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${platformTone(p)}`}
+                        >
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -585,6 +752,7 @@ export default function ApplicantsIndex() {
   const [isMoving, setIsMoving] = useState(false);
   const [openApplicantId, setOpenApplicantId] = useState(null);
   const [search, setSearch] = useState('');
+  const [expandedStageId, setExpandedStageId] = useState(null);
 
   // Card density + sort — persisted so the PIC's choice sticks across visits.
   const [viewMode, setViewMode] = useState(() =>
@@ -659,6 +827,19 @@ export default function ApplicantsIndex() {
       ),
     [searchedApplicants, stages],
   );
+
+  const expandedStage = useMemo(() => {
+    if (expandedStageId == null) {
+      return null;
+    }
+    if (expandedStageId === 0) {
+      return { id: 0, name: 'Unassigned', is_final: false };
+    }
+    return (stages ?? []).find((s) => s.id === expandedStageId) ?? null;
+  }, [expandedStageId, stages]);
+
+  const expandedApplicants =
+    expandedStageId === 0 ? ungrouped : applicantsByStage.get(expandedStageId) ?? [];
 
   const onDragEnd = (result) => {
     const { source, destination, draggableId } = result;
@@ -918,6 +1099,7 @@ export default function ApplicantsIndex() {
                         stage={stage}
                         applicants={applicantsByStage.get(stage.id) ?? []}
                         onOpen={(a) => setOpenApplicantId(a.id)}
+                        onExpand={(s) => setExpandedStageId(s.id)}
                         compact={compact}
                       />
                     ))}
@@ -927,6 +1109,7 @@ export default function ApplicantsIndex() {
                         applicants={ungrouped}
                         isDropDisabled={true}
                         onOpen={(a) => setOpenApplicantId(a.id)}
+                        onExpand={(s) => setExpandedStageId(s.id)}
                         compact={compact}
                       />
                     )}
@@ -942,6 +1125,14 @@ export default function ApplicantsIndex() {
           </>
         )}
       </div>
+      {expandedStage && (
+        <StageGridModal
+          stage={expandedStage}
+          applicants={expandedApplicants}
+          onOpen={(a) => setOpenApplicantId(a.id)}
+          onClose={() => setExpandedStageId(null)}
+        />
+      )}
       {openApplicant && (
         <StageAssignmentModal
           applicant={openApplicant}
