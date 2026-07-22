@@ -16,9 +16,11 @@ import {
   Phone,
   Radio,
   Rows3,
+  Search,
   Sparkles,
   Square,
   Star,
+  X,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StageAssignmentModal from '@/livehost/components/recruitment/StageAssignmentModal';
@@ -582,6 +584,7 @@ export default function ApplicantsIndex() {
   const [stageOverrides, setStageOverrides] = useState({});
   const [isMoving, setIsMoving] = useState(false);
   const [openApplicantId, setOpenApplicantId] = useState(null);
+  const [search, setSearch] = useState('');
 
   // Card density + sort — persisted so the PIC's choice sticks across visits.
   const [viewMode, setViewMode] = useState(() =>
@@ -626,23 +629,35 @@ export default function ApplicantsIndex() {
     return list;
   }, [effectiveApplicants, sortBy]);
 
+  const query = search.trim().toLowerCase();
+  const searchedApplicants = useMemo(() => {
+    if (!query) {
+      return sortedApplicants;
+    }
+    return sortedApplicants.filter((a) =>
+      [a.full_name, a.applicant_number, a.email, a.phone, a.domicile]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(query)),
+    );
+  }, [sortedApplicants, query]);
+
   const applicantsByStage = useMemo(() => {
     const map = new Map();
     (stages ?? []).forEach((s) => map.set(s.id, []));
-    sortedApplicants.forEach((a) => {
+    searchedApplicants.forEach((a) => {
       if (a.current_stage_id && map.has(a.current_stage_id)) {
         map.get(a.current_stage_id).push(a);
       }
     });
     return map;
-  }, [stages, sortedApplicants]);
+  }, [stages, searchedApplicants]);
 
   const ungrouped = useMemo(
     () =>
-      sortedApplicants.filter(
+      searchedApplicants.filter(
         (a) => !a.current_stage_id || !(stages ?? []).some((s) => s.id === a.current_stage_id),
       ),
-    [sortedApplicants, stages],
+    [searchedApplicants, stages],
   );
 
   const onDragEnd = (result) => {
@@ -814,8 +829,34 @@ export default function ApplicantsIndex() {
                 ))}
               </div>
 
+              {applicants.length > 0 && (
+                <div className="relative w-full sm:ml-auto sm:w-64">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A3A3A3]"
+                    strokeWidth={2}
+                  />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari nama, no. pemohon, emel…"
+                    className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white pl-9 pr-8 text-[13px] text-[#0A0A0A] placeholder:text-[#A3A3A3] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      aria-label="Kosongkan carian"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#A3A3A3] hover:bg-[#F5F5F5] hover:text-[#525252]"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {statusTab === 'active' && applicants.length > 0 && (
-                <div className="flex items-center gap-2 sm:ml-auto">
+                <div className="flex items-center gap-2">
                   <div className="relative">
                     <select
                       value={sortBy}
@@ -894,7 +935,7 @@ export default function ApplicantsIndex() {
               )
             ) : (
               <ApplicantList
-                applicants={applicants}
+                applicants={searchedApplicants}
                 title={statusTab === 'rejected' ? 'Rejected' : 'Hired'}
               />
             )}
