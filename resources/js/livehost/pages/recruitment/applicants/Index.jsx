@@ -1,16 +1,23 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import {
   ArrowUpRight,
+  CalendarDays,
   Check,
   Copy,
   GripVertical,
   Inbox,
   Link as LinkIcon,
   Mail,
+  MapPin,
   MessageCircle,
+  Phone,
+  Radio,
+  Rows3,
   Sparkles,
+  Square,
   Star,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
@@ -61,15 +68,103 @@ function RatingStars({ value }) {
   );
 }
 
-function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen }) {
+function PreviewRow({ icon: Icon, label, value }) {
+  if (!value) {
+    return null;
+  }
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#A3A3A3]" strokeWidth={2} />
+      <div className="min-w-0">
+        <div className="text-[9.5px] font-medium uppercase tracking-[0.06em] text-[#A3A3A3]">{label}</div>
+        <div className="truncate text-[12px] font-medium text-[#262626]">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function ApplicantPreview({ applicant, anchor }) {
+  const WIDTH = 268;
+  const MARGIN = 12;
+  const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+  // Prefer placing to the right of the card; flip left if it would overflow.
+  let left = anchor.right + MARGIN;
+  if (left + WIDTH > viewportW - 8) {
+    left = anchor.left - WIDTH - MARGIN;
+  }
+  if (left < 8) {
+    left = 8;
+  }
+  let top = anchor.top;
+  const EST_HEIGHT = 220;
+  if (top + EST_HEIGHT > viewportH - 8) {
+    top = Math.max(8, viewportH - EST_HEIGHT - 8);
+  }
+
+  return createPortal(
+    <div
+      className="pointer-events-none fixed z-[70] w-[268px] rounded-xl border border-[#EAEAEA] bg-white p-3.5 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.22)]"
+      style={{ top, left }}
+    >
+      <div className="mb-2.5 border-b border-[#F0F0F0] pb-2.5">
+        <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
+          {applicant.full_name}
+        </div>
+        <div className="mt-0.5 truncate font-mono text-[10.5px] text-[#737373]">
+          {applicant.applicant_number}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <PreviewRow icon={CalendarDays} label="Applied" value={applicant.applied_at_display} />
+        <PreviewRow icon={Mail} label="Email" value={applicant.email} />
+        <PreviewRow icon={Phone} label="Phone" value={applicant.phone} />
+        <PreviewRow icon={MapPin} label="Domisili" value={applicant.domicile} />
+        <PreviewRow icon={Radio} label="Sumber" value={applicant.source} />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen, compact = false }) {
+  const [anchor, setAnchor] = useState(null);
+  const hoverTimer = useRef(null);
+
+  const openPreview = (el) => {
+    if (!el) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => {
+      setAnchor({ top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom });
+    }, 220);
+  };
+
+  const closePreview = () => {
+    clearTimeout(hoverTimer.current);
+    setAnchor(null);
+  };
+
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
+
   return (
     <Draggable draggableId={String(applicant.id)} index={index} isDragDisabled={isDragDisabled}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
+          onMouseEnter={(e) => {
+            if (!snapshot.isDragging) {
+              openPreview(e.currentTarget);
+            }
+          }}
+          onMouseLeave={closePreview}
           className={[
-            'group rounded-lg border bg-white p-3 transition-shadow',
+            'group rounded-lg border bg-white transition-shadow',
+            compact ? 'p-2.5' : 'p-3',
             snapshot.isDragging
               ? 'border-[#0A0A0A] shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)]'
               : 'border-[#EAEAEA] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-[#D4D4D4] hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)]',
@@ -84,7 +179,10 @@ function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen }) {
               type="button"
               {...provided.dragHandleProps}
               aria-label="Drag to move stage"
-              className="mt-0.5 -ml-1 cursor-grab rounded p-0.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#F5F5F5] hover:text-[#525252] group-hover:opacity-100 active:cursor-grabbing"
+              className={[
+                '-ml-1 cursor-grab rounded p-0.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#F5F5F5] hover:text-[#525252] group-hover:opacity-100 active:cursor-grabbing',
+                compact ? 'mt-px' : 'mt-0.5',
+              ].join(' ')}
             >
               <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
@@ -110,9 +208,32 @@ function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen }) {
                     {applicant.applicant_number}
                   </div>
                 </div>
-                <RatingStars value={applicant.rating} />
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <RatingStars value={applicant.rating} />
+                  {compact && applicant.assignment?.assignee && (
+                    <span
+                      title={applicant.assignment.assignee.name}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#E5E7EB] text-[8px] font-semibold text-[#374151]"
+                    >
+                      {applicant.assignment.assignee.initials}
+                    </span>
+                  )}
+                </div>
               </div>
-              {applicant.platforms?.length > 0 && (
+
+              {applicant.applied_at_display && (
+                <div
+                  className={[
+                    'flex items-center gap-1 text-[11px] tabular-nums text-[#737373]',
+                    compact ? 'mt-1.5' : 'mt-2',
+                  ].join(' ')}
+                >
+                  <CalendarDays className="h-3 w-3 shrink-0 text-[#A3A3A3]" strokeWidth={2} />
+                  {applicant.applied_at_display}
+                </div>
+              )}
+
+              {!compact && applicant.platforms?.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {applicant.platforms.map((p) => (
                     <span
@@ -124,10 +245,8 @@ function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen }) {
                   ))}
                 </div>
               )}
-              {applicant.applied_at_human && (
-                <div className="mt-2 text-[11px] text-[#A3A3A3]">Applied {applicant.applied_at_human}</div>
-              )}
-              {applicant.assignment && (applicant.assignment.assignee || applicant.assignment.due_at) && (
+
+              {!compact && applicant.assignment && (applicant.assignment.assignee || applicant.assignment.due_at) && (
                 <div className="mt-2 flex items-center gap-1.5">
                   {applicant.assignment.assignee && (
                     <span
@@ -155,13 +274,14 @@ function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen }) {
               )}
             </button>
           </div>
+          {anchor && !snapshot.isDragging && <ApplicantPreview applicant={applicant} anchor={anchor} />}
         </div>
       )}
     </Draggable>
   );
 }
 
-function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false, onOpen }) {
+function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false, onOpen, compact = false }) {
   return (
     <div className="flex w-[280px] shrink-0 flex-col rounded-[12px] bg-[#F5F5F5]">
       <div className="flex items-center justify-between border-b border-[#EAEAEA] px-3 py-2.5">
@@ -204,7 +324,7 @@ function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled =
               </div>
             ) : (
               applicants.map((a, index) => (
-                <ApplicantCard key={a.id} applicant={a} index={index} isDragDisabled={dragDisabled} onOpen={onOpen} />
+                <ApplicantCard key={a.id} applicant={a} index={index} isDragDisabled={dragDisabled} onOpen={onOpen} compact={compact} />
               ))
             )}
             {provided.placeholder}
@@ -248,8 +368,8 @@ function ApplicantList({ applicants, title }) {
                   <span>{a.email}</span>
                 </div>
               </div>
-              {a.applied_at_human && (
-                <div className="shrink-0 text-[11px] text-[#A3A3A3]">{a.applied_at_human}</div>
+              {a.applied_at_display && (
+                <div className="shrink-0 text-[11px] tabular-nums text-[#A3A3A3]">{a.applied_at_display}</div>
               )}
             </Link>
           </li>
@@ -463,6 +583,21 @@ export default function ApplicantsIndex() {
   const [isMoving, setIsMoving] = useState(false);
   const [openApplicantId, setOpenApplicantId] = useState(null);
 
+  // Card density + sort — persisted so the PIC's choice sticks across visits.
+  const [viewMode, setViewMode] = useState(() =>
+    typeof window !== 'undefined' ? window.localStorage.getItem('lh_applicants_view') || 'compact' : 'compact',
+  );
+  const [sortBy, setSortBy] = useState(() =>
+    typeof window !== 'undefined' ? window.localStorage.getItem('lh_applicants_sort') || 'newest' : 'newest',
+  );
+  useEffect(() => {
+    window.localStorage.setItem('lh_applicants_view', viewMode);
+  }, [viewMode]);
+  useEffect(() => {
+    window.localStorage.setItem('lh_applicants_sort', sortBy);
+  }, [sortBy]);
+  const compact = viewMode === 'compact';
+
   const effectiveApplicants = useMemo(
     () =>
       (applicants ?? []).map((a) =>
@@ -478,23 +613,36 @@ export default function ApplicantsIndex() {
     [effectiveApplicants, openApplicantId],
   );
 
+  const sortedApplicants = useMemo(() => {
+    const list = [...effectiveApplicants];
+    list.sort((a, b) => {
+      if (sortBy === 'name') {
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      }
+      const ta = a.applied_at ? Date.parse(a.applied_at) : 0;
+      const tb = b.applied_at ? Date.parse(b.applied_at) : 0;
+      return sortBy === 'oldest' ? ta - tb : tb - ta;
+    });
+    return list;
+  }, [effectiveApplicants, sortBy]);
+
   const applicantsByStage = useMemo(() => {
     const map = new Map();
     (stages ?? []).forEach((s) => map.set(s.id, []));
-    effectiveApplicants.forEach((a) => {
+    sortedApplicants.forEach((a) => {
       if (a.current_stage_id && map.has(a.current_stage_id)) {
         map.get(a.current_stage_id).push(a);
       }
     });
     return map;
-  }, [stages, effectiveApplicants]);
+  }, [stages, sortedApplicants]);
 
   const ungrouped = useMemo(
     () =>
-      effectiveApplicants.filter(
+      sortedApplicants.filter(
         (a) => !a.current_stage_id || !(stages ?? []).some((s) => s.id === a.current_stage_id),
       ),
-    [effectiveApplicants, stages],
+    [sortedApplicants, stages],
   );
 
   const onDragEnd = (result) => {
@@ -665,6 +813,55 @@ export default function ApplicantsIndex() {
                   </button>
                 ))}
               </div>
+
+              {statusTab === 'active' && applicants.length > 0 && (
+                <div className="flex items-center gap-2 sm:ml-auto">
+                  <div className="relative">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      aria-label="Susun pemohon"
+                      className="h-9 appearance-none rounded-lg border border-[#EAEAEA] bg-white pl-3 pr-8 text-[12.5px] font-medium text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+                    >
+                      <option value="newest">Terbaru dahulu</option>
+                      <option value="oldest">Terlama dahulu</option>
+                      <option value="name">Nama (A–Z)</option>
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                    >
+                      <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </div>
+
+                  <div className="inline-flex rounded-lg bg-[#F5F5F5] p-1">
+                    {[
+                      { id: 'compact', label: 'Compact', icon: Rows3 },
+                      { id: 'comfortable', label: 'Selesa', icon: Square },
+                    ].map((opt) => {
+                      const Icon = opt.icon;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setViewMode(opt.id)}
+                          className={[
+                            'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition-all',
+                            viewMode === opt.id
+                              ? 'bg-white text-[#0A0A0A] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                              : 'text-[#737373] hover:text-[#404040]',
+                          ].join(' ')}
+                        >
+                          <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Content */}
@@ -680,6 +877,7 @@ export default function ApplicantsIndex() {
                         stage={stage}
                         applicants={applicantsByStage.get(stage.id) ?? []}
                         onOpen={(a) => setOpenApplicantId(a.id)}
+                        compact={compact}
                       />
                     ))}
                     {ungrouped.length > 0 && (
@@ -688,6 +886,7 @@ export default function ApplicantsIndex() {
                         applicants={ungrouped}
                         isDropDisabled={true}
                         onOpen={(a) => setOpenApplicantId(a.id)}
+                        compact={compact}
                       />
                     )}
                   </div>

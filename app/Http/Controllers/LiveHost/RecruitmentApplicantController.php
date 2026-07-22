@@ -88,12 +88,15 @@ class RecruitmentApplicantController extends Controller
                     'full_name' => $a->name,
                     'email' => $a->email,
                     'phone' => $a->phone,
+                    'domicile' => $a->location,
+                    'source' => $a->source,
                     'platforms' => $a->valueByRole('platforms') ?? [],
                     'rating' => $a->rating,
                     'current_stage_id' => $a->current_stage_id,
                     'status' => $a->status,
                     'applied_at' => $a->applied_at?->toIso8601String(),
                     'applied_at_human' => $a->applied_at?->diffForHumans(),
+                    'applied_at_display' => $a->appliedAtLabel(),
                     'assignment' => $row ? [
                         'assignee' => $row->assignee ? [
                             'id' => $row->assignee->id,

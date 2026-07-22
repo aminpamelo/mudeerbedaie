@@ -4,9 +4,12 @@ use App\Models\LiveHostApplicant;
 use App\Models\LiveHostApplicantStageHistory;
 use App\Models\LiveHostRecruitmentCampaign;
 use App\Models\User;
+use App\Support\Recruitment\DefaultFormSchema;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 function reviewAdmin(): User
 {
@@ -45,6 +48,75 @@ it('renders the kanban board with applicants grouped into their stages', functio
                 ->has('stages', 4)
                 ->has('applicants', 2)
                 ->where('filters.status', 'active')
+        );
+});
+
+it('exposes source, domicile and a WIB apply timestamp on each card', function () {
+    $admin = reviewAdmin();
+    $campaign = LiveHostRecruitmentCampaign::factory()->open()->create();
+    $firstStage = $campaign->stages()->orderBy('position')->first();
+
+    $applicant = LiveHostApplicant::factory()->create([
+        'campaign_id' => $campaign->id,
+        'current_stage_id' => $firstStage->id,
+        'status' => 'active',
+        'source' => 'Facebook Ads',
+        // App tz is Asia/Kuala_Lumpur (+8); WIB (Asia/Jakarta, +7) is one hour behind, so 11:42 KL == 10:42 WIB.
+        'applied_at' => Carbon::parse('2026-07-26 11:42:00', config('app.timezone')),
+        'form_data' => [
+            'f_name' => 'Muhammad Akbar A',
+            'f_email' => 'akbar@example.com',
+            'f_phone' => '0812-3456-7890',
+            'f_location' => 'Jakarta Timur',
+            'f_platforms' => ['tiktok'],
+        ],
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('livehost.recruitment.applicants.index', ['campaign' => $campaign->id]))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->component('recruitment/applicants/Index', false)
+                ->where('applicants.0.id', $applicant->id)
+                ->where('applicants.0.source', 'Facebook Ads')
+                ->where('applicants.0.domicile', 'Jakarta Timur')
+                ->where('applicants.0.phone', '0812-3456-7890')
+                ->where('applicants.0.applied_at_display', '26 Jul 2026 • 10:42 WIB')
+        );
+});
+
+it('resolves domicile via a role when the location field is renamed', function () {
+    $admin = reviewAdmin();
+    $campaign = LiveHostRecruitmentCampaign::factory()->open()->create();
+    $firstStage = $campaign->stages()->orderBy('position')->first();
+
+    $schema = DefaultFormSchema::get();
+    $schema['pages'][0]['fields'][] = [
+        'id' => 'f_custom_domicile',
+        'type' => 'text',
+        'label' => 'Kota asal',
+        'role' => 'domicile',
+    ];
+
+    $applicant = LiveHostApplicant::factory()->create([
+        'campaign_id' => $campaign->id,
+        'current_stage_id' => $firstStage->id,
+        'status' => 'active',
+        'form_schema_snapshot' => $schema,
+        'form_data' => [
+            'f_name' => 'Rani Wulandari',
+            'f_email' => 'rani@example.com',
+            'f_custom_domicile' => 'Bandung',
+        ],
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('livehost.recruitment.applicants.index', ['campaign' => $campaign->id]))
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('applicants.0.id', $applicant->id)
+                ->where('applicants.0.domicile', 'Bandung')
         );
 });
 

@@ -83,6 +83,49 @@ class LiveHostApplicant extends Model
         return $this->valueByRole('resume');
     }
 
+    public function getLocationAttribute(): ?string
+    {
+        $value = $this->valueByRole('location') ?? $this->valueByRole('domicile');
+        if ($value !== null && $value !== '') {
+            return (string) $value;
+        }
+
+        $schema = $this->form_schema_snapshot ?? [];
+        $keywords = ['location', 'lokasi', 'domisili', 'domicile', 'kota', 'city', 'alamat'];
+        foreach (($schema['pages'] ?? []) as $page) {
+            foreach (($page['fields'] ?? []) as $field) {
+                $id = $field['id'] ?? '';
+                $label = mb_strtolower((string) ($field['label'] ?? ''));
+                $matchesKeyword = false;
+                foreach ($keywords as $keyword) {
+                    if (str_contains($label, $keyword)) {
+                        $matchesKeyword = true;
+                        break;
+                    }
+                }
+                if ($id === 'f_location' || $matchesKeyword) {
+                    $found = $this->form_data[$id] ?? null;
+                    if ($found !== null && $found !== '') {
+                        return (string) $found;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public function appliedAtLabel(): ?string
+    {
+        if (! $this->applied_at) {
+            return null;
+        }
+
+        $wib = $this->applied_at->timezone('Asia/Jakarta');
+
+        return $wib->format('d M Y').' • '.$wib->format('H:i').' WIB';
+    }
+
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(LiveHostRecruitmentCampaign::class, 'campaign_id');
