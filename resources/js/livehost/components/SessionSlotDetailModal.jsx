@@ -3,12 +3,15 @@ import { router } from '@inertiajs/react';
 import {
   AlertTriangle,
   ArrowUpRight,
+  FileText,
+  Image as ImageIcon,
   Paperclip,
   Pencil,
   Radio,
   ShieldCheck,
   Trash2,
   Upload,
+  Video,
 } from 'lucide-react';
 import {
   Dialog,
@@ -353,6 +356,43 @@ function LiveSessionSection({ session, onOpenSession, onOpenChange }) {
           </div>
         </div>
       </div>
+
+      {session.attachments?.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <div className="text-[9.5px] font-medium uppercase tracking-wide text-[#A3A3A3]">
+            Uploaded files
+          </div>
+          {session.attachments.map((att) => {
+            const Icon = att.isImage ? ImageIcon : att.isVideo ? Video : att.isPdf ? FileText : Paperclip;
+            return (
+              <a
+                key={att.id}
+                href={att.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center gap-2.5 rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 transition-colors hover:border-[#D4D4D4] hover:bg-[#FAFAFA]"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#F5F5F5] text-[#525252]">
+                  <Icon className="h-4 w-4" strokeWidth={2} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12.5px] font-medium text-[#0A0A0A]">
+                    {att.fileName}
+                  </span>
+                  <span className="block truncate text-[10.5px] text-[#A3A3A3]">
+                    {att.fileSizeFormatted}
+                    {att.uploaderName ? ` · ${att.uploaderName}` : ''}
+                  </span>
+                </span>
+                <ArrowUpRight
+                  className="h-4 w-4 shrink-0 text-[#A3A3A3] group-hover:text-[#0A0A0A]"
+                  strokeWidth={2}
+                />
+              </a>
+            );
+          })}
+        </div>
+      )}
 
       {session.linkedRecords?.length > 0 && (
         <div className="mt-3 rounded-lg border border-[#10B981]/30 bg-[#ECFDF5] px-3 py-2.5">
