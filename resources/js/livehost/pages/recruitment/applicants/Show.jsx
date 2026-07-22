@@ -84,7 +84,13 @@ export default function ApplicantShow() {
       <TopBar
         breadcrumb={['Live Host Desk', 'Recruitment', 'Applicants', applicant.full_name]}
         actions={
-          <Link href="/livehost/recruitment/applicants">
+          <Link
+            href={
+              applicant.campaign?.id
+                ? `/livehost/recruitment/applicants?campaign=${applicant.campaign.id}`
+                : '/livehost/recruitment/applicants'
+            }
+          >
             <Button variant="ghost" className="gap-1.5 text-[#737373] hover:text-[#0A0A0A]">
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to board
