@@ -727,5 +727,75 @@
             </form>
         </div>
     </div>
+
+    {{--
+        Mobile Chrome/Safari throw ERR_UPLOAD_FILE_CHANGED when a picked file's
+        size or last-modified timestamp differs at submit time vs. pick time.
+        This is rampant on phones: cloud photos/docs that finish downloading
+        after selection, the OS evicting the temp copy while the candidate
+        spends minutes on the form, or the source app re-compressing in the
+        background. We defuse it by reading the bytes into memory the instant a
+        file is picked and replacing the input with an in-memory File snapshot,
+        so submission never re-reads the (possibly changed) disk file.
+    --}}
+    <script>
+        (function () {
+            var form = document.querySelector('form.form-card');
+            if (!form) { return; }
+
+            var fileInputs = form.querySelectorAll('input[type="file"]');
+            if (!fileInputs.length) { return; }
+
+            var pending = new Set();
+            var resubmitting = false;
+
+            function readAsArrayBuffer(file) {
+                if (file.arrayBuffer) { return file.arrayBuffer(); }
+                return new Promise(function (resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onload = function () { resolve(reader.result); };
+                    reader.onerror = function () { reject(reader.error); };
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            function snapshot(input) {
+                var file = input.files && input.files[0];
+                if (!file || input._snapshotName === file.name + ':' + file.size) {
+                    return Promise.resolve();
+                }
+                return readAsArrayBuffer(file).then(function (buffer) {
+                    var copy = new File([buffer], file.name, {
+                        type: file.type,
+                        lastModified: Date.now(),
+                    });
+                    var dt = new DataTransfer();
+                    dt.items.add(copy);
+                    input.files = dt.files;
+                    input._snapshotName = copy.name + ':' + copy.size;
+                }).catch(function () {
+                    /* Fall back to the native file reference — submission may
+                       still succeed on desktop and stable local files. */
+                });
+            }
+
+            Array.prototype.forEach.call(fileInputs, function (input) {
+                input.addEventListener('change', function () {
+                    var task = snapshot(input);
+                    pending.add(task);
+                    task.finally(function () { pending.delete(task); });
+                });
+            });
+
+            form.addEventListener('submit', function (event) {
+                if (resubmitting || pending.size === 0) { return; }
+                event.preventDefault();
+                Promise.allSettled(Array.from(pending)).then(function () {
+                    resubmitting = true;
+                    if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
