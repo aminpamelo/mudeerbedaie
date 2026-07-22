@@ -3,7 +3,9 @@
 use App\Models\ActualLiveRecord;
 use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
+use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
+use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Services\LiveHost\ActualLiveRecordCandidateFinder;
 use Carbon\Carbon;
@@ -225,4 +227,104 @@ it('does not chain long back-to-back lives into one cluster', function () {
 
     // The span cap keeps the cluster small (never the whole chain).
     expect(count($cluster))->toBeLessThanOrEqual(2);
+});
+
+it('constrains the suggested cluster to the slot window when hosts share an account', function () {
+    $account = PlatformAccount::factory()->create();
+    $live = LiveAccount::factory()->create(['creator_user_id' => 'c_shared']);
+
+    $sessionFor = function (string $slotStart, string $slotEnd, string $scheduled) use ($account, $live) {
+        $slot = LiveTimeSlot::factory()->create([
+            'platform_account_id' => $account->id,
+            'start_time' => $slotStart,
+            'end_time' => $slotEnd,
+        ]);
+        $assignment = LiveScheduleAssignment::factory()->create([
+            'platform_account_id' => $account->id,
+            'time_slot_id' => $slot->id,
+            'live_host_id' => null,
+            'is_template' => false,
+            'schedule_date' => '2026-04-24',
+        ]);
+
+        return LiveSession::factory()->create([
+            'platform_account_id' => $account->id,
+            'live_account_id' => $live->id,
+            'live_host_platform_account_id' => null,
+            'live_schedule_assignment_id' => $assignment->id,
+            'scheduled_start_at' => Carbon::parse("2026-04-24 {$scheduled}", 'Asia/Kuala_Lumpur'),
+        ]);
+    };
+
+    // Two adjacent slots on the SAME account. The early slot has no live of its
+    // own; the actual live sits squarely inside the late slot's window.
+    $early = $sessionFor('06:00:00', '07:00:00', '06:00:00');
+    $late = $sessionFor('07:00:00', '09:00:00', '07:00:00');
+
+    $start = Carbon::parse('2026-04-24 07:20:00', 'Asia/Kuala_Lumpur');
+    $lateLive = ActualLiveRecord::factory()->create([
+        'platform_account_id' => $account->id,
+        'creator_platform_user_id' => 'c_shared',
+        'launched_time' => $start,
+        'ended_time' => $start->copy()->addMinutes(70),
+        'duration_seconds' => 70 * 60,
+    ]);
+
+    $finder = app(ActualLiveRecordCandidateFinder::class);
+
+    // The early slot must NOT swallow the 07:20 live even though it is the only
+    // candidate and would win on proximity alone.
+    $earlyCluster = $finder->suggestedClusterIds($finder->forSession($early), $early);
+    expect($earlyCluster)->toBe([]);
+
+    // The late slot, whose window contains it, gets it.
+    $lateCluster = $finder->suggestedClusterIds($finder->forSession($late), $late);
+    expect($lateCluster)->toBe([$lateLive->id]);
+});
+
+it('picks the run with the greatest overlap when two runs touch the slot window', function () {
+    $account = PlatformAccount::factory()->create();
+    $live = LiveAccount::factory()->create(['creator_user_id' => 'c_overlap']);
+
+    $slot = LiveTimeSlot::factory()->create([
+        'platform_account_id' => $account->id,
+        'start_time' => '14:00:00',
+        'end_time' => '16:00:00',
+    ]);
+    $assignment = LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $account->id,
+        'time_slot_id' => $slot->id,
+        'is_template' => false,
+        'schedule_date' => '2026-04-24',
+    ]);
+    $session = LiveSession::factory()->create([
+        'platform_account_id' => $account->id,
+        'live_account_id' => $live->id,
+        'live_host_platform_account_id' => null,
+        'live_schedule_assignment_id' => $assignment->id,
+        'scheduled_start_at' => Carbon::parse('2026-04-24 14:00:00', 'Asia/Kuala_Lumpur'),
+    ]);
+
+    $mk = function (string $launch, int $durationMin) use ($account) {
+        $start = Carbon::parse("2026-04-24 {$launch}", 'Asia/Kuala_Lumpur');
+
+        return ActualLiveRecord::factory()->create([
+            'platform_account_id' => $account->id,
+            'creator_platform_user_id' => 'c_overlap',
+            'launched_time' => $start,
+            'ended_time' => $start->copy()->addMinutes($durationMin),
+            'duration_seconds' => $durationMin * 60,
+        ]);
+    };
+
+    // A brief blip barely clipping the window start, then — after a >20-min gap so
+    // it is a SEPARATE run — the real 80-minute live deep inside the window.
+    $edge = $mk('13:55:00', 8);          // 13:55–14:03, ~3 min inside the window
+    $realLive = $mk('14:30:00', 80);     // 14:30–15:50, deep inside the window
+
+    $finder = app(ActualLiveRecordCandidateFinder::class);
+    $cluster = $finder->suggestedClusterIds($finder->forSession($session), $session);
+
+    expect($cluster)->toBe([$realLive->id])
+        ->and($cluster)->not->toContain($edge->id);
 });
