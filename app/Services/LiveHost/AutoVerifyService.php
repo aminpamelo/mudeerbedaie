@@ -635,25 +635,43 @@ class AutoVerifyService
             ->values();
 
         if ($remaining->isEmpty()) {
-            DB::transaction(function () use ($session) {
-                $session->actualLiveRecords()->detach();
-                $session->update([
-                    'matched_actual_live_record_id' => null,
-                    'gmv_amount' => 0,
-                    'gmv_source' => 'manual',
-                    'gmv_locked_at' => null,
-                    'verification_status' => 'pending',
-                    'verified_by' => null,
-                    'verified_at' => null,
-                    'auto_verified' => false,
-                    'status' => 'scheduled',
-                ]);
-            });
+            $this->revertToPending($session);
 
             return;
         }
 
         $this->verify($session, $remaining, false);
+    }
+
+    /**
+     * Strip a session back to an unverified, pending, empty slot — detach every
+     * linked live and clear the locked GMV/verification stamps. Used when a
+     * session is left with no lives, and by the reslot ops command to undo a
+     * mis-attributed auto-verify so the (now window-constrained) matcher can
+     * re-link the freed live to the correct slot.
+     *
+     * @throws \RuntimeException when the session sits in a locked payroll period.
+     */
+    public function revertToPending(LiveSession $session): void
+    {
+        if ($this->isPayrollLocked($session)) {
+            throw new \RuntimeException('Payroll is locked for this period — this session can no longer be reset.');
+        }
+
+        DB::transaction(function () use ($session) {
+            $session->actualLiveRecords()->detach();
+            $session->update([
+                'matched_actual_live_record_id' => null,
+                'gmv_amount' => 0,
+                'gmv_source' => 'manual',
+                'gmv_locked_at' => null,
+                'verification_status' => 'pending',
+                'verified_by' => null,
+                'verified_at' => null,
+                'auto_verified' => false,
+                'status' => 'scheduled',
+            ]);
+        });
     }
 
     /**
@@ -806,14 +824,14 @@ class AutoVerifyService
                 ->exists();
     }
 
-    private function hasVerificationHistory(LiveSession $session): bool
+    public function hasVerificationHistory(LiveSession $session): bool
     {
         return LiveSessionVerificationEvent::query()
             ->where('live_session_id', $session->id)
             ->exists();
     }
 
-    private function isPayrollLocked(LiveSession $session): bool
+    public function isPayrollLocked(LiveSession $session): bool
     {
         if ($session->actual_end_at === null) {
             return false;

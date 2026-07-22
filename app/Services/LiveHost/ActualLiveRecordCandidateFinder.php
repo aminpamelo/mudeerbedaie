@@ -211,6 +211,42 @@ class ActualLiveRecordCandidateFinder
     }
 
     /**
+     * Whether ANY of the session's currently-linked records overlaps its slot
+     * window. Returns null when the session has no resolvable window or no linked
+     * records — i.e. "can't judge". A `false` means every linked live sits
+     * entirely outside the slot window: the signature of a live mis-attributed by
+     * the old proximity matcher, which the reslot ops command hunts for.
+     */
+    public function linkedRecordsOverlapWindow(LiveSession $session): ?bool
+    {
+        [$windowStart, $windowEnd] = $this->slotWindow($session);
+        if ($windowStart === null || $windowEnd === null) {
+            return null;
+        }
+
+        $records = $session->actualLiveRecords()->get()
+            ->filter(fn (ActualLiveRecord $r) => $r->launched_time !== null);
+        if ($records->isEmpty()) {
+            return null;
+        }
+
+        return $records->contains(
+            fn (ActualLiveRecord $r) => $this->recordOverlapsWindow($r, $windowStart, $windowEnd)
+        );
+    }
+
+    private function recordOverlapsWindow(ActualLiveRecord $record, CarbonInterface $windowStart, CarbonInterface $windowEnd): bool
+    {
+        $start = $record->launched_time;
+        $end = $record->ended_time ?? $start->copy()->addSeconds((int) ($record->duration_seconds ?? 0));
+        if ($end->lessThanOrEqualTo($start)) {
+            $end = $start->copy()->addSecond();
+        }
+
+        return $start->lessThan($windowEnd) && $end->greaterThan($windowStart);
+    }
+
+    /**
      * The session's slot as an absolute [start, end] instant pair, derived from
      * scheduled_start_at (the materialized slot start) plus the slot's configured
      * duration. Returns [null, null] when the session has no resolvable slot
