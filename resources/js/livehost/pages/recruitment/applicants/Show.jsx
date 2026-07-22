@@ -177,7 +177,7 @@ export default function ApplicantShow() {
 
 ApplicantShow.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
 
-function renderValue(field, value) {
+function renderValue(field, value, applicantId) {
   if (value === null || value === undefined || value === '') {
     return <span className="text-[#A3A3A3]">—</span>;
   }
@@ -209,7 +209,7 @@ function renderValue(field, value) {
     case 'file':
       return (
         <a
-          href={`/storage/${value}`}
+          href={`/livehost/recruitment/applicants/${applicantId}/file/${field.id}`}
           target="_blank"
           rel="noreferrer"
           className="text-[#0A0A0A] underline"
@@ -249,7 +249,7 @@ function ApplicationTab({ applicant }) {
                     {field.label}
                   </dt>
                   <dd className="text-[13.5px] text-[#0A0A0A]">
-                    {renderValue(field, data[field.id])}
+                    {renderValue(field, data[field.id], applicant.id)}
                   </dd>
                 </div>
               ))}

@@ -17,9 +17,11 @@ use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RecruitmentApplicantController extends Controller
 {
@@ -207,6 +209,33 @@ class RecruitmentApplicantController extends Controller
                 'created_at_human' => $h->created_at?->diffForHumans(),
             ])->values(),
         ]);
+    }
+
+    /**
+     * Stream an applicant's uploaded file. Uploads are stored on the private
+     * `local` disk (not the public one), so they can't be served via the
+     * `/storage` symlink — this route gates access behind the recruitment
+     * middleware and streams the file only when the field is a real file field.
+     */
+    public function downloadFile(LiveHostApplicant $applicant, string $field): StreamedResponse
+    {
+        $schema = $applicant->form_schema_snapshot ?? [];
+
+        $isFileField = collect($schema['pages'] ?? [])
+            ->flatMap(fn (array $page): array => $page['fields'] ?? [])
+            ->contains(fn (array $f): bool => ($f['id'] ?? null) === $field && ($f['type'] ?? null) === 'file');
+
+        abort_unless($isFileField, HttpResponse::HTTP_NOT_FOUND);
+
+        $path = $applicant->form_data[$field] ?? null;
+
+        abort_if(! is_string($path) || $path === '', HttpResponse::HTTP_NOT_FOUND);
+
+        $disk = Storage::disk('local');
+
+        abort_unless($disk->exists($path), HttpResponse::HTTP_NOT_FOUND);
+
+        return $disk->response($path);
     }
 
     public function moveStage(Request $request, LiveHostApplicant $applicant): RedirectResponse

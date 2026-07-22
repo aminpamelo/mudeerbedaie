@@ -741,6 +741,8 @@ Route::middleware(['auth'])
                     ->name('applicants.index');
                 Route::get('applicants/{applicant}', [RecruitmentApplicantController::class, 'show'])
                     ->name('applicants.show');
+                Route::get('applicants/{applicant}/file/{field}', [RecruitmentApplicantController::class, 'downloadFile'])
+                    ->name('applicants.file');
                 Route::patch('applicants/{applicant}/stage', [RecruitmentApplicantController::class, 'moveStage'])
                     ->name('applicants.stage');
                 Route::patch('applicants/{applicant}/reject', [RecruitmentApplicantController::class, 'reject'])
