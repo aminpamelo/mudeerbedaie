@@ -19,6 +19,7 @@ class ContactDataProvider implements DataProviderInterface
         $lastName = null;
         $email = null;
         $phone = null;
+        $address = null;
 
         // 1. From Student model (if available)
         $student = $context['student'] ?? null;
@@ -26,6 +27,7 @@ class ContactDataProvider implements DataProviderInterface
             $name = $student->name ?? $student->user?->name;
             $email = $student->email ?? $student->user?->email;
             $phone = $student->phone;
+            $address = $address ?? ($student->full_address ?: null);
         }
 
         // 2. From ProductOrder model
@@ -34,6 +36,7 @@ class ContactDataProvider implements DataProviderInterface
             $name = $name ?? $order->customer_name;
             $email = $email ?? $order->email;
             $phone = $phone ?? $order->customer_phone;
+            $address = $address ?? $this->formatOrderAddress($order);
         }
 
         // 3. From FunnelSession model
@@ -47,6 +50,7 @@ class ContactDataProvider implements DataProviderInterface
         $name = $name ?? $context['customer_name'] ?? $context['name'] ?? null;
         $email = $email ?? $context['email'] ?? null;
         $phone = $phone ?? $context['phone'] ?? $context['customer_phone'] ?? null;
+        $address = $address ?? $context['address'] ?? $context['customer_address'] ?? null;
 
         // Parse first/last name from full name
         if ($name && ! $firstName) {
@@ -61,8 +65,34 @@ class ContactDataProvider implements DataProviderInterface
             'last_name' => $lastName,
             'email' => $email,
             'phone' => $this->formatPhone($phone),
+            'address' => $address,
             default => null,
         };
+    }
+
+    /**
+     * Build a formatted, single-line address from a ProductOrder's effective
+     * shipping address (falling back to billing), resolved across the typed
+     * address row and the loose JSON address column.
+     */
+    protected function formatOrderAddress(ProductOrder $order): ?string
+    {
+        $resolved = $order->effectiveAddress('shipping', rowFallback: true);
+
+        if ($resolved === null) {
+            return null;
+        }
+
+        $parts = array_filter([
+            $resolved->address_line_1 ?? null,
+            $resolved->address_line_2 ?? null,
+            $resolved->city ?? null,
+            $resolved->state ?? null,
+            $resolved->postal_code ?? null,
+            $resolved->country ?? null,
+        ], static fn ($part): bool => filled($part));
+
+        return $parts === [] ? null : implode(', ', $parts);
     }
 
     /**

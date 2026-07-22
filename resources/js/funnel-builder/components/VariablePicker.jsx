@@ -15,6 +15,7 @@ const VARIABLE_CATEGORIES = {
             'contact.last_name': { label: 'Last Name', example: 'Doe', description: "Customer's last name" },
             'contact.email': { label: 'Email', example: 'john@example.com', description: "Customer's email address" },
             'contact.phone': { label: 'Phone', example: '+60123456789', description: "Customer's phone number" },
+            'contact.address': { label: 'Address', example: '12 Jalan Merdeka, Kuala Lumpur, 50000, Malaysia', description: "Customer's full mailing address" },
         },
     },
     order: {

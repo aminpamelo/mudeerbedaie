@@ -28,6 +28,7 @@
                 'items' => [
                     ['value' => 'contact.name', 'label' => 'Name', 'tag' => '{{contact.name}}'],
                     ['value' => 'contact.first_name', 'label' => 'First Name', 'tag' => '{{contact.first_name}}'],
+                    ['value' => 'contact.last_name', 'label' => 'Last Name', 'tag' => '{{contact.last_name}}'],
                     ['value' => 'contact.email', 'label' => 'Email', 'tag' => '{{contact.email}}'],
                     ['value' => 'contact.phone', 'label' => 'Phone', 'tag' => '{{contact.phone}}'],
                     ['value' => 'contact.address', 'label' => 'Address', 'tag' => '{{contact.address}}'],
