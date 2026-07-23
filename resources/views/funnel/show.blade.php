@@ -724,8 +724,11 @@
         @endif
     </main>
 
-    <!-- Livewire Checkout Component (for checkout steps) -->
-    @if($step->type === 'checkout')
+    <!-- Livewire Checkout Component (for checkout steps, or when a [checkout_form] tag / Checkout Form block is present) -->
+    @php
+        $hasCheckoutMarker = $renderedContent && str_contains((string) $renderedContent, 'id="funnel-checkout-form"');
+    @endphp
+    @if($step->type === 'checkout' || $hasCheckoutMarker)
         <div id="funnel-checkout-container" style="max-width: 1200px; margin: 0 auto; padding: 32px 16px;">
             @livewire('funnel.checkout-form', [
                 'funnel' => $funnel,

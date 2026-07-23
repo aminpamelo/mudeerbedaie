@@ -6,6 +6,41 @@
 import React, { useState, useEffect } from 'react';
 import { funnelApi, customDomainApi } from '../services/api';
 
+/**
+ * The three payment methods a funnel can offer (keys match payment_settings and
+ * the server-side shipping_settings.custom_costs map). Used by the custom
+ * (per-payment-method) shipping cost matrix.
+ */
+const SHIPPING_PAYMENT_METHODS = [
+    { key: 'stripe', label: 'Card (Stripe)' },
+    { key: 'bayarcash_fpx', label: 'FPX (Bayarcash)' },
+    { key: 'cod', label: 'COD (Cash on Delivery)' },
+];
+
+const emptyCustomCosts = () =>
+    SHIPPING_PAYMENT_METHODS.reduce((acc, { key }) => {
+        acc[key] = { semenanjung: '', sabah_sarawak: '' };
+        return acc;
+    }, {});
+
+const hydrateCustomCosts = (source) =>
+    SHIPPING_PAYMENT_METHODS.reduce((acc, { key }) => {
+        acc[key] = {
+            semenanjung: source?.[key]?.semenanjung ?? '',
+            sabah_sarawak: source?.[key]?.sabah_sarawak ?? '',
+        };
+        return acc;
+    }, {});
+
+const numericCustomCosts = (costs) =>
+    SHIPPING_PAYMENT_METHODS.reduce((acc, { key }) => {
+        acc[key] = {
+            semenanjung: parseFloat(costs?.[key]?.semenanjung) || 0,
+            sabah_sarawak: parseFloat(costs?.[key]?.sabah_sarawak) || 0,
+        };
+        return acc;
+    }, {});
+
 export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }) {
     const [form, setForm] = useState({
         name: '',
@@ -18,8 +53,10 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         product_selection_mode: 'multi',
         shipping_settings: {
             enabled: false,
+            mode: 'general',
             semenanjung_cost: '',
             sabah_sarawak_cost: '',
+            custom_costs: emptyCustomCosts(),
         },
     });
     const [saving, setSaving] = useState(false);
@@ -44,8 +81,10 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 product_selection_mode: funnel.settings?.product_selection_mode || 'multi',
                 shipping_settings: {
                     enabled: funnel.shipping_settings?.enabled ?? false,
+                    mode: funnel.shipping_settings?.mode === 'custom' ? 'custom' : 'general',
                     semenanjung_cost: funnel.shipping_settings?.semenanjung_cost ?? '',
                     sabah_sarawak_cost: funnel.shipping_settings?.sabah_sarawak_cost ?? '',
+                    custom_costs: hydrateCustomCosts(funnel.shipping_settings?.custom_costs),
                 },
             });
         }
@@ -148,8 +187,10 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 disable_shipping: form.disable_shipping,
                 shipping_settings: {
                     enabled: form.shipping_settings.enabled,
+                    mode: form.shipping_settings.mode,
                     semenanjung_cost: parseFloat(form.shipping_settings.semenanjung_cost) || 0,
                     sabah_sarawak_cost: parseFloat(form.shipping_settings.sabah_sarawak_cost) || 0,
+                    custom_costs: numericCustomCosts(form.shipping_settings.custom_costs),
                 },
                 settings: {
                     ...funnel.settings,
@@ -167,6 +208,21 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
             setSaving(false);
         }
     };
+
+    const setShipping = (patch) =>
+        setForm((f) => ({ ...f, shipping_settings: { ...f.shipping_settings, ...patch } }));
+
+    const setCustomCost = (method, zone, value) =>
+        setForm((f) => ({
+            ...f,
+            shipping_settings: {
+                ...f.shipping_settings,
+                custom_costs: {
+                    ...f.shipping_settings.custom_costs,
+                    [method]: { ...f.shipping_settings.custom_costs[method], [zone]: value },
+                },
+            },
+        }));
 
     return (
         <div className="space-y-6">
@@ -349,7 +405,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
             <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Shipping Cost Settings</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                    Set flat-rate shipping fees by delivery zone. Customers will select their zone at checkout.
+                    Charge shipping by delivery zone (General), or set a different fee per payment method &amp; zone (Custom). Customers select their zone at checkout.
                 </p>
 
                 <div className="flex items-start justify-between">
@@ -383,58 +439,120 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 </div>
 
                 {form.shipping_settings.enabled && (
-                    <div className="border-t border-gray-200 mt-6 pt-6 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Semenanjung Malaysia (RM)
-                                </label>
-                                <div className="flex items-center">
-                                    <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">RM</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={form.shipping_settings.semenanjung_cost}
-                                        onChange={(e) => setForm({
-                                            ...form,
-                                            shipping_settings: {
-                                                ...form.shipping_settings,
-                                                semenanjung_cost: e.target.value,
-                                            },
-                                        })}
-                                        placeholder="0.00"
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">West Malaysia delivery fee</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Sabah &amp; Sarawak (RM)
-                                </label>
-                                <div className="flex items-center">
-                                    <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">RM</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={form.shipping_settings.sabah_sarawak_cost}
-                                        onChange={(e) => setForm({
-                                            ...form,
-                                            shipping_settings: {
-                                                ...form.shipping_settings,
-                                                sabah_sarawak_cost: e.target.value,
-                                            },
-                                        })}
-                                        placeholder="0.00"
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">East Malaysia delivery fee</p>
+                    <div className="border-t border-gray-200 mt-6 pt-6 space-y-5">
+                        {/* Mode selector: General (by zone) vs Custom (by payment method & zone) */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Shipping cost mode</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {[
+                                    { value: 'general', title: 'General', desc: 'One fee per delivery zone.' },
+                                    { value: 'custom', title: 'Custom', desc: 'Fee per payment method & zone.' },
+                                ].map((opt) => {
+                                    const active = form.shipping_settings.mode === opt.value;
+                                    return (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => setShipping({ mode: opt.value })}
+                                            className={`text-left rounded-lg border-2 p-3 transition-colors ${active ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                            aria-pressed={active}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full border-2 ${active ? 'border-orange-500' : 'border-gray-300'}`}>
+                                                    {active && <span className="h-2 w-2 rounded-full bg-orange-500" />}
+                                                </span>
+                                                <span className="text-sm font-medium text-gray-900">{opt.title}</span>
+                                            </span>
+                                            <span className="block text-xs text-gray-500 mt-1 ml-6">{opt.desc}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
+
+                        {/* General mode: one fee per zone */}
+                        {form.shipping_settings.mode === 'general' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Semenanjung Malaysia (RM)
+                                    </label>
+                                    <div className="flex items-center">
+                                        <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">RM</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={form.shipping_settings.semenanjung_cost}
+                                            onChange={(e) => setShipping({ semenanjung_cost: e.target.value })}
+                                            placeholder="0.00"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1">West Malaysia delivery fee</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Sabah &amp; Sarawak (RM)
+                                    </label>
+                                    <div className="flex items-center">
+                                        <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">RM</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={form.shipping_settings.sabah_sarawak_cost}
+                                            onChange={(e) => setShipping({ sabah_sarawak_cost: e.target.value })}
+                                            placeholder="0.00"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1">East Malaysia delivery fee</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Custom mode: a fee per payment method x zone */}
+                        {form.shipping_settings.mode === 'custom' && (
+                            <div className="space-y-3">
+                                <div className="hidden sm:grid grid-cols-[1fr_140px_140px] gap-3 px-1">
+                                    <span className="text-xs font-medium text-gray-500">Payment method</span>
+                                    <span className="text-xs font-medium text-gray-500">Semenanjung (RM)</span>
+                                    <span className="text-xs font-medium text-gray-500">Sabah &amp; Sarawak (RM)</span>
+                                </div>
+                                {SHIPPING_PAYMENT_METHODS.map(({ key, label }) => (
+                                    <div
+                                        key={key}
+                                        className="grid grid-cols-1 sm:grid-cols-[1fr_140px_140px] gap-3 sm:items-center rounded-lg border border-gray-200 p-3 sm:border-0 sm:p-0"
+                                    >
+                                        <span className="text-sm font-medium text-gray-900">{label}</span>
+                                        {['semenanjung', 'sabah_sarawak'].map((zone) => (
+                                            <div key={zone}>
+                                                <label className="sm:hidden block text-xs text-gray-500 mb-1">
+                                                    {zone === 'semenanjung' ? 'Semenanjung' : 'Sabah & Sarawak'} (RM)
+                                                </label>
+                                                <div className="flex items-center">
+                                                    <span className="px-2.5 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-xs">RM</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={form.shipping_settings.custom_costs[key][zone]}
+                                                        onChange={(e) => setCustomCost(key, zone, e.target.value)}
+                                                        placeholder="0.00"
+                                                        className="w-full px-2.5 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                                <p className="text-xs text-gray-400">
+                                    At checkout the fee is chosen from the customer's selected payment method and delivery zone. Enable and label these methods in the Payment tab.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

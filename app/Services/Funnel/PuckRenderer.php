@@ -80,7 +80,38 @@ class PuckRenderer
             $html
         );
 
+        // Replace the [checkout_form] shortcode (usable inside Custom HTML blocks).
+        $output = $this->replaceCheckoutTag($output, $context);
+
         return new HtmlString($output);
+    }
+
+    /**
+     * Replace the [checkout_form] shortcode with the live checkout placeholder marker.
+     *
+     * This lets authors position the real checkout form anywhere inside a Custom HTML
+     * block (for example an AI-generated sales page) instead of using the dedicated
+     * Checkout Form block. The published view (funnel/show.blade.php) renders the
+     * Livewire checkout component and relocates it into this marker on page load.
+     *
+     * Accepts [checkout_form] and [checkout-form], case-insensitive, with optional
+     * inner whitespace. Only the first occurrence is replaced — a page has one form.
+     */
+    protected function replaceCheckoutTag(string $html, array $context): string
+    {
+        $pattern = '/\[\s*checkout[_-]form\s*\]/i';
+
+        if (! preg_match($pattern, $html)) {
+            return $html;
+        }
+
+        $marker = sprintf(
+            '<div id="funnel-checkout-form" data-funnel="%s" data-step="%s"></div>',
+            e($context['funnel_uuid'] ?? ''),
+            e($context['step_id'] ?? '')
+        );
+
+        return preg_replace($pattern, $marker, $html, 1);
     }
 
     /**

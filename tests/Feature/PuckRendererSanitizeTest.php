@@ -435,3 +435,69 @@ it('injects tracking scripts before </body> for a full-page CustomHtml block', f
         ->toContain('<script>window.funnelConfig = {};</script>')
         ->toContain('</body>');
 });
+
+/*
+|--------------------------------------------------------------------------
+| [checkout_form] shortcode
+|--------------------------------------------------------------------------
+| Authors can drop [checkout_form] anywhere inside a Custom HTML block (for
+| example an AI-generated sales page). On render it becomes the checkout
+| placeholder marker that funnel/show.blade.php relocates the live Livewire
+| checkout form into.
+*/
+
+it('replaces a [checkout_form] tag inside a Custom HTML block with the checkout marker', function () {
+    $result = (string) $this->renderer->render([
+        'content' => [[
+            'type' => 'CustomHtml',
+            'props' => ['html' => '<section><h1>My Offer</h1>[checkout_form]</section>'],
+        ]],
+    ], ['funnel_uuid' => 'fun-123', 'step_id' => 42]);
+
+    expect($result)
+        ->toContain('id="funnel-checkout-form"')
+        ->toContain('data-funnel="fun-123"')
+        ->toContain('data-step="42"')
+        ->toContain('<h1>My Offer</h1>')
+        ->not->toContain('[checkout_form]');
+});
+
+it('matches the tag case-insensitively and with the hyphen variant and inner spaces', function () {
+    foreach (['[CHECKOUT_FORM]', '[checkout-form]', '[ Checkout_Form ]'] as $tag) {
+        $result = (string) $this->renderer->render([
+            'content' => [[
+                'type' => 'CustomHtml',
+                'props' => ['html' => "<div>{$tag}</div>"],
+            ]],
+        ]);
+
+        expect($result)
+            ->toContain('id="funnel-checkout-form"')
+            ->not->toContain($tag);
+    }
+});
+
+it('replaces only the first [checkout_form] tag when several are present', function () {
+    $result = (string) $this->renderer->render([
+        'content' => [[
+            'type' => 'CustomHtml',
+            'props' => ['html' => '[checkout_form][checkout_form]'],
+        ]],
+    ]);
+
+    expect(substr_count($result, 'id="funnel-checkout-form"'))->toBe(1);
+    expect($result)->toContain('[checkout_form]'); // the second tag is left untouched
+});
+
+it('leaves content untouched when no [checkout_form] tag is present', function () {
+    $result = (string) $this->renderer->render([
+        'content' => [[
+            'type' => 'CustomHtml',
+            'props' => ['html' => '<div>no tag here</div>'],
+        ]],
+    ]);
+
+    expect($result)
+        ->toContain('<div>no tag here</div>')
+        ->not->toContain('id="funnel-checkout-form"');
+});

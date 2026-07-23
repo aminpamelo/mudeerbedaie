@@ -60,9 +60,19 @@ new class extends Component
 
     public bool $shippingCostEnabled = false;
 
+    public string $shippingMode = 'general';
+
     public float $shippingSemenanjungCost = 0;
 
     public float $shippingSabahSarawakCost = 0;
+
+    /**
+     * Per-payment-method shipping costs used when shippingMode is 'custom'.
+     * Shape: ['stripe' => ['semenanjung' => 0, 'sabah_sarawak' => 0], ...].
+     *
+     * @var array<string, array<string, float>>
+     */
+    public array $shippingCustomCosts = [];
 
     public string $countryCode = '+60';
 
@@ -76,8 +86,10 @@ new class extends Component
 
         $shippingSettings = $funnel->shipping_settings ?? [];
         $this->shippingCostEnabled = ! $this->disableShipping && (bool) ($shippingSettings['enabled'] ?? false);
+        $this->shippingMode = ($shippingSettings['mode'] ?? 'general') === 'custom' ? 'custom' : 'general';
         $this->shippingSemenanjungCost = (float) ($shippingSettings['semenanjung_cost'] ?? 0);
         $this->shippingSabahSarawakCost = (float) ($shippingSettings['sabah_sarawak_cost'] ?? 0);
+        $this->shippingCustomCosts = $shippingSettings['custom_costs'] ?? [];
 
         $this->loadCart();
         $this->prefillFromSession();
@@ -355,9 +367,38 @@ new class extends Component
             return 0;
         }
 
+        if ($this->shippingMode === 'custom') {
+            return $this->customShippingCost();
+        }
+
         return $this->shippingZone === 'sabah_sarawak'
             ? $this->shippingSabahSarawakCost
             : $this->shippingSemenanjungCost;
+    }
+
+    /**
+     * Custom-mode shipping cost: resolved from the selected payment method and
+     * delivery zone. The checkout payment ids (credit_card/debit_card/fpx/cod)
+     * map to the gateway keys stored in shipping_settings.custom_costs
+     * (stripe/bayarcash_fpx/cod). Falls back to 0 when nothing is configured for
+     * the current method — never to the general zone rate.
+     */
+    protected function customShippingCost(): float
+    {
+        $gateway = match ($this->paymentMethod) {
+            'credit_card', 'debit_card' => 'stripe',
+            'fpx' => 'bayarcash_fpx',
+            'cod' => 'cod',
+            default => null,
+        };
+
+        if ($gateway === null) {
+            return 0;
+        }
+
+        $zoneKey = $this->shippingZone === 'sabah_sarawak' ? 'sabah_sarawak' : 'semenanjung';
+
+        return (float) ($this->shippingCustomCosts[$gateway][$zoneKey] ?? 0);
     }
 
     public function calculateTotal(): float
@@ -1368,7 +1409,7 @@ new class extends Component
         {{-- RIGHT: order summary + primary CTA (desktop sticky) --}}
         <div class="lg:col-span-1">
             <div class="fc-sticky">
-                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingSemenanjungCost' => $shippingSemenanjungCost, 'shippingSabahSarawakCost' => $shippingSabahSarawakCost])
+                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingCost' => $this->calculateShippingCost()])
 
                 <button
                     type="button"

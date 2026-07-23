@@ -120,6 +120,88 @@ const CodeField = ({ value, onChange, field }) => {
 };
 
 /**
+ * The shortcode authors drop into a Custom HTML block to render the live checkout
+ * form. Kept in sync with the server-side matcher in App\Services\Funnel\PuckRenderer.
+ */
+const CHECKOUT_FORM_TAG = '[checkout_form]';
+
+/**
+ * A ready-to-paste instruction for AI tools (ChatGPT, Claude, etc.) so that when
+ * they generate the page HTML they position the tag instead of building a fake form.
+ */
+const CHECKOUT_AI_PROMPT =
+    'When you generate the HTML for this page, insert the exact tag ' +
+    CHECKOUT_FORM_TAG +
+    ' on its own line at the spot where the checkout / payment form should appear. ' +
+    'Do NOT build your own input fields or payment form — our platform automatically ' +
+    'replaces ' + CHECKOUT_FORM_TAG + ' with the real, working checkout form ' +
+    '(customer details, payment, and order summary). Use the tag only once.';
+
+/**
+ * Small copy-to-clipboard button with brief "Copied!" feedback.
+ */
+const CopyButton = ({ text, label, full }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        const done = () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        };
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(done);
+        } else {
+            done();
+        }
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleCopy}
+            className={`${full ? 'w-full justify-center ' : ''}inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border transition-colors ${
+                copied
+                    ? 'bg-green-600 border-green-600 text-white'
+                    : 'bg-white border-indigo-300 text-indigo-700 hover:bg-indigo-100'
+            }`}
+        >
+            {copied ? 'Copied!' : label}
+        </button>
+    );
+};
+
+/**
+ * Guidance panel shown in the settings sidebar explaining the [checkout_form] tag.
+ * `variant` tailors the wording: 'html' (inside a Custom HTML block) vs 'checkout'
+ * (shown on the Checkout Form block as an alternative way to place the form).
+ */
+const CheckoutTagHelper = ({ variant }) => (
+    <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+        <div className="flex items-center gap-1.5 mb-1.5">
+            <svg className="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            <span className="text-xs font-semibold text-indigo-900">Embed the checkout form</span>
+        </div>
+        <p className="text-[11px] text-indigo-700 leading-snug mb-2">
+            {variant === 'checkout'
+                ? 'Prefer your own layout? Paste this tag inside a Custom HTML block and the real checkout form renders right there on the published page.'
+                : 'Paste this tag anywhere in your HTML. On the published page it is replaced by the real checkout form (customer details, payment & order summary).'}
+        </p>
+        <div className="flex items-center gap-2 mb-2">
+            <code className="flex-1 px-2 py-1 rounded bg-white border border-indigo-200 font-mono text-xs text-indigo-900 select-all">
+                {CHECKOUT_FORM_TAG}
+            </code>
+            <CopyButton text={CHECKOUT_FORM_TAG} label="Copy tag" />
+        </div>
+        <CopyButton text={CHECKOUT_AI_PROMPT} label="Copy AI instruction" full />
+        <p className="mt-1.5 text-[10px] text-indigo-400 leading-snug">
+            Paste the AI instruction into ChatGPT / Claude when generating your page so it places the tag correctly. Works on a Checkout step.
+        </p>
+    </div>
+);
+
+/**
  * Color Field — a native color swatch paired with a text input so values like
  * hex codes and keywords ("transparent") are both supported.
  */
@@ -869,6 +951,11 @@ export const puckConfig = {
         CustomHtml: {
             label: 'Custom HTML',
             fields: {
+                checkoutHelp: {
+                    type: 'custom',
+                    label: 'Checkout Form Tag',
+                    render: () => <CheckoutTagHelper variant="html" />,
+                },
                 html: {
                     type: 'custom',
                     label: 'HTML / CSS / Script Code',
@@ -1203,6 +1290,11 @@ export const puckConfig = {
         CheckoutForm: {
             label: 'Checkout Form',
             fields: {
+                checkoutHelp: {
+                    type: 'custom',
+                    label: 'Checkout Form Tag',
+                    render: () => <CheckoutTagHelper variant="checkout" />,
+                },
                 showBillingAddress: { type: 'radio', label: 'Show Billing Address', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
                 showShippingAddress: { type: 'radio', label: 'Show Shipping Address', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
             },

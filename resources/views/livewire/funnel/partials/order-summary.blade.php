@@ -13,13 +13,11 @@
 
     $shippingCostEnabled = $shippingCostEnabled ?? false;
     $shippingZone = $shippingZone ?? 'semenanjung';
-    $shippingSemenanjungCost = $shippingSemenanjungCost ?? 0;
-    $shippingSabahSarawakCost = $shippingSabahSarawakCost ?? 0;
 
-    $shippingCost = 0;
-    if ($shippingCostEnabled) {
-        $shippingCost = $shippingZone === 'sabah_sarawak' ? $shippingSabahSarawakCost : $shippingSemenanjungCost;
-    }
+    // The parent component computes the shipping cost (it depends on the shipping
+    // mode, delivery zone and — in custom mode — the selected payment method), so
+    // the summary just renders the resolved value.
+    $shippingCost = $shippingCostEnabled ? ($shippingCost ?? 0) : 0;
 
     $total = $subtotal + $bumpsTotal + $shippingCost;
 @endphp
