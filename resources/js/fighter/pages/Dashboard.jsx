@@ -1,8 +1,23 @@
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Layers, CheckCircle2, ShoppingBag, Wallet, ExternalLink, PencilRuler, TrendingUp, Rocket, Trash2 } from 'lucide-react';
+import {
+  Layers,
+  CheckCircle2,
+  ShoppingBag,
+  Wallet,
+  ExternalLink,
+  PencilRuler,
+  TrendingUp,
+  Rocket,
+  Trash2,
+  CalendarDays,
+  CreditCard,
+  Receipt,
+  ChevronRight,
+} from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import StatTile from '@/fighter/components/StatTile';
+import WeeklyChart from '@/fighter/components/WeeklyChart';
 import CreateFunnelButton from '@/fighter/components/CreateFunnelButton';
 import { cn, formatMoney, formatNumber, statusMeta, deleteFunnel } from '@/fighter/lib/utils';
 
@@ -16,7 +31,7 @@ function FunnelCard({ funnel }) {
     setDeleting(true);
     try {
       await deleteFunnel(funnel.uuid);
-      router.reload({ only: ['funnels', 'stats'] });
+      router.reload({ only: ['funnels', 'stats', 'analytics', 'funnelOptions'] });
     } catch {
       setDeleting(false);
       window.alert('Could not delete this funnel. Please try again.');
@@ -91,6 +106,118 @@ function Metric({ label, value }) {
   );
 }
 
+/** Section wrapper card shared by the analytics widgets. */
+function Panel({ icon: Icon, title, right, children, className }) {
+  return (
+    <div className={cn('rounded-2xl bg-white p-5 ring-1 ring-line/70', className)}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="h-4 w-4 text-muted" strokeWidth={2.2} />}
+          <h3 className="text-[13.5px] font-semibold text-ink">{title}</h3>
+        </div>
+        {right}
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+/** Big "today" hero card (orders + revenue). */
+function TodayCard({ today }) {
+  return (
+    <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-[var(--color-brand)] to-[var(--color-brand-ink,#c2410c)] p-5 text-white ring-1 ring-black/5">
+      <div className="flex items-center gap-2 text-white/85">
+        <CalendarDays className="h-4 w-4" strokeWidth={2.2} />
+        <span className="text-[12px] font-semibold uppercase tracking-[0.05em]">Today</span>
+      </div>
+      <div className="mt-6">
+        <div className="text-[34px] font-bold leading-none tracking-[-0.02em]">{formatNumber(today?.orders ?? 0)}</div>
+        <div className="mt-1 text-[12.5px] font-medium text-white/80">orders today</div>
+      </div>
+      <div className="mt-5 border-t border-white/20 pt-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.05em] text-white/70">Sales</div>
+        <div className="mt-0.5 text-[20px] font-bold tracking-[-0.01em]">{formatMoney(today?.revenue ?? 0)}</div>
+      </div>
+    </div>
+  );
+}
+
+const PAY_STATUS = {
+  paid: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  pending: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+  failed: 'bg-rose-50 text-rose-700 ring-rose-600/20',
+  refunded: 'bg-slate-100 text-slate-600 ring-slate-500/20',
+};
+
+const BAR_COLORS = ['#ea580c', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e'];
+
+/** Ranked list of buckets with a proportional bar (for method / status). */
+function Breakdown({ rows, colorByStatus = false }) {
+  if (!rows?.length) {
+    return <p className="py-6 text-center text-[12.5px] text-muted">No orders this month yet.</p>;
+  }
+  const max = Math.max(...rows.map((r) => r.revenue), 1);
+  return (
+    <div className="space-y-3.5">
+      {rows.map((row, i) => {
+        const color = colorByStatus
+          ? { paid: '#10b981', pending: '#f59e0b', failed: '#f43f5e', refunded: '#94a3b8' }[row.key] ?? '#94a3b8'
+          : BAR_COLORS[i % BAR_COLORS.length];
+        return (
+          <div key={row.key}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-[12.5px] font-medium capitalize text-ink">{row.label}</span>
+              <span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-ink">{formatMoney(row.revenue)}</span>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface">
+                <div className="h-full rounded-full" style={{ width: `${(row.revenue / max) * 100}%`, background: color }} />
+              </div>
+              <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-muted">{formatNumber(row.orders)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Latest orders feed. */
+function RecentOrders({ rows }) {
+  if (!rows?.length) {
+    return <p className="py-8 text-center text-[12.5px] text-muted">No orders yet.</p>;
+  }
+  return (
+    <div className="-mx-1 divide-y divide-line/70">
+      {rows.map((o) => {
+        const badge = PAY_STATUS[o.payment_status] ?? PAY_STATUS.refunded;
+        return (
+          <Link
+            key={o.id}
+            href={`/fighter/orders?highlight=${o.id}`}
+            className="group flex items-center gap-3 rounded-lg px-1 py-2.5 transition-colors hover:bg-surface"
+          >
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface text-muted">
+              <ShoppingBag className="h-4 w-4" strokeWidth={2} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold text-ink">{o.order_number}</div>
+              <div className="truncate text-[12px] text-muted">{o.customer}</div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[13px] font-bold tabular-nums text-ink">{formatMoney(o.total)}</div>
+              <span className={cn('mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold capitalize ring-1', badge)}>
+                {o.payment_status}
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-2 transition-colors group-hover:text-ink" strokeWidth={2.2} />
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface px-6 py-16 text-center">
@@ -106,7 +233,15 @@ function EmptyState() {
   );
 }
 
-export default function Dashboard({ funnels = [], stats }) {
+export default function Dashboard({ funnels = [], stats, analytics, funnelOptions = [], activeFunnel = null }) {
+  const onFunnelChange = (uuid) => {
+    router.get('/fighter', uuid ? { funnel: uuid } : {}, {
+      preserveScroll: true,
+      preserveState: true,
+      only: ['analytics', 'activeFunnel'],
+    });
+  };
+
   const actions = (
     <Link
       href="/fighter/performance"
@@ -125,6 +260,59 @@ export default function Dashboard({ funnels = [], stats }) {
         <StatTile icon={ShoppingBag} label="Orders (mo)" value={formatNumber(stats?.ordersThisMonth ?? 0)} accent="sky" />
         <StatTile icon={Wallet} label="Revenue (mo)" value={formatMoney(stats?.revenueThisMonth ?? 0)} accent="amber" />
       </div>
+
+      {analytics && (
+        <div className="mt-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Sales overview</h2>
+            {funnelOptions.length > 0 && (
+              <select
+                value={activeFunnel ?? ''}
+                onChange={(e) => onFunnelChange(e.target.value)}
+                className="max-w-[220px] rounded-xl border-0 bg-white py-2 pl-3 pr-8 text-[12.5px] font-semibold text-ink-2 ring-1 ring-line/70 transition focus:ring-2 focus:ring-[var(--color-brand)]"
+              >
+                <option value="">All funnels</option>
+                {funnelOptions.map((f) => (
+                  <option key={f.uuid} value={f.uuid}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <TodayCard today={analytics.today} />
+            <Panel
+              icon={TrendingUp}
+              title="Last 7 days"
+              className="lg:col-span-2"
+              right={
+                <div className="text-right">
+                  <div className="text-[15px] font-bold tabular-nums text-ink">{formatMoney(analytics.weekTotals?.revenue ?? 0)}</div>
+                  <div className="text-[11px] text-muted">{formatNumber(analytics.weekTotals?.orders ?? 0)} orders</div>
+                </div>
+              }
+            >
+              <WeeklyChart data={analytics.week ?? []} />
+            </Panel>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Panel icon={Receipt} title="Recent orders" className="lg:col-span-2">
+              <RecentOrders rows={analytics.recent} />
+            </Panel>
+            <div className="space-y-4">
+              <Panel icon={CreditCard} title="By payment method">
+                <Breakdown rows={analytics.paymentMethods} />
+              </Panel>
+              <Panel icon={CheckCircle2} title="By payment status">
+                <Breakdown rows={analytics.paymentStatuses} colorByStatus />
+              </Panel>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-7">
         {funnels.length === 0 ? (

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Funnel;
+use App\Models\FunnelOrder;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\SalesSource;
@@ -810,6 +811,68 @@ it('fires a new-order notification to the funnel-owning fighter on checkout', fu
         ->assertOk()
         ->assertJsonPath('unread_count', 1)
         ->assertJsonPath('notifications.0.title', 'New order · RM 99.00');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard sales analytics
+|--------------------------------------------------------------------------
+*/
+
+it('exposes sales analytics on the fighter dashboard scoped to their own segment', function () {
+    $a = fighter();
+    $segA = app(FighterProvisioner::class)->ensureSalesSource($a);
+    $b = fighter();
+    $segB = app(FighterProvisioner::class)->ensureSalesSource($b);
+
+    // Fighter A: two orders today (paid stripe + pending cod), one older.
+    ProductOrder::factory()->create(['sales_source_id' => $segA->id, 'total_amount' => 100, 'payment_method' => 'stripe', 'payment_status' => 'paid']);
+    ProductOrder::factory()->create(['sales_source_id' => $segA->id, 'total_amount' => 40, 'payment_method' => 'cod', 'payment_status' => 'pending']);
+    ProductOrder::factory()->create(['sales_source_id' => $segA->id, 'total_amount' => 30, 'payment_method' => 'stripe', 'payment_status' => 'paid', 'created_at' => now()->subDays(3)]);
+    // Fighter B's order must never bleed into A's analytics.
+    ProductOrder::factory()->create(['sales_source_id' => $segB->id, 'total_amount' => 999, 'payment_method' => 'cash', 'payment_status' => 'paid']);
+
+    $this->actingAs($a)
+        ->get('/fighter')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('analytics')
+            ->where('analytics.today.orders', 2)
+            ->where('analytics.today.revenue', 140)
+            ->has('analytics.week', 7)
+            ->where('analytics.weekTotals.orders', 3)
+            ->where('analytics.weekTotals.revenue', 170)
+            ->has('analytics.recent', 3)
+            ->has('analytics.paymentMethods', 2)
+            ->where('analytics.paymentMethods.0.label', 'Stripe')
+            ->where('analytics.paymentMethods.0.revenue', 130)
+            ->has('analytics.paymentStatuses', 2)
+        );
+});
+
+it('narrows the dashboard analytics to a single funnel when filtered', function () {
+    $f = fighter();
+    $seg = app(FighterProvisioner::class)->ensureSalesSource($f);
+    $funnelX = Funnel::factory()->create(['user_id' => $f->id]);
+    $funnelY = Funnel::factory()->create(['user_id' => $f->id]);
+
+    $orderX = ProductOrder::factory()->create(['sales_source_id' => $seg->id, 'total_amount' => 80, 'payment_method' => 'stripe', 'payment_status' => 'paid']);
+    FunnelOrder::factory()->create(['funnel_id' => $funnelX->id, 'product_order_id' => $orderX->id, 'order_type' => 'main']);
+
+    $orderY = ProductOrder::factory()->create(['sales_source_id' => $seg->id, 'total_amount' => 250, 'payment_method' => 'cash', 'payment_status' => 'paid']);
+    FunnelOrder::factory()->create(['funnel_id' => $funnelY->id, 'product_order_id' => $orderY->id, 'order_type' => 'main']);
+
+    // Unfiltered: both orders count.
+    $this->actingAs($f)->get('/fighter')
+        ->assertInertia(fn (Assert $page) => $page->where('analytics.today.orders', 2)->where('activeFunnel', null));
+
+    // Filtered to funnel X: only its order shows.
+    $this->actingAs($f)->get('/fighter?funnel='.$funnelX->uuid)
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeFunnel', $funnelX->uuid)
+            ->where('analytics.today.orders', 1)
+            ->where('analytics.today.revenue', 80)
+        );
 });
 
 it('does not notify when the funnel owner is not a fighter', function () {
