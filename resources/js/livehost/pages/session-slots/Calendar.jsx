@@ -2319,6 +2319,12 @@ function AuditDayGrid({ day, onAssign, onScheduleClick, onLink, onUnlink }) {
                 key={`m-${item.id}`}
                 live={item}
                 style={styleFor(item, tt.lanes, lane)}
+                onClick={() => {
+                  const slot = daySched.find((s) => s.id === item._assignmentId);
+                  if (slot) {
+                    onScheduleClick?.(slot);
+                  }
+                }}
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/plain', String(item.id));
                   e.dataTransfer.effectAllowed = 'link';
@@ -2401,14 +2407,15 @@ function AuditScheduleBlock({ slot, style, onClick, isDropTarget, onDragOver, on
   );
 }
 
-function AuditMatchedBlock({ live, style, onDragStart, onUnlink }) {
+function AuditMatchedBlock({ live, style, onDragStart, onUnlink, onClick }) {
   const gmvLabel = formatGmv(live.gmv);
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      title={`Linked TikTok live ${formatTimeLabel(live.startTime)}–${formatTimeLabel(live.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — drag onto another slot to move it, or click ✕ to unlink`}
-      className="group/matched absolute cursor-grab overflow-hidden rounded-[7px] border border-[#10B981]/50 bg-[#ECFDF5] px-1.5 py-1 active:cursor-grabbing"
+      onClick={onClick}
+      title={`Linked TikTok live ${formatTimeLabel(live.startTime)}–${formatTimeLabel(live.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — click to view details, drag onto another slot to move it, or ✕ to unlink`}
+      className="group/matched absolute cursor-pointer overflow-hidden rounded-[7px] border border-[#10B981]/50 bg-[#ECFDF5] px-1.5 py-1 active:cursor-grabbing"
       style={style}
     >
       <div className="flex items-center gap-1">
