@@ -16,6 +16,7 @@ class AutoVerifySessions extends Command
 {
     protected $signature = 'livehost:auto-verify-sessions
         {--days=2 : Look back this many days of synced lives}
+        {--backlog-days=60 : Also sweep still-pending sessions this many days back for clean matches the short live-scan window missed (0 = off)}
         {--force : Run even when the auto-verify setting is off}';
 
     protected $description = 'Auto-assign the scheduled host and verify TikTok lives that match the schedule.';
@@ -37,15 +38,28 @@ class AutoVerifySessions extends Command
         $stats = $service->run($from, $to);
 
         $this->info(sprintf(
-            'Auto-verify: %d sessions verified (%d records) · scanned %d · no-match %d · no-host %d · unsettled %d · skipped %d',
+            'Auto-verify: %d sessions verified (%d records) · scanned %d · no-match %d · no-host %d · unsettled %d · gmv-unpublished %d · placeholder-time %d · skipped %d',
             $stats['sessions_verified'],
             $stats['records_linked'],
             $stats['scanned'],
             $stats['no_match'],
             $stats['no_host'],
             $stats['unsettled'],
+            $stats['gmv_unpublished'],
+            $stats['placeholder_time'],
             $stats['skipped'],
         ));
+
+        $backlogDays = max(0, (int) $this->option('backlog-days'));
+        if ($backlogDays > 0) {
+            $sweep = $service->sweepPending($to->subDays($backlogDays)->startOfDay());
+            $this->info(sprintf(
+                'Backlog sweep (%dd): %d verified · scanned %d',
+                $backlogDays,
+                $sweep['sweep_verified'],
+                $sweep['sweep_scanned'],
+            ));
+        }
 
         $refresh = $service->refresh($from, $to);
         $rstats = $refresh['stats'];

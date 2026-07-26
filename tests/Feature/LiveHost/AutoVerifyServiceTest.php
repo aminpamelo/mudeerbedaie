@@ -89,6 +89,161 @@ it('auto-verifies a settled matched live, locking the summed GMV', function () {
     expect($this->session->status)->toBe('ended');
 });
 
+it('backlog sweep verifies an old clean pending session the short live-scan window skips', function () {
+    // Five days on, the schedule slot + live from 2026-04-20 are long settled.
+    Carbon::setTestNow('2026-04-25 20:00:00');
+    $live = makeLive(); // 2026-04-20 09:00–10:30 on the morning slot
+
+    // The scheduled run only scans the last 2 days of lives, so it never revisits
+    // the 04-20 session: both the live-driven and in-window session passes exclude it.
+    $stats = service()->run(CarbonImmutable::parse('2026-04-24'), CarbonImmutable::now());
+    expect($stats['sessions_verified'])->toBe(0);
+    expect($this->session->refresh()->verification_status)->toBe('pending');
+
+    // The backlog sweep gives it a fresh evaluation through the same gates.
+    $sweep = service()->sweepPending(CarbonImmutable::parse('2026-04-01'));
+
+    expect($sweep['sweep_verified'])->toBe(1);
+
+    $this->session->refresh();
+    expect($this->session->verification_status)->toBe('verified');
+    expect((bool) $this->session->auto_verified)->toBeTrue();
+    expect((float) $this->session->gmv_amount)->toBe(1000.0);
+});
+
+it('backlog sweep leaves a human-touched pending session alone', function () {
+    Carbon::setTestNow('2026-04-25 20:00:00');
+    $live = makeLive();
+
+    LiveSessionVerificationEvent::create([
+        'live_session_id' => $this->session->id,
+        'actual_live_record_id' => $live->id,
+        'action' => 'verify_link',
+        'user_id' => $this->host->id,
+        'gmv_snapshot' => 1000.00,
+        'notes' => 'touched by a human',
+    ]);
+
+    $sweep = service()->sweepPending(CarbonImmutable::parse('2026-04-01'));
+
+    expect($sweep['sweep_verified'])->toBe(0);
+    expect($this->session->refresh()->verification_status)->toBe('pending');
+});
+
+it('attributes a slot-spanning live to the host on duty when it STARTED, not the slot it spills into', function () {
+    // Second host's slot immediately after the morning slot, same creator account.
+    $eveningHost = User::factory()->create(['role' => 'live_host']);
+    $noonSlot = LiveTimeSlot::factory()->create(['start_time' => '11:00:00', 'end_time' => '13:00:00']);
+    $noonAssignment = LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $this->platform->id,
+        'live_account_id' => $this->account->id,
+        'live_host_id' => $eveningHost->id,
+        'time_slot_id' => $noonSlot->id,
+        'is_template' => false,
+        'schedule_date' => '2026-04-20',
+        'day_of_week' => Carbon::parse('2026-04-20')->dayOfWeek,
+    ]);
+    $noonSession = LiveSession::where('live_schedule_assignment_id', $noonAssignment->id)->firstOrFail();
+
+    // Launches 10:30 (inside the 09:00–11:00 morning slot) but runs 2h, spilling
+    // into the 11:00–13:00 slot. It belongs to the MORNING host who started it.
+    makeLive([
+        'launched_time' => '2026-04-20 10:30:00',
+        'ended_time' => '2026-04-20 12:30:00',
+        'duration_seconds' => 7200,
+        'live_attributed_gmv_myr' => 1000.00,
+    ]);
+
+    windowRun();
+
+    $this->session->refresh();
+    expect($this->session->verification_status)->toBe('verified');
+    expect((float) $this->session->gmv_amount)->toBe(1000.0);
+
+    // The spilled-into slot must stay empty — its commission is untouched.
+    expect($noonSession->refresh()->verification_status)->toBe('pending');
+    expect($noonSession->actualLiveRecords()->count())->toBe(0);
+});
+
+it('does NOT auto-verify a settled live whose GMV is still unavailable (-1 sentinel)', function () {
+    // Real, finished live but TikTok has not published the 24h GMV yet: it returns
+    // -1, which must NOT be locked as RM0.
+    makeLive(['live_attributed_gmv_myr' => -1.00]);
+
+    $stats = windowRun();
+
+    expect($stats['gmv_unpublished'])->toBe(1);
+    expect($stats['sessions_verified'])->toBe(0);
+
+    $this->session->refresh();
+    expect($this->session->verification_status)->toBe('pending');
+    expect((float) $this->session->gmv_amount)->toBe(0.0);
+});
+
+it('auto-verifies once the previously -1 GMV is published on a later sync', function () {
+    $live = makeLive(['live_attributed_gmv_myr' => -1.00]);
+    expect(windowRun()['sessions_verified'])->toBe(0);
+
+    // A later sync fills in the real 24h GMV.
+    $live->update(['live_attributed_gmv_myr' => 1750.00]);
+
+    $stats = windowRun();
+
+    expect($stats['sessions_verified'])->toBe(1);
+    $this->session->refresh();
+    expect($this->session->verification_status)->toBe('verified');
+    expect((float) $this->session->gmv_amount)->toBe(1750.0);
+});
+
+it('defers a live whose launch time is a placeholder (collides with another distinct live)', function () {
+    // Two DIFFERENT lives (different source_record_id) stamped with the identical
+    // launch second on one account — a sync placeholder, not a real start. Neither
+    // can be trusted to a slot, so auto-verify must defer, not guess a host.
+    makeLive(['source_record_id' => '1111111111111111', 'launched_time' => '2026-04-20 09:00:00', 'ended_time' => '2026-04-20 10:00:00', 'duration_seconds' => 3600]);
+    ActualLiveRecord::factory()->apiSync()->create([
+        'platform_account_id' => $this->platform->id,
+        'creator_platform_user_id' => '900900900',
+        'creator_handle' => 'someshop',
+        'source_record_id' => '2222222222222222',
+        'launched_time' => '2026-04-20 09:00:00',
+        'ended_time' => '2026-04-20 10:00:00',
+        'duration_seconds' => 3600,
+        'live_attributed_gmv_myr' => 500,
+        'viewers' => 800,
+    ]);
+
+    $stats = windowRun();
+
+    expect($stats['placeholder_time'])->toBeGreaterThanOrEqual(1);
+    expect($stats['sessions_verified'])->toBe(0);
+    expect($this->session->refresh()->verification_status)->toBe('pending');
+});
+
+it('auto-verifies once the colliding placeholder is resolved to a distinct real time', function () {
+    $a = makeLive(['source_record_id' => '1111111111111111', 'launched_time' => '2026-04-20 09:00:00', 'ended_time' => '2026-04-20 10:00:00', 'duration_seconds' => 3600]);
+    $b = ActualLiveRecord::factory()->apiSync()->create([
+        'platform_account_id' => $this->platform->id,
+        'creator_platform_user_id' => '900900900',
+        'creator_handle' => 'someshop',
+        'source_record_id' => '2222222222222222',
+        'launched_time' => '2026-04-20 09:00:00',
+        'ended_time' => '2026-04-20 10:00:00',
+        'duration_seconds' => 3600,
+        'live_attributed_gmv_myr' => 500,
+        'viewers' => 800,
+    ]);
+    expect(windowRun()['sessions_verified'])->toBe(0);
+
+    // A re-sync gives the second live its real, distinct start (a different slot's
+    // window). The first no longer collides → auto-verify can trust it.
+    $b->update(['launched_time' => '2026-04-20 13:00:00', 'ended_time' => '2026-04-20 14:00:00']);
+
+    $stats = windowRun();
+
+    expect($stats['sessions_verified'])->toBe(1);
+    expect($this->session->refresh()->verification_status)->toBe('verified');
+});
+
 it('does NOT auto-verify a live that is still running / just ended (settle delay)', function () {
     // Launched 20 min ago, no end yet → computed end is in the future → unsettled.
     makeLive([

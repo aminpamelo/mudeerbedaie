@@ -59,6 +59,8 @@ class AutoVerifyService
             'no_match' => 0,
             'no_host' => 0,
             'unsettled' => 0,
+            'gmv_unpublished' => 0,
+            'placeholder_time' => 0,
             'skipped' => 0,
         ];
 
@@ -120,6 +122,23 @@ class AutoVerifyService
                 continue;
             }
 
+            // GMV not published yet: TikTok returns -1 for 24h-attributed GMV it
+            // hasn't released. Locking that as RM0 freezes a real (often high-GMV)
+            // live at zero, so defer until a later sync/CSV brings the number.
+            if (! $this->clusterGmvPublished($records)) {
+                $stats['gmv_unpublished']++;
+
+                continue;
+            }
+
+            // Placeholder launch time: can't trust which slot (host) it belongs to,
+            // so defer rather than guess and mis-credit. Waits for a re-sync.
+            if (! $this->clusterLaunchTimesReliable($records)) {
+                $stats['placeholder_time']++;
+
+                continue;
+            }
+
             $this->verify($session, $records);
             $stats['sessions_verified']++;
             $stats['records_linked'] += $records->count();
@@ -145,6 +164,147 @@ class AutoVerifyService
                     $stats['sessions_verified']++;
                 }
             });
+
+        return $stats;
+    }
+
+    /**
+     * Session-driven backlog sweep: give EVERY still-pending session back to
+     * `$notBefore` a fresh evaluation through the same gates as run()'s in-window
+     * pass (and as a PIC clicking Verify), independent of the live-sync window.
+     *
+     * run() only reconsiders sessions whose scheduled_start_at falls inside its
+     * short live-scan window (default 2 days). A session that wasn't cleanly
+     * matchable during that window — auto-verify was off at the time, the live
+     * synced late, its slot was edited afterwards — is never looked at again, so
+     * its matched TikTok GMV stays unclaimed indefinitely. This sweep closes that
+     * gap. Every gate lives in verifyIfClear (pending, untouched by a human, not
+     * payroll-locked, cluster settled, not linked elsewhere), so the sweep can
+     * only ever verify what run() itself would have.
+     *
+     * @return array<string, int>
+     */
+    public function sweepPending(CarbonImmutable $notBefore): array
+    {
+        $stats = ['sweep_scanned' => 0, 'sweep_verified' => 0];
+
+        LiveSession::query()
+            ->where('verification_status', 'pending')
+            ->where('scheduled_start_at', '>=', $notBefore)
+            ->orderBy('scheduled_start_at')
+            ->get()
+            ->each(function (LiveSession $session) use (&$stats): void {
+                $stats['sweep_scanned']++;
+                if ($this->verifyIfClear($session)) {
+                    $stats['sweep_verified']++;
+                }
+            });
+
+        return $stats;
+    }
+
+    /**
+     * One-pass audit rebuild of a date range's attribution: give every verified
+     * live back a trustworthy home, and quarantine the ones that can't have one.
+     *
+     * For each verified live in [from, to]:
+     *  - unpublished GMV (-1) or placeholder launch time (collides with another
+     *    distinct live) → UNLINK it (quarantine): its credit was a guess, so it
+     *    leaves the host's session and waits for a real re-sync.
+     *  - otherwise → move it to the slot whose window contains its launch time,
+     *    crediting the correct host (no-op when already there).
+     *
+     * Never touches a session a human verified/edited or one in a locked payroll
+     * period. Idempotent: a second run finds nothing to move or quarantine.
+     * Pass $apply=false for a read-only count.
+     *
+     * @return array<string, int>
+     */
+    public function auditRebuild(CarbonImmutable $from, CarbonImmutable $to, bool $apply): array
+    {
+        $stats = [
+            'checked' => 0,
+            'reattributed' => 0,
+            'quarantined_placeholder' => 0,
+            'quarantined_gmv' => 0,
+            'orphan' => 0,
+            'skipped' => 0,
+        ];
+
+        $recordIds = DB::table('live_session_actual_live_record as p')
+            ->join('actual_live_records as r', 'r.id', '=', 'p.actual_live_record_id')
+            ->join('live_sessions as s', 's.id', '=', 'p.live_session_id')
+            ->whereBetween('r.launched_time', [$from, $to])
+            ->where('s.verification_status', 'verified')
+            ->orderBy('r.launched_time')
+            ->pluck('p.actual_live_record_id')
+            ->unique()
+            ->values();
+
+        foreach ($recordIds as $recId) {
+            $live = ActualLiveRecord::find($recId);
+            if ($live === null) {
+                continue;
+            }
+            $session = $this->sessionHolding($live);
+            if ($session === null) {
+                continue;
+            }
+            $stats['checked']++;
+
+            if ($this->hasVerificationHistory($session) || $this->isPayrollLocked($session)) {
+                $stats['skipped']++;
+
+                continue;
+            }
+
+            // Quarantine the untrustworthy — a credit built on a guessed number or
+            // a guessed time is worse than no credit until a real re-sync lands.
+            if ((float) $live->live_attributed_gmv_myr < 0) {
+                if ($apply) {
+                    $this->unlinkLive($live);
+                }
+                $stats['quarantined_gmv']++;
+
+                continue;
+            }
+            if ($this->launchTimeIsPlaceholder($live)) {
+                if ($apply) {
+                    $this->unlinkLive($live);
+                }
+                $stats['quarantined_placeholder']++;
+
+                continue;
+            }
+
+            // Re-home the trustworthy to the host whose slot window contains it.
+            $correct = $this->correctAssignmentForLive($live);
+            if ($correct === null) {
+                $stats['orphan']++;
+
+                continue;
+            }
+            if ($correct->live_host_id === null) {
+                $stats['skipped']++;
+
+                continue;
+            }
+            $current = $session->liveScheduleAssignment;
+            if ($current !== null && $correct->id === $current->id) {
+                continue; // already correctly attributed
+            }
+
+            if ($apply) {
+                try {
+                    $this->linkLiveToAssignment($live, $correct);
+                    $stats['reattributed']++;
+                } catch (\RuntimeException) {
+                    $stats['skipped']++;
+                }
+            } else {
+                $stats['reattributed']++;
+            }
+        }
 
         return $stats;
     }
@@ -185,6 +345,8 @@ class AutoVerifyService
         $payrollLocked = $this->isPayrollLocked($session);
         $linkedElsewhere = $records->isNotEmpty() && $this->anyLinkedElsewhere($records, $session);
         $settled = $records->isEmpty() ? true : $this->clusterHasSettled($records);
+        $gmvPublished = $records->isEmpty() ? true : $this->clusterGmvPublished($records);
+        $launchReliable = $records->isEmpty() ? true : $this->clusterLaunchTimesReliable($records);
 
         $verdict = match (true) {
             $session->verification_status !== 'pending' => "skip: not pending (already {$session->verification_status})",
@@ -193,6 +355,8 @@ class AutoVerifyService
             $records->isEmpty() => 'no-match: no candidate TikTok live for this slot',
             $linkedElsewhere => 'skip: candidate live(s) already linked to session(s) '.implode(', ', $heldByOthers),
             ! $settled => 'wait: cluster not settled yet',
+            ! $gmvPublished => 'wait: GMV not published yet (TikTok returned -1 — unavailable, not RM0)',
+            ! $launchReliable => 'wait: placeholder launch time (collides with other lives — real start not synced)',
             default => 'WOULD VERIFY',
         };
 
@@ -205,6 +369,8 @@ class AutoVerifyService
             'has_verification_history' => $hasHistory,
             'payroll_locked' => $payrollLocked,
             'cluster_settled' => $settled,
+            'gmv_published' => $gmvPublished,
+            'launch_time_reliable' => $launchReliable,
             'verdict' => $verdict,
         ];
     }
@@ -232,7 +398,9 @@ class AutoVerifyService
             || $this->hasVerificationHistory($session)
             || $this->isPayrollLocked($session)
             || $this->anyLinkedElsewhere($records, $session)
-            || ! $this->clusterHasSettled($records)) {
+            || ! $this->clusterHasSettled($records)
+            || ! $this->clusterGmvPublished($records)
+            || ! $this->clusterLaunchTimesReliable($records)) {
             return false;
         }
 
@@ -472,6 +640,56 @@ class AutoVerifyService
         $slotEnd = $this->toMinutes($slot->end_time);
 
         return $liveStartMin < $slotEnd && $liveEndMin > $slotStart;
+    }
+
+    /**
+     * True when every record in the cluster has a published GMV. TikTok's live
+     * API returns -1 for 24h-attributed GMV it has not released yet (the window
+     * is still open, or the sales scope is restricted) — that is "unknown", NOT
+     * "RM0". Locking it would freeze a real, often high-GMV live at zero, so a
+     * cluster carrying any -1 record is deferred (like the settle delay) until a
+     * later sync or the CSV export brings the real figure.
+     *
+     * @param  Collection<int, ActualLiveRecord>  $records
+     */
+    private function clusterGmvPublished(Collection $records): bool
+    {
+        return $records->every(fn (ActualLiveRecord $r) => (float) $r->live_attributed_gmv_myr >= 0);
+    }
+
+    /**
+     * True when every record's launch time is trustworthy enough to attribute by.
+     * A record whose launched_time is null, or collides to the exact second with
+     * ANOTHER distinct TikTok live on the same account, carries a placeholder time
+     * (the sync couldn't read the real per-live start — such rows also lack
+     * viewers/end). Two real lives never start at the same second, so a collision
+     * means the slot the launch-time matcher would pick is a guess. Attributing on
+     * a guessed time silently piles several distinct lives onto one host, so the
+     * cluster is deferred until a re-sync brings the real times.
+     *
+     * @param  Collection<int, ActualLiveRecord>  $records
+     */
+    private function clusterLaunchTimesReliable(Collection $records): bool
+    {
+        return $records->every(fn (ActualLiveRecord $r) => ! $this->launchTimeIsPlaceholder($r));
+    }
+
+    public function launchTimeIsPlaceholder(ActualLiveRecord $live): bool
+    {
+        if ($live->launched_time === null) {
+            return true;
+        }
+        if ($live->source_record_id === null) {
+            return false; // CSV rows carry real times and no source id — never a collision.
+        }
+
+        return ActualLiveRecord::query()
+            ->where('platform_account_id', $live->platform_account_id)
+            ->where('launched_time', $live->launched_time)
+            ->where('id', '!=', $live->id)
+            ->whereNotNull('source_record_id')
+            ->where('source_record_id', '!=', $live->source_record_id)
+            ->exists();
     }
 
     /**
@@ -739,8 +957,58 @@ class AutoVerifyService
     }
 
     /**
-     * The hosted schedule slot (dated preferred over template) on this account
-     * and day whose time window overlaps the live.
+     * The live account (punca kuasa) a synced live belongs to — matched by its
+     * numeric Creator ID first, then normalized handle. Public single-live form
+     * of the resolver the batch matcher builds an index for.
+     */
+    public function accountForLive(ActualLiveRecord $live): ?LiveAccount
+    {
+        $creatorId = $live->creator_platform_user_id !== null ? trim((string) $live->creator_platform_user_id) : null;
+        if ($creatorId !== null && $creatorId !== '') {
+            $byId = LiveAccount::query()->where('creator_user_id', $creatorId)->first();
+            if ($byId !== null) {
+                return $byId;
+            }
+        }
+
+        $handle = LiveAccount::normalizeHandle($live->creator_handle);
+
+        return $handle !== null ? LiveAccount::query()->where('normalized_handle', $handle)->first() : null;
+    }
+
+    /**
+     * The hosted schedule slot whose time window CONTAINS the live on the live's
+     * OWN date — the correct slot for attribution, derived from the slot's
+     * time-of-day and never from a (possibly drifted) scheduled_start_at. Null
+     * when the live resolves to no account, or no hosted slot on its day overlaps
+     * it. The re-attribution repair uses this to find where a mis-slotted live
+     * (and its commission) really belongs.
+     */
+    public function correctAssignmentForLive(ActualLiveRecord $live): ?LiveScheduleAssignment
+    {
+        if ($live->launched_time === null) {
+            return null;
+        }
+
+        $account = $this->accountForLive($live);
+        if ($account === null) {
+            return null;
+        }
+
+        $klStart = CarbonImmutable::parse($live->launched_time)->setTimezone(self::TIMEZONE);
+
+        return $this->matchingAssignment($account, $live, $klStart);
+    }
+
+    /**
+     * The hosted schedule slot this live belongs to on its own day. Eligibility is
+     * time-window overlap (so a host who starts a little early/late still matches),
+     * but the WINNER is the slot whose window contains the live's LAUNCH time —
+     * because a long broadcast that spills into the next host's slot still belongs
+     * to whoever was on duty when it started. Without this, a live spanning two
+     * adjacent slots is attributed by mere overlap and its commission can land on
+     * the wrong host (the "crossing links" on the calendar). Dated slots still beat
+     * templates; launch-containment breaks ties among same-kind slots.
      */
     private function matchingAssignment(LiveAccount $account, ActualLiveRecord $live, CarbonImmutable $klStart): ?LiveScheduleAssignment
     {
@@ -757,8 +1025,28 @@ class AutoVerifyService
             ->with('timeSlot')
             ->get()
             ->filter(fn (LiveScheduleAssignment $a) => $this->assignmentOverlapsLive($a, $live, $klStart))
+            // Stable sorts, least-significant first: launch-containment tiebreak,
+            // then the dominant key — a dated slot always outranks a template.
+            ->sortBy(fn (LiveScheduleAssignment $a) => $this->assignmentContainsLaunch($a, $klStart) ? 0 : 1)
             ->sortBy(fn (LiveScheduleAssignment $a) => $a->is_template ? 1 : 0)
             ->first();
+    }
+
+    /**
+     * Whether the live's LAUNCH minute-of-day falls inside the assignment's slot
+     * window (start inclusive, end exclusive) on the live's own day.
+     */
+    private function assignmentContainsLaunch(LiveScheduleAssignment $assignment, CarbonImmutable $klStart): bool
+    {
+        $slot = $assignment->timeSlot;
+        if (! $slot) {
+            return false;
+        }
+
+        $launchMin = ((int) $klStart->format('G')) * 60 + (int) $klStart->format('i');
+
+        return $launchMin >= $this->toMinutes($slot->start_time)
+            && $launchMin < $this->toMinutes($slot->end_time);
     }
 
     /**
