@@ -1,0 +1,1 @@
+function i(e){return Array.isArray(e.assignees)&&e.assignees.length?e.assignees:e.assignee?[e.assignee]:[]}function t(e){const n=i(e);if(!n.length)return null;const[s,...r]=n;return r.length?`${s.full_name} +${r.length}`:s.full_name}function a(e){return i(e).map(n=>n.full_name).join(", ")}export{t as a,a as b,i as t};

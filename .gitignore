@@ -1,6 +1,7 @@
 /.phpunit.cache
 /node_modules
-/public/build
+# public/build is committed: the production host runs an old glibc and cannot
+# run Vite/Rollup's native binary, so assets are built locally and shipped.
 /public/hot
 /public/storage
 /storage/*.key
