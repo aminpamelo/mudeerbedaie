@@ -140,6 +140,59 @@ class SessionDetailController extends Controller
         ]);
     }
 
+    /**
+     * Reset a recap the host uploaded by mistake — "buang rekap".
+     *
+     * Wipes everything the host entered (attachments + files, analytics,
+     * timings, GMV, remarks, missed-reason) and flips the session back to
+     * `scheduled` so it re-appears as still-needing-a-recap. The LiveSession
+     * row itself is kept: it belongs to the PIC's roster, so this undoes the
+     * host's upload rather than deleting the scheduled slot.
+     *
+     * If the PIC had already verified/locked the GMV, that verification is
+     * cleared too (the client warns the host before calling this). Sessions
+     * auto-recorded from TikTok have no host upload to reset and are refused.
+     */
+    public function resetRecap(Request $request, LiveSession $session): RedirectResponse
+    {
+        abort_unless($session->live_host_id === $request->user()->id, 403);
+        abort_if($session->isAutoRecorded(), 403, 'Sesi ini direkod automatik dari TikTok dan tidak boleh dibuang.');
+
+        foreach ($session->attachments as $attachment) {
+            if ($attachment->file_path) {
+                Storage::disk('public')->delete($attachment->file_path);
+            }
+            $attachment->delete();
+        }
+
+        if ($session->image_path) {
+            Storage::disk('public')->delete($session->image_path);
+        }
+
+        LiveAnalytics::where('live_session_id', $session->id)->delete();
+
+        $session->update([
+            'status' => 'scheduled',
+            'actual_start_at' => null,
+            'actual_end_at' => null,
+            'duration_minutes' => null,
+            'gmv_amount' => null,
+            'gmv_source' => 'manual',
+            'gmv_locked_at' => null,
+            'verified_by' => null,
+            'verified_at' => null,
+            'auto_verified' => false,
+            'uploaded_at' => null,
+            'uploaded_by' => null,
+            'remarks' => null,
+            'missed_reason_code' => null,
+            'missed_reason_note' => null,
+            'image_path' => null,
+        ]);
+
+        return back()->with('success', 'Rekap dibuang. Sesi kembali ke status belum upload.');
+    }
+
     public function addAttachment(AddAttachmentRequest $request, LiveSession $session): RedirectResponse
     {
         abort_unless($session->live_host_id === $request->user()->id, 403);

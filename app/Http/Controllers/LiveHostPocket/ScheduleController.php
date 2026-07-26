@@ -419,6 +419,13 @@ class ScheduleController extends Controller
             'canRecap' => $session->canRecap(),
             'missedReasonCode' => $session->missed_reason_code,
             'missedReasonNote' => $session->missed_reason_note,
+            // The host may "buang" (reset) a recap they submitted by mistake —
+            // any manually-recapped session (ended/missed), never a TikTok
+            // auto-recorded one. `isVerified` warns them the PIC already locked
+            // the GMV so the reset will undo that verification.
+            'canReset' => in_array($session->status, ['ended', 'missed'], true)
+                && $session->gmv_source !== 'tiktok_actual',
+            'isVerified' => $session->gmv_locked_at !== null || $session->verified_at !== null,
         ];
     }
 

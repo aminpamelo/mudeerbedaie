@@ -5,12 +5,13 @@ use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\postJson;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Storage::fake('public');
@@ -130,6 +131,101 @@ it('preserves analytics when flipping from missed back to went_live', function (
     expect($fresh->missed_reason_code)->toBeNull();
     expect($fresh->missed_reason_note)->toBeNull();
     expect($fresh->analytics->viewers_peak)->toBe(150);
+});
+
+it('resets a submitted recap back to scheduled and wipes attachments, analytics and entered data', function () {
+    actingAs($this->host);
+
+    $this->session->update([
+        'status' => 'ended',
+        'gmv_source' => 'manual',
+        'gmv_amount' => 500,
+        'remarks' => 'Went well',
+        'actual_start_at' => now()->subHours(2),
+        'actual_end_at' => now()->subHour(),
+        'uploaded_by' => $this->host->id,
+        'uploaded_at' => now(),
+    ]);
+
+    $attachment = LiveSessionAttachment::factory()->tiktokShopScreenshot()->create([
+        'live_session_id' => $this->session->id,
+    ]);
+    Storage::disk('public')->put($attachment->file_path, 'x');
+    LiveAnalytics::factory()->for($this->session, 'liveSession')->create(['viewers_peak' => 99]);
+
+    $response = $this->delete("/live-host/sessions/{$this->session->id}/recap");
+
+    $response->assertRedirect();
+    $fresh = $this->session->fresh();
+    expect($fresh->status)->toBe('scheduled');
+    expect($fresh->gmv_amount)->toBeNull();
+    expect($fresh->remarks)->toBeNull();
+    expect($fresh->actual_start_at)->toBeNull();
+    expect($fresh->uploaded_by)->toBeNull();
+    expect(LiveSessionAttachment::where('live_session_id', $this->session->id)->count())->toBe(0);
+    expect(LiveAnalytics::where('live_session_id', $this->session->id)->count())->toBe(0);
+    Storage::disk('public')->assertMissing($attachment->file_path);
+});
+
+it('clears PIC verification when resetting a verified recap', function () {
+    actingAs($this->host);
+
+    $this->session->update([
+        'status' => 'ended',
+        'gmv_source' => 'manual',
+        'gmv_locked_at' => now(),
+        'verified_at' => now(),
+        'verified_by' => $this->host->id,
+    ]);
+
+    $this->delete("/live-host/sessions/{$this->session->id}/recap")->assertRedirect();
+
+    $fresh = $this->session->fresh();
+    expect($fresh->gmv_locked_at)->toBeNull();
+    expect($fresh->verified_at)->toBeNull();
+    expect($fresh->verified_by)->toBeNull();
+});
+
+it('refuses to reset a TikTok auto-recorded session', function () {
+    actingAs($this->host);
+
+    $this->session->update(['status' => 'ended', 'gmv_source' => 'tiktok_actual']);
+
+    $this->delete("/live-host/sessions/{$this->session->id}/recap")->assertForbidden();
+    expect($this->session->fresh()->status)->toBe('ended');
+});
+
+it('forbids resetting another host session', function () {
+    $other = User::factory()->create(['role' => 'live_host']);
+    actingAs($other);
+
+    $this->session->update(['status' => 'ended', 'gmv_source' => 'manual']);
+
+    $this->delete("/live-host/sessions/{$this->session->id}/recap")->assertForbidden();
+});
+
+it('exposes canReset and isVerified on the schedule month grid recap action', function () {
+    actingAs($this->host);
+
+    $this->session->update([
+        'status' => 'ended',
+        'gmv_source' => 'manual',
+        'gmv_locked_at' => now(),
+        'scheduled_start_at' => now()->startOfMonth()->addDays(2)->setTime(20, 0),
+    ]);
+    LiveSessionAttachment::factory()->tiktokShopScreenshot()->create([
+        'live_session_id' => $this->session->id,
+    ]);
+
+    $response = $this->get('/live-host/schedule?month='.now()->format('Y-m'));
+    $response->assertOk();
+
+    $itemsByDate = $response->viewData('page')['props']['monthGrid']['itemsByDate'];
+    $item = collect($itemsByDate)->flatten(1)->firstWhere('sessionId', $this->session->id);
+
+    expect($item)->not->toBeNull();
+    expect($item['recapAction']['session']['canReset'])->toBeTrue();
+    expect($item['recapAction']['session']['isVerified'])->toBeTrue();
 });
 
 it('exposes canRecap=true on scheduled sessions past their start time', function () {

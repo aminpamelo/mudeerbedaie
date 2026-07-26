@@ -295,6 +295,11 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
         Route::post('sessions/{session}/recap', [SessionDetailController::class, 'saveRecap'])
             ->name('sessions.recap');
 
+        // Buang rekap — undo a recap uploaded by mistake, resetting the session
+        // back to "belum upload". Keeps the scheduled slot (PIC-owned).
+        Route::delete('sessions/{session}/recap', [SessionDetailController::class, 'resetRecap'])
+            ->name('sessions.recap.reset');
+
         Route::post('sessions/{session}/attachments', [SessionDetailController::class, 'addAttachment'])
             ->name('sessions.attachments.store');
 
