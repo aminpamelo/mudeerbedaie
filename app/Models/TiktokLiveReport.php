@@ -13,6 +13,7 @@ class TiktokLiveReport extends Model
         'creator_nickname',
         'creator_display_name',
         'launched_time',
+        'ended_time',
         'duration_seconds',
         'gmv_myr',
         'live_attributed_gmv_myr',
@@ -45,6 +46,7 @@ class TiktokLiveReport extends Model
     {
         return [
             'launched_time' => 'datetime',
+            'ended_time' => 'datetime',
             'gmv_myr' => 'decimal:2',
             'live_attributed_gmv_myr' => 'decimal:2',
             'avg_price_myr' => 'decimal:2',

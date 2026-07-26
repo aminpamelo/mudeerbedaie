@@ -134,7 +134,7 @@ class SessionSlotController extends Controller
                 'liveSession.attachments.uploader:id,name',
                 'liveSession.verifiedBy:id,name',
                 'liveSession.analytics',
-                'liveSession.actualLiveRecords:id,launched_time,ended_time,live_attributed_gmv_myr,viewers',
+                'liveSession.actualLiveRecords:id,launched_time,ended_time,duration_seconds,live_attributed_gmv_myr,viewers',
             ])
             ->when(
                 $host === 'unassigned',
@@ -562,9 +562,15 @@ class SessionSlotController extends Controller
 
         return $session->actualLiveRecords->map(function (ActualLiveRecord $r) use ($a): array {
             $start = CarbonImmutable::parse($r->launched_time)->setTimezone('Asia/Kuala_Lumpur');
-            $end = $r->ended_time
-                ? CarbonImmutable::parse($r->ended_time)->setTimezone('Asia/Kuala_Lumpur')
-                : $start->addHour();
+            // Match the suggestion card's end-time logic (SuggestedSlotFinder::endTime)
+            // so a live keeps the SAME height once linked: real end, else the real
+            // duration, and only then a 1-hour fallback. Without the duration step a
+            // long live (ended_time null) shrank to a 1h block after linking.
+            $end = match (true) {
+                $r->ended_time !== null => CarbonImmutable::parse($r->ended_time)->setTimezone('Asia/Kuala_Lumpur'),
+                $r->duration_seconds !== null && (int) $r->duration_seconds > 0 => $start->addSeconds((int) $r->duration_seconds),
+                default => $start->addHour(),
+            };
 
             return [
                 'id' => $r->id,

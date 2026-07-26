@@ -166,6 +166,7 @@ class TikTokLiveSyncService
                             'creator_platform_user_id' => $report->tiktok_creator_id,
                             'creator_handle' => $report->creator_nickname,
                             'launched_time' => $report->launched_time,
+                            'ended_time' => $report->ended_time,
                             'duration_seconds' => $report->duration_seconds,
                             'gmv_myr' => $report->gmv_myr ?? 0,
                             'live_attributed_gmv_myr' => $report->live_attributed_gmv_myr ?? 0,
@@ -276,6 +277,7 @@ class TikTokLiveSyncService
             'creator_nickname' => $s['username'] ?? null,
             'creator_display_name' => $s['username'] ?? null,
             'launched_time' => $start,
+            'ended_time' => $end ?? ($start && $duration ? $start->addSeconds($duration) : null),
             'duration_seconds' => $duration,
 
             // Sales metrics

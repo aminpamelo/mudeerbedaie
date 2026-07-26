@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ActualLiveRecord;
 use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
@@ -7,6 +8,7 @@ use App\Models\LiveSession;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
 use function Pest\Laravel\actingAs;
@@ -61,6 +63,40 @@ it('maps session slot DTO fields', function () {
             ->where('sessionSlots.data.0.isTemplate', true)
             ->where('sessionSlots.data.0.status', 'confirmed')
             ->where('sessionSlots.data.0.remarks', 'Flagship slot')
+            ->etc());
+});
+
+it('derives a linked live end time from its duration when ended_time is null (keeps card full height)', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $account = PlatformAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create(['start_time' => '09:00:00', 'end_time' => '11:00:00']);
+    $assignment = LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $account->id,
+        'time_slot_id' => $slot->id,
+        'live_host_id' => $host->id,
+        'is_template' => false,
+        'schedule_date' => '2026-07-06',
+        'day_of_week' => Carbon::parse('2026-07-06')->dayOfWeek,
+    ]);
+    $session = LiveSession::where('live_schedule_assignment_id', $assignment->id)->firstOrFail();
+
+    // A 2-hour live with NO ended_time (as the TikTok sync always stores it) —
+    // the real end must come from duration_seconds, not a 1-hour fallback.
+    $live = ActualLiveRecord::factory()->apiSync()->create([
+        'platform_account_id' => $account->id,
+        'launched_time' => '2026-07-06 09:00:00',
+        'ended_time' => null,
+        'duration_seconds' => 7200,
+    ]);
+    $session->actualLiveRecords()->attach($live->id, [
+        'is_primary' => true, 'live_attributed_gmv_myr' => 500, 'linked_at' => now(),
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar?week_of=2026-07-06')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.0.linkedLives.0.startTime', '09:00')
+            ->where('sessionSlots.0.linkedLives.0.endTime', '11:00') // was '10:00' (start+1h) before the fix
             ->etc());
 });
 
