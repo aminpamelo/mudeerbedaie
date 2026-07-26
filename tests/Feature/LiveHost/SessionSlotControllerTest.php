@@ -8,6 +8,7 @@ use App\Models\LiveSession;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use App\Services\SettingsService;
 use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -98,6 +99,24 @@ it('derives a linked live end time from its duration when ended_time is null (ke
             ->where('sessionSlots.0.linkedLives.0.startTime', '09:00')
             ->where('sessionSlots.0.linkedLives.0.endTime', '11:00') // was '10:00' (start+1h) before the fix
             ->etc());
+});
+
+it('toggles the verify_source setting via the endpoint', function () {
+    actingAs($this->pic)
+        ->post('/livehost/session-slots/verify-source', ['source' => 'api'])
+        ->assertRedirect();
+    expect(app(SettingsService::class)->get('livehost.verify_source'))->toBe('api');
+
+    actingAs($this->pic)
+        ->post('/livehost/session-slots/verify-source', ['source' => 'all'])
+        ->assertRedirect();
+    expect(app(SettingsService::class)->get('livehost.verify_source'))->toBe('all');
+});
+
+it('blocks non-admin from toggling verify_source', function () {
+    actingAs(User::factory()->create(['role' => 'live_host']))
+        ->post('/livehost/session-slots/verify-source', ['source' => 'api'])
+        ->assertForbidden();
 });
 
 it('filters session slots by host', function () {

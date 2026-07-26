@@ -327,6 +327,7 @@ export default function SessionSlotsCalendar() {
     slotOverrides = [],
     hostPlatformPivots,
     autoVerifyEnabled = false,
+    verifySource = 'all',
     flash,
   } = usePage().props;
 
@@ -1224,6 +1225,26 @@ export default function SessionSlotsCalendar() {
             >
               <span className={`h-2 w-2 rounded-full ${autoVerifyEnabled ? 'bg-[#10B981]' : 'bg-[#D4D4D4]'}`}></span>
               Auto-verify {autoVerifyEnabled ? 'On' : 'Off'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.post(
+                  '/livehost/session-slots/verify-source',
+                  { source: verifySource === 'api' ? 'all' : 'api' },
+                  { preserveScroll: true, preserveState: true },
+                )
+              }
+              title="Source used to verify. 'API only' ignores uploaded-CSV lives in candidate finding, suggestions and auto-verify. 'API + CSV' uses both."
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                verifySource === 'api'
+                  ? 'border-[#2563EB]/40 bg-[#EFF6FF] text-[#1D4ED8]'
+                  : 'border-[#EAEAEA] bg-white text-[#737373] hover:bg-[#F5F5F5]'
+              }`}
+            >
+              <Radio className="h-3 w-3" strokeWidth={2} />
+              {verifySource === 'api' ? 'API only' : 'API + CSV'}
             </button>
 
             <div className="relative" ref={runPanelRef}>

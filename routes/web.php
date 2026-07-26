@@ -974,6 +974,8 @@ Route::middleware(['auth'])
                 ->name('session-slots.auto-verify');
             Route::post('session-slots/auto-verify/run', [SessionSlotController::class, 'runAutoVerify'])
                 ->name('session-slots.auto-verify.run');
+            Route::post('session-slots/verify-source', [SessionSlotController::class, 'setVerifySource'])
+                ->name('session-slots.verify-source');
             Route::post('session-slots/link-live', [SessionSlotController::class, 'linkLive'])
                 ->name('session-slots.link-live');
             Route::post('session-slots/unlink-live', [SessionSlotController::class, 'unlinkLive'])
@@ -1140,6 +1142,9 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     // Impersonation routes
     Route::post('impersonate/{user}', [ImpersonationController::class, 'start'])->name('impersonation.start');
     Volt::route('impersonation-logs', 'admin.impersonation-logs')->name('admin.impersonation-logs');
+
+    // External system provisioning (connected apps)
+    Volt::route('external-systems', 'admin.external-systems')->name('admin.external-systems');
 
     // Reports routes
     Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');

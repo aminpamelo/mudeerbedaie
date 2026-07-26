@@ -211,6 +211,7 @@ class SessionSlotController extends Controller
                 app(SettingsService::class)->get('livehost.auto_verify_enabled', false),
                 FILTER_VALIDATE_BOOLEAN,
             ),
+            'verifySource' => app(SettingsService::class)->get('livehost.verify_source', 'all') === 'api' ? 'api' : 'all',
         ]);
     }
 
@@ -232,6 +233,27 @@ class SessionSlotController extends Controller
         );
 
         return back()->with('success', $enabled ? 'Auto-verify turned on.' : 'Auto-verify turned off.');
+    }
+
+    /**
+     * Toggle whether verification uses the TikTok API only or both sources.
+     * 'api' excludes uploaded-CSV lives from candidate finding, suggestions and
+     * auto-verify; 'all' keeps both. Admin / desk PIC only.
+     */
+    public function setVerifySource(Request $request): RedirectResponse
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'admin_livehost'], true), 403);
+
+        $source = $request->input('source') === 'api' ? 'api' : 'all';
+        app(SettingsService::class)->set(
+            'livehost.verify_source',
+            $source,
+            'string',
+            'livehost',
+            'Which live source verification uses: api (TikTok API only) or all (API + uploaded CSV).',
+        );
+
+        return back()->with('success', $source === 'api' ? 'Verifying from TikTok API only.' : 'Verifying from API + CSV.');
     }
 
     /**
