@@ -100,12 +100,10 @@ Schedule::command('tiktok:sync-analytics')->dailyAt('04:00');
 // TikTok Shop per-LIVE performance sync - every 15 minutes (withoutOverlapping guards against a slow run piling up)
 Schedule::command('tiktok:sync-live')->everyFifteenMinutes()->withoutOverlapping();
 
-// Auto-assign + verify matched lives from the schedule, sweep the pending
-// backlog for clean matches the short live-scan window missed, then refresh
-// already auto-verified sessions against the latest sync (TikTok's 24h live-GMV
-// keeps growing after a live ends). Every 15 minutes to track each live sync.
-// Gated by the livehost.auto_verify_enabled setting.
-Schedule::command('livehost:auto-verify-sessions')->everyFifteenMinutes()->withoutOverlapping();
+// Auto-verify is DISABLED — the desk verifies manually (reviewed as unsuitable).
+// The livehost:auto-verify-sessions command still exists for one-off/manual use,
+// but it no longer runs on a schedule. Re-enable by uncommenting if ever needed.
+// Schedule::command('livehost:auto-verify-sessions')->everyFifteenMinutes()->withoutOverlapping();
 
 // TikTok Shop affiliate sync - daily at 5 AM
 Schedule::command('tiktok:sync-affiliates')->dailyAt('05:00');
