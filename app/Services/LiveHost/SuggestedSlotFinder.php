@@ -48,6 +48,7 @@ class SuggestedSlotFinder
         bool $includeUnlinked = false
     ): array {
         $records = ActualLiveRecord::query()
+            ->verificationSource()
             ->with(['platformAccount:id,name,platform_id', 'platformAccount.platform:id,slug'])
             ->when($platformAccountId !== null, fn ($q) => $q->where('platform_account_id', $platformAccountId))
             ->whereBetween('launched_time', [$weekStart->startOfDay(), $weekEnd->endOfDay()])
@@ -157,6 +158,7 @@ class SuggestedSlotFinder
         bool $includeUnlinked = false
     ): array {
         $records = ActualLiveRecord::query()
+            ->verificationSource()
             ->when($platformAccountId !== null, fn ($q) => $q->where('platform_account_id', $platformAccountId))
             ->whereBetween('launched_time', [$from->startOfDay(), $to->endOfDay()])
             ->whereNotIn('id', function ($q) {
@@ -234,6 +236,7 @@ class SuggestedSlotFinder
         ?int $platformAccountId = null
     ): array {
         $records = ActualLiveRecord::query()
+            ->verificationSource()
             ->when($platformAccountId !== null, fn ($q) => $q->where('platform_account_id', $platformAccountId))
             ->whereBetween('launched_time', [$from->startOfDay(), $to->endOfDay()])
             ->orderByDesc('launched_time')

@@ -898,6 +898,7 @@ class AutoVerifyService
     private function unmatchedLives(CarbonImmutable $from, CarbonImmutable $to): Collection
     {
         return ActualLiveRecord::query()
+            ->verificationSource()
             ->whereBetween('launched_time', [$from, $to])
             ->whereNotIn('id', fn ($q) => $q->select('actual_live_record_id')->from('live_session_actual_live_record'))
             ->whereNotIn('id', fn ($q) => $q->select('matched_actual_live_record_id')->from('live_sessions')->whereNotNull('matched_actual_live_record_id'))

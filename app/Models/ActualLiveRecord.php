@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\SettingsService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +12,21 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class ActualLiveRecord extends Model
 {
     use HasFactory;
+
+    /**
+     * Restrict a query to the source the shop verifies from. When
+     * livehost.verify_source = 'api', uploaded-CSV lives are excluded from
+     * candidate finding, calendar suggestions and auto-verify — so verification
+     * runs off the TikTok API only. Default 'all' keeps both sources.
+     */
+    public function scopeVerificationSource(Builder $query): Builder
+    {
+        if (app(SettingsService::class)->get('livehost.verify_source', 'all') === 'api') {
+            $query->where('source', 'api_sync');
+        }
+
+        return $query;
+    }
 
     protected $fillable = [
         'platform_account_id', 'source', 'source_record_id', 'import_id',

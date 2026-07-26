@@ -57,6 +57,7 @@ class ActualLiveRecordCandidateFinder
         $dayEnd = $scheduledKl->copy()->endOfDay();
 
         return ActualLiveRecord::query()
+            ->verificationSource()
             ->where('platform_account_id', $session->platform_account_id)
             ->where(function ($q) use ($creatorId, $normalizedHandle) {
                 if ($creatorId !== null) {
