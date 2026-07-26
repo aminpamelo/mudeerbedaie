@@ -95,6 +95,20 @@ it('does NOT treat a different creator on the same shop as a twin', function () 
     expect(ActualLiveRecord::find($csvA->id))->not->toBeNull();
 });
 
+it('removes csv rows that duplicate another csv row (same re-uploaded export), keeping one', function () {
+    // The same live imported three times via CSV (same creator + exact window).
+    $rows = collect(range(1, 3))->map(fn () => ActualLiveRecord::factory()->create([
+        'platform_account_id' => $this->platform->id, 'source' => 'csv_import', 'source_record_id' => null,
+        'creator_handle' => 'someshop', 'launched_time' => '2026-04-20 20:58:00', 'ended_time' => '2026-04-20 22:02:00',
+        'duration_seconds' => 3840, 'live_attributed_gmv_myr' => 45, 'viewers' => 1,
+    ]));
+
+    $this->artisan('livehost:dedupe-live-sources --apply')->assertSuccessful();
+
+    $survivors = ActualLiveRecord::whereIn('id', $rows->pluck('id'))->count();
+    expect($survivors)->toBe(1); // only the earliest kept
+});
+
 it('unlinks a csv twin from its session before deleting, keeping the api record', function () {
     $assignment = LiveScheduleAssignment::factory()->create([
         'platform_account_id' => $this->platform->id, 'live_account_id' => $this->account->id,

@@ -92,16 +92,63 @@ class DedupeLiveSources extends Command
             }
         }
 
+        // Pass 2 — remove csv rows that duplicate ANOTHER csv row: same shop +
+        // creator + EXACT launch/end window = the same live re-imported (uploading
+        // the same export more than once; csv rows have no live-id so nothing
+        // prevented it). Keep the earliest row, drop the rest. Re-queried fresh so
+        // in --apply mode it runs on what pass 1 left behind.
+        $csvSelfDupes = 0;
+        $seen = [];
+        $csvAll = ActualLiveRecord::query()
+            ->where('source', 'csv_import')
+            ->whereNotNull('launched_time')
+            ->orderBy('id')
+            ->get(['id', 'platform_account_id', 'creator_handle', 'launched_time', 'ended_time']);
+
+        foreach ($csvAll as $r) {
+            $key = implode('|', [
+                $r->platform_account_id,
+                LiveAccount::normalizeHandle($r->creator_handle),
+                $r->launched_time?->format('Y-m-d H:i:s'),
+                $r->ended_time?->format('Y-m-d H:i:s'),
+            ]);
+            if (! isset($seen[$key])) {
+                $seen[$key] = $r->id;
+
+                continue;
+            }
+            $csvSelfDupes++;
+            if ($apply) {
+                $sessionId = DB::table('live_session_actual_live_record')
+                    ->where('actual_live_record_id', $r->id)
+                    ->value('live_session_id');
+                if ($sessionId !== null) {
+                    try {
+                        $service->unlinkLive($r);
+                        $unlinked++;
+                    } catch (\RuntimeException) {
+                        $skippedLocked++;
+
+                        continue;
+                    }
+                }
+                ActualLiveRecord::where('id', $r->id)->delete();
+                $deleted++;
+            }
+        }
+
         if (! $apply) {
             $this->warn('DRY RUN — no rows changed. Pass --apply to dedupe.');
-            $this->info("{$twins} csv_import record(s) have an api_sync twin and would be removed.");
+            $this->info("{$twins} csv row(s) have an api_sync twin · {$csvSelfDupes} csv row(s) duplicate another csv row — all would be removed.");
 
             return self::SUCCESS;
         }
 
         $this->info(sprintf(
-            'Deduped %d csv record(s) · %d unlinked from a session first · %d skipped (payroll-locked). Re-run livehost:auto-verify-sessions to re-link any freed sessions.',
+            'Deduped %d csv record(s) (%d api-twins + %d csv-vs-csv) · %d unlinked from a session first · %d skipped (payroll-locked). Re-run livehost:auto-verify-sessions to re-link any freed sessions.',
             $deleted,
+            $twins,
+            $csvSelfDupes,
             $unlinked,
             $skippedLocked,
         ));
