@@ -2407,6 +2407,90 @@ function AuditScheduleBlock({ slot, style, onClick, isDropTarget, onDragOver, on
   );
 }
 
+function formatDur(seconds) {
+  if (!seconds) {
+    return null;
+  }
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return h > 0 ? `${h}h${m ? ` ${m}m` : ''}` : `${m}m`;
+}
+
+// Compact secondary line for the card face — viewers · items sold.
+function liveMetricsLine(d) {
+  const parts = [];
+  if (d.viewers) {
+    parts.push(`${d.viewers.toLocaleString()} viewers`);
+  }
+  if (d.itemsSold) {
+    parts.push(`${d.itemsSold.toLocaleString()} sold`);
+  }
+  return parts.join(' · ');
+}
+
+// Full TikTok API reference, shown on hover so a PIC can cross-check every metric
+// while verifying. Handles both the linked-live DTO (gmv = live-attributed) and
+// the suggestion DTO (liveAttributedGmv + gmv = shop gmv).
+function liveApiTooltip(d) {
+  const liveGmv = d.liveAttributedGmv ?? d.gmv;
+  const lines = [
+    `${d.creatorHandle ? `@${d.creatorHandle} · ` : ''}${formatTimeLabel(d.startTime)}–${formatTimeLabel(d.endTime)}${d.durationSeconds ? ` (${formatDur(d.durationSeconds)})` : ''}`,
+  ];
+  const sales = [];
+  if (liveGmv != null) {
+    sales.push(`LIVE GMV ${formatGmv(liveGmv)}`);
+  }
+  if (d.shopGmv) {
+    sales.push(`Shop GMV ${formatGmv(d.shopGmv)}`);
+  }
+  if (d.itemsSold) {
+    sales.push(`${d.itemsSold.toLocaleString()} items`);
+  }
+  if (d.skuOrders) {
+    sales.push(`${d.skuOrders.toLocaleString()} SKU orders`);
+  }
+  if (sales.length) {
+    lines.push(sales.join(' · '));
+  }
+  const reach = [];
+  if (d.viewers) {
+    reach.push(`${d.viewers.toLocaleString()} viewers`);
+  }
+  if (d.views) {
+    reach.push(`${d.views.toLocaleString()} views`);
+  }
+  if (reach.length) {
+    lines.push(reach.join(' · '));
+  }
+  const eng = [];
+  if (d.comments) {
+    eng.push(`${d.comments.toLocaleString()} comments`);
+  }
+  if (d.shares) {
+    eng.push(`${d.shares.toLocaleString()} shares`);
+  }
+  if (d.likes) {
+    eng.push(`${d.likes.toLocaleString()} likes`);
+  }
+  if (d.newFollowers) {
+    eng.push(`+${d.newFollowers.toLocaleString()} followers`);
+  }
+  if (eng.length) {
+    lines.push(eng.join(' · '));
+  }
+  const src = [];
+  if (d.sourceRecordId) {
+    src.push(`live-id ${d.sourceRecordId}`);
+  }
+  if (d.source) {
+    src.push(d.source);
+  }
+  if (src.length) {
+    lines.push(src.join(' · '));
+  }
+  return lines.join('\n');
+}
+
 function AuditMatchedBlock({ live, style, onDragStart, onUnlink, onClick }) {
   const gmvLabel = formatGmv(live.gmv);
   return (
@@ -2414,7 +2498,7 @@ function AuditMatchedBlock({ live, style, onDragStart, onUnlink, onClick }) {
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
-      title={`Linked TikTok live ${formatTimeLabel(live.startTime)}–${formatTimeLabel(live.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — click to view details, drag onto another slot to move it, or ✕ to unlink`}
+      title={`${liveApiTooltip(live)}\n\n(click to open · drag to move · ✕ to unlink)`}
       className="group/matched absolute cursor-pointer overflow-hidden rounded-[7px] border border-[#10B981]/50 bg-[#ECFDF5] px-1.5 py-1 active:cursor-grabbing"
       style={style}
     >
@@ -2442,6 +2526,9 @@ function AuditMatchedBlock({ live, style, onDragStart, onUnlink, onClick }) {
       <div className="mt-0.5 truncate text-[10.5px] font-medium text-[#065F46]">
         {gmvLabel || (live.viewers ? `${live.viewers.toLocaleString()} viewers` : 'live')}
       </div>
+      {liveMetricsLine(live) && gmvLabel && (
+        <div className="truncate text-[8.5px] leading-tight text-[#047857]/70">{liveMetricsLine(live)}</div>
+      )}
     </div>
   );
 }
@@ -2459,7 +2546,7 @@ function AuditTikTokBlock({ suggestion: s, style, onClick, onDragStart }) {
       draggable={s.isRegistered}
       onDragStart={s.isRegistered ? onDragStart : undefined}
       onClick={onClick}
-      title={`TikTok live ${formatTimeLabel(s.startTime)}–${formatTimeLabel(s.endTime)}${gmvLabel ? ` · ${gmvLabel}` : ''} — ${s.isRegistered ? 'drag onto a schedule slot to link, or click to assign' : 'creator not registered — click to register'}`}
+      title={`${liveApiTooltip(s)}\n\n(${s.isRegistered ? 'drag onto a slot to link, or click to assign' : 'creator not registered — click to register'})`}
       className={`absolute overflow-hidden rounded-[7px] border border-dashed border-[#EC4899]/50 bg-[#FDF2F8]/70 px-1.5 py-1 text-left transition-colors hover:bg-[#FDF2F8] ${
         s.isRegistered ? 'cursor-grab active:cursor-grabbing' : ''
       }`}
@@ -2475,6 +2562,9 @@ function AuditTikTokBlock({ suggestion: s, style, onClick, onDragStart }) {
       <div className="mt-0.5 truncate text-[10.5px] text-[#525252]">
         {gmvLabel ? gmvLabel : (s.viewers ? `${s.viewers.toLocaleString()} viewers` : (s.creatorHandle ? `@${s.creatorHandle}` : 'live'))}
       </div>
+      {liveMetricsLine(s) && gmvLabel && (
+        <div className="truncate text-[8.5px] leading-tight text-[#BE185D]/70">{liveMetricsLine(s)}</div>
+      )}
     </button>
   );
 }

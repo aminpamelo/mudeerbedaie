@@ -134,7 +134,7 @@ class SessionSlotController extends Controller
                 'liveSession.attachments.uploader:id,name',
                 'liveSession.verifiedBy:id,name',
                 'liveSession.analytics',
-                'liveSession.actualLiveRecords:id,launched_time,ended_time,duration_seconds,live_attributed_gmv_myr,viewers',
+                'liveSession.actualLiveRecords:id,launched_time,ended_time,duration_seconds,live_attributed_gmv_myr,gmv_myr,viewers,views,items_sold,sku_orders,comments,shares,likes,new_followers,source,source_record_id,creator_handle',
             ])
             ->when(
                 $host === 'unassigned',
@@ -578,7 +578,21 @@ class SessionSlotController extends Controller
                 'startTime' => $start->format('H:i'),
                 'endTime' => $end->format('H:i'),
                 'gmv' => (float) ($r->pivot->live_attributed_gmv_myr ?? $r->live_attributed_gmv_myr),
+                // Full TikTok API reference data (shown on the card so a PIC can
+                // cross-check while verifying).
+                'shopGmv' => (float) $r->gmv_myr,
                 'viewers' => (int) $r->viewers,
+                'views' => (int) $r->views,
+                'itemsSold' => (int) $r->items_sold,
+                'skuOrders' => (int) $r->sku_orders,
+                'comments' => (int) $r->comments,
+                'shares' => (int) $r->shares,
+                'likes' => (int) $r->likes,
+                'newFollowers' => (int) $r->new_followers,
+                'durationSeconds' => $r->duration_seconds !== null ? (int) $r->duration_seconds : null,
+                'creatorHandle' => $r->creator_handle,
+                'source' => $r->source,
+                'sourceRecordId' => $r->source_record_id,
             ];
         })->values()->all();
     }
