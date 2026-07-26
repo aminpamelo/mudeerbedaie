@@ -548,7 +548,10 @@ class SessionSlotController extends Controller
             'hostId' => $a->live_host_id,
             'hostName' => $a->liveHost?->name,
             'hostEmail' => $a->liveHost?->email,
-            'dayOfWeek' => (int) $a->day_of_week,
+            // For a dated slot the day comes from its schedule_date (the source of
+            // truth) — the stored day_of_week column has drifted on some rows and
+            // would place the slot + its linked lives on the wrong calendar day.
+            'dayOfWeek' => $this->assignmentDayOfWeek($a),
             'dayName' => $a->day_name_en,
             'scheduleDate' => $a->schedule_date?->format('Y-m-d'),
             'isTemplate' => (bool) $a->is_template,
@@ -573,6 +576,20 @@ class SessionSlotController extends Controller
     }
 
     /**
+     * The day-of-week a slot renders on. For a dated slot this is derived from its
+     * schedule_date (source of truth); the stored day_of_week column has drifted on
+     * some rows. Templates use the stored day_of_week.
+     */
+    private function assignmentDayOfWeek(LiveScheduleAssignment $a): int
+    {
+        if (! $a->is_template && $a->schedule_date !== null) {
+            return (int) CarbonImmutable::parse($a->schedule_date)->dayOfWeek;
+        }
+
+        return (int) $a->day_of_week;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function linkedLivesFor(LiveScheduleAssignment $a): array
@@ -582,7 +599,9 @@ class SessionSlotController extends Controller
             return [];
         }
 
-        return $session->actualLiveRecords->map(function (ActualLiveRecord $r) use ($a): array {
+        $dayOfWeek = $this->assignmentDayOfWeek($a);
+
+        return $session->actualLiveRecords->map(function (ActualLiveRecord $r) use ($dayOfWeek): array {
             $start = CarbonImmutable::parse($r->launched_time)->setTimezone('Asia/Kuala_Lumpur');
             // Match the suggestion card's end-time logic (SuggestedSlotFinder::endTime)
             // so a live keeps the SAME height once linked: real end, else the real
@@ -596,7 +615,7 @@ class SessionSlotController extends Controller
 
             return [
                 'id' => $r->id,
-                'dayOfWeek' => (int) $a->day_of_week,
+                'dayOfWeek' => $dayOfWeek,
                 'startTime' => $start->format('H:i'),
                 'endTime' => $end->format('H:i'),
                 'gmv' => (float) ($r->pivot->live_attributed_gmv_myr ?? $r->live_attributed_gmv_myr),

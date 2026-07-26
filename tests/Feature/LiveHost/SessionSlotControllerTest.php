@@ -101,6 +101,32 @@ it('derives a linked live end time from its duration when ended_time is null (ke
             ->etc());
 });
 
+it('renders a dated slot + its linked live on the day of its schedule_date, not a drifted day_of_week', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $account = PlatformAccount::factory()->create();
+    $slot = LiveTimeSlot::factory()->create(['start_time' => '06:30:00', 'end_time' => '08:30:00']);
+    $realDow = Carbon::parse('2026-07-06')->dayOfWeek;
+
+    // schedule_date is a Monday but day_of_week is stored WRONG (drifted).
+    $assignment = LiveScheduleAssignment::factory()->create([
+        'platform_account_id' => $account->id, 'time_slot_id' => $slot->id, 'live_host_id' => $host->id,
+        'is_template' => false, 'schedule_date' => '2026-07-06', 'day_of_week' => ($realDow + 3) % 7,
+    ]);
+    $session = LiveSession::where('live_schedule_assignment_id', $assignment->id)->firstOrFail();
+    $live = ActualLiveRecord::factory()->apiSync()->create([
+        'platform_account_id' => $account->id, 'launched_time' => '2026-07-06 06:50:00',
+        'ended_time' => '2026-07-06 08:00:00', 'duration_seconds' => 4200,
+    ]);
+    $session->actualLiveRecords()->attach($live->id, ['is_primary' => true, 'live_attributed_gmv_myr' => 500, 'linked_at' => now()]);
+
+    actingAs($this->pic)
+        ->get('/livehost/session-slots/calendar?week_of=2026-07-06')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('sessionSlots.0.dayOfWeek', $realDow)               // slot on the real day
+            ->where('sessionSlots.0.linkedLives.0.dayOfWeek', $realDow) // linked live on the SAME day (was drifted → "disappeared")
+            ->etc());
+});
+
 it('toggles the verify_source setting via the endpoint', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots/verify-source', ['source' => 'api'])
