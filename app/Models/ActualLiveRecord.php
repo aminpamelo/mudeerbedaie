@@ -14,14 +14,14 @@ class ActualLiveRecord extends Model
     use HasFactory;
 
     /**
-     * Restrict a query to the source the shop verifies from. When
-     * livehost.verify_source = 'api', uploaded-CSV lives are excluded from
-     * candidate finding, calendar suggestions and auto-verify — so verification
-     * runs off the TikTok API only. Default 'all' keeps both sources.
+     * Restrict a query to the source the shop verifies from. Verification runs off
+     * the TikTok API ONLY by default — uploaded-CSV lives are excluded from
+     * candidate finding, calendar suggestions and auto-verify. Only the explicit
+     * opt-in livehost.verify_source = 'all' brings CSV lives back in.
      */
     public function scopeVerificationSource(Builder $query): Builder
     {
-        if (app(SettingsService::class)->get('livehost.verify_source', 'all') === 'api') {
+        if (app(SettingsService::class)->get('livehost.verify_source', 'api') !== 'all') {
             $query->where('source', 'api_sync');
         }
 

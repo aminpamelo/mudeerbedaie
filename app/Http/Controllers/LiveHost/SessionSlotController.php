@@ -211,7 +211,7 @@ class SessionSlotController extends Controller
                 app(SettingsService::class)->get('livehost.auto_verify_enabled', false),
                 FILTER_VALIDATE_BOOLEAN,
             ),
-            'verifySource' => app(SettingsService::class)->get('livehost.verify_source', 'all') === 'api' ? 'api' : 'all',
+            'verifySource' => app(SettingsService::class)->get('livehost.verify_source', 'api') === 'all' ? 'all' : 'api',
         ]);
     }
 

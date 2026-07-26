@@ -21,11 +21,14 @@ beforeEach(function () {
     ]);
 });
 
-it('includes both sources by default (verify_source unset = all)', function () {
-    expect(ActualLiveRecord::query()->verificationSource()->count())->toBe(2);
+it('excludes csv_import BY DEFAULT (verify_source unset = api only)', function () {
+    $rows = ActualLiveRecord::query()->verificationSource()->get();
+
+    expect($rows)->toHaveCount(1);
+    expect($rows->first()->source)->toBe('api_sync');
 });
 
-it('excludes csv_import when verify_source is api', function () {
+it('still excludes csv_import when verify_source is explicitly api', function () {
     app(SettingsService::class)->set('livehost.verify_source', 'api', 'string', 'livehost');
 
     $rows = ActualLiveRecord::query()->verificationSource()->get();
