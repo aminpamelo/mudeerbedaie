@@ -45,6 +45,29 @@ it('creates an external system and stores secrets encrypted at rest', function (
     expect($rawApiKey)->not->toBe('super-secret-key'); // ciphertext at rest
 });
 
+it('normalizes a pasted base URL down to its origin so the path is not doubled', function (string $input, string $expectedBase, string $expectedUrl) {
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    Volt::test('admin.external-systems')
+        ->set('name', 'Daie PRO')
+        ->set('base_url', $input)
+        ->set('provision_path', '/api/v1/provision')
+        ->set('auth_type', 'both')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $system = ExternalSystem::first();
+
+    expect($system->base_url)->toBe($expectedBase)
+        ->and($system->provisionUrl())->toBe($expectedUrl);
+})->with([
+    'full endpoint pasted' => ['https://daiepro.com/api/v1/provision', 'https://daiepro.com', 'https://daiepro.com/api/v1/provision'],
+    'trailing slash' => ['https://daiepro.com/', 'https://daiepro.com', 'https://daiepro.com/api/v1/provision'],
+    'port and path' => ['https://daiepro.com:8443/api/v1/provision', 'https://daiepro.com:8443', 'https://daiepro.com:8443/api/v1/provision'],
+    'origin only' => ['https://daiepro.com', 'https://daiepro.com', 'https://daiepro.com/api/v1/provision'],
+]);
+
 it('keeps the stored secret when the field is left blank on edit', function () {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);

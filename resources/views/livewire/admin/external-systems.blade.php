@@ -87,7 +87,7 @@ new class extends Component
         $data = [
             'name' => $validated['name'],
             'slug' => $this->uniqueSlug($validated['slug'] ?: Str::slug($validated['name'])),
-            'base_url' => rtrim($validated['base_url'], '/'),
+            'base_url' => $this->normalizeBaseUrl($validated['base_url']),
             'provision_path' => $validated['provision_path'],
             'auth_type' => $validated['auth_type'],
             'timeout' => $validated['timeout'],
@@ -108,6 +108,23 @@ new class extends Component
         $this->showModal = false;
         $this->resetForm();
         session()->flash('status', 'External system saved.');
+    }
+
+    /**
+     * Reduce a pasted URL to its origin (scheme://host[:port]) so a full
+     * endpoint accidentally entered as the base URL — e.g.
+     * "https://app.test/api/v1/provision" — does not get the provision path
+     * appended again, producing a doubled path and a 404.
+     */
+    protected function normalizeBaseUrl(string $url): string
+    {
+        $parts = parse_url(trim($url));
+
+        if (! isset($parts['scheme'], $parts['host'])) {
+            return rtrim($url, '/');
+        }
+
+        return $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
     }
 
     public function testConnection(int $id): void
@@ -273,7 +290,7 @@ new class extends Component
                                 <flux:badge color="{{ $system->auth_type === 'both' ? 'indigo' : 'zinc' }}" size="sm">{{ strtoupper($system->auth_type) }}</flux:badge>
                             </td>
                             <td class="whitespace-nowrap px-4 py-4">
-                                <span class="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{{ $system->provisioning_requests_count }}</span>
+                                <a href="{{ route('admin.external-systems.accounts', $system) }}" wire:navigate class="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700">{{ $system->provisioning_requests_count }}</a>
                             </td>
                             <td class="whitespace-nowrap px-4 py-4">
                                 <span class="inline-flex items-center gap-1.5 text-sm font-medium {{ $system->is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500' }}">
@@ -283,6 +300,9 @@ new class extends Component
                             </td>
                             <td class="whitespace-nowrap px-4 py-4 text-right">
                                 <div class="flex items-center justify-end gap-1">
+                                    <flux:tooltip content="Accounts">
+                                        <flux:button variant="ghost" size="sm" icon="users" aria-label="Accounts" :href="route('admin.external-systems.accounts', $system)" wire:navigate />
+                                    </flux:tooltip>
                                     <flux:tooltip content="Test connection">
                                         <flux:button variant="ghost" size="sm" icon="signal" aria-label="Test connection" wire:click="testConnection({{ $system->id }})" wire:loading.attr="disabled" wire:target="testConnection({{ $system->id }})" />
                                     </flux:tooltip>
