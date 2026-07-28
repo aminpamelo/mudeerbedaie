@@ -1145,6 +1145,8 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
 
     // External system provisioning (connected apps)
     Volt::route('external-systems', 'admin.external-systems')->name('admin.external-systems');
+    Volt::route('external-systems/{externalSystem}/accounts', 'admin.external-system-accounts')->name('admin.external-systems.accounts');
+    Volt::route('external-systems/{externalSystem}/accounts/{provisioningRequest}', 'admin.external-system-account')->name('admin.external-systems.account');
 
     // Reports routes
     Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');

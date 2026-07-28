@@ -7,6 +7,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class ExternalSystemClient
 {
@@ -21,14 +22,56 @@ class ExternalSystemClient
      */
     public function provision(ExternalSystem $system, array $payload): array
     {
-        $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        return $this->send($system, 'POST', $system->provision_path, $payload);
+    }
 
-        $response = $this->request($system, $body)
-            ->withBody($body, 'application/json')
-            ->post($system->provisionUrl())
-            ->throw();
+    /**
+     * List the plans/packages the external system offers (for the plan picker).
+     *
+     * @return array<int, mixed>
+     */
+    public function packages(ExternalSystem $system): array
+    {
+        $response = $this->send($system, 'GET', $this->apiBase($system).'/packages');
 
-        return $response->json() ?? [];
+        return $response['packages'] ?? $response['data'] ?? $response;
+    }
+
+    /**
+     * Read the live state of a buyer's account (plan, active/inactive, expiry).
+     *
+     * @return array<string, mixed>
+     */
+    public function accountStatus(ExternalSystem $system, string $email): array
+    {
+        return $this->send($system, 'POST', $this->apiBase($system).'/accounts/status', ['email' => $email]);
+    }
+
+    /**
+     * Move a buyer onto another plan on the external system.
+     *
+     * @return array<string, mixed>
+     */
+    public function changePlan(ExternalSystem $system, string $email, string $plan, ?string $orderRef = null): array
+    {
+        return $this->send($system, 'POST', $this->apiBase($system).'/accounts/change-plan', array_filter([
+            'email' => $email,
+            'plan' => $plan,
+            'order_ref' => $orderRef,
+        ], fn ($value): bool => $value !== null));
+    }
+
+    /**
+     * Withdraw a buyer's access on the external system (e.g. on refund).
+     *
+     * @return array<string, mixed>
+     */
+    public function revoke(ExternalSystem $system, string $email, ?string $reason = null): array
+    {
+        return $this->send($system, 'POST', $this->apiBase($system).'/accounts/revoke', array_filter([
+            'email' => $email,
+            'reason' => $reason,
+        ], fn ($value): bool => $value !== null));
     }
 
     /**
@@ -54,6 +97,40 @@ class ExternalSystemClient
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Send a signed request to the external system and return the parsed body.
+     *
+     * @param  array<string, mixed>|null  $payload
+     * @return array<string, mixed>
+     *
+     * @throws RequestException
+     * @throws ConnectionException
+     */
+    protected function send(ExternalSystem $system, string $method, string $path, ?array $payload = null): array
+    {
+        $body = $payload !== null
+            ? (json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}')
+            : '';
+
+        $request = $this->request($system, $body);
+        $url = $system->url($path);
+
+        $response = $method === 'GET'
+            ? $request->get($url)->throw()
+            : $request->withBody($body, 'application/json')->post($url)->throw();
+
+        return $response->json() ?? [];
+    }
+
+    /**
+     * The external system's API base, derived from the provision path.
+     * e.g. "/api/v1/provision" -> "/api/v1".
+     */
+    protected function apiBase(ExternalSystem $system): string
+    {
+        return '/'.trim(Str::beforeLast($system->provision_path, '/'), '/');
     }
 
     /**
