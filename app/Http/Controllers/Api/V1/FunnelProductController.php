@@ -53,6 +53,7 @@ class FunnelProductController extends Controller
             'popular_label' => ['nullable', 'string', 'max:50'],
             'is_recurring' => ['nullable', 'boolean'],
             'billing_interval' => ['nullable', 'string', 'in:monthly,yearly,weekly'],
+            ...$this->provisioningRules(),
         ]);
 
         // Validate that exactly one of product_id, course_id, or package_id is provided
@@ -110,6 +111,8 @@ class FunnelProductController extends Controller
             'sort_order' => $maxSortOrder + 1,
         ]);
 
+        $this->applyProvisioningSettings($request, $funnelProduct);
+
         return response()->json([
             'message' => 'Product added to step successfully',
             'data' => $this->formatProduct($funnelProduct->load(['step', 'product', 'course', 'package'])),
@@ -132,6 +135,7 @@ class FunnelProductController extends Controller
             'popular_label' => ['nullable', 'string', 'max:50'],
             'is_recurring' => ['nullable', 'boolean'],
             'billing_interval' => ['nullable', 'string', 'in:monthly,yearly,weekly'],
+            ...$this->provisioningRules(),
         ]);
 
         $funnel = Funnel::where('uuid', $funnelUuid)->firstOrFail();
@@ -157,6 +161,8 @@ class FunnelProductController extends Controller
         }
 
         $funnelProduct->update($data);
+
+        $this->applyProvisioningSettings($request, $funnelProduct);
 
         return response()->json([
             'message' => 'Product updated successfully',
@@ -444,6 +450,50 @@ class FunnelProductController extends Controller
     }
 
     /**
+     * Validation rules for the nested external-system provisioning settings.
+     * Every nested key must be declared explicitly or it is stripped.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function provisioningRules(): array
+    {
+        return [
+            'settings' => ['nullable', 'array'],
+            'settings.provisioning' => ['nullable', 'array'],
+            'settings.provisioning.enabled' => ['nullable', 'boolean'],
+            'settings.provisioning.external_system_id' => ['nullable', 'integer', 'exists:external_systems,id'],
+            'settings.provisioning.plan' => ['nullable', 'string', 'max:100'],
+        ];
+    }
+
+    /**
+     * Merge the provisioning opt-in into FunnelProduct.settings without
+     * disturbing any other settings keys. A no-op when the request omits it.
+     */
+    private function applyProvisioningSettings(Request $request, FunnelProduct $funnelProduct): void
+    {
+        if (! $request->has('settings.provisioning')) {
+            return;
+        }
+
+        $provisioning = $request->input('settings.provisioning', []);
+        $settings = $funnelProduct->settings ?? [];
+
+        if (! empty($provisioning['enabled']) && ! empty($provisioning['external_system_id'])) {
+            $settings['provisioning'] = [
+                'enabled' => true,
+                'external_system_id' => (int) $provisioning['external_system_id'],
+                'plan' => $provisioning['plan'] ?? null,
+            ];
+        } else {
+            unset($settings['provisioning']);
+        }
+
+        $funnelProduct->settings = $settings ?: null;
+        $funnelProduct->save();
+    }
+
+    /**
      * Format a funnel product for response.
      */
     private function formatProduct(FunnelProduct $product): array
@@ -467,6 +517,7 @@ class FunnelProductController extends Controller
             'popular_label' => $product->popular_label,
             'is_recurring' => $product->is_recurring,
             'billing_interval' => $product->billing_interval,
+            'provisioning' => $product->settings['provisioning'] ?? null,
             'sort_order' => $product->sort_order,
             'is_product' => $product->isProduct(),
             'is_course' => $product->isCourse(),

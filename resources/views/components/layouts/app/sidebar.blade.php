@@ -465,6 +465,15 @@
                     >
                         {{ __('Shipping') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="server-stack"
+                        :href="route('admin.external-systems')"
+                        :current="request()->routeIs('admin.external-systems')"
+                        wire:navigate
+                    >
+                        {{ __('External Systems') }}
+                    </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
                 

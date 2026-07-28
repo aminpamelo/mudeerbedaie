@@ -2,10 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\FunnelProduct;
+use App\Models\FunnelStep;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\FunnelProduct>
+ * @extends Factory<FunnelProduct>
  */
 class FunnelProductFactory extends Factory
 {
@@ -17,7 +19,28 @@ class FunnelProductFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'funnel_step_id' => FunnelStep::factory(),
+            'product_id' => null,
+            'type' => 'main',
+            'name' => fake()->words(3, true),
+            'funnel_price' => fake()->randomFloat(2, 10, 500),
+            'sort_order' => 0,
         ];
+    }
+
+    /**
+     * Opt the funnel product in to external-system provisioning.
+     */
+    public function provisioning(int $externalSystemId, ?string $plan = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'settings' => [
+                'provisioning' => array_filter([
+                    'enabled' => true,
+                    'external_system_id' => $externalSystemId,
+                    'plan' => $plan,
+                ], fn ($value): bool => $value !== null),
+            ],
+        ]);
     }
 }

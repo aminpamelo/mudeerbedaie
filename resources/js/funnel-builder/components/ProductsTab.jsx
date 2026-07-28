@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { productApi, orderBumpApi, stepApi } from '../services/api';
+import { productApi, orderBumpApi, stepApi, externalSystemApi } from '../services/api';
 
 export default function ProductsTab({ funnelUuid, showToast }) {
     const [steps, setSteps] = useState([]);
@@ -491,7 +491,18 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
         popular_label: product?.popular_label || 'Paling Popular',
         is_recurring: product?.is_recurring || false,
         billing_interval: product?.billing_interval || 'monthly',
+        provisioning_enabled: product?.provisioning?.enabled || false,
+        provisioning_external_system_id: product?.provisioning?.external_system_id || '',
+        provisioning_plan: product?.provisioning?.plan || '',
     });
+
+    // Active external systems available for provisioning (admin-only endpoint)
+    const [externalSystems, setExternalSystems] = useState([]);
+    useEffect(() => {
+        externalSystemApi.list()
+            .then(res => setExternalSystems(res.data || []))
+            .catch(() => setExternalSystems([]));
+    }, []);
 
     // Search products/courses/packages
     const handleSearch = async () => {
@@ -556,6 +567,15 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                 popular_label: form.is_popular ? (form.popular_label?.trim() || 'Paling Popular') : null,
                 is_recurring: form.is_recurring,
                 billing_interval: form.is_recurring ? form.billing_interval : null,
+                settings: {
+                    provisioning: form.provisioning_enabled && form.provisioning_external_system_id
+                        ? {
+                            enabled: true,
+                            external_system_id: parseInt(form.provisioning_external_system_id, 10),
+                            plan: form.provisioning_plan?.trim() || null,
+                        }
+                        : { enabled: false },
+                },
             };
 
             if (selectedItem) {
@@ -870,6 +890,57 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                             <option value="monthly">Monthly</option>
                                             <option value="yearly">Yearly</option>
                                         </select>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* External System Provisioning */}
+                        {externalSystems.length > 0 && (
+                            <div className="mb-6 p-3 bg-indigo-50/60 border border-indigo-100 rounded-lg">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.provisioning_enabled}
+                                        onChange={(e) => setForm({ ...form, provisioning_enabled: e.target.checked })}
+                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm font-medium text-gray-700">Create an account in an external system on purchase</span>
+                                </label>
+
+                                {form.provisioning_enabled && (
+                                    <div className="mt-3 ml-6 space-y-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                External System
+                                            </label>
+                                            <select
+                                                value={form.provisioning_external_system_id}
+                                                onChange={(e) => setForm({ ...form, provisioning_external_system_id: e.target.value })}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            >
+                                                <option value="">Select a system…</option>
+                                                {externalSystems.map((sys) => (
+                                                    <option key={sys.id} value={sys.id}>{sys.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Plan / Role (optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={form.provisioning_plan}
+                                                onChange={(e) => setForm({ ...form, provisioning_plan: e.target.value })}
+                                                maxLength={100}
+                                                placeholder="e.g. gold, premium, member"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Sent to the external system so it assigns the right access level.
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
                             </div>

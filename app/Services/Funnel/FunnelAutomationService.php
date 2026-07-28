@@ -7,13 +7,17 @@ namespace App\Services\Funnel;
 use App\Models\FunnelAutomation;
 use App\Models\FunnelAutomationAction;
 use App\Models\FunnelAutomationLog;
+use App\Models\FunnelEmailTemplate;
 use App\Models\FunnelOrder;
 use App\Models\FunnelSession;
 use App\Models\ProductOrder;
 use App\Models\WhatsAppTemplate;
+use App\Services\ExternalProvisioning\ExternalProvisioningManager;
 use App\Services\MergeTag\MergeTagEngine;
+use App\Services\WhatsApp\MetaCloudProvider;
 use App\Services\WhatsApp\WhatsAppManager;
 use App\Services\WhatsAppService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -73,12 +77,22 @@ class FunnelAutomationService
 
         // Trigger with 'purchase_completed' trigger type (matches automation config)
         $this->trigger('purchase_completed', $context, $funnelId);
+
+        // Provision external-system accounts for eligible funnel products (queued, idempotent).
+        try {
+            app(ExternalProvisioningManager::class)->dispatchForOrder($productOrder);
+        } catch (\Throwable $e) {
+            Log::error('FunnelAutomation: external provisioning dispatch failed', [
+                'order_id' => $productOrder->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
      * Find automations that match the given event and context.
      */
-    protected function findMatchingAutomations(string $eventType, array $context, ?int $funnelId = null): \Illuminate\Support\Collection
+    protected function findMatchingAutomations(string $eventType, array $context, ?int $funnelId = null): Collection
     {
         $query = FunnelAutomation::query()
             ->active()
@@ -250,9 +264,9 @@ class FunnelAutomationService
 
         // Send via Meta Cloud Provider directly
         $metaProvider = $this->whatsAppManager->provider();
-        if (! ($metaProvider instanceof \App\Services\WhatsApp\MetaCloudProvider)) {
+        if (! ($metaProvider instanceof MetaCloudProvider)) {
             // Force Meta provider for WABA sends
-            $metaProvider = app(\App\Services\WhatsApp\MetaCloudProvider::class);
+            $metaProvider = app(MetaCloudProvider::class);
         }
 
         $result = $metaProvider->sendTemplate($phone, $templateName, $templateLanguage, $components);
@@ -432,7 +446,7 @@ class FunnelAutomationService
 
         // Resolve subject and body based on source
         if ($emailSource === 'template' && ! empty($config['template_id'])) {
-            $template = \App\Models\FunnelEmailTemplate::find($config['template_id']);
+            $template = FunnelEmailTemplate::find($config['template_id']);
 
             if (! $template) {
                 return [

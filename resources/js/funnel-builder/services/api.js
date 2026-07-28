@@ -207,6 +207,14 @@ export const productApi = {
 };
 
 /**
+ * External Systems API (provisioning connections)
+ */
+export const externalSystemApi = {
+    // List active external systems available for provisioning
+    list: () => request('/external-systems'),
+};
+
+/**
  * Order Bump API
  */
 export const orderBumpApi = {

@@ -139,6 +139,7 @@ use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\VerifyWhatsAppWebhook;
 use App\Models\ClassModel;
 use App\Models\Course;
+use App\Models\ExternalSystem;
 use App\Models\FunnelTemplate;
 use App\Models\Setting;
 use App\Models\WhatsAppTemplate;
@@ -262,6 +263,13 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
         Route::put('funnel-email-templates/{id}', [FunnelEmailTemplateController::class, 'update'])->name('api.funnel-email-templates.update');
         Route::delete('funnel-email-templates/{id}', [FunnelEmailTemplateController::class, 'destroy'])->name('api.funnel-email-templates.destroy');
         Route::post('funnel-email-templates/{id}/duplicate', [FunnelEmailTemplateController::class, 'duplicate'])->name('api.funnel-email-templates.duplicate');
+
+        // Active external systems for the funnel product provisioning picker
+        Route::get('external-systems', function () {
+            return response()->json([
+                'data' => ExternalSystem::active()->orderBy('name')->get(['id', 'name']),
+            ]);
+        })->name('api.external-systems.index');
     });
 
     // Funnel Steps
