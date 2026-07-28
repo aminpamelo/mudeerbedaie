@@ -4,9 +4,33 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-900">
+        <style>
+            [x-cloak] { display: none !important; }
+
+            /* Colourful indigo→violet active nav pill */
+            .app-sidebar [data-flux-navlist-item][data-current] {
+                background-image: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #a855f7 100%) !important;
+                color: #ffffff !important;
+                border-color: transparent !important;
+                box-shadow: 0 6px 16px -4px rgba(99, 102, 241, 0.5) !important;
+            }
+            .app-sidebar [data-flux-navlist-item][data-current] svg {
+                color: #ffffff !important;
+            }
+            /* Subtle tint on hover for non-active items */
+            .app-sidebar [data-flux-navlist-item]:not([data-current]):hover {
+                background-color: rgba(99, 102, 241, 0.08) !important;
+            }
+            /* Gradient brand text for section headings */
+            .app-sidebar [data-flux-navlist-group] > button,
+            .app-sidebar [data-flux-navlist-heading] {
+                letter-spacing: 0.01em;
+            }
+        </style>
+
         <x-impersonation-banner />
 
-        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+        <flux:sidebar sticky stashable class="app-sidebar border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
             x-data="{
                 sections: {},
                 currentRoute: '{{ request()->route()?->getName() }}',
@@ -94,6 +118,7 @@
                 {{-- Student Home --}}
                 <flux:navlist.group
                     expandable
+                    icon="home" color="indigo"
                     :heading="__('Home')"
                     data-section="studentDashboard"
                     x-init="if (!isExpanded('studentDashboard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
@@ -104,6 +129,7 @@
                 @elseif(auth()->user()->isClassAdmin())
                 <flux:navlist.group
                     expandable
+                    icon="home" color="indigo"
                     :heading="__('Platform')"
                     data-section="classAdminDashboard"
                     x-init="if (!isExpanded('classAdminDashboard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
@@ -114,6 +140,7 @@
                 @else
                 <flux:navlist.group
                     expandable
+                    icon="home" color="indigo"
                     :heading="__('Platform')"
                     data-section="platform"
                     x-init="if (!isExpanded('platform')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
@@ -126,6 +153,7 @@
                 @if(auth()->user()->isAdmin() || auth()->user()->isEmployee())
                 <flux:navlist.group
                     expandable
+                    icon="building-office-2" color="blue"
                     :heading="__('Administration')"
                     data-section="administration" x-init="if (!isExpanded('administration')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('administration', $event)"
@@ -148,6 +176,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="credit-card" color="cyan"
                     :heading="__('Subscription Management')"
                     data-section='subscription' x-init="if (!isExpanded('subscription')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('subscription', $event)"
@@ -158,6 +187,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="cube" color="amber"
                     :heading="__('Product Management')"
                     data-section='products' x-init="if (!isExpanded('products')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('products', $event)"
@@ -169,6 +199,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="user-group" color="pink"
                     :heading="__('CRM & Automation')"
                     data-section='crm' x-init="if (!isExpanded('crm')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('crm', $event)"
@@ -181,6 +212,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="funnel" color="violet"
                     :heading="__('Sales Funnels')"
                     data-section='funnels' x-init="if (!isExpanded('funnels')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('funnels', $event)"
@@ -193,6 +225,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="shopping-bag" color="emerald"
                     :heading="__('Commerce & Packages')"
                     data-section='commerce' x-init="if (!isExpanded('commerce')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('commerce', $event)"
@@ -204,6 +237,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="lifebuoy" color="teal"
                     :heading="__('Customer Service')"
                     data-section='customerService' x-init="if (!isExpanded('customerService')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('customerService', $event)"
@@ -216,6 +250,7 @@
                 @if(Route::has('admin.it-board.index'))
                 <flux:navlist.group
                     expandable
+                    icon="computer-desktop" color="slate"
                     :heading="__('IT Board')"
                     data-section='itBoard' x-init="if (!isExpanded('itBoard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('itBoard', $event)"
@@ -226,6 +261,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="document-text" color="yellow"
                     :heading="__('Certificate Management')"
                     data-section='certificates' x-init="if (!isExpanded('certificates')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('certificates', $event)"
@@ -237,6 +273,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="archive-box" color="orange"
                     :heading="__('Inventory Management')"
                     data-section='inventory' x-init="if (!isExpanded('inventory')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('inventory', $event)"
@@ -250,6 +287,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="building-office" color="sky"
                     :heading="__('Agent & Companies')"
                     data-section='agentCompany' x-init="if (!isExpanded('agentCompany')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('agentCompany', $event)"
@@ -263,6 +301,7 @@
                 @if(Route::has('pos.index'))
                 <flux:navlist.group
                     expandable
+                    icon="calculator" color="green"
                     :heading="__('Sales Department')"
                     data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('salesDept', $event)"
@@ -275,6 +314,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="squares-2x2" color="fuchsia"
                     :heading="__('Platform Management')"
                     data-section='platformMgmt' x-init="if (!isExpanded('platformMgmt')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('platformMgmt', $event)"
@@ -290,6 +330,7 @@
                 @if(auth()->user()->isAdmin() || auth()->user()->isAdminLivehost())
                 <flux:navlist.group
                     expandable
+                    icon="video-camera" color="rose"
                     :heading="__('Live Host Management')"
                     data-section='liveHost' x-init="if (!isExpanded('liveHost')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('liveHost', $event)"
@@ -306,6 +347,7 @@
                 @if(auth()->user()->isAdmin() || auth()->user()->isEmployee())
                 <flux:navlist.group
                     expandable
+                    icon="chart-bar" color="purple"
                     :heading="__('Reports & Analytics')"
                     data-section='reports' x-init="if (!isExpanded('reports')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('reports', $event)"
@@ -320,6 +362,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="chat-bubble-left-right" color="green"
                     heading="WhatsApp Management"
                     data-section='whatsappMgmt' x-init="if (!isExpanded('whatsappMgmt')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('whatsappMgmt', $event)"
@@ -390,6 +433,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="cog-6-tooth" color="slate"
                     heading="Settings"
                     data-section='settings' x-init="if (!isExpanded('settings')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('settings', $event)"
@@ -480,6 +524,7 @@
                 @if(auth()->user()->isTeacher())
                 <flux:navlist.group
                     expandable
+                    icon="academic-cap" color="blue"
                     :heading="__('Teaching')"
                     data-section='teaching' x-init="if (!isExpanded('teaching')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('teaching', $event)"
@@ -499,6 +544,7 @@
                 @if(auth()->user()->isLiveHost())
                 <flux:navlist.group
                     expandable
+                    icon="video-camera" color="rose"
                     :heading="__('Live Streaming')"
                     data-section='liveStreaming' x-init="if (!isExpanded('liveStreaming')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('liveStreaming', $event)"
@@ -515,6 +561,7 @@
                 @if(auth()->user()->isSales() && Route::has('pos.index'))
                 <flux:navlist.group
                     expandable
+                    icon="calculator" color="green"
                     :heading="__('Sales Department')"
                     data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('salesDept', $event)"
@@ -528,6 +575,7 @@
                 @if(auth()->user()->hasRole('accountant'))
                 <flux:navlist.group
                     expandable
+                    icon="banknotes" color="emerald"
                     :heading="__('Accounting')"
                     data-section='accounting' x-init="if (!isExpanded('accounting')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('accounting', $event)"
@@ -540,6 +588,7 @@
                 @if(auth()->user()->isClassAdmin())
                 <flux:navlist.group
                     expandable
+                    icon="calendar-days" color="blue"
                     :heading="__('Class Management')"
                     data-section='classAdminManagement' x-init="if (!isExpanded('classAdminManagement')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('classAdminManagement', $event)"
@@ -552,6 +601,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="academic-cap" color="violet"
                     :heading="__('Academic')"
                     data-section='classAdminAcademic' x-init="if (!isExpanded('classAdminAcademic')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('classAdminAcademic', $event)"
@@ -564,6 +614,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="banknotes" color="emerald"
                     :heading="__('Finance')"
                     data-section='classAdminFinance' x-init="if (!isExpanded('classAdminFinance')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('classAdminFinance', $event)"
@@ -578,6 +629,7 @@
                 @if(auth()->user()->isStudent())
                 <flux:navlist.group
                     expandable
+                    icon="academic-cap" color="amber"
                     :heading="__('Courses')"
                     data-section='studentCourses' x-init="if (!isExpanded('studentCourses')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('studentCourses', $event)"
@@ -588,6 +640,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="book-open" color="emerald"
                     :heading="__('Learning')"
                     data-section='studentLearning' x-init="if (!isExpanded('studentLearning')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('studentLearning', $event)"
@@ -598,6 +651,7 @@
 
                 <flux:navlist.group
                     expandable
+                    icon="user-circle" color="indigo"
                     :heading="__('My Account')"
                     data-section='studentAccount' x-init="if (!isExpanded('studentAccount')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('studentAccount', $event)"
@@ -661,8 +715,71 @@
             </flux:dropdown>
         </flux:sidebar>
 
-        <!-- Mobile User Menu (Non-Student) -->
-        @if(!auth()->user()->isStudent() || auth()->user()->isClassAdmin())
+        @php
+            $isAdminStaff = auth()->check() && (
+                auth()->user()->isAdmin()
+                || auth()->user()->isEmployee()
+                || auth()->user()->isSales()
+                || auth()->user()->isAdminLivehost()
+                || auth()->user()->hasRole('accountant')
+            );
+        @endphp
+
+        <!-- Unified Top Bar: global search + notifications (admin & staff) -->
+        @if($isAdminStaff)
+        <flux:header class="border-b border-zinc-200 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/80">
+            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+
+            <livewire:admin.global-search />
+
+            <flux:spacer />
+
+            <livewire:admin.notifications-bell />
+
+            {{-- Profile (mobile only; sidebar keeps it on desktop) --}}
+            <flux:dropdown position="bottom" align="end" class="lg:hidden">
+                <flux:profile
+                    :initials="auth()->user()->initials()"
+                    icon-trailing="chevron-down"
+                />
+
+                <flux:menu>
+                    <flux:menu.radio.group>
+                        <div class="p-0 text-sm font-normal">
+                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+                                    <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white">
+                                        {{ auth()->user()->initials() }}
+                                    </span>
+                                </span>
+                                <div class="grid flex-1 text-start text-sm leading-tight">
+                                    <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
+                                    <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </flux:menu.radio.group>
+
+                    <flux:menu.separator />
+
+                    <flux:menu.radio.group>
+                        <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>{{ __('Settings') }}</flux:menu.item>
+                    </flux:menu.radio.group>
+
+                    <flux:menu.separator />
+
+                    <form method="POST" action="{{ route('logout') }}" class="w-full">
+                        @csrf
+                        <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
+                            {{ __('Log Out') }}
+                        </flux:menu.item>
+                    </form>
+                </flux:menu>
+            </flux:dropdown>
+        </flux:header>
+
+        <!-- Mobile User Menu (Non-Student, non admin/staff) -->
+        @elseif(!auth()->user()->isStudent() || auth()->user()->isClassAdmin())
         <flux:header class="lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
