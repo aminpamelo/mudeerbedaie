@@ -317,7 +317,7 @@ class PosController extends Controller
                 'source' => 'pos',
                 'source_reference' => 'salesperson:'.$request->user()->id,
                 'sales_source_id' => $salesSourceId,
-                'status' => 'pending',
+                'status' => $validated['status'] ?? 'pending',
                 'order_type' => 'product',
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,

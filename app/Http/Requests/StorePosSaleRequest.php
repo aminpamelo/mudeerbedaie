@@ -37,6 +37,7 @@ class StorePosSaleRequest extends FormRequest
             'payment_method' => ['required', 'in:cash,bank_transfer,cod'],
             'payment_reference' => ['nullable', 'required_if:payment_method,bank_transfer', 'string', 'max:255'],
             'payment_status' => ['required', 'in:paid,pending'],
+            'status' => ['nullable', 'in:pending,processing'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'discount_type' => ['nullable', 'in:fixed,percentage'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],

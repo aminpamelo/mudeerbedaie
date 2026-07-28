@@ -262,6 +262,12 @@ class OrderController extends Controller
                 $updatePayload['receipt_attachment'] = null;
             }
 
+            // Order status is only touched when a pending/processing value is sent;
+            // fulfilment-owned statuses (shipped, delivered, …) are left untouched.
+            if (! empty($validated['status'])) {
+                $updatePayload['status'] = $validated['status'];
+            }
+
             $order->update($updatePayload);
 
             $payment = $order->payments()->first();

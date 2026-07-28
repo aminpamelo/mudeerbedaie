@@ -37,6 +37,7 @@ class UpdateOrderRequest extends FormRequest
             'payment_method' => ['required', 'in:cash,bank_transfer,cod'],
             'payment_reference' => ['nullable', 'required_if:payment_method,bank_transfer', 'string', 'max:255'],
             'payment_status' => ['required', 'in:paid,pending'],
+            'status' => ['nullable', 'in:pending,processing'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'receipt_attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],

@@ -678,6 +678,72 @@ it('lets a fighter edit their own order items, customer and payment', function (
         ->and($order->metadata['payment_reference'])->toBe('TRX-777');
 });
 
+it('defaults a fighter manual order to pending but honours a processing status on create', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'base_price' => 10]);
+
+    // No status sent → defaults to pending.
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        'customer_name' => 'Ali', 'customer_phone' => '60100000001',
+        'payment_method' => 'cash', 'payment_status' => 'pending',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 10]],
+    ])->assertSuccessful();
+    expect(ProductOrder::query()->where('source', 'pos')->latest('id')->firstOrFail()->status)->toBe('pending');
+
+    // Explicit processing status is stored.
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        'customer_name' => 'Ali', 'customer_phone' => '60100000001',
+        'payment_method' => 'cash', 'payment_status' => 'pending', 'status' => 'processing',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 10]],
+    ])->assertSuccessful();
+    expect(ProductOrder::query()->where('source', 'pos')->latest('id')->firstOrFail()->status)->toBe('processing');
+});
+
+it('rejects an out-of-range order status on create', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'base_price' => 10]);
+
+    $this->actingAs($f)->postJson('/api/pos/sales', [
+        'customer_name' => 'Ali', 'customer_phone' => '60100000001',
+        'payment_method' => 'cash', 'payment_status' => 'pending', 'status' => 'delivered',
+        'items' => [['itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 10]],
+    ])->assertStatus(422);
+});
+
+it('lets a fighter move their own order to processing when editing', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'base_price' => 30]);
+    $order = makeFighterOrder($f, $product, 1, 30);
+    $itemId = $order->items()->first()->id;
+
+    expect($order->status)->toBe('pending');
+
+    $this->actingAs($f)->post("/fighter/orders/{$order->id}", [
+        'customer_name' => 'Buyer One', 'customer_phone' => '60123456789',
+        'payment_method' => 'cash', 'payment_status' => 'pending', 'status' => 'processing',
+        'items' => [['id' => $itemId, 'itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 30]],
+    ])->assertOk();
+
+    expect($order->fresh()->status)->toBe('processing');
+});
+
+it('leaves a fulfilment-advanced status untouched when the fighter edits without a status', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'base_price' => 30]);
+    $order = makeFighterOrder($f, $product, 1, 30);
+    $order->update(['status' => 'shipped']);
+    $itemId = $order->items()->first()->id;
+
+    // The edit UI hides the status control for advanced orders, so no status is sent.
+    $this->actingAs($f)->post("/fighter/orders/{$order->id}", [
+        'customer_name' => 'Buyer One', 'customer_phone' => '60123456789',
+        'payment_method' => 'cash', 'payment_status' => 'pending',
+        'items' => [['id' => $itemId, 'itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 1, 'unit_price' => 30]],
+    ])->assertOk();
+
+    expect($order->fresh()->status)->toBe('shipped');
+});
+
 it('edits an item-less funnel order without wiping its stored total', function () {
     $f = fighter();
     $segment = app(FighterProvisioner::class)->ensureSalesSource($f);

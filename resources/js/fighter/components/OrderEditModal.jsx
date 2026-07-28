@@ -13,6 +13,8 @@ const PAYMENT_METHODS = [
   { key: 'cod', label: 'COD', Icon: Truck },
 ];
 
+const ORDER_STATUSES = ['pending', 'processing'];
+
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
 function useDebounced(value, delay = 300) {
@@ -155,6 +157,11 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
     ['cash', 'bank_transfer', 'cod'].includes(order.payment_method) ? order.payment_method : 'cash'
   );
   const [paymentStatus, setPaymentStatus] = useState(order.payment_status === 'paid' ? 'paid' : 'pending');
+  // Fighters manage the early-stage status (pending ↔ processing). Orders the
+  // fulfilment team has already advanced (shipped, delivered, …) keep their
+  // status untouched — the selector is hidden and no status is sent.
+  const statusEditable = ORDER_STATUSES.includes(order.status);
+  const [orderStatus, setOrderStatus] = useState(statusEditable ? order.status : 'pending');
   const [paymentReference, setPaymentReference] = useState(order.payment_reference ?? '');
   const [shippingCost, setShippingCost] = useState(order.shipping_cost ? String(order.shipping_cost) : '');
   const [notes, setNotes] = useState(order.notes ?? '');
@@ -242,6 +249,9 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
         unit_price: c.unitPrice,
       })),
     };
+    if (statusEditable) {
+      payload.status = orderStatus;
+    }
     if (removeExisting && !receiptFile) {
       payload.remove_receipt_attachment = 1;
     }
@@ -363,6 +373,17 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
                   <button key={s} type="button" onClick={() => setPaymentStatus(s)} className={cn('rounded-lg py-2 text-[12px] font-semibold capitalize transition-colors', paymentStatus === s ? 'bg-ink text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>{s}</button>
                 ))}
               </div>
+
+              {statusEditable && (
+                <div className="mt-3">
+                  <span className={labelCls}>Order status</span>
+                  <div className="mt-1 grid grid-cols-2 gap-1.5">
+                    {ORDER_STATUSES.map((s) => (
+                      <button key={s} type="button" onClick={() => setOrderStatus(s)} className={cn('rounded-lg py-2 text-[12px] font-semibold capitalize transition-colors', orderStatus === s ? 'bg-[var(--color-brand)] text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {paymentMethod !== 'cod' && (
                 <div className="mt-3">

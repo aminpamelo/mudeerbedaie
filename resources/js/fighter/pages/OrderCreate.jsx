@@ -344,6 +344,11 @@ const PAYMENT_METHODS = [
   { key: 'cod', label: 'COD', Icon: Truck },
 ];
 
+const ORDER_STATUSES = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'processing', label: 'Processing' },
+];
+
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
 /** Upload / preview a payment receipt. Only shown for Cash & Bank. */
@@ -455,6 +460,7 @@ export default function OrderCreate({ segment }) {
   const [customerForm, setCustomerForm] = useState({ name: '', phone: '', email: '', address: '', postcode: '', city: '', state: '' });
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [orderStatus, setOrderStatus] = useState('pending');
   const [paymentReference, setPaymentReference] = useState('');
   const [shippingCost, setShippingCost] = useState('');
   const [notes, setNotes] = useState('');
@@ -518,6 +524,7 @@ export default function OrderCreate({ segment }) {
   const buildPayload = () => ({
     payment_method: paymentMethod,
     payment_status: paymentStatus,
+    status: orderStatus,
     payment_reference: paymentMethod === 'bank_transfer' ? paymentReference : null,
     shipping_cost: shipping || null,
     notes: notes || null,
@@ -641,6 +648,17 @@ export default function OrderCreate({ segment }) {
               <span className="text-[11.5px] font-semibold uppercase tracking-[0.03em] text-muted-2">Shipping (optional)</span>
               <input type="number" min="0" step="0.01" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none focus:border-[var(--color-brand)]" />
             </label>
+          </div>
+
+          <div className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
+            <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink"><Package className="h-3.5 w-3.5 text-muted-2" strokeWidth={2.2} /> Order status</h3>
+            <div className="mt-3 grid grid-cols-2 gap-1.5">
+              {ORDER_STATUSES.map(({ key, label }) => (
+                <button key={key} type="button" onClick={() => setOrderStatus(key)} className={cn('rounded-lg py-2 text-[12px] font-semibold transition-colors', orderStatus === key ? 'bg-ink text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
