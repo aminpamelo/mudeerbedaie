@@ -31,10 +31,8 @@ class ProvisionExternalAccountJob implements ShouldQueue
         ];
     }
 
-    public function retryUntil(): \DateTime
-    {
-        return now()->addHours(6);
-    }
+    // NOTE: do NOT add retryUntil() here — it overrides $tries and would retry
+    // for hours against a down endpoint, overflowing the jobs.attempts tinyint.
 
     public function handle(ExternalProvisioningManager $manager): void
     {
