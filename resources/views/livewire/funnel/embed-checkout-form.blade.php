@@ -379,6 +379,10 @@ new class extends Component
                 ]);
             }
 
+            // A funnel owned by a Fighter tags its orders with the fighter's
+            // sales-source segment so they surface in /fighter/orders.
+            $tagging = app(\App\Services\Fighter\FighterProvisioner::class)->orderTaggingFor($this->funnel);
+
             // Create ProductOrder
             $productOrder = \App\Models\ProductOrder::create([
                 'order_number' => \App\Models\ProductOrder::generateOrderNumber(),
@@ -399,6 +403,8 @@ new class extends Component
                 'payment_method' => $this->paymentMethod,
                 'source' => 'funnel',
                 'source_reference' => $this->funnel->slug,
+                'sales_source_id' => $tagging['sales_source_id'],
+                'hidden_from_admin' => $tagging['hidden_from_admin'],
                 'notes' => 'Funnel order: '.$this->funnel->name,
                 'metadata' => [
                     'funnel_id' => $this->funnel->id,
