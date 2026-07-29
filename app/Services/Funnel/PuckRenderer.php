@@ -94,12 +94,13 @@ class PuckRenderer
      * Checkout Form block. The published view (funnel/show.blade.php) renders the
      * Livewire checkout component and relocates it into this marker on page load.
      *
-     * Accepts [checkout_form] and [checkout-form], case-insensitive, with optional
-     * inner whitespace. Only the first occurrence is replaced — a page has one form.
+     * Accepts [checkout_form], [checkout-form] and [checkout form] (space, underscore
+     * or hyphen between the words), case-insensitive, with optional inner whitespace.
+     * Only the first occurrence is replaced — a page has one form.
      */
     protected function replaceCheckoutTag(string $html, array $context): string
     {
-        $pattern = '/\[\s*checkout[_-]form\s*\]/i';
+        $pattern = '/\[\s*checkout[\s_-]+form\s*\]/i';
 
         if (! preg_match($pattern, $html)) {
             return $html;

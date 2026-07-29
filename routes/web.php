@@ -1448,6 +1448,11 @@ Route::prefix('f')->name('funnel.')->group(function () {
     // Funnel landing page (first step)
     Route::get('{slug}', [PublicFunnelController::class, 'show'])->name('show');
 
+    // Isolated checkout form frame — embedded via <iframe> by full-page HTML
+    // sales pages that carry a [checkout_form] tag. Declared before the generic
+    // step route so the literal `checkout-frame` segment wins.
+    Route::get('{slug}/{stepSlug}/checkout-frame', [PublicFunnelController::class, 'checkoutFrame'])->name('checkout-frame');
+
     // Specific funnel step
     Route::get('{slug}/{stepSlug}', [PublicFunnelController::class, 'showStep'])->name('step');
 
@@ -1539,6 +1544,9 @@ require __DIR__.'/auth.php';
 // ============================================================================
 Route::post('/optin', [PublicFunnelController::class, 'submitOptinFromCustomDomain'])
     ->name('funnel.custom-domain.optin');
+
+Route::get('/{stepSlug}/checkout-frame', [PublicFunnelController::class, 'checkoutFrameFromCustomDomain'])
+    ->name('funnel.custom-domain.checkout-frame');
 
 Route::get('/{stepSlug}', [PublicFunnelController::class, 'showStepFromCustomDomain'])
     ->name('funnel.custom-domain.step')

@@ -462,8 +462,8 @@ it('replaces a [checkout_form] tag inside a Custom HTML block with the checkout 
         ->not->toContain('[checkout_form]');
 });
 
-it('matches the tag case-insensitively and with the hyphen variant and inner spaces', function () {
-    foreach (['[CHECKOUT_FORM]', '[checkout-form]', '[ Checkout_Form ]'] as $tag) {
+it('matches the tag case-insensitively and with the hyphen, space and inner-space variants', function () {
+    foreach (['[CHECKOUT_FORM]', '[checkout-form]', '[ Checkout_Form ]', '[checkout form]', '[Checkout Form]', '[checkout   form]'] as $tag) {
         $result = (string) $this->renderer->render([
             'content' => [[
                 'type' => 'CustomHtml',

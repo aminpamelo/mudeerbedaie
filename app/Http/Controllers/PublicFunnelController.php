@@ -113,6 +113,70 @@ class PublicFunnelController extends Controller
     }
 
     /**
+     * Serve the isolated checkout-form frame for a step. Embedded via <iframe> by
+     * full-page HTML sales pages carrying a [checkout_form] tag — the raw HTML they
+     * ship can't host the Livewire form inline without its CSS clobbering the page.
+     */
+    public function checkoutFrame(Request $request, string $slug, string $stepSlug): View
+    {
+        $funnel = Funnel::where('slug', $slug)
+            ->where('status', 'published')
+            ->firstOrFail();
+
+        $step = $funnel->steps()
+            ->where('slug', $stepSlug)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        return $this->renderCheckoutFrame($request, $funnel, $step);
+    }
+
+    /**
+     * Checkout-form frame served from a custom domain.
+     */
+    public function checkoutFrameFromCustomDomain(Request $request, string $stepSlug): View
+    {
+        $customDomain = $request->attributes->get('custom_domain');
+
+        if (! $customDomain) {
+            abort(404);
+        }
+
+        $funnel = $customDomain->funnel;
+
+        if (! $funnel || ! $funnel->isPublished()) {
+            abort(404, 'Funnel not found or not published');
+        }
+
+        $step = $funnel->steps()
+            ->where('slug', $stepSlug)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        return $this->renderCheckoutFrame($request, $funnel, $step);
+    }
+
+    /**
+     * Render the checkout-form frame view, reusing the parent page's funnel session
+     * (passed as ?session_uuid so it survives even when the iframe's cookies are
+     * partitioned) and falling back to the same-origin session cookie.
+     */
+    protected function renderCheckoutFrame(Request $request, Funnel $funnel, FunnelStep $step): View
+    {
+        $session = null;
+
+        if ($uuid = $request->query('session_uuid')) {
+            $session = FunnelSession::where('uuid', $uuid)
+                ->where('funnel_id', $funnel->id)
+                ->first();
+        }
+
+        $session = $session ?: $this->getOrCreateSession($request, $funnel);
+
+        return view('funnel.checkout-frame', compact('funnel', 'step', 'session'));
+    }
+
+    /**
      * Render a funnel step.
      */
     protected function renderStep(Request $request, Funnel $funnel, FunnelStep $step): View|Response
@@ -245,6 +309,14 @@ class PublicFunnelController extends Controller
         $trackingScripts[] = '};';
         $trackingScripts[] = '</script>';
 
+        // Frame-buster: if a post-purchase page (carries ?order= / ?complete=) is
+        // loaded inside the checkout frame, promote it to the top window so the
+        // next funnel step / thank-you takes over the whole page, not the frame.
+        $trackingScripts[] = '<script>(function(){try{if(window.top!==window.self){'
+            .'var p=new URLSearchParams(window.location.search);'
+            ."if(p.has('order')||p.has('complete')){window.top.location.replace(window.location.href);}"
+            .'}}catch(e){}})();</script>';
+
         // Custom CSS
         if ($content->custom_css) {
             $trackingScripts[] = '<style>'.$content->custom_css.'</style>';
@@ -289,7 +361,58 @@ class PublicFunnelController extends Controller
             $html = str_replace('[ORDER_NUMBER]', e($orderNumber), $html);
         }
 
+        // Embed the working checkout form (isolated <iframe>) where the
+        // [checkout_form] tag sits — the full-page HTML path can't host the
+        // Livewire form inline the way the Puck path does.
+        $html = $this->injectCheckoutFrame($html, $funnel, $step, $session, $isCustomDomain);
+
         return response($html);
+    }
+
+    /**
+     * Swap the [checkout_form] tag (space/underscore/hyphen variants) in a full-page
+     * HTML document for an isolated same-origin checkout <iframe>, and wire the parent
+     * side to auto-size the frame and follow the checkout's post-purchase redirect.
+     * On a checkout-type step with no tag, the frame is appended before </body>.
+     */
+    protected function injectCheckoutFrame(
+        string $html,
+        Funnel $funnel,
+        FunnelStep $step,
+        FunnelSession $session,
+        bool $isCustomDomain
+    ): string {
+        $pattern = '/\[\s*checkout[\s_-]+form\s*\]/i';
+        $hasTag = (bool) preg_match($pattern, $html);
+
+        if (! $hasTag && $step->type !== 'checkout') {
+            return $html;
+        }
+
+        $frameUrl = ($isCustomDomain
+            ? "/{$step->slug}/checkout-frame"
+            : "/f/{$funnel->slug}/{$step->slug}/checkout-frame")
+            .'?session_uuid='.urlencode($session->uuid);
+
+        $iframe = '<div class="funnel-checkout-frame-wrap" style="width:100%;max-width:960px;margin:0 auto;">'
+            .'<iframe id="funnel-checkout-frame" src="'.e($frameUrl).'" title="Checkout" '
+            .'scrolling="no" allow="payment" '
+            .'style="width:100%;border:0;overflow:hidden;min-height:520px;display:block;"></iframe>'
+            .'</div>';
+
+        if ($hasTag) {
+            $html = preg_replace($pattern, $iframe, $html, 1);
+        } else {
+            $html = preg_replace('/<\/body>/i', $iframe."\n</body>", $html, 1);
+        }
+
+        $listener = '<script>(function(){var f=document.getElementById("funnel-checkout-frame");'
+            .'if(!f)return;window.addEventListener("message",function(e){var d=e.data||{};'
+            .'if(d.type==="funnel-checkout-frame-resize"&&d.height){f.style.height=d.height+"px";}'
+            .'else if(d.type==="funnel-checkout-frame-redirect"&&d.url){window.location.href=d.url;}'
+            .'});})();</script>';
+
+        return preg_replace('/<\/body>/i', $listener."\n</body>", $html, 1);
     }
 
     /**
