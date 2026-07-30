@@ -201,17 +201,21 @@ new class extends Component
 } ?>
 
 <section>
-    <div class="mb-6 flex items-start justify-between gap-4">
-        <div class="flex items-start gap-3">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                <flux:icon name="server-stack" class="h-6 w-6" />
+    {{-- Gradient hero header --}}
+    <div class="mb-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="relative flex flex-col gap-4 bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-fuchsia-500/10 p-6 sm:flex-row sm:items-center sm:justify-between dark:from-indigo-500/15 dark:via-violet-500/10 dark:to-fuchsia-500/15">
+            <div class="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-400/20 to-fuchsia-400/20 blur-3xl"></div>
+            <div class="flex items-start gap-4">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30">
+                    <flux:icon name="server-stack" class="h-7 w-7" />
+                </div>
+                <div>
+                    <flux:heading size="xl" class="!text-zinc-900 dark:!text-white">External Systems</flux:heading>
+                    <flux:text class="mt-1 max-w-lg">Connected apps that receive a provisioning call when a paid order comes in.</flux:text>
+                </div>
             </div>
-            <div>
-                <flux:heading size="xl">External Systems</flux:heading>
-                <flux:text class="mt-1">Connected apps that receive a provisioning call when a paid order comes in.</flux:text>
-            </div>
+            <flux:button variant="primary" icon="plus" wire:click="openCreateModal" class="relative shrink-0">Add System</flux:button>
         </div>
-        <flux:button variant="primary" icon="plus" wire:click="openCreateModal">Add System</flux:button>
     </div>
 
     @if (session()->has('error'))
@@ -227,9 +231,9 @@ new class extends Component
     @endif
 
     @if ($systems->isEmpty())
-        <div class="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-16 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                <flux:icon name="server-stack" class="h-7 w-7" />
+        <div class="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-16 text-center dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30">
+                <flux:icon name="server-stack" class="h-8 w-8" />
             </div>
             <flux:heading size="lg" class="mt-4">No external systems yet</flux:heading>
             <flux:text class="mx-auto mt-1 max-w-sm">Connect an app so a user account is created automatically when a paid order comes in.</flux:text>
@@ -238,27 +242,48 @@ new class extends Component
             </div>
         </div>
     @else
-        <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-                <div class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Systems</div>
-                <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $systems->count() }}</div>
+        <div class="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="absolute right-0 top-0 h-20 w-20 -translate-y-6 translate-x-6 rounded-full bg-indigo-500/10 blur-2xl"></div>
+                <div class="flex items-center justify-between">
+                    <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Systems</div>
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30">
+                        <flux:icon name="server-stack" class="h-4 w-4" />
+                    </span>
+                </div>
+                <div class="mt-3 text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $systems->count() }}</div>
             </div>
-            <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-                <div class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Active</div>
-                <div class="mt-1 flex items-center gap-2 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            <div class="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="absolute right-0 top-0 h-20 w-20 -translate-y-6 translate-x-6 rounded-full bg-emerald-500/10 blur-2xl"></div>
+                <div class="flex items-center justify-between">
+                    <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Active</div>
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30">
+                        <flux:icon name="check-circle" class="h-4 w-4" />
+                    </span>
+                </div>
+                <div class="mt-3 flex items-center gap-2 text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                    </span>
                     {{ $systems->where('is_active', true)->count() }}
                 </div>
             </div>
-            <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-                <div class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Provisioning calls</div>
-                <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $systems->sum('provisioning_requests_count') }}</div>
+            <div class="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="absolute right-0 top-0 h-20 w-20 -translate-y-6 translate-x-6 rounded-full bg-fuchsia-500/10 blur-2xl"></div>
+                <div class="flex items-center justify-between">
+                    <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Provisioning calls</div>
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white shadow-md shadow-fuchsia-500/30">
+                        <flux:icon name="bolt" class="h-4 w-4" />
+                    </span>
+                </div>
+                <div class="mt-3 text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $systems->sum('provisioning_requests_count') }}</div>
             </div>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+                <thead class="bg-gradient-to-r from-indigo-50 via-violet-50 to-fuchsia-50 dark:from-indigo-500/10 dark:via-violet-500/10 dark:to-fuchsia-500/10">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Name</th>
                         <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Endpoint</th>
@@ -273,7 +298,7 @@ new class extends Component
                         <tr wire:key="system-{{ $system->id }}" class="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
                             <td class="px-4 py-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br {{ $system->is_active ? 'from-indigo-500 to-violet-600 text-white shadow-sm shadow-indigo-500/30' : 'from-zinc-200 to-zinc-300 text-zinc-500 dark:from-zinc-700 dark:to-zinc-800 dark:text-zinc-400' }}">
                                         <flux:icon name="server-stack" class="h-5 w-5" />
                                     </div>
                                     <div class="min-w-0">

@@ -42,7 +42,7 @@
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*', 'admin.funnel-email-templates*'],
                     'funnels': ['admin.funnels*', 'workflows.*', 'funnel-builder.*', 'admin.funnel-email-templates*'],
-                    'commerce': ['admin.orders.*', 'packages.*'],
+                    'commerce': ['admin.orders.*', 'packages.*', 'admin.external-systems*'],
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*'],
@@ -233,6 +233,7 @@
                     <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.index') || request()->routeIs('admin.orders.show') || request()->routeIs('admin.orders.create') || request()->routeIs('admin.orders.edit')" wire:navigate>{{ __('Orders & Package Sales') }}</flux:navlist.item>
                     <flux:navlist.item icon="chart-bar" :href="route('admin.orders.report')" :current="request()->routeIs('admin.orders.report')" wire:navigate>{{ __('Sales Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="gift" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
+                    <flux:navlist.item icon="server-stack" :href="route('admin.external-systems')" :current="request()->routeIs('admin.external-systems*')" wire:navigate>{{ __('External Systems') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -508,15 +509,6 @@
                         wire:navigate
                     >
                         {{ __('Shipping') }}
-                    </flux:navlist.item>
-
-                    <flux:navlist.item
-                        icon="server-stack"
-                        :href="route('admin.external-systems')"
-                        :current="request()->routeIs('admin.external-systems')"
-                        wire:navigate
-                    >
-                        {{ __('External Systems') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
