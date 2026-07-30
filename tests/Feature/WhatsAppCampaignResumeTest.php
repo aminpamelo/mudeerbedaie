@@ -48,6 +48,14 @@ it('re-dispatches only the unfinished recipients', function () {
     Queue::assertPushed(SendCampaignMessageJob::class, 3);
 });
 
+it('routes campaign sends onto the dedicated whatsapp queue', function () {
+    Queue::fake();
+
+    app(WhatsAppBlastService::class)->resume(makeStalledCampaign());
+
+    Queue::assertPushedOn('whatsapp', SendCampaignMessageJob::class);
+});
+
 it('resets a failed campaign back to queued when re-dispatching', function () {
     Queue::fake();
 

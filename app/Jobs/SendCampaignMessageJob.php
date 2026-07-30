@@ -23,6 +23,10 @@ class SendCampaignMessageJob implements ShouldQueue
     public function __construct(public int $recipientId, public ?string $queuedAt = null)
     {
         $this->queuedAt ??= now()->toIso8601String();
+
+        // Send on the dedicated 'whatsapp' queue (its own always-on worker),
+        // not the congested shared 'default' lane.
+        $this->onQueue('whatsapp');
     }
 
     /**
