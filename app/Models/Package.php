@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFulfillmentType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 class Package extends Model
 {
     use HasFactory;
+    use HasFulfillmentType;
 
     protected $fillable = [
         'name',
@@ -23,6 +25,7 @@ class Package extends Model
         'discount_type',
         'discount_value',
         'status',
+        'fulfillment_type',
         'start_date',
         'end_date',
         'max_purchases',

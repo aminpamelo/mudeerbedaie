@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFulfillmentType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Product extends Model
 {
     use HasFactory;
+    use HasFulfillmentType;
 
     protected $fillable = [
         'name',
@@ -25,9 +27,11 @@ class Product extends Model
         'status',
         'created_by_fighter_id',
         'type',
+        'fulfillment_type',
         'track_quantity',
         'min_quantity',
         'dimensions',
+        'metadata',
     ];
 
     protected function casts(): array
@@ -38,6 +42,7 @@ class Product extends Model
             'track_quantity' => 'boolean',
             'min_quantity' => 'integer',
             'dimensions' => 'array',
+            'metadata' => 'array',
         ];
     }
 

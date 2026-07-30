@@ -45,6 +45,8 @@ new class extends Component
 
     public string $paymentStatusFilter = 'all';
 
+    public bool $needsProvisioningOnly = false;
+
     public string $dateFilter = '';
 
     public string $dateFrom = '';
@@ -186,6 +188,12 @@ new class extends Component
         $this->selectedOrderIds = [];
     }
 
+    public function updatingNeedsProvisioningOnly(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
+    }
+
     public function updatingPerPage(): void
     {
         $this->resetPage();
@@ -283,6 +291,14 @@ new class extends Component
             })
             ->when($this->salesSourceFilter !== '', function ($query) {
                 $query->where('sales_source_id', $this->salesSourceFilter);
+            })
+            ->when($this->needsProvisioningOnly, function ($query) {
+                // Orders that contain an external-system product/package but have
+                // no successful provisioning yet — i.e. an account still to create.
+                $query->where(function ($q) {
+                    $q->whereHas('items.product', fn ($p) => $p->where('fulfillment_type', 'external_system'))
+                        ->orWhereHas('items.package', fn ($p) => $p->where('fulfillment_type', 'external_system'));
+                })->whereDoesntHave('provisioningRequests', fn ($r) => $r->succeeded());
             })
             ->when($this->productFilter, function ($query) {
                 if (str_starts_with($this->productFilter, 'package:')) {
@@ -1793,6 +1809,17 @@ new class extends Component
                         <input type="date" wire:model.live="dateTo"
                             class="w-36 px-2.5 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                     </div>
+                    <button type="button"
+                        wire:click="$toggle('needsProvisioningOnly')"
+                        @class([
+                            'shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border transition-colors',
+                            'bg-blue-600 border-blue-600 text-white' => $needsProvisioningOnly,
+                            'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700' => ! $needsProvisioningOnly,
+                        ])
+                        title="Show only orders that still need an external-system account created">
+                        <flux:icon name="server-stack" class="w-4 h-4" />
+                        Needs Account
+                    </button>
                     <flux:button variant="ghost" wire:click="$refresh" size="sm" class="shrink-0">
                         <flux:icon name="arrow-path" class="w-4 h-4" />
                     </flux:button>
@@ -1800,9 +1827,15 @@ new class extends Component
             </div>
 
             <!-- Active Filter Tags -->
-            @if($search || $sourceTab !== 'all' || $productFilter || $paymentStatusFilter !== 'all' || $dateFilter || $dateFrom || $dateTo)
+            @if($search || $sourceTab !== 'all' || $productFilter || $paymentStatusFilter !== 'all' || $needsProvisioningOnly || $dateFilter || $dateFrom || $dateTo)
                 <div class="flex items-center gap-2 mt-3 flex-wrap">
                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">Filters:</flux:text>
+                    @if($needsProvisioningOnly)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                            Needs Account
+                            <button wire:click="$set('needsProvisioningOnly', false)" class="ml-0.5 text-blue-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
+                    @endif
                     @if($search)
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                             "{{ Str::limit($search, 20) }}"
@@ -1839,7 +1872,7 @@ new class extends Component
                             <button wire:click="$set('dateFrom', ''); $set('dateTo', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
-                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('paymentStatusFilter', 'all'); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
+                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('paymentStatusFilter', 'all'); $set('needsProvisioningOnly', false); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
                         class="text-xs text-zinc-400 hover:text-red-500 transition-colors font-medium">
                         Clear all
                     </button>
@@ -1888,7 +1921,7 @@ new class extends Component
     <!-- Orders Table -->
     <div class="relative bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         <!-- Loading overlay -->
-        <div wire:loading.delay.long wire:target="perPage, search, activeTab, sourceTab, productFilter, paymentStatusFilter, dateFilter, dateFrom, dateTo, gotoPage, nextPage, previousPage, setSortBy"
+        <div wire:loading.delay.long wire:target="perPage, search, activeTab, sourceTab, productFilter, paymentStatusFilter, needsProvisioningOnly, dateFilter, dateFrom, dateTo, gotoPage, nextPage, previousPage, setSortBy"
             class="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-zinc-800/60 backdrop-blur-[1px]">
             <div class="flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-zinc-200 dark:bg-zinc-700 dark:ring-zinc-600">
                 <flux:icon name="arrow-path" class="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />

@@ -4,13 +4,15 @@ namespace App\Observers;
 
 use App\Models\ProductOrder;
 use App\Models\Student;
+use App\Services\ExternalProvisioning\ExternalProvisioningManager;
 use App\Services\Workflow\WorkflowEngine;
 use Illuminate\Support\Facades\Log;
 
 class ProductOrderObserver
 {
     public function __construct(
-        protected WorkflowEngine $workflowEngine
+        protected WorkflowEngine $workflowEngine,
+        protected ExternalProvisioningManager $provisioningManager,
     ) {}
 
     /**
@@ -18,6 +20,12 @@ class ProductOrderObserver
      */
     public function created(ProductOrder $productOrder): void
     {
+        // Orders created already-paid (funnel checkout, POS) never hit updated(),
+        // so provision here too. dispatchForOrder is idempotent.
+        if ($productOrder->isPaid()) {
+            $this->provisionExternalAccounts($productOrder);
+        }
+
         $student = $this->getStudentFromOrder($productOrder);
 
         if (! $student) {
@@ -38,14 +46,20 @@ class ProductOrderObserver
      */
     public function updated(ProductOrder $productOrder): void
     {
+        $changes = $productOrder->getChanges();
+
+        // Provision external-system accounts as soon as the order becomes paid.
+        // Runs before the student guard because plain product/package orders
+        // (guest/POS/agent) often have no linked Student. Idempotent.
+        if ($this->wasJustPaid($productOrder, $changes)) {
+            $this->provisionExternalAccounts($productOrder);
+        }
+
         $student = $this->getStudentFromOrder($productOrder);
 
         if (! $student) {
             return;
         }
-
-        // Check for specific status changes
-        $changes = $productOrder->getChanges();
 
         // Order paid trigger
         if ($this->wasJustPaid($productOrder, $changes)) {
@@ -85,6 +99,22 @@ class ProductOrderObserver
                 'order_id' => $productOrder->id,
                 'order_number' => $productOrder->order_number,
                 'delivered_at' => $productOrder->delivered_at,
+            ]);
+        }
+    }
+
+    /**
+     * Dispatch external-system account provisioning for a paid order. Wrapped so
+     * a provisioning hiccup never breaks the order save.
+     */
+    protected function provisionExternalAccounts(ProductOrder $order): void
+    {
+        try {
+            $this->provisioningManager->dispatchForOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('External provisioning dispatch failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
             ]);
         }
     }

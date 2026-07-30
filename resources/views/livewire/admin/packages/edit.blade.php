@@ -2,9 +2,11 @@
 
 use App\Models\ClassModel;
 use App\Models\Course;
+use App\Models\ExternalSystem;
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\Warehouse;
+use App\Services\ExternalProvisioning\ExternalSystemClient;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
@@ -29,6 +31,16 @@ new class extends Component
     public $discount_value = 0;
 
     public $status = 'draft';
+
+    public $fulfillment_type = 'physical';
+
+    public $external_system_id = '';
+
+    public $external_plan = '';
+
+    public array $provisionPlans = [];
+
+    public bool $provisionPlansLoaded = false;
 
     public $start_date = '';
 
@@ -79,6 +91,9 @@ new class extends Component
         $this->discount_type = $package->discount_type ?? 'fixed';
         $this->discount_value = $package->discount_value ?? 0;
         $this->status = $package->status;
+        $this->fulfillment_type = $package->fulfillment_type ?? 'physical';
+        $this->external_system_id = $package->provisioningExternalSystemId() ?? '';
+        $this->external_plan = $package->provisioningPlan() ?? '';
         $this->start_date = $package->start_date?->format('Y-m-d') ?? '';
         $this->end_date = $package->end_date?->format('Y-m-d') ?? '';
         $this->max_purchases = $package->max_purchases ?? '';
@@ -108,6 +123,10 @@ new class extends Component
             $this->selectedClasses[] = $class->id;
             $this->classCustomPrices[$class->id] = $class->pivot->custom_price ?? '';
         }
+
+        if ($this->fulfillment_type === 'external_system' && $this->external_system_id) {
+            $this->loadExternalPlans();
+        }
     }
 
     public function rules(): array
@@ -121,6 +140,9 @@ new class extends Component
             'discount_type' => 'required|in:fixed,percentage',
             'discount_value' => 'nullable|numeric|min:0',
             'status' => 'required|in:active,inactive,draft',
+            'fulfillment_type' => 'required|in:physical,digital,external_system',
+            'external_system_id' => 'required_if:fulfillment_type,external_system|nullable|exists:external_systems,id',
+            'external_plan' => 'nullable|string|max:100',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after:start_date',
             'max_purchases' => 'nullable|integer|min:1',
@@ -145,6 +167,7 @@ new class extends Component
             'courses' => Course::where('status', 'active')->orderBy('name')->get(),
             'classes' => ClassModel::where('status', 'active')->with(['course.feeSettings', 'teacher'])->orderBy('title')->get(),
             'warehouses' => Warehouse::orderBy('name')->get(),
+            'externalSystems' => ExternalSystem::query()->where('is_active', true)->orderBy('name')->get(),
         ];
     }
 
@@ -154,6 +177,65 @@ new class extends Component
         if (empty($this->slug) || $this->slug === Str::slug($this->package->name)) {
             $this->slug = Str::slug($value);
         }
+    }
+
+    public function updatedFulfillmentType(): void
+    {
+        if ($this->fulfillment_type !== 'external_system') {
+            $this->external_system_id = '';
+            $this->external_plan = '';
+            $this->provisionPlans = [];
+            $this->provisionPlansLoaded = false;
+        }
+    }
+
+    public function updatedExternalSystemId(): void
+    {
+        $this->external_plan = '';
+        $this->loadExternalPlans();
+    }
+
+    public function loadExternalPlans(): void
+    {
+        $this->provisionPlans = [];
+        $this->provisionPlansLoaded = false;
+
+        $system = $this->external_system_id ? ExternalSystem::find($this->external_system_id) : null;
+
+        if (! $system) {
+            return;
+        }
+
+        try {
+            foreach (app(ExternalSystemClient::class)->packages($system) as $plan) {
+                if (is_array($plan) && filled($plan['slug'] ?? null)) {
+                    $this->provisionPlans[$plan['slug']] = $plan['name'] ?? $plan['slug'];
+                }
+            }
+        } catch (\Throwable) {
+            $this->provisionPlans = [];
+        }
+
+        $this->provisionPlansLoaded = true;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function buildMetadata(): ?array
+    {
+        $metadata = $this->package->metadata ?? [];
+
+        if ($this->fulfillment_type === 'external_system' && $this->external_system_id) {
+            $metadata['provisioning'] = [
+                'external_system_id' => (int) $this->external_system_id,
+                'plan' => $this->external_plan !== '' ? $this->external_plan : null,
+            ];
+        } else {
+            unset($metadata['provisioning']);
+        }
+
+        return $metadata !== [] ? $metadata : null;
     }
 
     public function addProduct($productId): void
@@ -286,6 +368,7 @@ new class extends Component
             'discount_type' => $this->discount_type,
             'discount_value' => $this->discount_value ?: 0,
             'status' => $this->status,
+            'fulfillment_type' => $this->fulfillment_type,
             'start_date' => $this->start_date ?: null,
             'end_date' => $this->end_date ?: null,
             'max_purchases' => $this->max_purchases ?: null,
@@ -295,6 +378,7 @@ new class extends Component
             'gallery_images' => $this->galleryImages ?: null,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
+            'metadata' => $this->buildMetadata(),
         ]);
 
         // Only update items if no completed purchases
@@ -887,6 +971,63 @@ new class extends Component
                         </flux:select>
                         <flux:error name="status" />
                     </flux:field>
+
+                    <flux:field>
+                        <flux:label>Fulfillment Type</flux:label>
+                        <flux:select wire:model.live="fulfillment_type">
+                            <flux:select.option value="physical">Physical Package</flux:select.option>
+                            <flux:select.option value="digital">Digital Package</flux:select.option>
+                            <flux:select.option value="external_system">External System Access</flux:select.option>
+                        </flux:select>
+                        <flux:error name="fulfillment_type" />
+                        <flux:description>
+                            @if($fulfillment_type === 'external_system')
+                                A paid order will create the customer's account in the chosen system automatically.
+                            @else
+                                How this package is delivered to the customer.
+                            @endif
+                        </flux:description>
+                    </flux:field>
+
+                    @if($fulfillment_type === 'external_system')
+                        <div class="md:col-span-2 space-y-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/40">
+                            <flux:heading size="sm">External System Provisioning</flux:heading>
+
+                            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                <flux:field>
+                                    <flux:label>External System</flux:label>
+                                    <flux:select wire:model.live="external_system_id" placeholder="Select a system...">
+                                        @foreach($externalSystems as $system)
+                                            <flux:select.option value="{{ $system->id }}">{{ $system->name }}</flux:select.option>
+                                        @endforeach
+                                    </flux:select>
+                                    <flux:error name="external_system_id" />
+                                    @if($externalSystems->isEmpty())
+                                        <flux:description>
+                                            No external systems configured yet.
+                                            <a href="{{ route('admin.external-systems') }}" class="text-blue-600 underline dark:text-blue-400">Add one</a> first.
+                                        </flux:description>
+                                    @endif
+                                </flux:field>
+
+                                @if($external_system_id)
+                                    <flux:field>
+                                        <flux:label>Plan</flux:label>
+                                        @if($provisionPlansLoaded && count($provisionPlans) > 0)
+                                            <flux:select wire:model="external_plan" placeholder="Select a plan...">
+                                                @foreach($provisionPlans as $slug => $label)
+                                                    <flux:select.option value="{{ $slug }}">{{ $label }}</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                        @else
+                                            <flux:input wire:model="external_plan" placeholder="e.g. pro-monthly (optional)" />
+                                        @endif
+                                        <flux:error name="external_plan" />
+                                    </flux:field>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
 
                     <flux:field>
                         <flux:label>Default Warehouse</flux:label>
