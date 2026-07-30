@@ -83,6 +83,13 @@ class ProcessScheduledNotificationsCommand extends Command
                 }
             }
 
+            // Flip out of 'pending' BEFORE dispatching so the next run of this
+            // command (every 5 min) can't re-select and re-dispatch the same
+            // notification while its queued job is still waiting behind a
+            // backlog. Without this, each run re-fans-out one email per
+            // recipient, compounding into a runaway email flood.
+            $notification->markAsProcessing();
+
             SendClassNotificationJob::dispatch($notification);
 
             if ($notification->session_id) {

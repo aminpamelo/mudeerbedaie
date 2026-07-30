@@ -20,7 +20,7 @@ Schedule::command('subscriptions:generate-orders')->daily()->at('01:00');
 
 // Schedule class notification jobs
 Schedule::command('notifications:schedule --days=7')->dailyAt('00:30');
-Schedule::command('notifications:process --limit=50')->everyFiveMinutes();
+Schedule::command('notifications:process --limit=50')->everyFiveMinutes()->withoutOverlapping();
 
 // Funnel automation jobs
 Schedule::job(new DetectAbandonedSessions)->everyFifteenMinutes();

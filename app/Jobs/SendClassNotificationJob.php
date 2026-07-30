@@ -27,6 +27,15 @@ class SendClassNotificationJob implements ShouldQueue
     public function handle(NotificationService $notificationService, EmailTemplateCompiler $compiler): void
     {
         $notification = $this->scheduledNotification;
+
+        // Idempotency guard: never re-process a notification that is already
+        // finalised. Protects against duplicate fan-out if the same
+        // notification was dispatched more than once (e.g. a backed-up queue
+        // re-selecting it before its status was updated).
+        if (in_array($notification->status, ['sent', 'cancelled', 'failed'], true)) {
+            return;
+        }
+
         $setting = $notification->setting;
         $session = $notification->session;
         $class = $notification->class;
