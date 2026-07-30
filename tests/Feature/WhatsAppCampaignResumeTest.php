@@ -7,7 +7,9 @@ use App\Models\User;
 use App\Models\WhatsAppCampaign;
 use App\Models\WhatsAppCampaignRecipient;
 use App\Services\WhatsApp\WhatsAppBlastService;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Volt\Volt;
 
@@ -109,6 +111,23 @@ it('forbids a non-admin from reaching the campaigns list', function () {
     $this->actingAs($user)
         ->get(route('admin.whatsapp.campaigns'))
         ->assertForbidden();
+});
+
+it('force-releases a stuck send lock so re-queued jobs can run', function () {
+    Queue::fake();
+
+    $service = app(WhatsAppBlastService::class);
+
+    // Simulate a lock orphaned by a worker that died mid-send.
+    $key = (new WithoutOverlapping('whatsapp-send'))
+        ->getLockKey(new SendCampaignMessageJob(0));
+    expect(Cache::lock($key)->get())->toBeTrue();
+
+    $campaign = makeStalledCampaign();
+    $service->resume($campaign);
+
+    // The lock is now free: a fresh acquire succeeds.
+    expect(Cache::lock($key)->get())->toBeTrue();
 });
 
 it('anchors the job give-up deadline to when it was queued', function () {

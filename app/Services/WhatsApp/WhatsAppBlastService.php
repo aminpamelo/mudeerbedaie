@@ -7,6 +7,8 @@ use App\Models\ProductOrder;
 use App\Models\WhatsAppCampaign;
 use App\Models\WhatsAppCampaignRecipient;
 use App\Models\WhatsAppTemplate;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class WhatsAppBlastService
@@ -124,11 +126,29 @@ class WhatsAppBlastService
             $campaign->update(['status' => 'queued', 'completed_at' => null]);
         }
 
+        // Free a stuck send lock (and any lingering batch pause) so the
+        // re-queued jobs can actually run. A worker killed mid-send can leave
+        // the overlap lock held forever; without this, Resume just re-queues
+        // jobs that immediately release against the same dead lock.
+        $this->releaseSendLock();
+
         foreach ($recipientIds as $id) {
             SendCampaignMessageJob::dispatch($id);
         }
 
         return $recipientIds->count();
+    }
+
+    /**
+     * Force-release the WhatsApp send lock and clear any batch pause.
+     */
+    public function releaseSendLock(): void
+    {
+        $key = (new WithoutOverlapping('whatsapp-send'))
+            ->getLockKey(new SendCampaignMessageJob(0));
+
+        Cache::lock($key)->forceRelease();
+        Cache::forget('whatsapp_batch_pause_until');
     }
 
     /**
