@@ -5,6 +5,7 @@ namespace App\Livewire\Concerns;
 use App\Models\ExternalSystem;
 use App\Models\ProductOrder;
 use App\Services\ExternalProvisioning\ExternalProvisioningManager;
+use App\Services\ExternalProvisioning\ExternalSystemClient;
 use Illuminate\Support\Collection;
 
 /**
@@ -23,6 +24,11 @@ trait ProvisionsOrders
 
     public string $provisionPlan = '';
 
+    /** @var array<string, string> slug => name, pulled from the chosen system's /packages */
+    public array $provisionPlans = [];
+
+    public bool $provisionPlansLoaded = false;
+
     public function openProvisionModal(int $orderId): void
     {
         $this->resetProvisionForm();
@@ -32,9 +38,45 @@ trait ProvisionsOrders
 
         if ($systems->count() === 1) {
             $this->provisionSystemId = (int) $systems->first()->id;
+            $this->loadProvisionPlans();
         }
 
         $this->showProvisionModal = true;
+    }
+
+    public function updatedProvisionSystemId(): void
+    {
+        $this->provisionPlan = '';
+        $this->loadProvisionPlans();
+    }
+
+    /**
+     * Pull the plan list from the chosen system's /packages endpoint so the
+     * admin picks a real plan instead of typing a slug. Falls back silently to
+     * a free-text field when the system does not expose /packages.
+     */
+    public function loadProvisionPlans(): void
+    {
+        $this->provisionPlans = [];
+        $this->provisionPlansLoaded = false;
+
+        $system = $this->provisionSystemId ? ExternalSystem::find($this->provisionSystemId) : null;
+
+        if (! $system) {
+            return;
+        }
+
+        try {
+            foreach (app(ExternalSystemClient::class)->packages($system) as $plan) {
+                if (is_array($plan) && filled($plan['slug'] ?? null)) {
+                    $this->provisionPlans[$plan['slug']] = $plan['name'] ?? $plan['slug'];
+                }
+            }
+        } catch (\Throwable) {
+            $this->provisionPlans = []; // system has no /packages — free-text fallback
+        }
+
+        $this->provisionPlansLoaded = true;
     }
 
     public function provisionOrder(): void
@@ -74,6 +116,8 @@ trait ProvisionsOrders
         $this->provisionOrderId = null;
         $this->provisionSystemId = null;
         $this->provisionPlan = '';
+        $this->provisionPlans = [];
+        $this->provisionPlansLoaded = false;
         $this->resetErrorBag(['provisionOrderId', 'provisionSystemId', 'provisionPlan']);
     }
 }

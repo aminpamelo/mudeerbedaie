@@ -43,7 +43,7 @@
             </flux:callout>
         @else
             <div>
-                <flux:select wire:model="provisionSystemId" label="System" placeholder="Choose a system…">
+                <flux:select wire:model.live="provisionSystemId" label="System" placeholder="Choose a system…">
                     @foreach ($provisionSystemsList as $s)
                         <flux:select.option value="{{ $s->id }}">{{ $s->name }}</flux:select.option>
                     @endforeach
@@ -52,8 +52,29 @@
             </div>
 
             <div>
-                <flux:input wire:model="provisionPlan" label="Plan (optional)" placeholder="e.g. gold" />
-                <flux:text size="sm" class="mt-1 text-zinc-500">The plan slug on that system. Leave blank for its default.</flux:text>
+                <div wire:loading.flex wire:target="provisionSystemId, loadProvisionPlans, openProvisionModal" class="items-center gap-2 py-1 text-sm text-zinc-500">
+                    <flux:icon name="arrow-path" class="h-4 w-4 animate-spin" /> Loading plans…
+                </div>
+
+                <div wire:loading.remove wire:target="provisionSystemId, loadProvisionPlans, openProvisionModal">
+                    @if (! empty($provisionPlans))
+                        <flux:select wire:model="provisionPlan" label="Plan" placeholder="Default plan">
+                            <flux:select.option value="">Default plan</flux:select.option>
+                            @foreach ($provisionPlans as $planSlug => $planName)
+                                <flux:select.option value="{{ $planSlug }}">{{ $planName }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    @else
+                        <flux:input wire:model="provisionPlan" label="Plan (optional)" placeholder="e.g. gold" />
+                        <flux:text size="sm" class="mt-1 text-zinc-500">
+                            @if ($provisionSystemId && $provisionPlansLoaded)
+                                This system didn't return a plan list — type the slug, or leave blank for its default.
+                            @else
+                                The plan slug on that system. Leave blank for its default.
+                            @endif
+                        </flux:text>
+                    @endif
+                </div>
             </div>
 
             <div class="flex justify-end gap-2 pt-1">

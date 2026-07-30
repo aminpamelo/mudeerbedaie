@@ -142,3 +142,34 @@ it('provisions from the order detail page and dispatches a toast', function () {
 
     expect(ExternalProvisioningRequest::where('product_order_id', $order->id)->where('status', 'succeeded')->exists())->toBeTrue();
 });
+
+it('loads the plan dropdown from the chosen system packages', function () {
+    Http::fake(['ext.test/api/v1/packages' => Http::response(['packages' => [
+        ['slug' => 'gold', 'name' => 'Gold'],
+        ['slug' => 'silver', 'name' => 'Silver'],
+    ]])]);
+    $admin = User::factory()->admin()->create();
+    $system = extSystem();
+    $order = ProductOrder::factory()->create(['guest_email' => 'buyer@example.com', 'payment_status' => 'paid']);
+
+    $this->actingAs($admin);
+
+    Volt::test('admin.orders.order-show', ['order' => $order])
+        ->call('openProvisionModal', $order->id)
+        ->assertSet('provisionSystemId', $system->id) // single system auto-selected
+        ->assertSet('provisionPlans', ['gold' => 'Gold', 'silver' => 'Silver']);
+});
+
+it('falls back to an empty plan list when the system has no packages endpoint', function () {
+    Http::fake(['ext.test/api/v1/packages' => Http::response(['message' => 'Not found'], 404)]);
+    $admin = User::factory()->admin()->create();
+    extSystem();
+    $order = ProductOrder::factory()->create(['guest_email' => 'buyer@example.com', 'payment_status' => 'paid']);
+
+    $this->actingAs($admin);
+
+    Volt::test('admin.orders.order-show', ['order' => $order])
+        ->call('openProvisionModal', $order->id)
+        ->assertSet('provisionPlans', [])
+        ->assertSet('provisionPlansLoaded', true);
+});
