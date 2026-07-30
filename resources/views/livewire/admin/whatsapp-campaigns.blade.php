@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\WhatsAppCampaign;
+use App\Services\WhatsApp\WhatsAppBlastService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -12,6 +13,20 @@ new class extends Component {
         if (! auth()->user()?->isAdmin()) {
             abort(403, 'Access denied');
         }
+    }
+
+    public function resume(int $id): void
+    {
+        if (! auth()->user()?->isAdmin()) {
+            abort(403, 'Access denied');
+        }
+
+        $campaign = WhatsAppCampaign::findOrFail($id);
+        $count = app(WhatsAppBlastService::class)->resume($campaign);
+
+        session()->flash('resume-status', $count > 0
+            ? "Re-queued {$count} recipient".($count === 1 ? '' : 's').' for “'.$campaign->name.'”.'
+            : 'Nothing left to resume for “'.$campaign->name.'”.');
     }
 
     public function with(): array
@@ -54,6 +69,12 @@ new class extends Component {
         Start a blast from <strong>Orders &amp; Package Sales</strong> — select orders, then choose <strong>Send WhatsApp</strong>. Blasts use approved message templates and send in the background.
     </flux:callout>
 
+    @if (session('resume-status'))
+        <flux:callout class="mb-6" icon="arrow-path" variant="success">
+            {{ session('resume-status') }}
+        </flux:callout>
+    @endif
+
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table class="w-full text-sm">
             <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -82,9 +103,20 @@ new class extends Component {
                             </p>
                         </td>
                         <td class="px-4 py-3">
-                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium {{ $this->statusColor($campaign->status) }}">
-                                {{ ucfirst($campaign->status) }}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium {{ $this->statusColor($campaign->status) }}">
+                                    {{ ucfirst($campaign->status) }}
+                                </span>
+                                @if (in_array($campaign->status, ['queued', 'sending', 'failed'], true))
+                                    <flux:button size="xs" variant="ghost" icon="arrow-path"
+                                        wire:click="resume({{ $campaign->id }})"
+                                        wire:confirm="Re-queue the unsent recipients for this campaign?"
+                                        wire:loading.attr="disabled"
+                                        wire:target="resume({{ $campaign->id }})">
+                                        Resume
+                                    </flux:button>
+                                @endif
+                            </div>
                         </td>
                         <td class="px-4 py-3 text-right tabular-nums">{{ number_format($campaign->total_recipients) }}</td>
                         <td class="px-4 py-3 text-right tabular-nums text-slate-600">{{ number_format($campaign->sent_count) }}</td>

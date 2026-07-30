@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\WhatsAppCampaign;
+use App\Services\WhatsApp\WhatsAppBlastService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -19,6 +20,20 @@ new class extends Component
         }
 
         $this->campaignId = $campaign->id;
+    }
+
+    public function resume(): void
+    {
+        if (! auth()->user()?->isAdmin()) {
+            abort(403, 'Access denied');
+        }
+
+        $campaign = WhatsAppCampaign::findOrFail($this->campaignId);
+        $count = app(WhatsAppBlastService::class)->resume($campaign);
+
+        session()->flash('resume-status', $count > 0
+            ? "Re-queued {$count} recipient".($count === 1 ? '' : 's').'. Sending will resume shortly.'
+            : 'Nothing left to resume — every recipient has already been processed.');
     }
 
     public function updatingStatusFilter(): void
@@ -77,14 +92,31 @@ new class extends Component
                 · {{ $campaign->created_at?->format('d M Y, H:i') }}
             </flux:text>
         </div>
-        <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium
-            {{ $campaign->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : ($campaign->status === 'sending' ? 'bg-blue-100 text-blue-700' : ($campaign->status === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')) }}">
-            @if (! $campaign->isFinished())
-                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current"></span>
+        <div class="flex shrink-0 items-center gap-3">
+            @if (in_array($campaign->status, ['queued', 'sending', 'failed'], true))
+                <flux:button size="sm" variant="ghost" icon="arrow-path"
+                    wire:click="resume"
+                    wire:confirm="Re-queue the unsent recipients for this campaign?"
+                    wire:loading.attr="disabled"
+                    wire:target="resume">
+                    Resume
+                </flux:button>
             @endif
-            {{ ucfirst($campaign->status) }}
-        </span>
+            <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium
+                {{ $campaign->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : ($campaign->status === 'sending' ? 'bg-blue-100 text-blue-700' : ($campaign->status === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')) }}">
+                @if (! $campaign->isFinished())
+                    <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-current"></span>
+                @endif
+                {{ ucfirst($campaign->status) }}
+            </span>
+        </div>
     </div>
+
+    @if (session('resume-status'))
+        <flux:callout class="mb-6" icon="arrow-path" variant="success">
+            {{ session('resume-status') }}
+        </flux:callout>
+    @endif
 
     {{-- Progress bar while sending --}}
     @if (! $campaign->isFinished())

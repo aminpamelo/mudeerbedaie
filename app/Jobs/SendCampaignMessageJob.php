@@ -8,6 +8,7 @@ use App\Services\WhatsAppService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -19,22 +20,37 @@ class SendCampaignMessageJob implements ShouldQueue
 
     public int $backoff = 300; // 5 minutes between retries
 
-    public function __construct(public int $recipientId) {}
+    public function __construct(public int $recipientId, public ?string $queuedAt = null)
+    {
+        $this->queuedAt ??= now()->toIso8601String();
+    }
 
     /**
-     * Serialize with every other WhatsApp send so the blast respects the
-     * provider's rate limits instead of firing in parallel.
+     * Serialize the campaign sends so they respect the provider's rate limits
+     * instead of firing in parallel.
+     *
+     * expireAfter() lets the lock self-heal: if a worker is killed mid-send
+     * (deploy, restart, OOM) the lock is released automatically instead of
+     * dead-locking every later send forever. releaseAfter() spaces out the
+     * retries so blocked jobs don't busy-loop against the lock.
      */
     public function middleware(): array
     {
         return [
-            new WithoutOverlapping('whatsapp-send'),
+            (new WithoutOverlapping('whatsapp-send'))
+                ->expireAfter(120)
+                ->releaseAfter(15),
         ];
     }
 
+    /**
+     * Anchor the give-up deadline to when the job was queued. Computing it from
+     * a fresh now() on every attempt would keep it perpetually 24h in the
+     * future, so a permanently blocked job could never fail out.
+     */
     public function retryUntil(): \DateTime
     {
-        return now()->addHours(24);
+        return Carbon::parse($this->queuedAt)->addHours(24);
     }
 
     public function handle(WhatsAppService $whatsApp, WhatsAppBlastService $blast): void

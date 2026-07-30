@@ -91,6 +91,47 @@ class WhatsAppBlastService
     }
 
     /**
+     * Re-queue delivery for a stalled or failed campaign.
+     *
+     * Only recipients that never completed (still `pending` or stuck in
+     * `sending`) are re-dispatched; anyone already sent/delivered/read/failed/
+     * skipped is left untouched. A duplicate job for the same recipient is
+     * harmless — the job atomically claims `pending -> sending`, so the second
+     * one is a no-op, and a recipient stuck in `sending` is recorded as failed
+     * by the job rather than re-sent (never a duplicate, billable message).
+     *
+     * @return int the number of recipients re-queued
+     */
+    public function resume(WhatsAppCampaign $campaign): int
+    {
+        if ($campaign->status === 'cancelled') {
+            return 0;
+        }
+
+        $recipientIds = $campaign->recipients()
+            ->whereIn('status', ['pending', 'sending'])
+            ->pluck('id');
+
+        if ($recipientIds->isEmpty()) {
+            if (! $campaign->isFinished()) {
+                $campaign->update(['status' => 'completed', 'completed_at' => now()]);
+            }
+
+            return 0;
+        }
+
+        if (! in_array($campaign->status, ['queued', 'sending'], true)) {
+            $campaign->update(['status' => 'queued', 'completed_at' => null]);
+        }
+
+        foreach ($recipientIds as $id) {
+            SendCampaignMessageJob::dispatch($id);
+        }
+
+        return $recipientIds->count();
+    }
+
+    /**
      * Preview how many of the selected orders can be reached.
      *
      * @param  array<int>  $orderIds
