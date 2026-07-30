@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ProductOrder;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
@@ -142,6 +143,60 @@ new class extends Component
         };
     }
 
+    /**
+     * The sales-source segment ids that belong to Fighters. A funnel/POS order
+     * tagged with one of these is attributed to a fighter rather than to the
+     * company's own funnel/POS. Memoised for the request.
+     *
+     * @return array<int, int>
+     */
+    private ?array $fighterSegmentIdsCache = null;
+
+    private function fighterSegmentIds(): array
+    {
+        return $this->fighterSegmentIdsCache ??= User::query()
+            ->where('role', 'fighter')
+            ->whereNotNull('sales_source_id')
+            ->pluck('sales_source_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Raw SQL predicate matching fighter-attributed orders (or a never-true
+     * predicate when there are no fighters yet).
+     */
+    private function fighterSql(string $tableAlias = ''): string
+    {
+        $ids = $this->fighterSegmentIds();
+
+        if (empty($ids)) {
+            return '0 = 1';
+        }
+
+        $prefix = $tableAlias !== '' ? "{$tableAlias}." : '';
+
+        return "{$prefix}sales_source_id IN (".implode(',', $ids).')';
+    }
+
+    /**
+     * NULL-safe inverse of fighterSql — a funnel/POS order that is NOT a fighter's.
+     */
+    private function notFighterSql(string $tableAlias = ''): string
+    {
+        $ids = $this->fighterSegmentIds();
+
+        if (empty($ids)) {
+            return '1 = 1';
+        }
+
+        $prefix = $tableAlias !== '' ? "{$tableAlias}." : '';
+
+        return "({$prefix}sales_source_id IS NULL OR {$prefix}sales_source_id NOT IN (".implode(',', $ids).'))';
+    }
+
     private function applySourceFilter($query, string $tableAlias = 'product_orders'): void
     {
         if (! $this->sourceFilter) {
@@ -154,8 +209,9 @@ new class extends Component
                 $q->whereNotIn("{$tableAlias}.source", ['funnel', 'pos'])
                     ->whereNotNull("{$tableAlias}.agent_id");
             }),
-            'funnel' => $query->where("{$tableAlias}.source", 'funnel'),
-            'pos' => $query->where("{$tableAlias}.source", 'pos'),
+            'funnel' => $query->where("{$tableAlias}.source", 'funnel')->whereRaw($this->notFighterSql($tableAlias)),
+            'pos' => $query->where("{$tableAlias}.source", 'pos')->whereRaw($this->notFighterSql($tableAlias)),
+            'fighter' => $query->whereRaw($this->fighterSql($tableAlias)),
             default => null,
         };
     }
@@ -172,8 +228,9 @@ new class extends Component
                 $q->whereNotIn("{$tableAlias}.source", ['funnel', 'pos'])
                     ->whereNotNull("{$tableAlias}.agent_id");
             }),
-            'funnel' => $query->where("{$tableAlias}.source", 'funnel'),
-            'pos' => $query->where("{$tableAlias}.source", 'pos'),
+            'funnel' => $query->where("{$tableAlias}.source", 'funnel')->whereRaw($this->notFighterSql($tableAlias)),
+            'pos' => $query->where("{$tableAlias}.source", 'pos')->whereRaw($this->notFighterSql($tableAlias)),
+            'fighter' => $query->whereRaw($this->fighterSql($tableAlias)),
             default => null,
         };
     }
@@ -209,6 +266,7 @@ new class extends Component
                     'agent_company' => ['orders' => 0, 'revenue' => 0],
                     'funnel' => ['orders' => 0, 'revenue' => 0],
                     'pos' => ['orders' => 0, 'revenue' => 0],
+                    'fighter' => ['orders' => 0, 'revenue' => 0],
                 ],
             ];
         }
@@ -253,16 +311,23 @@ new class extends Component
 
         $this->applyVisibleInAdminRaw($sourceQuery, 'product_orders');
 
+        // Fighter orders are funnel/POS orders tagged with a fighter's segment;
+        // they're pulled into their own bucket and excluded from funnel/POS.
+        $fighter = $this->fighterSql('');
+        $notFighter = $this->notFighterSql('');
+
         $sourceRows = $sourceQuery->selectRaw("
                 {$monthExpr} as month,
                 SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform_orders,
                 SUM(CASE WHEN platform_id IS NOT NULL THEN total_amount ELSE 0 END) as platform_revenue,
                 SUM(CASE WHEN platform_id IS NULL AND agent_id IS NOT NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN 1 ELSE 0 END) as agent_orders,
                 SUM(CASE WHEN platform_id IS NULL AND agent_id IS NOT NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN total_amount ELSE 0 END) as agent_revenue,
-                SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel_orders,
-                SUM(CASE WHEN source = 'funnel' THEN total_amount ELSE 0 END) as funnel_revenue,
-                SUM(CASE WHEN source = 'pos' THEN 1 ELSE 0 END) as pos_orders,
-                SUM(CASE WHEN source = 'pos' THEN total_amount ELSE 0 END) as pos_revenue
+                SUM(CASE WHEN source = 'funnel' AND {$notFighter} THEN 1 ELSE 0 END) as funnel_orders,
+                SUM(CASE WHEN source = 'funnel' AND {$notFighter} THEN total_amount ELSE 0 END) as funnel_revenue,
+                SUM(CASE WHEN source = 'pos' AND {$notFighter} THEN 1 ELSE 0 END) as pos_orders,
+                SUM(CASE WHEN source = 'pos' AND {$notFighter} THEN total_amount ELSE 0 END) as pos_revenue,
+                SUM(CASE WHEN {$fighter} THEN 1 ELSE 0 END) as fighter_orders,
+                SUM(CASE WHEN {$fighter} THEN total_amount ELSE 0 END) as fighter_revenue
             ")
             ->groupByRaw($monthExpr)
             ->get();
@@ -275,6 +340,7 @@ new class extends Component
                     'agent_company' => ['orders' => (int) $row->agent_orders, 'revenue' => (float) $row->agent_revenue],
                     'funnel' => ['orders' => (int) $row->funnel_orders, 'revenue' => (float) $row->funnel_revenue],
                     'pos' => ['orders' => (int) $row->pos_orders, 'revenue' => (float) $row->pos_revenue],
+                    'fighter' => ['orders' => (int) $row->fighter_orders, 'revenue' => (float) $row->fighter_revenue],
                 ];
             }
         }
@@ -307,10 +373,11 @@ new class extends Component
             'agent_company' => ['orders' => 0, 'revenue' => 0],
             'funnel' => ['orders' => 0, 'revenue' => 0],
             'pos' => ['orders' => 0, 'revenue' => 0],
+            'fighter' => ['orders' => 0, 'revenue' => 0],
         ];
 
         foreach ($this->monthlyData as $data) {
-            foreach (['platform', 'agent_company', 'funnel', 'pos'] as $source) {
+            foreach (['platform', 'agent_company', 'funnel', 'pos', 'fighter'] as $source) {
                 $this->sourceBreakdown[$source]['orders'] += $data['by_source'][$source]['orders'];
                 $this->sourceBreakdown[$source]['revenue'] += $data['by_source'][$source]['revenue'];
             }
@@ -696,6 +763,8 @@ new class extends Component
                 'Funnel Revenue',
                 'POS Orders',
                 'POS Revenue',
+                'Fighter Orders',
+                'Fighter Revenue',
             ]);
 
             foreach ($this->monthlyData as $data) {
@@ -715,6 +784,8 @@ new class extends Component
                     number_format($data['by_source']['funnel']['revenue'], 2),
                     $data['by_source']['pos']['orders'],
                     number_format($data['by_source']['pos']['revenue'], 2),
+                    $data['by_source']['fighter']['orders'],
+                    number_format($data['by_source']['fighter']['revenue'], 2),
                 ]);
             }
 
@@ -735,6 +806,8 @@ new class extends Component
                 number_format($this->sourceBreakdown['funnel']['revenue'], 2),
                 $this->sourceBreakdown['pos']['orders'],
                 number_format($this->sourceBreakdown['pos']['revenue'], 2),
+                $this->sourceBreakdown['fighter']['orders'],
+                number_format($this->sourceBreakdown['fighter']['revenue'], 2),
             ]);
 
             fclose($handle);
@@ -768,6 +841,7 @@ new class extends Component
                     <flux:select.option value="agent_company">Agent & Co</flux:select.option>
                     <flux:select.option value="funnel">Funnel</flux:select.option>
                     <flux:select.option value="pos">POS</flux:select.option>
+                    <flux:select.option value="fighter">Fighter</flux:select.option>
                 </flux:select>
             </div>
             <div class="w-32">
@@ -832,13 +906,14 @@ new class extends Component
         </div>
 
         {{-- Source Breakdown Cards --}}
-        <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             @php
                 $sourceLabels = [
                     'platform' => ['label' => 'Platform', 'icon' => 'globe-alt', 'color' => 'orange'],
                     'agent_company' => ['label' => 'Agent & Co', 'icon' => 'building-office', 'color' => 'blue'],
                     'funnel' => ['label' => 'Funnel', 'icon' => 'funnel', 'color' => 'purple'],
                     'pos' => ['label' => 'POS', 'icon' => 'computer-desktop', 'color' => 'pink'],
+                    'fighter' => ['label' => 'Fighter', 'icon' => 'bolt', 'color' => 'red'],
                 ];
             @endphp
             @foreach($sourceLabels as $key => $source)

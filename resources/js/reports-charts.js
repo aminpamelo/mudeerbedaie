@@ -1208,6 +1208,7 @@ export function initOrderReportBySourceChart(monthlyData) {
     const agentOrders = Object.values(monthlyData).map(item => item.by_source.agent_company.orders);
     const funnelOrders = Object.values(monthlyData).map(item => item.by_source.funnel.orders);
     const posOrders = Object.values(monthlyData).map(item => item.by_source.pos.orders);
+    const fighterOrders = Object.values(monthlyData).map(item => item.by_source.fighter?.orders ?? 0);
 
     const ctx = document.getElementById('orderReportBySourceChart');
     if (!ctx) return;
@@ -1248,6 +1249,13 @@ export function initOrderReportBySourceChart(monthlyData) {
                     data: posOrders,
                     backgroundColor: 'rgba(236, 72, 153, 0.8)',
                     borderColor: 'rgb(236, 72, 153)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Fighter',
+                    data: fighterOrders,
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderColor: 'rgb(239, 68, 68)',
                     borderWidth: 1
                 }
             ]

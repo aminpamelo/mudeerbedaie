@@ -6,8 +6,11 @@ use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
 use App\Models\User;
+use App\Services\Fighter\FighterProvisioner;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Volt\Volt;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->admin = User::factory()->create(['role' => 'admin']);
@@ -97,6 +100,49 @@ test('report page shows customer insights tab', function () {
         ->assertSuccessful()
         ->assertSee('Top Customers')
         ->assertSee('VIP Customer Test');
+});
+
+test('fighter orders get their own source bucket, carved out of funnel and pos', function () {
+    $fighter = User::factory()->create(['role' => 'fighter']);
+    $segment = app(FighterProvisioner::class)->ensureSalesSource($fighter);
+
+    // Fighter-attributed orders (funnel + POS), tagged with the fighter segment.
+    ProductOrder::factory()->create(['order_date' => now(), 'status' => 'delivered', 'total_amount' => 100, 'source' => 'funnel', 'sales_source_id' => $segment->id]);
+    ProductOrder::factory()->create(['order_date' => now(), 'status' => 'delivered', 'total_amount' => 50, 'source' => 'pos', 'sales_source_id' => $segment->id]);
+
+    // Company (non-fighter) funnel + POS orders — no segment.
+    ProductOrder::factory()->create(['order_date' => now(), 'status' => 'delivered', 'total_amount' => 200, 'source' => 'funnel', 'sales_source_id' => null]);
+    ProductOrder::factory()->create(['order_date' => now(), 'status' => 'delivered', 'total_amount' => 30, 'source' => 'pos', 'sales_source_id' => null]);
+
+    $this->actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-report')
+        ->set('selectedYear', (int) now()->year);
+
+    $breakdown = $component->get('sourceBreakdown');
+
+    expect($breakdown['fighter']['orders'])->toBe(2)
+        ->and((float) $breakdown['fighter']['revenue'])->toBe(150.0)
+        ->and($breakdown['funnel']['orders'])->toBe(1)          // fighter funnel order excluded
+        ->and((float) $breakdown['funnel']['revenue'])->toBe(200.0)
+        ->and($breakdown['pos']['orders'])->toBe(1)             // fighter POS order excluded
+        ->and((float) $breakdown['pos']['revenue'])->toBe(30.0);
+});
+
+test('the fighter source filter scopes the report to fighter orders only', function () {
+    $fighter = User::factory()->create(['role' => 'fighter']);
+    $segment = app(FighterProvisioner::class)->ensureSalesSource($fighter);
+
+    ProductOrder::factory()->create(['order_date' => now(), 'status' => 'delivered', 'total_amount' => 100, 'source' => 'funnel', 'sales_source_id' => $segment->id]);
+    ProductOrder::factory()->create(['order_date' => now(), 'status' => 'delivered', 'total_amount' => 200, 'source' => 'funnel', 'sales_source_id' => null]);
+
+    $this->actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-report')
+        ->set('selectedYear', (int) now()->year)
+        ->set('sourceFilter', 'fighter');
+
+    expect($component->get('summary')['total_orders'])->toBe(1);
 });
 
 test('cancelled orders are excluded from revenue calculations', function () {
