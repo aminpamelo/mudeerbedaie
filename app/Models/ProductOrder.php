@@ -167,22 +167,18 @@ class ProductOrder extends Model
     /**
      * Public tracking URL a customer/fighter can open.
      *
-     * Prefers the authoritative link EasyParcel returns at booking time.
-     * Otherwise falls back to EasyParcel's universal EasyTrack tracker, which
-     * auto-detects the courier from the AWB (all shipments go through EasyParcel).
+     * Uses tracking.my's universal "instant" tracker, which auto-detects the
+     * courier from the tracking number — so a single link works whether the
+     * parcel shipped via EasyParcel's aggregator, J&T, Pos Malaysia, or a
+     * courier synced from a marketplace.
      */
     public function getTrackingUrlAttribute(): ?string
     {
-        $stored = data_get($this->metadata, 'shipping_tracking_url');
-        if (filled($stored)) {
-            return $stored;
-        }
-
         if (! $this->tracking_id) {
             return null;
         }
 
-        return 'https://easyparcel.com/my/easytrack/';
+        return 'https://www.tracking.my/instant/'.rawurlencode($this->tracking_id);
     }
 
     // Relationships

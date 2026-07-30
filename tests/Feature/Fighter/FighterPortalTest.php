@@ -265,7 +265,7 @@ it('shows a fighter only the orders attributed to their segment', function () {
         );
 });
 
-it('exposes provider label and stored tracking url on the fighter orders feed', function () {
+it('exposes provider label and tracking.my url on the fighter orders feed', function () {
     $f = fighter();
     $seg = app(FighterProvisioner::class)->ensureSalesSource($f);
 
@@ -286,11 +286,11 @@ it('exposes provider label and stored tracking url on the fighter orders feed', 
             ->component('Orders', false)
             ->where('orders.data.0.tracking_id', '632118771195')
             ->where('orders.data.0.shipping_provider', 'EasyParcel')
-            ->where('orders.data.0.tracking_url', 'https://easyparcel.com/my/track/632118771195')
+            ->where('orders.data.0.tracking_url', 'https://www.tracking.my/instant/632118771195')
         );
 });
 
-it('falls back to the EasyParcel tracker for manual orders with no recorded courier', function () {
+it('builds a tracking.my url for manual orders with no recorded courier', function () {
     $f = fighter();
     $seg = app(FighterProvisioner::class)->ensureSalesSource($f);
 
@@ -310,7 +310,7 @@ it('falls back to the EasyParcel tracker for manual orders with no recorded cour
         ->assertInertia(fn (Assert $page) => $page
             ->component('Orders', false)
             ->where('orders.data.0.shipping_provider', 'EasyParcel')
-            ->where('orders.data.0.tracking_url', 'https://easyparcel.com/my/easytrack/')
+            ->where('orders.data.0.tracking_url', 'https://www.tracking.my/instant/632120810306')
         );
 });
 

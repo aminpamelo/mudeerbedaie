@@ -86,7 +86,11 @@ export default function OrderViewModal({ order, loading, onClose, onEdit }) {
                 <Field label="Email" value={c.email} />
                 <Field label="Payment ref" value={order.payment_reference} />
                 {addressLine && <div className="col-span-2"><Field label="Address" value={addressLine} /></div>}
-                <Field label="Tracking" value={order.tracking_id} />
+                <Field label="Tracking" value={order.tracking_url ? (
+                  <a href={order.tracking_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-[var(--color-brand-ink)] hover:underline" title="Track this parcel">
+                    {order.tracking_id}<ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : order.tracking_id} />
                 <Field label="Courier" value={order.shipping_provider} />
                 {order.notes && <div className="col-span-2"><Field label="Notes" value={order.notes} /></div>}
               </div>
