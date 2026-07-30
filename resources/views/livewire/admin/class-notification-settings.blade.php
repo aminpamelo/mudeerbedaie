@@ -5,8 +5,16 @@ use App\Models\ClassNotificationAttachment;
 use App\Models\ClassNotificationSetting;
 use App\Models\NotificationTemplate;
 use App\Models\ScheduledNotification;
+use App\Services\NotificationService;
+use App\Services\SettingsService;
+use App\Services\WhatsAppService;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -58,7 +66,7 @@ new class extends Component
     public string $activeChannelTab = 'email';
 
     // Main channel tab for separating Email/WhatsApp views
-    #[\Livewire\Attributes\Url(as: 'channel')]
+    #[Url(as: 'channel')]
     public string $activeMainTab = 'email';
 
     // Global channel enabled states
@@ -220,7 +228,7 @@ new class extends Component
             // Create a unique key for each session slot
             if ($notification->scheduled_session_date) {
                 $slotKey = $notification->scheduled_session_date->format('Y-m-d').'_'.$notification->scheduled_session_time;
-                $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.\Carbon\Carbon::parse($notification->scheduled_session_time)->format('g:i A');
+                $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.Carbon::parse($notification->scheduled_session_time)->format('g:i A');
                 $slotDate = $notification->scheduled_session_date;
             } elseif ($notification->session) {
                 $slotKey = $notification->session->session_date->format('Y-m-d').'_'.$notification->session->session_time->format('H:i:s');
@@ -253,7 +261,16 @@ new class extends Component
         // Build query based on channel
         $query = $this->class->scheduledNotifications()
             ->with(['session', 'setting'])
-            ->with(['logs' => fn ($q) => $q->where('channel', $channel)]);
+            // Per-channel counts are computed in SQL. Never load whole log sets
+            // into memory: a notification can accumulate tens of thousands of
+            // logs, which would exhaust memory and time out the whole tab.
+            ->withCount([
+                'logs as channel_sent_count' => fn ($q) => $q->where('channel', $channel)->whereIn('status', ['sent', 'delivered']),
+                'logs as channel_failed_count' => fn ($q) => $q->where('channel', $channel)->where('status', 'failed'),
+                'logs as channel_total_count' => fn ($q) => $q->where('channel', $channel),
+            ])
+            // The expandable detail panel only ever needs a recent sample.
+            ->with(['logs' => fn ($q) => $q->where('channel', $channel)->orderByDesc('id')->limit(100)]);
 
         // Filter based on channel settings on the notification setting
         // For Email: show if setting has email_enabled (defaults to true if null)
@@ -274,6 +291,7 @@ new class extends Component
             ->orderByDesc('scheduled_session_date')
             ->orderByDesc('scheduled_session_time')
             ->orderByDesc('scheduled_at')
+            ->limit(200)
             ->get();
 
         $grouped = [];
@@ -281,7 +299,7 @@ new class extends Component
         foreach ($notifications as $notification) {
             if ($notification->scheduled_session_date) {
                 $slotKey = $notification->scheduled_session_date->format('Y-m-d').'_'.$notification->scheduled_session_time;
-                $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.\Carbon\Carbon::parse($notification->scheduled_session_time)->format('g:i A');
+                $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.Carbon::parse($notification->scheduled_session_time)->format('g:i A');
                 $slotDate = $notification->scheduled_session_date;
             } elseif ($notification->session) {
                 $slotKey = $notification->session->session_date->format('Y-m-d').'_'.$notification->session->session_time->format('H:i:s');
@@ -489,7 +507,7 @@ new class extends Component
         }
     }
 
-    #[\Livewire\Attributes\Computed]
+    #[Computed]
     public function waNotificationTypeLabel(): array
     {
         if (! $this->editingWhatsappSettingId) {
@@ -507,7 +525,7 @@ new class extends Component
         ];
     }
 
-    #[\Livewire\Attributes\Computed]
+    #[Computed]
     public function waPreviewContent(): string
     {
         if (empty($this->waTemplateContent)) {
@@ -521,11 +539,11 @@ new class extends Component
             '{{course_name}}' => $this->class->course?->name ?? 'Kursus',
             '{{session_date}}' => now()->addDay()->format('d M Y'),
             '{{session_time}}' => '8:00 PM',
-            '{{session_datetime}}' => now()->addDay()->format('d M Y') . ' 8:00 PM',
+            '{{session_datetime}}' => now()->addDay()->format('d M Y').' 8:00 PM',
             '{{location}}' => $this->class->location ?? 'TBA',
             '{{meeting_url}}' => $this->class->meeting_url ?? 'http://example.com/meet',
             '{{whatsapp_link}}' => $this->class->whatsapp_group_link ?? '',
-            '{{duration}}' => ($this->class->duration_minutes ?? 60) . ' minit',
+            '{{duration}}' => ($this->class->duration_minutes ?? 60).' minit',
             '{{remaining_sessions}}' => '8',
             '{{total_sessions}}' => '12',
             '{{attendance_rate}}' => '92%',
@@ -748,7 +766,7 @@ new class extends Component
 
     public function getUpcomingTimetableSlotsProperty(): array
     {
-        $service = app(\App\Services\NotificationService::class);
+        $service = app(NotificationService::class);
         $timetable = $this->class->timetable;
 
         if (! $timetable || ! $timetable->is_active) {
@@ -817,7 +835,7 @@ new class extends Component
 
     public function scheduleNotificationsForSlot(string $date, string $time): void
     {
-        $service = app(\App\Services\NotificationService::class);
+        $service = app(NotificationService::class);
         $settings = $this->class->enabledNotificationSettings()
             ->where('notification_type', 'like', 'session_reminder_%')
             ->get();
@@ -831,8 +849,8 @@ new class extends Component
             return;
         }
 
-        $sessionDate = \Carbon\Carbon::parse($date);
-        $sessionDateTime = \Carbon\Carbon::parse($date.' '.$time);
+        $sessionDate = Carbon::parse($date);
+        $sessionDateTime = Carbon::parse($date.' '.$time);
         $totalScheduled = 0;
 
         // Normalize time for storage (HH:MM format)
@@ -843,7 +861,7 @@ new class extends Component
 
             if ($scheduledAt->isFuture()) {
                 // Check for existing with both time formats (HH:MM and HH:MM:SS)
-                $exists = \App\Models\ScheduledNotification::where('class_id', $this->class->id)
+                $exists = ScheduledNotification::where('class_id', $this->class->id)
                     ->where('scheduled_session_date', $sessionDate->toDateString())
                     ->where(function ($query) use ($normalizedTime) {
                         $query->where('scheduled_session_time', $normalizedTime)
@@ -854,7 +872,7 @@ new class extends Component
                     ->exists();
 
                 if (! $exists) {
-                    \App\Models\ScheduledNotification::create([
+                    ScheduledNotification::create([
                         'class_id' => $this->class->id,
                         'session_id' => null,
                         'scheduled_session_date' => $sessionDate->toDateString(),
@@ -919,7 +937,7 @@ new class extends Component
 
     public function scheduleAllUpcomingNotifications(): void
     {
-        $service = app(\App\Services\NotificationService::class);
+        $service = app(NotificationService::class);
 
         // Check if timetable exists
         if (! $this->class->timetable || ! $this->class->timetable->is_active) {
@@ -965,7 +983,9 @@ new class extends Component
     }
 
     public ?int $testSettingId = null;
+
     public string $testChannel = 'email';
+
     public bool $showTestModal = false;
 
     public function openTestModal(int $settingId, string $channel = 'email'): void
@@ -1079,13 +1099,13 @@ new class extends Component
                 }
 
                 // Update config before instantiating service
-                $apiToken = app(\App\Services\SettingsService::class)->get('whatsapp_api_token');
+                $apiToken = app(SettingsService::class)->get('whatsapp_api_token');
                 if (! empty($apiToken)) {
                     config(['services.onsend.api_token' => $apiToken]);
                     config(['services.onsend.enabled' => true]);
                 }
 
-                $whatsApp = new \App\Services\WhatsAppService();
+                $whatsApp = new WhatsAppService;
 
                 if (! $whatsApp->isEnabled()) {
                     $this->dispatch('notify',
@@ -1151,13 +1171,13 @@ new class extends Component
                     $host = $parsedUrl['host'] ?? '';
                     if (str_ends_with($host, '.test') || str_ends_with($host, '.local') || $host === 'localhost' || str_starts_with($host, '127.') || str_starts_with($host, '192.168.')) {
                         $localDomainWarning = true;
-                        \Illuminate\Support\Facades\Log::warning('WhatsApp image URL is local domain - API cannot access', [
+                        Log::warning('WhatsApp image URL is local domain - API cannot access', [
                             'image_url' => $dedicatedWhatsAppImage,
                             'host' => $host,
                         ]);
                     }
 
-                    \Illuminate\Support\Facades\Log::info('Sending WhatsApp test image', [
+                    Log::info('Sending WhatsApp test image', [
                         'phone' => $normalizedPhone,
                         'image_url' => $dedicatedWhatsAppImage,
                     ]);
@@ -1169,7 +1189,7 @@ new class extends Component
                         usleep(500000); // 0.5 second delay
                     } else {
                         $imagesFailed++;
-                        \Illuminate\Support\Facades\Log::warning('WhatsApp test image failed', [
+                        Log::warning('WhatsApp test image failed', [
                             'phone' => $normalizedPhone,
                             'image_url' => $dedicatedWhatsAppImage,
                             'error' => $imageResult['error'] ?? 'Unknown error',
@@ -1178,7 +1198,7 @@ new class extends Component
                 } else {
                     // Check if image should have been found but wasn't
                     if ($setting->whatsapp_image_path) {
-                        \Illuminate\Support\Facades\Log::warning('WhatsApp image path exists in DB but not used', [
+                        Log::warning('WhatsApp image path exists in DB but not used', [
                             'setting_id' => $setting->id,
                             'whatsapp_image_path' => $setting->whatsapp_image_path,
                             'this_whatsappImage' => $this->whatsappImage ? 'set' : 'null',
@@ -1220,7 +1240,7 @@ new class extends Component
                         }
                     }
                     if (! $dedicatedWhatsAppImage && ! empty($setting->whatsapp_image_path)) {
-                        $message .= " (Nota: Gambar dalam DB tidak digunakan)";
+                        $message .= ' (Nota: Gambar dalam DB tidak digunakan)';
                     }
                     $this->dispatch('notify',
                         type: $imagesFailed > 0 ? 'warning' : 'success',
@@ -1251,7 +1271,7 @@ new class extends Component
                 // Add test email footer
                 $htmlContent .= '<br><br><div style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px;"><em style="color: #999; font-size: 12px;">— Ini adalah e-mel ujian —</em></div>';
 
-                \Illuminate\Support\Facades\Mail::html(
+                Mail::html(
                     $htmlContent,
                     function ($message) use ($user, $personalizedSubject, $fileAttachments) {
                         $message->to($user->email, $user->name)
@@ -1259,7 +1279,7 @@ new class extends Component
 
                         // Attach files
                         foreach ($fileAttachments as $file) {
-                            if (\Illuminate\Support\Facades\Storage::disk($file->disk)->exists($file->file_path)) {
+                            if (Storage::disk($file->disk)->exists($file->file_path)) {
                                 $message->attach($file->full_path, [
                                     'as' => $file->file_name,
                                     'mime' => $file->file_type,
@@ -1277,7 +1297,7 @@ new class extends Component
             }
 
             $this->showTestModal = false;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Gagal menghantar ujian: '.$e->getMessage(),
@@ -1353,7 +1373,7 @@ new class extends Component
         $text = preg_replace('#</p>#i', "\n\n", $text);
         $text = preg_replace('#</div>#i', "\n", $text);
         $text = preg_replace('#</h[1-6]>#i', "\n\n", $text);
-        $text = preg_replace('#<li>#i', "• ", $text);
+        $text = preg_replace('#<li>#i', '• ', $text);
         $text = preg_replace('#</li>#i', "\n", $text);
 
         // Bold text: <strong> or <b> -> *text*
@@ -2015,14 +2035,18 @@ new class extends Component
                                 @foreach($group['notifications'] as $notification)
                                     @php
                                         $typeLabel = $typeLabels[$notification->setting?->notification_type ?? ''] ?? ['name' => '-', 'description' => ''];
-                                        // Group logs by channel
-                                        $emailLogs = $notification->logs->where('channel', 'email');
-                                        $whatsappLogs = $notification->logs->where('channel', 'whatsapp');
-                                        $emailSent = $emailLogs->whereIn('status', ['sent', 'delivered'])->count();
-                                        $emailFailed = $emailLogs->where('status', 'failed')->count();
-                                        $whatsappSent = $whatsappLogs->whereIn('status', ['sent', 'delivered'])->count();
-                                        $whatsappFailed = $whatsappLogs->where('status', 'failed')->count();
-                                        $hasLogs = $notification->logs->isNotEmpty();
+                                        // Counts come from SQL (withCount) for the active channel; full
+                                        // log rows are never loaded here to keep the tab memory-safe.
+                                        $channelSent = $notification->channel_sent_count ?? 0;
+                                        $channelFailed = $notification->channel_failed_count ?? 0;
+                                        $channelTotal = $notification->channel_total_count ?? 0;
+                                        $emailSent = $activeMainTab === 'email' ? $channelSent : 0;
+                                        $emailFailed = $activeMainTab === 'email' ? $channelFailed : 0;
+                                        $emailTotal = $activeMainTab === 'email' ? $channelTotal : 0;
+                                        $whatsappSent = $activeMainTab === 'whatsapp' ? $channelSent : 0;
+                                        $whatsappFailed = $activeMainTab === 'whatsapp' ? $channelFailed : 0;
+                                        $whatsappTotal = $activeMainTab === 'whatsapp' ? $channelTotal : 0;
+                                        $hasLogs = $channelTotal > 0;
                                     @endphp
                                     <div x-data="{ showDetails: false }" class="px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                                         <div class="flex items-center justify-between gap-4">
@@ -2064,11 +2088,11 @@ new class extends Component
                                                 <!-- Channel Breakdown -->
                                                 <div class="flex items-center gap-2">
                                                     <!-- Email Status -->
-                                                    @if($emailLogs->isNotEmpty() || $notification->setting?->template_id || $notification->setting?->html_content)
+                                                    @if($emailTotal > 0 || $notification->setting?->template_id || $notification->setting?->html_content)
                                                         <div class="flex items-center gap-1" title="E-mel: {{ $emailSent }} dihantar, {{ $emailFailed }} gagal">
                                                             <flux:icon.envelope class="w-3.5 h-3.5 {{ $emailFailed > 0 ? 'text-red-500' : ($emailSent > 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500') }}" />
                                                             @if($hasLogs)
-                                                                <span class="text-xs {{ $emailFailed > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">{{ $emailSent }}/{{ $emailLogs->count() }}</span>
+                                                                <span class="text-xs {{ $emailFailed > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">{{ $emailSent }}/{{ $emailTotal }}</span>
                                                             @endif
                                                         </div>
                                                     @endif
@@ -2078,8 +2102,8 @@ new class extends Component
                                                             <svg class="w-3.5 h-3.5 {{ $whatsappFailed > 0 ? 'text-red-500' : ($whatsappSent > 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500') }}" viewBox="0 0 24 24" fill="currentColor">
                                                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                                                             </svg>
-                                                            @if($whatsappLogs->isNotEmpty())
-                                                                <span class="text-xs {{ $whatsappFailed > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">{{ $whatsappSent }}/{{ $whatsappLogs->count() }}</span>
+                                                            @if($whatsappTotal > 0)
+                                                                <span class="text-xs {{ $whatsappFailed > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">{{ $whatsappSent }}/{{ $whatsappTotal }}</span>
                                                             @else
                                                                 <span class="text-xs text-zinc-400 dark:text-zinc-500">-</span>
                                                             @endif
