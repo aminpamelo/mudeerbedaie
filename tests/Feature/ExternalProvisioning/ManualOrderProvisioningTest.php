@@ -124,7 +124,7 @@ it('records a failure without throwing when the endpoint errors', function () {
         ->and($request->last_error)->not->toBeNull();
 });
 
-it('provisions from the order detail page and dispatches a toast', function () {
+it('provisions from the order detail page and shows the login details', function () {
     fakeProvisionOk();
     $admin = User::factory()->admin()->create();
     $system = extSystem();
@@ -132,15 +132,47 @@ it('provisions from the order detail page and dispatches a toast', function () {
 
     $this->actingAs($admin);
 
-    Volt::test('admin.orders.order-show', ['order' => $order])
+    $component = Volt::test('admin.orders.order-show', ['order' => $order])
         ->call('openProvisionModal', $order->id)
         ->assertSet('showProvisionModal', true)
         ->set('provisionSystemId', $system->id)
         ->call('provisionOrder')
         ->assertDispatched('order-provisioned')
-        ->assertSet('showProvisionModal', false);
+        ->assertSet('showProvisionModal', true); // stays open to show the login details
+
+    expect($component->get('provisionResult'))->toMatchArray([
+        'system' => $system->name,
+        'external_user_id' => '9987',
+        'login_url' => 'https://ext.test/go/abc',
+        'magic_link' => 'https://ext.test/go/abc',
+    ]);
+
+    $component->call('closeProvisionModal')
+        ->assertSet('showProvisionModal', false)
+        ->assertSet('provisionResult', null);
 
     expect(ExternalProvisioningRequest::where('product_order_id', $order->id)->where('status', 'succeeded')->exists())->toBeTrue();
+});
+
+it('shows the stored login details when re-opening an already-provisioned order', function () {
+    fakeProvisionOk();
+    $admin = User::factory()->admin()->create();
+    $system = extSystem();
+    $order = ProductOrder::factory()->create(['guest_email' => 'buyer@example.com', 'payment_status' => 'paid']);
+
+    manager()->provisionManually($order, $system); // provisioned earlier
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.orders.order-show', ['order' => $order])
+        ->call('openProvisionModal', $order->id)
+        ->assertSet('showProvisionModal', true);
+
+    expect($component->get('provisionResult')['magic_link'])->toBe('https://ext.test/go/abc');
+
+    $component->call('provisionAnother')
+        ->assertSet('provisionResult', null)
+        ->assertSet('provisionSystemId', $system->id); // single active system re-selected
 });
 
 it('loads the plan dropdown from the chosen system packages', function () {
