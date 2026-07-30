@@ -2,6 +2,7 @@
 
 use App\DTOs\Shipping\ShipmentRequest;
 use App\DTOs\Shipping\ShippingRateRequest;
+use App\Livewire\Concerns\ProvisionsOrders;
 use App\Models\ClassAssignmentApproval;
 use App\Models\ClassModel;
 use App\Models\ProductOrder;
@@ -17,6 +18,8 @@ use Livewire\Volt\Component;
 
 new class extends Component
 {
+    use ProvisionsOrders;
+
     public function layout()
     {
         return 'components.layouts.app.sidebar';
@@ -2183,6 +2186,53 @@ new class extends Component
                         </div>
                     @endif
                 </div>
+
+                <!-- External System Provisioning -->
+                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+                    <div class="flex items-center justify-between gap-2 mb-4">
+                        <div class="flex items-center gap-2">
+                            <flux:icon name="server-stack" class="w-5 h-5 text-zinc-500" />
+                            <flux:heading size="lg">External System</flux:heading>
+                        </div>
+                        <flux:button size="sm" variant="primary" icon="plus" wire:click="openProvisionModal({{ $order->id }})">Provision</flux:button>
+                    </div>
+
+                    @php $provRequests = $order->provisioningRequests()->with('externalSystem')->latest('id')->get(); @endphp
+
+                    @forelse ($provRequests as $pr)
+                        @php
+                            [$prColor, $prIcon, $prLabel] = match ($pr->status) {
+                                'succeeded' => ['emerald', 'check-circle', 'Provisioned'],
+                                'failed' => ['red', 'x-circle', 'Failed'],
+                                'processing' => ['amber', 'arrow-path', 'Processing'],
+                                default => ['zinc', 'clock', 'Queued'],
+                            };
+                        @endphp
+                        <div class="flex items-start justify-between gap-3 py-2.5 @unless($loop->last) border-b border-zinc-100 dark:border-zinc-700 @endunless">
+                            <div class="min-w-0">
+                                <flux:text class="font-medium text-zinc-900 dark:text-zinc-100">{{ $pr->externalSystem?->name ?? 'System #'.$pr->external_system_id }}</flux:text>
+                                @if($pr->status === 'failed' && $pr->last_error)
+                                    <flux:text class="text-xs text-red-500">{{ $pr->last_error }}</flux:text>
+                                @elseif($pr->login_url)
+                                    <a href="{{ $pr->login_url }}" target="_blank" class="block text-xs text-indigo-600 hover:underline dark:text-indigo-400 break-all">{{ $pr->login_url }}</a>
+                                @endif
+                                @if($pr->provisioned_at)
+                                    <flux:text class="text-xs text-zinc-400">{{ $pr->provisioned_at->diffForHumans() }}</flux:text>
+                                @endif
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <flux:badge size="sm" :color="$prColor" :icon="$prIcon">{{ $prLabel }}</flux:badge>
+                                @if($pr->status === 'failed')
+                                    <flux:button size="sm" variant="ghost" wire:click="openProvisionModal({{ $order->id }})">Retry</flux:button>
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">Not provisioned to any external system yet.</flux:text>
+                    @endforelse
+                </div>
+
+                @include('livewire.admin.orders.partials.provision-modal')
 
                 <!-- Addresses -->
                 <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">

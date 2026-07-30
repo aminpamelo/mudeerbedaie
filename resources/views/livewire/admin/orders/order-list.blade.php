@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ExportProductOrders;
+use App\Livewire\Concerns\ProvisionsOrders;
 use App\Models\ClassAssignmentApproval;
 use App\Models\ClassModel;
 use App\Models\Package;
@@ -29,6 +30,7 @@ new class extends Component
         return 'components.layouts.app.sidebar';
     }
 
+    use ProvisionsOrders;
     use WithPagination;
 
     public string $search = '';
@@ -243,6 +245,7 @@ new class extends Component
                 'salesSource',
                 'classAssignmentApprovals.class',
                 'whatsAppCampaignRecipients:id,product_order_id,whatsapp_campaign_id,status,created_at',
+                'provisioningRequests.externalSystem',
             ])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -2110,6 +2113,13 @@ new class extends Component
                             {{-- Actions --}}
                             <td class="px-4 pt-4 pb-1 whitespace-nowrap text-right align-top">
                                 <div class="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                    @include('livewire.admin.orders.partials.provision-indicator', ['order' => $order])
+
+                                    <button type="button" wire:click="openProvisionModal({{ $order->id }})" title="Provision to external system"
+                                            class="p-1.5 rounded-lg text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-500/10 transition-colors">
+                                        <flux:icon name="server-stack" class="w-4 h-4" />
+                                    </button>
+
                                     <a href="{{ route('admin.orders.show', $order) }}" wire:navigate
                                        class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors" title="View order">
                                         <flux:icon name="eye" class="w-4 h-4" />
@@ -3040,4 +3050,6 @@ new class extends Component
             <span x-text="message" class="text-sm font-medium"></span>
         </div>
     </div>
+
+    @include('livewire.admin.orders.partials.provision-modal')
 </div>

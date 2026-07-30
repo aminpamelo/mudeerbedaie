@@ -226,6 +226,14 @@ class ProductOrder extends Model
         return $this->hasMany(ProductOrderAddress::class, 'order_id');
     }
 
+    /**
+     * @return HasMany<ExternalProvisioningRequest, $this>
+     */
+    public function provisioningRequests(): HasMany
+    {
+        return $this->hasMany(ExternalProvisioningRequest::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(ProductOrderPayment::class, 'order_id');
