@@ -222,27 +222,29 @@
                 <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Revenue</flux:text>
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <!-- Total Revenue -->
-                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/5 dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
+                    <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/5 dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-emerald-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-emerald-500/40 dark:bg-emerald-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Total Revenue</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($totalRevenue, 2) }}</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-600 to-teal-700 bg-clip-text text-transparent dark:from-emerald-300 dark:to-teal-400">RM {{ number_format($totalRevenue, 2) }}</div>
                                 <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">All time</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-emerald-500/25">
                                 <flux:icon icon="currency-dollar" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Monthly Revenue -->
-                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/5 dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+                    <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-500/5 dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-blue-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-blue-500/40 dark:bg-blue-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Monthly Revenue</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($monthlyRevenue, 2) }}</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-blue-600 to-indigo-700 bg-clip-text text-transparent dark:from-blue-300 dark:to-indigo-400">RM {{ number_format($monthlyRevenue, 2) }}</div>
                                 <div class="mt-1 flex items-center gap-1">
                                     @if($revenueGrowth >= 0)
                                         <flux:icon icon="arrow-trending-up" class="w-3.5 h-3.5 text-emerald-500" />
@@ -254,39 +256,41 @@
                                     </flux:text>
                                 </div>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-blue-500/25">
                                 <flux:icon icon="chart-bar" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Monthly Recurring Revenue -->
-                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/5 dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-violet-400 to-purple-500"></div>
+                    <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-500/5 dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-purple-500"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-violet-500/40 dark:bg-violet-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Monthly Recurring</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($mrr, 2) }}</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-violet-600 to-purple-700 bg-clip-text text-transparent dark:from-violet-300 dark:to-purple-400">RM {{ number_format($mrr, 2) }}</div>
                                 <flux:text size="sm" class="mt-1 text-violet-600 dark:text-violet-400">Active subscriptions</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md shadow-violet-500/25">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-violet-500/25">
                                 <flux:icon icon="arrow-trending-up" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Payment Success -->
-                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r {{ $paymentSuccessRate >= 95 ? 'from-emerald-400 to-green-500' : ($paymentSuccessRate >= 90 ? 'from-amber-400 to-yellow-500' : 'from-red-400 to-rose-500') }}"></div>
+                    <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r {{ $paymentSuccessRate >= 95 ? 'from-emerald-400 to-green-500' : ($paymentSuccessRate >= 90 ? 'from-amber-400 to-yellow-500' : 'from-red-400 to-rose-500') }}"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-amber-500/20 blur-2xl transition-all duration-300 group-hover:scale-125 dark:bg-amber-500/15"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Payment Success</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $paymentSuccessRate }}%</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br bg-clip-text text-transparent {{ $paymentSuccessRate >= 95 ? 'from-emerald-600 to-green-700 dark:from-emerald-300 dark:to-green-400' : ($paymentSuccessRate >= 90 ? 'from-amber-600 to-yellow-700 dark:from-amber-300 dark:to-yellow-400' : 'from-red-600 to-rose-700 dark:from-red-300 dark:to-rose-400') }}">{{ $paymentSuccessRate }}%</div>
                                 <flux:text size="sm" class="mt-1 {{ $paymentSuccessRate >= 95 ? 'text-emerald-600 dark:text-emerald-400' : ($paymentSuccessRate >= 90 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400') }}">
                                     Last 30 days
                                 </flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $paymentSuccessRate >= 95 ? 'bg-gradient-to-br from-emerald-500 to-green-600' : ($paymentSuccessRate >= 90 ? 'bg-gradient-to-br from-amber-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-rose-600') }} text-white shadow-md">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $paymentSuccessRate >= 95 ? 'bg-gradient-to-br from-emerald-500 to-green-600' : ($paymentSuccessRate >= 90 ? 'bg-gradient-to-br from-amber-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-rose-600') }} text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110">
                                 <flux:icon icon="check-circle" class="w-5 h-5" />
                             </div>
                         </div>
@@ -299,27 +303,29 @@
                 <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Operations</flux:text>
                 <div class="grid gap-4 sm:grid-cols-3">
                     <!-- Active Courses -->
-                    <div class="relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 to-cyan-500"></div>
+                    <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-400 to-cyan-500"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-sky-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-sky-500/40 dark:bg-sky-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div>
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Courses</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $activeCourses }}</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-sky-600 to-cyan-700 bg-clip-text text-transparent dark:from-sky-300 dark:to-cyan-400">{{ $activeCourses }}</div>
                                 <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">of {{ $totalCourses }} total</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-md shadow-sky-500/25">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-sky-500/25">
                                 <flux:icon icon="academic-cap" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Active Students -->
-                    <div class="relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-400 to-emerald-500"></div>
+                    <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-400 to-emerald-500"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-teal-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-teal-500/40 dark:bg-teal-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div>
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Students</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ number_format($activeStudents) }}</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-teal-600 to-emerald-700 bg-clip-text text-transparent dark:from-teal-300 dark:to-emerald-400">{{ number_format($activeStudents) }}</div>
                                 <div class="mt-1 flex items-center gap-1">
                                     @if($enrollmentGrowth >= 0)
                                         <flux:icon icon="arrow-trending-up" class="w-3.5 h-3.5 text-emerald-500" />
@@ -331,22 +337,23 @@
                                     </flux:text>
                                 </div>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/25">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-teal-500/25">
                                 <flux:icon icon="users" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
 
                     <!-- Active Enrollments -->
-                    <div class="relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
-                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-400 to-blue-500"></div>
+                    <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-400 to-blue-500"></div>
+                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-indigo-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-indigo-500/40 dark:bg-indigo-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div>
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Enrollments</flux:text>
-                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ number_format($activeEnrollments) }}</div>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-indigo-600 to-blue-700 bg-clip-text text-transparent dark:from-indigo-300 dark:to-blue-400">{{ number_format($activeEnrollments) }}</div>
                                 <flux:text size="sm" class="mt-1 text-indigo-600 dark:text-indigo-400">{{ $thisMonthEnrollments }} new this month</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-md shadow-indigo-500/25">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-indigo-500/25">
                                 <flux:icon icon="clipboard-document" class="w-5 h-5" />
                             </div>
                         </div>
