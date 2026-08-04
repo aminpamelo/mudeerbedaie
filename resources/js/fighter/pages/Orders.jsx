@@ -1,35 +1,65 @@
 import { Link, router } from '@inertiajs/react';
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, ShoppingBag, Plus, Paperclip, ExternalLink, Eye, Pencil, Trash2, RotateCcw, Loader2, Trash, AlertTriangle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, ShoppingBag, Plus, Paperclip, ExternalLink, Eye, Pencil, Trash2, RotateCcw, Loader2, Trash, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import FighterLayout from '@/fighter/layouts/FighterLayout';
 import { cn, formatMoney, formatDate, fighterJson, fighterSend } from '@/fighter/lib/utils';
+import { PAYMENT_STYLES, STATUS_STYLES, statusLabel, cancelRefundsPayment } from '@/fighter/lib/orderStatus';
 import OrderViewModal from '@/fighter/components/OrderViewModal';
 import OrderEditModal from '@/fighter/components/OrderEditModal';
-
-const STATUS_STYLES = {
-  pending: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  confirmed: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-  processing: 'bg-violet-50 text-violet-700 ring-violet-600/20',
-  shipped: 'bg-sky-50 text-sky-700 ring-sky-600/20',
-  delivered: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  cancelled: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  refunded: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  returned: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-};
-
-const PAYMENT_STYLES = {
-  paid: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  pending: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  failed: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  refunded: 'bg-slate-100 text-slate-600 ring-slate-500/20',
-};
+import OrderStatusMenu from '@/fighter/components/OrderStatusMenu';
 
 function Pill({ value, map }) {
   const cls = map[value] ?? 'bg-slate-100 text-slate-600 ring-slate-500/20';
   return (
     <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold capitalize ring-1', cls)}>
-      {String(value || '—').replace(/_/g, ' ')}
+      {statusLabel(value)}
     </span>
+  );
+}
+
+/** Transient bottom-right confirmation after a status change. */
+function Toast({ message, tone = 'ok', onDone }) {
+  useEffect(() => {
+    const id = setTimeout(onDone, 3200);
+    return () => clearTimeout(id);
+  }, [message, onDone]);
+
+  return (
+    <div className="fixed bottom-5 right-5 z-[90] flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-[13px] font-medium text-white shadow-lg">
+      {tone === 'ok' ? <CheckCircle2 className="h-4 w-4 text-emerald-400" strokeWidth={2.2} /> : <AlertTriangle className="h-4 w-4 text-amber-400" strokeWidth={2.2} />}
+      {message}
+    </div>
+  );
+}
+
+/**
+ * Cancelling an order that has already been paid also reverses the payment, so
+ * it stops counting as revenue. That is worth an explicit confirmation.
+ */
+function CancelConfirm({ order, busy, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-[75] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={busy ? undefined : onCancel} />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600"><AlertTriangle className="h-5 w-5" strokeWidth={2} /></div>
+          <div>
+            <h3 className="text-[15px] font-semibold text-ink">Cancel this paid order?</h3>
+            <p className="mt-1 text-[13px] text-muted">
+              {order.order_number} is marked <span className="font-semibold text-ink-2">paid</span>. Cancelling it marks the payment as <span className="font-semibold text-ink-2">refunded</span> and removes {formatMoney(order.total)} from your sales figures.
+            </p>
+            <p className="mt-2 text-[12px] text-muted-2">You can undo this later by setting the order back to pending.</p>
+          </div>
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onCancel} disabled={busy} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-[13.5px] font-semibold text-ink-2 transition-colors hover:bg-slate-200 disabled:opacity-40">Keep it</button>
+          <button type="button" onClick={onConfirm} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50">
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            Cancel order
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -90,7 +120,10 @@ export default function Orders({ orders, view = 'active', trashCount = 0 }) {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [confirmRow, setConfirmRow] = useState(null);
+  const [cancelRow, setCancelRow] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [statusBusyId, setStatusBusyId] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const switchView = (v) => router.get('/fighter/orders', v === 'trash' ? { view: 'trash' } : {}, { preserveScroll: true });
   const goToPage = (page) => router.get('/fighter/orders', { ...(isTrash ? { view: 'trash' } : {}), page }, { preserveScroll: true, preserveState: true });
@@ -123,6 +156,32 @@ export default function Orders({ orders, view = 'active', trashCount = 0 }) {
       /* keep the dialog open on error */
     } finally {
       setBusyId(null);
+    }
+  };
+
+  /**
+   * One-click status change from the row. Cancelling a paid order reverses its
+   * payment, so that one route goes through a confirmation first.
+   */
+  const changeStatus = (row, status) => {
+    if (status === 'cancelled' && cancelRefundsPayment(row)) {
+      setCancelRow(row);
+      return;
+    }
+    applyStatus(row, status);
+  };
+
+  const applyStatus = async (row, status) => {
+    setStatusBusyId(row.id);
+    try {
+      await fighterSend(`/fighter/orders/${row.id}/status`, { method: 'PATCH', body: { status } });
+      setCancelRow(null);
+      setToast({ message: `${row.order_number} is now ${statusLabel(status)}.`, tone: 'ok' });
+      reload();
+    } catch (e) {
+      setToast({ message: e.message, tone: 'warn' });
+    } finally {
+      setStatusBusyId(null);
     }
   };
 
@@ -168,6 +227,13 @@ export default function Orders({ orders, view = 'active', trashCount = 0 }) {
 
       {rows.length === 0 ? emptyState : (
         <>
+          {!isTrash && (
+            <p className="mb-3 flex items-start gap-1.5 text-[12.5px] text-muted">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-2" strokeWidth={2.2} />
+              Click an order&apos;s status badge to move it between pending, processing, completed and cancelled. Once the team ships it, the status is locked to them.
+            </p>
+          )}
+
           <div className="overflow-hidden rounded-2xl ring-1 ring-line/70">
             <div className="overflow-x-auto">
               <table className="min-w-full">
@@ -189,7 +255,13 @@ export default function Orders({ orders, view = 'active', trashCount = 0 }) {
                     <tr key={order.id} className="transition-colors hover:bg-surface/60">
                       <td className="px-4 py-3 text-[13px] font-semibold text-ink">{order.order_number}</td>
                       <td className="px-4 py-3 text-[13px] text-ink-2">{order.source_label ?? '—'}</td>
-                      <td className="px-4 py-3"><Pill value={order.status} map={STATUS_STYLES} /></td>
+                      <td className="px-4 py-3">
+                        {isTrash ? (
+                          <Pill value={order.status} map={STATUS_STYLES} />
+                        ) : (
+                          <OrderStatusMenu order={order} busy={statusBusyId === order.id} onSelect={(s) => changeStatus(order, s)} />
+                        )}
+                      </td>
                       <td className="px-4 py-3"><Pill value={order.payment_status} map={PAYMENT_STYLES} /></td>
                       {!isTrash && (
                         <td className="px-4 py-3">
@@ -298,6 +370,17 @@ export default function Orders({ orders, view = 'active', trashCount = 0 }) {
           onConfirm={doDelete}
         />
       )}
+
+      {cancelRow && (
+        <CancelConfirm
+          order={cancelRow}
+          busy={statusBusyId === cancelRow.id}
+          onCancel={() => setCancelRow(null)}
+          onConfirm={() => applyStatus(cancelRow, 'cancelled')}
+        />
+      )}
+
+      {toast && <Toast message={toast.message} tone={toast.tone} onDone={() => setToast(null)} />}
     </FighterLayout>
   );
 }

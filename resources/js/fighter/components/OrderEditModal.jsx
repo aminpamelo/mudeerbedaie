@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X, Loader2, Plus, Minus, Trash2, Search, Package, Banknote, Landmark, Truck, Upload, FileText, Paperclip, CheckCircle2, ShoppingBag, User, CreditCard, StickyNote } from 'lucide-react';
+import { X, Loader2, Plus, Minus, Trash2, Search, Package, Banknote, Landmark, Truck, Upload, FileText, Paperclip, CheckCircle2, ShoppingBag, User, CreditCard, StickyNote, ListChecks, AlertTriangle, Lock } from 'lucide-react';
 import { cn, formatMoney, fighterJson, fighterSend, csrfToken } from '@/fighter/lib/utils';
+import { FIGHTER_STATUSES, FIGHTER_STATUS_KEYS, STATUS_STYLES, statusLabel } from '@/fighter/lib/orderStatus';
 
 const MALAYSIA_STATES = [
   'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan', 'Pahang', 'Perak', 'Perlis',
@@ -12,8 +13,6 @@ const PAYMENT_METHODS = [
   { key: 'bank_transfer', label: 'Bank', Icon: Landmark },
   { key: 'cod', label: 'COD', Icon: Truck },
 ];
-
-const ORDER_STATUSES = ['pending', 'processing'];
 
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
@@ -157,11 +156,14 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
     ['cash', 'bank_transfer', 'cod'].includes(order.payment_method) ? order.payment_method : 'cash'
   );
   const [paymentStatus, setPaymentStatus] = useState(order.payment_status === 'paid' ? 'paid' : 'pending');
-  // Fighters manage the early-stage status (pending ↔ processing). Orders the
-  // fulfilment team has already advanced (shipped, delivered, …) keep their
-  // status untouched — the selector is hidden and no status is sent.
-  const statusEditable = ORDER_STATUSES.includes(order.status);
-  const [orderStatus, setOrderStatus] = useState(statusEditable ? order.status : 'pending');
+  // Fighters drive the order until fulfilment takes over. `status_editable`
+  // comes from the server (App\Support\FighterOrderStatus); once the team has
+  // shipped/delivered/refunded it, the picker turns into a read-only badge and
+  // no status is sent.
+  const statusEditable = order.status_editable ?? FIGHTER_STATUS_KEYS.includes(order.status);
+  const [orderStatus, setOrderStatus] = useState(
+    FIGHTER_STATUS_KEYS.includes(order.status) ? order.status : 'pending'
+  );
   const [paymentReference, setPaymentReference] = useState(order.payment_reference ?? '');
   const [shippingCost, setShippingCost] = useState(order.shipping_cost ? String(order.shipping_cost) : '');
   const [notes, setNotes] = useState(order.notes ?? '');
@@ -205,6 +207,11 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
     }
   };
   const clearNewReceipt = () => { setReceiptFile(null); setReceiptPreview(null); };
+
+  const selectedStatus = FIGHTER_STATUSES.find((s) => s.key === orderStatus);
+  // Cancelling an order whose money already landed also reverses the payment
+  // server-side, so warn before it happens.
+  const cancellingPaidOrder = statusEditable && orderStatus === 'cancelled' && paymentStatus === 'paid';
 
   const hasCartItems = cart.length > 0;
   const subtotal = useMemo(() => cart.reduce((s, c) => s + c.unitPrice * c.quantity, 0), [cart]);
@@ -335,6 +342,52 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
             <div className="mt-2"><AddItem onAdd={addItem} /></div>
           </section>
 
+          {/* Order status — where the order is in the fighter's own workflow */}
+          <section className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
+            <SectionHeader Icon={ListChecks}>Order status</SectionHeader>
+            {statusEditable ? (
+              <>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  {FIGHTER_STATUSES.map(({ key, label, Icon, active }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setOrderStatus(key)}
+                      aria-pressed={orderStatus === key}
+                      className={cn(
+                        'flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[12px] font-semibold transition-colors',
+                        orderStatus === key ? active : 'bg-surface text-ink-2 hover:bg-slate-200'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={2} /> {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[12px] leading-snug text-muted">{selectedStatus?.hint}</p>
+                {cancellingPaidOrder && (
+                  <p className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] leading-snug text-amber-800">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+                    <span>
+                      This order is marked <strong>paid</strong>. Saving it as cancelled marks the payment <strong>refunded</strong> and drops {formatMoney(order.total)} from your sales. Set it back to pending later to undo.
+                    </span>
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="flex items-start gap-2.5 rounded-xl bg-surface px-3 py-2.5">
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-2" strokeWidth={2.2} />
+                <div className="min-w-0">
+                  <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold capitalize ring-1', STATUS_STYLES[order.status] ?? 'bg-slate-100 text-slate-600 ring-slate-500/20')}>
+                    {statusLabel(order.status)}
+                  </span>
+                  <p className="mt-1.5 text-[12px] leading-snug text-muted">
+                    The fulfilment team has taken this order over, so they manage its status now. You can still edit the details below.
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Two columns: customer | payment */}
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="rounded-2xl bg-white p-4 ring-1 ring-line/70">
@@ -373,17 +426,6 @@ export default function OrderEditModal({ order, onClose, onSaved }) {
                   <button key={s} type="button" onClick={() => setPaymentStatus(s)} className={cn('rounded-lg py-2 text-[12px] font-semibold capitalize transition-colors', paymentStatus === s ? 'bg-ink text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>{s}</button>
                 ))}
               </div>
-
-              {statusEditable && (
-                <div className="mt-3">
-                  <span className={labelCls}>Order status</span>
-                  <div className="mt-1 grid grid-cols-2 gap-1.5">
-                    {ORDER_STATUSES.map((s) => (
-                      <button key={s} type="button" onClick={() => setOrderStatus(s)} className={cn('rounded-lg py-2 text-[12px] font-semibold capitalize transition-colors', orderStatus === s ? 'bg-[var(--color-brand)] text-white' : 'bg-surface text-ink-2 hover:bg-slate-200')}>{s}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {paymentMethod !== 'cod' && (
                 <div className="mt-3">

@@ -1,1 +1,0 @@
-import{j as t}from"./client-zbM7qFgD.js";import{P as s}from"./page-header-J4dn6d5K.js";function n({title:r,description:e,action:a,...o}){return t.jsx(s,{title:r,description:e,actions:a,...o})}export{n as P};

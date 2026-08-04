@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Fighter;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Fighter\UpdateOrderRequest;
+use App\Http\Requests\Fighter\UpdateOrderStatusRequest;
 use App\Models\ClassModel;
 use App\Models\Course;
 use App\Models\FunnelOrder;
@@ -11,6 +12,7 @@ use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Services\Fighter\FighterProvisioner;
+use App\Support\FighterOrderStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -262,22 +264,37 @@ class OrderController extends Controller
                 $updatePayload['receipt_attachment'] = null;
             }
 
-            // Order status is only touched when a pending/processing value is sent;
-            // fulfilment-owned statuses (shipped, delivered, …) are left untouched.
-            if (! empty($validated['status'])) {
-                $updatePayload['status'] = $validated['status'];
+            // Order status is only touched while the order is still the
+            // fighter's — once fulfilment advances it (shipped, delivered, …)
+            // the incoming status is ignored so the team isn't overwritten.
+            $statusChangedTo = null;
+            $previousStatus = $order->status;
+            if (! empty($validated['status']) && FighterOrderStatus::isOwnedByFighter($order)) {
+                $statusChangedTo = $validated['status'];
+                $updatePayload = FighterOrderStatus::apply($updatePayload, $order, $statusChangedTo);
             }
 
             $order->update($updatePayload);
 
             $payment = $order->payments()->first();
             if ($payment) {
+                // A cancellation may have rewritten payment_status to `refunded`
+                // behind the form's back, so read the resolved value.
+                $resolvedPaymentStatus = $updatePayload['payment_status'] ?? $validated['payment_status'];
                 $payment->update([
                     'payment_method' => $validated['payment_method'],
                     'amount' => $totalAmount,
-                    'status' => $validated['payment_status'] === 'paid' ? 'completed' : 'pending',
+                    'status' => match ($resolvedPaymentStatus) {
+                        'paid' => 'completed',
+                        'refunded' => 'refunded',
+                        default => 'pending',
+                    },
                     'reference_number' => $validated['payment_reference'] ?? null,
-                    'paid_at' => $validated['payment_status'] === 'paid' ? ($payment->paid_at ?? now()) : null,
+                    'paid_at' => match ($resolvedPaymentStatus) {
+                        'paid' => $payment->paid_at ?? now(),
+                        'refunded' => $payment->paid_at,
+                        default => null,
+                    },
                 ]);
             }
 
@@ -289,6 +306,9 @@ class OrderController extends Controller
             }
 
             $order->addSystemNote('Order edited by fighter '.$request->user()->name);
+            if ($statusChangedTo && $statusChangedTo !== $previousStatus) {
+                $order->addSystemNote(FighterOrderStatus::note($statusChangedTo, $request->user()->name));
+            }
             if ($receiptChange === 'replaced') {
                 $order->addSystemNote('Receipt replaced by '.$request->user()->name);
             } elseif ($receiptChange === 'removed') {
@@ -302,6 +322,47 @@ class OrderController extends Controller
                 'data' => $this->detail($order),
             ]);
         });
+    }
+
+    /**
+     * One-click status change straight from the orders table — the same
+     * transition rules as the edit modal, without touching anything else on
+     * the order.
+     */
+    public function updateStatus(UpdateOrderStatusRequest $request, ProductOrder $order): JsonResponse
+    {
+        $this->assertOwned($request, $order);
+
+        abort_if(
+            ! FighterOrderStatus::isOwnedByFighter($order),
+            422,
+            'This order is with the fulfilment team now, so its status is managed by them.',
+        );
+
+        $status = $request->validated('status');
+
+        if ($status === $order->status) {
+            return response()->json(['message' => 'No change.', 'data' => $this->listRow($order)]);
+        }
+
+        $payload = FighterOrderStatus::apply([], $order, $status);
+
+        DB::transaction(function () use ($order, $payload, $status, $request) {
+            $order->update($payload);
+
+            if (isset($payload['payment_status'])) {
+                $order->payments()->first()?->update([
+                    'status' => $payload['payment_status'] === 'refunded' ? 'refunded' : 'completed',
+                ]);
+            }
+
+            $order->addSystemNote(FighterOrderStatus::note($status, $request->user()->name));
+        });
+
+        return response()->json([
+            'message' => 'Order status updated.',
+            'data' => $this->listRow($order->refresh()),
+        ]);
     }
 
     /**
@@ -367,6 +428,7 @@ class OrderController extends Controller
             'id' => $o->id,
             'order_number' => $o->order_number,
             'status' => $o->status,
+            'status_editable' => FighterOrderStatus::isOwnedByFighter($o),
             'payment_status' => $o->payment_status,
             'payment_method' => $o->payment_method,
             'total' => (float) $o->total_amount,
@@ -394,6 +456,7 @@ class OrderController extends Controller
             'id' => $o->id,
             'order_number' => $o->order_number,
             'status' => $o->status,
+            'status_editable' => FighterOrderStatus::isOwnedByFighter($o),
             'payment_status' => $o->payment_status,
             'payment_method' => $o->payment_method ?? 'cash',
             'payment_reference' => $metadata['payment_reference'] ?? $o->reference_number,

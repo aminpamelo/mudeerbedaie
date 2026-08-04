@@ -1,24 +1,12 @@
 import { X, Loader2, Paperclip, ExternalLink, Pencil, Package } from 'lucide-react';
 import { cn, formatMoney, formatDate } from '@/fighter/lib/utils';
-
-const STATUS_STYLES = {
-  pending: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  confirmed: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-  processing: 'bg-violet-50 text-violet-700 ring-violet-600/20',
-  shipped: 'bg-sky-50 text-sky-700 ring-sky-600/20',
-  delivered: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  cancelled: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  refunded: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  returned: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  paid: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  failed: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-};
+import { PAYMENT_STYLES, STATUS_STYLES, statusLabel } from '@/fighter/lib/orderStatus';
 
 function Pill({ value }) {
-  const cls = STATUS_STYLES[value] ?? 'bg-slate-100 text-slate-600 ring-slate-500/20';
+  const cls = STATUS_STYLES[value] ?? PAYMENT_STYLES[value] ?? 'bg-slate-100 text-slate-600 ring-slate-500/20';
   return (
     <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold capitalize ring-1', cls)}>
-      {String(value || '—').replace(/_/g, ' ')}
+      {statusLabel(value)}
     </span>
   );
 }

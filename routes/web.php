@@ -457,6 +457,8 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
             ->name('orders.show');
         Route::post('orders/{order}', [OrderController::class, 'update'])
             ->name('orders.update');
+        Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus'])
+            ->name('orders.status');
         Route::delete('orders/{order}', [OrderController::class, 'destroy'])
             ->name('orders.destroy');
         Route::post('orders/{order}/restore', [OrderController::class, 'restore'])
