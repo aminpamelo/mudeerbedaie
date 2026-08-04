@@ -8,6 +8,7 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.store')] class extends Component
 {
     public ?ProductCart $cart = null;
+
     public array $quantities = [];
 
     public function mount(): void
@@ -38,20 +39,25 @@ new #[Layout('components.layouts.store')] class extends Component
     {
         if ($quantity <= 0) {
             $this->removeItem($itemId);
+
             return;
         }
 
         $item = ProductCartItem::find($itemId);
         if ($item && $item->cart_id === $this->cart->id) {
-            // Check stock availability
-            if (!$item->variant && !$item->product->checkStockAvailability($quantity, $item->warehouse_id)) {
-                $this->dispatch('cart-error', message: 'Insufficient stock for ' . $item->getDisplayName());
-                return;
-            }
+            // Stock checks apply to products only; packages are a flat bundle line.
+            if ($item->isProduct()) {
+                if (! $item->variant && $item->product && ! $item->product->checkStockAvailability($quantity, $item->warehouse_id)) {
+                    $this->dispatch('cart-error', message: __('store.cart_insufficient_stock', ['name' => $item->getDisplayName()]));
 
-            if ($item->variant && !$item->variant->checkStockAvailability($quantity, $item->warehouse_id)) {
-                $this->dispatch('cart-error', message: 'Insufficient stock for ' . $item->getDisplayName());
-                return;
+                    return;
+                }
+
+                if ($item->variant && ! $item->variant->checkStockAvailability($quantity, $item->warehouse_id)) {
+                    $this->dispatch('cart-error', message: __('store.cart_insufficient_stock', ['name' => $item->getDisplayName()]));
+
+                    return;
+                }
             }
 
             $item->updateQuantity($quantity);
@@ -103,168 +109,164 @@ new #[Layout('components.layouts.store')] class extends Component
     }
 }; ?>
 
-<div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-    <div class="mb-6">
-        <flux:heading size="xl">Shopping Cart</flux:heading>
-        <flux:text class="mt-2">Review your items and proceed to checkout</flux:text>
+<div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
+     x-data="{ err: '', errT: null }"
+     x-on:cart-error.window="err = $event.detail.message; clearTimeout(errT); errT = setTimeout(() => err = '', 4000)">
+
+    {{-- Heading --}}
+    <div class="mb-8 flex items-center gap-3">
+        <span class="store-grad grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white shadow-lg shadow-fuchsia-500/25">
+            <flux:icon name="shopping-cart" class="h-6 w-6" />
+        </span>
+        <div>
+            <h1 class="font-display text-2xl font-extrabold text-zinc-900 sm:text-3xl">{{ __('store.cart_title') }}</h1>
+            <p class="mt-0.5 text-sm text-zinc-500">{{ __('store.cart_subtitle') }}</p>
+        </div>
+    </div>
+
+    {{-- Inline error toast (stock issues) --}}
+    <div x-show="err" x-cloak x-transition.opacity
+         class="mb-4 flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+        <flux:icon name="exclamation-triangle" class="h-5 w-5 shrink-0 text-rose-500" />
+        <span x-text="err"></span>
     </div>
 
     @if($cart && !$cart->isEmpty())
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Cart Items -->
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            {{-- ===================== CART ITEMS ===================== --}}
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg shadow-sm border">
-                    <div class="p-6">
-                        <div class="space-y-6">
-                            @foreach($cart->items as $item)
-                                <div class="flex items-center space-x-4 pb-6 border-b last:border-b-0 last:pb-0" wire:key="cart-item-{{ $item->id }}">
-                                    <!-- Product Image Placeholder -->
-                                    <div class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
-                                        <flux:icon name="photo" class="w-8 h-8 text-gray-400" />
-                                    </div>
-
-                                    <!-- Product Details -->
-                                    <div class="flex-1">
-                                        <flux:heading size="sm">{{ $item->getDisplayName() }}</flux:heading>
-                                        <flux:text size="sm" class="text-gray-600">SKU: {{ $item->getSku() }}</flux:text>
-                                        @if($item->variant)
-                                            <flux:text size="sm" class="text-gray-600">Variant: {{ $item->variant->name }}</flux:text>
-                                        @endif
-                                        @if($item->warehouse)
-                                            <flux:text size="sm" class="text-gray-600">Warehouse: {{ $item->warehouse->name }}</flux:text>
-                                        @endif
-                                        <flux:text size="sm" class="font-semibold text-primary-600">MYR {{ number_format($item->unit_price, 2) }}</flux:text>
-                                    </div>
-
-                                    <!-- Quantity Controls -->
-                                    <div class="flex items-center space-x-2">
-                                        <flux:button
-                                            variant="outline"
-                                            size="sm"
-                                            wire:click="updateQuantity({{ $item->id }}, {{ max(1, $item->quantity - 1) }})"
-                                            class="w-8 h-8 p-0"
-                                        >
-                                            <flux:icon name="minus" class="w-4 h-4" />
-                                        </flux:button>
-
-                                        <flux:input
-                                            type="number"
-                                            wire:model.live.debounce.500ms="quantities.{{ $item->id }}"
-                                            wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
-                                            min="1"
-                                            class="w-16 text-center"
-                                        />
-
-                                        <flux:button
-                                            variant="outline"
-                                            size="sm"
-                                            wire:click="updateQuantity({{ $item->id }}, {{ $item->quantity + 1 }})"
-                                            class="w-8 h-8 p-0"
-                                        >
-                                            <flux:icon name="plus" class="w-4 h-4" />
-                                        </flux:button>
-                                    </div>
-
-                                    <!-- Item Total -->
-                                    <div class="text-right min-w-[80px]">
-                                        <flux:text class="font-semibold">MYR {{ $this->getItemTotal($item) }}</flux:text>
-                                    </div>
-
-                                    <!-- Remove Button -->
-                                    <flux:button
-                                        variant="ghost"
-                                        size="sm"
-                                        wire:click="removeItem({{ $item->id }})"
-                                        class="text-red-600 hover:text-red-700"
-                                    >
-                                        <flux:icon name="trash" class="w-4 h-4" />
-                                    </flux:button>
+                <div class="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+                    <div class="divide-y divide-zinc-100">
+                        @foreach($cart->items as $item)
+                            @php $img = $item->getImageUrl(); @endphp
+                            <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5" wire:key="cart-item-{{ $item->id }}">
+                                {{-- Thumbnail --}}
+                                <div class="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-50 to-fuchsia-50 ring-1 ring-zinc-900/5">
+                                    @if($img)
+                                        <img src="{{ $img }}" alt="{{ $item->getDisplayName() }}" loading="lazy" class="h-full w-full object-cover"
+                                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                        <span class="hidden h-full w-full items-center justify-center" style="display:none;">
+                                            <flux:icon name="photo" class="h-8 w-8 text-violet-300" />
+                                        </span>
+                                    @else
+                                        <span class="flex h-full w-full items-center justify-center">
+                                            <flux:icon name="{{ $item->isPackage() ? 'gift' : 'photo' }}" class="h-8 w-8 text-violet-300" />
+                                        </span>
+                                    @endif
                                 </div>
-                            @endforeach
-                        </div>
 
-                        <!-- Cart Actions -->
-                        <div class="mt-6 pt-6 border-t flex justify-between">
-                            <flux:button variant="outline" wire:click="clearCart">
-                                <flux:icon name="trash" class="w-4 h-4 mr-2" />
-                                Clear Cart
-                            </flux:button>
+                                {{-- Details --}}
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-start gap-2">
+                                        <h3 class="font-display text-base font-bold leading-snug text-zinc-900">{{ $item->getDisplayName() }}</h3>
+                                        @if($item->isPackage())
+                                            <span class="mt-0.5 shrink-0 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fuchsia-700">{{ __('store.nav_packages') }}</span>
+                                        @endif
+                                    </div>
+                                    @if($item->variant)
+                                        <p class="mt-0.5 text-xs text-zinc-500">{{ $item->variant->name }}</p>
+                                    @endif
+                                    <p class="mt-1.5 text-sm font-semibold text-violet-700">
+                                        MYR {{ number_format($item->unit_price, 2) }}
+                                        <span class="font-normal text-zinc-400">/ {{ __('store.cart_unit_each') }}</span>
+                                    </p>
 
-                            <flux:button variant="outline" href="{{ route('shop') }}">
-                                <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-                                Continue Shopping
-                            </flux:button>
-                        </div>
+                                    {{-- Mobile: qty + total row --}}
+                                    <div class="mt-3 flex items-center justify-between sm:hidden">
+                                        @include('livewire.cart.partials.qty-stepper', ['item' => $item])
+                                        <span class="font-display text-base font-extrabold text-zinc-900">MYR {{ $this->getItemTotal($item) }}</span>
+                                    </div>
+                                </div>
+
+                                {{-- Desktop: quantity stepper --}}
+                                <div class="hidden sm:block">
+                                    @include('livewire.cart.partials.qty-stepper', ['item' => $item])
+                                </div>
+
+                                {{-- Desktop: line total --}}
+                                <div class="hidden min-w-[96px] text-right sm:block">
+                                    <div class="font-display text-lg font-extrabold text-zinc-900">MYR {{ $this->getItemTotal($item) }}</div>
+                                </div>
+
+                                {{-- Remove --}}
+                                <button type="button" wire:click="removeItem({{ $item->id }})"
+                                        class="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-zinc-300 transition-colors hover:bg-rose-50 hover:text-rose-600 sm:static sm:h-9 sm:w-9"
+                                        aria-label="{{ __('store.cart_remove') }}">
+                                    <flux:icon name="trash" class="h-4 w-4" />
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Actions --}}
+                    <div class="flex items-center justify-between gap-3 border-t border-zinc-100 bg-zinc-50/60 px-4 py-4 sm:px-5">
+                        <button type="button" wire:click="clearCart"
+                                class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-500 transition-colors hover:bg-white hover:text-rose-600">
+                            <flux:icon name="trash" class="h-4 w-4" />
+                            {{ __('store.cart_clear') }}
+                        </button>
+
+                        <a href="{{ route('shop') }}" wire:navigate
+                           class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50">
+                            <flux:icon name="arrow-left" class="h-4 w-4" />
+                            {{ __('store.cart_continue') }}
+                        </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Order Summary -->
+            {{-- ===================== ORDER SUMMARY ===================== --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-                    <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
+                <div class="sticky top-24 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+                    <div class="store-grad px-5 py-4">
+                        <h2 class="font-display text-lg font-extrabold text-white">{{ __('store.cart_summary') }}</h2>
+                    </div>
 
-                    <div class="space-y-3">
-                        <div class="flex justify-between">
-                            <flux:text>Subtotal ({{ $cart->items->count() }} items)</flux:text>
-                            <flux:text>MYR {{ $this->getCartSubtotal() }}</flux:text>
-                        </div>
+                    <div class="p-5">
+                        <div class="space-y-3 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-zinc-500">{{ __('store.cart_subtotal') }} · {{ trans_choice('store.cart_item_count', $cart->items->count(), ['count' => $cart->items->count()]) }}</span>
+                                <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartSubtotal() }}</span>
+                            </div>
 
-                        <div class="flex justify-between">
-                            <flux:text>Tax (GST 6%)</flux:text>
-                            <flux:text>MYR {{ $this->getCartTax() }}</flux:text>
-                        </div>
-
-                        <div class="border-t pt-3">
-                            <div class="flex justify-between">
-                                <flux:text class="font-semibold text-lg">Total</flux:text>
-                                <flux:text class="font-semibold text-lg">MYR {{ $this->getCartTotal() }}</flux:text>
+                            <div class="flex items-center justify-between">
+                                <span class="text-zinc-500">{{ __('store.cart_tax') }}</span>
+                                <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartTax() }}</span>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="mt-6">
-                        <flux:button variant="primary" class="w-full" href="{{ route('checkout') }}">
-                            Proceed to Checkout
-                        </flux:button>
-                    </div>
+                        <div class="mt-4 flex items-end justify-between border-t border-dashed border-zinc-200 pt-4">
+                            <span class="font-display text-base font-bold text-zinc-900">{{ __('store.cart_total') }}</span>
+                            <span class="store-grad-text font-display text-2xl font-extrabold tabular-nums">MYR {{ $this->getCartTotal() }}</span>
+                        </div>
 
-                    <!-- Security Badge -->
-                    <div class="mt-4 text-center">
-                        <flux:text size="sm" class="text-gray-500 flex items-center justify-center">
-                            <flux:icon name="shield-check" class="w-4 h-4 mr-1" />
-                            Secure Checkout
-                        </flux:text>
+                        <a href="{{ route('checkout') }}"
+                           class="store-grad store-grad-hover mt-5 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-base font-bold text-white">
+                            {{ __('store.cart_checkout') }}
+                            <flux:icon name="arrow-right" class="h-5 w-5" />
+                        </a>
+
+                        <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-zinc-400">
+                            <flux:icon name="lock-closed" class="h-3.5 w-3.5" />
+                            {{ __('store.cart_secure') }}
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     @else
-        <!-- Empty Cart -->
-        <div class="text-center py-12">
-            <div class="mx-auto w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                <flux:icon name="shopping-cart" class="w-16 h-16 text-gray-400" />
+        {{-- ===================== EMPTY CART ===================== --}}
+        <div class="rounded-3xl border border-zinc-200 bg-white px-6 py-16 text-center shadow-sm sm:py-20">
+            <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100">
+                <flux:icon name="shopping-cart" class="h-11 w-11 text-violet-500" />
             </div>
-
-            <flux:heading size="lg" class="mb-4">Your cart is empty</flux:heading>
-            <flux:text class="text-gray-600 mb-6">Start shopping to add items to your cart</flux:text>
-
-            <flux:button variant="primary" href="{{ route('shop') }}">
-                Browse Products
-            </flux:button>
+            <h2 class="font-display mt-6 text-xl font-extrabold text-zinc-900">{{ __('store.cart_empty_title') }}</h2>
+            <p class="mx-auto mt-2 max-w-sm text-sm text-zinc-500">{{ __('store.cart_empty_text') }}</p>
+            <a href="{{ route('shop') }}" wire:navigate
+               class="store-grad store-grad-hover mt-6 inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white">
+                <flux:icon name="squares-2x2" class="h-5 w-5" />
+                {{ __('store.cart_browse') }}
+            </a>
         </div>
     @endif
 </div>
-
-<script>
-    document.addEventListener('livewire:init', function () {
-        Livewire.on('cart-error', (event) => {
-            alert(event.message);
-        });
-
-        Livewire.on('cart-updated', () => {
-            // You can add toast notifications here
-            console.log('Cart updated');
-        });
-    });
-</script>

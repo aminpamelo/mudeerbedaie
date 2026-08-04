@@ -10,28 +10,42 @@ return [
     'nav_cart' => 'Troli',
     'menu' => 'Menu',
 
-    // Hero
+    // Hero — brand slide
     'hero_eyebrow' => 'Kedai rasmi dalam talian',
-    'hero_title' => 'Produk berkualiti & pakej jimat, dihantar ke seluruh Malaysia',
-    'hero_subtitle' => 'Layari katalog penuh kami, dapatkan pakej dan jimat lebih, serta selesaikan pembayaran dalam beberapa minit — bayaran selamat, penghantaran pantas.',
+    'hero_brand_eyebrow' => 'Kedai rasmi :store · Sejak 2021',
+    'hero_brand_title' => '1 Rumah 1 Daie',
+    'hero_title' => 'Bahan pengajian untuk setiap rumah di Malaysia',
+    'hero_subtitle' => 'Buku, modul dan bahan pengajian yang memudahkan setiap keluarga belajar fardhu ain — di rumah sendiri, mengikut kemampuan sendiri.',
     'hero_cta_shop' => 'Beli Sekarang',
     'hero_cta_packages' => 'Lihat Pakej',
-    'hero_search_ph' => 'Cari produk…',
+    'hero_search_ph' => 'Cari buku atau modul…',
+    'hero_slide_prev' => 'Slaid sebelum',
+    'hero_slide_next' => 'Slaid seterusnya',
+    'hero_slide_goto' => 'Pergi ke slaid :n',
     'stat_products' => 'Produk',
     'stat_secure' => 'Bayaran selamat',
     'stat_delivery' => 'Hantar seluruh negara',
 
+    // Trust bar
+    'trust_orders' => 'Pesanan dihantar',
+    'trust_titles' => 'Buku & modul',
+    'trust_secure_title' => 'Bayaran selamat',
+    'trust_secure_text' => 'FPX & kad kredit',
+    'trust_delivery_title' => 'Seluruh Malaysia',
+    'trust_delivery_text' => 'Sabah & Sarawak juga',
+
     // Categories
-    'categories_title' => 'Beli ikut kategori',
-    'categories_subtitle' => 'Cari apa yang anda perlukan, lebih pantas',
+    'categories_title' => 'Terokai koleksi kami',
+    'categories_subtitle' => 'Setiap siri ditulis untuk keperluan yang berbeza',
     'categories_all' => 'Semua produk',
     'category_count' => ':count produk',
 
     // Featured products
-    'featured_title' => 'Produk pilihan',
-    'featured_subtitle' => 'Pilihan terbaik dari katalog kami',
+    'featured_title' => 'Paling diminati',
+    'featured_subtitle' => 'Terbitan yang paling banyak dipesan pembaca kami',
     'view_all' => 'Lihat semua',
     'no_products' => 'Tiada produk tersedia buat masa ini.',
+    'badge_bestseller' => 'Paling laris',
 
     // Packages
     'packages_title' => 'Pakej jimat',
@@ -50,6 +64,25 @@ return [
     'added_to_cart' => ':name ditambah ke troli',
     'view_cart' => 'Lihat troli',
 
+    // Our story
+    'story_eyebrow' => 'Kisah kami',
+    'story_title' => 'Bermula dengan satu niat yang mudah',
+    'story_lead' => 'Ilmu agama sepatutnya sampai ke setiap rumah — bukan hanya kepada mereka yang mampu ke kelas.',
+    'story_body_1' => ':store lahir daripada satu pemerhatian: ramai yang ingin belajar fardhu ain, tetapi terhalang oleh masa, jarak dan bahan yang terlalu berat untuk difahami sendiri.',
+    'story_body_2' => 'Maka kami menerbitkan buku dan modul yang ditulis untuk orang awam — bahasa mudah, susunan jelas, dan boleh terus diamalkan di rumah. Itulah maksud "1 Rumah 1 Daie": setiap keluarga mampu menjadi guru kepada ahli rumahnya sendiri.',
+    'story_point_1_title' => 'Ditulis untuk orang awam',
+    'story_point_1_text' => 'Bahasa mudah dan susunan jelas — boleh belajar sendiri tanpa latar belakang pengajian agama.',
+    'story_point_2_title' => 'Untuk seisi keluarga',
+    'story_point_2_text' => 'Dari siri BeDaie Cilik untuk anak-anak, hinggalah modul dan panduan untuk dewasa.',
+    'story_point_3_title' => 'Terus ke pintu rumah',
+    'story_point_3_text' => 'Dipos ke seluruh Malaysia — belajar di rumah, mengikut waktu anda sendiri.',
+    'story_cta' => 'Baca artikel ilmu kami',
+
+    // Testimonials
+    'testi_eyebrow' => 'Maklum balas',
+    'testi_title' => 'Kata mereka yang sudah membaca',
+    'testi_subtitle' => 'Perkongsian sebenar daripada pelanggan kami',
+
     // Why us
     'why_title' => 'Kenapa beli dengan kami',
     'why_subtitle' => 'Pengalaman membeli-belah mudah dan dipercayai',
@@ -57,22 +90,22 @@ return [
     'why_1_text' => 'Dihantar terus ke pintu rumah anda di seluruh Malaysia.',
     'why_2_title' => 'Bayaran selamat',
     'why_2_text' => 'Bayar dengan selamat melalui gerbang pembayaran dipercayai.',
-    'why_3_title' => 'Produk berkualiti',
-    'why_3_text' => 'Produk tulen yang dipilih dengan teliti.',
+    'why_3_title' => 'Terbitan sendiri',
+    'why_3_text' => 'Buku dan modul terbitan :store, bukan barang jualan semula.',
     'why_4_title' => 'Sokongan WhatsApp',
     'why_4_text' => 'Ada soalan? Pasukan kami sedia membantu.',
 
     // CTA band
-    'cta_title' => 'Sedia untuk membeli-belah?',
-    'cta_text' => 'Layari katalog penuh dan temui pilihan kegemaran anda.',
-    'cta_button' => 'Ke kedai',
+    'cta_title' => 'Mulakan pengajian di rumah anda',
+    'cta_text' => 'Pilih buku atau modul yang sesuai, dan biarkan ilmu itu bermula dari rumah sendiri.',
+    'cta_button' => 'Layari semua terbitan',
 
     // Footer
-    'footer_about' => 'Kedai rasmi anda untuk produk berkualiti dan pakej jimat, dihantar ke seluruh Malaysia.',
+    'footer_about' => 'Kedai rasmi :store — buku, modul dan bahan pengajian untuk membantu setiap keluarga Malaysia belajar fardhu ain di rumah sendiri.',
     'footer_explore' => 'Terokai',
     'footer_contact' => 'Hubungi',
     'footer_rights' => 'Hak cipta terpelihara.',
-    'footer_tagline' => 'Kedai rasmi produk & pakej Bedaie',
+    'footer_tagline' => '1 Rumah 1 Daie',
 
     // Shop page
     'shop_title' => 'Kedai',
@@ -90,6 +123,45 @@ return [
     'shop_clear' => 'Kosongkan tapisan',
     'shop_empty_title' => 'Tiada produk dijumpai',
     'shop_empty_text' => 'Cuba carian lain atau kosongkan tapisan anda.',
+    'load_more' => 'Muat lagi',
+    'loading' => 'Memuatkan…',
+    'all_loaded' => 'Itu sahaja buat masa ini',
+
+    // Product detail
+    'in_stock' => 'Ada stok',
+    'sku' => 'SKU',
+    'quantity' => 'Kuantiti',
+    'qty_increase' => 'Tambah kuantiti',
+    'qty_decrease' => 'Kurang kuantiti',
+    'description_title' => 'Penerangan produk',
+    'related_title' => 'Produk berkaitan',
+    'stat_support' => 'Sokongan mesra',
+
+    // Package detail
+    'package_includes' => 'Kandungan pakej',
+    'package_details' => 'Lihat butiran',
+    'package_course' => 'Kursus',
+    'package_class' => 'Kelas',
+
+    // Cart page
+    'cart_title' => 'Troli Beli-belah',
+    'cart_subtitle' => 'Semak item anda dan teruskan ke pembayaran',
+    'cart_items' => 'Item',
+    'cart_item_count' => ':count item|:count item',
+    'cart_unit_each' => 'seunit',
+    'cart_summary' => 'Ringkasan Pesanan',
+    'cart_subtotal' => 'Jumlah kecil',
+    'cart_tax' => 'Cukai (GST 6%)',
+    'cart_total' => 'Jumlah',
+    'cart_checkout' => 'Teruskan ke Pembayaran',
+    'cart_secure' => 'Pembayaran selamat — disulitkan & dilindungi',
+    'cart_clear' => 'Kosongkan troli',
+    'cart_continue' => 'Teruskan membeli-belah',
+    'cart_remove' => 'Buang',
+    'cart_empty_title' => 'Troli anda kosong',
+    'cart_empty_text' => 'Nampaknya anda belum menambah apa-apa. Terokai buku dan modul kami.',
+    'cart_browse' => 'Lihat produk',
+    'cart_insufficient_stock' => 'Stok tidak mencukupi untuk :name',
 
     // Language
     'language' => 'Bahasa',
