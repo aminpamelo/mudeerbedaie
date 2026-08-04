@@ -1,23 +1,25 @@
 <?php
 
+use App\DTOs\Shipping\ShippingRateRequest;
 use App\Models\ProductCart;
 use App\Models\ProductOrder;
-use App\Models\ProductOrderPayment;
 use App\Services\BayarcashService;
 use App\Services\SettingsService;
 use App\Services\Shipping\ShippingManager;
-use App\DTOs\Shipping\ShippingRateRequest;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.store')] class extends Component
 {
     public ?ProductCart $cart = null;
+
     public array $customerData = [
         'email' => '',
         'phone' => '',
         'notes' => '',
     ];
+
     public array $billingAddress = [
         'first_name' => '',
         'last_name' => '',
@@ -31,6 +33,7 @@ new #[Layout('components.layouts.store')] class extends Component
         'phone' => '',
         'email' => '',
     ];
+
     public array $shippingAddress = [
         'first_name' => '',
         'last_name' => '',
@@ -45,17 +48,26 @@ new #[Layout('components.layouts.store')] class extends Component
         'email' => '',
         'delivery_instructions' => '',
     ];
+
     public bool $sameAsBilling = true;
+
     public string $paymentMethod = 'credit_card';
+
     public bool $isProcessing = false;
+
     public string $currentStep = 'information'; // information, shipping, payment, confirmation
 
     // Shipping
     public string $selectedShippingProvider = '';
+
     public string $selectedShippingService = '';
+
     public float $selectedShippingCost = 0;
+
     public array $availableShippingRates = [];
+
     public bool $isLoadingRates = false;
+
     public bool $hasShippingProviders = false;
 
     public function mount(): void
@@ -68,7 +80,7 @@ new #[Layout('components.layouts.store')] class extends Component
         $this->hasShippingProviders = count($shippingManager->getEnabledProviders()) > 0;
 
         // Redirect if cart is empty
-        if (!$this->cart || $this->cart->isEmpty()) {
+        if (! $this->cart || $this->cart->isEmpty()) {
             $this->redirectRoute('cart');
         }
     }
@@ -118,7 +130,7 @@ new #[Layout('components.layouts.store')] class extends Component
             'billingAddress.country' => 'required',
         ]);
 
-        if (!$this->sameAsBilling) {
+        if (! $this->sameAsBilling) {
             $this->validate([
                 'shippingAddress.first_name' => 'required|min:2',
                 'shippingAddress.last_name' => 'required|min:2',
@@ -131,8 +143,9 @@ new #[Layout('components.layouts.store')] class extends Component
         }
 
         // Skip shipping step if no providers enabled
-        if (!$this->hasShippingProviders) {
+        if (! $this->hasShippingProviders) {
             $this->currentStep = 'payment';
+
             return;
         }
 
@@ -170,9 +183,9 @@ new #[Layout('components.layouts.store')] class extends Component
                 'currency' => $rate->currency,
                 'estimated_days' => $rate->estimatedDays,
             ], $rates);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->availableShippingRates = [];
-            $this->dispatch('checkout-error', message: 'Failed to load shipping rates: ' . $e->getMessage());
+            $this->dispatch('checkout-error', message: 'Failed to load shipping rates: '.$e->getMessage());
         } finally {
             $this->isLoadingRates = false;
         }
@@ -190,6 +203,7 @@ new #[Layout('components.layouts.store')] class extends Component
         // If shipping step is active, validate shipping selection
         if ($this->hasShippingProviders && empty($this->selectedShippingProvider)) {
             $this->dispatch('checkout-error', message: 'Please select a shipping method.');
+
             return;
         }
 
@@ -208,13 +222,13 @@ new #[Layout('components.layouts.store')] class extends Component
 
     private function calculateTotalWeight(): float
     {
-        if (!$this->cart) {
+        if (! $this->cart) {
             return 0.5;
         }
 
         $weight = 0;
         foreach ($this->cart->items as $item) {
-            $itemWeight = $item->product->weight_kg ?? 0.5;
+            $itemWeight = $item->product?->weight_kg ?? 0.5;
             $weight += $itemWeight * $item->quantity;
         }
 
@@ -231,15 +245,19 @@ new #[Layout('components.layouts.store')] class extends Component
                 'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cod,fpx,grabpay,boost',
             ]);
 
-            // Final stock validation
+            // Final stock validation (products only; packages are a flat bundle line)
             foreach ($this->cart->items as $item) {
+                if ($item->isPackage()) {
+                    continue;
+                }
+
                 if ($item->variant) {
-                    if (!$item->variant->checkStockAvailability($item->quantity, $item->warehouse_id)) {
-                        throw new \Exception("Insufficient stock for {$item->getDisplayName()}");
+                    if (! $item->variant->checkStockAvailability($item->quantity, $item->warehouse_id)) {
+                        throw new Exception("Insufficient stock for {$item->getDisplayName()}");
                     }
                 } else {
-                    if (!$item->product->checkStockAvailability($item->quantity, $item->warehouse_id)) {
-                        throw new \Exception("Insufficient stock for {$item->getDisplayName()}");
+                    if ($item->product && ! $item->product->checkStockAvailability($item->quantity, $item->warehouse_id)) {
+                        throw new Exception("Insufficient stock for {$item->getDisplayName()}");
                     }
                 }
             }
@@ -283,6 +301,7 @@ new #[Layout('components.layouts.store')] class extends Component
             // Handle FPX payments via Bayarcash
             if ($this->paymentMethod === 'fpx' && $this->isBayarcashEnabled()) {
                 $this->processBayarcashPayment($order);
+
                 return; // Will redirect to Bayarcash
             }
 
@@ -299,7 +318,7 @@ new #[Layout('components.layouts.store')] class extends Component
             session()->flash('order_id', $order->id);
             session()->flash('order_number', $order->order_number);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->dispatch('checkout-error', message: $e->getMessage());
         } finally {
             $this->isProcessing = false;
@@ -321,7 +340,7 @@ new #[Layout('components.layouts.store')] class extends Component
     {
         $bayarcashService = app(BayarcashService::class);
 
-        $payerName = trim($this->billingAddress['first_name'] . ' ' . $this->billingAddress['last_name']);
+        $payerName = trim($this->billingAddress['first_name'].' '.$this->billingAddress['last_name']);
         $payerEmail = $this->customerData['email'];
         $payerPhone = $this->customerData['phone'] ?? '';
 
@@ -342,7 +361,7 @@ new #[Layout('components.layouts.store')] class extends Component
 
     private function getPaymentProvider(): ?string
     {
-        return match($this->paymentMethod) {
+        return match ($this->paymentMethod) {
             'credit_card', 'debit_card' => 'stripe',
             'fpx' => 'bayarcash',
             'grabpay' => 'grabpay',
@@ -354,7 +373,7 @@ new #[Layout('components.layouts.store')] class extends Component
 
     private function generateTransactionId(): string
     {
-        return 'TXN-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(8));
+        return 'TXN-'.date('Ymd').'-'.strtoupper(Str::random(8));
     }
 
     public function getCartSubtotal(): string
@@ -369,7 +388,7 @@ new #[Layout('components.layouts.store')] class extends Component
 
     public function getCartTotal(): string
     {
-        if (!$this->cart) {
+        if (! $this->cart) {
             return '0.00';
         }
 
@@ -385,473 +404,379 @@ new #[Layout('components.layouts.store')] class extends Component
         return '0.00';
     }
 }; ?>
+<div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"
+     x-data="{ err: '', errT: null }"
+     x-on:checkout-error.window="err = $event.detail.message; clearTimeout(errT); errT = setTimeout(() => err = '', 5000)">
 
-<div class="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
     @if($currentStep === 'confirmation')
-        <!-- Order Confirmation -->
-        <div class="text-center py-12">
-            <div class="mx-auto w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                <flux:icon name="check" class="w-12 h-12 text-green-600" />
+        {{-- ===================== CONFIRMATION ===================== --}}
+        <div class="mx-auto max-w-lg py-10 text-center">
+            <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-xl shadow-emerald-500/30">
+                <flux:icon name="check" class="h-12 w-12" />
             </div>
-
-            <flux:heading size="xl" class="mb-4">Order Confirmed!</flux:heading>
-            <flux:text class="text-gray-600 mb-2">Thank you for your order</flux:text>
-            <flux:text class="font-semibold text-lg">Order #{{ session('order_number') }}</flux:text>
-
-            <div class="mt-8 space-y-4">
-                <flux:button variant="primary" href="{{ route('shop') }}">
-                    Continue Shopping
-                </flux:button>
-
+            <h1 class="font-display mt-6 text-2xl font-extrabold text-zinc-900 sm:text-3xl">{{ __('store.co_confirmed_title') }}</h1>
+            <p class="mt-2 text-zinc-500">{{ __('store.co_confirmed_thanks') }}</p>
+            <div class="mt-4 inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-3 shadow-sm">
+                <span class="text-sm text-zinc-500">{{ __('store.co_order_label') }}</span>
+                <span class="font-display text-lg font-extrabold text-violet-700">#{{ session('order_number') }}</span>
+            </div>
+            <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <a href="{{ route('shop') }}" wire:navigate class="store-grad store-grad-hover inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white">
+                    <flux:icon name="squares-2x2" class="h-5 w-5" />
+                    {{ __('store.cart_continue') }}
+                </a>
                 @auth
-                    <flux:button variant="outline" href="{{ route('student.orders') }}">
-                        View Order History
-                    </flux:button>
+                    <a href="{{ route('student.orders') }}" wire:navigate class="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 shadow-sm transition hover:border-violet-300 hover:text-violet-700">
+                        <flux:icon name="clipboard-document-list" class="h-5 w-5" />
+                        {{ __('store.co_view_orders') }}
+                    </a>
                 @endauth
             </div>
         </div>
     @else
-        <div class="mb-8">
-            <flux:heading size="xl">Checkout</flux:heading>
-            <flux:text class="mt-2">Complete your order</flux:text>
-        </div>
-
-        <!-- Progress Steps -->
-        <div class="mb-8">
-            <div class="flex items-center justify-center space-x-8">
-                <div class="flex items-center">
-                    <div class="w-8 h-8 rounded-full {{ $currentStep === 'information' ? 'bg-blue-600 text-white' : (in_array($currentStep, ['shipping', 'payment']) ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600') }} flex items-center justify-center font-semibold">
-                        1
-                    </div>
-                    <flux:text class="ml-2 {{ $currentStep === 'information' ? 'font-semibold' : '' }}">Information</flux:text>
-                </div>
-
-                <div class="flex-1 h-px bg-gray-200"></div>
-
-                @if($hasShippingProviders)
-                <div class="flex items-center">
-                    <div class="w-8 h-8 rounded-full {{ $currentStep === 'shipping' ? 'bg-blue-600 text-white' : ($currentStep === 'payment' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600') }} flex items-center justify-center font-semibold">
-                        2
-                    </div>
-                    <flux:text class="ml-2 {{ $currentStep === 'shipping' ? 'font-semibold' : '' }}">Shipping</flux:text>
-                </div>
-
-                <div class="flex-1 h-px bg-gray-200"></div>
-                @endif
-
-                <div class="flex items-center">
-                    <div class="w-8 h-8 rounded-full {{ $currentStep === 'payment' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold">
-                        {{ $hasShippingProviders ? '3' : '2' }}
-                    </div>
-                    <flux:text class="ml-2 {{ $currentStep === 'payment' ? 'font-semibold' : '' }}">Payment</flux:text>
-                </div>
+        {{-- Heading --}}
+        <div class="mb-6 flex items-center gap-3">
+            <span class="store-grad grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white shadow-lg shadow-fuchsia-500/25">
+                <flux:icon name="lock-closed" class="h-5 w-5" />
+            </span>
+            <div>
+                <h1 class="font-display text-2xl font-extrabold text-zinc-900 sm:text-3xl">{{ __('store.co_title') }}</h1>
+                <p class="mt-0.5 text-sm text-zinc-500">{{ __('store.co_subtitle') }}</p>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Main Content -->
+        {{-- ===================== PROGRESS STEPS ===================== --}}
+        @php
+            $steps = [['key' => 'information', 'label' => __('store.co_step_information'), 'n' => 1]];
+            if ($hasShippingProviders) {
+                $steps[] = ['key' => 'shipping', 'label' => __('store.co_step_shipping'), 'n' => 2];
+            }
+            $steps[] = ['key' => 'payment', 'label' => __('store.co_step_payment'), 'n' => $hasShippingProviders ? 3 : 2];
+            $order = ['information' => 1, 'shipping' => 2, 'payment' => 3, 'confirmation' => 4];
+            $currentPos = $order[$currentStep] ?? 1;
+        @endphp
+        <div class="mb-8 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-center">
+                @foreach($steps as $i => $step)
+                    @php $done = $currentPos > $order[$step['key']]; $active = $currentStep === $step['key']; @endphp
+                    <div class="flex items-center gap-2.5">
+                        <span @class([
+                            'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold transition',
+                            'store-grad text-white shadow-md shadow-fuchsia-500/25' => $active,
+                            'bg-emerald-500 text-white' => $done,
+                            'bg-zinc-100 text-zinc-400' => ! $active && ! $done,
+                        ])>
+                            @if($done)<flux:icon name="check" class="h-4 w-4" />@else{{ $step['n'] }}@endif
+                        </span>
+                        <span @class([
+                            'hidden text-sm font-semibold sm:block',
+                            'store-grad-text' => $active,
+                            'text-zinc-700' => $done,
+                            'text-zinc-400' => ! $active && ! $done,
+                        ])>{{ $step['label'] }}</span>
+                    </div>
+                    @if(! $loop->last)
+                        <div class="mx-3 h-0.5 flex-1 rounded-full {{ $currentPos > $order[$step['key']] ? 'bg-emerald-400' : 'bg-zinc-100' }}"></div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Inline error toast --}}
+        <div x-show="err" x-cloak x-transition.opacity
+             class="mb-4 flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+            <flux:icon name="exclamation-triangle" class="h-5 w-5 shrink-0 text-rose-500" />
+            <span x-text="err"></span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            {{-- ===================== MAIN COLUMN ===================== --}}
             <div class="lg:col-span-2">
                 @if($currentStep === 'information')
-                    <!-- Customer Information Step -->
-                    <div class="bg-white rounded-lg shadow-sm border p-6">
-                        <flux:heading size="lg" class="mb-6">Customer Information</flux:heading>
-
-                        <div class="space-y-6">
-                            <!-- Contact Information -->
-                            <div>
-                                <flux:heading size="sm" class="mb-4">Contact Information</flux:heading>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <flux:field>
-                                        <flux:label>Phone</flux:label>
-                                        <flux:input wire:model="customerData.phone" placeholder="+60123456789" />
-                                        <flux:error name="customerData.phone" />
-                                    </flux:field>
-
-                                    <flux:field>
-                                        <flux:label>Email (Optional)</flux:label>
-                                        <flux:input wire:model="customerData.email" type="email" placeholder="john@example.com" />
-                                        <flux:error name="customerData.email" />
-                                    </flux:field>
-                                </div>
-                            </div>
-
-                            <!-- Billing Address -->
-                            <div>
-                                <flux:heading size="sm" class="mb-4">Billing Address</flux:heading>
-                                <div class="space-y-4">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <flux:field>
-                                            <flux:label>First Name</flux:label>
-                                            <flux:input wire:model="billingAddress.first_name" />
-                                            <flux:error name="billingAddress.first_name" />
-                                        </flux:field>
-
-                                        <flux:field>
-                                            <flux:label>Last Name</flux:label>
-                                            <flux:input wire:model="billingAddress.last_name" />
-                                            <flux:error name="billingAddress.last_name" />
-                                        </flux:field>
-                                    </div>
-
-                                    <flux:field>
-                                        <flux:label>Company (Optional)</flux:label>
-                                        <flux:input wire:model="billingAddress.company" />
-                                    </flux:field>
-
-                                    <flux:field>
-                                        <flux:label>Address</flux:label>
-                                        <flux:input wire:model="billingAddress.address_line_1" placeholder="Street address" />
-                                        <flux:error name="billingAddress.address_line_1" />
-                                    </flux:field>
-
-                                    <flux:field>
-                                        <flux:input wire:model="billingAddress.address_line_2" placeholder="Apartment, suite, etc. (optional)" />
-                                    </flux:field>
-
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <flux:field>
-                                            <flux:label>City</flux:label>
-                                            <flux:input wire:model="billingAddress.city" />
-                                            <flux:error name="billingAddress.city" />
-                                        </flux:field>
-
-                                        <flux:field>
-                                            <flux:label>State</flux:label>
-                                            <flux:input wire:model="billingAddress.state" />
-                                            <flux:error name="billingAddress.state" />
-                                        </flux:field>
-
-                                        <flux:field>
-                                            <flux:label>Postal Code</flux:label>
-                                            <flux:input wire:model="billingAddress.postal_code" />
-                                            <flux:error name="billingAddress.postal_code" />
-                                        </flux:field>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Shipping Address -->
-                            <div>
-                                <div class="flex items-center justify-between mb-4">
-                                    <flux:heading size="sm">Shipping Address</flux:heading>
-                                    <flux:checkbox wire:model.live="sameAsBilling" label="Same as billing address" />
-                                </div>
-
-                                @if(!$sameAsBilling)
-                                    <div class="space-y-4">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <flux:field>
-                                                <flux:label>First Name</flux:label>
-                                                <flux:input wire:model="shippingAddress.first_name" />
-                                                <flux:error name="shippingAddress.first_name" />
-                                            </flux:field>
-
-                                            <flux:field>
-                                                <flux:label>Last Name</flux:label>
-                                                <flux:input wire:model="shippingAddress.last_name" />
-                                                <flux:error name="shippingAddress.last_name" />
-                                            </flux:field>
-                                        </div>
-
-                                        <flux:field>
-                                            <flux:label>Company (Optional)</flux:label>
-                                            <flux:input wire:model="shippingAddress.company" />
-                                        </flux:field>
-
-                                        <flux:field>
-                                            <flux:label>Address</flux:label>
-                                            <flux:input wire:model="shippingAddress.address_line_1" placeholder="Street address" />
-                                            <flux:error name="shippingAddress.address_line_1" />
-                                        </flux:field>
-
-                                        <flux:field>
-                                            <flux:input wire:model="shippingAddress.address_line_2" placeholder="Apartment, suite, etc. (optional)" />
-                                        </flux:field>
-
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <flux:field>
-                                                <flux:label>City</flux:label>
-                                                <flux:input wire:model="shippingAddress.city" />
-                                                <flux:error name="shippingAddress.city" />
-                                            </flux:field>
-
-                                            <flux:field>
-                                                <flux:label>State</flux:label>
-                                                <flux:input wire:model="shippingAddress.state" />
-                                                <flux:error name="shippingAddress.state" />
-                                            </flux:field>
-
-                                            <flux:field>
-                                                <flux:label>Postal Code</flux:label>
-                                                <flux:input wire:model="shippingAddress.postal_code" />
-                                                <flux:error name="shippingAddress.postal_code" />
-                                            </flux:field>
-                                        </div>
-
-                                        <flux:field>
-                                            <flux:label>Delivery Instructions (Optional)</flux:label>
-                                            <flux:textarea wire:model="shippingAddress.delivery_instructions" placeholder="Special delivery instructions..." />
-                                        </flux:field>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <!-- Order Notes -->
-                            <flux:field>
-                                <flux:label>Order Notes (Optional)</flux:label>
-                                <flux:textarea wire:model="customerData.notes" placeholder="Any special requests or notes..." />
-                            </flux:field>
+                    <div class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+                        {{-- Contact --}}
+                        <h2 class="font-display text-xs font-bold uppercase tracking-wider text-zinc-500">{{ __('store.co_contact') }}</h2>
+                        <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                            @include('livewire.cart.partials.co-field', ['model' => 'customerData.phone', 'label' => __('store.co_phone'), 'ph' => '+60123456789', 'req' => true, 'type' => 'tel', 'inputmode' => 'tel'])
+                            @include('livewire.cart.partials.co-field', ['model' => 'customerData.email', 'label' => __('store.co_email'), 'ph' => 'john@example.com', 'type' => 'email', 'inputmode' => 'email'])
                         </div>
 
-                        <div class="mt-8 flex justify-between">
-                            <flux:button variant="outline" href="{{ route('cart') }}">
-                                <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-                                Back to Cart
-                            </flux:button>
+                        {{-- Billing --}}
+                        <h2 class="font-display mt-7 text-xs font-bold uppercase tracking-wider text-zinc-500">{{ __('store.co_billing') }}</h2>
+                        <div class="mt-3 space-y-4">
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.first_name', 'label' => __('store.co_first_name'), 'req' => true])
+                                @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.last_name', 'label' => __('store.co_last_name'), 'req' => true])
+                            </div>
+                            @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.company', 'label' => __('store.co_company')])
+                            @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.address_line_1', 'label' => __('store.co_address'), 'ph' => __('store.co_address_ph'), 'req' => true])
+                            @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.address_line_2', 'ph' => __('store.co_address2_ph')])
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.city', 'label' => __('store.co_city'), 'req' => true])
+                                @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.state', 'label' => __('store.co_state'), 'req' => true])
+                                @include('livewire.cart.partials.co-field', ['model' => 'billingAddress.postal_code', 'label' => __('store.co_postal'), 'req' => true, 'inputmode' => 'numeric'])
+                            </div>
+                        </div>
 
-                            <flux:button variant="primary" wire:click="proceedToShipping">
-                                {{ $hasShippingProviders ? 'Continue to Shipping' : 'Continue to Payment' }}
-                                <flux:icon name="arrow-right" class="w-4 h-4 ml-2" />
-                            </flux:button>
+                        {{-- Shipping address --}}
+                        <div class="mt-7 flex items-center justify-between">
+                            <h2 class="font-display text-xs font-bold uppercase tracking-wider text-zinc-500">{{ __('store.co_shipping_addr') }}</h2>
+                            <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-600">
+                                <input type="checkbox" wire:model.live="sameAsBilling" class="h-4 w-4 rounded border-zinc-300 accent-violet-600" />
+                                {{ __('store.co_same_billing') }}
+                            </label>
+                        </div>
+
+                        @if(! $sameAsBilling)
+                            <div class="mt-3 space-y-4">
+                                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.first_name', 'label' => __('store.co_first_name'), 'req' => true])
+                                    @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.last_name', 'label' => __('store.co_last_name'), 'req' => true])
+                                </div>
+                                @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.company', 'label' => __('store.co_company')])
+                                @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.address_line_1', 'label' => __('store.co_address'), 'ph' => __('store.co_address_ph'), 'req' => true])
+                                @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.address_line_2', 'ph' => __('store.co_address2_ph')])
+                                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                    @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.city', 'label' => __('store.co_city'), 'req' => true])
+                                    @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.state', 'label' => __('store.co_state'), 'req' => true])
+                                    @include('livewire.cart.partials.co-field', ['model' => 'shippingAddress.postal_code', 'label' => __('store.co_postal'), 'req' => true, 'inputmode' => 'numeric'])
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-sm font-semibold text-zinc-700">{{ __('store.co_delivery_notes') }}</label>
+                                    <textarea wire:model="shippingAddress.delivery_instructions" rows="2" placeholder="{{ __('store.co_delivery_notes_ph') }}"
+                                              class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 shadow-sm transition focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200/70"></textarea>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Order notes --}}
+                        <div class="mt-7">
+                            <label class="mb-1.5 block text-sm font-semibold text-zinc-700">{{ __('store.co_order_notes') }}</label>
+                            <textarea wire:model="customerData.notes" rows="2" placeholder="{{ __('store.co_order_notes_ph') }}"
+                                      class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 shadow-sm transition focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200/70"></textarea>
+                        </div>
+
+                        <div class="mt-8 flex items-center justify-between gap-3">
+                            <a href="{{ route('cart') }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800">
+                                <flux:icon name="arrow-left" class="h-4 w-4" />
+                                {{ __('store.co_back_cart') }}
+                            </a>
+                            <button type="button" wire:click="proceedToShipping" wire:loading.attr="disabled"
+                                    class="store-grad store-grad-hover inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white">
+                                {{ $hasShippingProviders ? __('store.co_continue_shipping') : __('store.co_continue_payment') }}
+                                <flux:icon name="arrow-right" class="h-5 w-5" />
+                            </button>
                         </div>
                     </div>
+
                 @elseif($currentStep === 'shipping')
-                    <!-- Shipping Step -->
-                    <div class="bg-white rounded-lg shadow-sm border p-6">
-                        <flux:heading size="lg" class="mb-6">Shipping Method</flux:heading>
+                    <div class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+                        <h2 class="font-display text-lg font-extrabold text-zinc-900">{{ __('store.co_shipping_method') }}</h2>
 
                         @if($isLoadingRates)
-                            <div class="text-center py-8">
-                                <div class="inline-flex items-center space-x-2 text-gray-500">
-                                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Loading shipping rates...</span>
-                                </div>
+                            <div class="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+                                <flux:icon name="arrow-path" class="h-5 w-5 animate-spin text-violet-500" />
+                                {{ __('store.co_loading_rates') }}
                             </div>
                         @elseif(empty($availableShippingRates))
-                            <div class="text-center py-8">
-                                <flux:icon name="truck" class="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                                <flux:text class="text-gray-500">No shipping rates available for your location.</flux:text>
-                                <flux:text size="sm" class="text-gray-400 mt-1">Please check your address details and try again.</flux:text>
-                                <flux:button variant="outline" wire:click="fetchShippingRates" class="mt-4" size="sm">
-                                    Retry
-                                </flux:button>
+                            <div class="py-10 text-center">
+                                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-100">
+                                    <flux:icon name="truck" class="h-7 w-7 text-violet-500" />
+                                </div>
+                                <p class="mt-3 text-sm font-medium text-zinc-600">{{ __('store.co_no_rates') }}</p>
+                                <p class="mt-1 text-xs text-zinc-400">{{ __('store.co_no_rates_hint') }}</p>
+                                <button type="button" wire:click="fetchShippingRates" class="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50">
+                                    <flux:icon name="arrow-path" class="h-4 w-4" />
+                                    {{ __('store.co_retry') }}
+                                </button>
                             </div>
                         @else
-                            <div class="space-y-3">
-                                @foreach($availableShippingRates as $index => $rate)
-                                    <div
+                            <div class="mt-4 space-y-3">
+                                @foreach($availableShippingRates as $rate)
+                                    @php $sel = $selectedShippingProvider === $rate['provider_slug'] && $selectedShippingService === $rate['service_code']; @endphp
+                                    <button type="button"
                                         wire:click="selectShippingRate('{{ $rate['provider_slug'] }}', '{{ $rate['service_code'] }}', {{ $rate['cost'] }})"
-                                        class="border rounded-lg p-4 cursor-pointer transition-colors {{ $selectedShippingProvider === $rate['provider_slug'] && $selectedShippingService === $rate['service_code'] ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}"
-                                    >
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                                                    <flux:icon name="truck" class="w-5 h-5 text-gray-600" />
-                                                </div>
-                                                <div>
-                                                    <flux:text class="font-medium">{{ $rate['service_name'] }}</flux:text>
-                                                    <flux:text size="sm" class="text-gray-500">{{ $rate['provider_name'] }}</flux:text>
-                                                </div>
-                                            </div>
-                                            <div class="text-right">
-                                                <flux:text class="font-semibold">MYR {{ number_format($rate['cost'], 2) }}</flux:text>
-                                                @if($rate['estimated_days'])
-                                                    <flux:text size="sm" class="text-gray-500">~{{ $rate['estimated_days'] }} {{ $rate['estimated_days'] === 1 ? 'day' : 'days' }}</flux:text>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </div>
+                                        @class([
+                                            'flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition',
+                                            'border-violet-500 bg-violet-50 ring-2 ring-violet-200' => $sel,
+                                            'border-zinc-200 hover:border-violet-300 hover:bg-violet-50/40' => ! $sel,
+                                        ])>
+                                        <span class="flex items-center gap-3">
+                                            <span @class(['grid h-10 w-10 shrink-0 place-items-center rounded-xl', 'store-grad text-white' => $sel, 'bg-zinc-100 text-zinc-500' => ! $sel])>
+                                                <flux:icon name="truck" class="h-5 w-5" />
+                                            </span>
+                                            <span>
+                                                <span class="block text-sm font-bold text-zinc-900">{{ $rate['service_name'] }}</span>
+                                                <span class="block text-xs text-zinc-500">{{ $rate['provider_name'] }}</span>
+                                            </span>
+                                        </span>
+                                        <span class="text-right">
+                                            <span class="block font-display text-base font-extrabold text-zinc-900">MYR {{ number_format($rate['cost'], 2) }}</span>
+                                            @if($rate['estimated_days'])
+                                                <span class="block text-xs text-zinc-500">~{{ $rate['estimated_days'] }} {{ $rate['estimated_days'] === 1 ? __('store.co_day') : __('store.co_days') }}</span>
+                                            @endif
+                                        </span>
+                                    </button>
                                 @endforeach
                             </div>
                         @endif
 
-                        <div class="mt-8 flex justify-between">
-                            <flux:button variant="outline" wire:click="backToInformation">
-                                <div class="flex items-center justify-center">
-                                    <flux:icon name="arrow-left" class="w-4 h-4 mr-1" />
-                                    Back
-                                </div>
-                            </flux:button>
-
-                            <flux:button
-                                variant="primary"
-                                wire:click="proceedToPayment"
-                                :disabled="empty($selectedShippingProvider)"
-                            >
-                                Continue to Payment
-                                <flux:icon name="arrow-right" class="w-4 h-4 ml-2" />
-                            </flux:button>
+                        <div class="mt-8 flex items-center justify-between gap-3">
+                            <button type="button" wire:click="backToInformation" class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800">
+                                <flux:icon name="arrow-left" class="h-4 w-4" />
+                                {{ __('store.co_back') }}
+                            </button>
+                            <button type="button" wire:click="proceedToPayment" @disabled(empty($selectedShippingProvider))
+                                    class="store-grad store-grad-hover inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                                {{ __('store.co_continue_payment') }}
+                                <flux:icon name="arrow-right" class="h-5 w-5" />
+                            </button>
                         </div>
                     </div>
+
                 @elseif($currentStep === 'payment')
-                    <!-- Payment Step -->
-                    <div class="bg-white rounded-lg shadow-sm border p-6">
-                        <flux:heading size="lg" class="mb-6">Payment Method</flux:heading>
+                    <div class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+                        <h2 class="font-display text-lg font-extrabold text-zinc-900">{{ __('store.co_payment_method') }}</h2>
 
-                        <div class="space-y-4">
-                            <!-- Payment Methods -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'credit_card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <input type="radio" wire:model.live="paymentMethod" value="credit_card" class="mt-0.5 h-4 w-4 accent-blue-600" />
-                                    <span>
-                                        <span class="block text-sm font-medium text-gray-900">Credit Card</span>
-                                        <flux:text size="sm" class="text-gray-600">Visa, Mastercard</flux:text>
+                        @php
+                            $methods = [
+                                ['value' => 'credit_card', 'icon' => 'credit-card', 'title' => __('store.co_pm_credit_card'), 'sub' => __('store.co_pm_cards_sub')],
+                                ['value' => 'debit_card', 'icon' => 'credit-card', 'title' => __('store.co_pm_debit_card'), 'sub' => __('store.co_pm_cards_sub')],
+                                ['value' => 'fpx', 'icon' => 'building-library', 'title' => __('store.co_pm_fpx'), 'sub' => __('store.co_pm_fpx_sub')],
+                                ['value' => 'grabpay', 'icon' => 'wallet', 'title' => __('store.co_pm_grabpay'), 'sub' => __('store.co_pm_wallet_sub')],
+                                ['value' => 'boost', 'icon' => 'wallet', 'title' => __('store.co_pm_boost'), 'sub' => __('store.co_pm_wallet_sub')],
+                            ];
+                            if (app(\App\Services\SettingsService::class)->isCodEnabled()) {
+                                $methods[] = ['value' => 'cod', 'icon' => 'banknotes', 'title' => __('store.co_pm_cod'), 'sub' => __('store.co_pm_cod_sub')];
+                            }
+                        @endphp
+
+                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            @foreach($methods as $m)
+                                @php $on = $paymentMethod === $m['value']; @endphp
+                                <label @class([
+                                    'flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition',
+                                    'border-violet-500 bg-violet-50 ring-2 ring-violet-200' => $on,
+                                    'border-zinc-200 hover:border-violet-300 hover:bg-violet-50/40' => ! $on,
+                                ])>
+                                    <input type="radio" wire:model.live="paymentMethod" value="{{ $m['value'] }}" class="h-4 w-4 accent-violet-600" />
+                                    <span @class(['grid h-10 w-10 shrink-0 place-items-center rounded-xl', 'store-grad text-white' => $on, 'bg-zinc-100 text-zinc-500' => ! $on])>
+                                        <flux:icon name="{{ $m['icon'] }}" class="h-5 w-5" />
+                                    </span>
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-bold text-zinc-900">{{ $m['title'] }}</span>
+                                        <span class="block truncate text-xs text-zinc-500">{{ $m['sub'] }}</span>
                                     </span>
                                 </label>
-
-                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'debit_card' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <input type="radio" wire:model.live="paymentMethod" value="debit_card" class="mt-0.5 h-4 w-4 accent-blue-600" />
-                                    <span>
-                                        <span class="block text-sm font-medium text-gray-900">Debit Card</span>
-                                        <flux:text size="sm" class="text-gray-600">Visa, Mastercard</flux:text>
-                                    </span>
-                                </label>
-
-                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'fpx' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <input type="radio" wire:model.live="paymentMethod" value="fpx" class="mt-0.5 h-4 w-4 accent-blue-600" />
-                                    <span>
-                                        <span class="block text-sm font-medium text-gray-900">FPX Online Banking</span>
-                                        <flux:text size="sm" class="text-gray-600">Malaysian Banks</flux:text>
-                                    </span>
-                                </label>
-
-                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'grabpay' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <input type="radio" wire:model.live="paymentMethod" value="grabpay" class="mt-0.5 h-4 w-4 accent-blue-600" />
-                                    <span>
-                                        <span class="block text-sm font-medium text-gray-900">GrabPay</span>
-                                        <flux:text size="sm" class="text-gray-600">Digital Wallet</flux:text>
-                                    </span>
-                                </label>
-
-                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'boost' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <input type="radio" wire:model.live="paymentMethod" value="boost" class="mt-0.5 h-4 w-4 accent-blue-600" />
-                                    <span>
-                                        <span class="block text-sm font-medium text-gray-900">Boost</span>
-                                        <flux:text size="sm" class="text-gray-600">Digital Wallet</flux:text>
-                                    </span>
-                                </label>
-
-                                @if(app(\App\Services\SettingsService::class)->isCodEnabled())
-                                <label class="flex cursor-pointer items-start gap-2.5 border rounded-lg p-4 {{ $paymentMethod === 'cod' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <input type="radio" wire:model.live="paymentMethod" value="cod" class="mt-0.5 h-4 w-4 accent-blue-600" />
-                                    <span>
-                                        <span class="block text-sm font-medium text-gray-900">Cash on Delivery</span>
-                                        <flux:text size="sm" class="text-gray-600">Pay when you receive</flux:text>
-                                    </span>
-                                </label>
-                                @endif
-                            </div>
-
-                            @if($paymentMethod === 'cod')
-                                @php
-                                    $codInstructions = app(\App\Services\SettingsService::class)->getCodInstructions();
-                                @endphp
-                                @if($codInstructions)
-                                    <div class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <flux:text size="sm" class="text-amber-800">
-                                            <flux:icon name="information-circle" class="w-4 h-4 inline mr-1" />
-                                            {{ $codInstructions }}
-                                        </flux:text>
-                                    </div>
-                                @endif
-                            @endif
-
-                            @if(in_array($paymentMethod, ['credit_card', 'debit_card']))
-                                <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <flux:text size="sm" class="text-yellow-800">
-                                        <flux:icon name="information-circle" class="w-4 h-4 inline mr-1" />
-                                        You will be redirected to a secure payment gateway to complete your payment.
-                                    </flux:text>
-                                </div>
-                            @endif
+                            @endforeach
                         </div>
 
-                        <div class="mt-8 flex justify-between">
-                            <flux:button variant="outline" wire:click="{{ $hasShippingProviders ? 'backToShipping' : 'backToInformation' }}">
-                                <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-                                Back
-                            </flux:button>
+                        @if($paymentMethod === 'cod')
+                            @php $codInstructions = app(\App\Services\SettingsService::class)->getCodInstructions(); @endphp
+                            @if($codInstructions)
+                                <div class="mt-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                    <flux:icon name="information-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+                                    <span>{{ $codInstructions }}</span>
+                                </div>
+                            @endif
+                        @endif
 
-                            <flux:button
-                                variant="primary"
-                                wire:click="processOrder"
-                                wire:loading.attr="disabled"
-                                :disabled="$isProcessing"
-                            >
-                                <span wire:loading.remove wire:target="processOrder">Complete Order</span>
-                                <span wire:loading wire:target="processOrder">Processing...</span>
-                            </flux:button>
+                        @if(in_array($paymentMethod, ['credit_card', 'debit_card', 'fpx', 'grabpay', 'boost']))
+                            <div class="mt-4 flex items-start gap-2 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+                                <flux:icon name="shield-check" class="mt-0.5 h-4 w-4 shrink-0" />
+                                <span>{{ __('store.co_redirect_notice') }}</span>
+                            </div>
+                        @endif
+
+                        <div class="mt-8 flex items-center justify-between gap-3">
+                            <button type="button" wire:click="{{ $hasShippingProviders ? 'backToShipping' : 'backToInformation' }}" class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800">
+                                <flux:icon name="arrow-left" class="h-4 w-4" />
+                                {{ __('store.co_back') }}
+                            </button>
+                            <button type="button" wire:click="processOrder" wire:loading.attr="disabled" wire:target="processOrder" @disabled($isProcessing)
+                                    class="store-grad store-grad-hover inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                                <span wire:loading.remove wire:target="processOrder" class="inline-flex items-center gap-2">
+                                    <flux:icon name="lock-closed" class="h-5 w-5" />
+                                    {{ __('store.co_complete_order') }}
+                                </span>
+                                <span wire:loading wire:target="processOrder" class="inline-flex items-center gap-2">
+                                    <flux:icon name="arrow-path" class="h-5 w-5 animate-spin" />
+                                    {{ __('store.co_processing') }}
+                                </span>
+                            </button>
                         </div>
                     </div>
                 @endif
             </div>
 
-            <!-- Order Summary -->
+            {{-- ===================== ORDER SUMMARY ===================== --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-                    <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
-
-                    <!-- Cart Items -->
-                    <div class="space-y-4 mb-6">
-                        @foreach($cart->items as $item)
-                            <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                                    <flux:icon name="photo" class="w-6 h-6 text-gray-400" />
-                                </div>
-
-                                <div class="flex-1 min-w-0">
-                                    <flux:text size="sm" class="font-medium">{{ $item->getDisplayName() }}</flux:text>
-                                    <flux:text size="xs" class="text-gray-600">Qty: {{ $item->quantity }}</flux:text>
-                                </div>
-
-                                <flux:text size="sm" class="font-semibold">MYR {{ number_format($item->total_price, 2) }}</flux:text>
-                            </div>
-                        @endforeach
+                <div class="sticky top-24 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+                    <div class="store-grad px-5 py-4">
+                        <h2 class="font-display text-lg font-extrabold text-white">{{ __('store.co_summary') }}</h2>
                     </div>
 
-                    <!-- Totals -->
-                    <div class="border-t pt-4 space-y-2">
-                        <div class="flex justify-between">
-                            <flux:text>Subtotal</flux:text>
-                            <flux:text>MYR {{ $this->getCartSubtotal() }}</flux:text>
+                    <div class="p-5">
+                        <div class="space-y-3">
+                            @foreach($cart->items as $item)
+                                @php $img = $item->getImageUrl(); @endphp
+                                <div class="flex items-center gap-3" wire:key="co-item-{{ $item->id }}">
+                                    <div class="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-violet-50 to-fuchsia-50 ring-1 ring-zinc-900/5">
+                                        @if($img)
+                                            <img src="{{ $img }}" alt="{{ $item->getDisplayName() }}" loading="lazy" class="h-full w-full object-cover"
+                                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                                            <span class="hidden h-full w-full items-center justify-center" style="display:none;">
+                                                <flux:icon name="photo" class="h-5 w-5 text-violet-300" />
+                                            </span>
+                                        @else
+                                            <span class="flex h-full w-full items-center justify-center">
+                                                <flux:icon name="{{ $item->isPackage() ? 'gift' : 'photo' }}" class="h-5 w-5 text-violet-300" />
+                                            </span>
+                                        @endif
+                                        <span class="absolute -right-1.5 -top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-zinc-900 px-1 text-[10px] font-bold text-white">{{ $item->quantity }}</span>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-sm font-semibold text-zinc-800">{{ $item->getDisplayName() }}</p>
+                                        <p class="text-xs text-zinc-400">{{ __('store.co_qty') }}: {{ $item->quantity }}</p>
+                                    </div>
+                                    <span class="text-sm font-bold tabular-nums text-zinc-900">MYR {{ number_format($item->total_price, 2) }}</span>
+                                </div>
+                            @endforeach
                         </div>
 
-                        <div class="flex justify-between">
-                            <flux:text>Tax (GST 6%)</flux:text>
-                            <flux:text>MYR {{ $this->getCartTax() }}</flux:text>
-                        </div>
-
-                        <div class="flex justify-between">
-                            <flux:text>Shipping</flux:text>
-                            <flux:text>
-                                @if($selectedShippingCost > 0)
-                                    MYR {{ $this->getShippingCostFormatted() }}
-                                @else
-                                    <span class="text-gray-400">{{ $hasShippingProviders ? 'Calculated at next step' : 'Free' }}</span>
-                                @endif
-                            </flux:text>
-                        </div>
-
-                        <div class="border-t pt-2">
-                            <div class="flex justify-between">
-                                <flux:text class="font-semibold text-lg">Total</flux:text>
-                                <flux:text class="font-semibold text-lg">MYR {{ $this->getCartTotal() }}</flux:text>
+                        <div class="mt-4 space-y-2.5 border-t border-dashed border-zinc-200 pt-4 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-zinc-500">{{ __('store.cart_subtotal') }}</span>
+                                <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartSubtotal() }}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-zinc-500">{{ __('store.cart_tax') }}</span>
+                                <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartTax() }}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-zinc-500">{{ __('store.co_shipping') }}</span>
+                                <span class="font-semibold tabular-nums text-zinc-800">
+                                    @if($selectedShippingCost > 0)
+                                        MYR {{ $this->getShippingCostFormatted() }}
+                                    @else
+                                        <span class="font-medium text-zinc-400">{{ $hasShippingProviders ? __('store.co_calc_next') : __('store.co_free') }}</span>
+                                    @endif
+                                </span>
                             </div>
                         </div>
+
+                        <div class="mt-4 flex items-end justify-between border-t border-dashed border-zinc-200 pt-4">
+                            <span class="font-display text-base font-bold text-zinc-900">{{ __('store.cart_total') }}</span>
+                            <span class="store-grad-text font-display text-2xl font-extrabold tabular-nums">MYR {{ $this->getCartTotal() }}</span>
+                        </div>
+
+                        <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-zinc-400">
+                            <flux:icon name="lock-closed" class="h-3.5 w-3.5" />
+                            {{ __('store.cart_secure') }}
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     @endif
 </div>
-
-<script>
-    document.addEventListener('livewire:init', function () {
-        Livewire.on('checkout-error', (event) => {
-            alert(event.message);
-        });
-    });
-</script>
