@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Funnel extends Model
@@ -25,6 +27,7 @@ class Funnel extends Model
         'description',
         'type',
         'status',
+        'available_to_fighters',
         'settings',
         'embed_settings',
         'embed_enabled',
@@ -44,6 +47,7 @@ class Funnel extends Model
             'settings' => 'array',
             'embed_settings' => 'array',
             'embed_enabled' => 'boolean',
+            'available_to_fighters' => 'boolean',
             'affiliate_enabled' => 'boolean',
             'show_orders_in_admin' => 'boolean',
             'disable_shipping' => 'boolean',
@@ -290,6 +294,104 @@ class Funnel extends Model
         return $newFunnel;
     }
 
+    /**
+     * Clone this funnel into a brand-new funnel owned by the given fighter.
+     *
+     * A full "copy as my own": steps + page content + products + order bumps +
+     * coupons + automations are duplicated, and inter-step links
+     * (next_step_id / decline_step_id) are remapped to the new steps so
+     * upsell/downsell branching stays intact. Settings (design, pixels, payment)
+     * carry over verbatim. The copy starts as an unpublished draft with a fresh
+     * uuid/slug and no custom domain, category, or embed key. Runs in one
+     * transaction so a partial copy is never persisted.
+     */
+    public function copyForFighter(int $fighterId, ?string $newName = null): self
+    {
+        return DB::transaction(function () use ($fighterId, $newName): self {
+            $newFunnel = $this->replicate(['uuid', 'slug', 'published_at', 'embed_key']);
+            $newFunnel->user_id = $fighterId;
+            $newFunnel->funnel_category_id = null; // categories are per-user
+            $newFunnel->name = $newName ?? $this->name;
+            $newFunnel->status = 'draft';
+            $newFunnel->available_to_fighters = false; // a fighter's copy is not a library source
+            $newFunnel->embed_enabled = false;
+            $newFunnel->embed_key = null;
+            $newFunnel->uuid = Str::uuid()->toString();
+            $newFunnel->slug = Str::slug((string) $newFunnel->name).'-'.Str::random(6);
+            $newFunnel->published_at = null;
+            $newFunnel->save();
+
+            // Steps (+ content, products, bumps). Track old->new ids to remap links.
+            $stepIdMap = [];
+            $sourceSteps = $this->steps()->with(['content', 'products', 'orderBumps'])->get();
+
+            foreach ($sourceSteps as $step) {
+                $newStep = $step->replicate(['next_step_id', 'decline_step_id']);
+                $newStep->funnel_id = $newFunnel->id;
+                $newStep->save();
+                $stepIdMap[$step->id] = $newStep->id;
+
+                if ($step->content) {
+                    $newContent = $step->content->replicate();
+                    $newContent->funnel_step_id = $newStep->id;
+                    $newContent->is_published = false;
+                    $newContent->published_at = null;
+                    $newContent->save();
+                }
+
+                foreach ($step->products as $product) {
+                    $newProduct = $product->replicate();
+                    $newProduct->funnel_step_id = $newStep->id;
+                    $newProduct->save();
+                }
+
+                foreach ($step->orderBumps as $bump) {
+                    $newBump = $bump->replicate();
+                    $newBump->funnel_step_id = $newStep->id;
+                    $newBump->save();
+                }
+            }
+
+            // Remap next/decline links now that every step exists.
+            foreach ($sourceSteps as $step) {
+                $next = $step->next_step_id ? ($stepIdMap[$step->next_step_id] ?? null) : null;
+                $decline = $step->decline_step_id ? ($stepIdMap[$step->decline_step_id] ?? null) : null;
+
+                if ($next !== null || $decline !== null) {
+                    FunnelStep::whereKey($stepIdMap[$step->id])->update([
+                        'next_step_id' => $next,
+                        'decline_step_id' => $decline,
+                    ]);
+                }
+            }
+
+            // Coupons.
+            foreach ($this->coupons as $coupon) {
+                $newCoupon = $coupon->replicate();
+                $newCoupon->funnel_id = $newFunnel->id;
+                $newCoupon->save();
+            }
+
+            // Automations (+ their actions).
+            foreach ($this->automations()->with('actions')->get() as $automation) {
+                $newAutomation = $automation->replicate(['uuid']);
+                $newAutomation->funnel_id = $newFunnel->id;
+                if (Schema::hasColumn($newAutomation->getTable(), 'uuid')) {
+                    $newAutomation->uuid = Str::uuid()->toString();
+                }
+                $newAutomation->save();
+
+                foreach ($automation->actions as $action) {
+                    $newAction = $action->replicate();
+                    $newAction->automation_id = $newAutomation->id;
+                    $newAction->save();
+                }
+            }
+
+            return $newFunnel->refresh();
+        });
+    }
+
     // Scopes
     public function scopePublished($query)
     {
@@ -309,6 +411,11 @@ class Funnel extends Model
     public function scopeForUser($query, int $userId)
     {
         return $query->where('user_id', $userId);
+    }
+
+    public function scopeAvailableToFighters($query)
+    {
+        return $query->where('available_to_fighters', true);
     }
 
     public function scopeAffiliateEnabled($query)

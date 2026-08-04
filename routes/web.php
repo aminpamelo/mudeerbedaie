@@ -14,6 +14,7 @@ use App\Http\Controllers\Ceo\TaskMonitoringController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\Fighter\CatalogController;
+use App\Http\Controllers\Fighter\FunnelLibraryController;
 use App\Http\Controllers\Fighter\NotificationController;
 use App\Http\Controllers\Fighter\OrderController;
 use App\Http\Controllers\Fighter\PerformanceController;
@@ -439,6 +440,10 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
     ->group(function () {
         Route::get('/', [App\Http\Controllers\Fighter\DashboardController::class, 'index'])
             ->name('dashboard');
+        Route::get('funnel-library', [FunnelLibraryController::class, 'index'])
+            ->name('funnel-library');
+        Route::post('funnel-library/{funnel:uuid}/copy', [FunnelLibraryController::class, 'copy'])
+            ->name('funnel-library.copy');
         Route::get('performance', [PerformanceController::class, 'index'])
             ->name('performance');
         Route::get('orders', [OrderController::class, 'index'])

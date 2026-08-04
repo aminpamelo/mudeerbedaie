@@ -861,8 +861,8 @@
       "_x-DBmFi4xu.js"
     ]
   },
-  "_percent-DDoooXXN.js": {
-    "file": "assets/percent-DDoooXXN.js",
+  "_percent-DIMQwe7Y.js": {
+    "file": "assets/percent-DIMQwe7Y.js",
     "name": "percent",
     "imports": [
       "_x-DBmFi4xu.js"
@@ -1600,7 +1600,7 @@
     ]
   },
   "resources/js/fighter/app.jsx": {
-    "file": "assets/app-oDUAmQbx.js",
+    "file": "assets/app-D1F13GX6.js",
     "name": "app",
     "src": "resources/js/fighter/app.jsx",
     "isEntry": true,
@@ -1617,7 +1617,7 @@
       "_log-out-BwKr7sTe.js",
       "_CartesianChart-BEi_m-Tt.js",
       "_BarChart-CmrrycIY.js",
-      "_percent-DDoooXXN.js",
+      "_percent-DIMQwe7Y.js",
       "_wallet-SkMIOxKW.js",
       "_receipt-B9Xdq-85.js",
       "_credit-card-D8RagNRq.js",
@@ -8793,7 +8793,7 @@
     ]
   },
   "resources/js/livehost/app.jsx": {
-    "file": "assets/app-CMUfLhFU.js",
+    "file": "assets/app-BUe8yeQq.js",
     "name": "app",
     "src": "resources/js/livehost/app.jsx",
     "isEntry": true,
@@ -8811,7 +8811,7 @@
       "_message-circle-K8fuRHxq.js",
       "_play-Dc3Bt8pb.js",
       "_shopping-bag-uHaawGXU.js",
-      "_percent-DDoooXXN.js",
+      "_percent-DIMQwe7Y.js",
       "_rotate-ccw-CaLHo2yw.js",
       "_chart-column-DhEuI_D-.js",
       "_shield-check-HIK7v0z9.js",

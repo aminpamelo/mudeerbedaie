@@ -42,6 +42,12 @@ new class extends Component {
         $this->dispatch('funnel-duplicated', name: $newFunnel->name);
     }
 
+    public function toggleFighterAvailability(Funnel $funnel): void
+    {
+        $funnel->update(['available_to_fighters' => ! $funnel->available_to_fighters]);
+        $this->dispatch('fighter-availability-toggled', available: $funnel->available_to_fighters);
+    }
+
     public function delete(Funnel $funnel): void
     {
         $funnel->delete();
@@ -148,6 +154,11 @@ new class extends Component {
                                 } }}">
                                     {{ ucfirst($funnel->status) }}
                                 </span>
+                                @if($funnel->available_to_fighters)
+                                    <span class="ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" title="Fighters can copy this funnel">
+                                        Fighters
+                                    </span>
+                                @endif
                             </td>
 
                             <td class="px-4 py-2.5 whitespace-nowrap text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
@@ -193,6 +204,10 @@ new class extends Component {
 
                                         <flux:menu.item icon="document-duplicate" wire:click="duplicate({{ $funnel->id }})">
                                             Duplicate
+                                        </flux:menu.item>
+
+                                        <flux:menu.item icon="user-group" wire:click="toggleFighterAvailability({{ $funnel->id }})">
+                                            {{ $funnel->available_to_fighters ? 'Remove from Fighter Library' : 'Make available to fighters' }}
                                         </flux:menu.item>
 
                                         <flux:menu.separator />
