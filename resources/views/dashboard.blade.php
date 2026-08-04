@@ -129,42 +129,59 @@
 
 <x-layouts.app :title="__('Dashboard')">
     <div class="flex h-full w-full flex-1 flex-col gap-6">
-        <flux:header>
-            <flux:heading size="xl">
-                Welcome back, {{ $user->name }}!
-                @if($isAdmin)
-                    <flux:badge size="sm" color="zinc">Admin</flux:badge>
-                @elseif($isTeacher)
-                    <flux:badge size="sm" color="blue">Teacher</flux:badge>
-                @elseif($isEmployee)
-                    <flux:badge size="sm" color="green">Employee</flux:badge>
-                @elseif($isStudent)
-                    <flux:badge size="sm" color="emerald">Student</flux:badge>
-                @endif
-            </flux:heading>
-        </flux:header>
+        @unless($isAdmin)
+            <flux:header>
+                <flux:heading size="xl">
+                    Welcome back, {{ $user->name }}!
+                    @if($isTeacher)
+                        <flux:badge size="sm" color="blue">Teacher</flux:badge>
+                    @elseif($isEmployee)
+                        <flux:badge size="sm" color="green">Employee</flux:badge>
+                    @elseif($isStudent)
+                        <flux:badge size="sm" color="emerald">Student</flux:badge>
+                    @endif
+                </flux:heading>
+            </flux:header>
+        @endunless
 
         @if($isAdmin)
             <!-- Admin Dashboard -->
 
-            <!-- Date & Quick Actions -->
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 tabular-nums">{{ now()->format('l, F j, Y') }}</flux:text>
-                <div class="flex gap-2">
-                    <flux:button variant="primary" size="sm" href="{{ route('courses.create') }}">
-                        <div class="flex items-center justify-center">
-                            <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                            Add Course
+            <!-- Welcome Hero -->
+            <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-gradient-to-br from-indigo-50 via-white to-violet-50/60 p-5 dark:border-zinc-700/80 dark:from-indigo-950/40 dark:via-zinc-900 dark:to-violet-950/20 sm:p-6">
+                <div class="pointer-events-none absolute -right-12 -top-12 h-52 w-52 rounded-full bg-gradient-to-br from-indigo-400/20 to-fuchsia-400/20 blur-3xl"></div>
+                <div class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-bold text-white shadow-lg shadow-indigo-500/30">
+                            {{ $user->initials() }}
                         </div>
-                    </flux:button>
-                    <flux:button variant="outline" size="sm" href="{{ route('enrollments.index') }}">Enrollments</flux:button>
-                    <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">Orders</flux:button>
-                    <flux:button variant="ghost" size="sm" href="{{ route('storefront.home') }}" target="_blank">
-                        <div class="flex items-center justify-center">
-                            <flux:icon name="building-storefront" class="w-4 h-4 mr-1" />
-                            Front Store
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Welcome back, {{ $user->name }}!</h1>
+                                <flux:badge size="sm" color="indigo">Admin</flux:badge>
+                            </div>
+                            <p class="mt-1 flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                                <flux:icon name="calendar" class="h-4 w-4" />
+                                <span class="tabular-nums">{{ now()->format('l, F j, Y') }}</span>
+                            </p>
                         </div>
-                    </flux:button>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <flux:button variant="primary" size="sm" href="{{ route('courses.create') }}">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                                Add Course
+                            </div>
+                        </flux:button>
+                        <flux:button variant="outline" size="sm" href="{{ route('enrollments.index') }}">Enrollments</flux:button>
+                        <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">Orders</flux:button>
+                        <flux:button variant="ghost" size="sm" href="{{ route('storefront.home') }}" target="_blank">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="building-storefront" class="w-4 h-4 mr-1" />
+                                Front Store
+                            </div>
+                        </flux:button>
+                    </div>
                 </div>
             </div>
 
@@ -213,8 +230,8 @@
                                 <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($totalRevenue, 2) }}</div>
                                 <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">All time</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-                                <flux:icon icon="currency-dollar" class="w-5 h-5 text-emerald-500" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25">
+                                <flux:icon icon="currency-dollar" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -237,8 +254,8 @@
                                     </flux:text>
                                 </div>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
-                                <flux:icon icon="chart-bar" class="w-5 h-5 text-blue-500" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25">
+                                <flux:icon icon="chart-bar" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -252,8 +269,8 @@
                                 <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($mrr, 2) }}</div>
                                 <flux:text size="sm" class="mt-1 text-violet-600 dark:text-violet-400">Active subscriptions</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
-                                <flux:icon icon="arrow-trending-up" class="w-5 h-5 text-violet-500" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md shadow-violet-500/25">
+                                <flux:icon icon="arrow-trending-up" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -269,8 +286,8 @@
                                     Last 30 days
                                 </flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $paymentSuccessRate >= 95 ? 'bg-emerald-500/10' : ($paymentSuccessRate >= 90 ? 'bg-amber-500/10' : 'bg-red-500/10') }}">
-                                <flux:icon icon="check-circle" class="w-5 h-5 {{ $paymentSuccessRate >= 95 ? 'text-emerald-500' : ($paymentSuccessRate >= 90 ? 'text-amber-500' : 'text-red-500') }}" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $paymentSuccessRate >= 95 ? 'bg-gradient-to-br from-emerald-500 to-green-600' : ($paymentSuccessRate >= 90 ? 'bg-gradient-to-br from-amber-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-rose-600') }} text-white shadow-md">
+                                <flux:icon icon="check-circle" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -290,8 +307,8 @@
                                 <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $activeCourses }}</div>
                                 <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">of {{ $totalCourses }} total</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10">
-                                <flux:icon icon="academic-cap" class="w-5 h-5 text-sky-500" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-md shadow-sky-500/25">
+                                <flux:icon icon="academic-cap" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -314,8 +331,8 @@
                                     </flux:text>
                                 </div>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/10">
-                                <flux:icon icon="users" class="w-5 h-5 text-teal-500" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/25">
+                                <flux:icon icon="users" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -329,8 +346,8 @@
                                 <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ number_format($activeEnrollments) }}</div>
                                 <flux:text size="sm" class="mt-1 text-indigo-600 dark:text-indigo-400">{{ $thisMonthEnrollments }} new this month</flux:text>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10">
-                                <flux:icon icon="clipboard-document" class="w-5 h-5 text-indigo-500" />
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-md shadow-indigo-500/25">
+                                <flux:icon icon="clipboard-document" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -353,7 +370,7 @@
                         <div class="px-5 pb-5 space-y-1">
                             @foreach($topCourses as $index => $course)
                                 <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
-                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $index === 0 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : ($index === 1 ? 'bg-zinc-200/60 dark:bg-zinc-600/40 text-zinc-600 dark:text-zinc-300' : 'bg-zinc-100 dark:bg-zinc-700/50 text-zinc-500 dark:text-zinc-400') }} text-sm font-bold tabular-nums">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $index === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-sm shadow-amber-500/30' : ($index === 1 ? 'bg-gradient-to-br from-zinc-300 to-zinc-400 text-white' : ($index === 2 ? 'bg-gradient-to-br from-orange-400 to-amber-600 text-white' : 'bg-zinc-100 dark:bg-zinc-700/50 text-zinc-500 dark:text-zinc-400')) }} text-sm font-bold tabular-nums">
                                         {{ $index + 1 }}
                                     </div>
                                     <div class="flex-1 min-w-0">

@@ -1,0 +1,1 @@
+import{c}from"./x-D-mCb4No.js";const e=[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["path",{d:"M12 6v6l4 2",key:"mmk7yg"}]],o=c("clock",e);const i=[["circle",{cx:"12",cy:"12",r:"1",key:"41hilf"}],["circle",{cx:"19",cy:"12",r:"1",key:"1wjl8i"}],["circle",{cx:"5",cy:"12",r:"1",key:"1pcz8c"}]],r=c("ellipsis",i);export{o as C,r as E};
