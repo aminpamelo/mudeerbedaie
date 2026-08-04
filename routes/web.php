@@ -106,6 +106,9 @@ Route::get('/', function (Request $request) {
 })->name('home');
 
 // Public storefront (open to guests + authenticated users)
+// `home` (/) redirects logged-in users to their dashboard, so the storefront
+// nav uses this dedicated route to stay on the store while authenticated.
+Route::get('storefront', [StorefrontController::class, 'home'])->name('storefront.home');
 Route::get('shop', [StorefrontController::class, 'shop'])->name('shop');
 Route::get('lang/{locale}', [StorefrontController::class, 'setLocale'])->name('locale.switch');
 

@@ -26,12 +26,12 @@ new class extends Component
 
 <a
     href="{{ route('cart') }}"
-    class="relative grid h-9 w-9 place-items-center rounded-lg text-zinc-700 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+    class="relative grid h-9 w-9 place-items-center rounded-lg text-zinc-700 transition-colors hover:bg-violet-50 hover:text-violet-700"
     aria-label="{{ __('store.nav_cart') }}"
 >
     <flux:icon name="shopping-cart" class="h-5 w-5" />
     @if($count > 0)
-        <span class="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white tabular-nums">
+        <span class="store-grad absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold text-white tabular-nums">
             {{ $count > 99 ? '99+' : $count }}
         </span>
     @endif

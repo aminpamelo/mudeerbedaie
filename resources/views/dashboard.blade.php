@@ -159,6 +159,12 @@
                     </flux:button>
                     <flux:button variant="outline" size="sm" href="{{ route('enrollments.index') }}">Enrollments</flux:button>
                     <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">Orders</flux:button>
+                    <flux:button variant="ghost" size="sm" href="{{ route('storefront.home') }}" target="_blank">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="building-storefront" class="w-4 h-4 mr-1" />
+                            Front Store
+                        </div>
+                    </flux:button>
                 </div>
             </div>
 

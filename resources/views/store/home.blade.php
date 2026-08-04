@@ -1,13 +1,15 @@
 <x-layouts.store :title="config('store.name') . ' — ' . __('store.hero_eyebrow')">
 
     {{-- ===================== HERO ===================== --}}
-    <section class="relative overflow-hidden border-b border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white">
+    <section class="relative overflow-hidden border-b border-violet-100/70 bg-gradient-to-b from-violet-50 via-fuchsia-50/60 to-white">
         <div class="store-hero-grid absolute inset-0 opacity-70"></div>
-        <span class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-200/40 blur-3xl"></span>
+        <span class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-fuchsia-300/40 blur-3xl"></span>
+        <span class="pointer-events-none absolute -left-24 top-20 h-72 w-72 rounded-full bg-violet-300/40 blur-3xl"></span>
+        <span class="pointer-events-none absolute bottom-0 right-1/3 h-56 w-56 rounded-full bg-rose-300/30 blur-3xl"></span>
         <div class="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
             <div class="mx-auto max-w-3xl text-center">
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-xs font-semibold text-violet-700 shadow-sm backdrop-blur">
+                    <span class="store-grad h-1.5 w-1.5 rounded-full"></span>
                     {{ __('store.hero_eyebrow') }}
                 </span>
                 <h1 class="font-display mt-5 text-4xl font-extrabold leading-[1.1] text-zinc-900 sm:text-5xl lg:text-6xl">
@@ -18,21 +20,21 @@
                 </p>
 
                 {{-- Search --}}
-                <form method="GET" action="{{ route('shop') }}" class="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-1.5 shadow-lg shadow-emerald-900/5">
+                <form method="GET" action="{{ route('shop') }}" class="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-1.5 shadow-xl shadow-fuchsia-900/10 ring-1 ring-zinc-900/5 backdrop-blur">
                     <div class="flex flex-1 items-center gap-2 pl-3">
                         <flux:icon name="magnifying-glass" class="h-5 w-5 shrink-0 text-zinc-400" />
                         <input type="text" name="q" placeholder="{{ __('store.hero_search_ph') }}" class="w-full border-0 bg-transparent py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0" />
                     </div>
-                    <button type="submit" class="shrink-0 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
+                    <button type="submit" class="store-grad store-grad-hover shrink-0 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
                         {{ __('store.hero_cta_shop') }}
                     </button>
                 </form>
 
                 {{-- Trust stats --}}
                 <div class="mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-zinc-600">
-                    <span class="inline-flex items-center gap-2"><flux:icon name="cube" class="h-4 w-4 text-emerald-600" /> <strong class="font-semibold text-zinc-900 tabular-nums">{{ number_format($productCount) }}</strong> {{ __('store.stat_products') }}</span>
-                    <span class="inline-flex items-center gap-2"><flux:icon name="shield-check" class="h-4 w-4 text-emerald-600" /> {{ __('store.stat_secure') }}</span>
-                    <span class="inline-flex items-center gap-2"><flux:icon name="truck" class="h-4 w-4 text-emerald-600" /> {{ __('store.stat_delivery') }}</span>
+                    <span class="inline-flex items-center gap-2"><flux:icon name="cube" class="h-4 w-4 text-violet-600" /> <strong class="font-semibold text-zinc-900 tabular-nums">{{ number_format($productCount) }}</strong> {{ __('store.stat_products') }}</span>
+                    <span class="inline-flex items-center gap-2"><flux:icon name="shield-check" class="h-4 w-4 text-fuchsia-600" /> {{ __('store.stat_secure') }}</span>
+                    <span class="inline-flex items-center gap-2"><flux:icon name="truck" class="h-4 w-4 text-rose-500" /> {{ __('store.stat_delivery') }}</span>
                 </div>
             </div>
         </div>
@@ -46,14 +48,14 @@
                     <h2 class="font-display text-2xl font-extrabold text-zinc-900 sm:text-3xl">{{ __('store.categories_title') }}</h2>
                     <p class="mt-1.5 text-sm text-zinc-500">{{ __('store.categories_subtitle') }}</p>
                 </div>
-                <a href="{{ route('shop') }}" class="hidden shrink-0 items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800 sm:inline-flex">
+                <a href="{{ route('shop') }}" class="hidden shrink-0 items-center gap-1 text-sm font-semibold text-violet-700 hover:text-fuchsia-700 sm:inline-flex">
                     {{ __('store.categories_all') }} <flux:icon name="arrow-right" class="h-4 w-4" />
                 </a>
             </div>
             <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach($categories as $category)
-                    <a href="{{ route('shop', ['category' => $category->id]) }}" class="group flex items-center gap-3 rounded-2xl border border-zinc-100 bg-white p-4 transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
-                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                    <a href="{{ route('shop', ['category' => $category->id]) }}" class="group flex items-center gap-3 rounded-2xl border border-zinc-100 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-fuchsia-900/5">
+                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600 transition-colors duration-300 group-hover:bg-gradient-to-br group-hover:from-violet-600 group-hover:via-fuchsia-600 group-hover:to-rose-500 group-hover:text-white">
                             <flux:icon name="tag" class="h-5 w-5" />
                         </span>
                         <span class="min-w-0">
@@ -73,7 +75,7 @@
                 <h2 class="font-display text-2xl font-extrabold text-zinc-900 sm:text-3xl">{{ __('store.featured_title') }}</h2>
                 <p class="mt-1.5 text-sm text-zinc-500">{{ __('store.featured_subtitle') }}</p>
             </div>
-            <a href="{{ route('shop') }}" class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+            <a href="{{ route('shop') }}" class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-violet-700 hover:text-fuchsia-700">
                 {{ __('store.view_all') }} <flux:icon name="arrow-right" class="h-4 w-4" />
             </a>
         </div>
@@ -93,8 +95,10 @@
 
     {{-- ===================== PACKAGE DEALS ===================== --}}
     @if($packages->isNotEmpty())
-        <section id="packages" class="bg-zinc-50 py-16 scroll-mt-20">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section id="packages" class="relative overflow-hidden bg-zinc-50 py-16 scroll-mt-20">
+            <span class="pointer-events-none absolute -left-20 top-10 h-64 w-64 rounded-full bg-violet-200/40 blur-3xl"></span>
+            <span class="pointer-events-none absolute -right-20 bottom-10 h-64 w-64 rounded-full bg-rose-200/40 blur-3xl"></span>
+            <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="text-center">
                     <h2 class="font-display text-2xl font-extrabold text-zinc-900 sm:text-3xl">{{ __('store.packages_title') }}</h2>
                     <p class="mx-auto mt-1.5 max-w-xl text-sm text-zinc-500">{{ __('store.packages_subtitle') }}</p>
@@ -109,11 +113,11 @@
                                 ? 'https://wa.me/' . $whatsapp . '?text=' . rawurlencode($package->name . ' — ' . $package->formatted_price)
                                 : null;
                         @endphp
-                        <div class="flex flex-col overflow-hidden rounded-3xl border border-zinc-100 bg-white shadow-sm">
-                            <div class="relative flex aspect-[16/10] items-center justify-center bg-gradient-to-br from-emerald-600 to-emerald-500 p-6 text-center">
+                        <div class="flex flex-col overflow-hidden rounded-3xl border border-zinc-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-fuchsia-900/10">
+                            <div class="store-grad relative flex aspect-[16/10] items-center justify-center p-6 text-center">
                                 <span class="absolute left-4 top-4 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white backdrop-blur">{{ __('store.package_badge') }}</span>
                                 @if($savingsPct > 0)
-                                    <span class="absolute right-4 top-4 rounded-full bg-amber-400 px-2.5 py-1 text-[11px] font-extrabold text-amber-950 tabular-nums">{{ __('store.package_save_pct', ['pct' => $savingsPct]) }}</span>
+                                    <span class="absolute right-4 top-4 rounded-full bg-amber-300 px-2.5 py-1 text-[11px] font-extrabold text-amber-950 tabular-nums">{{ __('store.package_save_pct', ['pct' => $savingsPct]) }}</span>
                                 @endif
                                 <flux:icon name="gift" class="h-14 w-14 text-white/90" />
                             </div>
@@ -132,18 +136,18 @@
                                         @endif
                                     </div>
                                     @if($package->calculateSavings() > 0)
-                                        <div class="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                        <div class="mt-1 inline-flex items-center gap-1 rounded-md bg-fuchsia-50 px-2 py-0.5 text-xs font-semibold text-fuchsia-700">
                                             <flux:icon name="sparkles" class="h-3.5 w-3.5" /> {{ __('store.package_save', ['amount' => $package->formatted_savings]) }}
                                         </div>
                                     @endif
 
                                     @if($waUrl)
-                                        <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white">
+                                        <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="store-grad store-grad-hover mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
                                             <flux:icon name="chat-bubble-left-right" class="h-4 w-4" />
                                             {{ __('store.package_order') }}
                                         </a>
                                     @else
-                                        <a href="{{ route('shop') }}" class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white">
+                                        <a href="{{ route('shop') }}" class="store-grad store-grad-hover mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
                                             {{ __('store.view_all') }}
                                             <flux:icon name="arrow-right" class="h-4 w-4" />
                                         </a>
@@ -173,8 +177,8 @@
         @endphp
         <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             @foreach($whys as $why)
-                <div class="rounded-2xl border border-zinc-100 bg-white p-6 text-center">
-                    <span class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <div class="rounded-2xl border border-zinc-100 bg-white p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-violet-200 hover:shadow-lg hover:shadow-fuchsia-900/5">
+                    <span class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-violet-50 text-violet-600">
                         <flux:icon :name="$why['icon']" class="h-6 w-6" />
                     </span>
                     <h3 class="font-display mt-4 text-sm font-bold text-zinc-900">{{ __('store.' . $why['title']) }}</h3>
@@ -186,12 +190,12 @@
 
     {{-- ===================== CTA BAND ===================== --}}
     <section class="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-700 to-emerald-600 px-6 py-14 text-center shadow-xl shadow-emerald-900/10 sm:px-12">
-            <span class="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl"></span>
-            <span class="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-emerald-400/20 blur-2xl"></span>
+        <div class="store-grad relative overflow-hidden rounded-3xl px-6 py-14 text-center shadow-xl shadow-fuchsia-900/20 sm:px-12">
+            <span class="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl"></span>
+            <span class="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-white/10 blur-2xl"></span>
             <h2 class="font-display relative text-2xl font-extrabold text-white sm:text-3xl">{{ __('store.cta_title') }}</h2>
-            <p class="relative mx-auto mt-3 max-w-lg text-sm text-emerald-50 sm:text-base">{{ __('store.cta_text') }}</p>
-            <a href="{{ route('shop') }}" class="relative mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-emerald-700 shadow-sm transition-transform hover:-translate-y-0.5">
+            <p class="relative mx-auto mt-3 max-w-lg text-sm text-white/80 sm:text-base">{{ __('store.cta_text') }}</p>
+            <a href="{{ route('shop') }}" class="relative mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-violet-700 shadow-lg transition-transform hover:-translate-y-0.5">
                 {{ __('store.cta_button') }} <flux:icon name="arrow-right" class="h-4 w-4" />
             </a>
         </div>

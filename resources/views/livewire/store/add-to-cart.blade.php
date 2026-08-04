@@ -50,7 +50,7 @@ new class extends Component
     wire:loading.attr="disabled"
     wire:target="add"
     aria-label="{{ __('store.add_to_cart') }}: {{ $product->name }}"
-    class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-70"
+    class="store-grad store-grad-hover flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-70"
 >
     <flux:icon name="shopping-cart" class="h-4 w-4" wire:loading.remove wire:target="add" />
     <flux:icon name="arrow-path" class="h-4 w-4 animate-spin" wire:loading wire:target="add" />

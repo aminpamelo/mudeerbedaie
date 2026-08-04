@@ -8,13 +8,13 @@
     $browseUrl = $product->category_id ? route('shop', ['category' => $product->category_id]) : route('shop');
 @endphp
 
-<div class="group flex flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/5">
+<div class="group flex flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-violet-200 hover:shadow-xl hover:shadow-fuchsia-900/10">
     <a href="{{ $browseUrl }}" class="relative block aspect-square overflow-hidden bg-zinc-50">
         @if($img)
             <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105">
         @else
-            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50 to-zinc-50">
-                <flux:icon name="photo" class="h-12 w-12 text-emerald-200" />
+            <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-50 via-fuchsia-50 to-rose-50">
+                <flux:icon name="photo" class="h-12 w-12 text-violet-200" />
             </div>
         @endif
         @if($outOfStock)
@@ -24,10 +24,10 @@
 
     <div class="flex flex-1 flex-col p-4">
         @if($product->category)
-            <span class="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{{ $product->category->name }}</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-fuchsia-600">{{ $product->category->name }}</span>
         @endif
         <h3 class="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-zinc-900">
-            <a href="{{ $browseUrl }}" class="transition-colors hover:text-emerald-700">{{ $product->name }}</a>
+            <a href="{{ $browseUrl }}" class="transition-colors hover:text-violet-700">{{ $product->name }}</a>
         </h3>
 
         <div class="mt-3 flex flex-1 items-end">
