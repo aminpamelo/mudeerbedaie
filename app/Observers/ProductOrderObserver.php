@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\ProductOrder;
 use App\Models\Student;
+use App\Services\Enrolment\CourseEnrolmentFromOrder;
 use App\Services\ExternalProvisioning\ExternalProvisioningManager;
 use App\Services\Workflow\WorkflowEngine;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,7 @@ class ProductOrderObserver
     public function __construct(
         protected WorkflowEngine $workflowEngine,
         protected ExternalProvisioningManager $provisioningManager,
+        protected CourseEnrolmentFromOrder $courseEnrolment,
     ) {}
 
     /**
@@ -24,6 +26,7 @@ class ProductOrderObserver
         // so provision here too. dispatchForOrder is idempotent.
         if ($productOrder->isPaid()) {
             $this->provisionExternalAccounts($productOrder);
+            $this->enrolCourses($productOrder);
         }
 
         $student = $this->getStudentFromOrder($productOrder);
@@ -53,6 +56,7 @@ class ProductOrderObserver
         // (guest/POS/agent) often have no linked Student. Idempotent.
         if ($this->wasJustPaid($productOrder, $changes)) {
             $this->provisionExternalAccounts($productOrder);
+            $this->enrolCourses($productOrder);
         }
 
         $student = $this->getStudentFromOrder($productOrder);
@@ -113,6 +117,22 @@ class ProductOrderObserver
             $this->provisioningManager->dispatchForOrder($order);
         } catch (\Throwable $e) {
             Log::error('External provisioning dispatch failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Enrol the buyer into any purchased courses. Wrapped so an enrolment hiccup
+     * never breaks the order save.
+     */
+    protected function enrolCourses(ProductOrder $order): void
+    {
+        try {
+            $this->courseEnrolment->fulfil($order);
+        } catch (\Throwable $e) {
+            Log::error('Course enrolment from order failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
             ]);

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +40,8 @@ class ClassSession extends Model
         'duration_minutes',
         'status',
         'teacher_notes',
+        'recording_url',
+        'recording_available_at',
         'completed_at',
         'started_at',
         'started_by',
@@ -62,6 +66,7 @@ class ClassSession extends Model
             'session_time' => 'datetime:H:i',
             'completed_at' => 'datetime',
             'started_at' => 'datetime',
+            'recording_available_at' => 'datetime',
             'verified_at' => 'datetime',
             'upsell_funnel_ids' => 'array',
             'upsell_pic_user_ids' => 'array',
@@ -70,6 +75,16 @@ class ClassSession extends Model
             'syllabus_ids' => 'array',
             'is_adhoc' => 'boolean',
         ];
+    }
+
+    /**
+     * True when a recording link is set and (if a release time was given) that
+     * time has passed.
+     */
+    public function hasRecording(): bool
+    {
+        return filled($this->recording_url)
+            && (blank($this->recording_available_at) || $this->recording_available_at->isPast());
     }
 
     public function class(): BelongsTo
@@ -102,34 +117,34 @@ class ClassSession extends Model
         return $this->belongsTo(Teacher::class, 'assigned_to');
     }
 
-    public function upsellFunnels(): \Illuminate\Database\Eloquent\Collection
+    public function upsellFunnels(): Collection
     {
         $ids = $this->upsell_funnel_ids ?? [];
 
-        return $ids ? Funnel::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
+        return $ids ? Funnel::whereIn('id', $ids)->get() : new Collection;
     }
 
-    public function upsellTeachers(): \Illuminate\Database\Eloquent\Collection
+    public function upsellTeachers(): Collection
     {
         $ids = $this->upsell_teacher_ids ?? [];
 
-        return $ids ? User::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
+        return $ids ? User::whereIn('id', $ids)->get() : new Collection;
     }
 
-    public function upsellPics(): \Illuminate\Database\Eloquent\Collection
+    public function upsellPics(): Collection
     {
         $ids = $this->upsell_pic_user_ids ?? [];
 
-        return $ids ? User::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
+        return $ids ? User::whereIn('id', $ids)->get() : new Collection;
     }
 
-    public function syllabusItems(): \Illuminate\Database\Eloquent\Collection
+    public function syllabusItems(): Collection
     {
         $ids = $this->syllabus_ids ?? [];
 
         return $ids
             ? ClassSyllabus::whereIn('id', $ids)->orderBy('sort_order')->get()
-            : new \Illuminate\Database\Eloquent\Collection;
+            : new Collection;
     }
 
     public function funnelOrders(): HasMany
@@ -972,7 +987,7 @@ class ClassSession extends Model
         return $this->hasMany(ScheduledNotification::class, 'session_id')->pending();
     }
 
-    public function getSessionDateTime(): \Carbon\Carbon
+    public function getSessionDateTime(): Carbon
     {
         return $this->session_date->copy()->setTimeFromTimeString($this->session_time->format('H:i:s'));
     }

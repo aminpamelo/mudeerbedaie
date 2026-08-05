@@ -16,6 +16,7 @@ class ProductOrderItem extends Model
         'itemable_type',
         'itemable_id',
         'package_id',
+        'course_id',
         'product_id',
         'product_variant_id',
         'warehouse_id',
@@ -88,6 +89,11 @@ class ProductOrderItem extends Model
         return $this->belongsTo(Package::class);
     }
 
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -106,12 +112,17 @@ class ProductOrderItem extends Model
     // Type checking methods
     public function isProduct(): bool
     {
-        return $this->itemable_type === Product::class || ($this->product_id && ! $this->package_id);
+        return $this->itemable_type === Product::class || ($this->product_id && ! $this->package_id && ! $this->course_id);
     }
 
     public function isPackage(): bool
     {
         return $this->itemable_type === Package::class || $this->package_id !== null;
+    }
+
+    public function isCourse(): bool
+    {
+        return $this->itemable_type === Course::class || $this->course_id !== null;
     }
 
     // Helper methods

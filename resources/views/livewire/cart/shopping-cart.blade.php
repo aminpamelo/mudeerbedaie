@@ -150,7 +150,7 @@ new #[Layout('components.layouts.store')] class extends Component
                                         </span>
                                     @else
                                         <span class="flex h-full w-full items-center justify-center">
-                                            <flux:icon name="{{ $item->isPackage() ? 'gift' : 'photo' }}" class="h-8 w-8 text-violet-300" />
+                                            <flux:icon name="{{ $item->isCourse() ? 'academic-cap' : ($item->isPackage() ? 'gift' : 'photo') }}" class="h-8 w-8 text-violet-300" />
                                         </span>
                                     @endif
                                 </div>
@@ -161,6 +161,8 @@ new #[Layout('components.layouts.store')] class extends Component
                                         <h3 class="font-display text-base font-bold leading-snug text-zinc-900">{{ $item->getDisplayName() }}</h3>
                                         @if($item->isPackage())
                                             <span class="mt-0.5 shrink-0 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-fuchsia-700">{{ __('store.nav_packages') }}</span>
+                                        @elseif($item->isCourse())
+                                            <span class="mt-0.5 shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">{{ __('store.lms_badge') }}</span>
                                         @endif
                                     </div>
                                     @if($item->variant)

@@ -920,8 +920,49 @@ class ProductOrder extends Model
             'customer_notes' => $customerData['notes'] ?? null,
         ]);
 
-        // Create order items from cart items
+        // Create order items from cart items (products and packages).
         foreach ($cart->items as $cartItem) {
+            if ($cartItem->isPackage()) {
+                $package = $cartItem->package;
+
+                $order->items()->create([
+                    'itemable_type' => Package::class,
+                    'itemable_id' => $cartItem->package_id,
+                    'package_id' => $cartItem->package_id,
+                    'warehouse_id' => $cartItem->warehouse_id,
+                    'product_name' => $package?->name ?? ($cartItem->package_snapshot['name'] ?? 'Package'),
+                    'sku' => $cartItem->getSku(),
+                    'quantity_ordered' => $cartItem->quantity,
+                    'unit_price' => $cartItem->unit_price,
+                    'total_price' => $cartItem->total_price,
+                    'unit_cost' => 0,
+                    'package_snapshot' => $package?->toArray() ?? $cartItem->package_snapshot,
+                    'package_items_snapshot' => $package?->loadMissing('items')->items->toArray()
+                        ?? ($cartItem->package_snapshot['items'] ?? null),
+                ]);
+
+                continue;
+            }
+
+            if ($cartItem->isCourse()) {
+                $course = $cartItem->course;
+
+                $order->items()->create([
+                    'itemable_type' => Course::class,
+                    'itemable_id' => $cartItem->course_id,
+                    'course_id' => $cartItem->course_id,
+                    'product_name' => $course?->name ?? ($cartItem->product_snapshot['name'] ?? 'Course'),
+                    'sku' => $cartItem->getSku(),
+                    'quantity_ordered' => $cartItem->quantity,
+                    'unit_price' => $cartItem->unit_price,
+                    'total_price' => $cartItem->total_price,
+                    'unit_cost' => 0,
+                    'product_snapshot' => $cartItem->product_snapshot,
+                ]);
+
+                continue;
+            }
+
             $order->items()->create([
                 'product_id' => $cartItem->product_id,
                 'product_variant_id' => $cartItem->product_variant_id,

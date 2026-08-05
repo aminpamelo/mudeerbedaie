@@ -245,9 +245,9 @@ new #[Layout('components.layouts.store')] class extends Component
                 'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cod,fpx,grabpay,boost',
             ]);
 
-            // Final stock validation (products only; packages are a flat bundle line)
+            // Final stock validation (products only; packages/courses have no inventory)
             foreach ($this->cart->items as $item) {
-                if ($item->isPackage()) {
+                if ($item->isPackage() || $item->isCourse()) {
                     continue;
                 }
 
@@ -730,7 +730,7 @@ new #[Layout('components.layouts.store')] class extends Component
                                             </span>
                                         @else
                                             <span class="flex h-full w-full items-center justify-center">
-                                                <flux:icon name="{{ $item->isPackage() ? 'gift' : 'photo' }}" class="h-5 w-5 text-violet-300" />
+                                                <flux:icon name="{{ $item->isCourse() ? 'academic-cap' : ($item->isPackage() ? 'gift' : 'photo') }}" class="h-5 w-5 text-violet-300" />
                                             </span>
                                         @endif
                                         <span class="absolute -right-1.5 -top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-zinc-900 px-1 text-[10px] font-bold text-white">{{ $item->quantity }}</span>

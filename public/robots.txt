@@ -1,2 +1,19 @@
 User-agent: *
-Disallow:
+Allow: /
+
+# Authenticated and transactional areas — nothing to index here.
+Disallow: /admin
+Disallow: /hr
+Disallow: /livehost
+Disallow: /live-host
+Disallow: /ceo
+Disallow: /fighter
+Disallow: /teacher
+Disallow: /student
+Disallow: /cart
+Disallow: /checkout
+Disallow: /login
+Disallow: /register
+Disallow: /settings
+
+Sitemap: https://mudeerbedaie.test/sitemap.xml

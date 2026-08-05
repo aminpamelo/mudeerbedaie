@@ -37,6 +37,8 @@ export default defineConfig({
                 'resources/js/ceo/styles/ceo.css',
                 'resources/js/fighter/app.jsx',
                 'resources/js/fighter/styles/fighter.css',
+                'resources/js/blogseo/app.jsx',
+                'resources/js/blogseo/styles/blogseo.css',
             ],
             refresh: true,
         }),

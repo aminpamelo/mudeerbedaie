@@ -71,6 +71,71 @@ class ProductCart extends Model
         return $item;
     }
 
+    /**
+     * Add a package as a single cart line (merging quantity if already present).
+     * The package price is a flat bundle price, so quantity multiplies it.
+     */
+    public function addPackage(Package $package, int $quantity = 1): ProductCartItem
+    {
+        $item = $this->items()->where('package_id', $package->id)->first();
+
+        if ($item) {
+            $item->update([
+                'quantity' => $item->quantity + $quantity,
+                'total_price' => $item->unit_price * ($item->quantity + $quantity),
+            ]);
+        } else {
+            $price = $package->price;
+            $item = $this->items()->create([
+                'itemable_type' => Package::class,
+                'itemable_id' => $package->id,
+                'package_id' => $package->id,
+                'warehouse_id' => $package->default_warehouse_id,
+                'quantity' => $quantity,
+                'unit_price' => $price,
+                'total_price' => $price * $quantity,
+                'package_snapshot' => $this->buildPackageSnapshot($package),
+            ]);
+        }
+
+        $this->recalculateTotal();
+
+        return $item;
+    }
+
+    /**
+     * Add a course as a one-time enrolment line. A course is bought once, so the
+     * quantity is always 1 and re-adding the same course is a no-op.
+     */
+    public function addCourse(Course $course): ProductCartItem
+    {
+        $existing = $this->items()->where('course_id', $course->id)->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $price = (float) ($course->feeSettings?->fee_amount ?? 0);
+
+        $item = $this->items()->create([
+            'itemable_type' => Course::class,
+            'itemable_id' => $course->id,
+            'course_id' => $course->id,
+            'quantity' => 1,
+            'unit_price' => $price,
+            'total_price' => $price,
+            'product_snapshot' => [
+                'name' => $course->name,
+                'slug' => $course->slug,
+                'price' => $price,
+            ],
+        ]);
+
+        $this->recalculateTotal();
+
+        return $item;
+    }
+
     public function removeItem(ProductCartItem $item): bool
     {
         $removed = $item->delete();
@@ -120,6 +185,21 @@ class ProductCart extends Model
             'variant_attributes' => $variant?->attributes,
             'price' => $variant ? $variant->price : $product->base_price,
             'cost_price' => $variant ? $variant->cost_price : $product->cost_price,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildPackageSnapshot(Package $package): array
+    {
+        return [
+            'name' => $package->name,
+            'slug' => $package->slug,
+            'price' => $package->price,
+            'original_price' => $package->calculateOriginalPrice(),
+            'featured_image' => $package->featured_image,
+            'items' => $package->loadMissing('items')->items->toArray(),
         ];
     }
 }

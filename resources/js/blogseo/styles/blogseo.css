@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Ink / surface scale */
+  --color-ink: #0B1120;
+  --color-ink-2: #334155;
+  --color-muted: #64748B;
+  --color-muted-2: #94A3B8;
+  --color-line: #E2E8F0;
+  --color-surface: #F8FAFC;
+
+  /* Blog & SEO accent — growth green, distinct from Fighter orange and
+     Live Host violet, and a natural read for ranking/health scores. */
+  --color-brand: #10B981;
+  --color-brand-ink: #047857;
+  --color-brand-soft: #ECFDF5;
+  --color-brand-2: #14B8A6;
+
+  --color-emerald: #10B981;
+  --color-emerald-ink: #047857;
+  --color-sky: #0EA5E9;
+  --color-sky-ink: #0369A1;
+  --color-amber: #F59E0B;
+  --color-amber-ink: #B45309;
+  --color-rose: #F43F5E;
+  --color-rose-ink: #BE123C;
+}
+
+/* Dark slate shell; the content column is a light workspace on top of it. */
+body {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(16, 185, 129, 0.12), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(20, 184, 166, 0.09), transparent 55%),
+    #0B1120;
+  color: var(--color-ink);
+  min-height: 100dvh;
+}
+
+/* Frosted panel used by the sidebar + mobile bar. */
+.panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+/* Thin, unobtrusive scrollbars inside scroll regions. */
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes blogseo-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: blogseo-fade-up 0.35s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Article preview typography.
+
+   The rendered HTML arrives from the server's MarkdownService at runtime, so
+   Tailwind's scanner can never see classes inside it — these rules are written
+   by hand and kept in sync with `.blog-prose` in the storefront layout.
+   --------------------------------------------------------------------------- */
+.md-preview { color: #3f3f46; font-size: 0.9375rem; line-height: 1.75; }
+.md-preview > * + * { margin-top: 1em; }
+.md-preview h2,
+.md-preview h3,
+.md-preview h4 { color: #0f172a; font-weight: 700; letter-spacing: -0.02em; }
+.md-preview h2 { font-size: 1.35rem; margin-top: 1.6em; line-height: 1.3; }
+.md-preview h3 { font-size: 1.1rem; margin-top: 1.4em; line-height: 1.35; }
+.md-preview h4 { font-size: 1rem; margin-top: 1.2em; }
+.md-preview a { color: var(--color-brand-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.md-preview strong { color: #0f172a; font-weight: 700; }
+.md-preview ul { list-style: disc; padding-left: 1.4em; }
+.md-preview ol { list-style: decimal; padding-left: 1.4em; }
+.md-preview li { margin-top: 0.35em; }
+.md-preview li::marker { color: var(--color-brand); }
+.md-preview blockquote {
+  border-left: 3px solid var(--color-brand);
+  background: var(--color-brand-soft);
+  padding: 0.6em 1em; margin: 1.2em 0;
+  border-radius: 0 0.5rem 0.5rem 0; font-style: italic; color: #475569;
+}
+.md-preview img { border-radius: 0.75rem; margin: 1.2em 0; max-width: 100%; height: auto; }
+.md-preview code { background: #f1f5f9; color: #be185d; padding: 0.12em 0.35em; border-radius: 0.3rem; font-size: 0.875em; }
+.md-preview pre { background: #0f172a; color: #f8fafc; padding: 0.9em 1em; border-radius: 0.75rem; overflow-x: auto; margin: 1.2em 0; font-size: 0.8125rem; }
+.md-preview pre code { background: none; color: inherit; padding: 0; }
+/* Wide tables scroll inside their own box rather than the page. */
+.md-preview table { width: 100%; border-collapse: collapse; margin: 1.2em 0; font-size: 0.875rem; display: block; overflow-x: auto; }
+.md-preview th, .md-preview td { border: 1px solid var(--color-line); padding: 0.5em 0.7em; text-align: left; }
+.md-preview th { background: var(--color-brand-soft); font-weight: 700; }
+.md-preview hr { border: 0; border-top: 1px solid var(--color-line); margin: 1.8em 0; }

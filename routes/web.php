@@ -4,6 +4,16 @@ use App\Http\Controllers\Admin\EasyParcelOAuthController;
 use App\Http\Controllers\Admin\ProductOrderReceiptController;
 use App\Http\Controllers\Api\Hr\HrPwaSettingController;
 use App\Http\Controllers\BayarcashWebhookController;
+use App\Http\Controllers\Blog\CommentController as BlogCommentController;
+use App\Http\Controllers\Blog\SubscriberController as BlogSubscriberController;
+use App\Http\Controllers\BlogController;
+use App\Http\Controllers\BlogSeo\CategoryController as BlogSeoCategoryController;
+use App\Http\Controllers\BlogSeo\CommentController as BlogSeoCommentController;
+use App\Http\Controllers\BlogSeo\DashboardController as BlogSeoDashboardController;
+use App\Http\Controllers\BlogSeo\PostController as BlogSeoPostController;
+use App\Http\Controllers\BlogSeo\SeoController as BlogSeoSeoController;
+use App\Http\Controllers\BlogSeo\SubscriberController as BlogSeoSubscriberController;
+use App\Http\Controllers\BlogSeo\TagController as BlogSeoTagController;
 use App\Http\Controllers\Ceo\CeoPwaController;
 use App\Http\Controllers\Ceo\CeoTaskController;
 use App\Http\Controllers\Ceo\DepartmentController;
@@ -73,6 +83,7 @@ use App\Http\Controllers\LiveHostPocket\SessionDetailController;
 use App\Http\Controllers\LiveHostPocket\SessionsController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PublicFunnelController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\Shipping\EasyParcelWebhookController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\StripeWebhookController;
@@ -81,6 +92,7 @@ use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\TikTok\TikTokAuthController;
 use App\Http\Controllers\TikTok\TikTokWebhookController;
 use App\Http\Middleware\AffiliateSessionLifetime;
+use App\Http\Middleware\HandleBlogSeoInertiaRequests;
 use App\Http\Middleware\HandleCeoInertiaRequests;
 use App\Http\Middleware\HandleFighterInertiaRequests;
 use App\Http\Middleware\HandlePocketInertiaRequests;
@@ -110,7 +122,39 @@ Route::get('/', function (Request $request) {
 // nav uses this dedicated route to stay on the store while authenticated.
 Route::get('storefront', [StorefrontController::class, 'home'])->name('storefront.home');
 Route::get('shop', [StorefrontController::class, 'shop'])->name('shop');
+Route::get('product/{product:slug}', [StorefrontController::class, 'product'])->name('storefront.product');
+Route::get('package/{package:slug}', [StorefrontController::class, 'package'])->name('storefront.package');
+Route::get('courses', [StorefrontController::class, 'courses'])->name('storefront.courses');
+Route::get('course/{course:slug}', [StorefrontController::class, 'course'])->name('storefront.course');
 Route::get('lang/{locale}', [StorefrontController::class, 'setLocale'])->name('locale.switch');
+
+// ---------------------------------------------------------------------------
+// Public blog
+// ---------------------------------------------------------------------------
+// Articles are Markdown-authored, language-tagged and rendered on the
+// storefront layout. Static segments (category/tag) are declared before the
+// catch-all `blog/{slug}` so a post can never shadow them.
+Route::get('blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('blog/category/{slug}', [BlogController::class, 'category'])->name('blog.category');
+Route::get('blog/tag/{slug}', [BlogController::class, 'tag'])->name('blog.tag');
+Route::get('blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+
+// Newsletter capture is open to guests; commenting requires an account.
+Route::post('blog/subscribe', [BlogSubscriberController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('blog.subscribe');
+Route::get('blog/unsubscribe/{token}', [BlogSubscriberController::class, 'unsubscribe'])
+    ->name('blog.unsubscribe');
+Route::post('blog/{post}/comments', [BlogCommentController::class, 'store'])
+    ->middleware(['auth', 'throttle:20,1'])
+    ->name('blog.comments.store');
+
+// ---------------------------------------------------------------------------
+// SEO machine-readable surface
+// ---------------------------------------------------------------------------
+Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+Route::get('robots.txt', [SeoController::class, 'robots'])->name('robots');
+Route::get('blog/feed/rss', [SeoController::class, 'feed'])->name('blog.feed');
 
 Route::get('dashboard', function () {
     $user = auth()->user();
@@ -1214,6 +1258,10 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
     Volt::route('product-orders/{order}/edit', 'admin.orders.order-edit')->name('admin.orders.edit');
 
+    // Storefront content routes (hero campaign slides + homepage testimonials)
+    Volt::route('storefront/banners', 'admin.storefront.banners')->name('storefront.banners');
+    Volt::route('storefront/testimonials', 'admin.storefront.testimonials')->name('storefront.testimonials');
+
     // Package Management routes
     Volt::route('packages', 'admin.packages.index')->name('packages.index');
     Volt::route('packages/create', 'admin.packages.create')->name('packages.create');
@@ -1542,6 +1590,83 @@ Route::prefix('recruitment')->name('recruitment.')->group(function () {
     Route::get('{slug}/thank-you', [PublicRecruitmentController::class, 'thankYou'])
         ->name('thank-you');
 });
+
+// ============================================================================
+// BLOG & SEO WORKSPACE (Inertia)
+// ============================================================================
+// A dedicated content workspace with its own shell, in the same style as the
+// Fighter portal and Live Host Desk — Markdown authoring with live SEO
+// scoring, taxonomy, comment moderation, subscribers and the site-wide SEO
+// health dashboard. `/blog` belongs to the public blog, hence `/blog-seo`.
+// HandleBlogSeoInertiaRequests overrides the root view to `blogseo.app`.
+Route::middleware(['auth', 'role:admin,employee', HandleBlogSeoInertiaRequests::class])
+    ->prefix('blog-seo')
+    ->name('blogseo.')
+    ->group(function () {
+        Route::get('/', [BlogSeoDashboardController::class, 'index'])->name('dashboard');
+
+        // Posts — static segments before the {post} binding.
+        Route::get('posts', [BlogSeoPostController::class, 'index'])->name('posts.index');
+        Route::get('posts/create', [BlogSeoPostController::class, 'create'])->name('posts.create');
+        Route::post('posts', [BlogSeoPostController::class, 'store'])->name('posts.store');
+        Route::post('posts/analyze', [BlogSeoPostController::class, 'analyze'])->name('posts.analyze');
+        Route::get('posts/slugify', [BlogSeoPostController::class, 'slugify'])->name('posts.slugify');
+        Route::get('posts/{post}/edit', [BlogSeoPostController::class, 'edit'])->name('posts.edit');
+        Route::put('posts/{post}', [BlogSeoPostController::class, 'update'])->name('posts.update');
+        Route::post('posts/{post}/publish', [BlogSeoPostController::class, 'publish'])->name('posts.publish');
+        Route::post('posts/{post}/unpublish', [BlogSeoPostController::class, 'unpublish'])->name('posts.unpublish');
+        Route::post('posts/{post}/featured', [BlogSeoPostController::class, 'toggleFeatured'])->name('posts.featured');
+        Route::post('posts/{post}/reanalyse', [BlogSeoPostController::class, 'reanalyse'])->name('posts.reanalyse');
+        Route::delete('posts/{post}', [BlogSeoPostController::class, 'destroy'])->name('posts.destroy');
+
+        // SEO health
+        Route::get('seo', [BlogSeoSeoController::class, 'index'])->name('seo');
+        Route::post('seo/reanalyse-all', [BlogSeoSeoController::class, 'reanalyseAll'])->name('seo.reanalyse-all');
+        Route::post('seo/sitemap', [BlogSeoSeoController::class, 'regenerateSitemap'])->name('seo.sitemap');
+        Route::post('seo/robots', [BlogSeoSeoController::class, 'regenerateRobots'])->name('seo.robots');
+
+        // Taxonomy
+        Route::get('categories', [BlogSeoCategoryController::class, 'index'])->name('categories.index');
+        Route::post('categories', [BlogSeoCategoryController::class, 'store'])->name('categories.store');
+        Route::put('categories/{category}', [BlogSeoCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('categories/{category}', [BlogSeoCategoryController::class, 'destroy'])->name('categories.destroy');
+
+        Route::get('tags', [BlogSeoTagController::class, 'index'])->name('tags.index');
+        Route::post('tags', [BlogSeoTagController::class, 'store'])->name('tags.store');
+        Route::post('tags/prune', [BlogSeoTagController::class, 'prune'])->name('tags.prune');
+        Route::put('tags/{tag}', [BlogSeoTagController::class, 'update'])->name('tags.update');
+        Route::delete('tags/{tag}', [BlogSeoTagController::class, 'destroy'])->name('tags.destroy');
+
+        // Moderation
+        Route::get('comments', [BlogSeoCommentController::class, 'index'])->name('comments.index');
+        Route::post('comments/approve-all', [BlogSeoCommentController::class, 'approveAll'])->name('comments.approve-all');
+        Route::post('comments/{comment}/approve', [BlogSeoCommentController::class, 'approve'])->name('comments.approve');
+        Route::post('comments/{comment}/unapprove', [BlogSeoCommentController::class, 'unapprove'])->name('comments.unapprove');
+        Route::post('comments/{comment}/spam', [BlogSeoCommentController::class, 'spam'])->name('comments.spam');
+        Route::delete('comments/{comment}', [BlogSeoCommentController::class, 'destroy'])->name('comments.destroy');
+
+        // Subscribers
+        Route::get('subscribers', [BlogSeoSubscriberController::class, 'index'])->name('subscribers.index');
+        Route::get('subscribers/export', [BlogSeoSubscriberController::class, 'export'])->name('subscribers.export');
+        Route::delete('subscribers/{subscriber}', [BlogSeoSubscriberController::class, 'destroy'])->name('subscribers.destroy');
+    });
+
+// Legacy Flux admin URLs, superseded by the workspace above. Kept inside the
+// authenticated group so the redirect only fires for logged-in staff.
+Route::middleware(['auth', 'role:admin,employee'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::permanentRedirect('seo', '/blog-seo/seo')->name('seo.dashboard');
+        Route::permanentRedirect('blog/posts', '/blog-seo/posts')->name('blog.posts.index');
+        Route::permanentRedirect('blog/posts/create', '/blog-seo/posts/create')->name('blog.posts.create');
+        Route::get('blog/posts/{post}/edit', fn ($post) => redirect("/blog-seo/posts/{$post}/edit", 301))
+            ->name('blog.posts.edit');
+        Route::permanentRedirect('blog/categories', '/blog-seo/categories')->name('blog.categories');
+        Route::permanentRedirect('blog/tags', '/blog-seo/tags')->name('blog.tags');
+        Route::permanentRedirect('blog/comments', '/blog-seo/comments')->name('blog.comments');
+        Route::permanentRedirect('blog/subscribers', '/blog-seo/subscribers')->name('blog.subscribers');
+    });
 
 require __DIR__.'/auth.php';
 

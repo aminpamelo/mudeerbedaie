@@ -221,6 +221,18 @@ class Product extends Model
         return $query->where('status', 'active');
     }
 
+    /**
+     * Products that are purchasable now: untracked stock is always available;
+     * tracked stock needs at least one warehouse with available quantity.
+     */
+    public function scopeInStock($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('track_quantity', false)
+                ->orWhereHas('stockLevels', fn ($s) => $s->where('available_quantity', '>', 0));
+        });
+    }
+
     public function scopeByCategory($query, $categoryId)
     {
         return $query->where('category_id', $categoryId);

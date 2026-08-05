@@ -111,6 +111,15 @@
                                         {{ $session->student_status_label }}
                                     </flux:badge>
 
+                                    @if($session->hasRecording())
+                                        <a href="{{ $session->recording_url }}" target="_blank" rel="noopener"
+                                           onclick="event.stopPropagation()"
+                                           class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-100 dark:bg-rose-950/30 dark:text-rose-400">
+                                            <flux:icon name="play-circle" class="w-3.5 h-3.5" />
+                                            {{ __('store.lms_watch_recording') }}
+                                        </a>
+                                    @endif
+
                                     @if(in_array($session->status, ['completed', 'no_show']))
                                         <flux:icon name="chevron-right" class="w-4 h-4 text-gray-400 dark:text-gray-500 hidden sm:block" />
                                         <flux:text size="xs" class="text-gray-400 dark:text-gray-500 sm:hidden">Tap to view</flux:text>

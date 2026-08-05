@@ -19,10 +19,13 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
     public bool $showStartConfirmation = false;
 
+    public string $recordingUrl = '';
+
     public function mount(ClassSession $session)
     {
         $this->session = $session->load(['class.course', 'class.teacher.user', 'attendances.student.user', 'starter']);
         $this->sessionNotes = $this->session->teacher_notes ?? '';
+        $this->recordingUrl = $this->session->recording_url ?? '';
     }
 
     public function updateNotes()
@@ -32,6 +35,20 @@ new #[Layout('components.layouts.teacher')] class extends Component
         ]);
 
         session()->flash('success', 'Session notes updated successfully.');
+    }
+
+    public function updateRecording()
+    {
+        $this->validate(['recordingUrl' => 'nullable|url|max:2048']);
+
+        $url = trim($this->recordingUrl) ?: null;
+
+        $this->session->update([
+            'recording_url' => $url,
+            'recording_available_at' => $url ? ($this->session->recording_available_at ?? now()) : null,
+        ]);
+
+        session()->flash('success', $url ? 'Recording link saved. Enrolled students can now watch it.' : 'Recording link removed.');
     }
 
     public function closeStartConfirmation()
@@ -384,6 +401,28 @@ new #[Layout('components.layouts.teacher')] class extends Component
                         </button>
                     </div>
                 </div>
+            </div>
+
+            {{-- Recording --}}
+            <div class="teacher-card p-5 sm:p-6">
+                <div class="flex items-center gap-2 mb-2">
+                    <flux:icon name="video-camera" class="w-5 h-5 text-rose-500" />
+                    <h2 class="teacher-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">Recording</h2>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mb-3">Paste a YouTube, Vimeo or Drive link. Enrolled students can watch it from their class page.</p>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <input type="url" wire:model="recordingUrl" placeholder="https://…"
+                           class="w-full rounded-xl border-0 ring-1 ring-slate-200 dark:ring-zinc-700 bg-white dark:bg-zinc-900 text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 px-4 py-2.5 focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 transition" />
+                    <button type="button" wire:click="updateRecording" class="teacher-cta shrink-0">
+                        <flux:icon name="check" class="w-4 h-4" /> Save
+                    </button>
+                </div>
+                @error('recordingUrl') <p class="mt-1.5 text-xs text-rose-600">{{ $message }}</p> @enderror
+                @if($session->recording_url)
+                    <a href="{{ $session->recording_url }}" target="_blank" rel="noopener" class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-700 dark:text-violet-300 hover:underline">
+                        <flux:icon name="play-circle" class="w-4 h-4" /> Open current recording
+                    </a>
+                @endif
             </div>
 
             {{-- Overview --}}

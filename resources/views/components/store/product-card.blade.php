@@ -1,17 +1,27 @@
-@props(['product'])
+@props([
+    'product',
+    // Set on the storefront's top sellers so the badge reflects real demand
+    // rather than a hand-picked flag.
+    'bestseller' => false,
+])
 
 @php
     $img = $product->primaryImage?->url;
     $tracks = $product->track_quantity;
     $available = $tracks ? $product->stockLevels->sum('available_quantity') : null;
     $outOfStock = $tracks && $available <= 0;
-    $browseUrl = $product->category_id ? route('shop', ['category' => $product->category_id]) : route('shop');
+    $browseUrl = route('storefront.product', $product->slug);
 @endphp
 
 <div class="group flex flex-col overflow-hidden rounded-2xl border border-zinc-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-violet-200 hover:shadow-xl hover:shadow-fuchsia-900/10">
     <a href="{{ $browseUrl }}" class="relative block aspect-square overflow-hidden bg-zinc-50">
         @if($img)
-            <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105">
+            <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            {{-- Shown only if the image fails to load (missing/broken file). --}}
+            <div class="hidden h-full w-full items-center justify-center bg-gradient-to-br from-violet-50 via-fuchsia-50 to-rose-50" aria-hidden="true">
+                <flux:icon name="photo" class="h-12 w-12 text-violet-200" />
+            </div>
         @else
             <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-50 via-fuchsia-50 to-rose-50">
                 <flux:icon name="photo" class="h-12 w-12 text-violet-200" />
@@ -19,6 +29,11 @@
         @endif
         @if($outOfStock)
             <span class="absolute left-3 top-3 rounded-full bg-zinc-900/80 px-2.5 py-1 text-[11px] font-semibold text-white">{{ __('store.out_of_stock') }}</span>
+        @elseif($bestseller)
+            <span class="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-300 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-amber-950 shadow-sm">
+                <flux:icon name="fire" class="h-3.5 w-3.5" />
+                {{ __('store.badge_bestseller') }}
+            </span>
         @endif
     </a>
 

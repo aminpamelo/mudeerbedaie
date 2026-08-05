@@ -423,6 +423,14 @@
                     {{ __('CMS Module') }}
                 </flux:navlist.item>
 
+                {{-- Blog & SEO is its own Inertia workspace at /blog-seo, like Fighter. --}}
+                <flux:navlist.item
+                    icon="newspaper"
+                    href="/blog-seo"
+                >
+                    {{ __('Blog & SEO') }}
+                </flux:navlist.item>
+
                 @if(auth()->user()->isAdmin())
                     <flux:navlist.item
                         icon="rocket-launch"

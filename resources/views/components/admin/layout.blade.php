@@ -87,6 +87,16 @@
                     <flux:navlist.item icon="cube" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
                 </flux:navlist.group>
 
+                <!-- Storefront -->
+                <flux:navlist.group
+                    expandable
+                    heading="Storefront"
+                    :expanded="request()->routeIs('storefront.banners', 'storefront.testimonials')"
+                >
+                    <flux:navlist.item icon="photo" :href="route('storefront.banners')" :current="request()->routeIs('storefront.banners')" wire:navigate>{{ __('Hero Banners') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chat-bubble-left-right" :href="route('storefront.testimonials')" :current="request()->routeIs('storefront.testimonials')" wire:navigate>{{ __('Testimonials') }}</flux:navlist.item>
+                </flux:navlist.group>
+
                 <!-- Inventory Management -->
                 <flux:navlist.group
                     expandable

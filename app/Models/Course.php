@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Course extends Model
 {
@@ -15,8 +18,12 @@ class Course extends Model
 
     protected $fillable = [
         'name',
+        'slug',
         'description',
+        'short_description',
+        'thumbnail_path',
         'status',
+        'show_on_storefront',
         'created_by',
         'stripe_product_id',
         'stripe_sync_status',
@@ -27,8 +34,40 @@ class Course extends Model
     {
         return [
             'status' => 'string',
+            'show_on_storefront' => 'boolean',
             'stripe_last_synced_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Course $course): void {
+            if (blank($course->slug) && filled($course->name)) {
+                $base = Str::slug($course->name);
+                $slug = $base;
+                $i = 1;
+                while (static::query()->where('slug', $slug)->where('id', '!=', $course->id)->exists()) {
+                    $slug = $base.'-'.$i++;
+                }
+                $course->slug = $slug;
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    /** Courses the admin has flagged to appear on the public storefront. */
+    public function scopeStorefrontVisible($query)
+    {
+        return $query->where('status', 'active')->where('show_on_storefront', true);
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return $this->thumbnail_path ? Storage::disk('public')->url($this->thumbnail_path) : null;
     }
 
     public function creator(): BelongsTo
@@ -195,7 +234,7 @@ class Course extends Model
             ->first();
     }
 
-    public function getEligibleStudentsForClass(ClassModel $class): \Illuminate\Database\Eloquent\Collection
+    public function getEligibleStudentsForClass(ClassModel $class): Collection
     {
         // Get all students with active enrollment in this course who are not already in the class
         return $this->activeStudents()

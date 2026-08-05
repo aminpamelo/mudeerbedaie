@@ -25,7 +25,122 @@
                 .store-grad-hover { transition: none; }
                 .store-grad-hover:hover { transform: none; }
             }
+
+            /* ---------------------------------------------------------------
+               Motion system.
+
+               Every animation here is opt-in via a class and switches itself
+               off under `prefers-reduced-motion`. Scroll-reveal is gated on the
+               `js-reveal` root class (set by the inline script below) so that
+               without JavaScript — or with reduced motion — the content simply
+               renders visible instead of staying stuck at opacity 0.
+               --------------------------------------------------------------- */
+            .js-reveal .reveal {
+                opacity: 0;
+                transform: translateY(20px);
+                transition: opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1);
+                transition-delay: var(--reveal-delay, 0ms);
+                will-change: opacity, transform;
+            }
+            .js-reveal .reveal.is-visible { opacity: 1; transform: none; }
+
+            /* Slow drift for the hero's blurred colour blobs. */
+            @keyframes store-drift {
+                0%, 100% { transform: translate3d(0,0,0) scale(1); }
+                50%      { transform: translate3d(24px,-20px,0) scale(1.1); }
+            }
+            .store-drift { animation: store-drift 16s ease-in-out infinite; }
+            .store-drift-slow { animation: store-drift 22s ease-in-out infinite reverse; }
+
+            /* Gentle bob for the hero cover collage. */
+            @keyframes store-float {
+                0%, 100% { transform: translateY(0); }
+                50%      { transform: translateY(-12px); }
+            }
+            .store-float { animation: store-float 7s ease-in-out infinite; }
+
+            /* Edge-to-edge logo/benefit ticker. The track is duplicated in the
+               markup, so translating half its width loops seamlessly. */
+            @keyframes store-marquee {
+                from { transform: translateX(0); }
+                to   { transform: translateX(-50%); }
+            }
+            .store-marquee { animation: store-marquee 34s linear infinite; }
+            .store-marquee-wrap:hover .store-marquee { animation-play-state: paused; }
+
+            @media (prefers-reduced-motion: reduce) {
+                .store-drift, .store-drift-slow, .store-float, .store-marquee { animation: none; }
+            }
+
+            /* ---------------------------------------------------------------
+               Article body typography.
+
+               Hand-maintained rather than @tailwindcss/typography: the plugin
+               isn't installed, and the rendered article HTML comes from
+               Markdown at runtime so Tailwind's JIT scanner can never see
+               those classes anyway.
+               --------------------------------------------------------------- */
+            .blog-prose { color: #3f3f46; font-size: 1.0625rem; line-height: 1.8; max-width: 68ch; }
+            .blog-prose > * + * { margin-top: 1.25em; }
+            .blog-prose h2, .blog-prose h3, .blog-prose h4 {
+                font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+                color: #18181b; font-weight: 800; letter-spacing: -0.02em;
+                /* Clears the sticky header when a TOC link jumps to a heading. */
+                scroll-margin-top: 6rem;
+            }
+            .blog-prose h2 { font-size: 1.6rem; line-height: 1.25; margin-top: 2.25em; }
+            .blog-prose h3 { font-size: 1.3rem; line-height: 1.3; margin-top: 1.85em; }
+            .blog-prose h4 { font-size: 1.1rem; line-height: 1.4; margin-top: 1.6em; }
+            .blog-prose p { margin-top: 1.25em; }
+            .blog-prose a {
+                color: #7c3aed; font-weight: 600;
+                text-decoration: underline; text-decoration-color: #ddd6fe;
+                text-underline-offset: 3px; transition: color .2s, text-decoration-color .2s;
+            }
+            .blog-prose a:hover { color: #c026d3; text-decoration-color: #f0abfc; }
+            .blog-prose strong { color: #18181b; font-weight: 700; }
+            .blog-prose ul, .blog-prose ol { padding-left: 1.5em; margin-top: 1.25em; }
+            .blog-prose ul { list-style: disc; }
+            .blog-prose ol { list-style: decimal; }
+            .blog-prose li { margin-top: .5em; padding-left: .25em; }
+            .blog-prose li::marker { color: #a78bfa; font-weight: 600; }
+            .blog-prose blockquote {
+                border-left: 3px solid #c026d3; background: linear-gradient(90deg, #faf5ff, transparent);
+                padding: .85em 1.25em; margin: 1.75em 0; border-radius: 0 .75rem .75rem 0;
+                font-style: italic; color: #52525b;
+            }
+            .blog-prose blockquote p { margin-top: 0; }
+            .blog-prose img { border-radius: 1rem; margin: 1.75em 0; width: 100%; height: auto; }
+            .blog-prose figure { margin: 1.75em 0; }
+            .blog-prose figcaption { font-size: .8125rem; color: #a1a1aa; text-align: center; margin-top: .6em; }
+            .blog-prose code {
+                background: #f4f4f5; color: #be185d; padding: .15em .4em;
+                border-radius: .375rem; font-size: .875em; font-weight: 600;
+            }
+            .blog-prose pre {
+                background: #18181b; color: #fafafa; padding: 1.1em 1.25em;
+                border-radius: 1rem; overflow-x: auto; margin: 1.75em 0; font-size: .875rem; line-height: 1.7;
+            }
+            .blog-prose pre code { background: none; color: inherit; padding: 0; font-weight: 400; }
+            /* Wide tables scroll inside their own box instead of the page. */
+            .blog-prose table { width: 100%; border-collapse: collapse; margin: 1.75em 0; font-size: .9375rem; display: block; overflow-x: auto; }
+            .blog-prose th, .blog-prose td { border: 1px solid #e4e4e7; padding: .65em .9em; text-align: left; }
+            .blog-prose th { background: #faf5ff; font-weight: 700; color: #18181b; }
+            .blog-prose hr { border: 0; border-top: 1px solid #e4e4e7; margin: 2.5em 0; }
+            @media (min-width: 640px) {
+                .blog-prose { font-size: 1.125rem; }
+                .blog-prose h2 { font-size: 1.875rem; }
+                .blog-prose h3 { font-size: 1.5rem; }
+            }
         </style>
+        {{-- Arms scroll-reveal before first paint. Without this class the
+             `.reveal` rules never apply, so a visitor with JS disabled (or with
+             reduced motion asked for) sees the content immediately. --}}
+        <script>
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.documentElement.classList.add('js-reveal');
+            }
+        </script>
     </head>
     <body class="min-h-screen bg-white pb-16 text-zinc-800 antialiased md:pb-0">
         {{-- ===================== HEADER ===================== --}}
@@ -47,6 +162,8 @@
                     <a href="{{ route('storefront.home') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_home') }}</a>
                     <a href="{{ route('shop') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_shop') }}</a>
                     <a href="{{ route('storefront.home') }}#packages" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_packages') }}</a>
+                    <a href="{{ route('storefront.courses') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_courses') }}</a>
+                    <a href="{{ route('blog.index') }}" @class(['rounded-lg px-3 py-2 text-sm font-semibold transition-colors hover:bg-violet-50 hover:text-violet-700', 'text-violet-700' => request()->routeIs('blog.*'), 'text-zinc-600' => ! request()->routeIs('blog.*')])>{{ __('blog.nav_blog') }}</a>
                 </nav>
 
                 <div class="ml-auto flex items-center gap-1.5">
@@ -80,6 +197,8 @@
                     <a href="{{ route('storefront.home') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_home') }}</a>
                     <a href="{{ route('shop') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_shop') }}</a>
                     <a href="{{ route('storefront.home') }}#packages" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_packages') }}</a>
+                    <a href="{{ route('storefront.courses') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_courses') }}</a>
+                    <a href="{{ route('blog.index') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('blog.nav_blog') }}</a>
                     <div class="mt-1 flex items-center justify-between border-t border-zinc-100 pt-3">
                         <div class="flex items-center rounded-lg bg-zinc-100 p-0.5 text-xs font-bold">
                             <a href="{{ route('locale.switch', 'ms') }}" class="rounded-md px-2.5 py-1 {{ $locale === 'ms' ? 'bg-white text-violet-700 shadow-sm' : 'text-zinc-500' }}">BM</a>
@@ -115,7 +234,7 @@
                             @endif
                             <span class="font-display text-lg font-extrabold text-zinc-900">{{ $storeName }}</span>
                         </div>
-                        <p class="mt-4 max-w-md text-sm leading-relaxed text-zinc-500">{{ __('store.footer_about') }}</p>
+                        <p class="mt-4 max-w-md text-sm leading-relaxed text-zinc-500">{{ __('store.footer_about', ['store' => $storeName]) }}</p>
                     </div>
 
                     <div>
@@ -124,6 +243,8 @@
                             <li><a href="{{ route('storefront.home') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_home') }}</a></li>
                             <li><a href="{{ route('shop') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_shop') }}</a></li>
                             <li><a href="{{ route('storefront.home') }}#packages" class="transition-colors hover:text-violet-700">{{ __('store.nav_packages') }}</a></li>
+                            <li><a href="{{ route('storefront.courses') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_courses') }}</a></li>
+                            <li><a href="{{ route('blog.index') }}" class="transition-colors hover:text-violet-700">{{ __('blog.nav_blog') }}</a></li>
                             <li><a href="{{ route('cart') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_cart') }}</a></li>
                         </ul>
                     </div>
@@ -203,6 +324,45 @@
                 </a>
             </div>
         </nav>
+
+        {{-- Reveals `.reveal` elements as they scroll into view. `once` semantics:
+             each element is unobserved after its first reveal, so scrolling back
+             up never re-animates and the observer empties itself out. --}}
+        <script>
+            (function () {
+                if (!document.documentElement.classList.contains('js-reveal')) return;
+
+                var reveal = function (el) {
+                    el.classList.add('is-visible');
+                };
+
+                if (!('IntersectionObserver' in window)) {
+                    document.querySelectorAll('.reveal').forEach(reveal);
+                    return;
+                }
+
+                var observer = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (!entry.isIntersecting) return;
+                        reveal(entry.target);
+                        observer.unobserve(entry.target);
+                    });
+                }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+
+                var observeAll = function (root) {
+                    (root || document).querySelectorAll('.reveal:not(.is-visible)').forEach(function (el) {
+                        observer.observe(el);
+                    });
+                };
+
+                observeAll();
+
+                // Livewire swaps (add-to-cart, filters) can inject new markup;
+                // re-scan so late arrivals aren't left permanently invisible.
+                document.addEventListener('livewire:navigated', function () { observeAll(); });
+                document.addEventListener('livewire:update', function () { observeAll(); });
+            })();
+        </script>
 
         @fluxScripts
         @stack('scripts')

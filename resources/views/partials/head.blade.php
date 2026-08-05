@@ -7,7 +7,18 @@
     $dynamicFavicon = $settingsService->getFavicon();
 @endphp
 
-<title>{{ $title ?? $dynamicSiteName }}</title>
+@php
+    // Pages that pass a `$seo` array (see partials/seo.blade.php) drive the
+    // <title> from it; everything else keeps the previous `$title` behaviour.
+    $seoPageTitle = $seo['title'] ?? ($title ?? null);
+    $pageTitle = $seoPageTitle && $seoPageTitle !== $dynamicSiteName
+        ? $seoPageTitle.' — '.$dynamicSiteName
+        : $dynamicSiteName;
+@endphp
+
+<title>{{ $pageTitle }}</title>
+
+@include('partials.seo')
 
 @if($dynamicFavicon)
     <link rel="icon" href="{{ $dynamicFavicon }}" sizes="any">

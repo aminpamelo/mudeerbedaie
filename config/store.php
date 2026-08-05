@@ -26,4 +26,8 @@ return [
     'package_limit' => 3,
     'category_limit' => 8,
     'per_page' => 12,
+
+    // How many top-selling products earn the "bestseller" badge and lead the
+    // homepage grid. Kept small so the badge stays meaningful.
+    'bestseller_limit' => 4,
 ];

@@ -12,8 +12,10 @@ new class extends Component {
     // Course basic info
     public $name = '';
     public $description = '';
+    public $short_description = '';
     public $status = '';
-    
+    public $show_on_storefront = false;
+
     // Fee settings
     public $fee_amount = '';
     public $billing_cycle = 'monthly';
@@ -40,7 +42,9 @@ new class extends Component {
         // Load course data
         $this->name = $this->course->name;
         $this->description = $this->course->description ?? '';
+        $this->short_description = $this->course->short_description ?? '';
         $this->status = $this->course->status;
+        $this->show_on_storefront = (bool) $this->course->show_on_storefront;
         
         // Load fee settings
         if ($this->course->feeSettings) {
@@ -72,7 +76,9 @@ new class extends Component {
         $this->validate([
             'name' => 'required|string|min:3|max:255',
             'description' => 'nullable|string|max:1000',
+            'short_description' => 'nullable|string|max:500',
             'status' => 'required|in:active,inactive,archived',
+            'show_on_storefront' => 'boolean',
             'fee_amount' => 'required|numeric|min:0',
             'billing_cycle' => 'required|in:monthly,quarterly,yearly',
             'billing_day' => 'nullable|integer|min:1|max:31',
@@ -91,7 +97,9 @@ new class extends Component {
         $this->course->update([
             'name' => $this->name,
             'description' => $this->description,
+            'short_description' => $this->short_description ?: null,
             'status' => $this->status,
+            'show_on_storefront' => (bool) $this->show_on_storefront,
         ]);
 
         // Update or create fee settings
@@ -344,12 +352,18 @@ new class extends Component {
 
                 <flux:textarea wire:model="description" label="Description" placeholder="Course description (optional)" rows="4" />
 
+                <flux:textarea wire:model="short_description" label="Short description (storefront)" placeholder="One or two lines shown on the storefront course card" rows="2" />
 
                 <flux:select wire:model="status" label="Status">
                     <flux:select.option value="active">Active</flux:select.option>
                     <flux:select.option value="inactive">Inactive</flux:select.option>
                     <flux:select.option value="archived">Archived</flux:select.option>
                 </flux:select>
+
+                <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+                    <flux:checkbox wire:model="show_on_storefront" label="Show on storefront" />
+                    <flux:text size="sm" class="mt-1 text-zinc-500">When on, this course appears in the public Classes &amp; Courses section and can be bought online.</flux:text>
+                </div>
             </div>
         </flux:card>
 
