@@ -46,6 +46,16 @@ function guestCourseCart(): ProductCart
     ]);
 }
 
+it('renders the admin courses list even for a legacy course with no slug', function () {
+    $admin = User::factory()->admin()->create();
+    $course = Course::factory()->create(['status' => 'active']);
+    // Legacy courses created before the slug column exists have a null slug;
+    // admin routes must still bind by id, not slug.
+    Course::withoutEvents(fn () => $course->update(['slug' => null]));
+
+    $this->actingAs($admin)->get('/admin/courses')->assertOk();
+});
+
 it('auto-generates a unique slug for a course', function () {
     $a = Course::factory()->create(['name' => 'Tafsir Surah', 'status' => 'active']);
     $b = Course::factory()->create(['name' => 'Tafsir Surah', 'status' => 'active']);

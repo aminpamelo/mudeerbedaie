@@ -54,11 +54,6 @@ class Course extends Model
         });
     }
 
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
-
     /** Courses the admin has flagged to appear on the public storefront. */
     public function scopeStorefrontVisible($query)
     {
