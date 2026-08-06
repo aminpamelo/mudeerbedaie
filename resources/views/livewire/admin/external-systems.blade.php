@@ -32,6 +32,17 @@ new class extends Component
 
     public bool $showModal = false;
 
+    public bool $showPlansModal = false;
+
+    public ?int $plansSystemId = null;
+
+    public string $plansSystemName = '';
+
+    /** @var array<int, array{slug: string, name: string}> */
+    public array $plansList = [];
+
+    public ?string $plansError = null;
+
     public function mount(): void
     {
         if (! auth()->user()->hasAnyRole(['admin', 'employee'])) {
@@ -141,6 +152,44 @@ new class extends Component
             }
         } catch (Throwable $e) {
             $this->dispatch('es-test-failed', message: $e->getMessage());
+        }
+    }
+
+    public function openPlansModal(int $id): void
+    {
+        $system = ExternalSystem::findOrFail($id);
+        $this->plansSystemId = $system->id;
+        $this->plansSystemName = $system->name;
+        $this->showPlansModal = true;
+        $this->loadPlansList();
+    }
+
+    /**
+     * Fetch the plans/packages the external system offers via its /packages
+     * endpoint. Errors are captured for display, never thrown.
+     */
+    public function loadPlansList(): void
+    {
+        $this->plansList = [];
+        $this->plansError = null;
+
+        $system = $this->plansSystemId ? ExternalSystem::find($this->plansSystemId) : null;
+
+        if (! $system) {
+            return;
+        }
+
+        try {
+            foreach (app(ExternalSystemClient::class)->packages($system) as $plan) {
+                if (is_array($plan) && filled($plan['slug'] ?? null)) {
+                    $this->plansList[] = [
+                        'slug' => (string) $plan['slug'],
+                        'name' => (string) ($plan['name'] ?? $plan['slug']),
+                    ];
+                }
+            }
+        } catch (Throwable $e) {
+            $this->plansError = $e->getMessage();
         }
     }
 
@@ -328,6 +377,9 @@ new class extends Component
                                     <flux:tooltip content="Accounts">
                                         <flux:button variant="ghost" size="sm" icon="users" aria-label="Accounts" :href="route('admin.external-systems.accounts', $system)" wire:navigate />
                                     </flux:tooltip>
+                                    <flux:tooltip content="Plans">
+                                        <flux:button variant="ghost" size="sm" icon="rectangle-stack" aria-label="Plans" wire:click="openPlansModal({{ $system->id }})" wire:loading.attr="disabled" wire:target="openPlansModal({{ $system->id }})" />
+                                    </flux:tooltip>
                                     <flux:tooltip content="Test connection">
                                         <flux:button variant="ghost" size="sm" icon="signal" aria-label="Test connection" wire:click="testConnection({{ $system->id }})" wire:loading.attr="disabled" wire:target="testConnection({{ $system->id }})" />
                                     </flux:tooltip>
@@ -475,6 +527,61 @@ PROVISIONING_SIGNING_SECRET={{ $signing_secret }}</pre>
                     </div>
                 </div>
             </form>
+        </div>
+    </flux:modal>
+
+    {{-- Plans modal --}}
+    <flux:modal wire:model="showPlansModal" class="max-w-md">
+        <div class="p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                        <flux:icon name="rectangle-stack" class="h-5 w-5" />
+                    </div>
+                    <div>
+                        <flux:heading size="lg">Plans</flux:heading>
+                        <flux:text class="text-sm">{{ $plansSystemName }}</flux:text>
+                    </div>
+                </div>
+                <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="loadPlansList" wire:loading.attr="disabled" wire:target="loadPlansList, openPlansModal">Refresh</flux:button>
+            </div>
+
+            <div wire:loading.flex wire:target="loadPlansList, openPlansModal" class="items-center gap-2 py-6 text-sm text-zinc-500">
+                <flux:icon name="arrow-path" class="h-4 w-4 animate-spin" /> Loading plans…
+            </div>
+
+            <div wire:loading.remove wire:target="loadPlansList, openPlansModal">
+                @if ($plansError)
+                    <flux:callout variant="danger" icon="x-circle" class="text-sm">Couldn't load plans: {{ $plansError }}</flux:callout>
+                @elseif (empty($plansList))
+                    <div class="rounded-xl border border-dashed border-zinc-300 p-6 text-center dark:border-zinc-700">
+                        <flux:text class="text-sm text-zinc-500">This system didn't return any plans — it may not expose a <span class="font-mono">/packages</span> endpoint.</flux:text>
+                    </div>
+                @else
+                    <div class="divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-700">
+                        @foreach ($plansList as $plan)
+                            <div class="flex items-center justify-between gap-3 px-4 py-3" wire:key="plan-{{ $plan['slug'] }}">
+                                <div class="min-w-0">
+                                    <div class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $plan['name'] }}</div>
+                                    <div class="truncate font-mono text-xs text-zinc-400">{{ $plan['slug'] }}</div>
+                                </div>
+                                <div x-data="{ copied: false }">
+                                    <flux:button size="sm" variant="ghost" type="button"
+                                                 x-on:click="navigator.clipboard.writeText(@js($plan['slug'])); copied = true; setTimeout(() => copied = false, 1200)">
+                                        <span x-show="!copied">Copy slug</span>
+                                        <span x-show="copied" class="text-emerald-600">Copied</span>
+                                    </flux:button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <flux:text class="mt-3 text-xs text-zinc-500">Use a plan's <span class="font-mono">slug</span> when marking a product or package for this system.</flux:text>
+                @endif
+            </div>
+
+            <div class="mt-5 flex justify-end">
+                <flux:button variant="primary" wire:click="$set('showPlansModal', false)">Done</flux:button>
+            </div>
         </div>
     </flux:modal>
 

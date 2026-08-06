@@ -4,6 +4,7 @@ use App\Models\ExternalProvisioningRequest;
 use App\Models\ExternalSystem;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Livewire\Volt\Volt;
 
 it('denies access to non-admins at the route', function () {
@@ -110,4 +111,52 @@ it('generates a matching pair of secrets in the form', function () {
     expect(strlen((string) $component->get('api_key')))->toBe(64)
         ->and(strlen((string) $component->get('signing_secret')))->toBe(64)
         ->and($component->get('api_key'))->not->toBe($component->get('signing_secret'));
+});
+
+it('loads a systems plans into the plans modal', function () {
+    $admin = User::factory()->admin()->create();
+    $system = ExternalSystem::factory()->create([
+        'base_url' => 'https://ext.test',
+        'provision_path' => '/api/v1/provision',
+        'auth_type' => 'both',
+        'api_key' => 'k',
+        'signing_secret' => 's',
+    ]);
+    Http::fake(['ext.test/api/v1/packages' => Http::response(['packages' => [
+        ['slug' => 'gold', 'name' => 'Gold'],
+        ['slug' => 'silver', 'name' => 'Silver'],
+    ]])]);
+
+    $this->actingAs($admin);
+
+    Volt::test('admin.external-systems')
+        ->call('openPlansModal', $system->id)
+        ->assertSet('showPlansModal', true)
+        ->assertSet('plansSystemName', $system->name)
+        ->assertSet('plansList', [
+            ['slug' => 'gold', 'name' => 'Gold'],
+            ['slug' => 'silver', 'name' => 'Silver'],
+        ])
+        ->assertSet('plansError', null);
+});
+
+it('captures an error when the plans endpoint fails', function () {
+    $admin = User::factory()->admin()->create();
+    $system = ExternalSystem::factory()->create([
+        'base_url' => 'https://ext.test',
+        'provision_path' => '/api/v1/provision',
+        'auth_type' => 'both',
+        'api_key' => 'k',
+        'signing_secret' => 's',
+    ]);
+    Http::fake(['ext.test/api/v1/packages' => Http::response(['message' => 'nope'], 500)]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.external-systems')
+        ->call('openPlansModal', $system->id)
+        ->assertSet('showPlansModal', true)
+        ->assertSet('plansList', []);
+
+    expect($component->get('plansError'))->not->toBeNull();
 });
