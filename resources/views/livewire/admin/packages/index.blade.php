@@ -224,6 +224,7 @@ new class extends Component
                                 <div>
                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ $package->name }}</div>
                                     <div class="text-sm text-gray-500 dark:text-gray-400">{{ $package->short_description }}</div>
+                                    @include('livewire.admin.partials.external-system-badge', ['item' => $package])
                                 </div>
                             </div>
                         </td>
