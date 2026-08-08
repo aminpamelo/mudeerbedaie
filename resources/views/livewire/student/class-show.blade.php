@@ -2,6 +2,9 @@
 use App\Models\ClassModel;
 use App\Models\ClassSession;
 use App\Models\ClassStudent;
+use App\Models\ClassResource;
+use App\Models\ClassAttendance;
+use App\Models\StudentMilestone;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
@@ -85,6 +88,99 @@ new class extends Component {
         $this->selectedSession = null;
     }
     
+    public function getPublishedResourcesProperty()
+    {
+        return ClassResource::where('class_id', $this->class->id)
+            ->published()
+            ->with('session')
+            ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->get();
+    }
+
+    public function viewResource(int $id): void
+    {
+        $resource = ClassResource::where('id', $id)
+            ->where('class_id', $this->class->id)
+            ->published()
+            ->firstOrFail();
+
+        $student = auth()->user()->student;
+        $resource->recordView($student);
+    }
+
+    public function getProgressDataProperty(): array
+    {
+        $student = auth()->user()->student;
+        $classStudent = ClassStudent::where('class_id', $this->class->id)
+            ->where('student_id', $student->id)
+            ->first();
+
+        $completedSessions = $this->class->sessions()->where('status', 'completed')->count();
+        $attendedSessions = ClassAttendance::where('student_id', $student->id)
+            ->whereHas('session', fn ($q) => $q->where('class_id', $this->class->id))
+            ->where('status', 'present')
+            ->count();
+
+        $totalSyllabus = $this->class->syllabi()->count();
+        $coveredSyllabus = $this->class->sessions()
+            ->where('status', 'completed')
+            ->whereNotNull('syllabus_ids')
+            ->get()
+            ->pluck('syllabus_ids')
+            ->flatten()
+            ->unique()
+            ->count();
+
+        $streak = $this->calculateStreak($student);
+
+        $milestones = $classStudent
+            ? StudentMilestone::where('class_student_id', $classStudent->id)->orderByDesc('achieved_at')->get()
+            : collect();
+
+        $nextSession = $this->class->sessions()
+            ->where('status', 'scheduled')
+            ->where('session_date', '>=', now()->toDateString())
+            ->orderBy('session_date')
+            ->orderBy('session_time')
+            ->first();
+
+        return [
+            'attendance_rate' => $completedSessions > 0 ? round(($attendedSessions / $completedSessions) * 100) : 0,
+            'attended' => $attendedSessions,
+            'total_completed' => $completedSessions,
+            'streak' => $streak,
+            'syllabus_covered' => $coveredSyllabus,
+            'syllabus_total' => $totalSyllabus,
+            'milestones' => $milestones,
+            'next_session' => $nextSession,
+        ];
+    }
+
+    private function calculateStreak($student): int
+    {
+        $sessions = $this->class->sessions()
+            ->where('status', 'completed')
+            ->orderByDesc('session_date')
+            ->get();
+
+        $streak = 0;
+        foreach ($sessions as $session) {
+            $attended = ClassAttendance::where('session_id', $session->id)
+                ->where('student_id', $student->id)
+                ->where('status', 'present')
+                ->exists();
+
+            if ($attended) {
+                $streak++;
+            } else {
+                break;
+            }
+        }
+
+        return $streak;
+    }
+
     public function with(): array
     {
         $student = auth()->user()->student;
@@ -347,6 +443,26 @@ new class extends Component {
                 >
                     {{ __('student.classes.sessions_tab') }}
                 </button>
+
+                <button
+                    wire:click="setActiveTab('resources')"
+                    class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                        {{ $activeTab === 'resources'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
+                >
+                    Bahan
+                </button>
+
+                <button
+                    wire:click="setActiveTab('progress')"
+                    class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                        {{ $activeTab === 'progress'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
+                >
+                    Kemajuan
+                </button>
             </nav>
         </div>
     </div>
@@ -373,6 +489,10 @@ new class extends Component {
                 'sessions' => $sessions,
                 'statistics' => $statistics
             ])
+        @elseif($activeTab === 'resources')
+            @include('livewire.student.class-show.resources')
+        @elseif($activeTab === 'progress')
+            @include('livewire.student.class-show.progress')
         @endif
     </div>
 
