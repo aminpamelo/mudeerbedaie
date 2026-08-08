@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ClassModel extends Model
@@ -32,7 +35,9 @@ class ClassModel extends Model
         'commission_type',
         'commission_value',
         'status',
+        'show_on_storefront',
         'notes',
+        'storefront_description',
         'enable_document_shipment',
         'shipment_frequency',
         'shipment_start_date',
@@ -52,6 +57,7 @@ class ClassModel extends Model
             'date_time' => 'datetime',
             'teacher_rate' => 'decimal:2',
             'commission_value' => 'decimal:2',
+            'show_on_storefront' => 'boolean',
             'enable_document_shipment' => 'boolean',
             'shipment_start_date' => 'date',
             'auto_schedule_notifications' => 'boolean',
@@ -102,7 +108,7 @@ class ClassModel extends Model
             ->withTimestamps();
     }
 
-    public function attendances(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    public function attendances(): HasManyThrough
     {
         return $this->hasManyThrough(
             ClassAttendance::class,
@@ -391,6 +397,11 @@ class ClassModel extends Model
         return $query->where('status', 'suspended');
     }
 
+    public function scopeStorefrontVisible($query)
+    {
+        return $query->where('status', 'active')->where('show_on_storefront', true);
+    }
+
     public function scopeCancelled($query)
     {
         return $query->where('status', 'cancelled');
@@ -440,7 +451,7 @@ class ClassModel extends Model
 
     // Enrollment verification and management methods
 
-    public function getEligibleEnrollments(): \Illuminate\Database\Eloquent\Collection
+    public function getEligibleEnrollments(): Collection
     {
         // Get all active enrollments for this class's course that are not already in this class
         return $this->course->activeEnrollments()
@@ -459,7 +470,7 @@ class ClassModel extends Model
         return $this->course->autoEnrollEligibleStudents($this);
     }
 
-    public function getEnrollmentRequiredStudents(): \Illuminate\Database\Eloquent\Collection
+    public function getEnrollmentRequiredStudents(): Collection
     {
         // Students who are in this class but don't have active enrollment
         return $this->students()
@@ -544,7 +555,7 @@ class ClassModel extends Model
 
     // Certificate management methods
 
-    public function getAssignedCertificates(): \Illuminate\Database\Eloquent\Collection
+    public function getAssignedCertificates(): Collection
     {
         return $this->certificates;
     }
@@ -612,7 +623,7 @@ class ClassModel extends Model
         return $this->enable_document_shipment === true;
     }
 
-    public function getNextShipmentDate(): ?\Carbon\Carbon
+    public function getNextShipmentDate(): ?Carbon
     {
         if (! $this->enable_document_shipment || ! $this->shipment_start_date) {
             return null;
@@ -632,7 +643,7 @@ class ClassModel extends Model
         };
     }
 
-    public function canGenerateShipment(\Carbon\Carbon $periodStart): bool
+    public function canGenerateShipment(Carbon $periodStart): bool
     {
         if (! $this->hasDocumentShipment()) {
             return false;
@@ -644,7 +655,7 @@ class ClassModel extends Model
             ->exists();
     }
 
-    public function generateShipmentForPeriod(\Carbon\Carbon $periodStart, \Carbon\Carbon $periodEnd): ?ClassDocumentShipment
+    public function generateShipmentForPeriod(Carbon $periodStart, Carbon $periodEnd): ?ClassDocumentShipment
     {
         if (! $this->canGenerateShipment($periodStart)) {
             return null;
