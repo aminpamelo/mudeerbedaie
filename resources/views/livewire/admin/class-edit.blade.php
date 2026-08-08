@@ -27,6 +27,10 @@ new class extends Component {
     public $notes;
     public $status;
 
+    // Storefront visibility
+    public $showOnStorefront = false;
+    public $storefrontDescription = '';
+
     // Category selection
     public $category_ids = [];
 
@@ -78,6 +82,10 @@ new class extends Component {
         $this->commission_value = $class->commission_value;
         $this->notes = $class->notes;
         $this->status = $class->status;
+
+        // Populate storefront fields
+        $this->showOnStorefront = $class->show_on_storefront ?? false;
+        $this->storefrontDescription = $class->storefront_description ?? '';
 
         // Populate category ids
         $this->category_ids = $class->categories->pluck('id')->toArray();
@@ -193,6 +201,9 @@ new class extends Component {
             'commission_value' => $validated['commission_value'] !== '' ? ($validated['commission_value'] ?? 0) : ($this->commission_value ?: 0),
             'notes' => $validated['notes'],
             'status' => $validated['status'],
+            // Storefront fields
+            'show_on_storefront' => $this->showOnStorefront,
+            'storefront_description' => $this->showOnStorefront ? $this->storefrontDescription : null,
             // Shipment fields
             'enable_document_shipment' => $this->enable_document_shipment,
             'shipment_frequency' => $this->shipment_frequency,
@@ -841,6 +852,22 @@ new class extends Component {
                         <flux:label>Shipment Notes</flux:label>
                         <flux:textarea wire:model="shipment_notes" rows="3" />
                         <flux:description>Special instructions or notes for shipments</flux:description>
+                    </flux:field>
+                @endif
+            </div>
+
+            <!-- Storefront Visibility -->
+            <div class="border-t pt-6 space-y-4">
+                <flux:heading size="lg">Storefront Visibility</flux:heading>
+                <flux:text>Control whether this class appears on the public course page</flux:text>
+
+                <flux:switch wire:model.live="showOnStorefront" label="Papar di Storefront" description="Paparkan kelas ini di halaman kursus awam" />
+
+                @if($showOnStorefront)
+                    <flux:field>
+                        <flux:label>Penerangan Storefront</flux:label>
+                        <flux:textarea wire:model="storefrontDescription" placeholder="Penerangan ringkas untuk bakal pelajar..." rows="3" />
+                        <flux:description>Penerangan ini akan dipaparkan pada kad kelas di halaman kursus awam</flux:description>
                     </flux:field>
                 @endif
             </div>

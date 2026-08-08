@@ -336,9 +336,13 @@ class StorefrontController extends Controller
         $course->load([
             'feeSettings',
             'teacher.user',
-            'classes' => fn ($query) => $query->orderByDesc('date_time'),
-            'classes.teacher.user',
-            'classes.timetable',
+            'classes' => function ($query) {
+                $query->where('show_on_storefront', true)
+                    ->where('status', 'active')
+                    ->with(['teacher.user', 'timetable', 'syllabi', 'activeStudents'])
+                    ->withCount('activeStudents')
+                    ->orderByDesc('date_time');
+            },
         ]);
 
         $course->loadCount([

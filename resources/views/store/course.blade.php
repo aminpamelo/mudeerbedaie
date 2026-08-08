@@ -113,24 +113,80 @@
                                 $schedule = implode(' · ', $parts);
                             }
                         @endphp
-                        <div class="rounded-2xl border border-zinc-100 bg-white p-5 transition-all hover:border-violet-200 hover:shadow-md">
+                        <div class="rounded-2xl border border-zinc-100 bg-white p-5 transition-all hover:border-violet-200 hover:shadow-md" wire:key="class-{{ $class->id }}">
                             <div class="flex items-start justify-between gap-3">
                                 <h3 class="font-display text-base font-bold leading-snug text-zinc-900">{{ $class->title }}</h3>
                                 <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
                             </div>
+
+                            @if($class->storefront_description)
+                                <p class="mt-2 text-sm text-zinc-500 line-clamp-2">{{ $class->storefront_description }}</p>
+                            @endif
+
                             <div class="mt-3 space-y-1.5 text-sm text-zinc-500">
                                 @if($class->teacher?->user)
-                                    <div class="flex items-center gap-2"><flux:icon name="user" class="h-4 w-4 text-violet-400" /> {{ $class->teacher->user->name }}</div>
+                                    <div class="flex items-center gap-2">
+                                        <flux:icon name="user" class="h-4 w-4 text-violet-400" />
+                                        {{ $class->teacher->user->name }}
+                                    </div>
                                 @endif
+
                                 @if($schedule)
-                                    <div class="flex items-center gap-2"><flux:icon name="calendar-days" class="h-4 w-4 text-fuchsia-400" /> {{ $schedule }}</div>
+                                    <div class="flex items-center gap-2">
+                                        <flux:icon name="calendar-days" class="h-4 w-4 text-fuchsia-400" />
+                                        {{ $schedule }}
+                                    </div>
                                 @elseif($class->date_time)
-                                    <div class="flex items-center gap-2"><flux:icon name="calendar-days" class="h-4 w-4 text-fuchsia-400" /> {{ $class->date_time->format('d M Y, g:i A') }}</div>
+                                    <div class="flex items-center gap-2">
+                                        <flux:icon name="calendar-days" class="h-4 w-4 text-fuchsia-400" />
+                                        {{ $class->date_time->format('d M Y, g:i A') }}
+                                    </div>
                                 @endif
+
+                                {{-- Class type --}}
+                                <div class="flex items-center gap-2">
+                                    <flux:icon name="{{ $class->class_type === 'individual' ? 'user' : 'users' }}" class="h-4 w-4 text-emerald-400" />
+                                    {{ $class->class_type === 'individual' ? 'Individu' : 'Kumpulan' }}
+                                </div>
+
+                                {{-- Capacity --}}
+                                @if($class->max_capacity)
+                                    @php $enrolled = $class->active_students_count ?? $class->activeStudents->count(); @endphp
+                                    <div class="flex items-center gap-2">
+                                        <flux:icon name="users" class="h-4 w-4 text-violet-400" />
+                                        {{ $enrolled }}/{{ $class->max_capacity }} pelajar
+                                    </div>
+                                    <div class="mt-1 h-1.5 w-full rounded-full bg-zinc-100">
+                                        <div class="h-1.5 rounded-full bg-violet-500" style="width: {{ min(100, ($enrolled / $class->max_capacity) * 100) }}%"></div>
+                                    </div>
+                                @endif
+
+                                {{-- Recordings --}}
                                 @if(($class->recordings_count ?? 0) > 0)
-                                    <div class="flex items-center gap-2 font-medium text-rose-500"><flux:icon name="video-camera" class="h-4 w-4" /> {{ trans_choice('store.lms_recording_count', $class->recordings_count, ['count' => $class->recordings_count]) }}</div>
+                                    <div class="flex items-center gap-2 font-medium text-rose-500">
+                                        <flux:icon name="video-camera" class="h-4 w-4" />
+                                        {{ trans_choice('store.lms_recording_count', $class->recordings_count, ['count' => $class->recordings_count]) }}
+                                    </div>
                                 @endif
                             </div>
+
+                            {{-- Syllabus preview --}}
+                            @if($class->syllabi && $class->syllabi->isNotEmpty())
+                                <div class="mt-3 border-t border-zinc-50 pt-3">
+                                    <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">Silibus</p>
+                                    <ul class="space-y-1">
+                                        @foreach($class->syllabi->take(3) as $topic)
+                                            <li class="flex items-center gap-1.5 text-sm text-zinc-600">
+                                                <flux:icon name="check-circle" class="h-3.5 w-3.5 text-violet-400" />
+                                                {{ $topic->title }}
+                                            </li>
+                                        @endforeach
+                                        @if($class->syllabi->count() > 3)
+                                            <li class="text-xs text-violet-500">+ {{ $class->syllabi->count() - 3 }} lagi...</li>
+                                        @endif
+                                    </ul>
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
