@@ -4,6 +4,8 @@ use App\Models\ClassSession;
 use App\Models\ClassStudent;
 use App\Models\ClassResource;
 use App\Models\ClassAttendance;
+use App\Models\ClassAnnouncement;
+use App\Models\ClassAnnouncementRead;
 use App\Models\StudentMilestone;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
@@ -181,10 +183,37 @@ new class extends Component {
         return $streak;
     }
 
+    public function getAnnouncementsProperty()
+    {
+        return ClassAnnouncement::where('class_id', $this->class->id)
+            ->published()
+            ->ordered()
+            ->with('author')
+            ->get();
+    }
+
+    public function getUnreadCountProperty(): int
+    {
+        $student = auth()->user()->student;
+        $total = ClassAnnouncement::where('class_id', $this->class->id)->published()->count();
+        $read = ClassAnnouncementRead::whereHas('announcement', fn ($q) => $q->where('class_id', $this->class->id))
+            ->where('student_id', $student->id)
+            ->count();
+
+        return max(0, $total - $read);
+    }
+
+    public function markAnnouncementRead(int $id): void
+    {
+        $announcement = ClassAnnouncement::findOrFail($id);
+        $student = auth()->user()->student;
+        $announcement->markAsRead($student);
+    }
+
     public function with(): array
     {
         $student = auth()->user()->student;
-        
+
         // Get student's enrollment in this class
         $classStudent = ClassStudent::where('class_id', $this->class->id)
             ->where('student_id', $student->id)
@@ -418,7 +447,7 @@ new class extends Component {
                     wire:click="setActiveTab('overview')"
                     class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
                         {{ $activeTab === 'overview'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-violet-500 text-violet-600 dark:text-violet-400'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     {{ __('student.classes.overview') }}
@@ -428,7 +457,7 @@ new class extends Component {
                     wire:click="setActiveTab('timetable')"
                     class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
                         {{ $activeTab === 'timetable'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-violet-500 text-violet-600 dark:text-violet-400'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     {{ __('student.classes.timetable') }}
@@ -438,7 +467,7 @@ new class extends Component {
                     wire:click="setActiveTab('sessions')"
                     class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
                         {{ $activeTab === 'sessions'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-violet-500 text-violet-600 dark:text-violet-400'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     {{ __('student.classes.sessions_tab') }}
@@ -448,7 +477,7 @@ new class extends Component {
                     wire:click="setActiveTab('resources')"
                     class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
                         {{ $activeTab === 'resources'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-violet-500 text-violet-600 dark:text-violet-400'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Bahan
@@ -458,10 +487,26 @@ new class extends Component {
                     wire:click="setActiveTab('progress')"
                     class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
                         {{ $activeTab === 'progress'
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-violet-500 text-violet-600 dark:text-violet-400'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Kemajuan
+                </button>
+
+                @php $unreadCount = $this->unread_count; @endphp
+                <button
+                    wire:click="setActiveTab('announcements')"
+                    class="relative py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                        {{ $activeTab === 'announcements'
+                            ? 'border-violet-500 text-violet-600 dark:text-violet-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
+                >
+                    Pengumuman
+                    @if($unreadCount > 0)
+                        <span class="ml-1.5 inline-flex items-center justify-center rounded-full bg-violet-500 px-1.5 py-0.5 text-xs font-semibold text-white">
+                            {{ $unreadCount }}
+                        </span>
+                    @endif
                 </button>
             </nav>
         </div>
@@ -493,6 +538,8 @@ new class extends Component {
             @include('livewire.student.class-show.resources')
         @elseif($activeTab === 'progress')
             @include('livewire.student.class-show.progress')
+        @elseif($activeTab === 'announcements')
+            @include('livewire.student.class-show.announcements')
         @endif
     </div>
 
