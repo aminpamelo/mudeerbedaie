@@ -9232,101 +9232,123 @@ new class extends Component
         <!-- Resources (Bahan) Tab -->
         <div class="{{ $activeTab === 'resources' ? 'block' : 'hidden' }}">
             @if($activeTab === 'resources')
-                <div class="space-y-6">
-                    <div class="flex items-center justify-between">
+                @php
+                    $resources = $this->class_resources;
+                    $grouped = $resources->groupBy(fn ($r) => $r->session_id ? 'Sesi: ' . $r->session->session_date->format('d M Y') : 'Umum');
+                @endphp
+
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
                         <div>
-                            <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Bahan Kelas</h3>
-                            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Urus bahan pembelajaran untuk pelajar.</p>
+                            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Bahan Kelas</h3>
+                            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Urus bahan pembelajaran untuk pelajar</p>
                         </div>
                         <flux:button variant="primary" size="sm" wire:click="$set('showResourceModal', true)">
                             <div class="flex items-center justify-center">
-                                <flux:icon name="plus" class="mr-1.5 h-4 w-4" />
+                                <flux:icon name="plus" class="mr-1 h-3.5 w-3.5" />
                                 Tambah Bahan
                             </div>
                         </flux:button>
                     </div>
 
-                    @php
-                        $resources = $this->class_resources;
-                        $grouped = $resources->groupBy(fn ($r) => $r->session_id ? 'Sesi: ' . $r->session->session_date->format('d M Y') : 'Umum');
-                    @endphp
-
-                    @forelse($grouped as $group => $items)
-                        <div>
-                            <h4 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">{{ $group }}</h4>
-                            <div class="space-y-2">
-                                @foreach($items as $resource)
-                                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4" wire:key="resource-{{ $resource->id }}">
-                                        <div class="flex items-center gap-3">
-                                            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/30">
-                                                <flux:icon :name="$resource->icon" class="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                                            </div>
-                                            <div>
-                                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $resource->title }}</p>
-                                                <div class="flex items-center gap-2 mt-0.5">
-                                                    <flux:badge size="sm" color="{{ $resource->is_published ? 'green' : 'zinc' }}">
-                                                        {{ $resource->is_published ? 'Diterbitkan' : 'Draf' }}
-                                                    </flux:badge>
-                                                    <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ $resource->views->count() }} tontonan</span>
+                    <div class="p-5">
+                        @forelse($grouped as $group => $items)
+                            <div class="{{ !$loop->first ? 'mt-5 border-t border-zinc-100 dark:border-zinc-700/50 pt-5' : '' }}">
+                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{{ $group }}</span>
+                                <div class="mt-3 divide-y divide-zinc-100 dark:divide-zinc-700/50 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                    @foreach($items as $resource)
+                                        <div class="flex items-center justify-between bg-white dark:bg-zinc-800 px-4 py-3" wire:key="resource-{{ $resource->id }}">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-violet-50 dark:bg-violet-900/30">
+                                                    <flux:icon :name="$resource->icon" class="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $resource->title }}</p>
+                                                    <div class="flex items-center gap-2 mt-0.5">
+                                                        <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium {{ $resource->is_published ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400' }}">
+                                                            {{ $resource->is_published ? 'Diterbitkan' : 'Draf' }}
+                                                        </span>
+                                                        <span class="text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums">{{ $resource->views->count() }} views</span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <div class="flex items-center gap-0.5 shrink-0 ml-3">
+                                                <button wire:click="toggleResourcePublished({{ $resource->id }})" class="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300" title="{{ $resource->is_published ? 'Sembunyikan' : 'Terbitkan' }}">
+                                                    <flux:icon name="{{ $resource->is_published ? 'eye-slash' : 'eye' }}" class="h-3.5 w-3.5" />
+                                                </button>
+                                                <button wire:click="editResource({{ $resource->id }})" class="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300" title="Edit">
+                                                    <flux:icon name="pencil" class="h-3.5 w-3.5" />
+                                                </button>
+                                                <button wire:click="deleteResource({{ $resource->id }})" wire:confirm="Padam bahan ini?" class="rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400" title="Padam">
+                                                    <flux:icon name="trash" class="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <flux:button size="sm" variant="ghost" wire:click="toggleResourcePublished({{ $resource->id }})">
-                                                <flux:icon name="{{ $resource->is_published ? 'eye-slash' : 'eye' }}" class="h-4 w-4" />
-                                            </flux:button>
-                                            <flux:button size="sm" variant="ghost" wire:click="editResource({{ $resource->id }})">
-                                                <flux:icon name="pencil" class="h-4 w-4" />
-                                            </flux:button>
-                                            <flux:button size="sm" variant="ghost" wire:click="deleteResource({{ $resource->id }})" wire:confirm="Padam bahan ini?">
-                                                <flux:icon name="trash" class="h-4 w-4 text-red-500" />
-                                            </flux:button>
-                                        </div>
-                                    </div>
-                                @endforeach
+                                    @endforeach
+                                </div>
                             </div>
-                        </div>
-                    @empty
-                        <div class="text-center py-12 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                            <flux:icon name="folder-open" class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600" />
-                            <p class="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">Tiada Bahan</p>
-                            <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Klik "Tambah Bahan" untuk mula.</p>
-                        </div>
-                    @endforelse
-
-                    {{-- Resource Modal --}}
-                    <flux:modal wire:model="showResourceModal" class="max-w-lg">
-                        <div class="space-y-4">
-                            <flux:heading size="lg">{{ $editingResourceId ? 'Edit Bahan' : 'Tambah Bahan' }}</flux:heading>
-                            <flux:input wire:model="resourceTitle" label="Tajuk" placeholder="Cth: Nota Tajwid Bab 1" />
-                            <flux:select wire:model.live="resourceType" label="Jenis">
-                                <option value="link">Pautan</option>
-                                <option value="recording">Rakaman</option>
-                                <option value="pdf">PDF</option>
-                                <option value="audio">Audio</option>
-                                <option value="image">Gambar</option>
-                                <option value="note">Nota Teks</option>
-                            </flux:select>
-                            @if(in_array($resourceType, ['link', 'recording']))
-                                <flux:input wire:model="resourceUrl" label="URL" placeholder="https://..." />
-                            @endif
-                            @if($resourceType === 'note')
-                                <flux:textarea wire:model="resourceContent" label="Kandungan" rows="6" placeholder="Tulis nota di sini..." />
-                            @endif
-                            <flux:select wire:model="resourceSessionId" label="Sesi (Pilihan)">
-                                <option value="">Umum (tiada sesi)</option>
-                                @foreach($this->class->sessions()->orderByDesc('session_date')->get() as $session)
-                                    <option value="{{ $session->id }}">{{ $session->session_date->format('d M Y') }}</option>
-                                @endforeach
-                            </flux:select>
-                            <flux:switch wire:model="resourcePublished" label="Terbitkan sekarang" />
-                            <div class="flex justify-end gap-2 pt-2">
-                                <flux:button wire:click="$set('showResourceModal', false)">Batal</flux:button>
-                                <flux:button variant="primary" wire:click="saveResource">{{ $editingResourceId ? 'Kemaskini' : 'Simpan' }}</flux:button>
+                        @empty
+                            <div class="text-center py-10">
+                                <flux:icon name="folder-open" class="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+                                <p class="mt-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">Tiada bahan</p>
+                                <p class="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">Klik "Tambah Bahan" untuk mula memuat naik</p>
                             </div>
-                        </div>
-                    </flux:modal>
+                        @endforelse
+                    </div>
                 </div>
+
+                {{-- Resource Modal --}}
+                <flux:modal wire:model="showResourceModal" class="max-w-lg">
+                    <div class="space-y-5">
+                        <div>
+                            <flux:heading size="lg">{{ $editingResourceId ? 'Edit Bahan' : 'Tambah Bahan Baru' }}</flux:heading>
+                            <flux:text size="sm" class="mt-1">Muat naik bahan pembelajaran untuk pelajar kelas ini.</flux:text>
+                        </div>
+
+                        <div class="space-y-4">
+                            <flux:input wire:model="resourceTitle" label="Tajuk" placeholder="Cth: Nota Tajwid Bab 1" />
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <flux:select wire:model.live="resourceType" label="Jenis Bahan">
+                                    <option value="link">Pautan</option>
+                                    <option value="recording">Rakaman</option>
+                                    <option value="pdf">PDF</option>
+                                    <option value="audio">Audio</option>
+                                    <option value="image">Gambar</option>
+                                    <option value="note">Nota Teks</option>
+                                </flux:select>
+
+                                <flux:select wire:model="resourceSessionId" label="Kaitkan Sesi">
+                                    <option value="">Umum</option>
+                                    @foreach($this->class->sessions()->orderByDesc('session_date')->get() as $session)
+                                        <option value="{{ $session->id }}">{{ $session->session_date->format('d M Y') }}</option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            @if(in_array($resourceType, ['link', 'recording']))
+                                <flux:input wire:model="resourceUrl" label="URL" placeholder="https://..." type="url" />
+                            @endif
+
+                            @if($resourceType === 'note')
+                                <flux:textarea wire:model="resourceContent" label="Kandungan Nota" rows="5" placeholder="Tulis nota di sini..." />
+                            @endif
+
+                            <div class="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                                <div>
+                                    <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Terbitkan sekarang</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Pelajar boleh lihat bahan ini segera</p>
+                                </div>
+                                <flux:switch wire:model="resourcePublished" />
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-700 pt-4">
+                            <flux:button wire:click="$set('showResourceModal', false)">Batal</flux:button>
+                            <flux:button variant="primary" wire:click="saveResource">{{ $editingResourceId ? 'Kemaskini' : 'Simpan' }}</flux:button>
+                        </div>
+                    </div>
+                </flux:modal>
             @endif
         </div>
         <!-- End Resources Tab -->
@@ -9334,73 +9356,91 @@ new class extends Component
         <!-- Announcements (Pengumuman) Tab -->
         <div class="{{ $activeTab === 'announcements' ? 'block' : 'hidden' }}">
             @if($activeTab === 'announcements')
-                <div class="space-y-6">
-                    <div class="flex items-center justify-between">
+                @php $announcements = $this->class_announcements; @endphp
+
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
                         <div>
-                            <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Pengumuman</h3>
-                            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Kongsi maklumat penting dengan pelajar kelas ini.</p>
+                            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Pengumuman Kelas</h3>
+                            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Kongsi maklumat penting dengan pelajar</p>
                         </div>
                         <flux:button variant="primary" size="sm" wire:click="$set('showAnnouncementModal', true)">
                             <div class="flex items-center justify-center">
-                                <flux:icon name="megaphone" class="mr-1.5 h-4 w-4" />
+                                <flux:icon name="plus" class="mr-1 h-3.5 w-3.5" />
                                 Tulis Pengumuman
                             </div>
                         </flux:button>
                     </div>
 
-                    @php $announcements = $this->class_announcements; @endphp
-
-                    @forelse($announcements as $announcement)
-                        <div class="rounded-lg border {{ $announcement->is_pinned ? 'border-amber-200 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-900/10' : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800' }} p-5" wire:key="ann-{{ $announcement->id }}">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex items-start gap-2">
-                                    @if($announcement->is_pinned)
-                                        <flux:icon name="bookmark" class="mt-0.5 h-4 w-4 text-amber-500" />
-                                    @endif
-                                    <div>
-                                        <p class="text-base font-semibold text-zinc-900 dark:text-zinc-100">{{ $announcement->title }}</p>
-                                        <p class="text-sm text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    <div class="p-5">
+                        @forelse($announcements as $announcement)
+                            <div class="@if(!$loop->first) mt-4 border-t border-zinc-100 dark:border-zinc-700/50 pt-4 @endif" wire:key="ann-{{ $announcement->id }}">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2">
+                                            @if($announcement->is_pinned)
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                                                    <flux:icon name="bookmark" class="h-3 w-3" /> Pinned
+                                                </span>
+                                            @endif
+                                            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $announcement->title }}</p>
+                                        </div>
+                                        <p class="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
                                             {{ $announcement->author?->name }} · {{ $announcement->published_at->diffForHumans() }}
+                                            · <span class="text-violet-500 dark:text-violet-400">{{ $announcement->reads->count() }}/{{ $this->class->activeStudents()->count() }} dibaca</span>
                                         </p>
+                                        <div class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{!! nl2br(e(Str::limit($announcement->body, 200))) !!}</div>
+                                    </div>
+                                    <div class="flex items-center gap-0.5 shrink-0">
+                                        <button wire:click="togglePin({{ $announcement->id }})" class="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300" title="{{ $announcement->is_pinned ? 'Nyahpin' : 'Pin' }}">
+                                            <flux:icon name="{{ $announcement->is_pinned ? 'bookmark-slash' : 'bookmark' }}" class="h-3.5 w-3.5" />
+                                        </button>
+                                        <button wire:click="editAnnouncement({{ $announcement->id }})" class="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300" title="Edit">
+                                            <flux:icon name="pencil" class="h-3.5 w-3.5" />
+                                        </button>
+                                        <button wire:click="deleteAnnouncement({{ $announcement->id }})" wire:confirm="Padam pengumuman ini?" class="rounded p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400" title="Padam">
+                                            <flux:icon name="trash" class="h-3.5 w-3.5" />
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-1">
-                                    <flux:badge size="sm" color="violet">{{ $announcement->reads->count() }}/{{ $this->class->activeStudents()->count() }} dibaca</flux:badge>
-                                    <flux:button size="sm" variant="ghost" wire:click="togglePin({{ $announcement->id }})">
-                                        <flux:icon name="{{ $announcement->is_pinned ? 'bookmark-slash' : 'bookmark' }}" class="h-4 w-4" />
-                                    </flux:button>
-                                    <flux:button size="sm" variant="ghost" wire:click="editAnnouncement({{ $announcement->id }})">
-                                        <flux:icon name="pencil" class="h-4 w-4" />
-                                    </flux:button>
-                                    <flux:button size="sm" variant="ghost" wire:click="deleteAnnouncement({{ $announcement->id }})" wire:confirm="Padam pengumuman ini?">
-                                        <flux:icon name="trash" class="h-4 w-4 text-red-500" />
-                                    </flux:button>
-                                </div>
                             </div>
-                            <div class="mt-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{!! nl2br(e($announcement->body)) !!}</div>
-                        </div>
-                    @empty
-                        <div class="text-center py-12 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                            <flux:icon name="megaphone" class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600" />
-                            <p class="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">Tiada Pengumuman</p>
-                            <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Klik "Tulis Pengumuman" untuk mula.</p>
-                        </div>
-                    @endforelse
-
-                    {{-- Announcement Modal --}}
-                    <flux:modal wire:model="showAnnouncementModal" class="max-w-lg">
-                        <div class="space-y-4">
-                            <flux:heading size="lg">{{ $editingAnnouncementId ? 'Edit Pengumuman' : 'Tulis Pengumuman' }}</flux:heading>
-                            <flux:input wire:model="announcementTitle" label="Tajuk" placeholder="Cth: Peringatan ujian minggu depan" />
-                            <flux:textarea wire:model="announcementBody" label="Isi Pengumuman" rows="6" placeholder="Tulis pengumuman anda di sini..." />
-                            <flux:switch wire:model="announcementPinned" label="Pin di atas" />
-                            <div class="flex justify-end gap-2 pt-2">
-                                <flux:button wire:click="$set('showAnnouncementModal', false)">Batal</flux:button>
-                                <flux:button variant="primary" wire:click="saveAnnouncement">{{ $editingAnnouncementId ? 'Kemaskini' : 'Terbitkan' }}</flux:button>
+                        @empty
+                            <div class="text-center py-10">
+                                <flux:icon name="megaphone" class="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+                                <p class="mt-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">Tiada pengumuman</p>
+                                <p class="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">Klik "Tulis Pengumuman" untuk mula berkongsi</p>
                             </div>
-                        </div>
-                    </flux:modal>
+                        @endforelse
+                    </div>
                 </div>
+
+                {{-- Announcement Modal --}}
+                <flux:modal wire:model="showAnnouncementModal" class="max-w-lg">
+                    <div class="space-y-5">
+                        <div>
+                            <flux:heading size="lg">{{ $editingAnnouncementId ? 'Edit Pengumuman' : 'Tulis Pengumuman' }}</flux:heading>
+                            <flux:text size="sm" class="mt-1">Pengumuman akan dipaparkan kepada semua pelajar kelas ini.</flux:text>
+                        </div>
+
+                        <div class="space-y-4">
+                            <flux:input wire:model="announcementTitle" label="Tajuk" placeholder="Cth: Peringatan ujian minggu depan" />
+                            <flux:textarea wire:model="announcementBody" label="Isi Pengumuman" rows="5" placeholder="Tulis pengumuman anda di sini..." />
+
+                            <div class="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                                <div>
+                                    <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pin di atas</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Pengumuman penting akan sentiasa di atas</p>
+                                </div>
+                                <flux:switch wire:model="announcementPinned" />
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-700 pt-4">
+                            <flux:button wire:click="$set('showAnnouncementModal', false)">Batal</flux:button>
+                            <flux:button variant="primary" wire:click="saveAnnouncement">{{ $editingAnnouncementId ? 'Kemaskini' : 'Terbitkan' }}</flux:button>
+                        </div>
+                    </div>
+                </flux:modal>
             @endif
         </div>
         <!-- End Announcements Tab -->
@@ -9408,72 +9448,95 @@ new class extends Component
         <!-- Progress (Kemajuan) Tab -->
         <div class="{{ $activeTab === 'progress' ? 'block' : 'hidden' }}">
             @if($activeTab === 'progress')
-                <div class="space-y-6">
-                    <div>
-                        <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Kemajuan Pelajar</h3>
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Lihat kemajuan kehadiran dan pencapaian setiap pelajar.</p>
+                @php
+                    $classStudents = $this->class->classStudents()->with(['student.user', 'milestones'])->where('status', 'active')->get();
+                    $completedSessions = $this->class->sessions()->where('status', 'completed')->count();
+                @endphp
+
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Kemajuan Pelajar</h3>
+                        <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Kehadiran dan pencapaian setiap pelajar dalam kelas ini</p>
                     </div>
 
-                    @php
-                        $classStudents = $this->class->classStudents()->with(['student.user'])->where('status', 'active')->get();
-                        $completedSessions = $this->class->sessions()->where('status', 'completed')->count();
-                    @endphp
+                    {{-- Summary Stats --}}
+                    <div class="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-700 border-b border-zinc-200 dark:border-zinc-700">
+                        <div class="px-5 py-3 text-center">
+                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Pelajar Aktif</span>
+                            <p class="mt-0.5 text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $classStudents->count() }}</p>
+                        </div>
+                        <div class="px-5 py-3 text-center">
+                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sesi Selesai</span>
+                            <p class="mt-0.5 text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $completedSessions }}</p>
+                        </div>
+                        <div class="px-5 py-3 text-center">
+                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Jumlah Pencapaian</span>
+                            <p class="mt-0.5 text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $classStudents->sum(fn ($cs) => $cs->milestones->count()) }}</p>
+                        </div>
+                    </div>
 
-                    @forelse($classStudents as $cs)
-                        @php
-                            $attended = \App\Models\ClassAttendance::where('student_id', $cs->student_id)
-                                ->whereHas('session', fn ($q) => $q->where('class_id', $this->class->id))
-                                ->where('status', 'present')
-                                ->count();
-                            $rate = $completedSessions > 0 ? round(($attended / $completedSessions) * 100) : 0;
-                            $milestoneCount = $cs->milestones()->count();
-                        @endphp
-                        <div class="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4" wire:key="prog-{{ $cs->id }}">
-                            <div class="flex items-center gap-3">
-                                <div class="relative h-10 w-10">
-                                    <svg class="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
-                                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e4e4e7" stroke-width="3" />
-                                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="{{ $rate >= 80 ? '#22c55e' : ($rate >= 50 ? '#f59e0b' : '#ef4444') }}" stroke-width="3" stroke-dasharray="{{ $rate }}, 100" />
-                                    </svg>
-                                    <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-300">{{ $rate }}%</span>
+                    {{-- Student List --}}
+                    <div class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                        @forelse($classStudents as $cs)
+                            @php
+                                $attended = \App\Models\ClassAttendance::where('student_id', $cs->student_id)
+                                    ->whereHas('session', fn ($q) => $q->where('class_id', $this->class->id))
+                                    ->where('status', 'present')
+                                    ->count();
+                                $rate = $completedSessions > 0 ? round(($attended / $completedSessions) * 100) : 0;
+                                $milestoneCount = $cs->milestones->count();
+                            @endphp
+                            <div class="flex items-center justify-between px-5 py-3" wire:key="prog-{{ $cs->id }}">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="relative h-9 w-9 shrink-0">
+                                        <svg class="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
+                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e4e4e7" stroke-width="3.5" />
+                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="{{ $rate >= 80 ? '#22c55e' : ($rate >= 50 ? '#f59e0b' : '#ef4444') }}" stroke-width="3.5" stroke-dasharray="{{ $rate }}, 100" stroke-linecap="round" />
+                                        </svg>
+                                        <span class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-zinc-700 dark:text-zinc-300 tabular-nums">{{ $rate }}%</span>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $cs->student?->user?->name ?? 'Unknown' }}</p>
+                                        <p class="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">{{ $attended }}/{{ $completedSessions }} sesi hadir · {{ $milestoneCount }} pencapaian</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $cs->student?->user?->name ?? 'Unknown' }}</p>
-                                    <p class="text-xs text-zinc-400">{{ $attended }}/{{ $completedSessions }} sesi · {{ $milestoneCount }} pencapaian</p>
-                                </div>
-                            </div>
-                            <flux:button size="sm" variant="ghost" wire:click="openMilestoneModal({{ $cs->id }})">
-                                <div class="flex items-center justify-center">
-                                    <flux:icon name="trophy" class="mr-1 h-4 w-4 text-amber-500" />
+                                <button wire:click="openMilestoneModal({{ $cs->id }})" class="inline-flex items-center gap-1 rounded-md border border-zinc-200 dark:border-zinc-600 px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
+                                    <flux:icon name="trophy" class="h-3.5 w-3.5 text-amber-500" />
                                     Beri Pencapaian
-                                </div>
-                            </flux:button>
-                        </div>
-                    @empty
-                        <div class="text-center py-12 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                            <flux:icon name="users" class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600" />
-                            <p class="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">Tiada Pelajar</p>
-                            <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Belum ada pelajar aktif dalam kelas ini.</p>
-                        </div>
-                    @endforelse
+                                </button>
+                            </div>
+                        @empty
+                            <div class="text-center py-10">
+                                <flux:icon name="users" class="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+                                <p class="mt-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">Tiada pelajar aktif</p>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
 
-                    {{-- Milestone Modal --}}
-                    <flux:modal wire:model="showMilestoneModal" class="max-w-md">
-                        <div class="space-y-4">
+                {{-- Milestone Modal --}}
+                <flux:modal wire:model="showMilestoneModal" class="max-w-md">
+                    <div class="space-y-5">
+                        <div>
                             <flux:heading size="lg">Beri Pencapaian</flux:heading>
+                            <flux:text size="sm" class="mt-1">Anugerahkan pencapaian kepada pelajar ini.</flux:text>
+                        </div>
+
+                        <div class="space-y-4">
                             <flux:input wire:model="milestoneTitle" label="Tajuk Pencapaian" placeholder="Cth: Khatam Juz 1" />
-                            <flux:select wire:model="milestoneType" label="Jenis">
+                            <flux:select wire:model="milestoneType" label="Jenis Pencapaian">
                                 <option value="custom">Khas</option>
                                 <option value="attendance">Kehadiran</option>
                                 <option value="syllabus">Silibus</option>
                             </flux:select>
-                            <div class="flex justify-end gap-2 pt-2">
-                                <flux:button wire:click="$set('showMilestoneModal', false)">Batal</flux:button>
-                                <flux:button variant="primary" wire:click="awardMilestone">Beri</flux:button>
-                            </div>
                         </div>
-                    </flux:modal>
-                </div>
+
+                        <div class="flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-700 pt-4">
+                            <flux:button wire:click="$set('showMilestoneModal', false)">Batal</flux:button>
+                            <flux:button variant="primary" wire:click="awardMilestone">Beri Pencapaian</flux:button>
+                        </div>
+                    </div>
+                </flux:modal>
             @endif
         </div>
         <!-- End Progress Tab -->
