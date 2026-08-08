@@ -120,6 +120,8 @@
                         $totalRecords = $studentAttendances->count();
                         $attendanceRate = $totalRecords > 0 ? round(($presentCount / $totalRecords) * 100, 1) : 0;
 
+                        $milestoneCount = $classStudent->milestones()->count();
+
                         $performanceText = $attendanceRate >= 90
                             ? 'Excellent'
                             : ($attendanceRate >= 80 ? 'Good' : ($attendanceRate >= 70 ? 'Needs work' : 'Poor'));
@@ -169,7 +171,7 @@
                         </div>
 
                         {{-- Mini stats --}}
-                        <div class="mt-4 grid grid-cols-2 gap-2">
+                        <div class="mt-4 grid grid-cols-3 gap-2">
                             <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2 text-center">
                                 <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Attended</div>
                                 <div class="teacher-num text-sm font-bold text-slate-900 dark:text-white mt-0.5">
@@ -179,6 +181,10 @@
                             <div class="rounded-xl bg-slate-50 dark:bg-zinc-800/50 px-3 py-2 text-center">
                                 <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Performance</div>
                                 <div class="teacher-num text-sm font-bold {{ $rateTone }} mt-0.5">{{ $performanceText }}</div>
+                            </div>
+                            <div class="rounded-xl bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">Pencapaian</div>
+                                <div class="teacher-num text-sm font-bold text-amber-600 dark:text-amber-300 mt-0.5">{{ $milestoneCount }}</div>
                             </div>
                         </div>
 
@@ -227,18 +233,25 @@
                             </div>
                         @endif
 
-                        {{-- Footer: enrolled date + view link --}}
+                        {{-- Footer: enrolled date + actions --}}
                         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2">
                             <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 min-w-0">
                                 <flux:icon name="calendar" class="w-3.5 h-3.5 shrink-0" />
                                 <span class="truncate">Joined {{ $classStudent->enrolled_at->diffForHumans() }}</span>
                             </div>
-                            <a href="{{ route('teacher.students.show', $student) }}"
-                               wire:navigate
-                               class="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 whitespace-nowrap">
-                                View
-                                <flux:icon name="arrow-right" class="w-3.5 h-3.5" />
-                            </a>
+                            <div class="flex items-center gap-2">
+                                <button wire:click="openMilestoneModal({{ $classStudent->id }})"
+                                        class="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 whitespace-nowrap">
+                                    <flux:icon name="trophy" class="w-3.5 h-3.5" />
+                                    Beri Pencapaian
+                                </button>
+                                <a href="{{ route('teacher.students.show', $student) }}"
+                                   wire:navigate
+                                   class="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 whitespace-nowrap">
+                                    View
+                                    <flux:icon name="arrow-right" class="w-3.5 h-3.5" />
+                                </a>
+                            </div>
                         </div>
                     </div>
                 @endforeach
@@ -359,4 +372,24 @@
             </div>
         </x-teacher.empty-state>
     @endif
+
+    {{-- Milestone Award Modal --}}
+    <flux:modal wire:model="showMilestoneModal" class="max-w-md">
+        <div class="space-y-4">
+            <flux:heading size="lg">Beri Pencapaian</flux:heading>
+
+            <flux:input wire:model="milestoneTitle" label="Tajuk Pencapaian" placeholder="Cth: Khatam Juz 1" />
+
+            <flux:select wire:model="milestoneType" label="Jenis">
+                <option value="custom">Khas</option>
+                <option value="attendance">Kehadiran</option>
+                <option value="syllabus">Silibus</option>
+            </flux:select>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <flux:button wire:click="$set('showMilestoneModal', false)">Batal</flux:button>
+                <flux:button variant="primary" wire:click="awardMilestone">Beri</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

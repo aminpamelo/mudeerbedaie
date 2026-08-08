@@ -1,8 +1,11 @@
 <?php
 
+use App\Models\ClassAnnouncement;
+use App\Models\ClassAttendance;
 use App\Models\ClassModel;
 use App\Models\ClassResource;
 use App\Models\ClassSession;
+use App\Models\StudentMilestone;
 use App\Support\TeacherStartBriefing;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
@@ -43,7 +46,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
         // Set active tab based on URL parameter
         $requestedTab = request()->query('tab', 'overview');
-        $validTabs = ['overview', 'sessions', 'students', 'timetable', 'resources'];
+        $validTabs = ['overview', 'sessions', 'students', 'timetable', 'resources', 'announcements'];
 
         if (in_array($requestedTab, $validTabs)) {
             $this->activeTab = $requestedTab;
@@ -366,7 +369,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
     public function setActiveTab($tab): void
     {
-        $validTabs = ['overview', 'sessions', 'students', 'timetable', 'resources'];
+        $validTabs = ['overview', 'sessions', 'students', 'timetable', 'resources', 'announcements'];
 
         if (in_array($tab, $validTabs)) {
             $this->activeTab = $tab;
@@ -768,6 +771,118 @@ new #[Layout('components.layouts.teacher')] class extends Component
         $this->editingResourceId = null;
         $this->resourceFile = null;
     }
+
+    // ── Milestone management ──────────────────────────────────
+    public string $milestoneTitle = '';
+
+    public string $milestoneType = 'custom';
+
+    public ?int $milestoneStudentId = null;
+
+    public bool $showMilestoneModal = false;
+
+    public function awardMilestone(): void
+    {
+        $this->validate([
+            'milestoneTitle' => 'required|string|max:255',
+            'milestoneType' => 'required|in:attendance,syllabus,custom',
+            'milestoneStudentId' => 'required|integer',
+        ]);
+
+        StudentMilestone::create([
+            'class_student_id' => $this->milestoneStudentId,
+            'title' => $this->milestoneTitle,
+            'type' => $this->milestoneType,
+            'achieved_at' => now(),
+            'awarded_by' => auth()->id(),
+        ]);
+
+        $this->milestoneTitle = '';
+        $this->milestoneType = 'custom';
+        $this->showMilestoneModal = false;
+    }
+
+    public function openMilestoneModal(int $classStudentId): void
+    {
+        $this->milestoneStudentId = $classStudentId;
+        $this->showMilestoneModal = true;
+    }
+
+    // ── Announcement management ───────────────────────────────
+    public string $announcementTitle = '';
+
+    public string $announcementBody = '';
+
+    public bool $announcementPinned = false;
+
+    public bool $showAnnouncementModal = false;
+
+    public ?int $editingAnnouncementId = null;
+
+    public ?int $viewingAnnouncementReads = null;
+
+    public function getAnnouncementsListProperty()
+    {
+        return ClassAnnouncement::where('class_id', $this->class->id)
+            ->with(['author', 'reads'])
+            ->ordered()
+            ->get();
+    }
+
+    public function saveAnnouncement(): void
+    {
+        $this->validate([
+            'announcementTitle' => 'required|string|max:255',
+            'announcementBody' => 'required|string',
+        ]);
+
+        $data = [
+            'class_id' => $this->class->id,
+            'author_id' => auth()->id(),
+            'title' => $this->announcementTitle,
+            'body' => $this->announcementBody,
+            'is_pinned' => $this->announcementPinned,
+            'published_at' => now(),
+        ];
+
+        if ($this->editingAnnouncementId) {
+            ClassAnnouncement::findOrFail($this->editingAnnouncementId)->update($data);
+        } else {
+            ClassAnnouncement::create($data);
+        }
+
+        $this->resetAnnouncementForm();
+        $this->showAnnouncementModal = false;
+    }
+
+    public function editAnnouncement(int $id): void
+    {
+        $a = ClassAnnouncement::findOrFail($id);
+        $this->editingAnnouncementId = $a->id;
+        $this->announcementTitle = $a->title;
+        $this->announcementBody = $a->body;
+        $this->announcementPinned = $a->is_pinned;
+        $this->showAnnouncementModal = true;
+    }
+
+    public function deleteAnnouncement(int $id): void
+    {
+        ClassAnnouncement::where('id', $id)->where('class_id', $this->class->id)->delete();
+    }
+
+    public function togglePin(int $id): void
+    {
+        $a = ClassAnnouncement::findOrFail($id);
+        $a->update(['is_pinned' => ! $a->is_pinned]);
+    }
+
+    private function resetAnnouncementForm(): void
+    {
+        $this->announcementTitle = '';
+        $this->announcementBody = '';
+        $this->announcementPinned = false;
+        $this->editingAnnouncementId = null;
+    }
 }; ?>
 
 @php
@@ -916,6 +1031,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
             ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'badge' => $this->enrolled_students_count ?: null],
             ['key' => 'timetable', 'label' => 'Timetable', 'icon' => 'calendar'],
             ['key' => 'resources', 'label' => 'Bahan', 'icon' => 'folder-open'],
+            ['key' => 'announcements', 'label' => 'Pengumuman', 'icon' => 'megaphone'],
         ]"
         :active="$activeTab"
     />
@@ -943,6 +1059,10 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
             @case('resources')
                 @include('livewire.teacher.classes-show.tab-resources')
+                @break
+
+            @case('announcements')
+                @include('livewire.teacher.classes-show.tab-announcements')
                 @break
         @endswitch
     </div>
