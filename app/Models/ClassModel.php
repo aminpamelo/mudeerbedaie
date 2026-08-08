@@ -686,6 +686,16 @@ class ClassModel extends Model
         return $this->hasMany(ScheduledNotification::class, 'class_id')->pending();
     }
 
+    public function resources(): HasMany
+    {
+        return $this->hasMany(ClassResource::class, 'class_id');
+    }
+
+    public function publishedResources(): HasMany
+    {
+        return $this->hasMany(ClassResource::class, 'class_id')->published();
+    }
+
     public function assignmentApprovals(): HasMany
     {
         return $this->hasMany(ClassAssignmentApproval::class, 'class_id');
