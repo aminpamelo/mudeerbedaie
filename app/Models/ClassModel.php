@@ -696,6 +696,11 @@ class ClassModel extends Model
         return $this->hasMany(ClassResource::class, 'class_id')->published();
     }
 
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(ClassAnnouncement::class, 'class_id');
+    }
+
     public function assignmentApprovals(): HasMany
     {
         return $this->hasMany(ClassAssignmentApproval::class, 'class_id');

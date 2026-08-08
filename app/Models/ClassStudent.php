@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 
 class ClassStudent extends Model
@@ -156,6 +157,11 @@ class ClassStudent extends Model
         } catch (ValidationException $e) {
             return $e->getMessage();
         }
+    }
+
+    public function milestones(): HasMany
+    {
+        return $this->hasMany(StudentMilestone::class);
     }
 
     public function scopeActive($query)
