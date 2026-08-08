@@ -1,14 +1,18 @@
 <?php
 
 use App\Models\ClassModel;
+use App\Models\ClassResource;
 use App\Models\ClassSession;
 use App\Support\TeacherStartBriefing;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('components.layouts.teacher')] class extends Component
 {
+    use WithFileUploads;
+
     public ClassModel $class;
 
     public Carbon $currentDate;
@@ -39,7 +43,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
         // Set active tab based on URL parameter
         $requestedTab = request()->query('tab', 'overview');
-        $validTabs = ['overview', 'sessions', 'students', 'timetable'];
+        $validTabs = ['overview', 'sessions', 'students', 'timetable', 'resources'];
 
         if (in_array($requestedTab, $validTabs)) {
             $this->activeTab = $requestedTab;
@@ -362,7 +366,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
     public function setActiveTab($tab): void
     {
-        $validTabs = ['overview', 'sessions', 'students', 'timetable'];
+        $validTabs = ['overview', 'sessions', 'students', 'timetable', 'resources'];
 
         if (in_array($tab, $validTabs)) {
             $this->activeTab = $tab;
@@ -647,6 +651,123 @@ new #[Layout('components.layouts.teacher')] class extends Component
             'timetable',
         ]);
     }
+
+    // Resource management
+    public string $resourceTitle = '';
+
+    public string $resourceType = 'link';
+
+    public ?string $resourceUrl = null;
+
+    public ?string $resourceContent = null;
+
+    public ?int $resourceSessionId = null;
+
+    public bool $resourcePublished = true;
+
+    public bool $showResourceModal = false;
+
+    public ?int $editingResourceId = null;
+
+    public $resourceFile = null;
+
+    public function getResourcesProperty()
+    {
+        return ClassResource::where('class_id', $this->class->id)
+            ->with(['session', 'uploader', 'views'])
+            ->orderBy('sort_order')
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
+    public function saveResource(): void
+    {
+        $rules = [
+            'resourceTitle' => 'required|string|max:255',
+            'resourceType' => 'required|in:recording,pdf,audio,image,link,note',
+        ];
+
+        if (in_array($this->resourceType, ['link', 'recording'])) {
+            $rules['resourceUrl'] = 'required|url|max:500';
+        }
+        if ($this->resourceType === 'note') {
+            $rules['resourceContent'] = 'required|string';
+        }
+        if ($this->resourceFile) {
+            $rules['resourceFile'] = 'file|max:51200'; // 50MB max
+        }
+
+        $this->validate($rules);
+
+        $filePath = null;
+        if ($this->resourceFile) {
+            $filePath = $this->resourceFile->store('class-resources/'.$this->class->id, 'public');
+        }
+
+        $data = [
+            'class_id' => $this->class->id,
+            'uploaded_by' => auth()->id(),
+            'title' => $this->resourceTitle,
+            'type' => $this->resourceType,
+            'url' => $this->resourceUrl,
+            'content' => $this->resourceContent,
+            'session_id' => $this->resourceSessionId,
+            'is_published' => $this->resourcePublished,
+            'published_at' => $this->resourcePublished ? now() : null,
+        ];
+
+        if ($filePath) {
+            $data['file_path'] = $filePath;
+        }
+
+        if ($this->editingResourceId) {
+            ClassResource::findOrFail($this->editingResourceId)->update($data);
+        } else {
+            ClassResource::create($data);
+        }
+
+        $this->resetResourceForm();
+        $this->showResourceModal = false;
+    }
+
+    public function editResource(int $id): void
+    {
+        $resource = ClassResource::findOrFail($id);
+        $this->editingResourceId = $resource->id;
+        $this->resourceTitle = $resource->title;
+        $this->resourceType = $resource->type;
+        $this->resourceUrl = $resource->url;
+        $this->resourceContent = $resource->content;
+        $this->resourceSessionId = $resource->session_id;
+        $this->resourcePublished = $resource->is_published;
+        $this->showResourceModal = true;
+    }
+
+    public function deleteResource(int $id): void
+    {
+        ClassResource::where('id', $id)->where('class_id', $this->class->id)->delete();
+    }
+
+    public function toggleResourcePublished(int $id): void
+    {
+        $resource = ClassResource::findOrFail($id);
+        $resource->update([
+            'is_published' => ! $resource->is_published,
+            'published_at' => ! $resource->is_published ? now() : null,
+        ]);
+    }
+
+    private function resetResourceForm(): void
+    {
+        $this->resourceTitle = '';
+        $this->resourceType = 'link';
+        $this->resourceUrl = null;
+        $this->resourceContent = null;
+        $this->resourceSessionId = null;
+        $this->resourcePublished = true;
+        $this->editingResourceId = null;
+        $this->resourceFile = null;
+    }
 }; ?>
 
 @php
@@ -794,6 +915,7 @@ new #[Layout('components.layouts.teacher')] class extends Component
             ['key' => 'sessions', 'label' => 'Sessions', 'icon' => 'clock', 'badge' => $this->total_sessions_count ?: null],
             ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'badge' => $this->enrolled_students_count ?: null],
             ['key' => 'timetable', 'label' => 'Timetable', 'icon' => 'calendar'],
+            ['key' => 'resources', 'label' => 'Bahan', 'icon' => 'folder-open'],
         ]"
         :active="$activeTab"
     />
@@ -817,6 +939,10 @@ new #[Layout('components.layouts.teacher')] class extends Component
 
             @case('timetable')
                 @include('livewire.teacher.classes-show.tab-timetable')
+                @break
+
+            @case('resources')
+                @include('livewire.teacher.classes-show.tab-resources')
                 @break
         @endswitch
     </div>
