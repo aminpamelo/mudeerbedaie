@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\ClassAnnouncement;
+use App\Models\ClassAnnouncementRead;
 use App\Models\ClassSession;
 use App\Models\ClassStudent;
 use App\Models\ClassModel;
@@ -80,6 +82,55 @@ new class extends Component {
             'stats' => $stats,
             'recentActivity' => $recentActivity,
         ];
+    }
+
+    public function getUnreadAnnouncementsProperty(): \Illuminate\Support\Collection
+    {
+        $student = auth()->user()->student;
+        if (! $student) {
+            return collect();
+        }
+
+        $classIds = ClassStudent::where('student_id', $student->id)
+            ->where('status', 'active')
+            ->pluck('class_id');
+
+        if ($classIds->isEmpty()) {
+            return collect();
+        }
+
+        return ClassAnnouncement::whereIn('class_id', $classIds)
+            ->where('published_at', '<=', now())
+            ->whereDoesntHave('reads', function ($q) use ($student) {
+                $q->where('student_id', $student->id);
+            })
+            ->with(['class', 'author'])
+            ->orderByDesc('published_at')
+            ->limit(5)
+            ->get();
+    }
+
+    public function getUnreadAnnouncementCountProperty(): int
+    {
+        $student = auth()->user()->student;
+        if (! $student) {
+            return 0;
+        }
+
+        $classIds = ClassStudent::where('student_id', $student->id)
+            ->where('status', 'active')
+            ->pluck('class_id');
+
+        if ($classIds->isEmpty()) {
+            return 0;
+        }
+
+        return ClassAnnouncement::whereIn('class_id', $classIds)
+            ->where('published_at', '<=', now())
+            ->whereDoesntHave('reads', function ($q) use ($student) {
+                $q->where('student_id', $student->id);
+            })
+            ->count();
     }
 
     private function getTodayScheduleFromTimetables($classes): \Illuminate\Support\Collection
@@ -290,6 +341,29 @@ new class extends Component {
             </div>
         @endif
 
+        {{-- Unread Announcements Widget --}}
+        @php $unreadCount = $this->unread_announcement_count; @endphp
+        @if($unreadCount > 0)
+            <flux:card class="border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-900/20 !p-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-800/50">
+                        <flux:icon name="megaphone" class="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <flux:text class="font-semibold text-violet-900 dark:text-violet-200">{{ $unreadCount }} pengumuman baru</flux:text>
+                </div>
+                <div class="space-y-2">
+                    @foreach($this->unread_announcements->take(3) as $ann)
+                        <a href="{{ route('student.classes.show', $ann->class_id) }}?tab=announcements" wire:navigate
+                           class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-violet-100/50 dark:hover:bg-violet-800/30 transition-colors">
+                            <flux:icon name="arrow-right" class="h-3.5 w-3.5 text-violet-400 dark:text-violet-500 flex-shrink-0" />
+                            <span class="font-medium text-violet-800 dark:text-violet-300 truncate">{{ $ann->class->title ?? 'Kelas' }}</span>
+                            <span class="text-zinc-500 dark:text-zinc-400 truncate">&mdash; {{ $ann->title }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </flux:card>
+        @endif
+
         {{-- Today's Schedule (Timetable-based) --}}
         <flux:card class="!p-0 overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-100 dark:border-zinc-700">
@@ -346,7 +420,7 @@ new class extends Component {
 
             <div class="px-4 py-3 bg-gray-50 dark:bg-zinc-800 border-t border-gray-100 dark:border-zinc-700">
                 <a href="{{ route('student.timetable') }}" wire:navigate
-                   class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center justify-center gap-1">
+                   class="text-sm font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center justify-center gap-1">
                     {{ __('student.dashboard.view_full_schedule') }}
                     <flux:icon name="chevron-right" class="w-4 h-4" />
                 </a>
@@ -356,7 +430,7 @@ new class extends Component {
         {{-- Quick Stats --}}
         <div class="grid grid-cols-3 gap-4">
             <flux:card class="text-center">
-                <flux:heading size="lg" class="text-blue-600 dark:text-blue-400">{{ $stats['activeClasses'] }}</flux:heading>
+                <flux:heading size="lg" class="text-violet-600 dark:text-violet-400">{{ $stats['activeClasses'] }}</flux:heading>
                 <flux:text size="xs" class="text-gray-500 dark:text-gray-400 mt-1">{{ __('student.stats.active_classes') }}</flux:text>
             </flux:card>
             <flux:card class="text-center">
@@ -385,9 +459,9 @@ new class extends Component {
                            class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
                             <div class="flex items-center gap-4">
                                 {{-- Date Badge --}}
-                                <div class="flex-shrink-0 w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex flex-col items-center justify-center">
-                                    <flux:text size="xs" class="text-blue-600 dark:text-blue-400 font-medium uppercase leading-none">{{ $slot['date']->format('M') }}</flux:text>
-                                    <flux:text class="text-lg font-bold text-blue-700 dark:text-blue-300 leading-none">{{ $slot['date']->format('j') }}</flux:text>
+                                <div class="flex-shrink-0 w-12 h-12 bg-violet-50 dark:bg-violet-900/30 rounded-lg flex flex-col items-center justify-center">
+                                    <flux:text size="xs" class="text-violet-600 dark:text-violet-400 font-medium uppercase leading-none">{{ $slot['date']->format('M') }}</flux:text>
+                                    <flux:text class="text-lg font-bold text-violet-700 dark:text-violet-300 leading-none">{{ $slot['date']->format('j') }}</flux:text>
                                 </div>
 
                                 {{-- Session Info --}}
@@ -438,7 +512,7 @@ new class extends Component {
         {{-- Quick Actions --}}
         <div class="grid grid-cols-2 gap-4">
             <flux:card as="a" href="{{ route('student.classes.index') }}" wire:navigate class="hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors">
-                <flux:icon name="academic-cap" class="w-7 h-7 text-blue-500 dark:text-blue-400 mb-2" />
+                <flux:icon name="academic-cap" class="w-7 h-7 text-violet-500 dark:text-violet-400 mb-2" />
                 <flux:text class="font-medium text-gray-900 dark:text-white">{{ __('student.quick_actions.my_classes') }}</flux:text>
                 <flux:text size="xs" class="text-gray-500 dark:text-gray-400">{{ __('student.quick_actions.view_enrolled') }}</flux:text>
             </flux:card>
