@@ -146,7 +146,7 @@
                     x-init="if (!isExpanded('platform')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('platform', $event)"
                 >
-                    <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="squares-2x2" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -158,17 +158,17 @@
                     data-section="administration" x-init="if (!isExpanded('administration')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('administration', $event)"
                 >
-                    <flux:navlist.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>{{ __('Courses') }}</flux:navlist.item>
+                    <flux:navlist.item icon="book-open" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>{{ __('Courses') }}</flux:navlist.item>
                     <flux:navlist.item icon="user-circle" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>{{ __('Users') }}</flux:navlist.item>
-                    <flux:navlist.item icon="users" :href="route('students.index')" :current="request()->routeIs('students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
-                    <flux:navlist.item icon="user-group" :href="route('teachers.index')" :current="request()->routeIs('teachers.*')" wire:navigate>{{ __('Teachers') }}</flux:navlist.item>
-                    <flux:navlist.item icon="calendar-days" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
-                    <flux:navlist.item icon="folder" :href="route('class-categories.index')" :current="request()->routeIs('class-categories.*')" wire:navigate>{{ __('Class Categories') }}</flux:navlist.item>
-                    <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
-                    <flux:navlist.item icon="table-cells" :href="route('admin.master-timetable')" :current="request()->routeIs('admin.master-timetable')" wire:navigate>{{ __('Master Timetable') }}</flux:navlist.item>
+                    <flux:navlist.item icon="academic-cap" :href="route('students.index')" :current="request()->routeIs('students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
+                    <flux:navlist.item icon="briefcase" :href="route('teachers.index')" :current="request()->routeIs('teachers.*')" wire:navigate>{{ __('Teachers') }}</flux:navlist.item>
+                    <flux:navlist.item icon="rectangle-stack" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="tag" :href="route('class-categories.index')" :current="request()->routeIs('class-categories.*')" wire:navigate>{{ __('Class Categories') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clock" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar-days" :href="route('admin.master-timetable')" :current="request()->routeIs('admin.master-timetable')" wire:navigate>{{ __('Master Timetable') }}</flux:navlist.item>
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
-                    <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
-                    <flux:navlist.item icon="gift" :href="route('admin.upsell-dashboard')" :current="request()->routeIs('admin.upsell-dashboard')" wire:navigate>{{ __('Upsell Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-trending-up" :href="route('admin.upsell-dashboard')" :current="request()->routeIs('admin.upsell-dashboard')" wire:navigate>{{ __('Upsell Dashboard') }}</flux:navlist.item>
                     @if(auth()->user()->isAdmin())
                         <flux:navlist.item icon="banknotes" :href="route('admin.upsell-commissions')" :current="request()->routeIs('admin.upsell-commissions')" wire:navigate>{{ __('Upsell Commission Payouts') }}</flux:navlist.item>
                     @endif
@@ -181,8 +181,8 @@
                     data-section='subscription' x-init="if (!isExpanded('subscription')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('subscription', $event)"
                 >
-                    <flux:navlist.item icon="clipboard-document-list" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
-                    <flux:navlist.item icon="credit-card" :href="route('admin.payments')" :current="request()->routeIs('admin.payments*')" wire:navigate>{{ __('Payment Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-text" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chart-bar-square" :href="route('admin.payments')" :current="request()->routeIs('admin.payments*')" wire:navigate>{{ __('Payment Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -193,8 +193,8 @@
                     @click="saveState('products', $event)"
                 >
                     <flux:navlist.item icon="cube" :href="route('products.index')" :current="request()->routeIs('products.*')" wire:navigate>{{ __('Products') }}</flux:navlist.item>
-                    <flux:navlist.item icon="folder" :href="route('product-categories.index')" :current="request()->routeIs('product-categories.*')" wire:navigate>{{ __('Categories') }}</flux:navlist.item>
-                    <flux:navlist.item icon="tag" :href="route('product-attributes.index')" :current="request()->routeIs('product-attributes.*')" wire:navigate>{{ __('Attributes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="squares-2x2" :href="route('product-categories.index')" :current="request()->routeIs('product-categories.*')" wire:navigate>{{ __('Categories') }}</flux:navlist.item>
+                    <flux:navlist.item icon="adjustments-horizontal" :href="route('product-attributes.index')" :current="request()->routeIs('product-attributes.*')" wire:navigate>{{ __('Attributes') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -204,9 +204,9 @@
                     data-section='crm' x-init="if (!isExpanded('crm')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('crm', $event)"
                 >
-                    <flux:navlist.item icon="table-cells" :href="route('crm.all-database')" :current="request()->routeIs('crm.all-database')" wire:navigate>{{ __('All Database') }}</flux:navlist.item>
+                    <flux:navlist.item icon="circle-stack" :href="route('crm.all-database')" :current="request()->routeIs('crm.all-database')" wire:navigate>{{ __('All Database') }}</flux:navlist.item>
                     <flux:navlist.item icon="user-group" :href="route('crm.audiences.index')" :current="request()->routeIs('crm.audiences.*')" wire:navigate>{{ __('Audiences') }}</flux:navlist.item>
-                    <flux:navlist.item icon="envelope" :href="route('crm.broadcasts.index')" :current="request()->routeIs('crm.broadcasts.*')" wire:navigate>{{ __('Broadcasts') }}</flux:navlist.item>
+                    <flux:navlist.item icon="megaphone" :href="route('crm.broadcasts.index')" :current="request()->routeIs('crm.broadcasts.*')" wire:navigate>{{ __('Broadcasts') }}</flux:navlist.item>
                     <flux:navlist.item icon="paint-brush" :href="route('admin.funnel-email-templates')" :current="request()->routeIs('admin.funnel-email-templates*')" wire:navigate>{{ __('Email Templates') }}</flux:navlist.item>
                 </flux:navlist.group>
 
@@ -217,7 +217,7 @@
                     data-section='funnels' x-init="if (!isExpanded('funnels')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('funnels', $event)"
                 >
-                    <flux:navlist.item icon="funnel" :href="route('admin.funnels')" :current="request()->routeIs('admin.funnels*')" wire:navigate>{{ __('All Funnels') }}</flux:navlist.item>
+                    <flux:navlist.item icon="rectangle-stack" :href="route('admin.funnels')" :current="request()->routeIs('admin.funnels*')" wire:navigate>{{ __('All Funnels') }}</flux:navlist.item>
                     <flux:navlist.item icon="plus-circle" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*')" wire:navigate>{{ __('Create Funnel') }}</flux:navlist.item>
                     <flux:navlist.item icon="bolt" :href="route('workflows.index')" :current="request()->routeIs('workflows.*')" wire:navigate>{{ __('Workflows') }}</flux:navlist.item>
                     <flux:navlist.item icon="envelope" :href="route('admin.funnel-email-templates')" :current="request()->routeIs('admin.funnel-email-templates*')" wire:navigate>{{ __('Email Templates') }}</flux:navlist.item>
@@ -230,10 +230,10 @@
                     data-section='commerce' x-init="if (!isExpanded('commerce')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('commerce', $event)"
                 >
-                    <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.index') || request()->routeIs('admin.orders.show') || request()->routeIs('admin.orders.create') || request()->routeIs('admin.orders.edit')" wire:navigate>{{ __('Orders & Package Sales') }}</flux:navlist.item>
-                    <flux:navlist.item icon="chart-bar" :href="route('admin.orders.report')" :current="request()->routeIs('admin.orders.report')" wire:navigate>{{ __('Sales Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="shopping-cart" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.index') || request()->routeIs('admin.orders.show') || request()->routeIs('admin.orders.create') || request()->routeIs('admin.orders.edit')" wire:navigate>{{ __('Orders & Package Sales') }}</flux:navlist.item>
+                    <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.orders.report')" :current="request()->routeIs('admin.orders.report')" wire:navigate>{{ __('Sales Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="gift" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
-                    <flux:navlist.item icon="server-stack" :href="route('admin.external-systems')" :current="request()->routeIs('admin.external-systems*')" wire:navigate>{{ __('External Systems') }}</flux:navlist.item>
+                    <flux:navlist.item icon="globe-alt" :href="route('admin.external-systems')" :current="request()->routeIs('admin.external-systems*')" wire:navigate>{{ __('External Systems') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -243,9 +243,9 @@
                     data-section='customerService' x-init="if (!isExpanded('customerService')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('customerService', $event)"
                 >
-                    <flux:navlist.item icon="lifebuoy" :href="route('admin.customer-service.dashboard')" :current="request()->routeIs('admin.customer-service.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrow-path" :href="route('admin.customer-service.return-refunds.index')" :current="request()->routeIs('admin.customer-service.return-refunds.*')" wire:navigate>{{ __('Return & Refunds') }}</flux:navlist.item>
-                    <flux:navlist.item icon="ticket" :href="route('admin.customer-service.tickets.index')" :current="request()->routeIs('admin.customer-service.tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chart-pie" :href="route('admin.customer-service.dashboard')" :current="request()->routeIs('admin.customer-service.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="receipt-refund" :href="route('admin.customer-service.return-refunds.index')" :current="request()->routeIs('admin.customer-service.return-refunds.*')" wire:navigate>{{ __('Return & Refunds') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chat-bubble-left-ellipsis" :href="route('admin.customer-service.tickets.index')" :current="request()->routeIs('admin.customer-service.tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 @if(Route::has('admin.it-board.index'))
@@ -256,7 +256,7 @@
                     data-section='itBoard' x-init="if (!isExpanded('itBoard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('itBoard', $event)"
                 >
-                    <flux:navlist.item icon="clipboard-document-list" :href="route('admin.it-board.index')" :current="request()->routeIs('admin.it-board.*')" wire:navigate>{{ __('Kanban Board') }}</flux:navlist.item>
+                    <flux:navlist.item icon="view-columns" :href="route('admin.it-board.index')" :current="request()->routeIs('admin.it-board.*')" wire:navigate>{{ __('Kanban Board') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -267,7 +267,7 @@
                     data-section='certificates' x-init="if (!isExpanded('certificates')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('certificates', $event)"
                 >
-                    <flux:navlist.item icon="document-text" :href="route('certificates.index')" :current="request()->routeIs('certificates.index', 'certificates.create', 'certificates.edit', 'certificates.preview', 'certificates.assignments')" wire:navigate>{{ __('Certificate Templates') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-check" :href="route('certificates.index')" :current="request()->routeIs('certificates.index', 'certificates.create', 'certificates.edit', 'certificates.preview', 'certificates.assignments')" wire:navigate>{{ __('Certificate Templates') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard-document-check" :href="route('certificates.issued')" :current="request()->routeIs('certificates.issued')" wire:navigate>{{ __('Issued Certificates') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-plus" :href="route('certificates.issue')" :current="request()->routeIs('certificates.issue', 'certificates.bulk-issue')" wire:navigate>{{ __('Issue Certificate') }}</flux:navlist.item>
                 </flux:navlist.group>
@@ -279,10 +279,10 @@
                     data-section='inventory' x-init="if (!isExpanded('inventory')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('inventory', $event)"
                 >
-                    <flux:navlist.item icon="chart-bar" :href="route('inventory.dashboard')" :current="request()->routeIs('inventory.*')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrow-path" :href="route('stock.movements')" :current="request()->routeIs('stock.movements*')" wire:navigate>{{ __('Stock Movements') }}</flux:navlist.item>
-                    <flux:navlist.item icon="squares-2x2" :href="route('stock.levels')" :current="request()->routeIs('stock.levels*')" wire:navigate>{{ __('Stock Levels') }}</flux:navlist.item>
-                    <flux:navlist.item icon="exclamation-triangle" :href="route('stock.alerts')" :current="request()->routeIs('stock.alerts*')" wire:navigate>{{ __('Stock Alerts') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chart-pie" :href="route('inventory.dashboard')" :current="request()->routeIs('inventory.*')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrows-right-left" :href="route('stock.movements')" :current="request()->routeIs('stock.movements*')" wire:navigate>{{ __('Stock Movements') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('stock.levels')" :current="request()->routeIs('stock.levels*')" wire:navigate>{{ __('Stock Levels') }}</flux:navlist.item>
+                    <flux:navlist.item icon="bell-alert" :href="route('stock.alerts')" :current="request()->routeIs('stock.alerts*')" wire:navigate>{{ __('Stock Alerts') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-storefront" :href="route('warehouses.index')" :current="request()->routeIs('warehouses.*')" wire:navigate>{{ __('Warehouses') }}</flux:navlist.item>
                 </flux:navlist.group>
 
@@ -293,8 +293,8 @@
                     data-section='agentCompany' x-init="if (!isExpanded('agentCompany')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('agentCompany', $event)"
                 >
-                    <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.index')" wire:navigate>{{ __('List of Agent & Companies') }}</flux:navlist.item>
-                    <flux:navlist.item icon="shopping-bag" :href="route('agent-orders.index')" :current="request()->routeIs('agent-orders.index')" wire:navigate>{{ __("Agent & Companies's Orders") }}</flux:navlist.item>
+                    <flux:navlist.item icon="user-group" :href="route('agents.index')" :current="request()->routeIs('agents.index')" wire:navigate>{{ __('List of Agent & Companies') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-text" :href="route('agent-orders.index')" :current="request()->routeIs('agent-orders.index')" wire:navigate>{{ __("Agent & Companies's Orders") }}</flux:navlist.item>
                     <flux:navlist.item icon="plus-circle" :href="route('agent-orders.create')" :current="request()->routeIs('agent-orders.create')" wire:navigate>{{ __('Create Order') }}</flux:navlist.item>
                     <flux:navlist.item icon="chart-bar" :href="route('agent-orders.report')" :current="request()->routeIs('agent-orders.report')" wire:navigate>{{ __('Monthly Report') }}</flux:navlist.item>
                 </flux:navlist.group>
@@ -308,8 +308,8 @@
                     @click="saveState('salesDept', $event)"
                 >
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
-                    <flux:navlist.item icon="tag" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
-                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="identification" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
+                    <flux:navlist.item icon="presentation-chart-line" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -320,11 +320,11 @@
                     data-section='platformMgmt' x-init="if (!isExpanded('platformMgmt')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('platformMgmt', $event)"
                 >
-                    <flux:navlist.item icon="squares-2x2" :href="route('platforms.index')" :current="request()->routeIs('platforms.*') && ! request()->routeIs('platforms.apps.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
-                    <flux:navlist.item icon="key" :href="route('platforms.apps.index', 'tiktok-shop')" :current="request()->routeIs('platforms.apps.*')" wire:navigate>{{ __('TikTok Apps') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrows-right-left" :href="route('platforms.sku-mappings.index')" :current="request()->routeIs('platforms.sku-mappings.*')" wire:navigate>{{ __('SKU Mappings') }}</flux:navlist.item>
+                    <flux:navlist.item icon="globe-alt" :href="route('platforms.index')" :current="request()->routeIs('platforms.*') && ! request()->routeIs('platforms.apps.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
+                    <flux:navlist.item icon="puzzle-piece" :href="route('platforms.apps.index', 'tiktok-shop')" :current="request()->routeIs('platforms.apps.*')" wire:navigate>{{ __('TikTok Apps') }}</flux:navlist.item>
+                    <flux:navlist.item icon="link" :href="route('platforms.sku-mappings.index')" :current="request()->routeIs('platforms.sku-mappings.*')" wire:navigate>{{ __('SKU Mappings') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-down-tray" :href="route('platforms.orders.import')" :current="request()->routeIs('platforms.orders.import')" wire:navigate>{{ __('Import Orders') }}</flux:navlist.item>
-                    <flux:navlist.item icon="clock" :href="route('platforms.import-history')" :current="request()->routeIs('platforms.import-history')" wire:navigate>{{ __('Import History') }}</flux:navlist.item>
+                    <flux:navlist.item icon="folder-arrow-down" :href="route('platforms.import-history')" :current="request()->routeIs('platforms.import-history')" wire:navigate>{{ __('Import History') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -336,12 +336,12 @@
                     data-section='liveHost' x-init="if (!isExpanded('liveHost')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('liveHost', $event)"
                 >
-                    <flux:navlist.item icon="users" :href="route('admin.live-hosts')" :current="request()->routeIs('admin.live-hosts*')" wire:navigate>{{ __('Live Hosts') }}</flux:navlist.item>
-                    <flux:navlist.item icon="table-cells" :href="route('admin.live-schedule-calendar')" :current="request()->routeIs('admin.live-schedule-calendar')" wire:navigate>{{ __('Schedule Live Host') }}</flux:navlist.item>
+                    <flux:navlist.item icon="user-group" :href="route('admin.live-hosts')" :current="request()->routeIs('admin.live-hosts*')" wire:navigate>{{ __('Live Hosts') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="route('admin.live-schedule-calendar')" :current="request()->routeIs('admin.live-schedule-calendar')" wire:navigate>{{ __('Schedule Live Host') }}</flux:navlist.item>
                     <flux:navlist.item icon="clock" :href="route('admin.live-time-slots')" :current="request()->routeIs('admin.live-time-slots')" wire:navigate>{{ __('Time Slots') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrow-up-tray" :href="route('admin.session-slots')" :current="request()->routeIs('admin.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
-                    <flux:navlist.item icon="calendar-days" :href="route('admin.live-schedules.index')" :current="request()->routeIs('admin.live-schedules.*')" wire:navigate>{{ __('Legacy Schedules') }}</flux:navlist.item>
-                    <flux:navlist.item icon="video-camera" :href="route('admin.live-sessions.index')" :current="request()->routeIs('admin.live-sessions.*')" wire:navigate>{{ __('Live Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="queue-list" :href="route('admin.session-slots')" :current="request()->routeIs('admin.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
+                    <flux:navlist.item icon="archive-box" :href="route('admin.live-schedules.index')" :current="request()->routeIs('admin.live-schedules.*')" wire:navigate>{{ __('Legacy Schedules') }}</flux:navlist.item>
+                    <flux:navlist.item icon="play-circle" :href="route('admin.live-sessions.index')" :current="request()->routeIs('admin.live-sessions.*')" wire:navigate>{{ __('Live Sessions') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -353,12 +353,12 @@
                     data-section='reports' x-init="if (!isExpanded('reports')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('reports', $event)"
                 >
-                    <flux:navlist.item icon="chart-bar" :href="route('admin.reports.packages-orders')" :current="request()->routeIs('admin.reports.packages-orders')" wire:navigate>{{ __('Package & Order Product Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="cube" :href="route('admin.reports.packages-orders')" :current="request()->routeIs('admin.reports.packages-orders')" wire:navigate>{{ __('Package & Order Product Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="shopping-cart" :href="route('admin.reports.student-product-orders')" :current="request()->routeIs('admin.reports.student-product-orders')" wire:navigate>{{ __('Student Product Order Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="academic-cap" :href="route('admin.reports.student-class-enrollments')" :current="request()->routeIs('admin.reports.student-class-enrollments')" wire:navigate>{{ __('Student Class Enrollment Report') }}</flux:navlist.item>
-                    <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
-                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
-                    <flux:navlist.item icon="banknotes" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-path" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
+                    <flux:navlist.item icon="credit-card" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="currency-dollar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -574,8 +574,8 @@
                     @click="saveState('salesDept', $event)"
                 >
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
-                    <flux:navlist.item icon="tag" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
-                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="identification" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
+                    <flux:navlist.item icon="presentation-chart-line" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

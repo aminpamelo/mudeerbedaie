@@ -180,13 +180,13 @@ export function Modal({ open, onClose, title, hint, children, footer, size = 'md
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div className={cn(
-        'fade-up relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0F1729] shadow-2xl sm:rounded-2xl',
+        'fade-up relative z-10 flex max-h-[85vh] w-full flex-col rounded-2xl border border-white/10 bg-[#0F1729] shadow-2xl',
         widths[size]
       )}>
-        <div className="flex items-start justify-between gap-4 border-b border-white/8 px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/8 px-5 py-4">
           <div className="min-w-0">
             <h2 className="text-[16px] font-bold text-white">{title}</h2>
             {hint && <p className="mt-0.5 text-[12.5px] text-white/50">{hint}</p>}
@@ -201,9 +201,9 @@ export function Modal({ open, onClose, title, hint, children, footer, size = 'md
           </button>
         </div>
 
-        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
 
-        {footer && <div className="flex justify-end gap-2 border-t border-white/8 px-5 py-3">{footer}</div>}
+        {footer && <div className="flex shrink-0 justify-end gap-2 border-t border-white/8 px-5 py-3">{footer}</div>}
       </div>
     </div>
   );
