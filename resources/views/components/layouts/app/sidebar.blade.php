@@ -262,7 +262,7 @@
 
                 <flux:navlist.group
                     expandable
-                    icon="document-text" color="yellow"
+                    icon="trophy" color="yellow"
                     :heading="__('Certificate Management')"
                     data-section='certificates' x-init="if (!isExpanded('certificates')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('certificates', $event)"
@@ -274,7 +274,7 @@
 
                 <flux:navlist.group
                     expandable
-                    icon="archive-box" color="orange"
+                    icon="cube-transparent" color="orange"
                     :heading="__('Inventory Management')"
                     data-section='inventory' x-init="if (!isExpanded('inventory')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('inventory', $event)"
@@ -288,7 +288,7 @@
 
                 <flux:navlist.group
                     expandable
-                    icon="building-office" color="sky"
+                    icon="briefcase" color="sky"
                     :heading="__('Agent & Companies')"
                     data-section='agentCompany' x-init="if (!isExpanded('agentCompany')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('agentCompany', $event)"
@@ -315,7 +315,7 @@
 
                 <flux:navlist.group
                     expandable
-                    icon="squares-2x2" color="fuchsia"
+                    icon="cog-6-tooth" color="fuchsia"
                     :heading="__('Platform Management')"
                     data-section='platformMgmt' x-init="if (!isExpanded('platformMgmt')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('platformMgmt', $event)"
@@ -348,7 +348,7 @@
                 @if(auth()->user()->isAdmin() || auth()->user()->isEmployee())
                 <flux:navlist.group
                     expandable
-                    icon="chart-bar" color="purple"
+                    icon="presentation-chart-bar" color="purple"
                     :heading="__('Reports & Analytics')"
                     data-section='reports' x-init="if (!isExpanded('reports')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('reports', $event)"
