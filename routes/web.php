@@ -96,12 +96,18 @@ use App\Http\Controllers\StudentPortal\SubscriptionController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\TikTok\TikTokAuthController;
 use App\Http\Controllers\TikTok\TikTokWebhookController;
+use App\Http\Controllers\Vault\AuditLogController as VaultAuditLogController;
+use App\Http\Controllers\Vault\CategoryController as VaultCategoryController;
+use App\Http\Controllers\Vault\CredentialController as VaultCredentialController;
+use App\Http\Controllers\Vault\DashboardController as VaultDashboardController;
+use App\Http\Controllers\Vault\TagController as VaultTagController;
 use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\HandleBlogSeoInertiaRequests;
 use App\Http\Middleware\HandleCeoInertiaRequests;
 use App\Http\Middleware\HandleFighterInertiaRequests;
 use App\Http\Middleware\HandlePocketInertiaRequests;
 use App\Http\Middleware\HandleStudentInertiaRequests;
+use App\Http\Middleware\HandleVaultInertiaRequests;
 use App\Models\CertificateIssue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -1661,6 +1667,35 @@ Route::middleware(['auth', 'role:admin,employee', HandleBlogSeoInertiaRequests::
         Route::get('subscribers', [BlogSeoSubscriberController::class, 'index'])->name('subscribers.index');
         Route::get('subscribers/export', [BlogSeoSubscriberController::class, 'export'])->name('subscribers.export');
         Route::delete('subscribers/{subscriber}', [BlogSeoSubscriberController::class, 'destroy'])->name('subscribers.destroy');
+    });
+
+// ============================================================================
+// PASSWORD VAULT — admin-only encrypted credential store at /admin/vault.
+// HandleVaultInertiaRequests overrides the root view to `vault.app`.
+// ============================================================================
+Route::middleware(['auth', 'role:admin', HandleVaultInertiaRequests::class])
+    ->prefix('admin/vault')
+    ->name('vault.')
+    ->group(function () {
+        Route::get('/', [VaultDashboardController::class, 'index'])->name('dashboard');
+
+        Route::get('credentials', [VaultCredentialController::class, 'index'])->name('credentials.index');
+        Route::post('credentials', [VaultCredentialController::class, 'store'])->name('credentials.store');
+        Route::get('credentials/{credential}', [VaultCredentialController::class, 'show'])->name('credentials.show');
+        Route::put('credentials/{credential}', [VaultCredentialController::class, 'update'])->name('credentials.update');
+        Route::delete('credentials/{credential}', [VaultCredentialController::class, 'destroy'])->name('credentials.destroy');
+
+        Route::get('categories', [VaultCategoryController::class, 'index'])->name('categories.index');
+        Route::post('categories', [VaultCategoryController::class, 'store'])->name('categories.store');
+        Route::put('categories/{category}', [VaultCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('categories/{category}', [VaultCategoryController::class, 'destroy'])->name('categories.destroy');
+
+        Route::get('tags', [VaultTagController::class, 'index'])->name('tags.index');
+        Route::post('tags', [VaultTagController::class, 'store'])->name('tags.store');
+        Route::put('tags/{tag}', [VaultTagController::class, 'update'])->name('tags.update');
+        Route::delete('tags/{tag}', [VaultTagController::class, 'destroy'])->name('tags.destroy');
+
+        Route::get('audit-log', [VaultAuditLogController::class, 'index'])->name('audit.index');
     });
 
 // Legacy Flux admin URLs, superseded by the workspace above. Kept inside the
