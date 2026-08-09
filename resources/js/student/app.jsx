@@ -24,7 +24,21 @@ createInertiaApp({
     return page;
   },
   setup({ el, App, props }) {
+    // Set translations globally before first render so t() works everywhere
+    const pageProps = props.initialPage?.props ?? {};
+    if (pageProps.translations) {
+      window.__studentTranslations = pageProps.translations;
+    }
+
     createRoot(el).render(<App {...props} />);
   },
   progress: { color: '#7C3AED' },
+});
+
+// Keep translations in sync on SPA navigation
+router.on('navigate', (event) => {
+  const trans = event.detail?.page?.props?.translations;
+  if (trans) {
+    window.__studentTranslations = trans;
+  }
 });
