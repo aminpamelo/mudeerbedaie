@@ -81,6 +81,8 @@ use App\Http\Controllers\LiveHostPocket\ReplacementRequestController;
 use App\Http\Controllers\LiveHostPocket\ScheduleController;
 use App\Http\Controllers\LiveHostPocket\SessionDetailController;
 use App\Http\Controllers\LiveHostPocket\SessionsController;
+use App\Http\Controllers\Mindpal\DashboardController as MindpalDashboardController;
+use App\Http\Controllers\Mindpal\DocumentController as MindpalDocumentController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PublicFunnelController;
 use App\Http\Controllers\SeoController;
@@ -105,6 +107,7 @@ use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\HandleBlogSeoInertiaRequests;
 use App\Http\Middleware\HandleCeoInertiaRequests;
 use App\Http\Middleware\HandleFighterInertiaRequests;
+use App\Http\Middleware\HandleMindpalInertiaRequests;
 use App\Http\Middleware\HandlePocketInertiaRequests;
 use App\Http\Middleware\HandleStudentInertiaRequests;
 use App\Http\Middleware\HandleVaultInertiaRequests;
@@ -1425,9 +1428,6 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     // Custom Domains
     Volt::route('custom-domains', 'admin.custom-domains-index')->name('admin.custom-domains');
 
-    // MindPal AI Knowledge Base
-    Volt::route('mindpal', 'admin.mindpal-documents')->name('admin.mindpal');
-
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
@@ -1706,6 +1706,21 @@ Route::middleware(['auth', 'role:admin', HandleVaultInertiaRequests::class])
         Route::delete('tags/{tag}', [VaultTagController::class, 'destroy'])->name('tags.destroy');
 
         Route::get('audit-log', [VaultAuditLogController::class, 'index'])->name('audit.index');
+    });
+
+// ============================================================================
+// MINDPAL KNOWLEDGE BASE — admin-only document manager at /admin/mindpal.
+// HandleMindpalInertiaRequests overrides the root view to `mindpal.app`.
+// ============================================================================
+Route::middleware(['auth', 'role:admin', HandleMindpalInertiaRequests::class])
+    ->prefix('admin/mindpal')
+    ->name('mindpal.')
+    ->group(function () {
+        Route::get('/', [MindpalDashboardController::class, 'index'])->name('dashboard');
+        Route::get('documents', [MindpalDocumentController::class, 'index'])->name('documents.index');
+        Route::post('documents', [MindpalDocumentController::class, 'store'])->name('documents.store');
+        Route::delete('documents/{document}', [MindpalDocumentController::class, 'destroy'])->name('documents.destroy');
+        Route::post('documents/{document}/reprocess', [MindpalDocumentController::class, 'reprocess'])->name('documents.reprocess');
     });
 
 // Legacy Flux admin URLs, superseded by the workspace above. Kept inside the

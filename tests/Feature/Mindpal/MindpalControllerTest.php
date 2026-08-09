@@ -14,14 +14,26 @@ use Illuminate\Support\Facades\Storage;
 uses(RefreshDatabase::class);
 
 /* -----------------------------------------------------------------------
- |  Admin — MindPal Documents page
+ |  Admin — MindPal Dashboard (Inertia Overview)
  | --------------------------------------------------------------------- */
 
-test('admin can access mindpal admin page', function () {
+test('admin can access mindpal dashboard', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin)
         ->get('/admin/mindpal')
+        ->assertSuccessful();
+});
+
+/* -----------------------------------------------------------------------
+ |  Admin — MindPal Documents page (Inertia)
+ | --------------------------------------------------------------------- */
+
+test('admin can access mindpal documents page', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get('/admin/mindpal/documents')
         ->assertSuccessful();
 });
 
@@ -33,18 +45,20 @@ test('admin can upload pdf document', function () {
 
     $file = UploadedFile::fake()->create('test-document.pdf', 1024, 'application/pdf');
 
-    \Livewire\Livewire::actingAs($admin)
-        ->test('admin.mindpal-documents')
-        ->set('title', 'Test Document')
-        ->set('pdfFile', $file)
-        ->call('upload')
-        ->assertHasNoErrors();
+    $this->actingAs($admin)
+        ->post('/admin/mindpal/documents', [
+            'title' => 'Test Document',
+            'description' => 'A test description',
+            'file' => $file,
+        ])
+        ->assertRedirect();
 
     expect(MindpalDocument::where('title', 'Test Document')->exists())->toBeTrue();
 
     $document = MindpalDocument::where('title', 'Test Document')->first();
     expect($document->status)->toBe('processing');
     expect($document->uploaded_by)->toBe($admin->id);
+    expect($document->description)->toBe('A test description');
 
     Queue::assertPushed(\App\Jobs\ProcessMindpalDocumentJob::class);
 });
@@ -63,12 +77,37 @@ test('admin can delete document', function () {
         'uploaded_by' => $admin->id,
     ]);
 
-    \Livewire\Livewire::actingAs($admin)
-        ->test('admin.mindpal-documents')
-        ->call('deleteDocument', $document->id)
-        ->assertHasNoErrors();
+    $this->actingAs($admin)
+        ->delete("/admin/mindpal/documents/{$document->id}")
+        ->assertRedirect();
 
     expect(MindpalDocument::find($document->id))->toBeNull();
+});
+
+test('admin can reprocess failed document', function () {
+    Queue::fake();
+
+    $admin = User::factory()->admin()->create();
+
+    $document = MindpalDocument::create([
+        'title' => 'Failed Doc',
+        'file_path' => 'mindpal-documents/test.pdf',
+        'file_name' => 'test.pdf',
+        'file_size' => 1024,
+        'status' => MindpalDocument::STATUS_FAILED,
+        'error_message' => 'Something went wrong',
+        'uploaded_by' => $admin->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->post("/admin/mindpal/documents/{$document->id}/reprocess")
+        ->assertRedirect();
+
+    $document->refresh();
+    expect($document->status)->toBe('processing');
+    expect($document->error_message)->toBeNull();
+
+    Queue::assertPushed(\App\Jobs\ProcessMindpalDocumentJob::class);
 });
 
 test('non-admin cannot access mindpal admin page', function () {
@@ -76,6 +115,14 @@ test('non-admin cannot access mindpal admin page', function () {
 
     $this->actingAs($student)
         ->get('/admin/mindpal')
+        ->assertForbidden();
+});
+
+test('non-admin cannot access mindpal documents page', function () {
+    $student = User::factory()->create(['role' => 'student']);
+
+    $this->actingAs($student)
+        ->get('/admin/mindpal/documents')
         ->assertForbidden();
 });
 

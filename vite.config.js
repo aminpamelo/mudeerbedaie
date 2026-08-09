@@ -43,6 +43,8 @@ export default defineConfig({
                 'resources/js/student/styles/student.css',
                 'resources/js/vault/app.jsx',
                 'resources/js/vault/styles/vault.css',
+                'resources/js/mindpal-admin/app.jsx',
+                'resources/js/mindpal-admin/styles/mindpal.css',
             ],
             refresh: true,
         }),

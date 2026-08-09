@@ -449,8 +449,6 @@
                     <flux:navlist.item
                         icon="cpu-chip"
                         href="/admin/mindpal"
-                        :current="request()->is('admin/mindpal')"
-                        wire:navigate
                     >
                         {{ __('MindPal') }}
                     </flux:navlist.item>
