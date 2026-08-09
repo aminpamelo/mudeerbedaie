@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('class_resource_id')->constrained('class_resources')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
-            $table->timestamp('first_viewed_at');
-            $table->timestamp('last_viewed_at');
+            $table->timestamp('first_viewed_at')->useCurrent();
+            $table->timestamp('last_viewed_at')->useCurrent();
             $table->unsignedInteger('view_count')->default(1);
             $table->timestamps();
 

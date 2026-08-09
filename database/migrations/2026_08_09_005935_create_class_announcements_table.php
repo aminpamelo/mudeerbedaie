@@ -28,7 +28,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('announcement_id')->constrained('class_announcements')->cascadeOnDelete();
             $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
-            $table->timestamp('read_at');
+            $table->timestamp('read_at')->useCurrent();
             $table->timestamps();
 
             $table->unique(['announcement_id', 'student_id'], 'car_announcement_student_unique');

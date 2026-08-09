@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('class_student_id')->constrained('class_students')->cascadeOnDelete();
             $table->string('title');
-            $table->timestamp('achieved_at');
+            $table->timestamp('achieved_at')->useCurrent();
             $table->foreignId('awarded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('type'); // attendance, syllabus, custom
             $table->timestamps();
