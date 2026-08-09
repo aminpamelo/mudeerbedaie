@@ -35,12 +35,12 @@
             <a
                 href="{{ route('student.dashboard') }}"
                 wire:navigate
-                class="relative flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.dashboard') ? 'text-blue-600' : 'text-zinc-600 hover:text-zinc-900' }}"
+                class="relative flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.dashboard') ? 'text-violet-600' : 'text-zinc-600 hover:text-zinc-900' }}"
             >
                 <div class="relative">
                     <flux:icon
                         name="home"
-                        class="w-5 h-5 mb-1 {{ request()->routeIs('student.dashboard') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
+                        class="w-5 h-5 mb-1 {{ request()->routeIs('student.dashboard') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
                     />
                     @if($ongoingSessionsCount > 0)
                         <span class="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center animate-pulse">
@@ -48,7 +48,7 @@
                         </span>
                     @endif
                 </div>
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.dashboard') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
+                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.dashboard') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
                     {{ __('navigation.home') }}
                 </span>
             </a>
@@ -57,20 +57,20 @@
             <a
                 href="{{ route('student.classes.index') }}"
                 wire:navigate
-                class="relative flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.classes.*') ? 'text-blue-600' : 'text-zinc-600 hover:text-zinc-900' }}"
+                class="relative flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.classes.*') ? 'text-violet-600' : 'text-zinc-600 hover:text-zinc-900' }}"
             >
                 <div class="relative">
                     <flux:icon
                         name="academic-cap"
-                        class="w-5 h-5 mb-1 {{ request()->routeIs('student.classes.*') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
+                        class="w-5 h-5 mb-1 {{ request()->routeIs('student.classes.*') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
                     />
                     @if($activeClassesCount > 0)
-                        <span class="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-blue-500 rounded-full flex items-center justify-center">
+                        <span class="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-violet-500 rounded-full flex items-center justify-center">
                             {{ $activeClassesCount }}
                         </span>
                     @endif
                 </div>
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.classes.*') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
+                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.classes.*') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
                     {{ __('navigation.classes') }}
                 </span>
             </a>
@@ -82,7 +82,7 @@
                 class="relative flex flex-col items-center justify-center px-3 py-1 min-w-0 text-center group"
             >
                 {{-- Featured background --}}
-                <div class="relative {{ request()->routeIs('student.timetable') ? 'bg-blue-600 shadow-lg border-2 border-blue-500' : 'bg-blue-500 hover:bg-blue-600 border-2 border-blue-400' }} rounded-full p-2 mb-1 transform transition-all duration-200 hover:scale-105">
+                <div class="relative {{ request()->routeIs('student.timetable') ? 'bg-violet-600 shadow-lg border-2 border-violet-500' : 'bg-violet-500 hover:bg-violet-600 border-2 border-violet-400' }} rounded-full p-2 mb-1 transform transition-all duration-200 hover:scale-105">
                     <flux:icon
                         name="calendar"
                         class="w-6 h-6 text-white"
@@ -93,22 +93,21 @@
                         </span>
                     @endif
                 </div>
-                <span class="text-xs font-bold {{ request()->routeIs('student.timetable') ? 'text-blue-600' : 'text-blue-500 group-hover:text-blue-600' }}">
+                <span class="text-xs font-bold {{ request()->routeIs('student.timetable') ? 'text-violet-600' : 'text-violet-500 group-hover:text-violet-600' }}">
                     {{ __('navigation.schedule') }}
                 </span>
             </a>
 
-            {{-- Courses --}}
+            {{-- Courses (full page load — Inertia, not Volt) --}}
             <a
                 href="{{ route('student.courses') }}"
-                wire:navigate
-                class="flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.courses*') || request()->routeIs('student.subscriptions*') ? 'text-blue-600' : 'text-zinc-600 hover:text-zinc-900' }}"
+                class="flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.courses*') || request()->routeIs('student.subscriptions*') ? 'text-violet-600' : 'text-zinc-600 hover:text-zinc-900' }}"
             >
                 <flux:icon
                     name="book-open"
-                    class="w-5 h-5 mb-1 {{ request()->routeIs('student.courses*') || request()->routeIs('student.subscriptions*') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
+                    class="w-5 h-5 mb-1 {{ request()->routeIs('student.courses*') || request()->routeIs('student.subscriptions*') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
                 />
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.courses*') || request()->routeIs('student.subscriptions*') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
+                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.courses*') || request()->routeIs('student.subscriptions*') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
                     {{ __('navigation.courses') }}
                 </span>
             </a>
@@ -117,12 +116,12 @@
             <a
                 href="{{ route('student.account') }}"
                 wire:navigate
-                class="relative flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.account') || request()->routeIs('student.orders*') || request()->routeIs('student.payment-methods*') || request()->routeIs('student.invoices*') || request()->routeIs('student.payments*') || request()->routeIs('settings.*') ? 'text-blue-600' : 'text-zinc-600 hover:text-zinc-900' }}"
+                class="relative flex flex-col items-center justify-center px-2 py-2 min-w-0 text-center group {{ request()->routeIs('student.account') || request()->routeIs('student.orders*') || request()->routeIs('student.payment-methods*') || request()->routeIs('student.invoices*') || request()->routeIs('student.payments*') || request()->routeIs('settings.*') ? 'text-violet-600' : 'text-zinc-600 hover:text-zinc-900' }}"
             >
                 <div class="relative">
                     <flux:icon
                         name="user-circle"
-                        class="w-5 h-5 mb-1 {{ request()->routeIs('student.account') || request()->routeIs('student.orders*') || request()->routeIs('student.payment-methods*') || request()->routeIs('student.invoices*') || request()->routeIs('student.payments*') || request()->routeIs('settings.*') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
+                        class="w-5 h-5 mb-1 {{ request()->routeIs('student.account') || request()->routeIs('student.orders*') || request()->routeIs('student.payment-methods*') || request()->routeIs('student.invoices*') || request()->routeIs('student.payments*') || request()->routeIs('settings.*') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}"
                     />
                     @if($pendingOrdersCount > 0)
                         <span class="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-orange-500 rounded-full flex items-center justify-center">
@@ -130,7 +129,7 @@
                         </span>
                     @endif
                 </div>
-                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.account') || request()->routeIs('student.orders*') || request()->routeIs('student.payment-methods*') || request()->routeIs('student.invoices*') || request()->routeIs('student.payments*') || request()->routeIs('settings.*') ? 'text-blue-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
+                <span class="text-xs font-medium leading-none {{ request()->routeIs('student.account') || request()->routeIs('student.orders*') || request()->routeIs('student.payment-methods*') || request()->routeIs('student.invoices*') || request()->routeIs('student.payments*') || request()->routeIs('settings.*') ? 'text-violet-600' : 'text-zinc-600 group-hover:text-zinc-900' }}">
                     {{ __('navigation.account') }}
                 </span>
             </a>
