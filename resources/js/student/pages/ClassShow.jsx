@@ -16,12 +16,12 @@ import { cn, t } from '@/student/lib/utils';
 /* ------------------------------------------------------------------ */
 function TabNav({ activeTab, onTab, unreadCount }) {
   const tabs = [
-    { key: 'overview', label: 'Overview', icon: BookOpen },
-    { key: 'timetable', label: 'Timetable', icon: Calendar },
-    { key: 'sessions', label: 'Sessions', icon: ClipboardList },
-    { key: 'resources', label: 'Bahan', icon: FolderOpen },
-    { key: 'progress', label: 'Kemajuan', icon: TrendingUp },
-    { key: 'announcements', label: 'Pengumuman', icon: Megaphone, badge: unreadCount },
+    { key: 'overview', label: t('student.classes.overview'), icon: BookOpen },
+    { key: 'timetable', label: t('student.classes.timetable'), icon: Calendar },
+    { key: 'sessions', label: t('student.classes.sessions_tab'), icon: ClipboardList },
+    { key: 'resources', label: t('student.classes.resources_tab'), icon: FolderOpen },
+    { key: 'progress', label: t('student.classes.progress_tab'), icon: TrendingUp },
+    { key: 'announcements', label: t('student.classes.announcements_tab'), icon: Megaphone, badge: unreadCount },
   ];
 
   return (
@@ -66,7 +66,7 @@ function SessionModal({ session, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="glass-card w-full max-w-md rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[17px] font-bold text-ink">Session Details</h3>
+          <h3 className="text-[17px] font-bold text-ink">{t('student.classes.session_details')}</h3>
           <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-xl hover:bg-violet-50">
             <X className="h-5 w-5 text-muted" />
           </button>
@@ -114,7 +114,7 @@ function WeekCalendar({ weekData, onSelectSession, periodLabel, onPrev, onNext, 
         <button type="button" onClick={onPrev} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-violet-50"><ChevronLeft className="h-4 w-4 text-violet-600" /></button>
         <div className="text-center">
           <p className="text-[13px] font-bold text-ink">{periodLabel}</p>
-          <button type="button" onClick={onToday} className="text-[11px] font-semibold text-violet-600 hover:text-violet-800">Today</button>
+          <button type="button" onClick={onToday} className="text-[11px] font-semibold text-violet-600 hover:text-violet-800">{t('student.timetable.today')}</button>
         </div>
         <button type="button" onClick={onNext} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-violet-50"><ChevronRight className="h-4 w-4 text-violet-600" /></button>
       </div>
@@ -166,10 +166,10 @@ function OverviewTab({ cls, stats, sessions }) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Sessions', value: stats.totalSessions, color: 'text-violet-600' },
-          { label: 'Completed', value: stats.completedSessions, color: 'text-emerald-600' },
-          { label: 'Attended', value: stats.attended, color: 'text-blue-600' },
-          { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, color: 'text-purple-600' },
+          { label: t('student.classes.total_sessions'), value: stats.totalSessions, color: 'text-violet-600' },
+          { label: t('student.stats.completed'), value: stats.completedSessions, color: 'text-emerald-600' },
+          { label: t('student.classes.attended'), value: stats.attended, color: 'text-blue-600' },
+          { label: t('student.classes.attendance_rate'), value: `${stats.attendanceRate}%`, color: 'text-purple-600' },
         ].map((s, i) => (
           <div key={i} className="glass-card rounded-2xl p-4 text-center shadow-sm">
             <p className={cn('text-[20px] font-extrabold', s.color)}>{s.value}</p>
@@ -180,7 +180,7 @@ function OverviewTab({ cls, stats, sessions }) {
 
       {/* Class info */}
       <div className="glass-card rounded-2xl p-5 shadow-sm">
-        <h3 className="mb-3 text-[15px] font-bold text-ink">Class Information</h3>
+        <h3 className="mb-3 text-[15px] font-bold text-ink">{t('student.classes.class_info')}</h3>
         <div className="grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-2">
           {cls.course_name && <div><span className="text-muted">Course</span><p className="font-medium">{cls.course_name}</p></div>}
           {cls.teacher_name && <div><span className="text-muted">Teacher</span><p className="font-medium">{cls.teacher_name}</p></div>}
@@ -194,7 +194,7 @@ function OverviewTab({ cls, stats, sessions }) {
       {recentSessions.length > 0 && (
         <div className="glass-card overflow-hidden rounded-2xl shadow-sm">
           <div className="border-b border-violet-100/60 px-4 py-3">
-            <h3 className="text-[14px] font-bold text-ink">Recent Sessions</h3>
+            <h3 className="text-[14px] font-bold text-ink">{t('student.classes.recent_sessions')}</h3>
           </div>
           <div className="divide-y divide-violet-50">
             {recentSessions.map((s) => (
@@ -221,7 +221,7 @@ function OverviewTab({ cls, stats, sessions }) {
 /*  Sessions Tab                                                       */
 /* ------------------------------------------------------------------ */
 function SessionsTab({ sessions, onSelect }) {
-  if (sessions.length === 0) return <EmptyState icon={ClipboardList} title="No Sessions" description="No sessions have been created for this class yet." />;
+  if (sessions.length === 0) return <EmptyState icon={ClipboardList} title={t('student.classes.no_sessions')} description={t('student.classes.no_sessions_desc')} />;
 
   return (
     <div className="glass-card overflow-hidden rounded-2xl shadow-sm">
@@ -256,7 +256,7 @@ function SessionsTab({ sessions, onSelect }) {
 /*  Resources Tab                                                      */
 /* ------------------------------------------------------------------ */
 function ResourcesTab({ resources }) {
-  if (!resources || resources.length === 0) return <EmptyState icon={FolderOpen} title="No Resources" description="No learning materials have been shared for this class yet." />;
+  if (!resources || resources.length === 0) return <EmptyState icon={FolderOpen} title={t('student.classes.no_resources')} description={t('student.classes.no_resources_desc')} />;
 
   return (
     <div className="glass-card overflow-hidden rounded-2xl shadow-sm">
@@ -284,11 +284,11 @@ function ProgressTab({ stats }) {
   return (
     <div className="space-y-5">
       <div className="glass-card rounded-2xl p-5 shadow-sm">
-        <h3 className="mb-4 text-[15px] font-bold text-ink">Your Progress</h3>
+        <h3 className="mb-4 text-[15px] font-bold text-ink">{t('student.classes.your_progress')}</h3>
         <div className="space-y-4">
           <div>
             <div className="mb-1 flex justify-between text-[12px]">
-              <span className="font-medium text-muted">Attendance Rate</span>
+              <span className="font-medium text-muted">{t('student.classes.attendance_rate')}</span>
               <span className="font-bold text-violet-600">{stats.attendanceRate}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-violet-100">
@@ -297,7 +297,7 @@ function ProgressTab({ stats }) {
           </div>
           <div>
             <div className="mb-1 flex justify-between text-[12px]">
-              <span className="font-medium text-muted">Sessions Completed</span>
+              <span className="font-medium text-muted">{t('student.classes.sessions_completed')}</span>
               <span className="font-bold text-violet-600">{stats.completedSessions}/{stats.totalSessions}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-violet-100">
@@ -314,7 +314,7 @@ function ProgressTab({ stats }) {
 /*  Announcements Tab                                                  */
 /* ------------------------------------------------------------------ */
 function AnnouncementsTab({ announcements }) {
-  if (announcements.length === 0) return <EmptyState icon={Megaphone} title="No Announcements" description="No announcements have been posted for this class yet." />;
+  if (announcements.length === 0) return <EmptyState icon={Megaphone} title={t('student.classes.no_announcements')} description={t('student.classes.no_announcements_desc')} />;
 
   return (
     <div className="space-y-4">
@@ -398,7 +398,7 @@ export default function ClassShow() {
         <div className="fade-up mb-2">
           <a href="/my/classes" className="flex items-center gap-1.5 rounded-xl bg-violet-50 px-4 py-2 text-[13px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 w-fit">
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            Back to Classes
+            {t('student.classes.back_to_classes')}
           </a>
         </div>
 

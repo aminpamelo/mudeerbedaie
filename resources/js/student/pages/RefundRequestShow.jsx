@@ -34,7 +34,7 @@ export default function RefundRequestShow() {
         <div className="fade-up mb-5">
           <a href="/my/refund-requests" className="flex items-center gap-1.5 rounded-xl bg-violet-50 px-4 py-2 text-[13px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 w-fit">
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            Back to Requests
+            {t('student.refunds.back_to_requests')}
           </a>
         </div>
 
@@ -43,7 +43,7 @@ export default function RefundRequestShow() {
           <div className="space-y-5 lg:col-span-2">
             {/* Status Timeline */}
             <div className="fade-up glass-card rounded-2xl p-5 shadow-sm">
-              <h3 className="mb-4 text-[15px] font-bold text-ink">Request Status</h3>
+              <h3 className="mb-4 text-[15px] font-bold text-ink">{t('student.refunds.request_status')}</h3>
               <TimelineSteps
                 currentStatus={refund.status}
                 isRejected={refund.is_rejected}
@@ -53,11 +53,11 @@ export default function RefundRequestShow() {
 
             {/* Reason */}
             <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.05s' }}>
-              <h3 className="mb-3 text-[15px] font-bold text-ink">Refund Reason</h3>
+              <h3 className="mb-3 text-[15px] font-bold text-ink">{t('student.refunds.refund_reason')}</h3>
               <div className="whitespace-pre-line text-[13px] leading-relaxed text-ink">{refund.reason}</div>
               {refund.notes && (
                 <div className="mt-4 border-t border-violet-100/60 pt-4">
-                  <p className="text-[12px] font-semibold text-muted">Additional Notes</p>
+                  <p className="text-[12px] font-semibold text-muted">{t('student.refunds.additional_notes')}</p>
                   <p className="mt-1 text-[13px] text-ink">{refund.notes}</p>
                 </div>
               )}
@@ -66,7 +66,7 @@ export default function RefundRequestShow() {
             {/* Admin Response */}
             {refund.action_reason && (
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.1s' }}>
-                <h3 className="mb-3 text-[15px] font-bold text-ink">Admin Response</h3>
+                <h3 className="mb-3 text-[15px] font-bold text-ink">{t('student.refunds.admin_response')}</h3>
                 <div className={cn('flex items-start gap-3 rounded-xl p-4', refund.action === 'approved' ? 'bg-emerald-50' : 'bg-red-50')}>
                   {refund.action === 'approved'
                     ? <CheckCircle className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" strokeWidth={1.8} />
@@ -89,16 +89,16 @@ export default function RefundRequestShow() {
             {/* Order Details */}
             {refund.order && (
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.15s' }}>
-                <h3 className="mb-4 text-[15px] font-bold text-ink">Order Details</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-ink">{t('student.refunds.order_details')}</h3>
                 <div className="mb-4 grid grid-cols-2 gap-4 text-[13px] sm:grid-cols-4">
-                  <div><span className="text-[11px] font-semibold text-muted">Order Number</span><p className="font-medium">{refund.order.order_number}</p></div>
-                  <div><span className="text-[11px] font-semibold text-muted">Order Date</span><p>{refund.order.created_at}</p></div>
+                  <div><span className="text-[11px] font-semibold text-muted">{t('student.refunds.order_number')}</span><p className="font-medium">{refund.order.order_number}</p></div>
+                  <div><span className="text-[11px] font-semibold text-muted">{t('student.refunds.order_date')}</span><p>{refund.order.created_at}</p></div>
                   <div><span className="text-[11px] font-semibold text-muted">Status</span><p><StatusBadge variant="gray">{refund.order.status}</StatusBadge></p></div>
-                  <div><span className="text-[11px] font-semibold text-muted">Total</span><p className="font-semibold">RM {Number(refund.order.total_amount).toFixed(2)}</p></div>
+                  <div><span className="text-[11px] font-semibold text-muted">{t('student.refunds.order_total')}</span><p className="font-semibold">RM {Number(refund.order.total_amount).toFixed(2)}</p></div>
                 </div>
                 {refund.order.items.length > 0 && (
                   <div className="border-t border-violet-100/60 pt-3">
-                    <p className="mb-2 text-[12px] font-semibold text-muted">Items</p>
+                    <p className="mb-2 text-[12px] font-semibold text-muted">{t('student.refunds.items')}</p>
                     <div className="divide-y divide-violet-50">
                       {refund.order.items.map((item, i) => (
                         <div key={i} className="flex items-center justify-between py-2 text-[13px]">
@@ -119,11 +119,11 @@ export default function RefundRequestShow() {
           {/* Sidebar */}
           <div className="space-y-5">
             <div className="fade-up glass-card rounded-2xl p-5 shadow-sm">
-              <h3 className="mb-3 text-[15px] font-bold text-ink">Refund Summary</h3>
+              <h3 className="mb-3 text-[15px] font-bold text-ink">{t('student.refunds.refund_summary')}</h3>
               <div className="space-y-2 text-[13px]">
-                <div className="flex justify-between"><span className="text-muted">Refund Amount</span><span className="text-[16px] font-extrabold text-emerald-600">RM {Number(refund.refund_amount).toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-muted">Return Date</span><span>{refund.return_date}</span></div>
-                <div className="flex justify-between items-center"><span className="text-muted">Action</span><StatusBadge variant={refund.action_color === 'green' ? 'success' : refund.action_color === 'red' ? 'danger' : 'warning'}>{refund.action_label}</StatusBadge></div>
+                <div className="flex justify-between"><span className="text-muted">{t('student.refunds.refund_amount')}</span><span className="text-[16px] font-extrabold text-emerald-600">RM {Number(refund.refund_amount).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-muted">{t('student.refunds.return_date')}</span><span>{refund.return_date}</span></div>
+                <div className="flex justify-between items-center"><span className="text-muted">{t('student.refunds.action')}</span><StatusBadge variant={refund.action_color === 'green' ? 'success' : refund.action_color === 'red' ? 'danger' : 'warning'}>{refund.action_label}</StatusBadge></div>
               </div>
             </div>
 
@@ -131,9 +131,9 @@ export default function RefundRequestShow() {
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.05s' }}>
                 <h3 className="mb-3 text-[15px] font-bold text-ink">Bank Details</h3>
                 <div className="space-y-3">
-                  {refund.bank_name && <InfoRow label="Bank Name">{refund.bank_name}</InfoRow>}
-                  {refund.account_number && <InfoRow label="Account Number"><span className="font-mono">{refund.account_number}</span></InfoRow>}
-                  {refund.account_holder_name && <InfoRow label="Account Holder">{refund.account_holder_name}</InfoRow>}
+                  {refund.bank_name && <InfoRow label={t('student.refunds.bank_name')}>{refund.bank_name}</InfoRow>}
+                  {refund.account_number && <InfoRow label={t('student.refunds.account_number')}><span className="font-mono">{refund.account_number}</span></InfoRow>}
+                  {refund.account_holder_name && <InfoRow label={t('student.refunds.account_holder')}>{refund.account_holder_name}</InfoRow>}
                 </div>
               </div>
             )}
@@ -141,7 +141,7 @@ export default function RefundRequestShow() {
             {refund.tracking_number && (
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.1s' }}>
                 <h3 className="mb-3 text-[15px] font-bold text-ink">Return Tracking</h3>
-                <InfoRow label="Tracking Number"><span className="font-mono">{refund.tracking_number}</span></InfoRow>
+                <InfoRow label={t('student.refunds.tracking_number')}><span className="font-mono">{refund.tracking_number}</span></InfoRow>
               </div>
             )}
 

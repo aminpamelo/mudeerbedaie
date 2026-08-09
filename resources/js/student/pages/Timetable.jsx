@@ -193,8 +193,8 @@ export default function Timetable() {
       title={t('navigation.schedule')}
       subtitle={periodLabel}
     >
-      <HeroStat icon={Calendar} label="This Week" value={stats.sessionsThisWeek} />
-      <HeroStat icon={Clock} label="Upcoming" value={stats.upcomingSessions} iconClassName="bg-emerald-400/20" />
+      <HeroStat icon={Calendar} label={t('student.timetable_page.this_week')} value={stats.sessionsThisWeek} />
+      <HeroStat icon={Clock} label={t('student.timetable_page.upcoming')} value={stats.upcomingSessions} iconClassName="bg-emerald-400/20" />
     </PageHeader>
   );
 

@@ -40,18 +40,18 @@ export default function RefundRequestCreate() {
     });
   };
 
-  const hero = <PageHeader title="Request a Refund" subtitle="Submit a refund request for your order" />;
+  const hero = <PageHeader title={t('student.refunds.request_refund')} subtitle={t('student.refunds.request_subtitle')} />;
 
   if (eligibleOrders.length === 0) {
     return (
       <StudentLayout hero={hero}>
-        <Head title="Request a Refund" />
+        <Head title={t('student.refunds.request_refund')} />
         <div className="pt-4">
           <EmptyState
             icon={ShoppingBag}
-            title="No Eligible Orders"
-            description="You don't have any orders that are eligible for refund requests. Orders must be delivered, shipped, or completed."
-            action={<a href="/my/orders" className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-5 py-2.5 text-[13px] font-semibold text-violet-700">View My Orders</a>}
+            title={t('student.refunds.no_eligible_orders')}
+            description={t('student.refunds.no_eligible_desc')}
+            action={<a href="/my/orders" className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-5 py-2.5 text-[13px] font-semibold text-violet-700">{t('student.refunds.view_my_orders')}</a>}
           />
         </div>
       </StudentLayout>
@@ -66,7 +66,7 @@ export default function RefundRequestCreate() {
         <div className="fade-up mb-5">
           <a href="/my/refund-requests" className="flex items-center gap-1.5 rounded-xl bg-violet-50 px-4 py-2 text-[13px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 w-fit">
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            Back to Requests
+            {t('student.refunds.back_to_requests')}
           </a>
         </div>
 
@@ -76,7 +76,7 @@ export default function RefundRequestCreate() {
             <div className="space-y-5 lg:col-span-2">
               {/* Select Order */}
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm">
-                <h3 className="mb-4 text-[15px] font-bold text-ink">Select Order</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-ink">{t('student.refunds.select_order')}</h3>
                 <div className="space-y-3">
                   {eligibleOrders.map((order) => (
                     <label
@@ -106,38 +106,38 @@ export default function RefundRequestCreate() {
 
               {/* Reason */}
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.05s' }}>
-                <h3 className="mb-4 text-[15px] font-bold text-ink">Reason for Refund</h3>
+                <h3 className="mb-4 text-[15px] font-bold text-ink">{t('student.refunds.reason_for_refund')}</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">Why are you requesting a refund?</label>
-                    <textarea value={form.reason} onChange={(e) => update('reason', e.target.value)} rows="4" placeholder="Please describe the reason..." className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-3 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">{t('student.refunds.why_requesting')}</label>
+                    <textarea value={form.reason} onChange={(e) => update('reason', e.target.value)} rows="4" placeholder={t('student.refunds.reason_placeholder')} className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-3 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
                     {errors.reason && <p className="mt-1 text-[12px] text-red-600">{errors.reason}</p>}
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">Additional Notes (Optional)</label>
-                    <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} rows="2" placeholder="Any additional information..." className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-3 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">{t('student.refunds.notes_optional')}</label>
+                    <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} rows="2" placeholder={t('student.refunds.notes_placeholder')} className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-3 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
                   </div>
                 </div>
               </div>
 
               {/* Bank Details */}
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.1s' }}>
-                <h3 className="mb-1 text-[15px] font-bold text-ink">Bank Details for Refund</h3>
-                <p className="mb-4 text-[12px] text-muted">Provide your bank account details for the refund.</p>
+                <h3 className="mb-1 text-[15px] font-bold text-ink">{t('student.refunds.bank_details_title')}</h3>
+                <p className="mb-4 text-[12px] text-muted">{t('student.refunds.bank_details_desc')}</p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">Bank Name</label>
-                    <input value={form.bank_name} onChange={(e) => update('bank_name', e.target.value)} placeholder="e.g., Maybank" className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">{t('student.refunds.bank_name')}</label>
+                    <input value={form.bank_name} onChange={(e) => update('bank_name', e.target.value)} placeholder={t('student.refunds.bank_name_placeholder')} className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
                     {errors.bank_name && <p className="mt-1 text-[12px] text-red-600">{errors.bank_name}</p>}
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">Account Number</label>
-                    <input value={form.account_number} onChange={(e) => update('account_number', e.target.value)} placeholder="Your account number" className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">{t('student.refunds.account_number')}</label>
+                    <input value={form.account_number} onChange={(e) => update('account_number', e.target.value)} placeholder={t('student.refunds.account_number_placeholder')} className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
                     {errors.account_number && <p className="mt-1 text-[12px] text-red-600">{errors.account_number}</p>}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">Account Holder Name</label>
-                    <input value={form.account_holder_name} onChange={(e) => update('account_holder_name', e.target.value)} placeholder="Name as shown on bank account" className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-muted">{t('student.refunds.account_holder')}</label>
+                    <input value={form.account_holder_name} onChange={(e) => update('account_holder_name', e.target.value)} placeholder={t('student.refunds.account_holder_placeholder')} className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
                     {errors.account_holder_name && <p className="mt-1 text-[12px] text-red-600">{errors.account_holder_name}</p>}
                   </div>
                 </div>
@@ -148,7 +148,7 @@ export default function RefundRequestCreate() {
             <div className="space-y-5">
               {selectedOrder && (
                 <div className="fade-up glass-card rounded-2xl p-5 shadow-sm">
-                  <h3 className="mb-3 text-[15px] font-bold text-ink">Order Summary</h3>
+                  <h3 className="mb-3 text-[15px] font-bold text-ink">{t('student.refunds.refund_summary')}</h3>
                   <div className="space-y-2 text-[13px]">
                     <div className="flex justify-between"><span className="text-muted">Order Number</span><span className="font-medium">{selectedOrder.order_number}</span></div>
                     <div className="flex justify-between"><span className="text-muted">Order Date</span><span>{selectedOrder.created_at}</span></div>
@@ -170,8 +170,8 @@ export default function RefundRequestCreate() {
               )}
 
               <div className="fade-up glass-card rounded-2xl p-5 shadow-sm" style={{ animationDelay: '0.05s' }}>
-                <h3 className="mb-3 text-[15px] font-bold text-ink">Refund Amount</h3>
-                <label className="mb-1.5 block text-[12px] font-semibold text-muted">Amount to Refund (RM)</label>
+                <h3 className="mb-3 text-[15px] font-bold text-ink">{t('student.refunds.refund_amount')}</h3>
+                <label className="mb-1.5 block text-[12px] font-semibold text-muted">{t('student.refunds.amount_to_refund')}</label>
                 <input type="number" step="0.01" min="0.01" value={form.refund_amount} onChange={(e) => update('refund_amount', e.target.value)} placeholder="0.00" className="w-full rounded-xl border border-violet-200/60 bg-violet-50/30 px-4 py-2.5 text-[13px] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200" />
                 {errors.refund_amount && <p className="mt-1 text-[12px] text-red-600">{errors.refund_amount}</p>}
               </div>
@@ -183,9 +183,9 @@ export default function RefundRequestCreate() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl hero-gradient py-3 text-[14px] font-semibold text-white shadow-md shadow-violet-300/40 transition-all hover:shadow-lg disabled:opacity-60"
                 >
                   <Send className="h-4 w-4" strokeWidth={2} />
-                  {submitting ? 'Submitting...' : 'Submit Request'}
+                  {submitting ? t('student.refunds.submitting') : t('student.refunds.submit_request')}
                 </button>
-                <p className="mt-2 text-center text-[11px] text-muted">Your request will be reviewed within 1-3 business days.</p>
+                <p className="mt-2 text-center text-[11px] text-muted">{t('student.refunds.review_notice')}</p>
               </div>
             </div>
           </div>
