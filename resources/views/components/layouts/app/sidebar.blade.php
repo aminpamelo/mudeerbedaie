@@ -445,6 +445,15 @@
                     >
                         {{ __('Password Vault') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="cpu-chip"
+                        href="/admin/mindpal"
+                        :current="request()->is('admin/mindpal')"
+                        wire:navigate
+                    >
+                        {{ __('MindPal') }}
+                    </flux:navlist.item>
                 @endif
 
                 <flux:navlist.group

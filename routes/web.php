@@ -276,6 +276,13 @@ Route::middleware(['auth', 'role:student', HandleStudentInertiaRequests::class])
         Route::get('notifications/unread-count', [App\Http\Controllers\StudentPortal\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
         Route::post('notifications/read-all', [App\Http\Controllers\StudentPortal\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
         Route::post('notifications/{id}/read', [App\Http\Controllers\StudentPortal\NotificationController::class, 'markRead'])->name('notifications.read');
+
+        // MindPal AI Chat
+        Route::get('mindpal', [App\Http\Controllers\StudentPortal\MindpalController::class, 'index'])->name('mindpal');
+        Route::get('mindpal/{conversation}', [App\Http\Controllers\StudentPortal\MindpalController::class, 'show'])->name('mindpal.show');
+        Route::post('mindpal/conversations', [App\Http\Controllers\StudentPortal\MindpalController::class, 'store'])->name('mindpal.store');
+        Route::post('mindpal/{conversation}/send', [App\Http\Controllers\StudentPortal\MindpalController::class, 'send'])->name('mindpal.send');
+        Route::delete('mindpal/{conversation}', [App\Http\Controllers\StudentPortal\MindpalController::class, 'destroy'])->name('mindpal.destroy');
     });
 
 // Teacher routes - accessible by teachers only
@@ -1417,6 +1424,9 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
 
     // Custom Domains
     Volt::route('custom-domains', 'admin.custom-domains-index')->name('admin.custom-domains');
+
+    // MindPal AI Knowledge Base
+    Volt::route('mindpal', 'admin.mindpal-documents')->name('admin.mindpal');
 
 });
 
