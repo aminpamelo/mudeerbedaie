@@ -281,7 +281,7 @@ Route::middleware(['auth', 'role:student', HandleStudentInertiaRequests::class])
         Route::get('mindpal', [App\Http\Controllers\StudentPortal\MindpalController::class, 'index'])->name('mindpal');
         Route::get('mindpal/{conversation}', [App\Http\Controllers\StudentPortal\MindpalController::class, 'show'])->name('mindpal.show');
         Route::post('mindpal/conversations', [App\Http\Controllers\StudentPortal\MindpalController::class, 'store'])->name('mindpal.store');
-        Route::post('mindpal/{conversation}/send', [App\Http\Controllers\StudentPortal\MindpalController::class, 'send'])->name('mindpal.send');
+        Route::post('mindpal/{conversation}/send', [App\Http\Controllers\StudentPortal\MindpalController::class, 'send'])->middleware('throttle:50,60')->name('mindpal.send');
         Route::delete('mindpal/{conversation}', [App\Http\Controllers\StudentPortal\MindpalController::class, 'destroy'])->name('mindpal.destroy');
     });
 
