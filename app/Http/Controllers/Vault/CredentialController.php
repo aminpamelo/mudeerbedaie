@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Vault;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vault\StoreCredentialRequest;
 use App\Http\Requests\Vault\UpdateCredentialRequest;
+use App\Models\VaultCategory;
 use App\Models\VaultCredential;
 use App\Models\VaultTag;
 use App\Services\VaultAuditService;
@@ -62,6 +63,8 @@ class CredentialController extends Controller
         return Inertia::render('Credentials', [
             'credentials' => $credentials,
             'filters' => $request->only(['search', 'category', 'tag', 'sort']),
+            'categories' => VaultCategory::query()->ordered()->get(['id', 'name', 'color']),
+            'tags' => VaultTag::query()->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -83,6 +86,8 @@ class CredentialController extends Controller
 
     public function show(VaultCredential $credential): JsonResponse
     {
+        $credential->load('category:id,name,color', 'tags:id,name');
+
         $this->audit->log('viewed', $credential);
 
         return response()->json([
@@ -92,6 +97,8 @@ class CredentialController extends Controller
             'username' => $credential->username,
             'password' => $credential->password,
             'notes' => $credential->notes,
+            'category' => $credential->category,
+            'tags' => $credential->tags,
         ]);
     }
 

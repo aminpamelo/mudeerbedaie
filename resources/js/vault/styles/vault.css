@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Ink / surface scale — dark-theme defaults */
+  --color-ink: #F8FAFC;
+  --color-ink-2: #CBD5E1;
+  --color-muted: #94A3B8;
+  --color-muted-2: #64748B;
+  --color-line: rgba(255, 255, 255, 0.10);
+  --color-surface: rgba(255, 255, 255, 0.04);
+
+  /* Vault accent — amber, evoking a lock/key identity */
+  --color-brand: #F59E0B;
+  --color-brand-ink: #D97706;
+  --color-brand-soft: rgba(245, 158, 11, 0.12);
+  --color-brand-2: #EAB308;
+
+  --color-amber: #F59E0B;
+  --color-amber-ink: #B45309;
+  --color-emerald: #10B981;
+  --color-emerald-ink: #047857;
+  --color-sky: #0EA5E9;
+  --color-sky-ink: #0369A1;
+  --color-rose: #F43F5E;
+  --color-rose-ink: #BE123C;
+}
+
+/* Dark shell with amber radial gradients */
+body {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(245, 158, 11, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(234, 179, 8, 0.07), transparent 55%),
+    #0B1120;
+  color: var(--color-ink);
+  min-height: 100dvh;
+}
+
+/* Frosted panel used by the sidebar + mobile bar. */
+.panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  border-radius: 0.75rem;
+}
+
+/* Thin, unobtrusive scrollbars inside scroll regions. */
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes vault-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: vault-fade-up 0.35s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up { animation: none; }
+}

@@ -41,6 +41,8 @@ export default defineConfig({
                 'resources/js/blogseo/styles/blogseo.css',
                 'resources/js/student/app.jsx',
                 'resources/js/student/styles/student.css',
+                'resources/js/vault/app.jsx',
+                'resources/js/vault/styles/vault.css',
             ],
             refresh: true,
         }),

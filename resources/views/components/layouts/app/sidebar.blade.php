@@ -438,6 +438,13 @@
                     >
                         {{ __('Fighter') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="shield-check"
+                        href="/admin/vault"
+                    >
+                        {{ __('Password Vault') }}
+                    </flux:navlist.item>
                 @endif
 
                 <flux:navlist.group
