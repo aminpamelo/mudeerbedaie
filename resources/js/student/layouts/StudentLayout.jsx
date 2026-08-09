@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { BookOpen, GraduationCap, Calendar, Home, User, Sparkles } from 'lucide-react';
+import { BookOpen, GraduationCap, Calendar, Home, User, Sparkles, BrainCircuit } from 'lucide-react';
 import { cn, initialsFrom, t } from '@/student/lib/utils';
 import NotificationBell from '@/student/components/NotificationBell';
 import UserMenu from '@/student/components/UserMenu';
@@ -10,6 +10,7 @@ function navItems(trans) {
     { label: t('navigation.classes', {}, trans), href: '/my/classes', icon: GraduationCap, match: (p) => p.startsWith('/my/classes') },
     { label: t('navigation.schedule', {}, trans), href: '/my/timetable', icon: Calendar, match: (p) => p.startsWith('/my/timetable') },
     { label: t('navigation.courses', {}, trans), href: '/my/courses', icon: BookOpen, match: (p) => p.startsWith('/my/courses') },
+    { label: 'MindPal', href: '/my/mindpal', icon: BrainCircuit, match: (p) => p.startsWith('/my/mindpal') },
     { label: t('navigation.account', {}, trans), href: '/my/account', icon: User, match: (p) => p.startsWith('/my/account') || p.startsWith('/my/orders') || p.startsWith('/my/payment') },
   ];
 }
@@ -75,7 +76,7 @@ function BottomNav({ url, translations }) {
     { ...items[1] },
     { ...items[2], featured: true },
     { ...items[3] },
-    { ...items[4] },
+    { ...items[5] },
   ];
 
   return (
