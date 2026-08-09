@@ -64,23 +64,8 @@ php artisan test        # Run tests directly
 
 ### Stripe Webhook Testing
 ```bash
-# Stripe CLI setup and testing (requires Stripe CLI installation)
-./install-stripe-cli.sh          # Install Stripe CLI automatically
-./setup-stripe-webhook.sh         # Interactive setup wizard for webhooks
-./webhook-test-commands.sh events # Show recent webhook events
-./webhook-test-commands.sh config # Check webhook configuration
-
-# Laravel webhook commands
-php artisan webhook:test status   # Show webhook system status
-php artisan webhook:test events   # Show recent webhook events  
-php artisan webhook:test failed   # Show failed webhook events
-php artisan webhook:test config   # Show detailed webhook configuration
-php artisan webhook:test clean    # Clean old processed webhook events
-
-# Stripe CLI webhook forwarding (after installation and login)
-stripe listen --forward-to localhost:8000/stripe/webhook  # Forward webhooks locally
-stripe trigger customer.updated   # Trigger test webhook events
-stripe trigger invoice.payment_succeeded  # Test payment webhooks
+php artisan webhook:test status|events|failed|config|clean  # Webhook system commands
+stripe listen --forward-to localhost:8000/stripe/webhook     # Forward webhooks locally
 ```
 
 ## Architecture
@@ -114,52 +99,8 @@ This project now has THREE coexisting UI paradigms. New features should use the 
 
 The Inertia paradigm was introduced for the Live Host PIC Dashboard. It has since been extended to the Live Host Pocket and the CEO Overview after design discussion. Do not introduce it on further surfaces without a similar discussion.
 
-### Livewire Volt Pattern
-This project uses Livewire Volt, which allows single-file components with PHP logic at the top:
-
-```php
-<?php
-// Component logic goes here
-use Livewire\Volt\Component;
-new class extends Component {
-    public $property = '';
-    public function method() { }
-}
-?>
-
-<div>
-    <!-- Blade template goes here -->
-</div>
-```
-
 ### Authentication & Settings
-- Built-in authentication system with email verification
-- Settings pages for profile, password, and appearance
-- Uses Laravel's session-based authentication
-- Logout action implemented as invokable class in `app/Livewire/Actions/Logout.php`
-
-### Session Management for Teachers
-- **Session List View** (`resources/views/livewire/teacher/sessions-index.blade.php`):
-  - Paginated session listing with search functionality
-  - Filter by date (upcoming, today, this week, past), class, and status
-  - Search by class title, course name, teacher notes, or student names
-  - Display teacher allowance/earnings for completed sessions
-  - Quick action buttons for starting, completing, and managing sessions
-  - Export functionality to download session data as CSV
-- **Session Detail View** (`resources/views/livewire/teacher/session-show.blade.php`):
-  - Comprehensive session information with class and course details
-  - Student attendance management with status updates
-  - Session timeline showing scheduled → ongoing → completed progression
-  - Session notes management with real-time updates
-  - Quick actions for session state management (start, complete, cancel, no-show)
-- **Session Actions**:
-  - Start session (changes status from 'scheduled' to 'ongoing')
-  - Complete session (calculates teacher allowance and marks as 'completed')
-  - Mark as no-show or cancel sessions
-  - Real-time attendance tracking for individual students
-- **Routes**: 
-  - `/teacher/sessions` - Session list
-  - `/teacher/sessions/{session}` - Session detail view
+- Session-based auth with email verification; logout at `app/Livewire/Actions/Logout.php`
 
 ### Database Configuration
 - Default: SQLite with `database/database.sqlite` file
@@ -235,24 +176,7 @@ if ($driver === 'mysql') {
 - **Test with Playwright** to verify visual spacing and layout consistency
 
 #### Flux UI Button Icon Alignment Fix
-**Problem**: Icons in Flux UI buttons may appear misaligned (above or below text) due to internal button styling conflicts.
-
-**Solution**: Wrap button content in a flex container for proper alignment:
-```html
-<flux:button variant="outline" wire:click="action" size="sm">
-    <div class="flex items-center justify-center">
-        <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
-        Button Text
-    </div>
-</flux:button>
-```
-
-**What NOT to do**: Adding CSS classes directly to the button element (like `class="!flex !items-center"`) won't work due to Flux UI's internal button structure.
-
-**Key Points**:
-- Use `<div class="flex items-center justify-center">` as the wrapper
-- Keep standard icon classes (`w-4 h-4`, spacing classes like `mr-1`)
-- This pattern works for buttons with icons on either side of text
+Wrap button content in `<div class="flex items-center justify-center">` to fix icon misalignment. Don't add CSS classes directly to the `<flux:button>` element.
 
 ### Code Quality Standards
 - **Use TodoWrite tool** for tracking multi-step tasks and progress
@@ -260,80 +184,9 @@ if ($driver === 'mysql') {
 - **Follow Laravel conventions** and maintain consistency across admin pages
 - **Document solutions** in CLAUDE.md to prevent recurring issues
 
-### Volt Component Common Issues & Solutions
-
-#### "Using $this when not in object context" Error
-**Problem**: This error occurs when controller-based routes try to load Volt components as regular Blade views using `view()` helper.
-
-**Root Cause**: Mismatch between route definition and component type:
-```php
-// ❌ WRONG: Controller route trying to load Volt component
-Route::get('teachers', [TeacherController::class, 'index'])->name('teachers.index');
-// In controller: return view('livewire.admin.teacher-list');
-```
-
-**Solution**: Use Volt routing for Volt components:
-```php
-// ✅ CORRECT: Volt route for Volt component
-Volt::route('teachers', 'admin.teacher-list')->name('teachers.index');
-```
-
-**Quick Diagnosis**: 
-1. Check if the error occurs on a page with Volt components
-2. Verify route definition in `routes/web.php`
-3. If using `Route::get()` with controller, convert to `Volt::route()`
-4. Remove the controller method that returns `view()`
-
-**Additional Notes**:
-- Class-based Volt syntax is more reliable than functional API for complex components
-- Always use `$this->property` to access computed properties in Volt templates
-- Volt components should be routed directly, not through controllers
-
-### Student Show Page - Tab-Based Navigation Pattern
-
-The student detail page (`resources/views/livewire/admin/student-show.blade.php`) uses a comprehensive tab-based navigation system for better UX and information organization.
-
-#### Architecture:
-- **6 Tabs**: Overview, Orders, Enrollments, Attendance, Payment Methods, Personal Info
-- **State Management**: `public string $activeTab = 'overview'` with `setActiveTab(string $tab)` method
-- **Quick Stats**: 6 metric cards at the top (Enrollments, Active Courses, Classes, Orders, Revenue, Attendance Rate)
-
-#### Key Features:
-
-**Recent Activity Timeline (Overview Tab)**:
-- Combines orders and attendance in chronological order
-- **Clickable Order Items**: Orders show chevron icon and link to order detail page
-- Hover effects with background color change and text color transition
-- Visual indicators: colored icons, timestamps with `diffForHumans()`
-
-**Implementation Pattern for Clickable Activity Items**:
-```blade
-@if($activity['url'])
-    <a href="{{ $activity['url'] }}" class="group flex items-start justify-between hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors">
-        <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{{ $activity['title'] }}</p>
-            <p class="text-sm text-gray-500">{{ $activity['description'] }}</p>
-        </div>
-        <flux:icon name="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 ml-2 mt-0.5" />
-    </a>
-@else
-    <div>
-        <p class="text-sm font-medium text-gray-900">{{ $activity['title'] }}</p>
-        <p class="text-sm text-gray-500">{{ $activity['description'] }}</p>
-    </div>
-@endif
-```
-
-**Data Relationships**:
-- Student model uses `ProductOrder` (not `Order`) for e-commerce orders
-- Order relationships: `orders()`, `paidOrders()`, `pendingOrders()`, `failedOrders()`
-- Eager loading with limits to optimize performance (20 orders, 20 attendances)
-
-**UX Enhancements**:
-- Tab badges show counts (e.g., "Orders 3", "Enrollments 2")
-- Color-coded attendance rate (green ≥80%, yellow ≥60%, red <60%)
-- Empty states for all tabs with helpful messages
-- Responsive layouts with Tailwind grid system
+### Volt Component Common Issues
+- **"Using $this when not in object context"**: Route mismatch — use `Volt::route()` not `Route::get()` with controller for Volt components
+- Volt components must be routed directly, not through controllers returning `view()`
 
 **Card For Testing**
 

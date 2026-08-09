@@ -8,7 +8,6 @@ use App\Models\ClassModel;
 use App\Models\ClassStudent;
 use App\Models\Student;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Volt\Volt;
 
 uses(RefreshDatabase::class);
 
@@ -20,27 +19,37 @@ test('student can see published announcements for their class', function () {
 
     ClassAnnouncement::factory()->create(['class_id' => $class->id, 'title' => 'Peringatan ujian']);
 
-    Volt::actingAs($user)
-        ->test('student.class-show', ['class' => $class])
-        ->set('activeTab', 'announcements')
-        ->assertSee('Peringatan ujian');
+    $response = $this->actingAs($user)->get("/my/classes/{$class->id}?tab=announcements");
+
+    $response->assertSuccessful();
+    $response->assertInertia(fn ($page) => $page
+        ->component('ClassShow', false)
+        ->has('announcements', 1)
+        ->where('announcements.0.title', 'Peringatan ujian')
+    );
 });
 
-test('student marking announcement as read creates a read record', function () {
+test('unread announcement count is correct for student', function () {
     $student = Student::factory()->create();
     $user = $student->user;
     $class = ClassModel::factory()->create(['status' => 'active']);
     ClassStudent::create(['class_id' => $class->id, 'student_id' => $student->id, 'enrolled_at' => now(), 'status' => 'active']);
 
-    $announcement = ClassAnnouncement::factory()->create(['class_id' => $class->id]);
+    $announcement1 = ClassAnnouncement::factory()->create(['class_id' => $class->id]);
+    $announcement2 = ClassAnnouncement::factory()->create(['class_id' => $class->id]);
 
-    // Verify no read record exists before marking
-    expect(ClassAnnouncementRead::where('announcement_id', $announcement->id)->where('student_id', $student->id)->exists())->toBeFalse();
+    // Mark one as read
+    ClassAnnouncementRead::create([
+        'announcement_id' => $announcement1->id,
+        'student_id' => $student->id,
+        'read_at' => now(),
+    ]);
 
-    Volt::actingAs($user)
-        ->test('student.class-show', ['class' => $class])
-        ->call('markAnnouncementRead', $announcement->id);
+    $response = $this->actingAs($user)->get("/my/classes/{$class->id}");
 
-    // Verify read record now exists
-    expect(ClassAnnouncementRead::where('announcement_id', $announcement->id)->where('student_id', $student->id)->exists())->toBeTrue();
+    $response->assertSuccessful();
+    $response->assertInertia(fn ($page) => $page
+        ->component('ClassShow', false)
+        ->where('unreadAnnouncementCount', 1)
+    );
 });

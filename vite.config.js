@@ -39,6 +39,8 @@ export default defineConfig({
                 'resources/js/fighter/styles/fighter.css',
                 'resources/js/blogseo/app.jsx',
                 'resources/js/blogseo/styles/blogseo.css',
+                'resources/js/student/app.jsx',
+                'resources/js/student/styles/student.css',
             ],
             refresh: true,
         }),

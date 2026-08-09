@@ -88,6 +88,11 @@ use App\Http\Controllers\Shipping\EasyParcelWebhookController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\StudentPortal\AccountController;
+use App\Http\Controllers\StudentPortal\ClassController;
+use App\Http\Controllers\StudentPortal\PaymentMethodController;
+use App\Http\Controllers\StudentPortal\RefundController;
+use App\Http\Controllers\StudentPortal\SubscriptionController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\TikTok\TikTokAuthController;
 use App\Http\Controllers\TikTok\TikTokWebhookController;
@@ -96,6 +101,7 @@ use App\Http\Middleware\HandleBlogSeoInertiaRequests;
 use App\Http\Middleware\HandleCeoInertiaRequests;
 use App\Http\Middleware\HandleFighterInertiaRequests;
 use App\Http\Middleware\HandlePocketInertiaRequests;
+use App\Http\Middleware\HandleStudentInertiaRequests;
 use App\Models\CertificateIssue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -214,51 +220,57 @@ Volt::route('checkout', 'cart.checkout')->name('checkout');
 // Guest payment method update (magic link)
 Volt::route('update-payment-method/{token}', 'guest.update-payment-method')->name('payment-method.update-guest');
 
-// Student routes - accessible by students only
-Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
-    // Student dashboard (home)
-    Volt::route('/', 'student.dashboard')->name('student.dashboard');
+// Student Inertia routes (React) — must be registered BEFORE the Volt group
+Route::middleware(['auth', 'role:student', HandleStudentInertiaRequests::class])
+    ->prefix('my')->name('student.')
+    ->group(function () {
+        // Dashboard (home)
+        Route::get('/', [App\Http\Controllers\StudentPortal\DashboardController::class, '__invoke'])->name('dashboard');
 
-    // Account hub for students
-    Volt::route('account', 'student.account')->name('student.account');
+        // Account hub
+        Route::get('account', [AccountController::class, 'index'])->name('account');
 
-    // Courses listing for students
-    Volt::route('courses', 'student.courses')->name('student.courses');
+        // Courses
+        Route::get('courses', [App\Http\Controllers\StudentPortal\CourseController::class, 'index'])->name('courses');
 
-    // Classes for students
-    Volt::route('classes', 'student.my-classes')->name('student.classes.index');
-    Volt::route('classes/{class}', 'student.class-show')->name('student.classes.show');
+        // Orders
+        Route::get('orders', [App\Http\Controllers\StudentPortal\OrderController::class, 'index'])->name('orders');
+        Route::get('orders/{order}', [App\Http\Controllers\StudentPortal\OrderController::class, 'show'])->name('orders.show');
+        Route::get('orders/{order}/receipt', [App\Http\Controllers\StudentPortal\OrderController::class, 'receipt'])->name('orders.receipt');
 
-    // Timetable for students
-    Volt::route('timetable', 'student.my-timetable')->name('student.timetable');
+        // Subscriptions (Inertia)
+        Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions');
+        Route::post('subscriptions/{enrollment}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+        Route::post('subscriptions/{enrollment}/resume', [SubscriptionController::class, 'resume'])->name('subscriptions.resume');
+        Route::post('subscriptions/{enrollment}/resume-collection', [SubscriptionController::class, 'resumeCollection'])->name('subscriptions.resume-collection');
 
-    // Subscription management for students
-    Volt::route('subscriptions', 'student.subscriptions')->name('student.subscriptions');
-    Volt::route('subscriptions/{enrollment}/cancel', 'student.subscription-cancel')->name('student.subscriptions.cancel');
+        // Payment methods
+        Route::get('payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods');
 
-    // Order history and receipts for students
-    Volt::route('orders', 'student.orders')->name('student.orders');
-    Volt::route('orders/{order}', 'student.orders-show')->name('student.orders.show');
-    Volt::route('orders/{order}/receipt', 'student.orders-receipt')->name('student.orders.receipt');
+        // Refund requests
+        Route::get('refund-requests', [RefundController::class, 'index'])->name('refund-requests');
+        Route::get('refund-requests/create', [RefundController::class, 'create'])->name('refund-requests.create');
+        Route::post('refund-requests', [RefundController::class, 'store'])->name('refund-requests.store');
+        Route::get('refund-requests/{refund}', [RefundController::class, 'show'])->name('refund-requests.show');
 
-    // Payment method management for students
-    Volt::route('payment-methods', 'student.payment-methods')->name('student.payment-methods');
+        // Classes
+        Route::get('classes', [ClassController::class, 'index'])->name('classes.index');
+        Route::get('classes/{class}', [ClassController::class, 'show'])->name('classes.show');
+        Route::get('classes/{class}/timetable-sessions', [ClassController::class, 'classTimetableSessions'])->name('classes.timetable-sessions');
 
-    // Refund requests for students
-    Volt::route('refund-requests', 'student.refund-requests')->name('student.refund-requests');
-    Volt::route('refund-requests/create', 'student.refund-request-create')->name('student.refund-requests.create');
-    Volt::route('refund-requests/{refund}', 'student.refund-request-show')->name('student.refund-requests.show');
+        // Timetable
+        Route::get('timetable', [ClassController::class, 'timetable'])->name('timetable');
+        Route::get('timetable/sessions', [ClassController::class, 'timetableSessions'])->name('timetable.sessions');
 
-    // Legacy invoice routes (will be removed later)
-    Volt::route('invoices', 'student.invoice-list')->name('student.invoices');
-    Volt::route('invoices/{invoice}', 'student.invoice-show')->name('student.invoices.show');
-    Volt::route('invoices/{invoice}/pay', 'student.invoice-pay')->name('student.invoices.pay');
-    Volt::route('invoices/{invoice}/bank-transfer', 'student.bank-transfer-form')->name('student.invoices.bank-transfer');
+        // Locale switcher (session-based)
+        Route::post('locale', [AccountController::class, 'setLocale'])->name('locale');
 
-    // Legacy payment history
-    Volt::route('payments', 'student.payment-history')->name('student.payments');
-    Volt::route('payments/{payment}', 'student.payment-show')->name('student.payments.show');
-});
+        // Notification bell JSON endpoints
+        Route::get('notifications/feed', [App\Http\Controllers\StudentPortal\NotificationController::class, 'feed'])->name('notifications.feed');
+        Route::get('notifications/unread-count', [App\Http\Controllers\StudentPortal\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+        Route::post('notifications/read-all', [App\Http\Controllers\StudentPortal\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+        Route::post('notifications/{id}/read', [App\Http\Controllers\StudentPortal\NotificationController::class, 'markRead'])->name('notifications.read');
+    });
 
 // Teacher routes - accessible by teachers only
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function () {

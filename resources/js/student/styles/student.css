@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", monospace;
+
+  /* Ink / surface scale */
+  --color-ink: #111827;
+  --color-ink-2: #374151;
+  --color-muted: #6B7280;
+  --color-muted-2: #9CA3AF;
+  --color-line: #E5E7EB;
+  --color-surface: #F5F3FF;
+
+  /* Student brand — deep purple + rose red */
+  --color-brand: #7C3AED;
+  --color-brand-ink: #6D28D9;
+  --color-brand-soft: #F5F3FF;
+  --color-accent: #F43F5E;
+  --color-accent-ink: #BE123C;
+  --color-accent-soft: #FFF1F2;
+
+  --color-emerald: #10B981;
+  --color-emerald-ink: #047857;
+  --color-sky: #0EA5E9;
+  --color-sky-ink: #0369A1;
+  --color-amber: #F59E0B;
+  --color-amber-ink: #B45309;
+  --color-rose: #F43F5E;
+  --color-rose-ink: #BE123C;
+}
+
+/* Body with subtle purple-tinted bg */
+body {
+  background: linear-gradient(135deg, #F5F3FF 0%, #FDF2F8 50%, #EDE9FE 100%);
+  color: var(--color-ink);
+  min-height: 100dvh;
+}
+
+/* Hero gradient — used on the header bar and hero sections */
+.hero-gradient {
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 30%, #4C1D95 60%, #BE123C 100%);
+}
+
+/* Glass panel for cards and containers */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* Thin, unobtrusive scrollbars inside scroll regions. */
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.25); border-radius: 9999px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes student-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: student-fade-up 0.4s ease both; }
+
+@keyframes student-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in { animation: student-fade-in 0.3s ease both; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.float { animation: float 3s ease-in-out infinite; }
+
+/* Subtle dot pattern overlay */
+.dot-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
