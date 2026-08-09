@@ -80,7 +80,7 @@ function SessionModal({ session, onClose }) {
           {session.notes && <div><span className="text-muted">Notes</span><p className="mt-0.5">{session.notes}</p></div>}
           {session.recording_url && (
             <a href={session.recording_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-violet-600 hover:text-violet-800">
-              <Video className="h-4 w-4" /> Watch Recording
+              <Video className="h-4 w-4" /> {t('student.classes.watch_recording') || 'Watch Recording'}
             </a>
           )}
         </div>

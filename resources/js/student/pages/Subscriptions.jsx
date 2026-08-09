@@ -83,8 +83,8 @@ function SubscriptionCard({ sub }) {
           {sub.last_order && (
             <div className="text-[12px] text-muted">
               Last payment: {sub.last_order.date} — {sub.last_order.formatted_amount}
-              {sub.last_order.is_paid && <StatusBadge variant="success" className="ml-1.5">Paid</StatusBadge>}
-              {sub.last_order.is_failed && <StatusBadge variant="danger" className="ml-1.5">Failed</StatusBadge>}
+              {sub.last_order.is_paid && <StatusBadge variant="success" className="ml-1.5">{t('student.subscriptions.paid')}</StatusBadge>}
+              {sub.last_order.is_failed && <StatusBadge variant="danger" className="ml-1.5">{t('student.subscriptions.failed')}</StatusBadge>}
             </div>
           )}
         </div>
@@ -97,10 +97,10 @@ function SubscriptionCard({ sub }) {
                 onClick={() => c.confirm(c.pending === 'cancel' ? cancelSub : c.pending === 'resume' ? resumeSub : resumeCol)}
                 className="rounded-xl bg-violet-600 px-3.5 py-2 text-[12px] font-semibold text-white"
               >
-                Confirm
+                {t('student.common.confirm')}
               </button>
               <button onClick={c.cancel} className="rounded-xl bg-gray-100 px-3.5 py-2 text-[12px] font-semibold text-gray-600">
-                Cancel
+                {t('student.common.cancel')}
               </button>
             </div>
           ) : (

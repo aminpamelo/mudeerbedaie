@@ -72,6 +72,7 @@ return [
         'no_resources_desc' => 'No learning materials have been shared for this class yet.',
         'no_announcements' => 'No Announcements',
         'no_announcements_desc' => 'No announcements have been posted for this class yet.',
+        'watch_recording' => 'Watch Recording',
     ],
 
     // Account

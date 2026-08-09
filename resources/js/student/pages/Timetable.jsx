@@ -89,10 +89,10 @@ function WeekGrid({ weekData, onSelectSession }) {
                   <p className="font-bold text-ink">{formatTime(item.time)}</p>
                   <p className="truncate font-medium text-ink">{item.classTitle}</p>
                   {item.courseName && <p className="truncate text-muted">{item.courseName}</p>}
-                  {item.status === 'ongoing' && <span className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />LIVE</span>}
+                  {item.status === 'ongoing' && <span className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />{t('student.status.live')}</span>}
                 </button>
               ))}
-              {day.items.length === 0 && <p className="py-4 text-center text-[11px] text-muted-2">No sessions</p>}
+              {day.items.length === 0 && <p className="py-4 text-center text-[11px] text-muted-2">{t('student.timetable_page.no_sessions')}</p>}
             </div>
           </div>
         ))}
@@ -105,7 +105,7 @@ function WeekGrid({ weekData, onSelectSession }) {
             <div className="mb-2 flex items-center gap-2">
               <span className={cn('text-[13px] font-bold', day.isToday ? 'text-violet-600' : 'text-ink')}>{day.dayName}</span>
               <span className="text-[13px] font-bold text-ink">{day.dayNumber}</span>
-              {day.isToday && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-600">Today</span>}
+              {day.isToday && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-600">{t('student.timetable.today')}</span>}
             </div>
             {day.items.length > 0 ? (
               <div className="space-y-2">
@@ -135,7 +135,7 @@ function WeekGrid({ weekData, onSelectSession }) {
                 ))}
               </div>
             ) : (
-              <p className="text-[12px] text-muted-2">No sessions</p>
+              <p className="text-[12px] text-muted-2">{t('student.timetable_page.no_sessions')}</p>
             )}
           </div>
         ))}
@@ -225,7 +225,7 @@ export default function Timetable() {
                 onChange={(e) => handleClassFilter(e.target.value)}
                 className="rounded-2xl border-0 bg-transparent px-4 py-2.5 text-[13px] text-ink outline-none"
               >
-                <option value="all">All Classes</option>
+                <option value="all">{t('student.timetable_page.all_classes')}</option>
                 {classOptions.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
             </div>

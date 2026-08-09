@@ -45,8 +45,8 @@ function CardRow({ method }) {
             <p className="text-[14px] font-semibold text-ink">
               {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} ending in {method.last4}
             </p>
-            {method.is_default && <StatusBadge variant="info">Default</StatusBadge>}
-            {method.is_expired && <StatusBadge variant="danger">Expired</StatusBadge>}
+            {method.is_default && <StatusBadge variant="info">{t('student.payment_methods.default')}</StatusBadge>}
+            {method.is_expired && <StatusBadge variant="danger">{t('student.payment_methods.expired')}</StatusBadge>}
           </div>
           <p className="text-[12px] text-muted">
             Expires {method.exp_month}/{method.exp_year}
@@ -58,13 +58,13 @@ function CardRow({ method }) {
       <div className="flex items-center gap-2 shrink-0">
         {confirming === 'default' ? (
           <div className="flex items-center gap-1.5">
-            <button onClick={handleSetDefault} className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white">Confirm</button>
-            <button onClick={() => setConfirming(null)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">Cancel</button>
+            <button onClick={handleSetDefault} className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white">{t('student.common.confirm')}</button>
+            <button onClick={() => setConfirming(null)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">{t('student.common.cancel')}</button>
           </div>
         ) : confirming === 'delete' ? (
           <div className="flex items-center gap-1.5">
-            <button onClick={handleDelete} className="rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-semibold text-white">Delete</button>
-            <button onClick={() => setConfirming(null)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">Cancel</button>
+            <button onClick={handleDelete} className="rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-semibold text-white">{t('student.common.delete')}</button>
+            <button onClick={() => setConfirming(null)} className="rounded-lg bg-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-600">{t('student.common.cancel')}</button>
           </div>
         ) : (
           <>
@@ -73,7 +73,7 @@ function CardRow({ method }) {
                 onClick={() => setConfirming('default')}
                 className="rounded-xl bg-violet-50 px-3 py-1.5 text-[12px] font-semibold text-violet-700 transition-colors hover:bg-violet-100"
               >
-                Set Default
+                {t('student.payment_methods.set_as_default')}
               </button>
             )}
             <button

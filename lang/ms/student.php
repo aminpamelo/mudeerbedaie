@@ -68,6 +68,7 @@ return [
         'no_resources_desc' => 'Tiada bahan pembelajaran telah dikongsi untuk kelas ini.',
         'no_announcements' => 'Tiada Pengumuman',
         'no_announcements_desc' => 'Tiada pengumuman telah dihantar untuk kelas ini.',
+        'watch_recording' => 'Tonton Rakaman',
         'overview' => 'Ringkasan',
         'timetable' => 'Jadual',
         'sessions_tab' => 'Sesi',
