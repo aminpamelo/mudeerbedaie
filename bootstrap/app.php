@@ -72,5 +72,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Stale session cookie from old APP_KEY → redirect to login
+        $exceptions->renderable(function (\Illuminate\Contracts\Encryption\DecryptException $e, $request) {
+            session()->invalidate();
+            session()->regenerateToken();
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Session expired.'], 401);
+            }
+
+            return redirect()->route('login');
+        });
     })->create();

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -15,7 +16,21 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (! $request->user()) {
+        try {
+            $user = $request->user();
+        } catch (DecryptException) {
+            // Stale session cookie encrypted with an old APP_KEY — flush it
+            session()->invalidate();
+            session()->regenerateToken();
+
+            if ($request->expectsJson()) {
+                abort(401, 'Session expired. Please refresh.');
+            }
+
+            return redirect()->route('login');
+        }
+
+        if (! $user) {
             if ($request->expectsJson()) {
                 abort(401, 'Unauthenticated.');
             }
@@ -23,7 +38,7 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
-        if (! $request->user()->hasAnyRole($roles)) {
+        if (! $user->hasAnyRole($roles)) {
             abort(403, 'You do not have permission to access this resource.');
         }
 
