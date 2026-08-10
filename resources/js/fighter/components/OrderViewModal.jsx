@@ -36,7 +36,7 @@ export default function OrderViewModal({ order, loading, onClose, onEdit }) {
         <div className="flex items-center justify-between border-b border-line/70 px-5 py-4">
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold text-ink">{order?.order_number ?? 'Order'}</h3>
-            {order && <p className="text-[12px] text-muted">{order.source_label} · {formatDate(order.created_at)}</p>}
+            {order && <p className="text-[12px] text-muted">{order.source_label}{order.funnel_name ? ` · ${order.funnel_name}` : ''} · {formatDate(order.created_at)}</p>}
           </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-slate-100 hover:text-ink" aria-label="Close"><X className="h-4 w-4" strokeWidth={2.2} /></button>
         </div>
@@ -69,6 +69,7 @@ export default function OrderViewModal({ order, loading, onClose, onEdit }) {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                {order.funnel_name && <div className="col-span-2"><Field label="Funnel" value={order.funnel_name} /></div>}
                 <Field label="Customer" value={c.name} />
                 <Field label="Phone" value={c.phone} />
                 <Field label="Email" value={c.email} />

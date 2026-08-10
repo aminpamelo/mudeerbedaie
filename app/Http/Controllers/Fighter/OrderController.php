@@ -452,6 +452,15 @@ class OrderController extends Controller
         $address = is_array($o->shipping_address) ? $o->shipping_address : [];
         $metadata = $o->metadata ?? [];
 
+        // Resolve funnel name for funnel-sourced orders
+        $funnelName = null;
+        if ($o->source === 'funnel') {
+            $funnelName = FunnelOrder::where('product_order_id', $o->id)
+                ->with('funnel:id,name')
+                ->first()
+                ?->funnel?->name;
+        }
+
         return [
             'id' => $o->id,
             'order_number' => $o->order_number,
@@ -462,6 +471,7 @@ class OrderController extends Controller
             'payment_reference' => $metadata['payment_reference'] ?? $o->reference_number,
             'source' => $o->source,
             'source_label' => $this->sourceLabel($o->source),
+            'funnel_name' => $funnelName,
             'subtotal' => (float) $o->subtotal,
             'shipping_cost' => (float) $o->shipping_cost,
             'total' => (float) $o->total_amount,
