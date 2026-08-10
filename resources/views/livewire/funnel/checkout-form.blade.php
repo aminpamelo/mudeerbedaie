@@ -659,6 +659,14 @@ new class extends Component
                 $productOrder->update(['status' => 'processing']);
                 $productOrder->addSystemNote('COD order placed — moved to processing for fulfilment');
 
+                // Update funnel analytics for COD conversion
+                $this->updateConversionAnalytics();
+
+                // Mark session as converted
+                if ($this->funnelSession) {
+                    $this->funnelSession->markAsConverted();
+                }
+
                 // Track Facebook Pixel Purchase event (server-side)
                 if ($this->funnelSession) {
                     app(\App\Services\Funnel\FacebookPixelService::class)->trackPurchase(

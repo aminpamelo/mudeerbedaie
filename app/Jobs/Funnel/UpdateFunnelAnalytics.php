@@ -34,8 +34,12 @@ class UpdateFunnelAnalytics implements ShouldQueue
     {
         Log::info('Starting funnel analytics update', ['date' => $this->date]);
 
-        // Get all published funnels
-        $funnels = Funnel::where('status', 'published')->get();
+        // Get all funnels that have orders or sessions (not just published)
+        $funnels = Funnel::where(function ($q) {
+            $q->where('status', 'published')
+                ->orWhereHas('orders')
+                ->orWhereHas('sessions');
+        })->get();
 
         foreach ($funnels as $funnel) {
             $this->updateFunnelAnalytics($funnel);
