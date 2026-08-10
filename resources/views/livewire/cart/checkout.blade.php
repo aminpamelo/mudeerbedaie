@@ -1,11 +1,9 @@
 <?php
 
-use App\DTOs\Shipping\ShippingRateRequest;
 use App\Models\ProductCart;
 use App\Models\ProductOrder;
 use App\Services\BayarcashService;
 use App\Services\SettingsService;
-use App\Services\Shipping\ShippingManager;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -57,7 +55,7 @@ new #[Layout('components.layouts.store')] class extends Component
 
     public string $currentStep = 'information'; // information, shipping, payment, confirmation
 
-    // Shipping
+    // Shipping (flat-rate by region)
     public string $selectedShippingProvider = '';
 
     public string $selectedShippingService = '';
@@ -68,16 +66,15 @@ new #[Layout('components.layouts.store')] class extends Component
 
     public bool $isLoadingRates = false;
 
-    public bool $hasShippingProviders = false;
+    public bool $hasShippingProviders = true; // Always true — flat-rate shipping
+
+    /** East Malaysia states for RM 14 rate. */
+    private const EAST_MALAYSIA_STATES = ['sabah', 'sarawak', 'labuan'];
 
     public function mount(): void
     {
         $this->loadCart();
         $this->prefillUserData();
-
-        // Check if any shipping providers are enabled
-        $shippingManager = app(ShippingManager::class);
-        $this->hasShippingProviders = count($shippingManager->getEnabledProviders()) > 0;
 
         // Redirect if cart is empty
         if (! $this->cart || $this->cart->isEmpty()) {
@@ -155,40 +152,27 @@ new #[Layout('components.layouts.store')] class extends Component
 
     public function fetchShippingRates(): void
     {
-        $this->isLoadingRates = true;
+        $address = $this->sameAsBilling ? $this->billingAddress : $this->shippingAddress;
+        $state = strtolower(trim($address['state'] ?? ''));
+        $isEastMalaysia = in_array($state, self::EAST_MALAYSIA_STATES);
 
-        try {
-            $shippingManager = app(ShippingManager::class);
-            $senderDefaults = app(SettingsService::class)->getShippingSenderDefaults();
-            $address = $this->sameAsBilling ? $this->billingAddress : $this->shippingAddress;
+        $this->availableShippingRates = [
+            [
+                'provider_slug' => 'flat_rate',
+                'provider_name' => $isEastMalaysia ? 'Sabah & Sarawak' : 'Semenanjung Malaysia',
+                'service_name' => 'Penghantaran Standard',
+                'service_code' => $isEastMalaysia ? 'east_malaysia' : 'west_malaysia',
+                'cost' => $isEastMalaysia ? 14.00 : 8.00,
+                'currency' => 'MYR',
+                'estimated_days' => $isEastMalaysia ? 5 : 3,
+            ],
+        ];
 
-            $request = new ShippingRateRequest(
-                originPostalCode: $senderDefaults['postal_code'] ?? '',
-                originCity: $senderDefaults['city'] ?? '',
-                originState: $senderDefaults['state'] ?? '',
-                destinationPostalCode: $address['postal_code'] ?? '',
-                destinationCity: $address['city'] ?? '',
-                destinationState: $address['state'] ?? '',
-                weightKg: $this->calculateTotalWeight(),
-            );
-
-            $rates = $shippingManager->getRatesFromAllProviders($request);
-
-            $this->availableShippingRates = array_map(fn ($rate) => [
-                'provider_slug' => $rate->providerSlug,
-                'provider_name' => $rate->providerName,
-                'service_name' => $rate->serviceName,
-                'service_code' => $rate->serviceCode,
-                'cost' => $rate->cost,
-                'currency' => $rate->currency,
-                'estimated_days' => $rate->estimatedDays,
-            ], $rates);
-        } catch (Exception $e) {
-            $this->availableShippingRates = [];
-            $this->dispatch('checkout-error', message: 'Failed to load shipping rates: '.$e->getMessage());
-        } finally {
-            $this->isLoadingRates = false;
-        }
+        // Auto-select the only rate
+        $rate = $this->availableShippingRates[0];
+        $this->selectedShippingProvider = $rate['provider_slug'];
+        $this->selectedShippingService = $rate['service_code'];
+        $this->selectedShippingCost = $rate['cost'];
     }
 
     public function selectShippingRate(string $providerSlug, string $serviceCode, float $cost): void
@@ -283,7 +267,7 @@ new #[Layout('components.layouts.store')] class extends Component
                 $orderUpdate['shipping_provider'] = $this->selectedShippingProvider;
                 $orderUpdate['delivery_option'] = $this->selectedShippingService;
                 $orderUpdate['weight_kg'] = $this->calculateTotalWeight();
-                $orderUpdate['total_amount'] = $order->subtotal + $this->selectedShippingCost + $order->tax_amount - $order->discount_amount;
+                $orderUpdate['total_amount'] = $order->subtotal + $this->selectedShippingCost - $order->discount_amount;
             }
 
             $order->update($orderUpdate);
@@ -392,7 +376,8 @@ new #[Layout('components.layouts.store')] class extends Component
             return '0.00';
         }
 
-        return number_format($this->cart->total_amount + $this->selectedShippingCost, 2);
+        // Subtotal + shipping (no tax)
+        return number_format($this->cart->subtotal + $this->selectedShippingCost, 2);
     }
 
     public function getShippingCostFormatted(): string
@@ -573,53 +558,32 @@ new #[Layout('components.layouts.store')] class extends Component
                     <div class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
                         <h2 class="font-display text-lg font-extrabold text-zinc-900">{{ __('store.co_shipping_method') }}</h2>
 
-                        @if($isLoadingRates)
-                            <div class="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
-                                <flux:icon name="arrow-path" class="h-5 w-5 animate-spin text-violet-500" />
-                                {{ __('store.co_loading_rates') }}
-                            </div>
-                        @elseif(empty($availableShippingRates))
-                            <div class="py-10 text-center">
-                                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-100">
-                                    <flux:icon name="truck" class="h-7 w-7 text-violet-500" />
+                        <div class="mt-4 space-y-3">
+                            @foreach($availableShippingRates as $rate)
+                                @php $sel = $selectedShippingProvider === $rate['provider_slug'] && $selectedShippingService === $rate['service_code']; @endphp
+                                <div @class([
+                                        'flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition',
+                                        'border-violet-500 bg-violet-50 ring-2 ring-violet-200' => $sel,
+                                        'border-zinc-200' => ! $sel,
+                                    ])>
+                                    <span class="flex items-center gap-3">
+                                        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl store-grad text-white">
+                                            <flux:icon name="truck" class="h-5 w-5" />
+                                        </span>
+                                        <span>
+                                            <span class="block text-sm font-bold text-zinc-900">{{ $rate['service_name'] }}</span>
+                                            <span class="block text-xs text-zinc-500">{{ $rate['provider_name'] }}</span>
+                                        </span>
+                                    </span>
+                                    <span class="text-right">
+                                        <span class="block font-display text-base font-extrabold text-zinc-900">RM {{ number_format($rate['cost'], 2) }}</span>
+                                        @if($rate['estimated_days'])
+                                            <span class="block text-xs text-zinc-500">~{{ $rate['estimated_days'] }} hari</span>
+                                        @endif
+                                    </span>
                                 </div>
-                                <p class="mt-3 text-sm font-medium text-zinc-600">{{ __('store.co_no_rates') }}</p>
-                                <p class="mt-1 text-xs text-zinc-400">{{ __('store.co_no_rates_hint') }}</p>
-                                <button type="button" wire:click="fetchShippingRates" class="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50">
-                                    <flux:icon name="arrow-path" class="h-4 w-4" />
-                                    {{ __('store.co_retry') }}
-                                </button>
-                            </div>
-                        @else
-                            <div class="mt-4 space-y-3">
-                                @foreach($availableShippingRates as $rate)
-                                    @php $sel = $selectedShippingProvider === $rate['provider_slug'] && $selectedShippingService === $rate['service_code']; @endphp
-                                    <button type="button"
-                                        wire:click="selectShippingRate('{{ $rate['provider_slug'] }}', '{{ $rate['service_code'] }}', {{ $rate['cost'] }})"
-                                        @class([
-                                            'flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition',
-                                            'border-violet-500 bg-violet-50 ring-2 ring-violet-200' => $sel,
-                                            'border-zinc-200 hover:border-violet-300 hover:bg-violet-50/40' => ! $sel,
-                                        ])>
-                                        <span class="flex items-center gap-3">
-                                            <span @class(['grid h-10 w-10 shrink-0 place-items-center rounded-xl', 'store-grad text-white' => $sel, 'bg-zinc-100 text-zinc-500' => ! $sel])>
-                                                <flux:icon name="truck" class="h-5 w-5" />
-                                            </span>
-                                            <span>
-                                                <span class="block text-sm font-bold text-zinc-900">{{ $rate['service_name'] }}</span>
-                                                <span class="block text-xs text-zinc-500">{{ $rate['provider_name'] }}</span>
-                                            </span>
-                                        </span>
-                                        <span class="text-right">
-                                            <span class="block font-display text-base font-extrabold text-zinc-900">MYR {{ number_format($rate['cost'], 2) }}</span>
-                                            @if($rate['estimated_days'])
-                                                <span class="block text-xs text-zinc-500">~{{ $rate['estimated_days'] }} {{ $rate['estimated_days'] === 1 ? __('store.co_day') : __('store.co_days') }}</span>
-                                            @endif
-                                        </span>
-                                    </button>
-                                @endforeach
-                            </div>
-                        @endif
+                            @endforeach
+                        </div>
 
                         <div class="mt-8 flex items-center justify-between gap-3">
                             <button type="button" wire:click="backToInformation" class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800">
@@ -748,10 +712,6 @@ new #[Layout('components.layouts.store')] class extends Component
                             <div class="flex items-center justify-between">
                                 <span class="text-zinc-500">{{ __('store.cart_subtotal') }}</span>
                                 <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartSubtotal() }}</span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-zinc-500">{{ __('store.cart_tax') }}</span>
-                                <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartTax() }}</span>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-zinc-500">{{ __('store.co_shipping') }}</span>
