@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import {
   BrainCircuit, LayoutDashboard, FileText,
+  MessageSquare, BarChart3, Settings,
   Menu, X, ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/mindpal-admin/lib/utils';
@@ -10,6 +11,9 @@ import { cn } from '@/mindpal-admin/lib/utils';
 const NAV = [
   { label: 'Overview', href: '/admin/mindpal', icon: LayoutDashboard, exact: true },
   { label: 'Documents', href: '/admin/mindpal/documents', icon: FileText },
+  { label: 'Conversations', href: '/admin/mindpal/conversations', icon: MessageSquare },
+  { label: 'Analytics', href: '/admin/mindpal/analytics', icon: BarChart3 },
+  { label: 'Settings', href: '/admin/mindpal/settings', icon: Settings },
 ];
 
 function isActive(url, href, exact) {

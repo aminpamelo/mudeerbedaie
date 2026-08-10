@@ -81,8 +81,11 @@ use App\Http\Controllers\LiveHostPocket\ReplacementRequestController;
 use App\Http\Controllers\LiveHostPocket\ScheduleController;
 use App\Http\Controllers\LiveHostPocket\SessionDetailController;
 use App\Http\Controllers\LiveHostPocket\SessionsController;
+use App\Http\Controllers\Mindpal\AnalyticsController as MindpalAnalyticsController;
+use App\Http\Controllers\Mindpal\ConversationController as MindpalConversationController;
 use App\Http\Controllers\Mindpal\DashboardController as MindpalDashboardController;
 use App\Http\Controllers\Mindpal\DocumentController as MindpalDocumentController;
+use App\Http\Controllers\Mindpal\SettingsController as MindpalSettingsController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PublicFunnelController;
 use App\Http\Controllers\SeoController;
@@ -1721,6 +1724,15 @@ Route::middleware(['auth', 'role:admin', HandleMindpalInertiaRequests::class])
         Route::post('documents', [MindpalDocumentController::class, 'store'])->name('documents.store');
         Route::delete('documents/{document}', [MindpalDocumentController::class, 'destroy'])->name('documents.destroy');
         Route::post('documents/{document}/reprocess', [MindpalDocumentController::class, 'reprocess'])->name('documents.reprocess');
+
+        Route::get('conversations', [MindpalConversationController::class, 'index'])->name('conversations.index');
+        Route::get('conversations/{conversation}', [MindpalConversationController::class, 'show'])->name('conversations.show');
+        Route::delete('conversations/{conversation}', [MindpalConversationController::class, 'destroy'])->name('conversations.destroy');
+
+        Route::get('analytics', [MindpalAnalyticsController::class, 'index'])->name('analytics');
+
+        Route::get('settings', [MindpalSettingsController::class, 'index'])->name('settings');
+        Route::put('settings', [MindpalSettingsController::class, 'update'])->name('settings.update');
     });
 
 // Legacy Flux admin URLs, superseded by the workspace above. Kept inside the
