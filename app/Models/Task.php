@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -49,6 +50,7 @@ class Task extends Model
         'taskable_id',
         'category_id',
         'parent_id',
+        'project_id',
         'title',
         'description',
         'assigned_to',
@@ -58,6 +60,17 @@ class Task extends Model
         'deadline',
         'completed_at',
         'reminders_sent',
+        'estimated_minutes',
+        'actual_minutes',
+        'start_date',
+        'sort_order',
+        'is_recurring',
+        'recurring_config_id',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'points',
+        'tags',
     ];
 
     /**
@@ -71,6 +84,10 @@ class Task extends Model
             'deadline' => 'date',
             'completed_at' => 'datetime',
             'reminders_sent' => 'array',
+            'start_date' => 'date',
+            'approved_at' => 'datetime',
+            'tags' => 'array',
+            'is_recurring' => 'boolean',
         ];
     }
 
@@ -149,5 +166,77 @@ class Task extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(TaskAttachment::class);
+    }
+
+    /**
+     * Get the TMS project this task belongs to.
+     */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(TmsProject::class, 'project_id');
+    }
+
+    /**
+     * Get the checklists for this task.
+     */
+    public function checklists(): HasMany
+    {
+        return $this->hasMany(TaskChecklist::class);
+    }
+
+    /**
+     * Get the time entries for this task.
+     */
+    public function timeEntries(): HasMany
+    {
+        return $this->hasMany(TaskTimeEntry::class);
+    }
+
+    /**
+     * Get the activity logs for this task.
+     */
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(TaskActivityLog::class);
+    }
+
+    /**
+     * Get the watchers for this task.
+     */
+    public function watchers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'task_watchers')->withTimestamps();
+    }
+
+    /**
+     * Get the dependencies for this task.
+     */
+    public function dependencies(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class);
+    }
+
+    /**
+     * Get tasks that depend on this task.
+     */
+    public function dependedOnBy(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class, 'depends_on_task_id');
+    }
+
+    /**
+     * Get the recurring configuration for this task.
+     */
+    public function recurringConfig(): HasOne
+    {
+        return $this->hasOne(TaskRecurringConfig::class);
+    }
+
+    /**
+     * Get the user who approved this task.
+     */
+    public function approvedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }
