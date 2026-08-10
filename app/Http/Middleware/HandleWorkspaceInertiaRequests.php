@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\TmsPermissionService;
 use Illuminate\Http\Request;
 
 class HandleWorkspaceInertiaRequests extends HandleInertiaRequests
@@ -16,6 +17,9 @@ class HandleWorkspaceInertiaRequests extends HandleInertiaRequests
         return [
             ...parent::share($request),
             'locale' => app()->getLocale(),
+            'tmsPermissions' => fn () => $request->user()
+                ? app(TmsPermissionService::class)->resolve($request->user())
+                : [],
         ];
     }
 }

@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#6366f1">
     <meta name="application-name" content="Workspace">
+    <link rel="manifest" href="/workspace-manifest.json">
     <title inertia>{{ config('app.name', 'Workspace') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -1766,6 +1766,22 @@ Route::middleware(['auth', 'role:admin,employee,ceo', HandleWorkspaceInertiaRequ
         Route::get('notifications', [\App\Http\Controllers\Workspace\NotificationController::class, 'index'])->name('notifications.index');
         Route::patch('notifications/{id}/read', [\App\Http\Controllers\Workspace\NotificationController::class, 'markRead'])->name('notifications.read');
         Route::post('notifications/read-all', [\App\Http\Controllers\Workspace\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+
+        // Gantt
+        Route::get('gantt', [\App\Http\Controllers\Workspace\GanttController::class, 'index'])->name('gantt');
+
+        // Search
+        Route::get('search', [\App\Http\Controllers\Workspace\SearchController::class, 'search'])->name('search');
+
+        // Settings
+        Route::get('settings', [\App\Http\Controllers\Workspace\SettingsController::class, 'index'])->name('settings');
+
+        // Leaderboard
+        Route::get('leaderboard', [\App\Http\Controllers\Workspace\LeaderboardController::class, 'index'])->name('leaderboard');
+
+        // AI
+        Route::post('ai/decompose', [\App\Http\Controllers\Workspace\AiController::class, 'decompose'])->name('ai.decompose');
+        Route::get('ai/summary', [\App\Http\Controllers\Workspace\AiController::class, 'summary'])->name('ai.summary');
     });
 
 // ============================================================================

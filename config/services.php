@@ -28,6 +28,10 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+    ],
+
     'google' => [
         'gemini_api_key' => env('GOOGLE_GEMINI_API_KEY'),
     ],

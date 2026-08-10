@@ -1,16 +1,18 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     LayoutDashboard, CheckSquare, Columns3, Calendar, BarChart3,
-    FileText, Trophy, Settings, FolderKanban, ChevronDown, Plus, Search, Menu, X
+    FileText, Trophy, Settings, FolderKanban, ChevronDown, Plus, Search, Menu, X, GanttChart
 } from 'lucide-react';
 import { useState } from 'react';
 import NotificationBell from '@/workspace/components/NotificationBell';
+import AiAssistant from '@/workspace/components/AiAssistant';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/workspace', icon: LayoutDashboard },
     { label: 'My Tasks', href: '/workspace/my-tasks', icon: CheckSquare },
     { label: 'Board', href: '/workspace/board', icon: Columns3 },
     { label: 'Calendar', href: '/workspace/calendar', icon: Calendar },
+    { label: 'Gantt', href: '/workspace/gantt', icon: GanttChart },
     { label: 'Projects', href: '/workspace/projects', icon: FolderKanban },
     { label: 'KPI', href: '/workspace/kpi', icon: BarChart3 },
     { label: 'Reports', href: '/workspace/reports', icon: FileText },
@@ -110,6 +112,8 @@ export default function WorkspaceLayout({ title, subtitle, actions, children }) 
                     {children}
                 </main>
             </div>
+
+            <AiAssistant />
         </div>
     );
 }
