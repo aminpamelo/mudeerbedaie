@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import WorkspaceLayout from '@/workspace/layouts/WorkspaceLayout';
-import { CheckCircle2, Clock, AlertTriangle, FolderKanban, Plus, ArrowRight, TrendingUp, Zap, Target } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, FolderKanban, Plus, ArrowRight, TrendingUp, Zap, Target, Columns3, Calendar, Trophy } from 'lucide-react';
 
 function StatCard({ label, value, icon: Icon, gradient, iconBg, change }) {
     return (
