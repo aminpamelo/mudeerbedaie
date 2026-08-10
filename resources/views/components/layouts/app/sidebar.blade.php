@@ -431,12 +431,27 @@
                     {{ __('Blog & SEO') }}
                 </flux:navlist.item>
 
+                {{-- Borang is its own Inertia workspace at /forms; open to every user. --}}
+                <flux:navlist.item
+                    icon="document-text"
+                    href="/forms"
+                >
+                    {{ __('Borang') }}
+                </flux:navlist.item>
+
                 @if(auth()->user()->isAdmin())
                     <flux:navlist.item
                         icon="rocket-launch"
                         href="/fighter"
                     >
                         {{ __('Fighter') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="clipboard-document-list"
+                        href="/workspace"
+                    >
+                        {{ __('Workspace') }}
                     </flux:navlist.item>
 
                     <flux:navlist.item

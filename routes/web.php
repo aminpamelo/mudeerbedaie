@@ -114,6 +114,7 @@ use App\Http\Middleware\HandleMindpalInertiaRequests;
 use App\Http\Middleware\HandlePocketInertiaRequests;
 use App\Http\Middleware\HandleStudentInertiaRequests;
 use App\Http\Middleware\HandleVaultInertiaRequests;
+use App\Http\Middleware\HandleWorkspaceInertiaRequests;
 use App\Models\CertificateIssue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -1683,6 +1684,16 @@ Route::middleware(['auth', 'role:admin,employee', HandleBlogSeoInertiaRequests::
     });
 
 // ============================================================================
+// WORKSPACE — Task Management System (Inertia React app at /workspace).
+// HandleWorkspaceInertiaRequests overrides the root view to `workspace.app`.
+// ============================================================================
+Route::middleware(['auth', 'role:admin,employee,ceo', HandleWorkspaceInertiaRequests::class])
+    ->prefix('workspace')->name('workspace.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\Workspace\DashboardController::class, '__invoke'])->name('dashboard');
+    });
+
+// ============================================================================
 // PASSWORD VAULT — admin-only encrypted credential store at /admin/vault.
 // HandleVaultInertiaRequests overrides the root view to `vault.app`.
 // ============================================================================
@@ -1750,6 +1761,55 @@ Route::middleware(['auth', 'role:admin,employee'])
         Route::permanentRedirect('blog/tags', '/blog-seo/tags')->name('blog.tags');
         Route::permanentRedirect('blog/comments', '/blog-seo/comments')->name('blog.comments');
         Route::permanentRedirect('blog/subscribers', '/blog-seo/subscribers')->name('blog.subscribers');
+    });
+
+// Convenience redirect: several standalone Inertia apps (Vault, Mindpal, Forms)
+// link "Back to Admin" to /admin, but the admin home actually lives at /dashboard.
+Route::redirect('/admin', '/dashboard')->name('admin.home');
+
+// ============================================================================
+// FORMS MODULE — Google-Forms-style builder (Inertia React app at /forms)
+// ============================================================================
+
+// Public form fill + submit (no auth required)
+Route::middleware([\App\Http\Middleware\HandleFormsInertiaRequests::class])
+    ->prefix('form')
+    ->name('form.public.')
+    ->group(function () {
+        Route::get('{slug}/thank-you', [\App\Http\Controllers\Forms\PublicFormController::class, 'thankYou'])->name('thankyou');
+        Route::get('{slug}', [\App\Http\Controllers\Forms\PublicFormController::class, 'show'])->name('show');
+        Route::post('{slug}', [\App\Http\Controllers\Forms\PublicFormController::class, 'submit'])->name('submit');
+    });
+
+// Form management — any authenticated user can build & manage their own forms
+Route::middleware(['auth', \App\Http\Middleware\HandleFormsInertiaRequests::class])
+    ->prefix('forms')
+    ->name('forms.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\Forms\FormController::class, 'index'])->name('index');
+        Route::get('create', [\App\Http\Controllers\Forms\FormController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Forms\FormController::class, 'store'])->name('store');
+
+        // Admin-only oversight + category management (literal paths before {form})
+        Route::middleware('role:admin')->group(function () {
+            Route::get('admin', [\App\Http\Controllers\Forms\AdminFormController::class, 'index'])->name('admin');
+            Route::get('submissions', [\App\Http\Controllers\Forms\AdminFormController::class, 'submissions'])->name('all-submissions');
+            Route::get('categories', [\App\Http\Controllers\Forms\FormCategoryController::class, 'index'])->name('categories.index');
+            Route::post('categories', [\App\Http\Controllers\Forms\FormCategoryController::class, 'store'])->name('categories.store');
+            Route::put('categories/{category}', [\App\Http\Controllers\Forms\FormCategoryController::class, 'update'])->name('categories.update');
+            Route::delete('categories/{category}', [\App\Http\Controllers\Forms\FormCategoryController::class, 'destroy'])->name('categories.destroy');
+        });
+
+        Route::get('{form}/edit', [\App\Http\Controllers\Forms\FormController::class, 'edit'])->name('edit');
+        Route::put('{form}', [\App\Http\Controllers\Forms\FormController::class, 'update'])->name('update');
+        Route::delete('{form}', [\App\Http\Controllers\Forms\FormController::class, 'destroy'])->name('destroy');
+        Route::post('{form}/duplicate', [\App\Http\Controllers\Forms\FormController::class, 'duplicate'])->name('duplicate');
+
+        // Submissions collection, export, per-submission PDF
+        Route::get('{form}/submissions', [\App\Http\Controllers\Forms\SubmissionController::class, 'index'])->name('submissions.index');
+        Route::get('{form}/submissions/export', [\App\Http\Controllers\Forms\SubmissionController::class, 'export'])->name('submissions.export');
+        Route::get('{form}/submissions/{submission}/pdf', [\App\Http\Controllers\Forms\SubmissionController::class, 'pdf'])->name('submissions.pdf');
+        Route::delete('{form}/submissions/{submission}', [\App\Http\Controllers\Forms\SubmissionController::class, 'destroy'])->name('submissions.destroy');
     });
 
 require __DIR__.'/auth.php';
