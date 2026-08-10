@@ -1691,6 +1691,45 @@ Route::middleware(['auth', 'role:admin,employee,ceo', HandleWorkspaceInertiaRequ
     ->prefix('workspace')->name('workspace.')
     ->group(function () {
         Route::get('/', [\App\Http\Controllers\Workspace\DashboardController::class, '__invoke'])->name('dashboard');
+
+        // Tasks
+        Route::get('my-tasks', [\App\Http\Controllers\Workspace\TaskController::class, 'index'])->name('tasks.index');
+        Route::post('tasks', [\App\Http\Controllers\Workspace\TaskController::class, 'store'])->name('tasks.store');
+        Route::get('tasks/{task}', [\App\Http\Controllers\Workspace\TaskController::class, 'show'])->name('tasks.show');
+        Route::patch('tasks/{task}', [\App\Http\Controllers\Workspace\TaskController::class, 'update'])->name('tasks.update');
+        Route::delete('tasks/{task}', [\App\Http\Controllers\Workspace\TaskController::class, 'destroy'])->name('tasks.destroy');
+        Route::patch('tasks/{task}/status', [\App\Http\Controllers\Workspace\TaskController::class, 'updateStatus'])->name('tasks.status');
+        Route::post('tasks/reorder', [\App\Http\Controllers\Workspace\TaskController::class, 'reorder'])->name('tasks.reorder');
+        Route::post('tasks/{task}/assign', [\App\Http\Controllers\Workspace\TaskController::class, 'assign'])->name('tasks.assign');
+
+        // Subtasks
+        Route::post('tasks/{task}/subtasks', [\App\Http\Controllers\Workspace\SubtaskController::class, 'store'])->name('subtasks.store');
+        Route::patch('tasks/{task}/subtasks/{subtask}', [\App\Http\Controllers\Workspace\SubtaskController::class, 'update'])->name('subtasks.update');
+        Route::delete('tasks/{task}/subtasks/{subtask}', [\App\Http\Controllers\Workspace\SubtaskController::class, 'destroy'])->name('subtasks.destroy');
+
+        // Checklists
+        Route::post('tasks/{task}/checklists', [\App\Http\Controllers\Workspace\ChecklistController::class, 'store'])->name('checklists.store');
+        Route::patch('tasks/{task}/checklists/{checklist}/toggle', [\App\Http\Controllers\Workspace\ChecklistController::class, 'toggle'])->name('checklists.toggle');
+        Route::patch('tasks/{task}/checklists/{checklist}', [\App\Http\Controllers\Workspace\ChecklistController::class, 'update'])->name('checklists.update');
+        Route::delete('tasks/{task}/checklists/{checklist}', [\App\Http\Controllers\Workspace\ChecklistController::class, 'destroy'])->name('checklists.destroy');
+        Route::post('tasks/{task}/checklists/reorder', [\App\Http\Controllers\Workspace\ChecklistController::class, 'reorder'])->name('checklists.reorder');
+
+        // Attachments
+        Route::post('tasks/{task}/attachments', [\App\Http\Controllers\Workspace\AttachmentController::class, 'store'])->name('attachments.store');
+        Route::delete('tasks/{task}/attachments/{attachment}', [\App\Http\Controllers\Workspace\AttachmentController::class, 'destroy'])->name('attachments.destroy');
+
+        // Comments
+        Route::post('tasks/{task}/comments', [\App\Http\Controllers\Workspace\CommentController::class, 'store'])->name('comments.store');
+        Route::delete('tasks/{task}/comments/{comment}', [\App\Http\Controllers\Workspace\CommentController::class, 'destroy'])->name('comments.destroy');
+
+        // Time entries
+        Route::post('tasks/{task}/time/start', [\App\Http\Controllers\Workspace\TimeEntryController::class, 'start'])->name('time.start');
+        Route::patch('tasks/{task}/time/{entry}/stop', [\App\Http\Controllers\Workspace\TimeEntryController::class, 'stop'])->name('time.stop');
+        Route::get('tasks/{task}/time', [\App\Http\Controllers\Workspace\TimeEntryController::class, 'index'])->name('time.index');
+        Route::get('active-timer', [\App\Http\Controllers\Workspace\TimeEntryController::class, 'activeTimer'])->name('time.active');
+
+        // Activity logs
+        Route::get('tasks/{task}/activity', [\App\Http\Controllers\Workspace\ActivityLogController::class, 'index'])->name('activity.index');
     });
 
 // ============================================================================
