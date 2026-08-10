@@ -1,9 +1,10 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     LayoutDashboard, CheckSquare, Columns3, Calendar, BarChart3,
-    FileText, Trophy, Settings, FolderKanban, ChevronDown, Plus, Bell, Search, Menu, X
+    FileText, Trophy, Settings, FolderKanban, ChevronDown, Plus, Search, Menu, X
 } from 'lucide-react';
 import { useState } from 'react';
+import NotificationBell from '@/workspace/components/NotificationBell';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/workspace', icon: LayoutDashboard },
@@ -99,9 +100,7 @@ export default function WorkspaceLayout({ title, subtitle, actions, children }) 
                         <button className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600">
                             <Search className="h-[18px] w-[18px]" strokeWidth={2} />
                         </button>
-                        <button className="relative grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-                            <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
-                        </button>
+                        <NotificationBell />
                         {actions}
                     </div>
                 </header>

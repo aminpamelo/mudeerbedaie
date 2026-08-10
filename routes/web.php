@@ -1730,6 +1730,42 @@ Route::middleware(['auth', 'role:admin,employee,ceo', HandleWorkspaceInertiaRequ
 
         // Activity logs
         Route::get('tasks/{task}/activity', [\App\Http\Controllers\Workspace\ActivityLogController::class, 'index'])->name('activity.index');
+
+        // Board (Kanban)
+        Route::get('board', [\App\Http\Controllers\Workspace\BoardController::class, 'index'])->name('board');
+
+        // Calendar
+        Route::get('calendar', [\App\Http\Controllers\Workspace\CalendarController::class, 'index'])->name('calendar');
+        Route::get('calendar/events', [\App\Http\Controllers\Workspace\CalendarController::class, 'events'])->name('calendar.events');
+
+        // Projects
+        Route::get('projects', [\App\Http\Controllers\Workspace\ProjectController::class, 'index'])->name('projects.index');
+        Route::post('projects', [\App\Http\Controllers\Workspace\ProjectController::class, 'store'])->name('projects.store');
+        Route::get('projects/{project}', [\App\Http\Controllers\Workspace\ProjectController::class, 'show'])->name('projects.show');
+        Route::patch('projects/{project}', [\App\Http\Controllers\Workspace\ProjectController::class, 'update'])->name('projects.update');
+        Route::delete('projects/{project}', [\App\Http\Controllers\Workspace\ProjectController::class, 'destroy'])->name('projects.destroy');
+        Route::post('projects/{project}/members', [\App\Http\Controllers\Workspace\ProjectController::class, 'addMember'])->name('projects.members.add');
+        Route::delete('projects/{project}/members/{userId}', [\App\Http\Controllers\Workspace\ProjectController::class, 'removeMember'])->name('projects.members.remove');
+
+        // Recurring
+        Route::post('tasks/{task}/recurring', [\App\Http\Controllers\Workspace\RecurringController::class, 'store'])->name('recurring.store');
+        Route::patch('tasks/{task}/recurring/{config}', [\App\Http\Controllers\Workspace\RecurringController::class, 'update'])->name('recurring.update');
+        Route::delete('tasks/{task}/recurring/{config}', [\App\Http\Controllers\Workspace\RecurringController::class, 'destroy'])->name('recurring.destroy');
+
+        // Approval
+        Route::post('tasks/{task}/submit-review', [\App\Http\Controllers\Workspace\TaskController::class, 'submitForReview'])->name('tasks.submit-review');
+        Route::post('tasks/{task}/approve', [\App\Http\Controllers\Workspace\TaskController::class, 'approve'])->name('tasks.approve');
+        Route::post('tasks/{task}/reject', [\App\Http\Controllers\Workspace\TaskController::class, 'reject'])->name('tasks.reject');
+
+        // KPI & Reports
+        Route::get('kpi', [\App\Http\Controllers\Workspace\KpiController::class, 'index'])->name('kpi');
+        Route::get('reports', [\App\Http\Controllers\Workspace\ReportController::class, 'index'])->name('reports');
+        Route::get('reports/generate', [\App\Http\Controllers\Workspace\ReportController::class, 'generate'])->name('reports.generate');
+
+        // Notifications
+        Route::get('notifications', [\App\Http\Controllers\Workspace\NotificationController::class, 'index'])->name('notifications.index');
+        Route::patch('notifications/{id}/read', [\App\Http\Controllers\Workspace\NotificationController::class, 'markRead'])->name('notifications.read');
+        Route::post('notifications/read-all', [\App\Http\Controllers\Workspace\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     });
 
 // ============================================================================

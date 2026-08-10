@@ -123,3 +123,8 @@ Schedule::command('livehost:send-recap-reminders')->hourly()->withoutOverlapping
 // EasyParcel - Reconcile in-flight shipments with courier tracking status
 // (fallback to the push webhook; auto-marks orders delivered)
 Schedule::command('easyparcel:sync-tracking')->everyThirtyMinutes()->withoutOverlapping();
+
+// TMS — Workspace task management recurring + daily stats + reminders
+Schedule::command('tms:generate-recurring')->dailyAt('06:00');
+Schedule::command('tms:calculate-daily-stats')->dailyAt('23:55');
+Schedule::command('tms:send-reminders')->dailyAt('08:00');

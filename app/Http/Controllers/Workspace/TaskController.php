@@ -198,4 +198,61 @@ class TaskController extends Controller
 
         return response()->json(['message' => 'Assigned.']);
     }
+
+    public function submitForReview(Request $request, Task $task): JsonResponse
+    {
+        $task->update([
+            'approval_status' => 'pending_review',
+            'status' => 'review',
+        ]);
+
+        TaskActivityLog::create([
+            'task_id' => $task->id,
+            'user_id' => $request->user()->id,
+            'action' => 'submitted_for_review',
+            'field' => 'approval_status',
+            'old_value' => $task->getOriginal('approval_status'),
+            'new_value' => 'pending_review',
+        ]);
+
+        return response()->json(['data' => $task->fresh(), 'message' => 'Task submitted for review.']);
+    }
+
+    public function approve(Request $request, Task $task): JsonResponse
+    {
+        $task->update([
+            'approval_status' => 'approved',
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
+        ]);
+
+        TaskActivityLog::create([
+            'task_id' => $task->id,
+            'user_id' => $request->user()->id,
+            'action' => 'approved',
+            'field' => 'approval_status',
+            'old_value' => $task->getOriginal('approval_status'),
+            'new_value' => 'approved',
+        ]);
+
+        return response()->json(['data' => $task->fresh(), 'message' => 'Task approved.']);
+    }
+
+    public function reject(Request $request, Task $task): JsonResponse
+    {
+        $task->update([
+            'approval_status' => 'rejected',
+        ]);
+
+        TaskActivityLog::create([
+            'task_id' => $task->id,
+            'user_id' => $request->user()->id,
+            'action' => 'rejected',
+            'field' => 'approval_status',
+            'old_value' => $task->getOriginal('approval_status'),
+            'new_value' => 'rejected',
+        ]);
+
+        return response()->json(['data' => $task->fresh(), 'message' => 'Task rejected.']);
+    }
 }

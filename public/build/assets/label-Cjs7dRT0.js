@@ -1,1 +1,0 @@
-import{a as t,j as r}from"./client-zbM7qFgD.js";import{R as a}from"./index-DjUXD9Pi.js";import{c as m}from"./main-Dv8t8-GL.js";const i=t.forwardRef(({className:e,...o},s)=>r.jsx(a,{ref:s,className:m("text-sm font-medium leading-none text-slate-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70",e),...o}));i.displayName=a.displayName;export{i as L};

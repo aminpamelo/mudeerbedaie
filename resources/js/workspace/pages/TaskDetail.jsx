@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router, Link } from '@inertiajs/react';
+import { router, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
 import WorkspaceLayout from '@/workspace/layouts/WorkspaceLayout';
 import TaskForm from '@/workspace/components/TaskForm';
@@ -7,6 +7,8 @@ import ChecklistEditor from '@/workspace/components/ChecklistEditor';
 import CommentThread from '@/workspace/components/CommentThread';
 import ActivityTimeline from '@/workspace/components/ActivityTimeline';
 import TimeTracker from '@/workspace/components/TimeTracker';
+import ApprovalActions from '@/workspace/components/ApprovalActions';
+import RecurringConfig from '@/workspace/components/RecurringConfig';
 import { cn, formatDate, PRIORITY_COLORS, STATUS_COLORS } from '@/workspace/lib/utils';
 import { workspaceSend } from '@/workspace/lib/api';
 
@@ -15,6 +17,9 @@ function Badge({ label, cls }) {
 }
 
 export default function TaskDetail({ task }) {
+    const { props } = usePage();
+    const user = props.auth?.user;
+    const isAdmin = user?.roles?.some(r => ['admin', 'ceo'].includes(r.name)) ?? false;
     const [editing, setEditing] = useState(false);
     const reload = () => router.reload({ preserveScroll: true });
 
@@ -103,6 +108,14 @@ export default function TaskDetail({ task }) {
 
                 {/* Sidebar */}
                 <div className="space-y-5">
+                    {/* Approval Actions */}
+                    <ApprovalActions task={task} isAdmin={isAdmin} onUpdate={reload} />
+
+                    {/* Recurring Config */}
+                    {task.is_recurring || task.recurring_config ? (
+                        <RecurringConfig task={task} onUpdate={reload} />
+                    ) : null}
+
                     {/* Time Tracker */}
                     <div className="rounded-2xl border border-slate-200 bg-white p-5">
                         <TimeTracker taskId={task.id} entries={task.time_entries ?? []} onUpdate={reload} />
