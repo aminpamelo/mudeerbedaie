@@ -162,7 +162,7 @@ new #[Layout('components.layouts.store')] class extends Component
                 'provider_name' => $isEastMalaysia ? 'Sabah & Sarawak' : 'Semenanjung Malaysia',
                 'service_name' => 'Penghantaran Standard',
                 'service_code' => $isEastMalaysia ? 'east_malaysia' : 'west_malaysia',
-                'cost' => $isEastMalaysia ? 14.00 : 8.00,
+                'cost' => $isEastMalaysia ? 15.00 : 8.00,
                 'currency' => 'MYR',
                 'estimated_days' => $isEastMalaysia ? 5 : 3,
             ],
