@@ -2161,8 +2161,18 @@ function AuditDayGrid({ day, onAssign, onScheduleClick, onLink, onUnlink }) {
     };
   };
   const styleFor = (item, lanes, lane) => {
-    const width = 100 / lanes;
-    return { ...rawTopH(item), left: `calc(${lane * width}% + 2px)`, width: `calc(${width}% - 4px)` };
+    // When many lives overlap, cap visible lanes and stack the rest
+    // so blocks stay readable instead of becoming razor-thin.
+    const maxLanes = Math.min(lanes, 3);
+    const displayLane = lane < maxLanes ? lane : maxLanes - 1;
+    const width = 100 / maxLanes;
+    const zIndex = lane >= maxLanes ? lane + 10 : lane;
+    return {
+      ...rawTopH(item),
+      left: `calc(${displayLane * width}% + 2px)`,
+      width: `calc(${width}% - 4px)`,
+      zIndex,
+    };
   };
 
   const sched = auditPackLanes(daySched);
@@ -2461,7 +2471,7 @@ function AuditTikTokBlock({ suggestion: s, style, onClick, onDragStart }) {
       onDragStart={s.isRegistered ? onDragStart : undefined}
       onClick={onClick}
       title={`${liveApiTooltip(s)}\n\n(${s.isRegistered ? 'drag onto a slot to link, or click to assign' : 'creator not registered — click to register'})`}
-      className={`absolute overflow-hidden rounded-[7px] border border-dashed border-[#EC4899]/50 bg-[#FDF2F8]/70 px-1.5 py-1 text-left transition-colors hover:bg-[#FDF2F8] ${
+      className={`absolute overflow-hidden rounded-[7px] border border-dashed border-[#EC4899]/60 bg-[#FDF2F8] px-1.5 py-1 text-left shadow-sm transition-colors hover:bg-[#FCE7F3] hover:shadow-md ${
         s.isRegistered ? 'cursor-grab active:cursor-grabbing' : ''
       }`}
       style={style}
