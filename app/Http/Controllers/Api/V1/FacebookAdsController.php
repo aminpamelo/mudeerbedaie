@@ -81,14 +81,21 @@ class FacebookAdsController extends Controller
         $connection = FacebookAdConnection::create($validated);
 
         $verify = $this->adsService->verifyConnection($connection);
+        $accountsCount = 0;
         if ($verify['success']) {
-            $this->adsService->syncAdAccounts($connection);
+            $accounts = $this->adsService->syncAdAccounts($connection);
+            $accountsCount = $accounts['count'] ?? 0;
+        } else {
+            // Don't keep a broken connection from a failed onboarding attempt —
+            // the wizard lets the user fix the token and retry cleanly.
+            $connection->delete();
         }
 
         return response()->json([
             'success' => $verify['success'],
             'message' => $verify['message'],
-            'connection_id' => $connection->id,
+            'connection_id' => $verify['success'] ? $connection->id : null,
+            'accounts_count' => $accountsCount,
         ], $verify['success'] ? 201 : 422);
     }
 

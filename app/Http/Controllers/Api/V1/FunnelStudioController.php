@@ -260,6 +260,74 @@ class FunnelStudioController extends Controller
     }
 
     /**
+     * Top-bar feed: today's pulse, recent orders, and things needing
+     * attention (broken pixels, failed ads connections).
+     */
+    public function notifications(Request $request): JsonResponse
+    {
+        $funnelIds = $this->scopedFunnelIds($request);
+
+        $todayBase = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->whereDate('created_at', today());
+
+        $recentOrders = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->where('created_at', '>=', now()->subHours(48))
+            ->with(['funnel:id,uuid,name', 'productOrder:id,order_number,customer_name'])
+            ->latest()
+            ->limit(8)
+            ->get()
+            ->map(fn (FunnelOrder $order) => [
+                'id' => $order->id,
+                'order_number' => $order->productOrder?->order_number ?? 'N/A',
+                'customer_name' => $order->productOrder?->customer_name ?: 'Unknown',
+                'funnel_name' => $order->funnel?->name ?? '-',
+                'revenue' => (float) $order->funnel_revenue,
+                'created_at' => $order->created_at->toIso8601String(),
+                'created_at_human' => $order->created_at->diffForHumans(),
+            ]);
+
+        // Pixel problems (from the daily health check)
+        $pixelProblems = Funnel::query()
+            ->whereIn('id', $funnelIds)
+            ->where('status', 'published')
+            ->get(['id', 'uuid', 'name', 'settings'])
+            ->filter(fn (Funnel $funnel) => data_get($funnel->settings, 'pixel_settings.health.status') === 'warning')
+            ->map(fn (Funnel $funnel) => [
+                'funnel_uuid' => $funnel->uuid,
+                'funnel_name' => $funnel->name,
+                'checked_at' => data_get($funnel->settings, 'pixel_settings.health.checked_at'),
+            ])
+            ->values();
+
+        // Failed ads connections (admin/employee only)
+        $adsErrors = collect();
+        if (($user = $request->user()) && in_array($user->role, ['admin', 'employee'], true)) {
+            $adsErrors = \App\Models\FacebookAdConnection::query()
+                ->where('status', 'error')
+                ->get(['id', 'name', 'status_message', 'updated_at'])
+                ->map(fn ($connection) => [
+                    'name' => $connection->name,
+                    'message' => $connection->status_message,
+                    'updated_at' => $connection->updated_at?->toIso8601String(),
+                ]);
+        }
+
+        return response()->json([
+            'data' => [
+                'today' => [
+                    'revenue' => (float) (clone $todayBase)->sum('funnel_revenue'),
+                    'orders' => (clone $todayBase)->count(),
+                ],
+                'recent_orders' => $recentOrders,
+                'pixel_problems' => $pixelProblems,
+                'ads_errors' => $adsErrors,
+            ],
+        ]);
+    }
+
+    /**
      * Pixel health across visible published funnels, as recorded by the
      * daily funnel:pixel-health command.
      */

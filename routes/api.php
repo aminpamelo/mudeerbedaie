@@ -216,6 +216,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::get('studio/products', [FunnelStudioController::class, 'products'])->name('api.studio.products');
     Route::get('studio/reports', [FunnelStudioController::class, 'reports'])->name('api.studio.reports');
     Route::get('studio/pixel-health', [FunnelStudioController::class, 'pixelHealth'])->name('api.studio.pixel-health');
+    Route::get('studio/notifications', [FunnelStudioController::class, 'notifications'])->name('api.studio.notifications');
 
     // Facebook Ads connections (multi Business Manager)
     Route::get('facebook-ads/connections', [FacebookAdsController::class, 'index'])->name('api.facebook-ads.index');

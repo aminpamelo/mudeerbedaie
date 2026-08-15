@@ -15,6 +15,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const PINNED_KEY = 'fs-pinned-funnels';
 const SHORTCUTS_KEY = 'fs-custom-shortcuts';
+const NOTIF_SEEN_KEY = 'fs-notif-seen-at';
+
+const fmtRM = (value) => `RM ${Number(value || 0).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
 
 const readStore = (key) => {
     try {
@@ -86,7 +89,11 @@ export default function StudioShell({
     const [searchOpen, setSearchOpen] = useState(false);
     const [searching, setSearching] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [notif, setNotif] = useState(null);
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [notifSeenAt, setNotifSeenAt] = useState(() => localStorage.getItem(NOTIF_SEEN_KEY) || '');
     const searchRef = useRef(null);
+    const notifRef = useRef(null);
     const debounceRef = useRef(null);
 
     // ── Pinned funnels ────────────────────────────────────────────────
@@ -172,10 +179,50 @@ export default function StudioShell({
             if (searchRef.current && !searchRef.current.contains(e.target)) {
                 setSearchOpen(false);
             }
+            if (notifRef.current && !notifRef.current.contains(e.target)) {
+                setNotifOpen(false);
+            }
         };
         document.addEventListener('mousedown', onClick);
         return () => document.removeEventListener('mousedown', onClick);
     }, []);
+
+    // ── Notifications: today's pulse + attention items ────────────────
+    const loadNotifications = useCallback(async () => {
+        try {
+            const response = await fetch('/api/v1/studio/notifications', {
+                headers: { Accept: 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
+                credentials: 'same-origin',
+            });
+            const data = await response.json();
+            setNotif(data.data || null);
+        } catch (e) {
+            // Bell simply stays empty.
+        }
+    }, []);
+
+    useEffect(() => {
+        loadNotifications();
+        const interval = setInterval(loadNotifications, 120000);
+        return () => clearInterval(interval);
+    }, [loadNotifications]);
+
+    const unreadCount = notif
+        ? (notif.recent_orders || []).filter((o) => !notifSeenAt || o.created_at > notifSeenAt).length
+            + (notif.pixel_problems || []).length
+            + (notif.ads_errors || []).length
+        : 0;
+
+    const openNotifications = () => {
+        const next = !notifOpen;
+        setNotifOpen(next);
+        if (next) {
+            const now = new Date().toISOString();
+            localStorage.setItem(NOTIF_SEEN_KEY, now);
+            // Delay so the badge clears after the panel closes, not while opening.
+            setTimeout(() => setNotifSeenAt(now), 400);
+        }
+    };
 
     const openFunnel = (funnel) => {
         setSearchOpen(false);
@@ -540,6 +587,132 @@ export default function StudioShell({
                                                 </span>
                                             </button>
                                         ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Today's pulse */}
+                        {notif && (
+                            <button
+                                onClick={() => onNavigate('reports')}
+                                title="Today's revenue and orders — open Reports"
+                                className="hidden shrink-0 items-center gap-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs transition-colors hover:border-zinc-500 md:flex cursor-pointer"
+                            >
+                                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                                <span className="text-zinc-400">Today</span>
+                                <span className="fs-gradient-text font-semibold">{fmtRM(notif.today?.revenue)}</span>
+                                <span className="text-zinc-500">· {notif.today?.orders ?? 0} orders</span>
+                            </button>
+                        )}
+
+                        {/* Notification bell */}
+                        <div ref={notifRef} className="relative shrink-0">
+                            <button
+                                onClick={openNotifications}
+                                className="relative rounded-lg p-2 text-zinc-400 transition-colors hover:text-zinc-100 cursor-pointer"
+                                title="Notifications"
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                {unreadCount > 0 && (
+                                    <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+
+                            {notifOpen && (
+                                <div className="fs-search-panel absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl sm:w-96">
+                                    <div className="border-b border-zinc-700/50 px-4 py-3">
+                                        <p className="text-sm font-semibold text-zinc-100">Notifications</p>
+                                    </div>
+                                    <div className="max-h-[420px] overflow-y-auto">
+                                        {/* Attention: broken pixels */}
+                                        {(notif?.pixel_problems || []).map((problem) => (
+                                            <button
+                                                key={`px-${problem.funnel_uuid}`}
+                                                onClick={() => {
+                                                    setNotifOpen(false);
+                                                    onSelectFunnel({ uuid: problem.funnel_uuid });
+                                                }}
+                                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-800 cursor-pointer"
+                                            >
+                                                <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/15">
+                                                    <svg className="h-3.5 w-3.5 text-red-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                    </svg>
+                                                </span>
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm text-zinc-100">Broken pixel tracking</span>
+                                                    <span className="block truncate text-xs text-zinc-500">
+                                                        {problem.funnel_name} — ads may be running blind. Tap to fix.
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        ))}
+
+                                        {/* Attention: failed ads connections */}
+                                        {(notif?.ads_errors || []).map((error, i) => (
+                                            <button
+                                                key={`ads-${i}`}
+                                                onClick={() => {
+                                                    setNotifOpen(false);
+                                                    onNavigate('facebook_ads');
+                                                }}
+                                                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-800 cursor-pointer"
+                                            >
+                                                <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yellow-500/15">
+                                                    <svg className="h-3.5 w-3.5 text-yellow-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                    </svg>
+                                                </span>
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm text-zinc-100">Facebook Ads connection failed</span>
+                                                    <span className="block truncate text-xs text-zinc-500">{error.name}: {error.message}</span>
+                                                </span>
+                                            </button>
+                                        ))}
+
+                                        {/* Recent orders */}
+                                        {(notif?.recent_orders || []).map((order) => {
+                                            const isNew = !notifSeenAt || order.created_at > notifSeenAt;
+                                            return (
+                                                <button
+                                                    key={`o-${order.id}`}
+                                                    onClick={() => {
+                                                        setNotifOpen(false);
+                                                        onNavigate('orders');
+                                                    }}
+                                                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-800 cursor-pointer"
+                                                >
+                                                    <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500/15">
+                                                        <svg className="h-3.5 w-3.5 text-green-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                                        </svg>
+                                                    </span>
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="flex items-center gap-2 text-sm text-zinc-100">
+                                                            New order · {fmtRM(order.revenue)}
+                                                            {isNew && <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />}
+                                                        </span>
+                                                        <span className="block truncate text-xs text-zinc-500">
+                                                            {order.customer_name} — {order.funnel_name} · {order.created_at_human}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+
+                                        {notif
+                                            && (notif.pixel_problems || []).length === 0
+                                            && (notif.ads_errors || []).length === 0
+                                            && (notif.recent_orders || []).length === 0 && (
+                                            <p className="px-4 py-8 text-center text-sm text-zinc-500">
+                                                All quiet — no new orders in the last 48 hours and nothing needs attention.
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
