@@ -190,7 +190,9 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
             {/* Header */}
             <div className="mb-6 flex items-center justify-between">
                 <div>
-                    <h1 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Sales Funnels</h1>
+                    <h1 className="fs-display text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                        Sales <span className="fs-gradient-text">Funnels</span>
+                    </h1>
                     <p className="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">
                         {funnels.length > 0 ? `${funnels.length} funnel${funnels.length !== 1 ? 's' : ''} · ${categories.length} categor${categories.length === 1 ? 'y' : 'ies'}` : 'No funnels created yet'}
                     </p>
@@ -207,7 +209,7 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
                     </button>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                        className="fs-cta inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium text-white"
                     >
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

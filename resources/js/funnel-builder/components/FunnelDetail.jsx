@@ -61,7 +61,7 @@ const updateUrlWithTab = (tab) => {
     window.history.replaceState({}, '', url.toString());
 };
 
-export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
+export default function FunnelDetail({ funnelUuid, onBack, onEditStep, onFunnelLoaded }) {
     const [funnel, setFunnel] = useState(null);
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -88,12 +88,13 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
         try {
             const response = await funnelApi.get(funnelUuid);
             setFunnel(response.data);
+            onFunnelLoaded?.({ uuid: funnelUuid, name: response.data?.name });
         } catch (err) {
             setError(err.message || 'Failed to load funnel');
         } finally {
             setLoading(false);
         }
-    }, [funnelUuid]);
+    }, [funnelUuid, onFunnelLoaded]);
 
     // Load analytics
     const loadAnalytics = useCallback(async () => {
@@ -311,25 +312,25 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
                         <p className="text-sm text-gray-500">Total Visitors</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="fs-stat-value text-2xl font-bold text-gray-900">
                             {analytics?.total_visitors?.toLocaleString() || 0}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
                         <p className="text-sm text-gray-500">Conversions</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="fs-stat-value text-2xl font-bold text-gray-900">
                             {analytics?.total_conversions?.toLocaleString() || 0}
                         </p>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
                         <p className="text-sm text-gray-500">Conversion Rate</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="fs-stat-value text-2xl font-bold text-gray-900">
                             {analytics?.conversion_rate || 0}%
                         </p>
                     </div>
                     <div className="bg-white rounded-lg border border-gray-200 p-4">
                         <p className="text-sm text-gray-500">Revenue</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="fs-stat-value text-2xl font-bold text-gray-900">
                             RM {(analytics?.total_revenue || 0).toLocaleString()}
                         </p>
                     </div>
@@ -338,8 +339,8 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
 
             {/* Tabs */}
             <div className="px-6">
-                <div className="border-b border-gray-200">
-                    <nav className="flex gap-8">
+                <div className="border-b border-gray-200 overflow-x-auto">
+                    <nav className="flex gap-8 whitespace-nowrap">
                         {['steps', 'products', 'automations', 'analytics', 'orders', 'payment', 'tracking', 'embed', 'affiliates', 'settings'].map((tab) => (
                             <button
                                 key={tab}
@@ -1195,15 +1196,212 @@ function EmbedTab({ funnel, onRefresh, showToast }) {
     );
 }
 
+// Pixel Library bar - apply a saved pixel to this funnel, or save the current
+// form into the library. Shared by the Facebook and Google tracking cards.
+function PixelLibraryBar({ platform, appliedLibraryId, currentSettings, onApply, showToast }) {
+    const [pixels, setPixels] = useState([]);
+    const [selectedId, setSelectedId] = useState('');
+    const [showSaveForm, setShowSaveForm] = useState(false);
+    const [saveName, setSaveName] = useState('');
+    const [saveGroup, setSaveGroup] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    const getCsrfToken = () =>
+        document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('XSRF-TOKEN='))
+            ?.split('=')[1]
+            ?.replace(/%3D/g, '=') || '';
+
+    const headers = () => ({
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-XSRF-TOKEN': getCsrfToken(),
+    });
+
+    const loadPixels = async () => {
+        try {
+            const response = await fetch(`/api/v1/pixel-library?platform=${platform}`, {
+                headers: headers(),
+                credentials: 'same-origin',
+            });
+            const data = await response.json();
+            setPixels(data.data || []);
+        } catch (err) {
+            // Non-fatal: the manual fields still work without the library.
+        }
+    };
+
+    useEffect(() => {
+        loadPixels();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [platform]);
+
+    const appliedPixel = pixels.find((p) => p.id === appliedLibraryId);
+
+    const handleApply = () => {
+        const pixel = pixels.find((p) => String(p.id) === String(selectedId));
+        if (!pixel) return;
+        onApply(pixel);
+    };
+
+    const hasCurrentValues = platform === 'facebook'
+        ? !!currentSettings.pixel_id
+        : !!(currentSettings.ga4_measurement_id || currentSettings.ads_conversion_id);
+
+    const handleSaveToLibrary = async () => {
+        if (!saveName.trim()) {
+            showToast('Please give this pixel a name', 'error');
+            return;
+        }
+
+        setBusy(true);
+        try {
+            const settings = platform === 'facebook'
+                ? {
+                    pixel_id: currentSettings.pixel_id || '',
+                    access_token: currentSettings.access_token || '',
+                    test_event_code: currentSettings.test_event_code || '',
+                }
+                : {
+                    ga4_measurement_id: currentSettings.ga4_measurement_id || '',
+                    ads_conversion_id: currentSettings.ads_conversion_id || '',
+                    ads_purchase_label: currentSettings.ads_purchase_label || '',
+                };
+
+            const response = await fetch('/api/v1/pixel-library', {
+                method: 'POST',
+                headers: headers(),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    name: saveName.trim(),
+                    platform,
+                    group_name: saveGroup.trim() || null,
+                    settings,
+                }),
+            });
+
+            if (response.ok) {
+                showToast('Saved to Pixel Library');
+                setShowSaveForm(false);
+                setSaveName('');
+                setSaveGroup('');
+                loadPixels();
+            } else {
+                const error = await response.json();
+                showToast(error.message || 'Failed to save to library', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to save to library', 'error');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-medium text-gray-700">
+                    Pixel Library
+                    {appliedPixel && (
+                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                            {appliedPixel.name}
+                        </span>
+                    )}
+                </div>
+                <a
+                    href="/funnel-builder/pixel-library"
+                    className="text-xs font-medium text-orange-600 hover:text-orange-700"
+                >
+                    Manage Library →
+                </a>
+            </div>
+
+            {pixels.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                    <select
+                        value={selectedId}
+                        onChange={(e) => setSelectedId(e.target.value)}
+                        className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                    >
+                        <option value="">Select a saved pixel...</option>
+                        {pixels.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.group_name ? `[${p.group_name}] ` : ''}{p.name}
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={handleApply}
+                        disabled={!selectedId}
+                        className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
+                    >
+                        Apply
+                    </button>
+                </div>
+            ) : (
+                <p className="text-xs text-gray-500">
+                    No saved {platform === 'facebook' ? 'Facebook' : 'Google'} pixels yet — save this one below, or add pixels in the library.
+                </p>
+            )}
+
+            {hasCurrentValues && !showSaveForm && (
+                <button
+                    onClick={() => setShowSaveForm(true)}
+                    className="text-xs font-medium text-gray-600 hover:text-gray-900 underline"
+                >
+                    Save current settings to library
+                </button>
+            )}
+
+            {showSaveForm && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <input
+                        type="text"
+                        value={saveName}
+                        onChange={(e) => setSaveName(e.target.value)}
+                        placeholder="Pixel name"
+                        className="flex-1 min-w-[140px] px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                    <input
+                        type="text"
+                        value={saveGroup}
+                        onChange={(e) => setSaveGroup(e.target.value)}
+                        placeholder="Group (optional)"
+                        className="w-36 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                    <button
+                        onClick={handleSaveToLibrary}
+                        disabled={busy}
+                        className="px-3 py-2 text-sm bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium disabled:opacity-50"
+                    >
+                        {busy ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={() => setShowSaveForm(false)}
+                        className="px-2 py-2 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // Tracking Tab Component - Facebook Pixel & Conversions API Settings
 function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
     const [loading, setLoading] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [detecting, setDetecting] = useState(false);
+    const [detectResult, setDetectResult] = useState(null);
     const [settings, setSettings] = useState({
         enabled: funnel?.settings?.pixel_settings?.facebook?.enabled || false,
         pixel_id: funnel?.settings?.pixel_settings?.facebook?.pixel_id || '',
         access_token: funnel?.settings?.pixel_settings?.facebook?.access_token || '',
         test_event_code: funnel?.settings?.pixel_settings?.facebook?.test_event_code || '',
+        library_pixel_id: funnel?.settings?.pixel_settings?.facebook?.library_pixel_id || null,
         events: funnel?.settings?.pixel_settings?.facebook?.events || {
             page_view: true,
             view_content: true,
@@ -1222,6 +1420,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                 pixel_id: funnel.settings.pixel_settings.facebook.pixel_id || '',
                 access_token: funnel.settings.pixel_settings.facebook.access_token || '',
                 test_event_code: funnel.settings.pixel_settings.facebook.test_event_code || '',
+                library_pixel_id: funnel.settings.pixel_settings.facebook.library_pixel_id || null,
                 events: funnel.settings.pixel_settings.facebook.events || {
                     page_view: true,
                     view_content: true,
@@ -1243,8 +1442,11 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
             ?.replace(/%3D/g, '=') || '';
     };
 
-    // Save settings
-    const handleSave = async () => {
+    // Save settings. Accepts an optional override so callers that just
+    // changed state (e.g. applying a library pixel) can save immediately
+    // without waiting for the state update.
+    const handleSave = async (overrideSettings = null) => {
+        const payload = overrideSettings || settings;
         setLoading(true);
         try {
             const response = await fetch(`/api/v1/funnels/${funnelUuid}`, {
@@ -1260,7 +1462,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                         ...funnel.settings,
                         pixel_settings: {
                             ...funnel.settings?.pixel_settings,
-                            facebook: settings,
+                            facebook: payload,
                         },
                     },
                 }),
@@ -1277,6 +1479,46 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
             showToast('Failed to save settings', 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Apply a pixel from the library: fill the form and save in one step.
+    const handleApplyLibraryPixel = (pixel) => {
+        const next = {
+            ...settings,
+            enabled: true,
+            pixel_id: pixel.settings?.pixel_id || '',
+            access_token: pixel.settings?.access_token || '',
+            test_event_code: pixel.settings?.test_event_code || '',
+            library_pixel_id: pixel.id,
+        };
+        setSettings(next);
+        handleSave(next);
+    };
+
+    // Check that the pixels are actually installed on the live funnel page.
+    const handleDetect = async () => {
+        setDetecting(true);
+        setDetectResult(null);
+        try {
+            const response = await fetch(`/api/v1/funnels/${funnelUuid}/pixel/detect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                },
+                credentials: 'same-origin',
+            });
+            const data = await response.json();
+            setDetectResult(data);
+            if (!data.success) {
+                showToast(data.message || 'Could not check the funnel page', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to check pixel installation', 'error');
+        } finally {
+            setDetecting(false);
         }
     };
 
@@ -1371,6 +1613,17 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                     </label>
                 </div>
 
+                {/* Pixel Library - apply a saved pixel in one click */}
+                <div className="mb-6">
+                    <PixelLibraryBar
+                        platform="facebook"
+                        appliedLibraryId={settings.library_pixel_id}
+                        currentSettings={settings}
+                        onApply={handleApplyLibraryPixel}
+                        showToast={showToast}
+                    />
+                </div>
+
                 {settings.enabled && (
                     <div className="space-y-6">
                         {/* Pixel ID */}
@@ -1381,7 +1634,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                             <input
                                 type="text"
                                 value={settings.pixel_id}
-                                onChange={(e) => setSettings({ ...settings, pixel_id: e.target.value })}
+                                onChange={(e) => setSettings({ ...settings, pixel_id: e.target.value, library_pixel_id: null })}
                                 placeholder="Enter your 15-16 digit Pixel ID"
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                             />
@@ -1455,7 +1708,7 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
                         {/* Actions */}
                         <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                             <button
-                                onClick={handleSave}
+                                onClick={() => handleSave()}
                                 disabled={loading}
                                 className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                             >
@@ -1489,6 +1742,59 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
 
             {/* Google (GA4 + Google Ads) Section */}
             <GoogleTrackingCard funnelUuid={funnelUuid} funnel={funnel} onRefresh={onRefresh} showToast={showToast} />
+
+            {/* Installation Check - verify pixels actually fire on the live page */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-2">
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Installation Check</h3>
+                        <p className="text-sm text-gray-500">
+                            Fetches your live funnel page and verifies the tracking scripts are really installed and firing.
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleDetect}
+                        disabled={detecting}
+                        className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium disabled:opacity-50 shrink-0"
+                    >
+                        {detecting ? 'Checking...' : 'Check Installation'}
+                    </button>
+                </div>
+
+                {detectResult && !detectResult.success && (
+                    <div className="mt-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-4 py-3">
+                        {detectResult.message}
+                    </div>
+                )}
+
+                {detectResult && detectResult.success && (
+                    <div className="mt-4 space-y-3">
+                        <p className="text-xs text-gray-400">
+                            Checked: <a href={detectResult.url} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">{detectResult.url}</a>
+                        </p>
+                        {[
+                            { key: 'facebook', label: 'Facebook Pixel', ok: detectResult.facebook?.detected, enabled: detectResult.facebook?.enabled, message: detectResult.facebook?.message },
+                            { key: 'google', label: 'Google', ok: (detectResult.google?.ga4_detected || detectResult.google?.ads_detected), enabled: detectResult.google?.enabled, message: detectResult.google?.message },
+                        ].map(({ key, label, ok, enabled, message }) => (
+                            <div
+                                key={key}
+                                className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${
+                                    !enabled
+                                        ? 'bg-gray-50 border-gray-200 text-gray-500'
+                                        : ok
+                                            ? 'bg-green-50 border-green-100 text-green-800'
+                                            : 'bg-red-50 border-red-100 text-red-700'
+                                }`}
+                            >
+                                <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!enabled ? 'bg-gray-300' : ok ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <div>
+                                    <span className="font-medium">{label}:</span> {message}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Info Box */}
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
@@ -1540,6 +1846,7 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
         ga4_measurement_id: funnel?.settings?.pixel_settings?.google?.ga4_measurement_id || '',
         ads_conversion_id: funnel?.settings?.pixel_settings?.google?.ads_conversion_id || '',
         ads_purchase_label: funnel?.settings?.pixel_settings?.google?.ads_purchase_label || '',
+        library_pixel_id: funnel?.settings?.pixel_settings?.google?.library_pixel_id || null,
         events: funnel?.settings?.pixel_settings?.google?.events || { ...defaultEvents },
     });
 
@@ -1560,7 +1867,8 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
             ?.split('=')[1]
             ?.replace(/%3D/g, '=') || '';
 
-    const handleSave = async () => {
+    const handleSave = async (overrideSettings = null) => {
+        const payload = overrideSettings || settings;
         setLoading(true);
         try {
             const response = await fetch(`/api/v1/funnels/${funnelUuid}`, {
@@ -1576,7 +1884,7 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
                         ...funnel.settings,
                         pixel_settings: {
                             ...funnel.settings?.pixel_settings,
-                            google: settings,
+                            google: payload,
                         },
                     },
                 }),
@@ -1594,6 +1902,19 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleApplyLibraryPixel = (pixel) => {
+        const next = {
+            ...settings,
+            enabled: true,
+            ga4_measurement_id: pixel.settings?.ga4_measurement_id || '',
+            ads_conversion_id: pixel.settings?.ads_conversion_id || '',
+            ads_purchase_label: pixel.settings?.ads_purchase_label || '',
+            library_pixel_id: pixel.id,
+        };
+        setSettings(next);
+        handleSave(next);
     };
 
     const toggleEvent = (eventKey) => {
@@ -1639,6 +1960,17 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
                 </label>
             </div>
 
+            {/* Pixel Library - apply a saved Google config in one click */}
+            <div className="mb-6">
+                <PixelLibraryBar
+                    platform="google"
+                    appliedLibraryId={settings.library_pixel_id}
+                    currentSettings={settings}
+                    onApply={handleApplyLibraryPixel}
+                    showToast={showToast}
+                />
+            </div>
+
             {settings.enabled ? (
                 <div className="space-y-6">
                     <div>
@@ -1649,7 +1981,7 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
                         <input
                             type="text"
                             value={settings.ga4_measurement_id}
-                            onChange={(e) => setSettings({ ...settings, ga4_measurement_id: e.target.value })}
+                            onChange={(e) => setSettings({ ...settings, ga4_measurement_id: e.target.value, library_pixel_id: null })}
                             placeholder="G-XXXXXXXXXX"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
@@ -1666,7 +1998,7 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
                         <input
                             type="text"
                             value={settings.ads_conversion_id}
-                            onChange={(e) => setSettings({ ...settings, ads_conversion_id: e.target.value })}
+                            onChange={(e) => setSettings({ ...settings, ads_conversion_id: e.target.value, library_pixel_id: null })}
                             placeholder="AW-XXXXXXXXX"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
@@ -1716,7 +2048,7 @@ function GoogleTrackingCard({ funnelUuid, funnel, onRefresh, showToast }) {
 
                     <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                         <button
-                            onClick={handleSave}
+                            onClick={() => handleSave()}
                             disabled={loading}
                             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium disabled:opacity-50"
                         >

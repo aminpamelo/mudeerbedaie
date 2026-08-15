@@ -1,0 +1,584 @@
+/**
+ * Funnel Studio — Marketing dark theme for the Funnel Builder SPA.
+ *
+ * Strategy: the components are written with light Tailwind utilities
+ * (bg-white, text-gray-900, border-gray-200, orange accents...). Instead of
+ * rewriting thousands of class names, this scoped layer remaps those
+ * utilities to the dark "Marketing Studio" palette. Everything is scoped
+ * under `.funnel-builder-app.fs-studio`, which App.jsx only applies OUTSIDE
+ * the Puck editor view — the page editor keeps editing light public pages.
+ *
+ * Palette:
+ *   page        #0B0D14   deep blue-black with violet/orange ambient glows
+ *   surface     #151926   cards (bg-white)
+ *   inset       #10141F   subtle sections (bg-gray-50)
+ *   raised      #1C2233   hovers / pills (bg-gray-100)
+ *   accent      violet #8B5CF6 → fuchsia #D946EF → orange #F97316
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
+
+.funnel-builder-app.fs-studio {
+    --fs-page: #0b0d14;
+    --fs-surface: #151926;
+    --fs-inset: #10141f;
+    --fs-raised: #1c2233;
+    --fs-raised-2: #262d40;
+    --fs-text-hi: #f3f5f9;
+    --fs-text: #c6cbd7;
+    --fs-text-mid: #98a0b3;
+    --fs-text-low: #8891a5;
+    --fs-text-faint: #646d82;
+    --fs-border: rgba(255, 255, 255, 0.08);
+    --fs-border-strong: rgba(255, 255, 255, 0.16);
+    --fs-violet: #8b5cf6;
+    --fs-fuchsia: #d946ef;
+    --fs-orange: #f97316;
+    --fs-accent-text: #c084fc;
+    --fs-gradient: linear-gradient(135deg, #8b5cf6 0%, #d946ef 55%, #f97316 120%);
+    --fs-cta-gradient: linear-gradient(135deg, #7c3aed 0%, #c026d3 100%);
+    --fs-glow: 0 4px 24px rgba(168, 85, 247, 0.35);
+
+    color-scheme: dark;
+    background-color: var(--fs-page);
+    color: var(--fs-text);
+    position: relative;
+    isolation: isolate;
+}
+
+/* Ambient studio glows behind everything */
+.funnel-builder-app.fs-studio::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(600px 400px at 8% -5%, rgba(139, 92, 246, 0.16), transparent 60%),
+        radial-gradient(700px 500px at 100% 0%, rgba(217, 70, 239, 0.08), transparent 60%),
+        radial-gradient(800px 600px at 85% 110%, rgba(249, 115, 22, 0.07), transparent 55%),
+        var(--fs-page);
+}
+
+/* ── Typography helpers ─────────────────────────────────────────────── */
+.fs-studio .fs-display,
+.fs-studio h1,
+.fs-studio h2,
+.fs-studio h3 {
+    font-family: 'Space Grotesk', 'Geist', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+}
+
+.fs-studio .fs-gradient-text {
+    background: var(--fs-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Brand mark in the app header */
+.fs-studio .fs-brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--fs-cta-gradient);
+    box-shadow: var(--fs-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+/* ── Page & surface remaps ──────────────────────────────────────────── */
+.funnel-builder-app.fs-studio.bg-zinc-50 {
+    background-color: transparent;
+}
+
+.funnel-builder-app.fs-studio .bg-white {
+    background-color: var(--fs-surface);
+}
+
+.funnel-builder-app.fs-studio .bg-gray-50,
+.funnel-builder-app.fs-studio .bg-zinc-50 {
+    background-color: var(--fs-inset);
+}
+
+.funnel-builder-app.fs-studio .bg-gray-100,
+.funnel-builder-app.fs-studio .bg-zinc-100 {
+    background-color: var(--fs-raised);
+}
+
+.funnel-builder-app.fs-studio .bg-gray-200,
+.funnel-builder-app.fs-studio .bg-zinc-200 {
+    background-color: var(--fs-raised-2);
+}
+
+.funnel-builder-app.fs-studio .bg-zinc-900,
+.funnel-builder-app.fs-studio .bg-gray-900 {
+    background-color: #05060a;
+}
+
+.funnel-builder-app.fs-studio .bg-zinc-800 {
+    background-color: var(--fs-raised);
+}
+
+/* Hover surfaces */
+.funnel-builder-app.fs-studio .hover\:bg-gray-50:hover,
+.funnel-builder-app.fs-studio .hover\:bg-zinc-50:hover {
+    background-color: var(--fs-raised);
+}
+
+.funnel-builder-app.fs-studio .hover\:bg-gray-100:hover,
+.funnel-builder-app.fs-studio .hover\:bg-zinc-100:hover {
+    background-color: var(--fs-raised-2);
+}
+
+.funnel-builder-app.fs-studio .hover\:bg-gray-200:hover,
+.funnel-builder-app.fs-studio .hover\:bg-zinc-200:hover {
+    background-color: #2e3650;
+}
+
+.funnel-builder-app.fs-studio .hover\:bg-zinc-800:hover,
+.funnel-builder-app.fs-studio .hover\:bg-gray-800:hover {
+    background-color: var(--fs-raised-2);
+}
+
+/* ── Text remaps ────────────────────────────────────────────────────── */
+.funnel-builder-app.fs-studio .text-gray-900,
+.funnel-builder-app.fs-studio .text-zinc-900,
+.funnel-builder-app.fs-studio .text-black {
+    color: var(--fs-text-hi);
+}
+
+.funnel-builder-app.fs-studio .text-gray-800,
+.funnel-builder-app.fs-studio .text-zinc-800 {
+    color: #e2e5ec;
+}
+
+.funnel-builder-app.fs-studio .text-gray-700,
+.funnel-builder-app.fs-studio .text-zinc-700 {
+    color: var(--fs-text);
+}
+
+.funnel-builder-app.fs-studio .text-gray-600,
+.funnel-builder-app.fs-studio .text-zinc-600 {
+    color: var(--fs-text-mid);
+}
+
+.funnel-builder-app.fs-studio .text-gray-500,
+.funnel-builder-app.fs-studio .text-zinc-500 {
+    color: var(--fs-text-low);
+}
+
+.funnel-builder-app.fs-studio .text-gray-400,
+.funnel-builder-app.fs-studio .text-zinc-400 {
+    color: var(--fs-text-faint);
+}
+
+.funnel-builder-app.fs-studio .text-gray-300,
+.funnel-builder-app.fs-studio .text-zinc-300 {
+    color: #565f76;
+}
+
+.funnel-builder-app.fs-studio .hover\:text-gray-600:hover,
+.funnel-builder-app.fs-studio .hover\:text-zinc-600:hover {
+    color: var(--fs-text);
+}
+
+.funnel-builder-app.fs-studio .hover\:text-gray-700:hover,
+.funnel-builder-app.fs-studio .hover\:text-gray-900:hover,
+.funnel-builder-app.fs-studio .hover\:text-zinc-300:hover {
+    color: var(--fs-text-hi);
+}
+
+/* ── Border remaps ──────────────────────────────────────────────────── */
+.funnel-builder-app.fs-studio .border-gray-100,
+.funnel-builder-app.fs-studio .border-gray-200,
+.funnel-builder-app.fs-studio .border-zinc-200,
+.funnel-builder-app.fs-studio .border-zinc-700 {
+    border-color: var(--fs-border);
+}
+
+.funnel-builder-app.fs-studio .border-gray-300,
+.funnel-builder-app.fs-studio .border-zinc-300,
+.funnel-builder-app.fs-studio .border-zinc-400,
+.funnel-builder-app.fs-studio .border-zinc-500 {
+    border-color: var(--fs-border-strong);
+}
+
+.funnel-builder-app.fs-studio .hover\:border-gray-300:hover,
+.funnel-builder-app.fs-studio .hover\:border-gray-400:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.funnel-builder-app.fs-studio .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.funnel-builder-app.fs-studio .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--fs-border);
+}
+
+/* ── Brand accent: orange → violet/fuchsia gradient ─────────────────── */
+.funnel-builder-app.fs-studio .bg-orange-600,
+.funnel-builder-app.fs-studio .bg-orange-500 {
+    background-color: transparent;
+    background-image: var(--fs-cta-gradient);
+    box-shadow: 0 2px 14px rgba(168, 85, 247, 0.3);
+}
+
+.funnel-builder-app.fs-studio .hover\:bg-orange-700:hover {
+    background-color: transparent;
+    background-image: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+    box-shadow: var(--fs-glow);
+}
+
+.funnel-builder-app.fs-studio .bg-orange-50 {
+    background-color: rgba(139, 92, 246, 0.1);
+}
+
+.funnel-builder-app.fs-studio .bg-orange-100,
+.funnel-builder-app.fs-studio .hover\:bg-orange-50:hover {
+    background-color: rgba(139, 92, 246, 0.16);
+}
+
+.funnel-builder-app.fs-studio .text-orange-500,
+.funnel-builder-app.fs-studio .text-orange-600 {
+    color: var(--fs-accent-text);
+}
+
+.funnel-builder-app.fs-studio .text-orange-700,
+.funnel-builder-app.fs-studio .hover\:text-orange-700:hover {
+    color: #d8b4fe;
+}
+
+.funnel-builder-app.fs-studio .text-orange-800,
+.funnel-builder-app.fs-studio .text-orange-900,
+.funnel-builder-app.fs-studio .hover\:text-orange-800:hover {
+    color: #e9d5ff;
+}
+
+.funnel-builder-app.fs-studio .border-orange-100,
+.funnel-builder-app.fs-studio .border-orange-200 {
+    border-color: rgba(139, 92, 246, 0.28);
+}
+
+.funnel-builder-app.fs-studio .border-orange-400,
+.funnel-builder-app.fs-studio .border-orange-500,
+.funnel-builder-app.fs-studio .border-orange-600,
+.funnel-builder-app.fs-studio .hover\:border-orange-400:hover {
+    border-color: #a855f7;
+}
+
+.funnel-builder-app.fs-studio .ring-orange-500,
+.funnel-builder-app.fs-studio .focus\:ring-orange-500:focus {
+    --tw-ring-color: rgba(168, 85, 247, 0.55);
+}
+
+.funnel-builder-app.fs-studio .text-orange-400 {
+    color: #a78bfa;
+}
+
+/* Funnel card thumbnail placeholder: dark violet-tinted sheen */
+.funnel-builder-app.fs-studio .bg-gradient-to-br.from-zinc-200 {
+    background-image: linear-gradient(
+        to bottom right,
+        #1c2233 0%,
+        rgba(139, 92, 246, 0.18) 50%,
+        #171c2a 100%
+    );
+}
+
+/* Gradient utilities that used orange keep the studio gradient */
+.funnel-builder-app.fs-studio .from-orange-50 {
+    --tw-gradient-from: rgba(139, 92, 246, 0.12);
+}
+
+.funnel-builder-app.fs-studio .from-orange-400 {
+    --tw-gradient-from: #8b5cf6;
+}
+
+.funnel-builder-app.fs-studio .to-orange-600 {
+    --tw-gradient-to: #d946ef;
+}
+
+.funnel-builder-app.fs-studio .to-white {
+    --tw-gradient-to: var(--fs-surface);
+}
+
+/* ── Status colors → translucent dark equivalents ───────────────────── */
+.funnel-builder-app.fs-studio .bg-green-50 {
+    background-color: rgba(16, 185, 129, 0.08);
+}
+
+.funnel-builder-app.fs-studio .bg-green-100 {
+    background-color: rgba(16, 185, 129, 0.15);
+}
+
+.funnel-builder-app.fs-studio .text-green-600,
+.funnel-builder-app.fs-studio .text-green-700 {
+    color: #34d399;
+}
+
+.funnel-builder-app.fs-studio .text-green-800 {
+    color: #6ee7b7;
+}
+
+.funnel-builder-app.fs-studio .border-green-100,
+.funnel-builder-app.fs-studio .border-green-200 {
+    border-color: rgba(52, 211, 153, 0.3);
+}
+
+.funnel-builder-app.fs-studio .bg-red-50 {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.funnel-builder-app.fs-studio .hover\:bg-red-50:hover {
+    background-color: rgba(239, 68, 68, 0.16);
+}
+
+.funnel-builder-app.fs-studio .bg-red-100 {
+    background-color: rgba(239, 68, 68, 0.18);
+}
+
+.funnel-builder-app.fs-studio .text-red-600,
+.funnel-builder-app.fs-studio .hover\:text-red-600:hover,
+.funnel-builder-app.fs-studio .hover\:text-red-500:hover {
+    color: #f87171;
+}
+
+.funnel-builder-app.fs-studio .text-red-700,
+.funnel-builder-app.fs-studio .text-red-800,
+.funnel-builder-app.fs-studio .hover\:text-red-700:hover {
+    color: #fca5a5;
+}
+
+.funnel-builder-app.fs-studio .border-red-100,
+.funnel-builder-app.fs-studio .border-red-200 {
+    border-color: rgba(248, 113, 113, 0.28);
+}
+
+.funnel-builder-app.fs-studio .bg-yellow-50 {
+    background-color: rgba(245, 158, 11, 0.08);
+}
+
+.funnel-builder-app.fs-studio .bg-yellow-100 {
+    background-color: rgba(245, 158, 11, 0.15);
+}
+
+.funnel-builder-app.fs-studio .text-yellow-600 {
+    color: #fbbf24;
+}
+
+.funnel-builder-app.fs-studio .text-yellow-700,
+.funnel-builder-app.fs-studio .text-yellow-800 {
+    color: #fcd34d;
+}
+
+.funnel-builder-app.fs-studio .border-yellow-200,
+.funnel-builder-app.fs-studio .border-yellow-300 {
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.funnel-builder-app.fs-studio .bg-blue-50 {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.funnel-builder-app.fs-studio .bg-blue-100 {
+    background-color: rgba(59, 130, 246, 0.16);
+}
+
+.funnel-builder-app.fs-studio .text-blue-600,
+.funnel-builder-app.fs-studio .text-blue-700 {
+    color: #60a5fa;
+}
+
+.funnel-builder-app.fs-studio .text-blue-800 {
+    color: #93c5fd;
+}
+
+.funnel-builder-app.fs-studio .border-blue-200 {
+    border-color: rgba(96, 165, 250, 0.3);
+}
+
+.funnel-builder-app.fs-studio .bg-purple-100 {
+    background-color: rgba(192, 132, 252, 0.16);
+}
+
+.funnel-builder-app.fs-studio .text-purple-600,
+.funnel-builder-app.fs-studio .text-purple-700 {
+    color: #c084fc;
+}
+
+.funnel-builder-app.fs-studio .text-purple-800 {
+    color: #d8b4fe;
+}
+
+/* ── Native form controls ───────────────────────────────────────────── */
+.funnel-builder-app.fs-studio input:not([type='checkbox']):not([type='radio']),
+.funnel-builder-app.fs-studio select,
+.funnel-builder-app.fs-studio textarea {
+    background-color: #0d111b;
+    color: #e5e9f2;
+}
+
+.funnel-builder-app.fs-studio input::placeholder,
+.funnel-builder-app.fs-studio textarea::placeholder {
+    color: var(--fs-text-faint);
+}
+
+.funnel-builder-app.fs-studio select option {
+    background-color: #151926;
+    color: #e5e9f2;
+}
+
+.funnel-builder-app.fs-studio input[type='checkbox'],
+.funnel-builder-app.fs-studio input[type='radio'] {
+    accent-color: #a855f7;
+    background-color: #0d111b;
+    border-color: var(--fs-border-strong);
+}
+
+/* ── Primary CTA helper (hand-applied on key buttons) ───────────────── */
+.fs-studio .fs-cta {
+    background-image: var(--fs-cta-gradient);
+    color: #fff;
+    border: none;
+    box-shadow: var(--fs-glow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.fs-studio .fs-cta:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(168, 85, 247, 0.45);
+}
+
+.fs-studio .fs-cta:active {
+    transform: translateY(0);
+}
+
+/* ── App header (glass bar) ─────────────────────────────────────────── */
+.fs-studio .fs-header {
+    background: rgba(11, 13, 20, 0.7);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--fs-border);
+}
+
+/* ── Studio Shell (sidebar + top bar layout) ────────────────────────── */
+.fs-studio .fs-sidebar {
+    background: rgba(9, 11, 17, 0.85);
+    border-right: 1px solid var(--fs-border);
+    overflow-y: auto;
+}
+
+.fs-studio .fs-page-bg {
+    background: var(--fs-page);
+}
+
+.fs-studio .fs-nav-item {
+    border: 1px solid transparent;
+}
+
+.fs-studio .fs-nav-active {
+    color: #f3f5f9;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(217, 70, 239, 0.1));
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.fs-studio .fs-search-panel {
+    background: #12151f;
+    border: 1px solid var(--fs-border-strong);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.fs-studio .fs-star-active {
+    color: #fbbf24;
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
+}
+
+/* Chart bars on the Reports page */
+.fs-studio .fs-bar {
+    background: var(--fs-gradient);
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+}
+
+.fs-studio .fs-bar:hover {
+    opacity: 1;
+}
+
+/* ── Cards: subtle lift + gradient top edge on hover ────────────────── */
+.funnel-builder-app.fs-studio .bg-white.rounded-lg.border,
+.funnel-builder-app.fs-studio .bg-white.rounded-xl {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.funnel-builder-app.fs-studio .bg-white.rounded-lg.border:hover {
+    border-color: rgba(168, 85, 247, 0.25);
+}
+
+/* Stat values get the studio mono-glow treatment.
+   Extra specificity so the .text-gray-900 remap can't win the color war. */
+.funnel-builder-app.fs-studio .fs-stat-value,
+.funnel-builder-app.fs-studio .fs-stat-value.text-gray-900 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: var(--fs-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* ── Toasts: dark glass ─────────────────────────────────────────────── */
+.fs-studio .toast {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.fs-studio .toast-success {
+    background: rgba(6, 78, 59, 0.85);
+    color: #a7f3d0;
+}
+
+.fs-studio .toast-error {
+    background: rgba(127, 29, 29, 0.85);
+    color: #fecaca;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────── */
+.funnel-builder-app.fs-studio ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.funnel-builder-app.fs-studio ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.funnel-builder-app.fs-studio ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+}
+
+.funnel-builder-app.fs-studio ::-webkit-scrollbar-thumb:hover {
+    background: rgba(168, 85, 247, 0.4);
+}
+
+/* ── Skeletons ──────────────────────────────────────────────────────── */
+.fs-studio .loading-skeleton {
+    background: linear-gradient(90deg, #171c2a 25%, #1f2536 50%, #171c2a 75%);
+    background-size: 200% 100%;
+}
+
+/* ── Modal overlays: deepen the scrim ───────────────────────────────── */
+.funnel-builder-app.fs-studio .bg-black\/50 {
+    background-color: rgba(3, 4, 8, 0.72);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fs-studio .fs-cta,
+    .fs-studio .fs-cta:hover {
+        transition: none;
+        transform: none;
+    }
+}

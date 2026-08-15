@@ -1,0 +1,188 @@
+/**
+ * Studio Reports — cross-funnel performance overview: totals, daily revenue
+ * chart, top funnels, and order-type breakdown, with a 7/30/90 day window.
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+
+const getCsrfToken = () =>
+    document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1]
+        ?.replace(/%3D/g, '=') || '';
+
+const fmtRM = (value) =>
+    `RM ${Number(value || 0).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
+
+const TYPE_LABELS = { main: 'Main Offers', upsell: 'Upsells', downsell: 'Downsells', bump: 'Order Bumps' };
+
+export default function StudioReports({ onSelectFunnel }) {
+    const [report, setReport] = useState(null);
+    const [days, setDays] = useState(30);
+    const [loading, setLoading] = useState(true);
+
+    const loadReport = useCallback(async (window) => {
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/v1/studio/reports?days=${window}`, {
+                headers: { Accept: 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
+                credentials: 'same-origin',
+            });
+            const data = await response.json();
+            setReport(data.data || null);
+        } catch (e) {
+            setReport(null);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadReport(days);
+    }, [days, loadReport]);
+
+    const maxDailyRevenue = Math.max(1, ...(report?.daily || []).map((d) => d.revenue));
+    const maxFunnelRevenue = Math.max(1, ...(report?.top_funnels || []).map((f) => f.revenue));
+    const typeTotal = Math.max(1, (report?.by_type || []).reduce((sum, t) => sum + t.revenue, 0));
+
+    return (
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            {/* Header */}
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h1 className="fs-display text-2xl font-bold tracking-tight text-gray-900">
+                        Funnel <span className="fs-gradient-text">Reports</span>
+                    </h1>
+                    <p className="mt-0.5 text-[13px] text-gray-500">Performance across every funnel you can see.</p>
+                </div>
+                <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+                    {[7, 30, 90].map((window) => (
+                        <button
+                            key={window}
+                            onClick={() => setDays(window)}
+                            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                                days === window ? 'bg-orange-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                            {window}d
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {loading || !report ? (
+                <div className="py-24 text-center text-gray-500">{loading ? 'Loading report...' : 'Could not load the report.'}</div>
+            ) : (
+                <div className="space-y-6">
+                    {/* Stat cards */}
+                    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                        <div className="rounded-lg border border-gray-200 bg-white p-4">
+                            <p className="text-sm text-gray-500">Revenue ({report.days}d)</p>
+                            <p className="fs-stat-value text-2xl font-bold text-gray-900">{fmtRM(report.totals.revenue)}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-200 bg-white p-4">
+                            <p className="text-sm text-gray-500">Orders</p>
+                            <p className="fs-stat-value text-2xl font-bold text-gray-900">{report.totals.orders.toLocaleString()}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-200 bg-white p-4">
+                            <p className="text-sm text-gray-500">Avg Order Value</p>
+                            <p className="fs-stat-value text-2xl font-bold text-gray-900">{fmtRM(report.totals.avg_order_value)}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-200 bg-white p-4">
+                            <p className="text-sm text-gray-500">Funnels</p>
+                            <p className="fs-stat-value text-2xl font-bold text-gray-900">{report.totals.funnels}</p>
+                        </div>
+                    </div>
+
+                    {/* Daily revenue chart */}
+                    <div className="rounded-lg border border-gray-200 bg-white p-6">
+                        <h3 className="mb-4 text-lg font-semibold text-gray-900">Daily Revenue</h3>
+                        <div className="flex h-44 items-end gap-[3px]">
+                            {report.daily.map((d) => (
+                                <div
+                                    key={d.day}
+                                    className="group relative flex-1"
+                                    title={`${d.day}: ${fmtRM(d.revenue)} (${d.orders} orders)`}
+                                >
+                                    <div
+                                        className="fs-bar w-full rounded-t"
+                                        style={{ height: `${Math.max(2, (d.revenue / maxDailyRevenue) * 160)}px` }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-2 flex justify-between text-[11px] text-gray-400">
+                            <span>{report.daily[0]?.day}</span>
+                            <span>{report.daily[report.daily.length - 1]?.day}</span>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* Top funnels */}
+                        <div className="rounded-lg border border-gray-200 bg-white p-6">
+                            <h3 className="mb-4 text-lg font-semibold text-gray-900">Top Funnels</h3>
+                            {report.top_funnels.length === 0 ? (
+                                <p className="text-sm text-gray-500">No orders in this window yet.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {report.top_funnels.map((funnel, i) => (
+                                        <button
+                                            key={funnel.funnel_uuid || i}
+                                            onClick={() => funnel.funnel_uuid && onSelectFunnel?.({ uuid: funnel.funnel_uuid })}
+                                            className="block w-full text-left cursor-pointer"
+                                        >
+                                            <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                                                <span className="flex min-w-0 items-center gap-2">
+                                                    <span className="w-4 shrink-0 text-gray-400">{i + 1}</span>
+                                                    <span className="truncate font-medium text-gray-900 hover:text-orange-600">
+                                                        {funnel.funnel_name}
+                                                    </span>
+                                                </span>
+                                                <span className="shrink-0 font-semibold text-gray-900">{fmtRM(funnel.revenue)}</span>
+                                            </div>
+                                            <div className="ml-6 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                                                <div
+                                                    className="fs-bar h-full rounded-full"
+                                                    style={{ width: `${Math.max(2, (funnel.revenue / maxFunnelRevenue) * 100)}%` }}
+                                                />
+                                            </div>
+                                            <p className="ml-6 mt-0.5 text-[11px] text-gray-500">{funnel.orders} orders</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Order type breakdown */}
+                        <div className="rounded-lg border border-gray-200 bg-white p-6">
+                            <h3 className="mb-4 text-lg font-semibold text-gray-900">Revenue by Order Type</h3>
+                            {report.by_type.length === 0 ? (
+                                <p className="text-sm text-gray-500">No orders in this window yet.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {report.by_type.map((row) => (
+                                        <div key={row.type}>
+                                            <div className="mb-1 flex items-center justify-between text-sm">
+                                                <span className="font-medium text-gray-900">{TYPE_LABELS[row.type] || row.type}</span>
+                                                <span className="text-gray-600">
+                                                    {fmtRM(row.revenue)} · {row.orders} orders
+                                                </span>
+                                            </div>
+                                            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                                                <div
+                                                    className="fs-bar h-full rounded-full"
+                                                    style={{ width: `${Math.max(2, (row.revenue / typeTotal) * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

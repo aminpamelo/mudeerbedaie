@@ -12,6 +12,7 @@ import '@puckeditor/core/puck.css';
 
 // Import custom styles
 import './styles/funnel-builder.css';
+import './styles/studio-theme.css';
 
 // Mount the app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

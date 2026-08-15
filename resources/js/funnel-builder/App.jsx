@@ -7,6 +7,11 @@ import React, { useState, useEffect } from 'react';
 import FunnelList from './components/FunnelList';
 import FunnelDetail from './components/FunnelDetail';
 import FunnelEditor from './components/FunnelEditor';
+import PixelLibrary from './components/PixelLibrary';
+import StudioShell from './components/StudioShell';
+import StudioProducts from './components/StudioProducts';
+import StudioOrders from './components/StudioOrders';
+import StudioReports from './components/StudioReports';
 import { stepApi } from './services/api';
 
 // View states
@@ -14,6 +19,18 @@ const VIEWS = {
     LIST: 'list',
     DETAIL: 'detail',
     EDITOR: 'editor',
+    PIXELS: 'pixels',
+    PRODUCTS: 'products',
+    ORDERS: 'orders',
+    REPORTS: 'reports',
+};
+
+// Static SPA pages (must be matched before the /funnel-builder/{uuid} branch)
+const STATIC_PATHS = {
+    '/funnel-builder/pixel-library': VIEWS.PIXELS,
+    '/funnel-builder/products': VIEWS.PRODUCTS,
+    '/funnel-builder/orders': VIEWS.ORDERS,
+    '/funnel-builder/reports': VIEWS.REPORTS,
 };
 
 export default function App() {
@@ -21,6 +38,9 @@ export default function App() {
     const [selectedFunnel, setSelectedFunnel] = useState(null);
     const [selectedStep, setSelectedStep] = useState(null);
     const [initialContent, setInitialContent] = useState(null);
+    // Loaded funnel details (name etc.) reported up by FunnelDetail so the
+    // shell breadcrumb/pin work even on direct URL loads.
+    const [funnelMeta, setFunnelMeta] = useState(null);
 
     // "Fighter context" = the builder was entered from the Fighter portal — a
     // real fighter (by role), or an admin who opened it via /fighter (carrying
@@ -48,7 +68,13 @@ export default function App() {
                 return;
             }
 
-            if (path.includes('/edit/')) {
+            if (STATIC_PATHS[path]) {
+                // Static studio pages — must be matched before the generic
+                // /funnel-builder/{uuid} detail branch below.
+                setCurrentView(STATIC_PATHS[path]);
+                setSelectedFunnel(null);
+                setSelectedStep(null);
+            } else if (path.includes('/edit/')) {
                 // Editor view
                 const matches = path.match(/\/funnel-builder\/([^/]+)\/edit\/(\d+)/);
                 if (matches) {
@@ -143,9 +169,32 @@ export default function App() {
         console.log('Content saved:', data);
     };
 
+    // Navigate to a studio view (sidebar nav). 'list' goes through
+    // handleBackToList so fighters are sent home correctly.
+    const handleNavigate = (view) => {
+        if (view === VIEWS.LIST) {
+            handleBackToList();
+            return;
+        }
+        const path = Object.keys(STATIC_PATHS).find((p) => STATIC_PATHS[p] === view);
+        if (!path) return;
+        setSelectedFunnel(null);
+        setSelectedStep(null);
+        setCurrentView(view);
+        window.history.pushState({}, '', path);
+    };
+
     // Render current view
     const renderView = () => {
         switch (currentView) {
+            case VIEWS.PIXELS:
+                return <PixelLibrary onBack={handleBackToList} />;
+            case VIEWS.PRODUCTS:
+                return <StudioProducts onSelectFunnel={handleSelectFunnel} />;
+            case VIEWS.ORDERS:
+                return <StudioOrders onSelectFunnel={handleSelectFunnel} />;
+            case VIEWS.REPORTS:
+                return <StudioReports onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.EDITOR:
                 return (
                     <FunnelEditor
@@ -163,6 +212,7 @@ export default function App() {
                         funnelUuid={selectedFunnel?.uuid}
                         onBack={handleBackToList}
                         onEditStep={handleEditStep}
+                        onFunnelLoaded={setFunnelMeta}
                     />
                 );
 
@@ -177,39 +227,30 @@ export default function App() {
         }
     };
 
-    const backHref = fighterContext ? '/fighter' : '/admin/funnels';
+    // The Puck editor edits light public pages, so it keeps its full-screen
+    // light layout; every other view lives inside the persistent Studio Shell.
+    if (currentView === VIEWS.EDITOR) {
+        return (
+            <div className="funnel-builder-app min-h-screen bg-zinc-50 dark:bg-zinc-950">
+                {renderView()}
+            </div>
+        );
+    }
 
     return (
-        <div className="funnel-builder-app min-h-screen bg-zinc-50 dark:bg-zinc-950">
-            {currentView === VIEWS.LIST && (
-                <header className="border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="flex h-14 items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <a href={backHref} className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300">
-                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                    </svg>
-                                </a>
-                                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
-                                <h1 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Funnel Builder</h1>
-                            </div>
-                            <a
-                                href="/docs/funnel-builder"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-                            >
-                                Docs
-                            </a>
-                        </div>
-                    </div>
-                </header>
-            )}
-
-            <main className={currentView === VIEWS.LIST ? 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8' : ''}>
-                {renderView()}
-            </main>
+        <div className="funnel-builder-app fs-studio h-screen overflow-hidden">
+            <StudioShell
+                currentView={currentView}
+                funnelUuid={currentView === VIEWS.DETAIL ? selectedFunnel?.uuid : null}
+                funnelName={currentView === VIEWS.DETAIL ? (funnelMeta?.uuid === selectedFunnel?.uuid ? funnelMeta?.name : selectedFunnel?.name) : null}
+                fighterContext={fighterContext}
+                onNavigate={handleNavigate}
+                onSelectFunnel={handleSelectFunnel}
+            >
+                <div className={currentView === VIEWS.LIST ? 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8' : ''}>
+                    {renderView()}
+                </div>
+            </StudioShell>
         </div>
     );
 }
