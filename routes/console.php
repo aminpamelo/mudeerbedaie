@@ -27,6 +27,9 @@ Schedule::job(new DetectAbandonedSessions)->everyFifteenMinutes();
 Schedule::job(new ProcessCartAbandonment)->everyThirtyMinutes();
 Schedule::job(new UpdateFunnelAnalytics)->dailyAt('02:00');
 
+// Daily pixel installation health check on published funnels
+Schedule::command('funnel:pixel-health')->dailyAt('02:30');
+
 // Custom domain verification
 Schedule::job(new VerifyCustomDomains)->everyFiveMinutes()->withoutOverlapping();
 Schedule::job(new CleanupFailedDomains)->daily()->at('03:30');

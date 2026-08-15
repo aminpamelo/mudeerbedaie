@@ -28,6 +28,7 @@ export default function StudioProducts({ onSelectFunnel }) {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [type, setType] = useState('');
+    const [sort, setSort] = useState('sales');
     const debounceRef = useRef(null);
 
     const loadProducts = useCallback(async (params) => {
@@ -53,10 +54,10 @@ export default function StudioProducts({ onSelectFunnel }) {
     useEffect(() => {
         clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            loadProducts({ search, type, page, per_page: 24 });
+            loadProducts({ search, type, sort, page, per_page: 24 });
         }, search ? 300 : 0);
         return () => clearTimeout(debounceRef.current);
-    }, [search, type, page, loadProducts]);
+    }, [search, type, sort, page, loadProducts]);
 
     return (
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -96,6 +97,25 @@ export default function StudioProducts({ onSelectFunnel }) {
                     <option value="upsell">Upsell</option>
                     <option value="downsell">Downsell</option>
                 </select>
+                <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+                    {[
+                        { key: 'sales', label: 'Best Selling' },
+                        { key: 'name', label: 'Name' },
+                    ].map(({ key, label }) => (
+                        <button
+                            key={key}
+                            onClick={() => {
+                                setSort(key);
+                                setPage(1);
+                            }}
+                            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                                sort === key ? 'bg-orange-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Grid */}
@@ -144,6 +164,19 @@ export default function StudioProducts({ onSelectFunnel }) {
                                 <span className="text-lg font-bold text-gray-900">{fmtRM(product.price)}</span>
                                 {product.compare_at_price != null && product.compare_at_price > product.price && (
                                     <span className="text-sm text-gray-400 line-through">{fmtRM(product.compare_at_price)}</span>
+                                )}
+                            </div>
+
+                            <div className="mt-2 flex items-center gap-3 text-xs">
+                                {product.units_sold > 0 ? (
+                                    <>
+                                        <span className="rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-800">
+                                            {product.units_sold} sold
+                                        </span>
+                                        <span className="font-semibold text-gray-700">{fmtRM(product.sales_revenue)} revenue</span>
+                                    </>
+                                ) : (
+                                    <span className="text-gray-400">No sales yet</span>
                                 )}
                             </div>
 

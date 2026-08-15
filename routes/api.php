@@ -214,6 +214,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::get('studio/orders/{orderId}', [FunnelStudioController::class, 'orderDetail'])->name('api.studio.orders.detail');
     Route::get('studio/products', [FunnelStudioController::class, 'products'])->name('api.studio.products');
     Route::get('studio/reports', [FunnelStudioController::class, 'reports'])->name('api.studio.reports');
+    Route::get('studio/pixel-health', [FunnelStudioController::class, 'pixelHealth'])->name('api.studio.pixel-health');
 
     Route::get('funnels', [FunnelController::class, 'index'])->name('api.funnels.index');
     Route::post('funnels', [FunnelController::class, 'store'])->name('api.funnels.store');

@@ -188,7 +188,7 @@ export default function App() {
     const renderView = () => {
         switch (currentView) {
             case VIEWS.PIXELS:
-                return <PixelLibrary onBack={handleBackToList} />;
+                return <PixelLibrary onBack={handleBackToList} onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.PRODUCTS:
                 return <StudioProducts onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.ORDERS:

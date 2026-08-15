@@ -102,8 +102,9 @@ function pixelSummary(pixel) {
     return [pixel.settings?.ga4_measurement_id, pixel.settings?.ads_conversion_id].filter(Boolean).join(' · ') || '—';
 }
 
-export default function PixelLibrary({ onBack }) {
+export default function PixelLibrary({ onBack, onSelectFunnel }) {
     const [pixels, setPixels] = useState([]);
+    const [health, setHealth] = useState(null);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
     const [platformFilter, setPlatformFilter] = useState('all');
@@ -136,6 +137,22 @@ export default function PixelLibrary({ onBack }) {
     useEffect(() => {
         loadPixels();
     }, [loadPixels]);
+
+    // Pixel health across published funnels (recorded by funnel:pixel-health)
+    useEffect(() => {
+        (async () => {
+            try {
+                const response = await fetch('/api/v1/studio/pixel-health', {
+                    headers: apiHeaders(),
+                    credentials: 'same-origin',
+                });
+                const data = await response.json();
+                setHealth(data.data || null);
+            } catch (err) {
+                // Health banner is best-effort only.
+            }
+        })();
+    }, []);
 
     const openCreateModal = () => {
         setEditingId(null);
@@ -276,6 +293,48 @@ export default function PixelLibrary({ onBack }) {
                     + New Pixel
                 </button>
             </div>
+
+            {/* Pixel health warnings from the daily installation check */}
+            {health && health.problems.length > 0 && (
+                <div className="mb-6 rounded-lg border border-red-100 bg-red-50 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                        <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <h3 className="font-semibold text-red-800">
+                            {health.problems.length} funnel(s) with broken tracking
+                        </h3>
+                        {health.last_checked_at && (
+                            <span className="ml-auto text-xs text-red-600">
+                                Last checked: {new Date(health.last_checked_at).toLocaleString()}
+                            </span>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        {health.problems.map((problem) => (
+                            <button
+                                key={problem.funnel_uuid}
+                                onClick={() => onSelectFunnel?.({ uuid: problem.funnel_uuid })}
+                                className="block w-full rounded-md bg-white/60 px-3 py-2 text-left transition-colors hover:bg-white cursor-pointer"
+                            >
+                                <span className="block text-sm font-medium text-red-800">{problem.funnel_name}</span>
+                                {problem.issues.map((issue, i) => (
+                                    <span key={i} className="block text-xs text-red-700">
+                                        <span className="font-medium capitalize">{issue.platform}:</span> {issue.message}
+                                    </span>
+                                ))}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {health && health.problems.length === 0 && health.checked_funnels > 0 && (
+                <div className="mb-6 flex items-center gap-2 rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    All {health.checked_funnels} published funnel(s) passed the last pixel installation check
+                    {health.last_checked_at ? ` (${new Date(health.last_checked_at).toLocaleString()})` : ''}.
+                </div>
+            )}
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 mb-6">

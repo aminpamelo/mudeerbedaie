@@ -45,6 +45,8 @@ export default function StudioReports({ onSelectFunnel }) {
     const maxDailyRevenue = Math.max(1, ...(report?.daily || []).map((d) => d.revenue));
     const maxFunnelRevenue = Math.max(1, ...(report?.top_funnels || []).map((f) => f.revenue));
     const typeTotal = Math.max(1, (report?.by_type || []).reduce((sum, t) => sum + t.revenue, 0));
+    const sourceTotal = Math.max(1, (report?.by_source || []).reduce((sum, s) => sum + s.revenue, 0));
+    const maxCampaignRevenue = Math.max(1, ...(report?.top_campaigns || []).map((c) => c.revenue));
 
     return (
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -149,6 +151,67 @@ export default function StudioReports({ onSelectFunnel }) {
                                             </div>
                                             <p className="ml-6 mt-0.5 text-[11px] text-gray-500">{funnel.orders} orders</p>
                                         </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Traffic source breakdown — which ads bring the money */}
+                        <div className="rounded-lg border border-gray-200 bg-white p-6">
+                            <h3 className="mb-1 text-lg font-semibold text-gray-900">Revenue by Traffic Source</h3>
+                            <p className="mb-4 text-xs text-gray-500">Based on the UTM source of each buyer's session.</p>
+                            {(report.by_source || []).length === 0 ? (
+                                <p className="text-sm text-gray-500">No orders in this window yet.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {report.by_source.map((row) => (
+                                        <div key={row.source}>
+                                            <div className="mb-1 flex items-center justify-between text-sm">
+                                                <span className="font-medium capitalize text-gray-900">{row.source}</span>
+                                                <span className="text-gray-600">
+                                                    {fmtRM(row.revenue)} · {row.orders} orders · {Math.round((row.revenue / sourceTotal) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                                                <div
+                                                    className="fs-bar h-full rounded-full"
+                                                    style={{ width: `${Math.max(2, (row.revenue / sourceTotal) * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Top campaigns */}
+                        <div className="rounded-lg border border-gray-200 bg-white p-6">
+                            <h3 className="mb-1 text-lg font-semibold text-gray-900">Top Campaigns</h3>
+                            <p className="mb-4 text-xs text-gray-500">Orders that arrived with a utm_campaign tag.</p>
+                            {(report.top_campaigns || []).length === 0 ? (
+                                <p className="text-sm text-gray-500">
+                                    No campaign-tagged orders yet — add utm_campaign to your ad links to see them here.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {report.top_campaigns.map((row, i) => (
+                                        <div key={`${row.campaign}-${i}`}>
+                                            <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                                                <span className="min-w-0">
+                                                    <span className="block truncate font-medium text-gray-900">{row.campaign}</span>
+                                                    <span className="block text-[11px] capitalize text-gray-500">{row.source || 'unknown source'}</span>
+                                                </span>
+                                                <span className="shrink-0 text-gray-600">
+                                                    {fmtRM(row.revenue)} · {row.orders}
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                                                <div
+                                                    className="fs-bar h-full rounded-full"
+                                                    style={{ width: `${Math.max(2, (row.revenue / maxCampaignRevenue) * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             )}

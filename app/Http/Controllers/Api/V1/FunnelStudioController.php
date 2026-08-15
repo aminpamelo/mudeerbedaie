@@ -176,27 +176,130 @@ class FunnelStudioController extends Controller
             $query->whereHas('step', fn (Builder $q) => $q->where('funnel_id', $funnelId));
         }
 
-        $products = $query->orderBy('name')->paginate($request->input('per_page', 24));
+        $salesByKey = $this->productSales($funnelIds);
+        $salesFor = function (FunnelProduct $product) use ($salesByKey): array {
+            $funnelId = $product->step?->funnel_id;
+            $key = implode(':', [$funnelId, $product->product_id ?? 0, $product->course_id ?? 0, $product->package_id ?? 0]);
+
+            return $salesByKey[$key] ?? ['units' => 0, 'revenue' => 0.0];
+        };
+
+        $present = fn (FunnelProduct $product) => [
+            'id' => $product->id,
+            'name' => $product->getDisplayName(),
+            'type' => $product->type,
+            'image_url' => $product->getImageUrl(),
+            'price' => (float) $product->getPrice(),
+            'compare_at_price' => $product->compare_at_price !== null ? (float) $product->compare_at_price : null,
+            'is_popular' => (bool) $product->is_popular,
+            'is_recurring' => (bool) $product->is_recurring,
+            'funnel_name' => $product->step?->funnel?->name ?? '-',
+            'funnel_uuid' => $product->step?->funnel?->uuid,
+            'step_name' => $product->step?->name ?? '-',
+            'step_type' => $product->step?->type,
+            'units_sold' => $salesFor($product)['units'],
+            'sales_revenue' => $salesFor($product)['revenue'],
+        ];
+
+        $perPage = (int) $request->input('per_page', 24);
+
+        // Sorting by sales needs the computed numbers, so paginate manually.
+        if ($request->input('sort') === 'sales') {
+            $all = $query->get()
+                ->map($present)
+                ->sortByDesc(fn (array $row) => [$row['sales_revenue'], $row['units_sold']])
+                ->values();
+            $page = max(1, (int) $request->input('page', 1));
+
+            return response()->json([
+                'data' => $all->slice(($page - 1) * $perPage, $perPage)->values(),
+                'meta' => [
+                    'current_page' => $page,
+                    'last_page' => max(1, (int) ceil($all->count() / $perPage)),
+                    'total' => $all->count(),
+                ],
+            ]);
+        }
+
+        $products = $query->orderBy('name')->paginate($perPage);
 
         return response()->json([
-            'data' => $products->map(fn (FunnelProduct $product) => [
-                'id' => $product->id,
-                'name' => $product->getDisplayName(),
-                'type' => $product->type,
-                'image_url' => $product->getImageUrl(),
-                'price' => (float) $product->getPrice(),
-                'compare_at_price' => $product->compare_at_price !== null ? (float) $product->compare_at_price : null,
-                'is_popular' => (bool) $product->is_popular,
-                'is_recurring' => (bool) $product->is_recurring,
-                'funnel_name' => $product->step?->funnel?->name ?? '-',
-                'funnel_uuid' => $product->step?->funnel?->uuid,
-                'step_name' => $product->step?->name ?? '-',
-                'step_type' => $product->step?->type,
-            ]),
+            'data' => $products->map($present),
             'meta' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
                 'total' => $products->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Units sold + revenue per (funnel, underlying product/course/package),
+     * from paid-order line items, keyed for O(1) lookup.
+     *
+     * @param  array<int, int>  $funnelIds
+     * @return array<string, array{units: int, revenue: float}>
+     */
+    protected function productSales(array $funnelIds): array
+    {
+        return \App\Models\ProductOrderItem::query()
+            ->join('product_orders', 'product_orders.id', '=', 'product_order_items.order_id')
+            ->join('funnel_orders', 'funnel_orders.product_order_id', '=', 'product_orders.id')
+            ->whereNull('product_orders.deleted_at')
+            ->whereIn('funnel_orders.funnel_id', $funnelIds)
+            ->selectRaw('funnel_orders.funnel_id, product_order_items.product_id, product_order_items.course_id, product_order_items.package_id, SUM(product_order_items.quantity_ordered) as units, SUM(product_order_items.quantity_ordered * product_order_items.unit_price) as revenue')
+            ->groupBy('funnel_orders.funnel_id', 'product_order_items.product_id', 'product_order_items.course_id', 'product_order_items.package_id')
+            ->get()
+            ->mapWithKeys(fn ($row) => [
+                implode(':', [$row->funnel_id, $row->product_id ?? 0, $row->course_id ?? 0, $row->package_id ?? 0]) => [
+                    'units' => (int) $row->units,
+                    'revenue' => (float) $row->revenue,
+                ],
+            ])
+            ->all();
+    }
+
+    /**
+     * Pixel health across visible published funnels, as recorded by the
+     * daily funnel:pixel-health command.
+     */
+    public function pixelHealth(Request $request): JsonResponse
+    {
+        $funnels = Funnel::query()
+            ->whereIn('id', $this->scopedFunnelIds($request))
+            ->where('status', 'published')
+            ->get(['id', 'uuid', 'name', 'settings']);
+
+        $problems = [];
+        $checkedCount = 0;
+        $lastCheckedAt = null;
+
+        foreach ($funnels as $funnel) {
+            $health = data_get($funnel->settings, 'pixel_settings.health');
+            if (! $health) {
+                continue;
+            }
+
+            $checkedCount++;
+            if (! $lastCheckedAt || ($health['checked_at'] ?? '') > $lastCheckedAt) {
+                $lastCheckedAt = $health['checked_at'] ?? null;
+            }
+
+            if (($health['status'] ?? 'ok') !== 'ok') {
+                $problems[] = [
+                    'funnel_uuid' => $funnel->uuid,
+                    'funnel_name' => $funnel->name,
+                    'checked_at' => $health['checked_at'] ?? null,
+                    'issues' => $health['issues'] ?? [],
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => [
+                'checked_funnels' => $checkedCount,
+                'last_checked_at' => $lastCheckedAt,
+                'problems' => $problems,
             ],
         ]);
     }
@@ -267,6 +370,40 @@ class FunnelStudioController extends Controller
                 'orders' => (int) $row->orders,
             ]);
 
+        // Traffic source breakdown — which ads actually bring the money.
+        // Orders without a session or utm_source count as Direct.
+        $bySource = FunnelOrder::query()
+            ->whereIn('funnel_orders.funnel_id', $funnelIds)
+            ->where('funnel_orders.created_at', '>=', $from)
+            ->leftJoin('funnel_sessions', 'funnel_sessions.id', '=', 'funnel_orders.session_id')
+            ->selectRaw("COALESCE(NULLIF(funnel_sessions.utm_source, ''), 'Direct') as source, SUM(funnel_orders.funnel_revenue) as revenue, COUNT(*) as orders")
+            ->groupBy('source')
+            ->orderByDesc('revenue')
+            ->get()
+            ->map(fn ($row) => [
+                'source' => $row->source,
+                'revenue' => (float) $row->revenue,
+                'orders' => (int) $row->orders,
+            ]);
+
+        $topCampaigns = FunnelOrder::query()
+            ->whereIn('funnel_orders.funnel_id', $funnelIds)
+            ->where('funnel_orders.created_at', '>=', $from)
+            ->join('funnel_sessions', 'funnel_sessions.id', '=', 'funnel_orders.session_id')
+            ->whereNotNull('funnel_sessions.utm_campaign')
+            ->where('funnel_sessions.utm_campaign', '!=', '')
+            ->selectRaw('funnel_sessions.utm_campaign as campaign, funnel_sessions.utm_source as source, SUM(funnel_orders.funnel_revenue) as revenue, COUNT(*) as orders')
+            ->groupBy('campaign', 'source')
+            ->orderByDesc('revenue')
+            ->limit(8)
+            ->get()
+            ->map(fn ($row) => [
+                'campaign' => $row->campaign,
+                'source' => $row->source,
+                'revenue' => (float) $row->revenue,
+                'orders' => (int) $row->orders,
+            ]);
+
         return response()->json([
             'data' => [
                 'days' => $days,
@@ -279,6 +416,8 @@ class FunnelStudioController extends Controller
                 'daily' => $series,
                 'top_funnels' => $topFunnels,
                 'by_type' => $byType,
+                'by_source' => $bySource,
+                'top_campaigns' => $topCampaigns,
             ],
         ]);
     }

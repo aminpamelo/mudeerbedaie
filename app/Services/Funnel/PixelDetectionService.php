@@ -121,6 +121,8 @@ class PixelDetectionService
 
         $ga4Detected = $ga4Id !== '' && in_array($ga4Id, $foundIds, true);
         $adsDetected = $adsId !== '' && in_array($adsId, $foundIds, true);
+        $ga4Valid = $ga4Id === '' || preg_match('/^G-[A-Z0-9]{6,}$/i', $ga4Id) === 1;
+        $adsValid = $adsId === '' || preg_match('/^AW-\d{6,}$/i', $adsId) === 1;
 
         $messages = [];
         if (! $enabled) {
@@ -156,6 +158,8 @@ class PixelDetectionService
             'found_ids' => $foundIds,
             'ga4_detected' => $ga4Detected,
             'ads_detected' => $adsDetected,
+            'ga4_valid_format' => $ga4Valid,
+            'ads_valid_format' => $adsValid,
             'message' => implode(' ', $messages),
         ];
     }
