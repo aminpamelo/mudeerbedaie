@@ -1060,6 +1060,8 @@ Route::middleware(['auth'])
                 ->name('session-slots.auto-verify');
             Route::post('session-slots/auto-verify/run', [SessionSlotController::class, 'runAutoVerify'])
                 ->name('session-slots.auto-verify.run');
+            Route::post('session-slots/sync-tiktok', [SessionSlotController::class, 'syncTikTok'])
+                ->name('session-slots.sync-tiktok');
             Route::post('session-slots/verify-source', [SessionSlotController::class, 'setVerifySource'])
                 ->name('session-slots.verify-source');
             Route::post('session-slots/link-live', [SessionSlotController::class, 'linkLive'])

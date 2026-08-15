@@ -5,6 +5,7 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreSessionSlotRequest;
 use App\Http\Requests\LiveHost\UpdateSessionSlotRequest;
+use App\Jobs\SyncTikTokLive;
 use App\Models\ActualLiveRecord;
 use App\Models\LiveAccount;
 use App\Models\LiveHostPlatformAccount;
@@ -13,6 +14,7 @@ use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\LiveTimeSlot;
 use App\Models\LiveTimeSlotOverride;
+use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use App\Notifications\LiveHost\ScheduleSlotChangedNotification;
@@ -288,6 +290,61 @@ class SessionSlotController extends Controller
             $stats['no_match'],
             $stats['no_host'],
             $stats['skipped'],
+        ));
+    }
+
+    /**
+     * Pull fresh TikTok LIVE performance data for a chosen date range. This ONLY
+     * fetches/upserts the live records from TikTok — it never verifies, links or
+     * locks any session (that stays a manual desk action). Admin / desk PIC only.
+     */
+    public function syncTikTok(Request $request): RedirectResponse
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'admin_livehost'], true), 403);
+
+        $data = $request->validate([
+            'from' => ['required', 'date'],
+            'until' => ['required', 'date', 'after_or_equal:from'],
+            'platform_account_id' => ['nullable', 'integer', 'exists:platform_accounts,id'],
+        ]);
+
+        $from = CarbonImmutable::parse($data['from'])->startOfDay();
+        $until = CarbonImmutable::parse($data['until'])->startOfDay();
+
+        if ($from->diffInDays($until) > 92) {
+            return back()->withErrors(['until' => 'Range too large — pick 3 months or less.']);
+        }
+
+        $platform = Platform::where('slug', 'tiktok-shop')->first();
+
+        if (! $platform) {
+            return back()->withErrors(['from' => 'TikTok Shop platform not configured.']);
+        }
+
+        $accounts = PlatformAccount::where('platform_id', $platform->id)
+            ->where('is_active', true)
+            ->when($data['platform_account_id'] ?? null, fn ($q, $id) => $q->where('id', $id))
+            ->get();
+
+        if ($accounts->isEmpty()) {
+            return back()->withErrors(['from' => 'No active TikTok Shop accounts to sync.']);
+        }
+
+        // The sync API treats end_date as exclusive (end_date_lt), so push the
+        // chosen last day out by one to include it in the pull.
+        $fromDate = $from->format('Y-m-d');
+        $toDate = $until->addDay()->format('Y-m-d');
+
+        foreach ($accounts as $account) {
+            SyncTikTokLive::dispatch($account, $fromDate, $toDate);
+        }
+
+        return back()->with('success', sprintf(
+            'TikTok sync started for %d account%s (%s → %s). New live data will appear here shortly — refresh in a moment.',
+            $accounts->count(),
+            $accounts->count() === 1 ? '' : 's',
+            $from->format('d M'),
+            $until->format('d M Y'),
         ));
     }
 
@@ -814,6 +871,7 @@ class SessionSlotController extends Controller
                 'id' => $a->id,
                 'name' => $a->name,
                 'platform' => $a->platform?->display_name ?? $a->platform?->name,
+                'platformSlug' => $a->platform?->slug,
             ]);
     }
 

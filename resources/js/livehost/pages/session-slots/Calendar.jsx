@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SlotOverrideModal from '@/livehost/components/session-slots/SlotOverrideModal';
+import SyncTikTokButton from '@/livehost/components/session-slots/SyncTikTokButton';
 import {
   AlertTriangle,
   CalendarClock,
@@ -815,15 +816,28 @@ export default function SessionSlotsCalendar() {
     setCreateOpen(true);
   };
 
+  const tiktokShops = useMemo(
+    () => platformAccounts.filter((pa) => pa.platformSlug === 'tiktok-shop'),
+    [platformAccounts],
+  );
+
   const newSlotAction = (
-    <Button
-      size="sm"
-      onClick={openCreateModal}
-      className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]"
-    >
-      <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
-      New session slot
-    </Button>
+    <>
+      <SyncTikTokButton
+        defaultFrom={weekStart}
+        defaultUntil={weekEnd}
+        platformAccounts={tiktokShops}
+        currentShopId={platformAccount}
+      />
+      <Button
+        size="sm"
+        onClick={openCreateModal}
+        className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]"
+      >
+        <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
+        New session slot
+      </Button>
+    </>
   );
 
   const handleEdit = (slot) => {

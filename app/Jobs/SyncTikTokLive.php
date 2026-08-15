@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Models\PlatformAccount;
 use App\Services\TikTok\TikTokLiveSyncService;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -38,8 +39,15 @@ class SyncTikTokLive implements ShouldQueue
 
     /**
      * Create a new job instance.
+     *
+     * @param  ?string  $from  Inclusive start date (Y-m-d). Null defaults to 30 days back.
+     * @param  ?string  $to  Exclusive end date (Y-m-d). Null defaults to now.
      */
-    public function __construct(public PlatformAccount $account) {}
+    public function __construct(
+        public PlatformAccount $account,
+        public ?string $from = null,
+        public ?string $to = null,
+    ) {}
 
     /**
      * Execute the job.
@@ -59,7 +67,11 @@ class SyncTikTokLive implements ShouldQueue
             'account_name' => $this->account->name,
         ]);
 
-        $result = $service->syncLivePerformance($this->account);
+        $result = $service->syncLivePerformance(
+            $this->account,
+            $this->from !== null ? Carbon::parse($this->from) : null,
+            $this->to !== null ? Carbon::parse($this->to) : null,
+        );
 
         $this->account->updateSyncStatus('completed', 'live_analytics');
 
