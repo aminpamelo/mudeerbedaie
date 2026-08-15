@@ -549,7 +549,9 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
     }, [deleteSelectedNode]);
 
     return (
-        <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
+        // Overlay the Studio content area only — the shell sidebar (w-60 on
+        // lg+) and its top bar stay visible so navigation is never lost.
+        <div className="fixed inset-0 z-40 flex flex-col bg-gray-100 lg:left-60 lg:top-14">
             {/* Connection Feedback Toast */}
             {connectionFeedback && (
                 <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-[60] px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-bounce ${
@@ -720,14 +722,15 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                             nodeColor={(node) => {
                                 switch (node.type) {
                                     case 'trigger': return '#10b981';
-                                    case 'action': return '#f97316';
-                                    case 'delay': return '#f97316';
+                                    case 'action': return '#a855f7';
+                                    case 'delay': return '#a855f7';
                                     case 'condition': return '#f59e0b';
                                     default: return '#6b7280';
                                 }
                             }}
-                            maskColor="rgba(0, 0, 0, 0.1)"
-                            className="!bg-white !border !border-gray-200 !rounded-lg !shadow-md"
+                            maskColor="rgba(11, 13, 20, 0.7)"
+                            style={{ backgroundColor: '#151926' }}
+                            className="!rounded-lg !border !border-white/15 !shadow-lg"
                         />
                     </ReactFlow>
 

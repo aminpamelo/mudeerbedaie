@@ -499,6 +499,77 @@
     filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
 }
 
+/* ── Automation Builder (React Flow canvas) ─────────────────────────── */
+/* The builder was written light-first; its pastel gradient panels render
+   unreadable once the studio remaps text to light. Re-tint every light
+   gradient combo to a dark panel with the same accent hue. */
+.funnel-builder-app.fs-studio .bg-gradient-to-br.from-green-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-r.from-green-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-b.from-green-50 {
+    background-image: linear-gradient(135deg, rgba(16, 185, 129, 0.16), #151926 70%);
+}
+
+.funnel-builder-app.fs-studio .bg-gradient-to-br.from-orange-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-r.from-orange-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-b.from-orange-50 {
+    background-image: linear-gradient(135deg, rgba(139, 92, 246, 0.16), #151926 70%);
+}
+
+.funnel-builder-app.fs-studio .bg-gradient-to-br.from-amber-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-r.from-amber-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-b.from-amber-50 {
+    background-image: linear-gradient(135deg, rgba(245, 158, 11, 0.14), #151926 70%);
+}
+
+.funnel-builder-app.fs-studio .bg-gradient-to-br.from-gray-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-r.from-gray-50,
+.funnel-builder-app.fs-studio .bg-gradient-to-b.from-gray-50 {
+    background-image: linear-gradient(135deg, #1c2233, #151926);
+}
+
+/* Translucent light surfaces used for hint bars / hover states */
+.funnel-builder-app.fs-studio .bg-white\/90 {
+    background-color: rgba(18, 21, 31, 0.9);
+}
+
+.funnel-builder-app.fs-studio .hover\:bg-white\/50:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.funnel-builder-app.fs-studio .bg-orange-50\/50 {
+    background-color: rgba(139, 92, 246, 0.1);
+}
+
+/* React Flow chrome uses !important light classes — match with !important */
+.funnel-builder-app.fs-studio .react-flow__controls {
+    background: #151926 !important;
+    border-color: var(--fs-border-strong) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.funnel-builder-app.fs-studio .react-flow__controls-button {
+    background: #151926 !important;
+    border-bottom: 1px solid var(--fs-border) !important;
+    color: #c6cbd7 !important;
+}
+
+.funnel-builder-app.fs-studio .react-flow__controls-button svg {
+    fill: #c6cbd7 !important;
+}
+
+.funnel-builder-app.fs-studio .react-flow__controls-button:hover {
+    background: #1c2233 !important;
+}
+
+.funnel-builder-app.fs-studio .react-flow__minimap {
+    background-color: #12151f !important;
+    border-color: var(--fs-border-strong) !important;
+}
+
+.funnel-builder-app.fs-studio .react-flow__minimap-mask {
+    fill: rgba(11, 13, 20, 0.75);
+}
+
 /* Chart bars on the Reports page */
 .fs-studio .fs-bar {
     background: var(--fs-gradient);
