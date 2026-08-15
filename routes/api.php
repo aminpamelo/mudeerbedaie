@@ -131,8 +131,10 @@ use App\Http\Controllers\Api\V1\FunnelEmailTemplateController;
 use App\Http\Controllers\Api\V1\FunnelMediaController;
 use App\Http\Controllers\Api\V1\FunnelOrderController;
 use App\Http\Controllers\Api\V1\FunnelPixelController;
+use App\Http\Controllers\Api\V1\FunnelPixelLibraryController;
 use App\Http\Controllers\Api\V1\FunnelProductController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
+use App\Http\Controllers\Api\V1\FunnelStudioController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use App\Http\Middleware\AffiliateSessionLifetime;
@@ -207,6 +209,12 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::delete('funnel-categories/{category}', [FunnelCategoryController::class, 'destroy'])->name('api.funnel-categories.destroy');
 
     // Funnels
+    // Funnel Studio cross-funnel pages (global orders / products / reports)
+    Route::get('studio/orders', [FunnelStudioController::class, 'orders'])->name('api.studio.orders');
+    Route::get('studio/orders/{orderId}', [FunnelStudioController::class, 'orderDetail'])->name('api.studio.orders.detail');
+    Route::get('studio/products', [FunnelStudioController::class, 'products'])->name('api.studio.products');
+    Route::get('studio/reports', [FunnelStudioController::class, 'reports'])->name('api.studio.reports');
+
     Route::get('funnels', [FunnelController::class, 'index'])->name('api.funnels.index');
     Route::post('funnels', [FunnelController::class, 'store'])->name('api.funnels.store');
     Route::get('funnels/{uuid}', [FunnelController::class, 'show'])->name('api.funnels.show');
@@ -414,6 +422,23 @@ Route::post('funnel-events/button-click', [FunnelEventController::class, 'trackB
 // Pixel test connection (authenticated)
 Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(function () {
     Route::post('funnels/{uuid}/pixel/test', [FunnelPixelController::class, 'testConnection'])->name('api.funnels.pixel.test');
+    Route::post('funnels/{uuid}/pixel/detect', [FunnelPixelController::class, 'detectInstallation'])->name('api.funnels.pixel.detect');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Pixel Library API Routes (Authenticated)
+|--------------------------------------------------------------------------
+| Reusable tracking pixels (Facebook / Google) that can be applied to any
+| funnel from the builder's Tracking tab. Fighters manage their own pixels;
+| admin/employee manage the whole library.
+*/
+Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
+    Route::get('pixel-library', [FunnelPixelLibraryController::class, 'index'])->name('api.pixel-library.index');
+    Route::post('pixel-library', [FunnelPixelLibraryController::class, 'store'])->name('api.pixel-library.store');
+    Route::put('pixel-library/{pixel}', [FunnelPixelLibraryController::class, 'update'])->name('api.pixel-library.update');
+    Route::delete('pixel-library/{pixel}', [FunnelPixelLibraryController::class, 'destroy'])->name('api.pixel-library.destroy');
+    Route::post('pixel-library/{pixel}/test', [FunnelPixelLibraryController::class, 'test'])->name('api.pixel-library.test');
 });
 
 /*

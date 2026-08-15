@@ -609,15 +609,30 @@ JS;
     }
 
     /**
-     * Test the Conversions API connection.
+     * Test the Conversions API connection using the funnel's stored settings.
      */
     public function testConnection(Funnel $funnel): array
     {
         $settings = $this->getPixelSettings($funnel);
 
-        // Trim any whitespace from pixel ID and access token
-        $pixelId = trim($settings['pixel_id'] ?? '');
-        $accessToken = trim($settings['access_token'] ?? '');
+        return $this->testCredentials(
+            $settings['pixel_id'] ?? '',
+            $settings['access_token'] ?? '',
+            $settings['test_event_code'] ?? null,
+            ['funnel_id' => $funnel->id]
+        );
+    }
+
+    /**
+     * Test the Conversions API connection with raw credentials (used by both
+     * the per-funnel test and the Pixel Library test).
+     *
+     * @param  array<string, mixed>  $logContext
+     */
+    public function testCredentials(string $pixelId, string $accessToken, ?string $testEventCode = null, array $logContext = []): array
+    {
+        $pixelId = trim($pixelId);
+        $accessToken = trim($accessToken);
 
         if (empty($pixelId)) {
             return [
@@ -635,7 +650,7 @@ JS;
 
         // Send a test event
         $testEventId = $this->generateEventId();
-        $testEventCode = trim($settings['test_event_code'] ?? '') ?: 'TEST'.Str::random(5);
+        $testEventCode = trim($testEventCode ?? '') ?: 'TEST'.Str::random(5);
 
         // Facebook Conversions API requires sufficient user data parameters
         // We use hashed test data to pass validation while keeping it clearly identifiable as a test
@@ -663,8 +678,7 @@ JS;
 
         $url = self::API_BASE_URL.'/'.self::API_VERSION."/{$pixelId}/events";
 
-        Log::info('Facebook Pixel test connection attempt', [
-            'funnel_id' => $funnel->id,
+        Log::info('Facebook Pixel test connection attempt', $logContext + [
             'pixel_id' => $pixelId,
             'url' => $url,
             'event_id' => $testEventId,
@@ -675,8 +689,7 @@ JS;
 
             $responseData = $response->json();
 
-            Log::info('Facebook Pixel test connection response', [
-                'funnel_id' => $funnel->id,
+            Log::info('Facebook Pixel test connection response', $logContext + [
                 'status' => $response->status(),
                 'response' => $responseData,
             ]);
@@ -721,8 +734,7 @@ JS;
             ];
 
         } catch (\Exception $e) {
-            Log::error('Facebook Pixel test connection exception', [
-                'funnel_id' => $funnel->id,
+            Log::error('Facebook Pixel test connection exception', $logContext + [
                 'error' => $e->getMessage(),
             ]);
 

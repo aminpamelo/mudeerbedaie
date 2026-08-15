@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Funnel;
 use App\Models\FunnelSession;
 use App\Services\Funnel\FacebookPixelService;
+use App\Services\Funnel\PixelDetectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -150,5 +151,20 @@ class FunnelPixelController extends Controller
         $result = $this->pixelService->testConnection($funnel);
 
         return response()->json($result);
+    }
+
+    /**
+     * Check that configured pixels are actually installed on the funnel's
+     * public page (fetches the live HTML and scans for the tracking scripts).
+     */
+    public function detectInstallation(Request $request, string $funnelUuid, PixelDetectionService $detectionService): JsonResponse
+    {
+        $funnel = Funnel::where('uuid', $funnelUuid)->firstOrFail();
+
+        if ($funnel->user_id !== auth()->id() && ! auth()->user()?->isAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        return response()->json($detectionService->detect($funnel));
     }
 }
