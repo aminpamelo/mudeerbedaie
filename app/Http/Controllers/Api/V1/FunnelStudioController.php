@@ -757,7 +757,72 @@ class FunnelStudioController extends Controller
                 'by_type' => $byType,
                 'by_source' => $bySource,
                 'top_campaigns' => $topCampaigns,
+                'by_team' => $this->teamPerformance($funnelIds, $from),
             ],
         ]);
+    }
+
+    /**
+     * Performance per funnel owner (team member): funnels, traffic, orders,
+     * conversion, and revenue in the window — ranked by revenue.
+     *
+     * @param  array<int, int>  $funnelIds
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    protected function teamPerformance(array $funnelIds, \Illuminate\Support\Carbon $from): \Illuminate\Support\Collection
+    {
+        $ordersByOwner = FunnelOrder::query()
+            ->join('funnels', 'funnels.id', '=', 'funnel_orders.funnel_id')
+            ->whereIn('funnel_orders.funnel_id', $funnelIds)
+            ->where('funnel_orders.created_at', '>=', $from)
+            ->selectRaw('funnels.user_id as owner_id, COUNT(*) as orders, SUM(funnel_orders.funnel_revenue) as revenue, COUNT(DISTINCT funnels.id) as selling_funnels')
+            ->groupBy('funnels.user_id')
+            ->get()
+            ->keyBy('owner_id');
+
+        $sessionsByOwner = \App\Models\FunnelSession::query()
+            ->join('funnels', 'funnels.id', '=', 'funnel_sessions.funnel_id')
+            ->whereIn('funnel_sessions.funnel_id', $funnelIds)
+            ->where('funnel_sessions.created_at', '>=', $from)
+            ->selectRaw('funnels.user_id as owner_id, COUNT(*) as sessions')
+            ->groupBy('funnels.user_id')
+            ->get()
+            ->keyBy('owner_id');
+
+        $funnelCounts = Funnel::query()
+            ->whereIn('id', $funnelIds)
+            ->selectRaw('user_id as owner_id, COUNT(*) as funnels')
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('owner_id');
+
+        $ownerIds = $ordersByOwner->keys()
+            ->merge($sessionsByOwner->keys())
+            ->filter()
+            ->unique();
+
+        $owners = \App\Models\User::withTrashed()
+            ->whereIn('id', $ownerIds)
+            ->get(['id', 'name', 'role'])
+            ->keyBy('id');
+
+        return $ownerIds
+            ->map(function ($ownerId) use ($ordersByOwner, $sessionsByOwner, $funnelCounts, $owners) {
+                $orders = (int) ($ordersByOwner[$ownerId]->orders ?? 0);
+                $sessions = (int) ($sessionsByOwner[$ownerId]->sessions ?? 0);
+
+                return [
+                    'owner_id' => $ownerId,
+                    'name' => $owners[$ownerId]->name ?? 'Unknown',
+                    'role' => $owners[$ownerId]->role ?? null,
+                    'funnels' => (int) ($funnelCounts[$ownerId]->funnels ?? 0),
+                    'sessions' => $sessions,
+                    'orders' => $orders,
+                    'conversion_rate' => $sessions > 0 ? round(($orders / $sessions) * 100, 2) : null,
+                    'revenue' => (float) ($ordersByOwner[$ownerId]->revenue ?? 0),
+                ];
+            })
+            ->sortByDesc('revenue')
+            ->values();
     }
 }

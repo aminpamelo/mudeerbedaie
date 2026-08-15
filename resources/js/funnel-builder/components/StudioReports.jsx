@@ -47,6 +47,7 @@ export default function StudioReports({ onSelectFunnel }) {
     const typeTotal = Math.max(1, (report?.by_type || []).reduce((sum, t) => sum + t.revenue, 0));
     const sourceTotal = Math.max(1, (report?.by_source || []).reduce((sum, s) => sum + s.revenue, 0));
     const maxCampaignRevenue = Math.max(1, ...(report?.top_campaigns || []).map((c) => c.revenue));
+    const maxTeamRevenue = Math.max(1, ...(report?.by_team || []).map((t) => t.revenue));
 
     return (
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -243,6 +244,68 @@ export default function StudioReports({ onSelectFunnel }) {
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Team performance — who on the team is actually selling */}
+                    <div className="rounded-lg border border-gray-200 bg-white">
+                        <div className="border-b border-gray-200 px-6 py-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Team Performance</h3>
+                            <p className="text-xs text-gray-500">
+                                Revenue and conversion per funnel owner in this window, top earner first.
+                            </p>
+                        </div>
+                        {(report.by_team || []).length === 0 ? (
+                            <p className="px-6 py-8 text-center text-sm text-gray-500">No team sales in this window yet.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[820px] text-sm">
+                                    <thead>
+                                        <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500">
+                                            <th className="px-6 py-2.5 font-medium">#</th>
+                                            <th className="px-6 py-2.5 font-medium">Team Member</th>
+                                            <th className="px-6 py-2.5 text-right font-medium">Funnels</th>
+                                            <th className="px-6 py-2.5 text-right font-medium">Visitors</th>
+                                            <th className="px-6 py-2.5 text-right font-medium">Orders</th>
+                                            <th className="px-6 py-2.5 text-right font-medium">Conv. Rate</th>
+                                            <th className="px-6 py-2.5 font-medium">Share</th>
+                                            <th className="px-6 py-2.5 text-right font-medium">Revenue</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {report.by_team.map((member, i) => (
+                                            <tr key={member.owner_id ?? i} className="border-t border-gray-100">
+                                                <td className="px-6 py-3 text-gray-400">{i + 1}</td>
+                                                <td className="px-6 py-3">
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="font-medium text-gray-900">{member.name}</span>
+                                                        {member.role && member.role !== 'admin' && (
+                                                            <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium capitalize text-purple-800">
+                                                                {member.role}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3 text-right tabular-nums text-gray-600">{member.funnels}</td>
+                                                <td className="px-6 py-3 text-right tabular-nums text-gray-600">{member.sessions.toLocaleString()}</td>
+                                                <td className="px-6 py-3 text-right tabular-nums text-gray-700">{member.orders.toLocaleString()}</td>
+                                                <td className="px-6 py-3 text-right tabular-nums text-gray-700">
+                                                    {member.conversion_rate != null ? `${member.conversion_rate}%` : '—'}
+                                                </td>
+                                                <td className="w-44 px-6 py-3">
+                                                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                                                        <div
+                                                            className="fs-bar h-full rounded-full"
+                                                            style={{ width: `${Math.max(2, (member.revenue / maxTeamRevenue) * 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3 text-right tabular-nums font-semibold text-gray-900">{fmtRM(member.revenue)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
