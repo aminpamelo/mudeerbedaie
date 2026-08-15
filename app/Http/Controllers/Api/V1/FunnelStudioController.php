@@ -366,6 +366,71 @@ class FunnelStudioController extends Controller
     }
 
     /**
+     * Full detail of one automation: the flow (trigger + ordered actions)
+     * and its recent run history, viewable without opening the builder.
+     */
+    public function automationDetail(Request $request, int $automationId): JsonResponse
+    {
+        $automation = \App\Models\FunnelAutomation::query()
+            ->whereIn('funnel_id', $this->scopedFunnelIds($request))
+            ->with(['funnel:id,uuid,name', 'actions' => fn ($q) => $q->orderBy('sort_order')])
+            ->findOrFail($automationId);
+
+        $logsBase = $automation->logs();
+        $totalRuns = (clone $logsBase)->count();
+        $executed = (clone $logsBase)->where('status', 'executed')->count();
+        $failed = (clone $logsBase)->where('status', 'failed')->count();
+
+        $recentLogs = $automation->logs()
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'status' => $log->status,
+                'contact_email' => $log->contact_email,
+                'executed_at' => $log->executed_at?->diffForHumans() ?? $log->created_at?->diffForHumans(),
+                'scheduled_at' => $log->scheduled_at?->toIso8601String(),
+            ]);
+
+        $summarize = function ($action): ?string {
+            $config = $action->action_config ?? [];
+            foreach (['subject', 'message', 'template', 'tag', 'url', 'field', 'value', 'points'] as $key) {
+                if (! empty($config[$key]) && is_scalar($config[$key])) {
+                    return \Illuminate\Support\Str::limit((string) $config[$key], 80);
+                }
+            }
+
+            return null;
+        };
+
+        return response()->json([
+            'data' => [
+                'id' => $automation->id,
+                'name' => $automation->name,
+                'funnel_name' => $automation->funnel?->name ?? '-',
+                'funnel_uuid' => $automation->funnel?->uuid,
+                'trigger_type' => $automation->trigger_type,
+                'is_active' => (bool) $automation->is_active,
+                'stats' => [
+                    'total_runs' => $totalRuns,
+                    'executed' => $executed,
+                    'failed' => $failed,
+                    'success_rate' => $totalRuns > 0 ? round(($executed / $totalRuns) * 100) : null,
+                ],
+                'actions' => $automation->actions->map(fn ($action) => [
+                    'id' => $action->id,
+                    'action_type' => $action->action_type,
+                    'delay_minutes' => (int) ($action->delay_minutes ?? 0),
+                    'summary' => $summarize($action),
+                    'has_conditions' => ! empty($action->conditions),
+                ])->values(),
+                'recent_logs' => $recentLogs,
+            ],
+        ]);
+    }
+
+    /**
      * Toggle an automation on/off from the cross-funnel page.
      */
     public function toggleAutomation(Request $request, int $automationId): JsonResponse

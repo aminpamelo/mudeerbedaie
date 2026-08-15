@@ -219,6 +219,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::get('studio/pixel-health', [FunnelStudioController::class, 'pixelHealth'])->name('api.studio.pixel-health');
     Route::get('studio/notifications', [FunnelStudioController::class, 'notifications'])->name('api.studio.notifications');
     Route::get('studio/automations', [FunnelStudioController::class, 'automations'])->name('api.studio.automations');
+    Route::get('studio/automations/{automationId}', [FunnelStudioController::class, 'automationDetail'])->name('api.studio.automations.detail');
     Route::post('studio/automations/{automationId}/toggle', [FunnelStudioController::class, 'toggleAutomation'])->name('api.studio.automations.toggle');
     Route::get('studio/analytics', [FunnelStudioController::class, 'analytics'])->name('api.studio.analytics');
 
