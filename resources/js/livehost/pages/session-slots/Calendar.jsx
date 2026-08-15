@@ -1914,6 +1914,11 @@ SessionSlotsCalendar.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
  * one sitting alone still needs assigning. Empty overall = due-diligence clear.
  */
 const AUDIT_HOUR_PX = 46; // compact vertical scale for the audit time axis
+// When more lives overlap than fit as readable percentage columns, each lane
+// gets this fixed width and the column scrolls horizontally instead of stacking
+// blocks on top of each other (which made the text unreadable).
+const AUDIT_LANE_PX = 132;
+const AUDIT_LANE_CAP = 3; // ≤ this many lanes fill the column; beyond, we scroll
 
 function auditMinsOf(time) {
   const { h, m } = parseHM(time);
@@ -2175,22 +2180,30 @@ function AuditDayGrid({ day, onAssign, onScheduleClick, onLink, onUnlink }) {
     };
   };
   const styleFor = (item, lanes, lane) => {
-    // When many lives overlap, cap visible lanes and stack the rest
-    // so blocks stay readable instead of becoming razor-thin.
-    const maxLanes = Math.min(lanes, 3);
-    const displayLane = lane < maxLanes ? lane : maxLanes - 1;
-    const width = 100 / maxLanes;
-    const zIndex = lane >= maxLanes ? lane + 10 : lane;
+    // Up to the cap, lanes share the column width as even percentage columns.
+    // Beyond it, switch to fixed-width lanes so nothing overlaps — the column
+    // scrolls horizontally (see the overflow-x-auto wrapper) to reveal the rest.
+    if (lanes <= AUDIT_LANE_CAP) {
+      const width = 100 / lanes;
+      return {
+        ...rawTopH(item),
+        left: `calc(${lane * width}% + 2px)`,
+        width: `calc(${width}% - 4px)`,
+        zIndex: lane,
+      };
+    }
     return {
       ...rawTopH(item),
-      left: `calc(${displayLane * width}% + 2px)`,
-      width: `calc(${width}% - 4px)`,
-      zIndex,
+      left: lane * AUDIT_LANE_PX + 2,
+      width: AUDIT_LANE_PX - 4,
+      zIndex: lane,
     };
   };
 
   const sched = auditPackLanes(daySched);
   const tt = auditPackLanes(ttAll);
+  // Track width: fixed px when dense (enables scroll), else fill the column.
+  const trackWidth = (lanes) => (lanes > AUDIT_LANE_CAP ? lanes * AUDIT_LANE_PX : '100%');
 
   // Connector: from each matched live's centre to its slot's centre. Positions
   // are lane-independent, so a plain time→y lookup is enough.
@@ -2223,65 +2236,69 @@ function AuditDayGrid({ day, onAssign, onScheduleClick, onLink, onUnlink }) {
             </div>
           ))}
         </div>
-        <div className="relative border-l border-[#F0F0F0]" style={{ ...gridBg, height }}>
-          {sched.placed.map(({ item, lane }) => (
-            <AuditScheduleBlock
-              key={item.id ?? `${item.dayOfWeek}-${item.startTime}`}
-              slot={item}
-              style={styleFor(item, sched.lanes, lane)}
-              isDropTarget={dropTarget === item.id}
-              onClick={() => onScheduleClick?.(item)}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'link';
-                if (dropTarget !== item.id) {
-                  setDropTarget(item.id);
-                }
-              }}
-              onDragLeave={() => setDropTarget((id) => (id === item.id ? null : id))}
-              onDrop={(e) => {
-                e.preventDefault();
-                const recordId = Number(e.dataTransfer.getData('text/plain'));
-                setDropTarget(null);
-                if (recordId) {
-                  onLink?.(item.id, recordId);
-                }
-              }}
-            />
-          ))}
-        </div>
-        <div className="relative border-l border-[#F0F0F0]" style={{ ...gridBg, height }}>
-          {tt.placed.map(({ item, lane }) =>
-            item._matched ? (
-              <AuditMatchedBlock
-                key={`m-${item.id}`}
-                live={item}
-                style={styleFor(item, tt.lanes, lane)}
-                onClick={() => {
-                  const slot = daySched.find((s) => s.id === item._assignmentId);
-                  if (slot) {
-                    onScheduleClick?.(slot);
+        <div className="relative overflow-x-auto border-l border-[#F0F0F0]" style={{ height }}>
+          <div className="relative" style={{ ...gridBg, height, width: trackWidth(sched.lanes), minWidth: '100%' }}>
+            {sched.placed.map(({ item, lane }) => (
+              <AuditScheduleBlock
+                key={item.id ?? `${item.dayOfWeek}-${item.startTime}`}
+                slot={item}
+                style={styleFor(item, sched.lanes, lane)}
+                isDropTarget={dropTarget === item.id}
+                onClick={() => onScheduleClick?.(item)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'link';
+                  if (dropTarget !== item.id) {
+                    setDropTarget(item.id);
                   }
                 }}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', String(item.id));
-                  e.dataTransfer.effectAllowed = 'link';
-                }}
-                onUnlink={() => onUnlink?.(item.id)}
-              />
-            ) : (
-              <AuditTikTokBlock
-                key={item.id}
-                suggestion={item}
-                style={styleFor(item, tt.lanes, lane)}
-                onClick={() => onAssign?.(item)}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', String(item.id));
-                  e.dataTransfer.effectAllowed = 'link';
+                onDragLeave={() => setDropTarget((id) => (id === item.id ? null : id))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const recordId = Number(e.dataTransfer.getData('text/plain'));
+                  setDropTarget(null);
+                  if (recordId) {
+                    onLink?.(item.id, recordId);
+                  }
                 }}
               />
-            ),
-          )}
+            ))}
+          </div>
+        </div>
+        <div className="relative overflow-x-auto border-l border-[#F0F0F0]" style={{ height }}>
+          <div className="relative" style={{ ...gridBg, height, width: trackWidth(tt.lanes), minWidth: '100%' }}>
+            {tt.placed.map(({ item, lane }) =>
+              item._matched ? (
+                <AuditMatchedBlock
+                  key={`m-${item.id}`}
+                  live={item}
+                  style={styleFor(item, tt.lanes, lane)}
+                  onClick={() => {
+                    const slot = daySched.find((s) => s.id === item._assignmentId);
+                    if (slot) {
+                      onScheduleClick?.(slot);
+                    }
+                  }}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', String(item.id));
+                    e.dataTransfer.effectAllowed = 'link';
+                  }}
+                  onUnlink={() => onUnlink?.(item.id)}
+                />
+              ) : (
+                <AuditTikTokBlock
+                  key={item.id}
+                  suggestion={item}
+                  style={styleFor(item, tt.lanes, lane)}
+                  onClick={() => onAssign?.(item)}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', String(item.id));
+                    e.dataTransfer.effectAllowed = 'link';
+                  }}
+                />
+              ),
+            )}
+          </div>
         </div>
 
         {connectors.length > 0 ? (
