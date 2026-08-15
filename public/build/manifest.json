@@ -382,8 +382,8 @@
       "_x-BlFcgx-Q.js"
     ]
   },
-  "_chunk-V5I7CVLT-DlLpRw81.js": {
-    "file": "assets/chunk-V5I7CVLT-DlLpRw81.js",
+  "_chunk-V5I7CVLT-DKypPCqy.js": {
+    "file": "assets/chunk-V5I7CVLT-DKypPCqy.js",
     "name": "chunk-V5I7CVLT",
     "imports": [
       "resources/js/funnel-builder/index.jsx",
@@ -1562,12 +1562,12 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/Editor-L7XD2QW3.mjs": {
-    "file": "assets/Editor-L7XD2QW3-LGAk3JVT.js",
+    "file": "assets/Editor-L7XD2QW3-jsOyo_P2.js",
     "name": "Editor-L7XD2QW3",
     "src": "node_modules/@puckeditor/core/dist/Editor-L7XD2QW3.mjs",
     "isDynamicEntry": true,
     "imports": [
-      "_chunk-V5I7CVLT-DlLpRw81.js",
+      "_chunk-V5I7CVLT-DKypPCqy.js",
       "resources/js/funnel-builder/index.jsx",
       "_client-zbM7qFgD.js",
       "_index-6Rqo3Gzw.js",
@@ -1593,12 +1593,12 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/Render-FXZX6NFH.mjs": {
-    "file": "assets/Render-FXZX6NFH-DXkm750D.js",
+    "file": "assets/Render-FXZX6NFH-Bhlyd6yW.js",
     "name": "Render-FXZX6NFH",
     "src": "node_modules/@puckeditor/core/dist/Render-FXZX6NFH.mjs",
     "isDynamicEntry": true,
     "imports": [
-      "_chunk-V5I7CVLT-DlLpRw81.js",
+      "_chunk-V5I7CVLT-DKypPCqy.js",
       "resources/js/funnel-builder/index.jsx",
       "_index-DdyVW82_.js",
       "_client-zbM7qFgD.js",
@@ -1622,7 +1622,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/full-4UGAOTTB.mjs": {
-    "file": "assets/full-4UGAOTTB-CPiMLY1o.js",
+    "file": "assets/full-4UGAOTTB-CFEqxcyL.js",
     "name": "full-4UGAOTTB",
     "src": "node_modules/@puckeditor/core/dist/full-4UGAOTTB.mjs",
     "isDynamicEntry": true,
@@ -1652,7 +1652,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/loaded-5AM4V5PV.mjs": {
-    "file": "assets/loaded-5AM4V5PV-BuWiRvj4.js",
+    "file": "assets/loaded-5AM4V5PV-BLxwSEuV.js",
     "name": "loaded-5AM4V5PV",
     "src": "node_modules/@puckeditor/core/dist/loaded-5AM4V5PV.mjs",
     "isDynamicEntry": true,
@@ -1682,7 +1682,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/loaded-G2WSQZO7.mjs": {
-    "file": "assets/loaded-G2WSQZO7-BjM8MtvU.js",
+    "file": "assets/loaded-G2WSQZO7-Cm76zJeB.js",
     "name": "loaded-G2WSQZO7",
     "src": "node_modules/@puckeditor/core/dist/loaded-G2WSQZO7.mjs",
     "isDynamicEntry": true,
@@ -1712,7 +1712,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/loaded-MYALJBRK.mjs": {
-    "file": "assets/loaded-MYALJBRK-BiUeRR0W.js",
+    "file": "assets/loaded-MYALJBRK-W1TgR_qS.js",
     "name": "loaded-MYALJBRK",
     "src": "node_modules/@puckeditor/core/dist/loaded-MYALJBRK.mjs",
     "isDynamicEntry": true,
@@ -2163,7 +2163,7 @@
     ]
   },
   "resources/js/funnel-builder/index.jsx": {
-    "file": "assets/index-S17nnSrO.js",
+    "file": "assets/index-Co0dIMdg.js",
     "name": "index",
     "src": "resources/js/funnel-builder/index.jsx",
     "isEntry": true,
@@ -2195,7 +2195,7 @@
       "node_modules/@puckeditor/core/dist/Render-FXZX6NFH.mjs"
     ],
     "css": [
-      "assets/index-M-VyaVZm.css",
+      "assets/index-Beo_JRFk.css",
       "assets/funnel-builder-IQijsXvK.css"
     ]
   },

@@ -213,6 +213,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     // Funnel Studio cross-funnel pages (global orders / products / reports)
     Route::get('studio/orders', [FunnelStudioController::class, 'orders'])->name('api.studio.orders');
     Route::get('studio/orders/{orderId}', [FunnelStudioController::class, 'orderDetail'])->name('api.studio.orders.detail');
+    Route::put('studio/orders/{orderId}', [FunnelStudioController::class, 'updateOrder'])->name('api.studio.orders.update');
     Route::get('studio/products', [FunnelStudioController::class, 'products'])->name('api.studio.products');
     Route::get('studio/reports', [FunnelStudioController::class, 'reports'])->name('api.studio.reports');
     Route::get('studio/pixel-health', [FunnelStudioController::class, 'pixelHealth'])->name('api.studio.pixel-health');

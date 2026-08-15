@@ -149,8 +149,70 @@ class FunnelStudioController extends Controller
                     'bumps_accepted' => (int) ($order->bumps_accepted ?? 0),
                     'downsells_accepted' => (int) ($order->downsells_accepted ?? 0),
                 ],
+                'editable' => [
+                    'customer_name' => $po?->customer_name,
+                    'guest_email' => $po?->guest_email,
+                    'tracking_id' => $po?->tracking_id,
+                    'internal_notes' => $po?->internal_notes,
+                    'status' => $po?->status,
+                    'payment_status' => $po?->payment_status,
+                ],
             ],
         ]);
+    }
+
+    /**
+     * Edit a funnel order's underlying ProductOrder. Status changes go
+     * through the model's transition methods so side effects (timestamps,
+     * system notes, refund payment-status flips on cancel/return) apply.
+     */
+    public function updateOrder(Request $request, int $orderId): JsonResponse
+    {
+        $funnelIds = $this->scopedFunnelIds($request);
+
+        $order = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->with('productOrder')
+            ->findOrFail($orderId);
+
+        $po = $order->productOrder;
+        if (! $po) {
+            return response()->json(['message' => 'This funnel order has no linked product order to edit.'], 422);
+        }
+
+        $validated = $request->validate([
+            'customer_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'guest_email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'tracking_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'internal_notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'status' => ['sometimes', \Illuminate\Validation\Rule::in(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'returned', 'cancelled'])],
+            'payment_status' => ['sometimes', \Illuminate\Validation\Rule::in(['pending', 'paid', 'refunded', 'failed'])],
+        ]);
+
+        foreach (['customer_name', 'guest_email', 'tracking_id', 'internal_notes'] as $field) {
+            if (array_key_exists($field, $validated)) {
+                $po->{$field} = $validated[$field];
+            }
+        }
+        $po->save();
+
+        if (isset($validated['status']) && $validated['status'] !== $po->status) {
+            match ($validated['status']) {
+                'confirmed' => $po->markAsConfirmed(),
+                'processing' => $po->markAsProcessing(),
+                'shipped' => $po->markAsShipped(),
+                'delivered' => $po->markAsDelivered(),
+                'returned' => $po->markAsReturned(),
+                'cancelled' => $po->markAsCancelled('Updated from Funnel Studio'),
+                default => $po->update(['status' => $validated['status']]),
+            };
+        }
+
+        if (isset($validated['payment_status']) && $validated['payment_status'] !== $po->payment_status) {
+            $po->update(['payment_status' => $validated['payment_status']]);
+        }
+
+        return $this->orderDetail($request, $orderId);
     }
 
     /**

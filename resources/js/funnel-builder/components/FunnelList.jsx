@@ -641,10 +641,10 @@ function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete,
                                     ) : (
                                         <button
                                             onClick={() => canAssignOwner && setAssigningUuid(funnel.uuid)}
-                                            className={`group flex items-center gap-1.5 text-left ${canAssignOwner ? 'cursor-pointer' : 'cursor-default'}`}
-                                            title={canAssignOwner ? 'Click to reassign owner' : undefined}
+                                            className={`group flex max-w-[200px] items-center gap-1.5 text-left ${canAssignOwner ? 'cursor-pointer' : 'cursor-default'}`}
+                                            title={funnel.owner?.name || (canAssignOwner ? 'Click to reassign owner' : undefined)}
                                         >
-                                            <span className="text-zinc-700 dark:text-zinc-300">{funnel.owner?.name || '—'}</span>
+                                            <span className="truncate text-zinc-700 dark:text-zinc-300">{funnel.owner?.name || '—'}</span>
                                             {funnel.owner?.role && funnel.owner.role !== 'admin' && (
                                                 <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium capitalize text-purple-800">
                                                     {funnel.owner.role}
