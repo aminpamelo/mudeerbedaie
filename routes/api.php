@@ -122,6 +122,7 @@ use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\V1\AffiliateDashboardController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
+use App\Http\Controllers\Api\V1\FacebookAdsController;
 use App\Http\Controllers\Api\V1\FunnelAffiliateController;
 use App\Http\Controllers\Api\V1\FunnelAutomationController;
 use App\Http\Controllers\Api\V1\FunnelCategoryController;
@@ -216,12 +217,21 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::get('studio/reports', [FunnelStudioController::class, 'reports'])->name('api.studio.reports');
     Route::get('studio/pixel-health', [FunnelStudioController::class, 'pixelHealth'])->name('api.studio.pixel-health');
 
+    // Facebook Ads connections (multi Business Manager)
+    Route::get('facebook-ads/connections', [FacebookAdsController::class, 'index'])->name('api.facebook-ads.index');
+    Route::post('facebook-ads/connections', [FacebookAdsController::class, 'store'])->name('api.facebook-ads.store');
+    Route::delete('facebook-ads/connections/{connection}', [FacebookAdsController::class, 'destroy'])->name('api.facebook-ads.destroy');
+    Route::post('facebook-ads/connections/{connection}/sync', [FacebookAdsController::class, 'sync'])->name('api.facebook-ads.sync');
+    Route::get('facebook-ads/accounts', [FacebookAdsController::class, 'accounts'])->name('api.facebook-ads.accounts');
+
     Route::get('funnels', [FunnelController::class, 'index'])->name('api.funnels.index');
     Route::post('funnels', [FunnelController::class, 'store'])->name('api.funnels.store');
     Route::get('funnels/{uuid}', [FunnelController::class, 'show'])->name('api.funnels.show');
     Route::put('funnels/{uuid}', [FunnelController::class, 'update'])->name('api.funnels.update');
     Route::delete('funnels/{uuid}', [FunnelController::class, 'destroy'])->name('api.funnels.destroy');
     Route::post('funnels/{uuid}/duplicate', [FunnelController::class, 'duplicate'])->name('api.funnels.duplicate');
+    Route::post('funnels/{uuid}/assign-owner', [FunnelController::class, 'assignOwner'])->name('api.funnels.assign-owner');
+    Route::get('funnel-owners', [FunnelController::class, 'owners'])->name('api.funnels.owners');
     Route::post('funnels/{uuid}/publish', [FunnelController::class, 'publish'])->name('api.funnels.publish');
     Route::post('funnels/{uuid}/unpublish', [FunnelController::class, 'unpublish'])->name('api.funnels.unpublish');
     Route::get('funnels/{uuid}/analytics', [FunnelController::class, 'analytics'])->name('api.funnels.analytics');

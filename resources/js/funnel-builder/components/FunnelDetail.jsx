@@ -1390,6 +1390,116 @@ function PixelLibraryBar({ platform, appliedLibraryId, currentSettings, onApply,
     );
 }
 
+// Ads Source card — records which Facebook ad account feeds this funnel, so
+// spend/ROAS can be attributed per funnel.
+function AdsSourceCard({ funnelUuid, funnel, onRefresh, showToast }) {
+    const [accounts, setAccounts] = useState([]);
+    const [saving, setSaving] = useState(false);
+    const currentId = funnel?.settings?.ads?.facebook_ad_account_id || '';
+
+    const getCsrfToken = () =>
+        document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('XSRF-TOKEN='))
+            ?.split('=')[1]
+            ?.replace(/%3D/g, '=') || '';
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const response = await fetch('/api/v1/facebook-ads/accounts', {
+                    headers: { Accept: 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
+                    credentials: 'same-origin',
+                });
+                const data = await response.json();
+                setAccounts(data.data || []);
+            } catch (err) {
+                // Card still renders; select will just be empty.
+            }
+        })();
+    }, []);
+
+    const handleChange = async (value) => {
+        setSaving(true);
+        try {
+            const response = await fetch(`/api/v1/funnels/${funnelUuid}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    settings: {
+                        ...funnel.settings,
+                        ads: {
+                            ...funnel.settings?.ads,
+                            facebook_ad_account_id: value ? Number(value) : null,
+                        },
+                    },
+                }),
+            });
+            if (response.ok) {
+                showToast('Ads source saved');
+                onRefresh();
+            } else {
+                const error = await response.json();
+                showToast(error.message || 'Failed to save ads source', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to save ads source', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const current = accounts.find((a) => a.id === Number(currentId));
+
+    return (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Ads Source</h3>
+                    <p className="text-sm text-gray-500">
+                        Which Facebook ad account drives traffic to this funnel — used to attribute ad spend.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={currentId || ''}
+                        onChange={(e) => handleChange(e.target.value)}
+                        disabled={saving}
+                        className="min-w-[220px] rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                    >
+                        <option value="">Not linked to an ad account</option>
+                        {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                                {account.connection_name ? `[${account.connection_name}] ` : ''}{account.name} (act_{account.account_id})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            {accounts.length === 0 && (
+                <p className="mt-3 text-xs text-gray-500">
+                    No ad accounts synced yet — connect a Business Manager on the{' '}
+                    <a href="/funnel-builder/facebook-ads" className="font-medium text-orange-600 hover:text-orange-700">
+                        Facebook Ads
+                    </a>{' '}
+                    page first.
+                </p>
+            )}
+            {current && (
+                <p className="mt-3 text-xs text-gray-500">
+                    Linked to <span className="font-medium text-gray-700">{current.name}</span> — daily spend for this account is
+                    synced automatically and will be attributed to this funnel.
+                </p>
+            )}
+        </div>
+    );
+}
+
 // Tracking Tab Component - Facebook Pixel & Conversions API Settings
 function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
     const [loading, setLoading] = useState(false);
@@ -1742,6 +1852,9 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
 
             {/* Google (GA4 + Google Ads) Section */}
             <GoogleTrackingCard funnelUuid={funnelUuid} funnel={funnel} onRefresh={onRefresh} showToast={showToast} />
+
+            {/* Ads Source - which ad account feeds this funnel */}
+            <AdsSourceCard funnelUuid={funnelUuid} funnel={funnel} onRefresh={onRefresh} showToast={showToast} />
 
             {/* Installation Check - verify pixels actually fire on the live page */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">

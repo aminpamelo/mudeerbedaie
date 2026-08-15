@@ -60,6 +60,14 @@ class FunnelResource extends JsonResource
             'steps_count' => $this->when(isset($this->steps_count), $this->steps_count),
             'sessions_count' => $this->when(isset($this->sessions_count), $this->sessions_count),
             'orders_count' => $this->when(isset($this->orders_count), $this->orders_count),
+            'orders_revenue' => $this->when(isset($this->orders_revenue), fn () => (float) $this->orders_revenue),
+
+            // Owner
+            'owner' => $this->whenLoaded('user', fn () => $this->user ? [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'role' => $this->user->role,
+            ] : null),
 
             // Relations
             'steps' => FunnelStepResource::collection($this->whenLoaded('steps')),

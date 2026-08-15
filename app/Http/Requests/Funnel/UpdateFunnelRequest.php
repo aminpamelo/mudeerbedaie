@@ -56,6 +56,9 @@ class UpdateFunnelRequest extends FormRequest
             'settings.pixel_settings.google.events' => ['nullable', 'array'],
             'settings.pixel_settings.google.library_pixel_id' => ['nullable', 'integer'],
             'settings.pixel_settings.tiktok' => ['nullable', 'array'],
+            // Ads attribution — which ad account feeds this funnel
+            'settings.ads' => ['nullable', 'array'],
+            'settings.ads.facebook_ad_account_id' => ['nullable', 'integer'],
             'show_orders_in_admin' => ['sometimes', 'boolean'],
             'disable_shipping' => ['sometimes', 'boolean'],
             'shipping_settings' => ['nullable', 'array'],

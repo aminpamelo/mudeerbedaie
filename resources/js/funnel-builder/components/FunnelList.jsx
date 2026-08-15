@@ -19,9 +19,17 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [owners, setOwners] = useState([]);
     const [view, setView] = useState(() => {
-        if (typeof window === 'undefined') return 'grouped';
-        return window.localStorage?.getItem(VIEW_KEY) || 'grouped';
+        if (typeof window === 'undefined') return 'list';
+        // One-time migration: the table view is the new default, including for
+        // users who saved a grid preference before it existed.
+        if (!window.localStorage?.getItem('funnelBuilder.listViewV2')) {
+            window.localStorage?.setItem('funnelBuilder.listViewV2', '1');
+            window.localStorage?.setItem(VIEW_KEY, 'list');
+            return 'list';
+        }
+        return window.localStorage?.getItem(VIEW_KEY) || 'list';
     });
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCategoriesModal, setShowCategoriesModal] = useState(false);
@@ -40,6 +48,54 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
             window.localStorage?.setItem(VIEW_KEY, view);
         }
     }, [view]);
+
+    const canAssignOwner = ['admin', 'employee'].includes(window.funnelBuilderConfig?.user?.role);
+
+    // Candidate owners for the assign dropdown (admin/employee only)
+    useEffect(() => {
+        if (!canAssignOwner) return;
+        (async () => {
+            try {
+                const response = await fetch('/api/v1/funnel-owners', {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                });
+                const data = await response.json();
+                setOwners(data.data || []);
+            } catch (err) {
+                // Assign dropdown just won't show options.
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleAssignOwner = async (funnel, userId) => {
+        try {
+            const csrf = document.cookie
+                .split('; ')
+                .find((row) => row.startsWith('XSRF-TOKEN='))
+                ?.split('=')[1]
+                ?.replace(/%3D/g, '=') || '';
+            const response = await fetch(`/api/v1/funnels/${funnel.uuid}/assign-owner`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': csrf,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ user_id: userId }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setFunnels((prev) => prev.map((f) => (f.uuid === funnel.uuid ? { ...f, owner: data.owner } : f)));
+            } else {
+                setError(data.message || 'Failed to assign owner');
+            }
+        } catch (err) {
+            setError('Failed to assign owner');
+        }
+    };
 
     const loadFunnels = useCallback(async () => {
         setLoading(true);
@@ -248,8 +304,18 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
                 <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700">
                     <button
                         type="button"
+                        onClick={() => setView('list')}
+                        className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${view === 'list' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
+                        title="List view"
+                    >
+                        <svg className="inline h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M3 10h18M3 14h18M3 18h18" />
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setView('grouped')}
-                        className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${view === 'grouped' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
+                        className={`border-l border-zinc-200 px-2.5 py-1.5 text-xs font-medium transition-colors dark:border-zinc-700 ${view === 'grouped' ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'bg-white text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
                         title="Grouped by category"
                     >
                         <svg className="inline h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -280,6 +346,17 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
             {/* Body */}
             {funnels.length === 0 ? (
                 <EmptyState onCreate={() => setShowCreateModal(true)} />
+            ) : view === 'list' ? (
+                <FunnelTable
+                    funnels={funnels}
+                    getStatusBadge={getStatusBadge}
+                    onSelect={onSelectFunnel}
+                    onDuplicate={handleDuplicate}
+                    onDelete={handleDelete}
+                    canAssignOwner={canAssignOwner}
+                    owners={owners}
+                    onAssignOwner={handleAssignOwner}
+                />
             ) : view === 'flat' ? (
                 <FunnelGrid
                     funnels={funnels}
@@ -491,6 +568,138 @@ function FunnelGrid({ funnels, categories, getStatusBadge, onSelect, onDuplicate
                     onAssignCategory={onAssignCategory}
                 />
             ))}
+        </div>
+    );
+}
+
+// Table view — the default. One row per funnel with owner, orders, and
+// revenue so the whole operation is scannable at a glance.
+function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete, canAssignOwner, owners, onAssignOwner }) {
+    const [assigningUuid, setAssigningUuid] = useState(null);
+
+    const fmtRM = (value) => `RM ${Number(value || 0).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
+
+    return (
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <table className="w-full min-w-[900px] text-sm">
+                <thead>
+                    <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-wider text-zinc-500 dark:border-zinc-700">
+                        <th className="px-4 py-3 font-medium">Funnel</th>
+                        <th className="px-4 py-3 font-medium">Owner</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                        <th className="px-4 py-3 text-right font-medium">Steps</th>
+                        <th className="px-4 py-3 text-right font-medium">Visitors</th>
+                        <th className="px-4 py-3 text-right font-medium">Orders</th>
+                        <th className="px-4 py-3 text-right font-medium">Revenue</th>
+                        <th className="px-4 py-3 font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {funnels.map((funnel) => {
+                        const color = getCategoryColorClasses(funnel.category?.color || 'zinc');
+                        return (
+                            <tr
+                                key={funnel.uuid}
+                                className="border-b border-zinc-100 transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                            >
+                                <td className="max-w-[280px] px-4 py-3">
+                                    <button onClick={() => onSelect(funnel)} className="block w-full text-left cursor-pointer">
+                                        <span className="block truncate font-medium text-zinc-900 hover:text-orange-600 dark:text-zinc-100">
+                                            {funnel.name}
+                                        </span>
+                                        <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                                            {funnel.category && (
+                                                <>
+                                                    <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />
+                                                    <span>{funnel.category.name}</span>
+                                                    <span>·</span>
+                                                </>
+                                            )}
+                                            <span>/{funnel.slug}</span>
+                                        </span>
+                                    </button>
+                                </td>
+                                <td className="px-4 py-3">
+                                    {canAssignOwner && assigningUuid === funnel.uuid ? (
+                                        <select
+                                            autoFocus
+                                            defaultValue={funnel.owner?.id || ''}
+                                            onChange={(e) => {
+                                                if (e.target.value) onAssignOwner(funnel, Number(e.target.value));
+                                                setAssigningUuid(null);
+                                            }}
+                                            onBlur={() => setAssigningUuid(null)}
+                                            className="w-40 rounded-md border border-zinc-300 px-2 py-1 text-xs outline-none dark:border-zinc-600"
+                                        >
+                                            <option value="">Select owner...</option>
+                                            {owners.map((owner) => (
+                                                <option key={owner.id} value={owner.id}>
+                                                    {owner.name} ({owner.role})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <button
+                                            onClick={() => canAssignOwner && setAssigningUuid(funnel.uuid)}
+                                            className={`group flex items-center gap-1.5 text-left ${canAssignOwner ? 'cursor-pointer' : 'cursor-default'}`}
+                                            title={canAssignOwner ? 'Click to reassign owner' : undefined}
+                                        >
+                                            <span className="text-zinc-700 dark:text-zinc-300">{funnel.owner?.name || '—'}</span>
+                                            {funnel.owner?.role && funnel.owner.role !== 'admin' && (
+                                                <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium capitalize text-purple-800">
+                                                    {funnel.owner.role}
+                                                </span>
+                                            )}
+                                            {canAssignOwner && (
+                                                <svg className="h-3 w-3 text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    )}
+                                </td>
+                                <td className="px-4 py-3">
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${getStatusBadge(funnel.status)}`}>
+                                        {funnel.status}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{funnel.steps_count ?? funnel.steps?.length ?? 0}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{(funnel.sessions_count ?? 0).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right tabular-nums font-medium text-zinc-900 dark:text-zinc-100">{(funnel.orders_count ?? 0).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">{fmtRM(funnel.orders_revenue)}</td>
+                                <td className="px-4 py-3">
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => onSelect(funnel)}
+                                            className="rounded-md border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                        >
+                                            Open
+                                        </button>
+                                        <button
+                                            onClick={() => onDuplicate(funnel.uuid)}
+                                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-200"
+                                            title="Duplicate"
+                                        >
+                                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => onDelete(funnel.uuid)}
+                                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:text-red-500"
+                                            title="Delete"
+                                        >
+                                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
         </div>
     );
 }

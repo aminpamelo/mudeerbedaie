@@ -12,6 +12,7 @@ import StudioShell from './components/StudioShell';
 import StudioProducts from './components/StudioProducts';
 import StudioOrders from './components/StudioOrders';
 import StudioReports from './components/StudioReports';
+import StudioFacebookAds from './components/StudioFacebookAds';
 import { stepApi } from './services/api';
 
 // View states
@@ -23,6 +24,7 @@ const VIEWS = {
     PRODUCTS: 'products',
     ORDERS: 'orders',
     REPORTS: 'reports',
+    FACEBOOK_ADS: 'facebook_ads',
 };
 
 // Static SPA pages (must be matched before the /funnel-builder/{uuid} branch)
@@ -31,6 +33,7 @@ const STATIC_PATHS = {
     '/funnel-builder/products': VIEWS.PRODUCTS,
     '/funnel-builder/orders': VIEWS.ORDERS,
     '/funnel-builder/reports': VIEWS.REPORTS,
+    '/funnel-builder/facebook-ads': VIEWS.FACEBOOK_ADS,
 };
 
 export default function App() {
@@ -195,6 +198,8 @@ export default function App() {
                 return <StudioOrders onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.REPORTS:
                 return <StudioReports onSelectFunnel={handleSelectFunnel} />;
+            case VIEWS.FACEBOOK_ADS:
+                return <StudioFacebookAds />;
             case VIEWS.EDITOR:
                 return (
                     <FunnelEditor

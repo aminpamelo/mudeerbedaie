@@ -27,8 +27,10 @@ class FunnelController extends Controller
                 'steps' => fn ($q) => $q->orderBy('sort_order'),
                 'category',
                 'customDomain',
+                'user' => fn ($q) => $q->withTrashed(),
             ])
-            ->withCount('steps')
+            ->withCount(['steps', 'orders', 'sessions'])
+            ->withSum('orders as orders_revenue', 'funnel_revenue')
             ->latest();
 
         // Fighters only ever see the funnels they own; admin/employee see all.
@@ -178,6 +180,50 @@ class FunnelController extends Controller
         return response()->json([
             'message' => 'Funnel deleted successfully',
         ]);
+    }
+
+    /**
+     * Reassign a funnel to another owner (admin/employee only). Ownership
+     * controls which fighter sees the funnel in their scoped views.
+     */
+    public function assignOwner(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role, ['admin', 'employee'], true)) {
+            return response()->json(['message' => 'Only admin can reassign funnel owners.'], 403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
+        $funnel->update(['user_id' => $validated['user_id']]);
+
+        $owner = \App\Models\User::withTrashed()->find($validated['user_id']);
+
+        return response()->json([
+            'message' => 'Funnel owner updated',
+            'owner' => ['id' => $owner->id, 'name' => $owner->name, 'role' => $owner->role],
+        ]);
+    }
+
+    /**
+     * Candidate owners for the assign dropdown (admin/employee only).
+     */
+    public function owners(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role, ['admin', 'employee'], true)) {
+            return response()->json(['data' => []]);
+        }
+
+        $owners = \App\Models\User::query()
+            ->whereIn('role', ['admin', 'employee', 'fighter'])
+            ->orderBy('name')
+            ->get(['id', 'name', 'role']);
+
+        return response()->json(['data' => $owners]);
     }
 
     /**

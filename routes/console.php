@@ -30,6 +30,9 @@ Schedule::job(new UpdateFunnelAnalytics)->dailyAt('02:00');
 // Daily pixel installation health check on published funnels
 Schedule::command('funnel:pixel-health')->dailyAt('02:30');
 
+// Refresh Facebook Ads insights from every connected Business Manager
+Schedule::command('facebook:sync-ads --days=3')->dailyAt('03:00');
+
 // Custom domain verification
 Schedule::job(new VerifyCustomDomains)->everyFiveMinutes()->withoutOverlapping();
 Schedule::job(new CleanupFailedDomains)->daily()->at('03:30');
