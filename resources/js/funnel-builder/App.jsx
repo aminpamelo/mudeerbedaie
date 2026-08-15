@@ -13,6 +13,8 @@ import StudioProducts from './components/StudioProducts';
 import StudioOrders from './components/StudioOrders';
 import StudioReports from './components/StudioReports';
 import StudioFacebookAds from './components/StudioFacebookAds';
+import StudioAutomations from './components/StudioAutomations';
+import StudioAnalytics from './components/StudioAnalytics';
 import { stepApi } from './services/api';
 
 // View states
@@ -25,6 +27,8 @@ const VIEWS = {
     ORDERS: 'orders',
     REPORTS: 'reports',
     FACEBOOK_ADS: 'facebook_ads',
+    AUTOMATIONS: 'automations',
+    ANALYTICS: 'analytics',
 };
 
 // Static SPA pages (must be matched before the /funnel-builder/{uuid} branch)
@@ -34,6 +38,8 @@ const STATIC_PATHS = {
     '/funnel-builder/orders': VIEWS.ORDERS,
     '/funnel-builder/reports': VIEWS.REPORTS,
     '/funnel-builder/facebook-ads': VIEWS.FACEBOOK_ADS,
+    '/funnel-builder/automations': VIEWS.AUTOMATIONS,
+    '/funnel-builder/analytics': VIEWS.ANALYTICS,
 };
 
 export default function App() {
@@ -122,11 +128,11 @@ export default function App() {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
-    // Navigate to funnel detail
-    const handleSelectFunnel = (funnel) => {
+    // Navigate to funnel detail (optionally straight to a specific tab)
+    const handleSelectFunnel = (funnel, tab = null) => {
         setSelectedFunnel(funnel);
         setCurrentView(VIEWS.DETAIL);
-        window.history.pushState({}, '', `/funnel-builder/${funnel.uuid}`);
+        window.history.pushState({}, '', `/funnel-builder/${funnel.uuid}${tab ? `?tab=${tab}` : ''}`);
     };
 
     // Navigate back out of a funnel. Fighters go home to /fighter (their list);
@@ -200,6 +206,10 @@ export default function App() {
                 return <StudioReports onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.FACEBOOK_ADS:
                 return <StudioFacebookAds />;
+            case VIEWS.AUTOMATIONS:
+                return <StudioAutomations onSelectFunnel={handleSelectFunnel} />;
+            case VIEWS.ANALYTICS:
+                return <StudioAnalytics onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.EDITOR:
                 return (
                     <FunnelEditor

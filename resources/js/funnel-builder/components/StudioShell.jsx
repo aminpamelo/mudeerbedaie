@@ -239,6 +239,8 @@ export default function StudioShell({
         orders: 'Orders',
         reports: 'Reports',
         facebook_ads: 'Facebook Ads',
+        automations: 'Automations',
+        analytics: 'Analytics',
     };
 
     const crumbs =
@@ -312,6 +314,32 @@ export default function StudioShell({
                     icon={
                         <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                    }
+                />
+                <NavItem
+                    active={currentView === 'automations'}
+                    onClick={() => {
+                        setSidebarOpen(false);
+                        onNavigate('automations');
+                    }}
+                    label="Automations"
+                    icon={
+                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    }
+                />
+                <NavItem
+                    active={currentView === 'analytics'}
+                    onClick={() => {
+                        setSidebarOpen(false);
+                        onNavigate('analytics');
+                    }}
+                    label="Analytics"
+                    icon={
+                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                         </svg>
                     }
                 />

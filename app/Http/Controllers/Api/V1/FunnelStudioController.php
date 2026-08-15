@@ -322,6 +322,150 @@ class FunnelStudioController extends Controller
     }
 
     /**
+     * Every automation across visible funnels, with run stats.
+     */
+    public function automations(Request $request): JsonResponse
+    {
+        $funnelIds = $this->scopedFunnelIds($request);
+
+        $query = \App\Models\FunnelAutomation::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->with('funnel:id,uuid,name')
+            ->withCount(['logs', 'actions'])
+            ->withMax('logs', 'created_at');
+
+        if ($search = trim((string) $request->input('search'))) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        if ($request->filled('active')) {
+            $query->where('is_active', $request->boolean('active'));
+        }
+
+        if ($trigger = $request->input('trigger_type')) {
+            $query->where('trigger_type', $trigger);
+        }
+
+        $automations = $query->orderByDesc('is_active')->orderBy('name')->get();
+
+        return response()->json([
+            'data' => $automations->map(fn ($automation) => [
+                'id' => $automation->id,
+                'name' => $automation->name,
+                'funnel_name' => $automation->funnel?->name ?? '-',
+                'funnel_uuid' => $automation->funnel?->uuid,
+                'trigger_type' => $automation->trigger_type,
+                'is_active' => (bool) $automation->is_active,
+                'actions_count' => (int) $automation->actions_count,
+                'runs_count' => (int) $automation->logs_count,
+                'last_run_at' => $automation->logs_max_created_at
+                    ? \Illuminate\Support\Carbon::parse($automation->logs_max_created_at)->diffForHumans()
+                    : null,
+            ]),
+        ]);
+    }
+
+    /**
+     * Toggle an automation on/off from the cross-funnel page.
+     */
+    public function toggleAutomation(Request $request, int $automationId): JsonResponse
+    {
+        $automation = \App\Models\FunnelAutomation::query()
+            ->whereIn('funnel_id', $this->scopedFunnelIds($request))
+            ->findOrFail($automationId);
+
+        $automation->update(['is_active' => ! $automation->is_active]);
+
+        return response()->json(['success' => true, 'is_active' => (bool) $automation->is_active]);
+    }
+
+    /**
+     * Traffic & conversion analytics across visible funnels: totals, daily
+     * visitors-vs-conversions series, and a per-funnel comparison table.
+     */
+    public function analytics(Request $request): JsonResponse
+    {
+        $funnelIds = $this->scopedFunnelIds($request);
+        $days = (int) $request->input('days', 30);
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+        $from = now()->subDays($days)->startOfDay();
+
+        $sessionsBase = \App\Models\FunnelSession::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->where('created_at', '>=', $from);
+
+        $ordersBase = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->where('created_at', '>=', $from);
+
+        $totalSessions = (clone $sessionsBase)->count();
+        $totalOrders = (clone $ordersBase)->count();
+        $totalRevenue = (float) (clone $ordersBase)->sum('funnel_revenue');
+
+        // Daily visitors vs conversions
+        $sessionsByDay = (clone $sessionsBase)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as sessions')
+            ->groupBy('day')->get()->keyBy('day');
+        $ordersByDay = (clone $ordersBase)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as orders')
+            ->groupBy('day')->get()->keyBy('day');
+
+        $series = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = now()->subDays($i)->toDateString();
+            $series[] = [
+                'day' => $day,
+                'sessions' => (int) ($sessionsByDay[$day]->sessions ?? 0),
+                'conversions' => (int) ($ordersByDay[$day]->orders ?? 0),
+            ];
+        }
+
+        // Per-funnel comparison
+        $sessionsByFunnel = (clone $sessionsBase)
+            ->selectRaw('funnel_id, COUNT(*) as sessions')
+            ->groupBy('funnel_id')->get()->keyBy('funnel_id');
+        $ordersByFunnel = (clone $ordersBase)
+            ->selectRaw('funnel_id, COUNT(*) as orders, SUM(funnel_revenue) as revenue')
+            ->groupBy('funnel_id')->get()->keyBy('funnel_id');
+
+        $activeFunnelIds = $sessionsByFunnel->keys()->merge($ordersByFunnel->keys())->unique();
+
+        $funnels = Funnel::query()
+            ->whereIn('id', $activeFunnelIds)
+            ->get(['id', 'uuid', 'name', 'status'])
+            ->map(function (Funnel $funnel) use ($sessionsByFunnel, $ordersByFunnel) {
+                $sessions = (int) ($sessionsByFunnel[$funnel->id]->sessions ?? 0);
+                $orders = (int) ($ordersByFunnel[$funnel->id]->orders ?? 0);
+
+                return [
+                    'funnel_uuid' => $funnel->uuid,
+                    'funnel_name' => $funnel->name,
+                    'status' => $funnel->status,
+                    'sessions' => $sessions,
+                    'conversions' => $orders,
+                    'conversion_rate' => $sessions > 0 ? round(($orders / $sessions) * 100, 2) : 0,
+                    'revenue' => (float) ($ordersByFunnel[$funnel->id]->revenue ?? 0),
+                ];
+            })
+            ->sortByDesc('sessions')
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'days' => $days,
+                'totals' => [
+                    'sessions' => $totalSessions,
+                    'conversions' => $totalOrders,
+                    'conversion_rate' => $totalSessions > 0 ? round(($totalOrders / $totalSessions) * 100, 2) : 0,
+                    'revenue' => $totalRevenue,
+                ],
+                'daily' => $series,
+                'funnels' => $funnels,
+            ],
+        ]);
+    }
+
+    /**
      * Top-bar feed: today's pulse, recent orders, and things needing
      * attention (broken pixels, failed ads connections).
      */
