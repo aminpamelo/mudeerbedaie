@@ -217,8 +217,7 @@
                     data-section='funnels' x-init="if (!isExpanded('funnels')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('funnels', $event)"
                 >
-                    <flux:navlist.item icon="rectangle-stack" :href="route('admin.funnels')" :current="request()->routeIs('admin.funnels*')" wire:navigate>{{ __('All Funnels') }}</flux:navlist.item>
-                    <flux:navlist.item icon="plus-circle" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*')" wire:navigate>{{ __('Create Funnel') }}</flux:navlist.item>
+                    <flux:navlist.item icon="funnel" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*') || request()->routeIs('admin.funnels*')" wire:navigate>{{ __('Funnel Studio') }}</flux:navlist.item>
                     <flux:navlist.item icon="bolt" :href="route('workflows.index')" :current="request()->routeIs('workflows.*')" wire:navigate>{{ __('Workflows') }}</flux:navlist.item>
                     <flux:navlist.item icon="envelope" :href="route('admin.funnel-email-templates')" :current="request()->routeIs('admin.funnel-email-templates*')" wire:navigate>{{ __('Email Templates') }}</flux:navlist.item>
                 </flux:navlist.group>
