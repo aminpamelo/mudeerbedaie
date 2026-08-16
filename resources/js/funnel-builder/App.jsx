@@ -50,6 +50,16 @@ export default function App() {
     // Loaded funnel details (name etc.) reported up by FunnelDetail so the
     // shell breadcrumb/pin work even on direct URL loads.
     const [funnelMeta, setFunnelMeta] = useState(null);
+    // Day/night mode for the whole Studio (dark is the default)
+    const [theme, setTheme] = useState(() => window.localStorage?.getItem('fs-theme') || 'dark');
+
+    const handleToggleTheme = () => {
+        setTheme((prev) => {
+            const next = prev === 'dark' ? 'light' : 'dark';
+            window.localStorage?.setItem('fs-theme', next);
+            return next;
+        });
+    };
 
     // "Fighter context" = the builder was entered from the Fighter portal — a
     // real fighter (by role), or an admin who opened it via /fighter (carrying
@@ -253,12 +263,14 @@ export default function App() {
     }
 
     return (
-        <div className="funnel-builder-app fs-studio h-screen overflow-hidden">
+        <div className={`funnel-builder-app h-screen overflow-hidden ${theme === 'dark' ? 'fs-studio' : 'fs-light'}`}>
             <StudioShell
                 currentView={currentView}
                 funnelUuid={currentView === VIEWS.DETAIL ? selectedFunnel?.uuid : null}
                 funnelName={currentView === VIEWS.DETAIL ? (funnelMeta?.uuid === selectedFunnel?.uuid ? funnelMeta?.name : selectedFunnel?.name) : null}
                 fighterContext={fighterContext}
+                theme={theme}
+                onToggleTheme={handleToggleTheme}
                 onNavigate={handleNavigate}
                 onSelectFunnel={handleSelectFunnel}
             >

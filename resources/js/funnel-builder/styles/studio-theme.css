@@ -61,15 +61,15 @@
 }
 
 /* ── Typography helpers ─────────────────────────────────────────────── */
-.fs-studio .fs-display,
-.fs-studio h1,
-.fs-studio h2,
-.fs-studio h3 {
+.funnel-builder-app .fs-display,
+.funnel-builder-app h1,
+.funnel-builder-app h2,
+.funnel-builder-app h3 {
     font-family: 'Space Grotesk', 'Geist', system-ui, sans-serif;
     letter-spacing: -0.01em;
 }
 
-.fs-studio .fs-gradient-text {
+.funnel-builder-app .fs-gradient-text {
     background: var(--fs-gradient);
     -webkit-background-clip: text;
     background-clip: text;
@@ -77,7 +77,7 @@
 }
 
 /* Brand mark in the app header */
-.fs-studio .fs-brand-mark {
+.funnel-builder-app .fs-brand-mark {
     width: 30px;
     height: 30px;
     border-radius: 9px;
@@ -441,7 +441,7 @@
 }
 
 /* ── Primary CTA helper (hand-applied on key buttons) ───────────────── */
-.fs-studio .fs-cta {
+.funnel-builder-app .fs-cta {
     background-image: var(--fs-cta-gradient);
     color: #fff;
     border: none;
@@ -449,13 +449,13 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
-.fs-studio .fs-cta:hover {
+.funnel-builder-app .fs-cta:hover {
     filter: brightness(1.12);
     transform: translateY(-1px);
     box-shadow: 0 6px 28px rgba(168, 85, 247, 0.45);
 }
 
-.fs-studio .fs-cta:active {
+.funnel-builder-app .fs-cta:active {
     transform: translateY(0);
 }
 
@@ -478,7 +478,7 @@
     background: var(--fs-page);
 }
 
-.fs-studio .fs-nav-item {
+.funnel-builder-app .fs-nav-item {
     border: 1px solid transparent;
 }
 
@@ -494,7 +494,7 @@
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
 }
 
-.fs-studio .fs-star-active {
+.funnel-builder-app .fs-star-active {
     color: #fbbf24;
     filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
 }
@@ -571,13 +571,13 @@
 }
 
 /* Chart bars on the Reports page */
-.fs-studio .fs-bar {
+.funnel-builder-app .fs-bar {
     background: var(--fs-gradient);
     opacity: 0.85;
     transition: opacity 0.15s ease;
 }
 
-.fs-studio .fs-bar:hover {
+.funnel-builder-app .fs-bar:hover {
     opacity: 1;
 }
 
@@ -593,8 +593,8 @@
 
 /* Stat values get the studio mono-glow treatment.
    Extra specificity so the .text-gray-900 remap can't win the color war. */
-.funnel-builder-app.fs-studio .fs-stat-value,
-.funnel-builder-app.fs-studio .fs-stat-value.text-gray-900 {
+.funnel-builder-app .fs-stat-value,
+.funnel-builder-app .fs-stat-value.text-gray-900 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
     background: var(--fs-gradient);
     -webkit-background-clip: text;
@@ -650,9 +650,93 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .fs-studio .fs-cta,
-    .fs-studio .fs-cta:hover {
+    .funnel-builder-app .fs-cta,
+    .funnel-builder-app .fs-cta:hover {
         transition: none;
         transform: none;
     }
+}
+
+/* ── Light theme (fs-light) ─────────────────────────────────────────── */
+/* Day mode: every page component renders its native light design (they
+   were written light-first — the dark theme is just a remap). This block
+   only styles the shell chrome and re-tints the dark-flavored zinc classes
+   the shell uses so text stays readable on white. Gradient helpers
+   (fs-cta, fs-gradient-text, fs-bar, fs-stat-value, fs-brand-mark) are
+   theme-agnostic and shared with dark. */
+.funnel-builder-app {
+    --fs-gradient: linear-gradient(135deg, #8b5cf6 0%, #d946ef 55%, #f97316 120%);
+    --fs-cta-gradient: linear-gradient(135deg, #7c3aed 0%, #c026d3 100%);
+    --fs-glow: 0 4px 24px rgba(168, 85, 247, 0.35);
+}
+
+.funnel-builder-app.fs-light {
+    background-color: #f7f7fa;
+    color: #3f3f46;
+    color-scheme: light;
+}
+
+.fs-light .fs-sidebar {
+    background: #ffffff;
+    border-right: 1px solid #e4e4e7;
+    overflow-y: auto;
+}
+
+.fs-light .fs-page-bg {
+    background: #ffffff;
+}
+
+.fs-light .fs-header {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid #e4e4e7;
+}
+
+.fs-light .fs-nav-active {
+    color: #111827;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(217, 70, 239, 0.07));
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.fs-light .fs-search-panel {
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
+}
+
+/* Shell text/border/hover remaps for white surfaces */
+.funnel-builder-app.fs-light .text-zinc-100 {
+    color: #18181b;
+}
+
+.funnel-builder-app.fs-light .text-zinc-400 {
+    color: #52525b;
+}
+
+.funnel-builder-app.fs-light .hover\:text-zinc-100:hover,
+.funnel-builder-app.fs-light .hover\:text-zinc-200:hover,
+.funnel-builder-app.fs-light .hover\:text-zinc-300:hover {
+    color: #111827;
+}
+
+.funnel-builder-app.fs-light .border-zinc-700,
+.funnel-builder-app.fs-light .border-zinc-700\/50 {
+    border-color: #e4e4e7;
+}
+
+.funnel-builder-app.fs-light .border-zinc-500 {
+    border-color: #a1a1aa;
+}
+
+.funnel-builder-app.fs-light .hover\:border-zinc-500:hover {
+    border-color: #a1a1aa;
+}
+
+.funnel-builder-app.fs-light .hover\:bg-zinc-800:hover {
+    background-color: #f4f4f5;
+}
+
+.funnel-builder-app.fs-light .bg-zinc-600 {
+    background-color: #d4d4d8;
 }

@@ -728,8 +728,8 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                                     default: return '#6b7280';
                                 }
                             }}
-                            maskColor="rgba(11, 13, 20, 0.7)"
-                            style={{ backgroundColor: '#151926' }}
+                            maskColor={window.localStorage?.getItem('fs-theme') === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(11, 13, 20, 0.7)'}
+                            style={{ backgroundColor: window.localStorage?.getItem('fs-theme') === 'light' ? '#ffffff' : '#151926' }}
                             className="!rounded-lg !border !border-white/15 !shadow-lg"
                         />
                     </ReactFlow>
