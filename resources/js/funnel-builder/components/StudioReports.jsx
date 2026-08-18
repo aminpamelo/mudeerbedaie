@@ -103,15 +103,18 @@ export default function StudioReports({ onSelectFunnel }) {
                         <h3 className="mb-4 text-lg font-semibold text-gray-900">Daily Revenue</h3>
                         <div className="flex h-44 items-end gap-[3px]">
                             {report.daily.map((d) => (
-                                <div
-                                    key={d.day}
-                                    className="group relative flex-1"
-                                    title={`${d.day}: ${fmtRM(d.revenue)} (${d.orders} orders)`}
-                                >
+                                <div key={d.day} className="group relative flex h-full flex-1 items-end">
                                     <div
                                         className="fs-bar w-full rounded-t"
                                         style={{ height: `${Math.max(2, (d.revenue / maxDailyRevenue) * 160)}px` }}
                                     />
+                                    {/* Hover tooltip */}
+                                    <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 scale-95 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1.5 text-center opacity-0 shadow-lg transition duration-150 group-hover:scale-100 group-hover:opacity-100">
+                                        <div className="text-[11px] font-medium text-gray-300">{d.day}</div>
+                                        <div className="text-xs font-semibold text-white">{fmtRM(d.revenue)}</div>
+                                        <div className="text-[11px] text-gray-400">{d.orders} orders</div>
+                                        <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                    </div>
                                 </div>
                             ))}
                         </div>

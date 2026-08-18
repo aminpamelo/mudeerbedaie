@@ -14,7 +14,7 @@ class MindpalEmbeddingService
     {
         $response = OpenAI::embeddings()->create([
             'model' => 'text-embedding-3-small',
-            'input' => $text,
+            'input' => mb_scrub($text, 'UTF-8'),
         ]);
 
         return $response->embeddings[0]->embedding;
@@ -28,7 +28,7 @@ class MindpalEmbeddingService
     {
         $response = OpenAI::embeddings()->create([
             'model' => 'text-embedding-3-small',
-            'input' => $texts,
+            'input' => array_map(fn ($t) => mb_scrub($t, 'UTF-8'), $texts),
         ]);
 
         return array_map(fn ($e) => $e->embedding, $response->embeddings);

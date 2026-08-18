@@ -95,30 +95,78 @@ class MindpalController extends Controller
             'message' => ['required', 'string', 'max:5000'],
         ]);
 
-        return response()->stream(function () use ($conversation, $request, $chatService) {
-            $generator = $chatService->streamAsk($conversation, $request->input('message'));
+        $message = $request->input('message');
 
-            foreach ($generator as $token) {
-                echo 'data: '.json_encode(['token' => $token])."\n\n";
+        return response()->stream(function () use ($conversation, $message, $chatService) {
+            $this->pumpStream($chatService->streamAsk($conversation, $message), $conversation);
+        }, 200, $this->streamHeaders());
+    }
 
-                if (ob_get_level() > 0) {
-                    ob_flush();
-                }
-                flush();
-            }
+    /**
+     * Re-answer the last question in the conversation, replacing the previous answer.
+     */
+    public function regenerate(Request $request, MindpalConversation $conversation, MindpalChatService $chatService): StreamedResponse
+    {
+        if ($conversation->user_id !== $request->user()->id) {
+            abort(403, 'You do not have permission to modify this conversation.');
+        }
 
-            echo "data: [DONE]\n\n";
+        $lastUser = $conversation->messages()->where('role', 'user')->latest('id')->first();
 
-            if (ob_get_level() > 0) {
-                ob_flush();
-            }
-            flush();
-        }, 200, [
+        abort_if($lastUser === null, 422, 'There is no question to regenerate.');
+
+        $question = $lastUser->content;
+
+        // Drop the previous question and its answer, then ask again from clean history.
+        $conversation->messages()->where('id', '>=', $lastUser->id)->delete();
+
+        return response()->stream(function () use ($conversation, $question, $chatService) {
+            $this->pumpStream($chatService->streamAsk($conversation, $question), $conversation);
+        }, 200, $this->streamHeaders());
+    }
+
+    /**
+     * Stream generator tokens as SSE, then emit the saved answer's sources.
+     *
+     * @param  \Generator<int, string>  $generator
+     */
+    private function pumpStream(\Generator $generator, MindpalConversation $conversation): void
+    {
+        foreach ($generator as $token) {
+            echo 'data: '.json_encode(['token' => $token])."\n\n";
+            $this->flushOutput();
+        }
+
+        $answer = $conversation->messages()->where('role', 'assistant')->latest('id')->first();
+
+        if ($answer !== null && ! empty($answer->sources)) {
+            echo 'data: '.json_encode(['sources' => $answer->sources])."\n\n";
+            $this->flushOutput();
+        }
+
+        echo "data: [DONE]\n\n";
+        $this->flushOutput();
+    }
+
+    private function flushOutput(): void
+    {
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+        flush();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function streamHeaders(): array
+    {
+        return [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
-        ]);
+        ];
     }
 
     public function destroy(Request $request, MindpalConversation $conversation): RedirectResponse

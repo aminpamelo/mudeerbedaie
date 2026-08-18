@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\MindpalConversation;
 use App\Models\MindpalMessage;
 use Generator;
+use Illuminate\Support\Str;
 use OpenAI\Laravel\Facades\OpenAI;
 
 class MindpalChatService
@@ -228,6 +229,7 @@ PROMPT;
             'document_title' => $item['chunk']->document->title ?? 'Unknown',
             'page_number' => $item['chunk']->page_number,
             'chunk_index' => $item['chunk']->chunk_index,
+            'excerpt' => Str::limit(trim((string) $item['chunk']->content), 260),
             'score' => round($item['score'], 4),
         ], $chunks);
     }

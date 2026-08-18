@@ -18,16 +18,28 @@ class MindpalPdfService
 
         $result = [];
         foreach ($pages as $i => $page) {
-            $text = $page->getText();
-            if (trim($text)) {
+            $text = trim($this->sanitizeUtf8($page->getText()));
+            if ($text !== '') {
                 $result[] = [
                     'page' => $i + 1,
-                    'text' => trim($text),
+                    'text' => $text,
                 ];
             }
         }
 
         return $result;
+    }
+
+    /**
+     * Guarantee valid UTF-8 so json_encode (used by the OpenAI SDK payload) never
+     * throws on malformed bytes from the PDF parser, and drop control characters
+     * plus the replacement characters left behind by scrubbing bad byte sequences.
+     */
+    public function sanitizeUtf8(string $text): string
+    {
+        $clean = mb_scrub($text, 'UTF-8');
+
+        return preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|\x{FFFD}/u', '', $clean) ?? '';
     }
 
     /**

@@ -10,7 +10,7 @@ function navItems(trans) {
     { label: t('navigation.classes', {}, trans), href: '/my/classes', icon: GraduationCap, match: (p) => p.startsWith('/my/classes') },
     { label: t('navigation.schedule', {}, trans), href: '/my/timetable', icon: Calendar, match: (p) => p.startsWith('/my/timetable') },
     { label: t('navigation.courses', {}, trans), href: '/my/courses', icon: BookOpen, match: (p) => p.startsWith('/my/courses') },
-    { label: 'MindPal', href: '/my/mindpal', icon: BrainCircuit, match: (p) => p.startsWith('/my/mindpal') },
+    { label: 'Tanya Ilmu', href: '/my/mindpal', icon: BrainCircuit, match: (p) => p.startsWith('/my/mindpal') },
     { label: t('navigation.account', {}, trans), href: '/my/account', icon: User, match: (p) => p.startsWith('/my/account') || p.startsWith('/my/orders') || p.startsWith('/my/payment') },
   ];
 }
