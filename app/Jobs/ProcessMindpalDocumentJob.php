@@ -23,6 +23,9 @@ class ProcessMindpalDocumentJob implements ShouldQueue
 
     public function handle(MindpalPdfService $pdfService, MindpalEmbeddingService $embedService): void
     {
+        // Parsing large PDFs with Smalot is memory-heavy; give the worker headroom.
+        @ini_set('memory_limit', '1024M');
+
         $document = MindpalDocument::findOrFail($this->documentId);
 
         try {
