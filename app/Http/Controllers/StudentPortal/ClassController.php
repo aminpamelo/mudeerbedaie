@@ -12,6 +12,7 @@ use App\Models\ClassStudent;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,6 +21,20 @@ class ClassController extends Controller
     public function index(Request $request): Response
     {
         $student = $request->user()->student;
+
+        if (! $student) {
+            return Inertia::render('Classes', [
+                'classStudents' => new LengthAwarePaginator([], 0, 12, 1, ['path' => $request->url()]),
+                'courses' => [],
+                'statusCounts' => ['active' => 0, 'completed' => 0, 'transferred' => 0, 'quit' => 0],
+                'totalClasses' => 0,
+                'filters' => [
+                    'search' => $request->input('search', ''),
+                    'status' => $request->input('status', ''),
+                    'course' => $request->input('course', ''),
+                ],
+            ]);
+        }
 
         $query = ClassStudent::where('student_id', $student->id)
             ->with(['class.course', 'class.teacher.user', 'class.sessions'])
@@ -89,6 +104,11 @@ class ClassController extends Controller
     public function show(Request $request, ClassModel $class): Response
     {
         $student = $request->user()->student;
+
+        if (! $student) {
+            abort(403, 'You do not have access to this class.');
+        }
+
         $classStudent = ClassStudent::where('class_id', $class->id)
             ->where('student_id', $student->id)
             ->first();
@@ -189,6 +209,11 @@ class ClassController extends Controller
     public function classTimetableSessions(Request $request, ClassModel $class): JsonResponse
     {
         $student = $request->user()->student;
+
+        if (! $student) {
+            abort(403);
+        }
+
         $classStudent = ClassStudent::where('class_id', $class->id)
             ->where('student_id', $student->id)
             ->first();
@@ -208,6 +233,20 @@ class ClassController extends Controller
     public function timetable(Request $request): Response
     {
         $student = $request->user()->student;
+
+        if (! $student) {
+            $now = Carbon::now();
+            $weekStart = $now->copy()->startOfWeek();
+            $weekEnd = $now->copy()->endOfWeek();
+
+            return Inertia::render('Timetable', [
+                'weekData' => $this->emptyWeekData($weekStart, $weekEnd),
+                'periodLabel' => $weekStart->format('M j').' - '.$weekEnd->format('M j, Y'),
+                'currentDate' => $now->toDateString(),
+                'stats' => ['sessionsThisWeek' => 0, 'upcomingSessions' => 0],
+                'classOptions' => [],
+            ]);
+        }
 
         $activeClasses = $student->activeClasses()
             ->with(['course', 'teacher.user', 'timetable'])
@@ -301,6 +340,13 @@ class ClassController extends Controller
         $weekStart = $date->copy()->startOfWeek();
         $weekEnd = $date->copy()->endOfWeek();
 
+        if (! $student) {
+            return response()->json([
+                'weekData' => $this->emptyWeekData($weekStart, $weekEnd),
+                'periodLabel' => $weekStart->format('M j').' - '.$weekEnd->format('M j, Y'),
+            ]);
+        }
+
         $activeClasses = $student->activeClasses()
             ->with(['course', 'teacher.user', 'timetable'])
             ->get();
@@ -378,6 +424,27 @@ class ClassController extends Controller
     /* ------------------------------------------------------------------
      |  Private helpers
      | ------------------------------------------------------------------ */
+
+    /**
+     * Build a blank 7-day week (no sessions/slots) for students without a profile.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function emptyWeekData(Carbon $weekStart, Carbon $weekEnd): array
+    {
+        $weekData = [];
+        for ($d = $weekStart->copy(); $d <= $weekEnd; $d->addDay()) {
+            $weekData[] = [
+                'date' => $d->toDateString(),
+                'dayName' => $d->format('D'),
+                'dayNumber' => $d->format('j'),
+                'isToday' => $d->isToday(),
+                'items' => [],
+            ];
+        }
+
+        return $weekData;
+    }
 
     private function buildWeekData(ClassModel $class, $sessions, Carbon $date): array
     {

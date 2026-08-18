@@ -5,6 +5,7 @@ namespace App\Http\Controllers\StudentPortal;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -13,6 +14,20 @@ class OrderController extends Controller
     public function index(Request $request): Response
     {
         $student = $request->user()->student;
+
+        if (! $student) {
+            return Inertia::render('Orders', [
+                'orders' => new LengthAwarePaginator([], 0, 10, 1, ['path' => $request->url()]),
+                'totalPaid' => 0,
+                'totalOrders' => 0,
+                'courses' => [],
+                'orderStatuses' => Order::getStatuses(),
+                'filters' => [
+                    'status' => $request->input('status', ''),
+                    'course' => $request->input('course', ''),
+                ],
+            ]);
+        }
 
         $query = Order::where('student_id', $student->id)
             ->with(['course', 'enrollment'])
@@ -69,7 +84,7 @@ class OrderController extends Controller
     {
         $student = $request->user()->student;
 
-        if ($order->student_id !== $student->id) {
+        if ($order->student_id !== $student?->id) {
             abort(403, 'You can only view your own orders.');
         }
 
@@ -118,7 +133,7 @@ class OrderController extends Controller
     {
         $student = $request->user()->student;
 
-        if ($order->student_id !== $student->id) {
+        if ($order->student_id !== $student?->id) {
             abort(403, 'You can only view your own receipts.');
         }
 
