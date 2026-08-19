@@ -89,7 +89,9 @@ function MarkdownContent({ text }) {
 
   lines.forEach((raw) => {
     const line = raw.trim();
-    if (line === '') { flushPara(); flushList(); return; }
+    // A blank line ends a paragraph but should NOT split a list — keep the
+    // list open so items separated by blank lines still number 1, 2, 3...
+    if (line === '') { flushPara(); return; }
 
     const heading = line.match(/^(#{1,3})\s+(.*)$/);
     const ordered = line.match(/^(\d+)\.\s+(.*)$/);

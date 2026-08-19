@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { useState, useCallback } from 'react';
-import { MessageSquare, Search, Trash2, ChevronRight, User } from 'lucide-react';
+import { MessageSquare, Search, Trash2, ChevronRight, User, Plus } from 'lucide-react';
 import MindpalLayout from '@/mindpal-admin/layouts/MindpalLayout';
 import { Card, Badge, Button, Input, EmptyState, Pagination } from '@/mindpal-admin/components/Ui';
 import { cn, formatNumber } from '@/mindpal-admin/lib/utils';
@@ -65,6 +65,23 @@ function ConversationRow({ conversation, onDelete }) {
 export default function Conversations({ conversations, filters, totalConversations }) {
   const [search, setSearch] = useState(filters?.search || '');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [creating, setCreating] = useState(false);
+
+  const handleNewConversation = useCallback(async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+      const res = await fetch('/admin/mindpal/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+      });
+      const data = await res.json();
+      router.get(`/admin/mindpal/conversations/${data.id}`);
+    } catch {
+      setCreating(false);
+    }
+  }, [creating]);
 
   const applyFilters = useCallback((newSearch) => {
     router.get('/admin/mindpal/conversations', {
@@ -98,6 +115,12 @@ export default function Conversations({ conversations, filters, totalConversatio
     <MindpalLayout
       title="Conversations"
       subtitle={`${formatNumber(totalConversations)} total conversations`}
+      actions={
+        <Button variant="primary" onClick={handleNewConversation} disabled={creating}>
+          <Plus className="h-4 w-4" />
+          {creating ? 'Starting...' : 'New Conversation'}
+        </Button>
+      }
     >
       <Head title="Conversations" />
 
