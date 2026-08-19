@@ -22,6 +22,7 @@ class TimeSlotController extends Controller
 
         $timeSlots = LiveTimeSlot::query()
             ->with(['platformAccount.platform', 'createdBy'])
+            ->perpetual() // hide one-off ad-hoc windows created for a single assignment's custom time
             ->when(
                 $platformAccount === 'global',
                 fn ($q) => $q->whereNull('platform_account_id'),

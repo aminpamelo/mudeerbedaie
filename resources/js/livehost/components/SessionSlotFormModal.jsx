@@ -121,6 +121,10 @@ export default function SessionSlotFormModal({
     live_account_id: '',
     platform_account_id: '',
     time_slot_id: '',
+    // Editable window for this one assignment. Seeded from the clicked slot but
+    // freely adjustable; a custom time resolves to a hidden one-off slot server-side.
+    start_time: '',
+    end_time: '',
     live_host_id: '',
     day_of_week: '1',
     schedule_date: '',
@@ -143,6 +147,8 @@ export default function SessionSlotFormModal({
           ? String(sessionSlot.platformAccountId)
           : '',
         time_slot_id: sessionSlot.timeSlotId ? String(sessionSlot.timeSlotId) : '',
+        start_time: sessionSlot.startTime ?? '',
+        end_time: sessionSlot.endTime ?? '',
         live_host_id: sessionSlot.hostId ? String(sessionSlot.hostId) : '',
         day_of_week: String(sessionSlot.dayOfWeek ?? 1),
         schedule_date: sessionSlot.scheduleDate ?? '',
@@ -153,10 +159,19 @@ export default function SessionSlotFormModal({
       return;
     }
 
+    // Seed the editable time from the clicked slot (override slots take priority
+    // on a per-creator override date, mirroring the time-slot dropdown source).
+    const prefillSource = prefill?.overrideTimeSlots?.length ? prefill.overrideTimeSlots : timeSlots;
+    const prefillSlot = prefill?.timeSlotId
+      ? prefillSource.find((ts) => ts.id === prefill.timeSlotId)
+      : null;
+
     form.setData({
       live_account_id: prefill?.liveAccountId ? String(prefill.liveAccountId) : '',
       platform_account_id: prefill?.platformAccountId ? String(prefill.platformAccountId) : '',
       time_slot_id: prefill?.timeSlotId ? String(prefill.timeSlotId) : '',
+      start_time: prefillSlot?.startTime ?? '',
+      end_time: prefillSlot?.endTime ?? '',
       live_host_id: '',
       day_of_week: String(Number.isFinite(prefill?.dayOfWeek) ? prefill.dayOfWeek : 1),
       schedule_date: prefill?.scheduleDate ?? '',
@@ -313,18 +328,18 @@ export default function SessionSlotFormModal({
     }
     const dow = Number.isFinite(prefill?.dayOfWeek) ? prefill.dayOfWeek : null;
     const dayName = dow !== null ? DAY_NAMES_FULL[dow] : null;
-    const matchedSlot = prefill?.timeSlotId
-      ? timeSlotOptions.find((ts) => ts.id === prefill.timeSlotId)
+    // Track the live-edited time so the header updates as the PIC adjusts it.
+    const range = form.data.start_time && form.data.end_time
+      ? `${formatTimeLabel(form.data.start_time)} – ${formatTimeLabel(form.data.end_time)}`
       : null;
-    if (!dayName && !matchedSlot) {
+    if (!dayName && !range) {
       return 'Create a new session slot assignment.';
     }
-    if (!matchedSlot) {
+    if (!range) {
       return dayName;
     }
-    const range = `${formatTimeLabel(matchedSlot.startTime)} – ${formatTimeLabel(matchedSlot.endTime)}`;
     return dayName ? `${dayName}, ${range}` : range;
-  }, [mode, prefill?.dayOfWeek, prefill?.timeSlotId, timeSlotOptions]);
+  }, [mode, prefill?.dayOfWeek, form.data.start_time, form.data.end_time]);
 
   // Clicking a slot pre-fills account/shop/time/day/date, so the form collapses
   // to just "who's going live"; everything else lives behind "More options".
@@ -339,10 +354,42 @@ export default function SessionSlotFormModal({
     return pa?.name ?? null;
   }, [platformAccounts, form.data.platform_account_id]);
 
-  const selectedTimeSlotLabel = useMemo(() => {
-    const ts = timeSlotOptions.find((t) => String(t.id) === String(form.data.time_slot_id));
-    return ts?.label ?? null;
-  }, [timeSlotOptions, form.data.time_slot_id]);
+  // Preset windows offered as a shortcut next to the editable time — the slots
+  // for the chosen day (plus any all-day slots), so the PIC can jump to a known
+  // window and then fine-tune it.
+  const presetOptions = useMemo(() => {
+    const day = Number(form.data.day_of_week);
+    return timeSlotOptions
+      .filter((ts) => ts.dayOfWeek == null || Number(ts.dayOfWeek) === day)
+      .map((ts) => ({
+        value: String(ts.id),
+        label: ts.label,
+        startTime: ts.startTime,
+        endTime: ts.endTime,
+      }));
+  }, [timeSlotOptions, form.data.day_of_week]);
+
+  // The preset whose window exactly matches the current time (so the shortcut
+  // reads "custom time" the moment the PIC nudges the start/end away from it).
+  const matchedPresetValue = useMemo(() => {
+    const p = presetOptions.find(
+      (o) => o.startTime === form.data.start_time && o.endTime === form.data.end_time
+    );
+    return p ? p.value : '';
+  }, [presetOptions, form.data.start_time, form.data.end_time]);
+
+  const applyPreset = (value) => {
+    const p = presetOptions.find((o) => o.value === value);
+    if (!p) {
+      return;
+    }
+    form.setData({
+      ...form.data,
+      time_slot_id: value,
+      start_time: p.startTime,
+      end_time: p.endTime,
+    });
+  };
 
   const submit = (event) => {
     event.preventDefault();
@@ -353,6 +400,10 @@ export default function SessionSlotFormModal({
       platform_account_id:
         data.platform_account_id === '' ? null : Number(data.platform_account_id),
       time_slot_id: data.time_slot_id === '' ? null : Number(data.time_slot_id),
+      // The server resolves start/end into time_slot_id (keeping the preset when
+      // unchanged, else a hidden one-off slot). Blank falls back to time_slot_id.
+      start_time: data.start_time === '' ? null : data.start_time,
+      end_time: data.end_time === '' ? null : data.end_time,
       live_host_id: data.live_host_id === '' ? null : Number(data.live_host_id),
       day_of_week: data.day_of_week === '' ? null : Number(data.day_of_week),
       schedule_date: data.schedule_date === '' ? null : data.schedule_date,
@@ -406,7 +457,14 @@ export default function SessionSlotFormModal({
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-[#525252]">
                 <span className="font-medium text-[#0A0A0A]">{selectedAccount?.label ?? 'No account'}</span>
                 {shopName && (<><span className="text-[#C4C4C4]">·</span><span>{shopName}</span></>)}
-                {selectedTimeSlotLabel && (<><span className="text-[#C4C4C4]">·</span><span className="tabular-nums">{selectedTimeSlotLabel}</span></>)}
+                {form.data.start_time && form.data.end_time && (
+                  <>
+                    <span className="text-[#C4C4C4]">·</span>
+                    <span className="tabular-nums">
+                      {formatTimeLabel(form.data.start_time)} – {formatTimeLabel(form.data.end_time)}
+                    </span>
+                  </>
+                )}
                 <span className="text-[#C4C4C4]">·</span>
                 <span className="tabular-nums">{form.data.is_template ? 'Weekly' : (form.data.schedule_date || DAY_NAMES_FULL[Number(form.data.day_of_week)] || '')}</span>
               </div>
@@ -434,6 +492,24 @@ export default function SessionSlotFormModal({
             />
           </ModalField>
 
+          {/* Editable time — surfaced up-front on a quick assign so adjusting the
+              start/end is one step, not buried under More options. */}
+          {isQuickAssign && (
+            <TimeRangeField
+              startTime={form.data.start_time}
+              endTime={form.data.end_time}
+              onStart={(v) => form.setData('start_time', v)}
+              onEnd={(v) => form.setData('end_time', v)}
+              presets={presetOptions}
+              presetValue={matchedPresetValue}
+              onPreset={applyPreset}
+              startError={form.errors.start_time}
+              endError={form.errors.end_time}
+              slotError={form.errors.time_slot_id}
+              hint="Adjust the start and end time for this session."
+            />
+          )}
+
           {isQuickAssign && (
             <button
               type="button"
@@ -442,7 +518,7 @@ export default function SessionSlotFormModal({
             >
               <ChevronDown className={`h-4 w-4 transition-transform ${showMore ? '' : '-rotate-90'}`} strokeWidth={2} />
               {showMore ? 'Fewer options' : 'More options'}
-              <span className="text-[11px] font-normal text-[#A3A3A3]">· account, shop, time, day, date, remarks</span>
+              <span className="text-[11px] font-normal text-[#A3A3A3]">· account, shop, day, date, remarks</span>
             </button>
           )}
 
@@ -485,20 +561,23 @@ export default function SessionSlotFormModal({
                 />
               </ModalField>
 
-              <ModalField label="Time slot" error={form.errors.time_slot_id} required>
-                <ModalSelect
-                  value={form.data.time_slot_id}
-                  onChange={(e) => form.setData('time_slot_id', e.target.value)}
-                  required
-                >
-                  <option value="">Select time slot</option>
-                  {timeSlotOptions.map((ts) => (
-                    <option key={ts.id} value={ts.id}>
-                      {ts.label}
-                    </option>
-                  ))}
-                </ModalSelect>
-              </ModalField>
+              {/* Quick assign already shows the time editor above; render it here
+                  for edit / non-quick create so the window is always set inline. */}
+              {!isQuickAssign && (
+                <TimeRangeField
+                  startTime={form.data.start_time}
+                  endTime={form.data.end_time}
+                  onStart={(v) => form.setData('start_time', v)}
+                  onEnd={(v) => form.setData('end_time', v)}
+                  presets={presetOptions}
+                  presetValue={matchedPresetValue}
+                  onPreset={applyPreset}
+                  startError={form.errors.start_time}
+                  endError={form.errors.end_time}
+                  slotError={form.errors.time_slot_id}
+                  hint="Set the start and end time for this session."
+                />
+              )}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <ModalField label="Day of week" error={form.errors.day_of_week} required>
@@ -643,6 +722,109 @@ function SuggestionBanner({ suggestion }) {
         Confirm the host below and create the slot. GMV stays unverified until you link this live in
         the session&rsquo;s verify step.
       </p>
+    </div>
+  );
+}
+
+function parseHm(t) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t ?? '');
+  if (!m) {
+    return null;
+  }
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function durationLabel(start, end) {
+  const s = parseHm(start);
+  const e = parseHm(end);
+  if (s == null || e == null) {
+    return null;
+  }
+  const mins = e - s;
+  if (mins <= 0) {
+    return null;
+  }
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) {
+    return `${m}m`;
+  }
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+/**
+ * The user-friendly time editor: two 24-hour time inputs (start → end) with a
+ * live duration chip, plus an optional preset shortcut. The start/end are the
+ * source of truth; the server keeps the preset when unchanged, else resolves a
+ * one-off slot for the bespoke window.
+ */
+function TimeRangeField({
+  startTime,
+  endTime,
+  onStart,
+  onEnd,
+  presets = [],
+  presetValue = '',
+  onPreset,
+  startError,
+  endError,
+  slotError,
+  hint,
+}) {
+  const duration = durationLabel(startTime, endTime);
+  const invalid = Boolean(startTime && endTime && duration === null);
+  const error = startError || endError || slotError;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[13px] font-medium text-[#0A0A0A]">
+        Time<span className="ml-1 text-[#F43F5E]">*</span>
+      </Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type="time"
+          value={startTime}
+          onChange={(e) => onStart(e.target.value)}
+          required
+          aria-label="Start time"
+          className="tabular-nums"
+        />
+        <span className="shrink-0 text-[#A3A3A3]">→</span>
+        <Input
+          type="time"
+          value={endTime}
+          onChange={(e) => onEnd(e.target.value)}
+          required
+          aria-label="End time"
+          className="tabular-nums"
+        />
+        <span
+          className={`ml-0.5 shrink-0 rounded-md px-2 py-1 text-[11.5px] font-medium tabular-nums ${
+            invalid ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#F0FDF4] text-[#15803D]'
+          }`}
+        >
+          {invalid ? 'End ≤ start' : (duration ?? '—')}
+        </span>
+      </div>
+      {presets.length > 0 && (
+        <div className="flex items-center gap-2 pt-0.5">
+          <span className="shrink-0 text-[11px] text-[#A3A3A3]">Or pick a preset</span>
+          <select
+            value={presetValue}
+            onChange={(e) => onPreset(e.target.value)}
+            className="h-8 flex-1 rounded-lg border border-[#EAEAEA] bg-white px-2 text-[12px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+          >
+            <option value="">Custom time</option>
+            {presets.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {hint && !error && <p className="text-[11px] text-[#737373]">{hint}</p>}
+      {error && <p className="text-xs text-[#F43F5E]">{error}</p>}
     </div>
   );
 }

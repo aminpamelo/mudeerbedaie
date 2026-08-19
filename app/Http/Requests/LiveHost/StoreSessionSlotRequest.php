@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\LiveHost;
 
+use App\Models\LiveTimeSlot;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,13 +23,51 @@ class StoreSessionSlotRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        // A bespoke start/end time resolves to a hidden one-off slot so the rest
+        // of validation (uniqueness, exists) keeps keying on time_slot_id. Only a
+        // valid, ordered window is resolved here — a malformed or end-before-start
+        // time is left for the rules below to reject so no nonsensical slot is
+        // ever created.
+        [$start, $end] = $this->customTimeWindow();
+
         $this->merge([
             'live_host_id' => $this->nullableId($this->input('live_host_id')),
             'live_host_platform_account_id' => $this->nullableId($this->input('live_host_platform_account_id')),
             'live_account_id' => $this->nullableId($this->input('live_account_id')),
             'schedule_date' => $this->nullableString($this->input('schedule_date')),
             'is_template' => $this->toBool($this->input('is_template'), true),
+            'time_slot_id' => LiveTimeSlot::resolveAssignmentTimeSlotId(
+                $start,
+                $end,
+                $this->nullableId($this->input('time_slot_id')),
+                $this->user()?->id,
+            ),
         ]);
+    }
+
+    /**
+     * The bespoke start/end time only when both are valid 24-hour times and the
+     * end is after the start; otherwise [null, null].
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function customTimeWindow(): array
+    {
+        $start = $this->validTimeOrNull($this->input('start_time'));
+        $end = $this->validTimeOrNull($this->input('end_time'));
+
+        if ($start === null || $end === null || $this->timeToMinutes($start) >= $this->timeToMinutes($end)) {
+            return [null, null];
+        }
+
+        return [$start, $end];
+    }
+
+    private function timeToMinutes(string $hm): int
+    {
+        [$h, $m] = array_map('intval', explode(':', substr($hm, 0, 5)));
+
+        return ($h * 60) + $m;
     }
 
     /**
@@ -63,6 +102,11 @@ class StoreSessionSlotRequest extends FormRequest
             // uniqueness.
             'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
+            // Optional bespoke time for this one assignment. When present it is
+            // resolved into time_slot_id (see prepareForValidation); validated
+            // here so a malformed time is rejected before any slot is created.
+            'start_time' => ['nullable', 'date_format:H:i', 'required_with:end_time'],
+            'end_time' => ['nullable', 'date_format:H:i', 'required_with:start_time', 'after:start_time'],
             // Several hosts can share one creator account, so every scheduled
             // slot must name who is broadcasting.
             'live_host_id' => ['required', 'exists:users,id'],
@@ -95,7 +139,25 @@ class StoreSessionSlotRequest extends FormRequest
             'live_account_id.unique' => 'This account is already scheduled for that time slot and day on the selected date.',
             'live_account_id.required' => 'Choose the creator account that will go live.',
             'live_host_id.required' => 'Choose which host is broadcasting this live.',
+            'start_time.date_format' => 'Start time must be a valid time (HH:MM).',
+            'end_time.date_format' => 'End time must be a valid time (HH:MM).',
+            'end_time.after' => 'End time must be later than the start time.',
         ];
+    }
+
+    /**
+     * Return the value only when it is a well-formed 24-hour time, else null —
+     * so a malformed time never resolves into a created slot before validation.
+     */
+    private function validTimeOrNull(mixed $value): ?string
+    {
+        $value = $this->nullableString($value);
+
+        if ($value === null || ! preg_match('/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $value)) {
+            return null;
+        }
+
+        return $value;
     }
 
     private function toBool(mixed $value, bool $default): bool

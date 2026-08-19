@@ -21,6 +21,7 @@ class LiveTimeSlot extends Model
         'end_time',
         'duration_minutes',
         'is_active',
+        'is_ad_hoc',
         'sort_order',
         'created_by',
         'status',
@@ -30,6 +31,7 @@ class LiveTimeSlot extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_ad_hoc' => 'boolean',
             'day_of_week' => 'integer',
         ];
     }
@@ -80,6 +82,85 @@ class LiveTimeSlot extends Model
     public function scopeGlobal(Builder $query): Builder
     {
         return $query->whereNull('platform_account_id');
+    }
+
+    /**
+     * Perpetual (reusable) slots only — the ones offered as calendar scaffolds,
+     * modal presets and on the Time Slots page. Excludes one-off ad-hoc windows
+     * created for a single assignment's custom time.
+     */
+    public function scopePerpetual(Builder $query): Builder
+    {
+        return $query->where('is_ad_hoc', false);
+    }
+
+    /**
+     * Resolve the time_slot_id an assignment should point to from an optional
+     * custom start/end time.
+     *
+     * - No custom time given → keep the preset the caller already chose.
+     * - Preset chosen and its window is unchanged → keep the preset (no ad-hoc row).
+     * - Otherwise → reuse an existing hidden ad-hoc slot with the same window, or
+     *   create one. Ad-hoc slots are global (day/platform-agnostic) and deduped by
+     *   window so a bespoke time never adds a recurring scaffold.
+     */
+    public static function resolveAssignmentTimeSlotId(
+        ?string $startTime,
+        ?string $endTime,
+        ?int $presetId,
+        ?int $createdBy = null,
+    ): ?int {
+        $start = self::normaliseTimeHm($startTime);
+        $end = self::normaliseTimeHm($endTime);
+
+        if ($start === null || $end === null) {
+            return $presetId;
+        }
+
+        if ($presetId !== null) {
+            $preset = self::find($presetId);
+            if ($preset
+                && substr((string) $preset->start_time, 0, 5) === $start
+                && substr((string) $preset->end_time, 0, 5) === $end
+            ) {
+                return $presetId;
+            }
+        }
+
+        $existing = self::query()
+            ->where('is_ad_hoc', true)
+            ->whereNull('override_id')
+            ->where('start_time', "{$start}:00")
+            ->where('end_time', "{$end}:00")
+            ->first();
+
+        if ($existing) {
+            return $existing->id;
+        }
+
+        return self::create([
+            'platform_account_id' => null,
+            'day_of_week' => null,
+            'start_time' => "{$start}:00",
+            'end_time' => "{$end}:00",
+            'is_active' => true,
+            'is_ad_hoc' => true,
+            'sort_order' => 0,
+            'created_by' => $createdBy,
+            'status' => 'active',
+        ])->id;
+    }
+
+    /**
+     * Normalise a "H:i" / "H:i:s" time string to "H:i", or null when blank.
+     */
+    private static function normaliseTimeHm(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        return substr(trim($value), 0, 5);
     }
 
     public function getDayNameAttribute(): ?string

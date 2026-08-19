@@ -409,7 +409,9 @@ class SessionSlotController extends Controller
 
     public function store(StoreSessionSlotRequest $request): RedirectResponse
     {
-        $data = $request->validated();
+        // start_time/end_time were already resolved into time_slot_id during
+        // validation; they are not columns on the assignment.
+        $data = collect($request->validated())->except(['start_time', 'end_time'])->all();
         $data['created_by'] = $request->user()?->id;
         $data['status'] = $data['status'] ?? 'scheduled';
 
@@ -482,7 +484,9 @@ class SessionSlotController extends Controller
 
     public function update(UpdateSessionSlotRequest $request, LiveScheduleAssignment $sessionSlot): RedirectResponse
     {
-        $data = $request->validated();
+        // start_time/end_time were already resolved into time_slot_id during
+        // validation; they are not columns on the assignment.
+        $data = collect($request->validated())->except(['start_time', 'end_time'])->all();
         $data['status'] = $data['status'] ?? $sessionSlot->status;
 
         $sessionSlot->update($data);
@@ -964,6 +968,7 @@ class SessionSlotController extends Controller
     {
         return LiveTimeSlot::query()
             ->where('is_active', true)
+            ->perpetual() // exclude one-off ad-hoc windows (a single assignment's custom time)
             ->whereNull('override_id') // perpetual slots only — override slots ride the slotOverrides prop
             ->orderBy('platform_account_id')
             ->orderBy('day_of_week')
