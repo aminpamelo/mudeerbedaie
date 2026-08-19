@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { ClipboardList, Eye, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ClipboardList, Eye, Plus, Pencil, Trash2, Lock, KeyRound } from 'lucide-react';
 import VaultLayout from '@/vault/layouts/VaultLayout';
 import { Card, Badge, Select, EmptyState, Pagination } from '@/vault/components/Ui';
 import { cn, timeAgo, formatDate } from '@/vault/lib/utils';
@@ -9,6 +9,11 @@ const ACTION_META = {
   viewed: { label: 'Viewed', color: 'blue' },
   updated: { label: 'Updated', color: 'amber' },
   deleted: { label: 'Deleted', color: 'red' },
+  unlocked: { label: 'Unlocked', color: 'green' },
+  unlock_failed: { label: 'Unlock failed', color: 'red' },
+  locked: { label: 'Locked', color: 'amber' },
+  password_set: { label: 'Password set', color: 'amber' },
+  password_changed: { label: 'Password changed', color: 'amber' },
 };
 
 const ACTION_ICONS = {
@@ -16,6 +21,11 @@ const ACTION_ICONS = {
   viewed: Eye,
   updated: Pencil,
   deleted: Trash2,
+  unlocked: KeyRound,
+  unlock_failed: Lock,
+  locked: Lock,
+  password_set: KeyRound,
+  password_changed: KeyRound,
 };
 
 function ChangesSummary({ changes }) {
@@ -70,6 +80,11 @@ export default function AuditLog({ logs, filters }) {
           <option value="viewed">Viewed</option>
           <option value="updated">Updated</option>
           <option value="deleted">Deleted</option>
+          <option value="unlocked">Unlocked</option>
+          <option value="unlock_failed">Unlock failed</option>
+          <option value="locked">Locked</option>
+          <option value="password_set">Password set</option>
+          <option value="password_changed">Password changed</option>
         </Select>
       </div>
 

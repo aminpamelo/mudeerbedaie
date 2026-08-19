@@ -1,9 +1,9 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import {
   ShieldCheck, LayoutDashboard, Key, FolderOpen, Tag, ClipboardList,
-  Menu, X, ArrowLeft,
+  Menu, X, ArrowLeft, Settings, Lock,
 } from 'lucide-react';
 import { cn } from '@/vault/lib/utils';
 
@@ -13,6 +13,7 @@ const NAV = [
   { label: 'Categories', href: '/admin/vault/categories', icon: FolderOpen },
   { label: 'Tags', href: '/admin/vault/tags', icon: Tag },
   { label: 'Audit Log', href: '/admin/vault/audit-log', icon: ClipboardList },
+  { label: 'Settings', href: '/admin/vault/settings', icon: Settings },
 ];
 
 function isActive(url, href, exact) {
@@ -67,6 +68,10 @@ function NavLinks({ url, onNavigate }) {
 }
 
 function UserFooter({ user }) {
+  const lockVault = () => {
+    router.post('/admin/vault/lock');
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-2.5">
@@ -78,6 +83,14 @@ function UserFooter({ user }) {
           <div className="mt-0.5 truncate text-[11px] text-white/45">{user?.email ?? ''}</div>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={lockVault}
+        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-medium text-amber-400/80 transition-colors hover:bg-amber-500/10 hover:text-amber-300"
+      >
+        <Lock className="h-[15px] w-[15px]" strokeWidth={2} />
+        Lock Vault
+      </button>
       <a
         href="/admin"
         className="flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-medium text-white/45 transition-colors hover:bg-white/5 hover:text-white/80"

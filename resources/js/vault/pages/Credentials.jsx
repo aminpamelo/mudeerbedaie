@@ -71,43 +71,81 @@ function PasswordGenerator({ onInsert }) {
 }
 
 /* ---------- Tag input ---------- */
-function TagInput({ tags, onChange }) {
+function TagInput({ tags, onChange, suggestions = [] }) {
   const [input, setInput] = useState('');
 
   const addTag = (value) => {
     const trimmed = value.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      onChange([...tags, trimmed]);
+    if (!trimmed) { setInput(''); return; }
+    // Reuse the canonical name/casing of an existing tag when it matches.
+    const match = suggestions.find((s) => s.name.toLowerCase() === trimmed.toLowerCase());
+    const name = match ? match.name : trimmed;
+    if (!tags.some((t) => t.toLowerCase() === name.toLowerCase())) {
+      onChange([...tags, name]);
     }
     setInput('');
   };
 
+  const selectedLower = tags.map((t) => t.toLowerCase());
+  const query = input.trim().toLowerCase();
+  const available = suggestions
+    .map((s) => s.name)
+    .filter((name) => !selectedLower.includes(name.toLowerCase()))
+    .filter((name) => !query || name.toLowerCase().includes(query));
+  const canCreate = query.length > 0 && !suggestions.some((s) => s.name.toLowerCase() === query) && !selectedLower.includes(query);
+
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        {tags.map((tag) => (
-          <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
-            {tag}
-            <button type="button" onClick={() => onChange(tags.filter((t) => t !== tag))} className="text-amber-300/60 hover:text-amber-300">
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-      </div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {tags.map((tag) => (
+            <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+              {tag}
+              <button type="button" onClick={() => onChange(tags.filter((t) => t !== tag))} className="text-amber-300/60 hover:text-amber-300">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <Input
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') { e.preventDefault(); addTag(input); }
+          if (e.key === 'Backspace' && !input && tags.length) { onChange(tags.slice(0, -1)); }
         }}
-        placeholder="Type tag and press Enter"
+        placeholder="Type to search or add a tag…"
       />
+      {(available.length > 0 || canCreate) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => addTag(input)}
+              className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 hover:bg-amber-500/25"
+            >
+              <Plus className="h-3 w-3" /> Create “{input.trim()}”
+            </button>
+          )}
+          {available.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => addTag(name)}
+              className="rounded-full bg-white/6 px-2 py-0.5 text-[11px] font-medium text-white/60 ring-1 ring-inset ring-white/10 transition-colors hover:bg-amber-500/15 hover:text-amber-300"
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /* ---------- Create / Edit modal ---------- */
-function CredentialModal({ open, onClose, credential, categories }) {
+function CredentialModal({ open, onClose, credential, categories, availableTags }) {
   const isEditing = !!credential;
 
   const form = useForm({
@@ -219,8 +257,8 @@ function CredentialModal({ open, onClose, credential, categories }) {
           </Select>
         </Field>
 
-        <Field label="Tags" error={form.errors.tags}>
-          <TagInput tags={form.data.tags} onChange={(tags) => form.setData('tags', tags)} />
+        <Field label="Tags" error={form.errors.tags} hint="Click an existing tag to add it, or type to create a new one.">
+          <TagInput tags={form.data.tags} onChange={(tags) => form.setData('tags', tags)} suggestions={availableTags} />
         </Field>
 
         <Field label="Notes" error={form.errors.notes}>
@@ -407,7 +445,9 @@ export default function Credentials({ credentials, filters, categories, tags }) 
         <Select value={filters?.tag ?? ''} onChange={(e) => applyFilter('tag', e.target.value)} className="w-auto min-w-[120px]">
           <option value="">All Tags</option>
           {tags?.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+            <option key={t.id} value={t.id}>
+              {t.name}{typeof t.credentials_count === 'number' ? ` (${t.credentials_count})` : ''}
+            </option>
           ))}
         </Select>
       </div>
@@ -441,6 +481,7 @@ export default function Credentials({ credentials, filters, categories, tags }) 
           onClose={closeModal}
           credential={editData}
           categories={categories}
+          availableTags={tags}
         />
       )}
     </VaultLayout>

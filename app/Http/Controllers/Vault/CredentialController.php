@@ -64,7 +64,15 @@ class CredentialController extends Controller
             'credentials' => $credentials,
             'filters' => $request->only(['search', 'category', 'tag', 'sort']),
             'categories' => VaultCategory::query()->ordered()->get(['id', 'name', 'color']),
-            'tags' => VaultTag::query()->orderBy('name')->get(['id', 'name']),
+            'tags' => VaultTag::query()
+                ->withCount('credentials')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (VaultTag $t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'credentials_count' => $t->credentials_count,
+                ]),
         ]);
     }
 

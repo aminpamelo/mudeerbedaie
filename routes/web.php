@@ -105,8 +105,11 @@ use App\Http\Controllers\Vault\AuditLogController as VaultAuditLogController;
 use App\Http\Controllers\Vault\CategoryController as VaultCategoryController;
 use App\Http\Controllers\Vault\CredentialController as VaultCredentialController;
 use App\Http\Controllers\Vault\DashboardController as VaultDashboardController;
+use App\Http\Controllers\Vault\LockController as VaultLockController;
+use App\Http\Controllers\Vault\SettingsController as VaultSettingsController;
 use App\Http\Controllers\Vault\TagController as VaultTagController;
 use App\Http\Middleware\AffiliateSessionLifetime;
+use App\Http\Middleware\EnsureVaultUnlocked;
 use App\Http\Middleware\HandleBlogSeoInertiaRequests;
 use App\Http\Middleware\HandleCeoInertiaRequests;
 use App\Http\Middleware\HandleFighterInertiaRequests;
@@ -1790,30 +1793,44 @@ Route::middleware(['auth', 'role:admin,employee,ceo', HandleWorkspaceInertiaRequ
 // ============================================================================
 // PASSWORD VAULT — admin-only encrypted credential store at /admin/vault.
 // HandleVaultInertiaRequests overrides the root view to `vault.app`.
+// A shared "vault password" gate (EnsureVaultUnlocked) sits in front of all
+// content routes; the unlock/setup/lock routes below stay outside that gate.
 // ============================================================================
 Route::middleware(['auth', 'role:admin', HandleVaultInertiaRequests::class])
     ->prefix('admin/vault')
     ->name('vault.')
     ->group(function () {
-        Route::get('/', [VaultDashboardController::class, 'index'])->name('dashboard');
+        // Lock screen + unlock / first-time setup / manual lock — never gated.
+        Route::get('unlock', [VaultLockController::class, 'show'])->name('unlock');
+        Route::post('unlock', [VaultLockController::class, 'unlock'])->middleware('throttle:10,1')->name('unlock.attempt');
+        Route::post('setup', [VaultLockController::class, 'setup'])->name('setup');
+        Route::post('lock', [VaultLockController::class, 'lock'])->name('lock');
 
-        Route::get('credentials', [VaultCredentialController::class, 'index'])->name('credentials.index');
-        Route::post('credentials', [VaultCredentialController::class, 'store'])->name('credentials.store');
-        Route::get('credentials/{credential}', [VaultCredentialController::class, 'show'])->name('credentials.show');
-        Route::put('credentials/{credential}', [VaultCredentialController::class, 'update'])->name('credentials.update');
-        Route::delete('credentials/{credential}', [VaultCredentialController::class, 'destroy'])->name('credentials.destroy');
+        // Everything else requires the vault to be unlocked this session.
+        Route::middleware(EnsureVaultUnlocked::class)->group(function () {
+            Route::get('/', [VaultDashboardController::class, 'index'])->name('dashboard');
 
-        Route::get('categories', [VaultCategoryController::class, 'index'])->name('categories.index');
-        Route::post('categories', [VaultCategoryController::class, 'store'])->name('categories.store');
-        Route::put('categories/{category}', [VaultCategoryController::class, 'update'])->name('categories.update');
-        Route::delete('categories/{category}', [VaultCategoryController::class, 'destroy'])->name('categories.destroy');
+            Route::get('credentials', [VaultCredentialController::class, 'index'])->name('credentials.index');
+            Route::post('credentials', [VaultCredentialController::class, 'store'])->name('credentials.store');
+            Route::get('credentials/{credential}', [VaultCredentialController::class, 'show'])->name('credentials.show');
+            Route::put('credentials/{credential}', [VaultCredentialController::class, 'update'])->name('credentials.update');
+            Route::delete('credentials/{credential}', [VaultCredentialController::class, 'destroy'])->name('credentials.destroy');
 
-        Route::get('tags', [VaultTagController::class, 'index'])->name('tags.index');
-        Route::post('tags', [VaultTagController::class, 'store'])->name('tags.store');
-        Route::put('tags/{tag}', [VaultTagController::class, 'update'])->name('tags.update');
-        Route::delete('tags/{tag}', [VaultTagController::class, 'destroy'])->name('tags.destroy');
+            Route::get('categories', [VaultCategoryController::class, 'index'])->name('categories.index');
+            Route::post('categories', [VaultCategoryController::class, 'store'])->name('categories.store');
+            Route::put('categories/{category}', [VaultCategoryController::class, 'update'])->name('categories.update');
+            Route::delete('categories/{category}', [VaultCategoryController::class, 'destroy'])->name('categories.destroy');
 
-        Route::get('audit-log', [VaultAuditLogController::class, 'index'])->name('audit.index');
+            Route::get('tags', [VaultTagController::class, 'index'])->name('tags.index');
+            Route::post('tags', [VaultTagController::class, 'store'])->name('tags.store');
+            Route::put('tags/{tag}', [VaultTagController::class, 'update'])->name('tags.update');
+            Route::delete('tags/{tag}', [VaultTagController::class, 'destroy'])->name('tags.destroy');
+
+            Route::get('audit-log', [VaultAuditLogController::class, 'index'])->name('audit.index');
+
+            Route::get('settings', [VaultSettingsController::class, 'index'])->name('settings');
+            Route::put('settings/password', [VaultSettingsController::class, 'updatePassword'])->name('settings.password');
+        });
     });
 
 // ============================================================================
@@ -1831,7 +1848,9 @@ Route::middleware(['auth', 'role:admin', HandleMindpalInertiaRequests::class])
         Route::post('documents/{document}/reprocess', [MindpalDocumentController::class, 'reprocess'])->name('documents.reprocess');
 
         Route::get('conversations', [MindpalConversationController::class, 'index'])->name('conversations.index');
+        Route::post('conversations', [MindpalConversationController::class, 'store'])->name('conversations.store');
         Route::get('conversations/{conversation}', [MindpalConversationController::class, 'show'])->name('conversations.show');
+        Route::post('conversations/{conversation}/send', [MindpalConversationController::class, 'send'])->middleware('throttle:60,60')->name('conversations.send');
         Route::delete('conversations/{conversation}', [MindpalConversationController::class, 'destroy'])->name('conversations.destroy');
 
         Route::get('analytics', [MindpalAnalyticsController::class, 'index'])->name('analytics');

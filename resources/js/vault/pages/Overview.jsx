@@ -1,14 +1,19 @@
 import { Head } from '@inertiajs/react';
-import { Key, FolderOpen, ClipboardList, ShieldCheck, Eye, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Key, FolderOpen, ClipboardList, ShieldCheck, Eye, Plus, Pencil, Trash2, Lock, KeyRound } from 'lucide-react';
 import VaultLayout from '@/vault/layouts/VaultLayout';
 import { Card, StatTile, Badge, EmptyState } from '@/vault/components/Ui';
 import { cn, timeAgo } from '@/vault/lib/utils';
 
 const ACTION_META = {
-  created: { label: 'Created', color: 'green', icon: Plus },
-  viewed: { label: 'Viewed', color: 'blue', icon: Eye },
-  updated: { label: 'Updated', color: 'amber', icon: Pencil },
-  deleted: { label: 'Deleted', color: 'red', icon: Trash2 },
+  created: { verb: 'created', color: 'green', icon: Plus },
+  viewed: { verb: 'viewed', color: 'blue', icon: Eye },
+  updated: { verb: 'updated', color: 'amber', icon: Pencil },
+  deleted: { verb: 'deleted', color: 'red', icon: Trash2 },
+  unlocked: { verb: 'unlocked the vault', color: 'green', icon: KeyRound },
+  unlock_failed: { verb: 'failed to unlock the vault', color: 'red', icon: Lock },
+  locked: { verb: 'locked the vault', color: 'amber', icon: Lock },
+  password_set: { verb: 'set the vault password', color: 'amber', icon: KeyRound },
+  password_changed: { verb: 'changed the vault password', color: 'amber', icon: KeyRound },
 };
 
 function CategoryList({ categories }) {
@@ -60,7 +65,7 @@ function ActivityTimeline({ activity }) {
             <div className="min-w-0 flex-1">
               <p className="text-[13px] text-white/80">
                 <span className="font-semibold text-white">{log.user}</span>{' '}
-                {log.action}{' '}
+                {meta.verb ?? log.action}{' '}
                 {log.credential && <span className="font-semibold text-amber-400">{log.credential}</span>}
               </p>
               <p className="mt-0.5 text-[11.5px] text-white/40">{timeAgo(log.created_at)}</p>
