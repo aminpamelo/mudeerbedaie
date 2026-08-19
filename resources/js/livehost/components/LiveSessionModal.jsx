@@ -129,6 +129,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
   const [candidates, setCandidates] = useState(null); // null = not loaded, [] = loaded empty
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState(null);
   const fileInputRef = useRef(null);
 
   const form = useForm({
@@ -209,6 +210,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
       verification_status: session.verificationStatus ?? 'pending',
       verification_notes: session.verificationNotes ?? '',
     });
+    setVerifyError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, session?.id]);
 
@@ -316,6 +318,7 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
   };
 
   const submitVerify = (nextStatus) => {
+    setVerifyError(null);
     // Verifying requires linking to an actual_live_record — go through
     // verify-link, not the generic /verify (which 422s on 'verified').
     if (nextStatus === 'verified') {
@@ -324,11 +327,24 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
       }
       router.post(
         `/livehost/sessions/${session.id}/verify-link`,
-        { actual_live_record_id: selectedCandidateId },
+        // The endpoint validates an array of ids (a split live links many
+        // records at once), so a single pick must still be wrapped in an array.
+        { actual_live_record_id: [selectedCandidateId] },
         {
           preserveScroll: true,
           onSuccess: () => {
             setVerifyNotesOpen(false);
+          },
+          // Surface the backend's reason (already-linked, payroll locked, wrong
+          // account, …) instead of leaving the PIC with a Verify button that
+          // silently does nothing.
+          onError: (errors) => {
+            setVerifyError(
+              errors.actual_live_record_id ||
+                errors.verification ||
+                Object.values(errors)[0] ||
+                'Could not verify this session — please refresh and try again.'
+            );
           },
         }
       );
@@ -343,6 +359,9 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
       preserveScroll: true,
       onSuccess: () => {
         setVerifyNotesOpen(false);
+      },
+      onError: (errors) => {
+        setVerifyError(errors.verification || Object.values(errors)[0] || null);
       },
     });
   };
@@ -611,7 +630,11 @@ export default function LiveSessionModal({ open, onOpenChange, session, hosts = 
               candidates={candidates}
               candidatesLoading={candidatesLoading}
               selectedCandidateId={selectedCandidateId}
-              onSelectCandidate={setSelectedCandidateId}
+              onSelectCandidate={(id) => {
+                setVerifyError(null);
+                setSelectedCandidateId(id);
+              }}
+              verifyError={verifyError}
             />
 
             <div>
@@ -949,6 +972,7 @@ function VerificationPanel({
   candidatesLoading,
   selectedCandidateId,
   onSelectCandidate,
+  verifyError,
 }) {
   const current = session.verificationStatus ?? 'pending';
   const processing = verifyForm.processing;
@@ -1119,6 +1143,12 @@ function VerificationPanel({
           {verifyForm.errors.verification_notes && (
             <p className="mt-1 text-xs text-[#F43F5E]">{verifyForm.errors.verification_notes}</p>
           )}
+        </div>
+      )}
+
+      {verifyError && (
+        <div className="mt-3 rounded-md border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] text-[#991B1B]">
+          {verifyError}
         </div>
       )}
 

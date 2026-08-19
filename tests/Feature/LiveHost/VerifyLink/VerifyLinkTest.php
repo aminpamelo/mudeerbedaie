@@ -99,6 +99,21 @@ it('writes a verify_link audit event', function () {
         ->and((float) $event->gmv_snapshot)->toBe(987.65);
 });
 
+it('rejects a scalar actual_live_record_id (frontend must send an array)', function () {
+    // Regression: the Live Session modal used to POST a bare integer, which the
+    // array validation rule rejected with a 422 the UI swallowed silently — the
+    // Verify button appeared dead. The payload must be an array of ids.
+    [$session, $record] = makeSessionWithCandidate();
+
+    $this->actingAs(makeAdmin())
+        ->post("/livehost/sessions/{$session->id}/verify-link", [
+            'actual_live_record_id' => $record->id,
+        ])
+        ->assertSessionHasErrors('actual_live_record_id');
+
+    expect($session->fresh()->verification_status)->toBe('pending');
+});
+
 it('rejects when session not pending', function () {
     [$session, $record] = makeSessionWithCandidate();
     $session->update(['verification_status' => 'verified']);
