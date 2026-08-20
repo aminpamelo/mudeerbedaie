@@ -49,15 +49,30 @@ it('rejects a template with no slots', function () {
         ->assertSessionHasErrors('slots');
 });
 
-it('rejects a slot whose end is not after the start', function () {
+it('rejects a slot whose end equals the start', function () {
     actingAs($this->pic)
         ->post('/livehost/slot-templates', [
-            'name' => 'Bad window',
+            'name' => 'Zero window',
             'slots' => [
-                ['day_of_week' => 1, 'start_time' => '11:00', 'end_time' => '09:00'],
+                ['day_of_week' => 1, 'start_time' => '11:00', 'end_time' => '11:00'],
             ],
         ])
         ->assertSessionHasErrors('slots.0.end_time');
+});
+
+it('accepts an overnight slot that crosses midnight', function () {
+    actingAs($this->pic)
+        ->post('/livehost/slot-templates', [
+            'name' => 'Late live',
+            'slots' => [
+                ['day_of_week' => 6, 'start_time' => '23:00', 'end_time' => '00:30'],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(LiveSlotTemplate::firstWhere('name', 'Late live')->slots[0])
+        ->toMatchArray(['day_of_week' => 6, 'start_time' => '23:00', 'end_time' => '00:30']);
 });
 
 it('updates a slot template', function () {

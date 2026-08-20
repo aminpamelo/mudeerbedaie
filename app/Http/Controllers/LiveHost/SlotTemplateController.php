@@ -76,10 +76,10 @@ class SlotTemplateController extends Controller
             'slots' => ['required', 'array', 'min:1'],
             'slots.*.day_of_week' => ['required', 'integer', 'between:0,6'],
             'slots.*.start_time' => ['required', 'date_format:H:i'],
-            'slots.*.end_time' => ['required', 'date_format:H:i', 'after:slots.*.start_time'],
+            'slots.*.end_time' => ['required', 'date_format:H:i', 'different:slots.*.start_time'],
         ], [
             'slots.required' => 'Add at least one time window.',
-            'slots.*.end_time.after' => 'End time must be later than the start time.',
+            'slots.*.end_time.different' => 'End time must differ from the start time.',
         ]);
     }
 

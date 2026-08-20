@@ -130,7 +130,7 @@ export default function SlotOverrideModal({ account, suggestedSlots = [], slotTe
   };
 
   const canSave = form && form.effective_from && form.slots.length > 0
-    && form.slots.every((s) => s.start_time && s.end_time && s.end_time > s.start_time) && !busy;
+    && form.slots.every((s) => s.start_time && s.end_time && s.end_time !== s.start_time) && !busy;
 
   const input = 'h-9 rounded-lg border border-[#EAEAEA] bg-white px-2.5 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20';
 

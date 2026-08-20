@@ -32,7 +32,7 @@ export default function SlotTemplateModal({ template, onClose }) {
   const canSave =
     form.data.name.trim().length > 0 &&
     form.data.slots.length > 0 &&
-    form.data.slots.every((s) => s.start_time && s.end_time && s.end_time > s.start_time) &&
+    form.data.slots.every((s) => s.start_time && s.end_time && s.end_time !== s.start_time) &&
     !form.processing;
 
   const submit = () => {
@@ -97,7 +97,7 @@ export default function SlotTemplateModal({ template, onClose }) {
             <div className="rounded-[12px] border border-[#EAEAEA] p-3">
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#737373]">Slots · per day</div>
               <WeeklySlotGrid slots={form.data.slots} onChange={setSlots} />
-              {slotError && <p className="mt-1.5 text-[11px] text-[#B91C1C]">{typeof slotError === 'string' ? slotError : 'Add at least one valid slot (end after start).'}</p>}
+              {slotError && <p className="mt-1.5 text-[11px] text-[#B91C1C]">{typeof slotError === 'string' ? slotError : 'Add at least one valid slot (start and end must differ).'}</p>}
             </div>
 
             <div className="mt-1 flex items-center justify-between">
