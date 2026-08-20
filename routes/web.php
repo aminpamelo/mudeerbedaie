@@ -1909,6 +1909,7 @@ Route::middleware(['auth', \App\Http\Middleware\HandleFormsInertiaRequests::clas
         Route::get('/', [\App\Http\Controllers\Forms\FormController::class, 'index'])->name('index');
         Route::get('create', [\App\Http\Controllers\Forms\FormController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\Forms\FormController::class, 'store'])->name('store');
+        Route::post('assets', [\App\Http\Controllers\Forms\FormAssetController::class, 'store'])->name('assets.store');
 
         // Admin-only oversight + category management (literal paths before {form})
         Route::middleware('role:admin')->group(function () {
@@ -1924,6 +1925,9 @@ Route::middleware(['auth', \App\Http\Middleware\HandleFormsInertiaRequests::clas
         Route::put('{form}', [\App\Http\Controllers\Forms\FormController::class, 'update'])->name('update');
         Route::delete('{form}', [\App\Http\Controllers\Forms\FormController::class, 'destroy'])->name('destroy');
         Route::post('{form}/duplicate', [\App\Http\Controllers\Forms\FormController::class, 'duplicate'])->name('duplicate');
+
+        // In-app analytics report for a single form
+        Route::get('{form}/report', [\App\Http\Controllers\Forms\ReportController::class, 'show'])->name('report');
 
         // Submissions collection, export, per-submission PDF
         Route::get('{form}/submissions', [\App\Http\Controllers\Forms\SubmissionController::class, 'index'])->name('submissions.index');

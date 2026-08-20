@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { Search, Download, FileText, Eye, Trash2, X, Inbox, ExternalLink } from 'lucide-react';
 import FormsLayout from '../layouts/FormsLayout';
+import FormSubnav from '../components/FormSubnav';
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -56,6 +57,10 @@ export default function Submissions({ form, submissions = [], meta, filters = {}
       }
       actions={actions}
     >
+      <div className="mb-5">
+        <FormSubnav formId={form.id} active="submissions" />
+      </div>
+
       {/* Filters */}
       <form onSubmit={applyFilters} className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-white p-4 shadow-sm">
         <div className="min-w-[200px] flex-1">

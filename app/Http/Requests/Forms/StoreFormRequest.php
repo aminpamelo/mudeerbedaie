@@ -35,6 +35,7 @@ class StoreFormRequest extends FormRequest
             'settings.confirmation_message' => ['nullable', 'string', 'max:1000'],
             'settings.allow_multiple' => ['boolean'],
             'settings.collect_email' => ['boolean'],
+            'settings.logo_path' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

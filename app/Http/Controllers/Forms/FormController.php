@@ -155,8 +155,9 @@ class FormController extends Controller
         return [
             ...$this->summary($form),
             'description' => $form->description,
-            'fields' => $form->fields ?? [],
+            'fields' => $form->fieldsWithMedia(),
             'settings' => $form->settings ?? [],
+            'logo_url' => $form->logoUrl(),
             'form_category_id' => $form->form_category_id,
         ];
     }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { FileText, Send, Lock } from 'lucide-react';
+import { Send, Lock } from 'lucide-react';
 import FieldRenderer from '../../components/FieldRenderer';
 import { isLayoutField } from '../../lib/fields';
 
@@ -26,7 +26,7 @@ export default function Show({ form }) {
 
   if (!form.is_open) {
     return (
-      <Shell>
+      <Shell logo={form.logo_url}>
         <div className="flex flex-col items-center py-8 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
             <Lock className="h-7 w-7" />
@@ -39,18 +39,15 @@ export default function Show({ form }) {
   }
 
   return (
-    <Shell>
-      <div className="mb-6 border-b border-line pb-5">
-        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-white">
-          <FileText className="h-6 w-6" />
-        </div>
-        <h1 className="text-2xl font-bold text-ink">{form.title}</h1>
-        {form.description && <p className="mt-2 text-sm leading-relaxed text-muted">{form.description}</p>}
+    <Shell logo={form.logo_url}>
+      <div className="mb-7 border-b border-line pb-6">
+        <h1 className="text-[26px] font-bold tracking-[-0.02em] text-ink">{form.title}</h1>
+        {form.description && <p className="mt-2.5 text-[14px] leading-relaxed text-muted">{form.description}</p>}
       </div>
 
-      <form onSubmit={submit} className="space-y-6">
+      <form onSubmit={submit} className="space-y-7">
         {form.fields.map((field) => (
-          <div key={field.id} className={isLayoutField(field.type) ? '' : 'rounded-xl'}>
+          <div key={field.id} className={isLayoutField(field.type) ? '' : ''}>
             <FieldRenderer
               field={field}
               value={answers[field.id]}
@@ -60,11 +57,11 @@ export default function Show({ form }) {
           </div>
         ))}
 
-        <div className="border-t border-line pt-5">
+        <div className="border-t border-line pt-6">
           <button
             type="submit"
             disabled={processing}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-ink disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-ink disabled:opacity-60"
           >
             <Send className="h-4 w-4" />
             {processing ? 'Menghantar…' : 'Hantar'}
@@ -75,12 +72,25 @@ export default function Show({ form }) {
   );
 }
 
-function Shell({ children }) {
+function Shell({ children, logo }) {
   return (
-    <div className="min-h-dvh bg-surface py-8 sm:py-14">
-      <div className="mx-auto max-w-2xl px-4">
-        <div className="rounded-2xl border-t-4 border-brand border-x border-b border-line bg-white p-6 shadow-sm sm:p-8 fade-up">{children}</div>
-        <p className="mt-4 text-center text-xs text-slate-400">Dikuasakan oleh Borang</p>
+    <div className="relative min-h-dvh overflow-hidden bg-surface py-10 sm:py-16">
+      {/* Soft emerald wash behind the card, mirroring the Live Host aesthetic. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-64"
+        style={{ background: 'radial-gradient(ellipse 600px 260px at 50% -40px, rgba(5,150,105,0.12), transparent 70%)' }}
+      />
+      <div className="relative mx-auto max-w-2xl px-4">
+        {logo && (
+          <div className="mb-5 flex justify-center">
+            <img src={logo} alt="" className="max-h-20 w-auto" />
+          </div>
+        )}
+        <div className="fade-up overflow-hidden rounded-[20px] border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <div className="h-1.5 bg-brand" />
+          <div className="p-6 sm:p-9">{children}</div>
+        </div>
+        <p className="mt-5 text-center text-xs text-slate-400">Dikuasakan oleh Borang</p>
       </div>
     </div>
   );

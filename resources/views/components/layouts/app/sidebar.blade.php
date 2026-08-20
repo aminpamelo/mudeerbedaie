@@ -245,6 +245,8 @@
                     <flux:navlist.item icon="chart-pie" :href="route('admin.customer-service.dashboard')" :current="request()->routeIs('admin.customer-service.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="receipt-refund" :href="route('admin.customer-service.return-refunds.index')" :current="request()->routeIs('admin.customer-service.return-refunds.*')" wire:navigate>{{ __('Return & Refunds') }}</flux:navlist.item>
                     <flux:navlist.item icon="chat-bubble-left-ellipsis" :href="route('admin.customer-service.tickets.index')" :current="request()->routeIs('admin.customer-service.tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
+                    {{-- Borang is its own Inertia workspace at /forms; lives under Customer Service. --}}
+                    <flux:navlist.item icon="document-text" href="/forms">{{ __('Borang') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 @if(Route::has('admin.it-board.index'))
@@ -428,14 +430,6 @@
                     href="/blog-seo"
                 >
                     {{ __('Blog & SEO') }}
-                </flux:navlist.item>
-
-                {{-- Borang is its own Inertia workspace at /forms; open to every user. --}}
-                <flux:navlist.item
-                    icon="document-text"
-                    href="/forms"
-                >
-                    {{ __('Borang') }}
                 </flux:navlist.item>
 
                 @if(auth()->user()->isAdmin())

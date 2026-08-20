@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
@@ -246,6 +247,104 @@ it('shows the global submissions page to admins only', function () {
 
 it('redirects /admin to the real admin dashboard', function () {
     $this->get('/admin')->assertRedirect('/dashboard');
+});
+
+it('produces an in-app report with choice and rating aggregates', function () {
+    $owner = formOwner();
+    $form = Form::factory()->for($owner)->published()->create([
+        'fields' => [
+            ['id' => 'f_sesi', 'type' => 'radio', 'label' => 'Sesi', 'required' => true, 'options' => ['Pagi', 'Petang'], 'settings' => []],
+            ['id' => 'f_rate', 'type' => 'rating', 'label' => 'Nilai', 'required' => false, 'options' => [], 'settings' => ['max' => 5]],
+        ],
+    ]);
+    FormSubmission::factory()->for($form)->create(['data' => ['f_sesi' => 'Pagi', 'f_rate' => 5]]);
+    FormSubmission::factory()->for($form)->create(['data' => ['f_sesi' => 'Pagi', 'f_rate' => 3]]);
+    FormSubmission::factory()->for($form)->create(['data' => ['f_sesi' => 'Petang', 'f_rate' => 4]]);
+
+    $this->actingAs($owner)
+        ->get("/forms/{$form->id}/report")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Report', false)
+            ->where('stats.total', 3)
+            ->where('fields.0.kind', 'choice')
+            ->where('fields.0.options.0.label', 'Pagi')
+            ->where('fields.0.options.0.count', 2)
+            ->where('fields.0.options.1.count', 1)
+            ->where('fields.1.kind', 'rating')
+            ->where('fields.1.answered', 3)
+            ->has('timeseries', 30)
+        );
+});
+
+it('forbids the report to a non-owner', function () {
+    $form = Form::factory()->for(formOwner())->create();
+
+    $this->actingAs(formOwner())
+        ->get("/forms/{$form->id}/report")
+        ->assertForbidden();
+});
+
+it('treats an image block as display-only, excluded from answers', function () {
+    $owner = formOwner();
+
+    $this->actingAs($owner)->post('/forms', [
+        'title' => 'Borang Dengan Gambar',
+        'status' => 'published',
+        'fields' => [
+            ['id' => 'f_img', 'type' => 'image', 'label' => 'Banner', 'required' => false, 'options' => [], 'settings' => ['path' => 'forms/assets/1/banner.png', 'width' => 'full', 'align' => 'center']],
+            ['id' => 'f_name', 'type' => 'short_text', 'label' => 'Nama', 'required' => true, 'options' => [], 'settings' => []],
+        ],
+        'settings' => ['confirmation_message' => 'ok', 'allow_multiple' => true],
+    ])->assertRedirect();
+
+    $form = Form::first();
+    expect($form->fields)->toHaveCount(2)
+        ->and($form->fields[0]['settings']['path'])->toBe('forms/assets/1/banner.png')
+        ->and($form->answerableFields())->toHaveCount(1)
+        ->and($form->answerableFields()[0]['id'])->toBe('f_name');
+
+    // The image block imposes no validation and stores no answer.
+    $this->post("/form/{$form->slug}", ['answers' => ['f_name' => 'Ali']])
+        ->assertRedirect(route('form.public.thankyou', $form->slug));
+
+    expect(FormSubmission::first()->data)->toBe(['f_name' => 'Ali']);
+});
+
+it('persists a form logo path through save', function () {
+    $owner = formOwner();
+
+    $this->actingAs($owner)->post('/forms', [
+        'title' => 'Borang Berlogo',
+        'status' => 'draft',
+        'fields' => [['id' => 'f_a', 'type' => 'short_text', 'label' => 'A', 'required' => false, 'options' => [], 'settings' => []]],
+        'settings' => ['confirmation_message' => 'ok', 'allow_multiple' => true, 'logo_path' => 'forms/assets/9/logo.png'],
+    ])->assertRedirect();
+
+    expect(Form::first()->settings['logo_path'])->toBe('forms/assets/9/logo.png');
+});
+
+it('uploads a form asset image and returns its path and url', function () {
+    Storage::fake('public');
+    $owner = formOwner();
+
+    $response = $this->actingAs($owner)
+        ->post('/forms/assets', ['image' => UploadedFile::fake()->image('logo.png', 40, 40)]);
+
+    $response->assertOk();
+    $path = $response->json('path');
+
+    expect($path)->toContain('forms/assets/'.$owner->id)
+        ->and($response->json('url'))->not->toBeNull();
+    Storage::disk('public')->assertExists($path);
+});
+
+it('rejects a non-image form asset upload', function () {
+    $owner = formOwner();
+
+    $this->actingAs($owner)
+        ->post('/forms/assets', ['image' => UploadedFile::fake()->create('malware.exe', 10)])
+        ->assertSessionHasErrors('image');
 });
 
 it('lets an admin manage form categories but forbids others', function () {
