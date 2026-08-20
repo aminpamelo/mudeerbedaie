@@ -47,6 +47,35 @@ const apiHeaders = () => ({
     'X-XSRF-TOKEN': getCsrfToken(),
 });
 
+/**
+ * Turn a failed response into a human-readable message. Surfaces the first
+ * validation error (422), a session-expiry hint (419), or falls back to the
+ * status code when the body isn't JSON — so the user never sees a bare
+ * "Failed to save pixel" that hides the real cause.
+ */
+async function extractError(response, fallback) {
+    if (response.status === 419) {
+        return 'Your session expired. Please refresh the page and try again.';
+    }
+
+    try {
+        const body = await response.json();
+        if (body?.errors) {
+            const first = Object.values(body.errors)[0];
+            if (Array.isArray(first) && first[0]) {
+                return first[0];
+            }
+        }
+        if (body?.message) {
+            return body.message;
+        }
+    } catch (err) {
+        // Body wasn't JSON (e.g. an HTML error page) — fall through.
+    }
+
+    return `${fallback} (HTTP ${response.status}).`;
+}
+
 const PLATFORM_META = {
     facebook: { label: 'Facebook', badge: 'bg-blue-100 text-blue-700' },
     google: { label: 'Google', badge: 'bg-red-100 text-red-700' },
@@ -194,8 +223,7 @@ export default function PixelLibrary({ onBack, onSelectFunnel }) {
                 setShowModal(false);
                 loadPixels();
             } else {
-                const error = await response.json();
-                showToast(error.message || 'Failed to save pixel', 'error');
+                showToast(await extractError(response, 'Failed to save pixel'), 'error');
             }
         } catch (err) {
             showToast('Failed to save pixel', 'error');

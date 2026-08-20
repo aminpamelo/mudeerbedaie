@@ -25,7 +25,7 @@ class UpdateFunnelPixelRequest extends FormRequest
 
             // Facebook credentials
             'settings.pixel_id' => ['nullable', 'string', 'max:50'],
-            'settings.access_token' => ['nullable', 'string', 'max:500'],
+            'settings.access_token' => ['nullable', 'string', 'max:2000'],
             'settings.test_event_code' => ['nullable', 'string', 'max:50'],
 
             // Google credentials
