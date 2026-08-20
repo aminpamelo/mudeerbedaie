@@ -12,6 +12,7 @@ import {
   Phone,
   Heading,
   Text,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 /**
@@ -35,9 +36,11 @@ export const FIELD_CATALOG = [
   { type: 'phone', label: 'No. Telefon', icon: Phone, group: 'Lanjutan', hasOptions: false },
   { type: 'section', label: 'Tajuk Seksyen', icon: Heading, group: 'Lanjutan', hasOptions: false },
   { type: 'paragraph', label: 'Teks Penerangan', icon: Text, group: 'Lanjutan', hasOptions: false },
+
+  { type: 'image', label: 'Gambar', icon: ImageIcon, group: 'Media', hasOptions: false },
 ];
 
-export const FIELD_GROUPS = ['Asas', 'Pilihan', 'Fail', 'Lanjutan'];
+export const FIELD_GROUPS = ['Asas', 'Pilihan', 'Fail', 'Lanjutan', 'Media'];
 
 const CATALOG_BY_TYPE = Object.fromEntries(FIELD_CATALOG.map((f) => [f.type, f]));
 
@@ -50,7 +53,7 @@ export function fieldHasOptions(type) {
 }
 
 export function isLayoutField(type) {
-  return type === 'section' || type === 'paragraph';
+  return type === 'section' || type === 'paragraph' || type === 'image';
 }
 
 let counter = 0;
@@ -69,6 +72,16 @@ export function blankField(type) {
     help: '',
     required: false,
     options: meta.hasOptions ? ['Pilihan 1', 'Pilihan 2'] : [],
-    settings: type === 'rating' ? { max: 5 } : {},
+    settings: defaultSettings(type),
   };
+}
+
+function defaultSettings(type) {
+  if (type === 'rating') {
+    return { max: 5 };
+  }
+  if (type === 'image') {
+    return { path: null, url: null, align: 'center', width: 'medium' };
+  }
+  return {};
 }

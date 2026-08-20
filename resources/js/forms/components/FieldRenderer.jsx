@@ -20,6 +20,25 @@ export default function FieldRenderer({ field, value, onChange, error, disabled 
     return <p className="text-sm leading-relaxed text-muted">{field.label}</p>;
   }
 
+  if (type === 'image') {
+    const src = settings.url || settings.path;
+    if (!src) {
+      return null;
+    }
+    const widths = { small: 'max-w-[200px]', medium: 'max-w-sm', large: 'max-w-xl', full: 'w-full' };
+    const aligns = { left: 'mr-auto', center: 'mx-auto', right: 'ml-auto' };
+    return (
+      <figure>
+        <img
+          src={src}
+          alt={field.label || ''}
+          className={`block h-auto rounded-xl border border-line ${widths[settings.width] || 'max-w-sm'} ${aligns[settings.align] || 'mx-auto'}`}
+        />
+        {field.label && <figcaption className="mt-2 text-center text-xs text-muted">{field.label}</figcaption>}
+      </figure>
+    );
+  }
+
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-ink">

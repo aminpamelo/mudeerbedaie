@@ -3,26 +3,27 @@
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
 
-  /* Indigo-led palette, distinct from the other portals. */
-  --color-brand: #4F46E5;
-  --color-brand-ink: #3730A3;
-  --color-brand-soft: #EEF2FF;
+  /* Emerald-led palette mirroring the Live Host desk aesthetic. */
+  --color-brand: #059669;
+  --color-brand-ink: #047857;
+  --color-brand-soft: #ECFDF5;
 
-  --color-ink: #0F172A;
-  --color-muted: #64748B;
-  --color-line: #E2E8F0;
-  --color-surface: #F8FAFC;
+  --color-ink: #0A0A0A;
+  --color-muted: #737373;
+  --color-line: #EAEAEA;
+  --color-surface: #FAFAFA;
 }
 
 body {
   background: var(--color-surface);
   color: var(--color-ink);
   min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Thin scrollbars inside scroll regions. */
 .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-.scroll-thin::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(115, 115, 115, 0.3); border-radius: 9999px; }
 .scroll-thin::-webkit-scrollbar-track { background: transparent; }
 
 @keyframes forms-fade-up {
@@ -30,3 +31,6 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: forms-fade-up 0.3s ease both; }
+
+/* Soft elevation matching the livehost card system. */
+.card-soft { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }

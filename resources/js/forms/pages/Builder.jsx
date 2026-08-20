@@ -7,13 +7,15 @@ import {
   ChevronDown,
   Plus,
   X,
-  ExternalLink,
   Eye,
   GripVertical,
+  ImagePlus,
+  Loader2,
 } from 'lucide-react';
 import FormsLayout from '../layouts/FormsLayout';
 import FieldRenderer from '../components/FieldRenderer';
 import { FIELD_CATALOG, FIELD_GROUPS, blankField, fieldHasOptions, fieldMeta, isLayoutField } from '../lib/fields';
+import { uploadFormImage } from '../lib/upload';
 
 const inputClass =
   'w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
@@ -29,11 +31,28 @@ export default function Builder({ form, categories = [] }) {
     form?.settings?.confirmation_message || 'Terima kasih atas maklum balas anda.',
   );
   const [allowMultiple, setAllowMultiple] = useState(form?.settings?.allow_multiple !== false);
+  const [logoPath, setLogoPath] = useState(form?.settings?.logo_path || null);
+  const [logoUrl, setLogoUrl] = useState(form?.logo_url || null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [fields, setFields] = useState(
     form?.fields?.length ? form.fields : [blankField('short_text')],
   );
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const uploadLogo = async (file) => {
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const { path, url } = await uploadFormImage(file);
+      setLogoPath(path);
+      setLogoUrl(url);
+    } catch {
+      alert('Gagal memuat naik logo. Cuba gambar lain (maks 4MB).');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
 
   const addField = (type) => setFields((f) => [...f, blankField(type)]);
 
@@ -64,6 +83,7 @@ export default function Builder({ form, categories = [] }) {
       settings: {
         confirmation_message: confirmation,
         allow_multiple: allowMultiple,
+        logo_path: logoPath,
       },
     };
 
@@ -222,6 +242,44 @@ export default function Builder({ form, categories = [] }) {
                 Benarkan jawapan berganda
               </label>
             </div>
+
+            {/* Logo / banner */}
+            <div className="rounded-2xl border border-line bg-white p-4 card-soft">
+              <h4 className="mb-1 text-sm font-semibold text-ink">Logo Borang</h4>
+              <p className="mb-3 text-[11.5px] text-muted">Dipaparkan di atas borang awam.</p>
+
+              {logoUrl ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center rounded-xl border border-line bg-surface p-3">
+                    <img src={logoUrl} alt="Logo" className="max-h-16 w-auto" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer rounded-lg border border-line px-3 py-1.5 text-center text-xs font-medium text-slate-700 transition hover:bg-slate-50">
+                      Tukar
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
+                    </label>
+                    <button
+                      onClick={() => { setLogoPath(null); setLogoUrl(null); }}
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-500 transition hover:bg-rose-50"
+                    >
+                      Buang
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-5 text-center transition hover:border-brand hover:bg-brand-soft">
+                  {logoUploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-brand" />
+                  ) : (
+                    <ImagePlus className="h-5 w-5 text-brand" />
+                  )}
+                  <span className="text-xs font-medium text-slate-600">
+                    {logoUploading ? 'Memuat naik…' : 'Muat naik logo'}
+                  </span>
+                  <input type="file" accept="image/*" className="hidden" disabled={logoUploading} onChange={(e) => uploadLogo(e.target.files?.[0])} />
+                </label>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -233,6 +291,21 @@ function FieldCard({ field, index, total, onUpdate, onRemove, onMove }) {
   const meta = fieldMeta(field.type);
   const Icon = meta.icon;
   const layout = isLayoutField(field.type);
+  const isImage = field.type === 'image';
+  const [imgUploading, setImgUploading] = useState(false);
+
+  const uploadBlockImage = async (file) => {
+    if (!file) return;
+    setImgUploading(true);
+    try {
+      const { path, url } = await uploadFormImage(file);
+      onUpdate(field.id, { settings: { ...field.settings, path, url } });
+    } catch {
+      alert('Gagal memuat naik gambar. Cuba gambar lain (maks 4MB).');
+    } finally {
+      setImgUploading(false);
+    }
+  };
 
   const setOption = (i, val) => {
     const options = [...(field.options || [])];
@@ -271,9 +344,53 @@ function FieldCard({ field, index, total, onUpdate, onRemove, onMove }) {
         </div>
       </div>
 
+      {isImage && (
+        <div className="mb-3">
+          {field.settings?.url ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center rounded-xl border border-line bg-surface p-3">
+                <img src={field.settings.url} alt="" className="max-h-40 w-auto rounded-lg" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="cursor-pointer rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50">
+                  Tukar gambar
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadBlockImage(e.target.files?.[0])} />
+                </label>
+                <select
+                  className="rounded-lg border border-line px-2 py-1.5 text-xs"
+                  value={field.settings?.width || 'medium'}
+                  onChange={(e) => onUpdate(field.id, { settings: { ...field.settings, width: e.target.value } })}
+                >
+                  <option value="small">Kecil</option>
+                  <option value="medium">Sederhana</option>
+                  <option value="large">Besar</option>
+                  <option value="full">Penuh</option>
+                </select>
+                <select
+                  className="rounded-lg border border-line px-2 py-1.5 text-xs"
+                  value={field.settings?.align || 'center'}
+                  onChange={(e) => onUpdate(field.id, { settings: { ...field.settings, align: e.target.value } })}
+                >
+                  <option value="left">Kiri</option>
+                  <option value="center">Tengah</option>
+                  <option value="right">Kanan</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-8 text-center transition hover:border-brand hover:bg-brand-soft">
+              {imgUploading ? <Loader2 className="h-6 w-6 animate-spin text-brand" /> : <ImagePlus className="h-6 w-6 text-brand" />}
+              <span className="text-sm font-medium text-slate-600">{imgUploading ? 'Memuat naik…' : 'Muat naik gambar'}</span>
+              <span className="text-[11px] text-muted">JPG, PNG, GIF, WEBP · maks 4MB</span>
+              <input type="file" accept="image/*" className="hidden" disabled={imgUploading} onChange={(e) => uploadBlockImage(e.target.files?.[0])} />
+            </label>
+          )}
+        </div>
+      )}
+
       <input
         className={inputClass}
-        placeholder={layout ? 'Teks' : 'Soalan'}
+        placeholder={isImage ? 'Kapsyen (pilihan)' : layout ? 'Teks' : 'Soalan'}
         value={field.label}
         onChange={(e) => onUpdate(field.id, { label: e.target.value })}
       />

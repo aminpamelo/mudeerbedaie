@@ -10,6 +10,7 @@ import {
   Trash2,
   ExternalLink,
   Check,
+  BarChart3,
 } from 'lucide-react';
 import FormsLayout from '../layouts/FormsLayout';
 import StatusBadge from '../components/StatusBadge';
@@ -101,6 +102,12 @@ export default function Index({ forms = [] }) {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
                 >
                   <Inbox className="h-3.5 w-3.5" /> Jawapan
+                </Link>
+                <Link
+                  href={`/forms/${form.id}/report`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> Report
                 </Link>
                 <button
                   onClick={() => copyLink(form)}

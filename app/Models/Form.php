@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Form extends Model
@@ -30,8 +31,16 @@ class Form extends Model
         'short_text', 'long_text', 'number', 'email', 'date',
         'radio', 'checkbox', 'dropdown',
         'file',
-        'rating', 'phone', 'section', 'paragraph',
+        'rating', 'phone', 'section', 'paragraph', 'image',
     ];
+
+    /**
+     * Field types that are display-only (no answer collected). Used to exclude
+     * them from validation, CSV/PDF exports, and reports.
+     *
+     * @var list<string>
+     */
+    public const LAYOUT_FIELD_TYPES = ['section', 'paragraph', 'image'];
 
     protected $fillable = [
         'uuid',
@@ -125,12 +134,45 @@ class Form extends Model
     {
         return array_values(array_filter(
             $this->fields ?? [],
-            fn (array $field): bool => ! in_array($field['type'] ?? '', ['section', 'paragraph'], true),
+            fn (array $field): bool => ! in_array($field['type'] ?? '', self::LAYOUT_FIELD_TYPES, true),
         ));
     }
 
     public function publicUrl(): string
     {
         return route('form.public.show', $this->slug);
+    }
+
+    /**
+     * Public URL of the form's header logo, if one was uploaded.
+     */
+    public function logoUrl(): ?string
+    {
+        $path = $this->settings['logo_path'] ?? null;
+
+        return is_string($path) && $path !== ''
+            ? Storage::disk('public')->url($path)
+            : null;
+    }
+
+    /**
+     * The stored field schema with a fresh public `url` injected into every
+     * image block's settings (derived from its stored `path`), so the frontend
+     * never has to build storage URLs itself.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function fieldsWithMedia(): array
+    {
+        return array_map(function (array $field): array {
+            if (($field['type'] ?? null) === 'image') {
+                $path = $field['settings']['path'] ?? null;
+                $field['settings']['url'] = is_string($path) && $path !== ''
+                    ? Storage::disk('public')->url($path)
+                    : null;
+            }
+
+            return $field;
+        }, $this->fields ?? []);
     }
 }
