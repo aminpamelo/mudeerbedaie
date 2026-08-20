@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Inbox } from 'lucide-react';
 import { cn } from '@/vault/lib/utils';
 
@@ -179,7 +180,7 @@ export function Modal({ open, onClose, title, hint, children, footer, size = 'md
 
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div className={cn(
@@ -205,6 +206,7 @@ export function Modal({ open, onClose, title, hint, children, footer, size = 'md
 
         {footer && <div className="flex shrink-0 justify-end gap-2 border-t border-white/8 px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

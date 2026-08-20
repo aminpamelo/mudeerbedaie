@@ -382,8 +382,8 @@
       "_x-BlFcgx-Q.js"
     ]
   },
-  "_chunk-V5I7CVLT-DM5lKwxz.js": {
-    "file": "assets/chunk-V5I7CVLT-DM5lKwxz.js",
+  "_chunk-V5I7CVLT-CA07hUQM.js": {
+    "file": "assets/chunk-V5I7CVLT-CA07hUQM.js",
     "name": "chunk-V5I7CVLT",
     "imports": [
       "resources/js/funnel-builder/index.jsx",
@@ -1562,12 +1562,12 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/Editor-L7XD2QW3.mjs": {
-    "file": "assets/Editor-L7XD2QW3-DeyjZGT3.js",
+    "file": "assets/Editor-L7XD2QW3-oOJaXTc5.js",
     "name": "Editor-L7XD2QW3",
     "src": "node_modules/@puckeditor/core/dist/Editor-L7XD2QW3.mjs",
     "isDynamicEntry": true,
     "imports": [
-      "_chunk-V5I7CVLT-DM5lKwxz.js",
+      "_chunk-V5I7CVLT-CA07hUQM.js",
       "resources/js/funnel-builder/index.jsx",
       "_client-zbM7qFgD.js",
       "_index-6Rqo3Gzw.js",
@@ -1593,12 +1593,12 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/Render-FXZX6NFH.mjs": {
-    "file": "assets/Render-FXZX6NFH-BRlJWUW5.js",
+    "file": "assets/Render-FXZX6NFH-CueWuVwr.js",
     "name": "Render-FXZX6NFH",
     "src": "node_modules/@puckeditor/core/dist/Render-FXZX6NFH.mjs",
     "isDynamicEntry": true,
     "imports": [
-      "_chunk-V5I7CVLT-DM5lKwxz.js",
+      "_chunk-V5I7CVLT-CA07hUQM.js",
       "resources/js/funnel-builder/index.jsx",
       "_index-DdyVW82_.js",
       "_client-zbM7qFgD.js",
@@ -1622,7 +1622,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/full-4UGAOTTB.mjs": {
-    "file": "assets/full-4UGAOTTB-DyAQmM4D.js",
+    "file": "assets/full-4UGAOTTB-DPKXEd6S.js",
     "name": "full-4UGAOTTB",
     "src": "node_modules/@puckeditor/core/dist/full-4UGAOTTB.mjs",
     "isDynamicEntry": true,
@@ -1652,7 +1652,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/loaded-5AM4V5PV.mjs": {
-    "file": "assets/loaded-5AM4V5PV-BpQWWwUX.js",
+    "file": "assets/loaded-5AM4V5PV-Dj_kTeTK.js",
     "name": "loaded-5AM4V5PV",
     "src": "node_modules/@puckeditor/core/dist/loaded-5AM4V5PV.mjs",
     "isDynamicEntry": true,
@@ -1682,7 +1682,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/loaded-G2WSQZO7.mjs": {
-    "file": "assets/loaded-G2WSQZO7-D7uC136-.js",
+    "file": "assets/loaded-G2WSQZO7-DRerA5X-.js",
     "name": "loaded-G2WSQZO7",
     "src": "node_modules/@puckeditor/core/dist/loaded-G2WSQZO7.mjs",
     "isDynamicEntry": true,
@@ -1712,7 +1712,7 @@
     ]
   },
   "node_modules/@puckeditor/core/dist/loaded-MYALJBRK.mjs": {
-    "file": "assets/loaded-MYALJBRK-CXL_p6Vw.js",
+    "file": "assets/loaded-MYALJBRK-edGbgvzM.js",
     "name": "loaded-MYALJBRK",
     "src": "node_modules/@puckeditor/core/dist/loaded-MYALJBRK.mjs",
     "isDynamicEntry": true,
@@ -2163,7 +2163,7 @@
     ]
   },
   "resources/js/funnel-builder/index.jsx": {
-    "file": "assets/index-D53_g4N7.js",
+    "file": "assets/index-CBZct6Z2.js",
     "name": "index",
     "src": "resources/js/funnel-builder/index.jsx",
     "isEntry": true,
@@ -12686,7 +12686,7 @@
     ]
   },
   "resources/js/vault/app.jsx": {
-    "file": "assets/app-DgnT98vR.js",
+    "file": "assets/app-DqGrwVwz.js",
     "name": "app",
     "src": "resources/js/vault/app.jsx",
     "isEntry": true,
@@ -12704,6 +12704,7 @@
       "_settings-aATGRuJA.js",
       "_lock-yPJmVqyo.js",
       "_arrow-left-QdAUq2jm.js",
+      "_index-B8foo2Z8.js",
       "_inbox-BcyVEC-H.js",
       "_trash-2-u6dDErCk.js",
       "_pencil-Cqe7AAc4.js",
@@ -12716,8 +12717,7 @@
       "_external-link-B3MhSNVx.js",
       "_triangle-alert-CG-M00C4.js",
       "__commonjsHelpers-CE1G-McA.js",
-      "_index-KcFgf-gG.js",
-      "_index-B8foo2Z8.js"
+      "_index-KcFgf-gG.js"
     ],
     "css": [
       "assets/vault-CtSm7mhK.css"
