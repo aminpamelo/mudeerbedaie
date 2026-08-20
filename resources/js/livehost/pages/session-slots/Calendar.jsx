@@ -326,6 +326,7 @@ export default function SessionSlotsCalendar() {
     liveAccounts = [],
     timeSlots,
     slotOverrides = [],
+    slotTemplates = [],
     hostPlatformPivots,
     verifySource = 'all',
     flash,
@@ -1896,6 +1897,7 @@ export default function SessionSlotsCalendar() {
         <SlotOverrideModal
           account={overrideAccount}
           suggestedSlots={suggestedSlotsFor(overrideAccount)}
+          slotTemplates={slotTemplates}
           onClose={() => setOverrideAccount(null)}
           onSaved={() => router.reload({ only: ['slotOverrides', 'sessionSlots'], preserveScroll: true })}
         />

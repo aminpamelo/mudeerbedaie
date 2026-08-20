@@ -5,6 +5,7 @@ import {
   Users,
   Clock,
   LayoutGrid,
+  LayoutTemplate,
   Play,
   Search,
   Store,
@@ -58,6 +59,7 @@ const NAV_GROUPS = [
     label: 'Allocation',
     items: [
       { key: 'time-slots', label: 'Time Slots', href: '/livehost/time-slots', icon: Clock },
+      { key: 'slot-templates', label: 'Slot Templates', href: '/livehost/slot-templates', icon: LayoutTemplate },
       { key: 'session-slots', label: 'Session Slots', href: '/livehost/session-slots', icon: LayoutGrid },
       { key: 'platform-accounts', label: 'Platform Accounts', href: '/livehost/platform-accounts', icon: Store, countKey: 'platformAccounts' },
       { key: 'creators', label: 'Creators', href: '/livehost/creators', icon: UserCircle2, countKey: 'creators' },
@@ -97,6 +99,7 @@ const NAV_ITEM_PERMISSION = {
   leaderboard: 'canSeeMentoring',
   'video-report': 'canSeeMentoring',
   'time-slots': null,
+  'slot-templates': null,
   'session-slots': null,
   'platform-accounts': null,
   creators: null,

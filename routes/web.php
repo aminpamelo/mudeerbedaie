@@ -65,6 +65,7 @@ use App\Http\Controllers\LiveHost\SessionCoverageController;
 use App\Http\Controllers\LiveHost\SessionDataController;
 use App\Http\Controllers\LiveHost\SessionSlotController;
 use App\Http\Controllers\LiveHost\SlotOverrideController;
+use App\Http\Controllers\LiveHost\SlotTemplateController;
 use App\Http\Controllers\LiveHost\TiktokReportImportController;
 use App\Http\Controllers\LiveHost\TimeSlotController;
 use App\Http\Controllers\LiveHost\VideoReportController;
@@ -1051,6 +1052,12 @@ Route::middleware(['auth'])
             Route::resource('time-slots', TimeSlotController::class)
                 ->except(['show'])
                 ->parameters(['time-slots' => 'timeSlot']);
+
+            // Reusable, global slot templates applied to overrides in one pick.
+            // Create/edit/delete happen client-side (modal) so no create/edit/show.
+            Route::resource('slot-templates', SlotTemplateController::class)
+                ->only(['index', 'store', 'update', 'destroy'])
+                ->parameters(['slot-templates' => 'slotTemplate']);
 
             // Literal-path session-slot routes must come BEFORE Route::resource to avoid
             // the resource's {sessionSlot} show route swallowing "/calendar", "/table", "/preview".

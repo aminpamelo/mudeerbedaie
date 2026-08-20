@@ -12,6 +12,7 @@ use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
+use App\Models\LiveSlotTemplate;
 use App\Models\LiveTimeSlot;
 use App\Models\LiveTimeSlotOverride;
 use App\Models\Platform;
@@ -207,6 +208,7 @@ class SessionSlotController extends Controller
             'platformAccounts' => $this->platformAccountOptions(),
             'liveAccounts' => $this->liveAccountOptions(),
             'timeSlots' => $timeSlots,
+            'slotTemplates' => $this->slotTemplateOptions(),
             'slotOverrides' => $this->slotOverridesForWeek($weekStart, $weekEnd),
             'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
             'autoVerifyEnabled' => filter_var(
@@ -962,6 +964,30 @@ class SessionSlotController extends Controller
                     'endTime' => substr((string) $s->end_time, 0, 5),
                 ])->values(),
             ])->values();
+    }
+
+    /**
+     * Active global slot templates for the override modal's "Apply template"
+     * picker — each carries its weekly windows so applying is a client-side fill.
+     *
+     * @return Collection<int, array{id: int, name: string, description: ?string, slots: array<int, array{dayOfWeek: int, startTime: string, endTime: string}>}>
+     */
+    private function slotTemplateOptions(): Collection
+    {
+        return LiveSlotTemplate::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'slots'])
+            ->map(fn (LiveSlotTemplate $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'description' => $t->description,
+                'slots' => collect($t->slots ?? [])->map(fn ($s) => [
+                    'dayOfWeek' => (int) $s['day_of_week'],
+                    'startTime' => substr((string) $s['start_time'], 0, 5),
+                    'endTime' => substr((string) $s['end_time'], 0, 5),
+                ])->values()->all(),
+            ]);
     }
 
     private function timeSlotOptions(): Collection
