@@ -60,6 +60,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         },
     });
     const [saving, setSaving] = useState(false);
+    const [savingShipping, setSavingShipping] = useState(false);
 
     // Custom domain state
     const [customDomain, setCustomDomain] = useState(null);
@@ -209,6 +210,28 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         }
     };
 
+    const handleToggleDisableShipping = async () => {
+        const next = !form.disable_shipping;
+        setForm((f) => ({ ...f, disable_shipping: next }));
+        setSavingShipping(true);
+        try {
+            await funnelApi.update(funnelUuid, { disable_shipping: next });
+            await onRefresh();
+            showToast(
+                next
+                    ? 'Shipping/billing address fields hidden from checkout.'
+                    : 'Shipping/billing address fields shown on checkout.',
+                'success'
+            );
+        } catch (err) {
+            console.error('Failed to update shipping setting:', err);
+            setForm((f) => ({ ...f, disable_shipping: !next }));
+            showToast('Failed to update shipping setting', 'error');
+        } finally {
+            setSavingShipping(false);
+        }
+    };
+
     const setShipping = (patch) =>
         setForm((f) => ({ ...f, shipping_settings: { ...f.shipping_settings, ...patch } }));
 
@@ -354,8 +377,9 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                     </div>
                     <button
                         type="button"
-                        onClick={() => setForm({ ...form, disable_shipping: !form.disable_shipping })}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                        onClick={handleToggleDisableShipping}
+                        disabled={savingShipping}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed ${
                             form.disable_shipping ? 'bg-orange-600' : 'bg-gray-200'
                         }`}
                         role="switch"
