@@ -52,7 +52,11 @@ class ProductCart extends Model
             ->first();
 
         if ($item) {
-            $item->update(['quantity' => $item->quantity + $quantity]);
+            $newQuantity = $item->quantity + $quantity;
+            $item->update([
+                'quantity' => $newQuantity,
+                'total_price' => $item->unit_price * $newQuantity,
+            ]);
         } else {
             $price = $variant ? $variant->price : $product->base_price;
             $item = $this->items()->create([

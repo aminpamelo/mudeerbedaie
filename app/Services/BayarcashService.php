@@ -474,6 +474,17 @@ class BayarcashService
 
         $order->update($updates);
 
+        // Settle the pending gateway payment record(s) so isPaid() and the
+        // admin "Paid/Unpaid" badge reconcile with payment_status. Without this
+        // a successfully-paid storefront order keeps showing "Unpaid".
+        if ($order instanceof ProductOrder) {
+            $order->payments()
+                ->where('status', 'pending')
+                ->get()
+                ->each
+                ->markAsPaid();
+        }
+
         Log::info('Bayarcash payment successful', [
             'order_id' => $order->id,
             'order_number' => $order->order_number,

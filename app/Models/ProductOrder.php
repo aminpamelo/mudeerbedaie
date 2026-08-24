@@ -672,6 +672,13 @@ class ProductOrder extends Model
 
     public function isPaid(): bool
     {
+        // The payment_status column is the authoritative settlement flag set by
+        // every real payment path (Bayarcash/FPX, COD collection, manual
+        // confirmation). Trust it first so a settled order never reads "Unpaid".
+        if ($this->payment_status === 'paid') {
+            return true;
+        }
+
         // For platform orders (TikTok, etc.), check paid_time
         if ($this->isPlatformOrder()) {
             return ! is_null($this->paid_time);

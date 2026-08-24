@@ -298,7 +298,15 @@ class BayarcashWebhookController extends Controller
 
         // Redirect based on payment status (non-funnel orders)
         if ($status === '3') {
-            // Payment successful
+            // Payment successful. Settle the order here as a safety net in case
+            // the server-to-server callback never arrived or failed signature
+            // verification, which would otherwise leave the order stuck pending.
+            // Gated on a verified return to avoid a spoofed ?status=3 marking an
+            // unpaid order as paid. processSuccessfulPayment is idempotent.
+            if ($verificationPassed && ! $order->isPaid()) {
+                $this->bayarcashService->processSuccessfulPayment($order, $data);
+            }
+
             return redirect()->route('orders.show', ['order' => $order->id])
                 ->with('success', 'Payment successful! Thank you for your order.');
         } elseif ($status === '2') {
