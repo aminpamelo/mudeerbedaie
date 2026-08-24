@@ -45,6 +45,7 @@ class BlogPost extends Model
         'featured_image_id',
         'category_id',
         'author_id',
+        'blog_author_id',
         'locale',
         'status',
         'published_at',
@@ -147,6 +148,16 @@ class BlogPost extends Model
         return $this->belongsTo(User::class, 'author_id')->withTrashed();
     }
 
+    /**
+     * The displayed byline. A dedicated {@see BlogAuthor} record (a pen-name or
+     * guest writer) that can be reassigned freely, independent of which staff
+     * account originally created the post.
+     */
+    public function blogAuthor(): BelongsTo
+    {
+        return $this->belongsTo(BlogAuthor::class, 'blog_author_id');
+    }
+
     public function featuredImage(): BelongsTo
     {
         return $this->belongsTo(Media::class, 'featured_image_id');
@@ -231,10 +242,22 @@ class BlogPost extends Model
         return route('blog.show', $this->slug);
     }
 
-    /** Null-safe: the author account may have been soft-deleted or detached. */
+    /**
+     * The byline name. Prefers the assigned {@see BlogAuthor}, then falls back
+     * to the creating staff account (soft-deletable, hence `withTrashed`), then
+     * to a generic team credit so a render never hits a null relationship.
+     */
     public function getAuthorNameAttribute(): string
     {
-        return $this->author?->name ?? __('blog.author_team', ['store' => config('store.name')]);
+        return $this->blogAuthor?->name
+            ?? $this->author?->name
+            ?? __('blog.author_team', ['store' => config('store.name')]);
+    }
+
+    /** The byline avatar, when a {@see BlogAuthor} with an uploaded image is assigned. */
+    public function getAuthorAvatarUrlAttribute(): ?string
+    {
+        return $this->blogAuthor?->avatar_url;
     }
 
     public function getFeaturedImageUrlAttribute(): ?string

@@ -30,6 +30,7 @@ class StorePostRequest extends FormRequest
             'excerpt' => ['nullable', 'string', 'max:500'],
             'content' => ['nullable', 'string'],
             'category_id' => ['nullable', 'exists:blog_categories,id'],
+            'blog_author_id' => ['nullable', 'exists:blog_authors,id'],
             'locale' => ['required', 'in:ms,en'],
             'status' => ['required', 'in:draft,scheduled,published,archived'],
             'published_at' => ['nullable', 'date', Rule::requiredIf(fn () => $this->input('status') === BlogPost::STATUS_SCHEDULED)],
@@ -68,6 +69,7 @@ class StorePostRequest extends FormRequest
         $this->merge([
             'canonical_url' => trim((string) $this->input('canonical_url')) ?: null,
             'category_id' => $this->input('category_id') ?: null,
+            'blog_author_id' => $this->input('blog_author_id') ?: null,
             'featured_image_id' => $this->input('featured_image_id') ?: null,
             'og_image_id' => $this->input('og_image_id') ?: null,
             'published_at' => trim((string) $this->input('published_at')) ?: null,

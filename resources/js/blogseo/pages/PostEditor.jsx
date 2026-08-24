@@ -5,10 +5,11 @@ import {
   ArrowLeft, Rocket, Save, ExternalLink, Bold, Italic, List, ListOrdered,
   Link2, Image as ImageIcon, Quote, Code, Eye, Columns2, PenLine,
   CheckCircle2, AlertTriangle, XCircle, Search, X, ShoppingBag, Trash2, Loader2,
+  ChevronDown, Check, UserRound, Plus,
 } from 'lucide-react';
 import BlogSeoLayout from '@/blogseo/layouts/BlogSeoLayout';
 import { Card, SectionTitle, Badge, Button, Field, Input, Textarea, Select, Switch, Modal, ScoreGauge } from '@/blogseo/components/Ui';
-import { cn, csrfToken, checkTone, formatNumber } from '@/blogseo/lib/utils';
+import { cn, csrfToken, checkTone, formatNumber, initialsFrom } from '@/blogseo/lib/utils';
 
 const GROUP_LABELS = {
   basics: 'Basics',
@@ -122,7 +123,137 @@ function ProductPicker({ open, onClose, products, selected, onToggle }) {
   );
 }
 
-export default function PostEditor({ post, categories, allTags, products, media, siteUrl }) {
+/** Small round avatar with an initials fallback. */
+function AuthorAvatar({ url, name, className }) {
+  return url ? (
+    <img src={url} alt="" className={cn('rounded-full object-cover', className)} />
+  ) : (
+    <span className={cn('grid place-items-center rounded-full bg-gradient-to-br from-[var(--color-brand)] to-[var(--color-sky)] text-[10px] font-semibold text-white', className)}>
+      {name ? initialsFrom(name) : <UserRound className="h-3.5 w-3.5" />}
+    </span>
+  );
+}
+
+/**
+ * Searchable author byline picker. A native <select> can't show avatars or
+ * filter, so this is a lightweight combobox: a trigger showing the current
+ * pick and a searchable, avatar-rich dropdown panel.
+ */
+function AuthorPicker({ authors, value, onChange, error }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const boxRef = useRef(null);
+  const searchRef = useRef(null);
+
+  const selected = useMemo(
+    () => authors.find((a) => String(a.id) === String(value)) ?? null,
+    [authors, value],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return authors;
+    return authors.filter((a) => a.name.toLowerCase().includes(q));
+  }, [authors, query]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    const t = setTimeout(() => searchRef.current?.focus(), 20);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+      clearTimeout(t);
+    };
+  }, [open]);
+
+  const pick = (id) => {
+    onChange(id === null ? '' : String(id));
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          'flex w-full items-center gap-2.5 rounded-xl bg-white px-3 py-2 text-left text-[13.5px] text-ink ring-1 ring-inset transition-shadow',
+          open ? 'ring-2 ring-[var(--color-brand)]' : 'ring-line hover:ring-slate-300',
+        )}
+      >
+        {selected
+          ? <AuthorAvatar url={selected.avatar_url} name={selected.name} className="h-7 w-7 shrink-0" />
+          : <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-muted-2"><UserRound className="h-4 w-4" /></span>}
+        <span className={cn('min-w-0 flex-1 truncate', !selected && 'text-muted-2')}>
+          {selected ? selected.name : 'Default byline'}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-2 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl bg-white shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28)] ring-1 ring-line">
+          <div className="relative border-b border-line p-2">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-2" />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search authors…"
+              className="w-full rounded-lg border-0 bg-surface py-2 pl-8 pr-2.5 text-[13px] text-ink placeholder:text-muted-2 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]"
+            />
+          </div>
+
+          <div className="scroll-thin max-h-60 overflow-y-auto p-1">
+            <button
+              type="button"
+              onClick={() => pick(null)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] hover:bg-surface"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface text-muted-2"><UserRound className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1 truncate text-muted">Default byline</span>
+              {!selected && <Check className="h-4 w-4 shrink-0 text-[var(--color-brand)]" />}
+            </button>
+
+            {filtered.length === 0 ? (
+              <p className="px-2 py-6 text-center text-[12.5px] text-muted-2">No authors match “{query}”.</p>
+            ) : filtered.map((a) => {
+              const active = String(a.id) === String(value);
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => pick(a.id)}
+                  className={cn('flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] hover:bg-surface', active && 'bg-emerald-50/60')}
+                >
+                  <AuthorAvatar url={a.avatar_url} name={a.name} className="h-7 w-7 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate font-medium text-ink-2">{a.name}</span>
+                  {active && <Check className="h-4 w-4 shrink-0 text-[var(--color-brand)]" />}
+                </button>
+              );
+            })}
+          </div>
+
+          <a
+            href="/blog-seo/authors"
+            className="flex items-center gap-2 border-t border-line px-3 py-2.5 text-[12.5px] font-medium text-muted transition-colors hover:bg-surface hover:text-ink"
+          >
+            <Plus className="h-3.5 w-3.5" /> Manage authors
+          </a>
+        </div>
+      )}
+      {error && <p className="mt-1 text-[11.5px] font-semibold text-rose-600" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+export default function PostEditor({ post, categories, authors, allTags, products, media, siteUrl }) {
   const isNew = !post;
 
   const form = useForm({
@@ -131,6 +262,7 @@ export default function PostEditor({ post, categories, allTags, products, media,
     excerpt: post?.excerpt ?? '',
     content: post?.content ?? '',
     category_id: post?.category_id ?? '',
+    blog_author_id: post?.blog_author_id ?? '',
     locale: post?.locale ?? 'ms',
     status: post?.status ?? 'draft',
     published_at: post?.published_at ?? '',
@@ -501,6 +633,15 @@ export default function PostEditor({ post, categories, allTags, products, media,
                 <option value="">— No category —</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
+            </Field>
+
+            <Field label="Author" hint="Who this article is attributed to. Search or manage the list under Authors.">
+              <AuthorPicker
+                authors={authors}
+                value={data.blog_author_id}
+                onChange={(v) => setData('blog_author_id', v)}
+                error={errors.blog_author_id}
+              />
             </Field>
 
             <Field label="Tags" hint="Press Enter or comma to add. New tags are created automatically.">

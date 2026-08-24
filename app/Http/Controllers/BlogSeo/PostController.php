@@ -4,6 +4,7 @@ namespace App\Http\Controllers\BlogSeo;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BlogSeo\StorePostRequest;
+use App\Models\BlogAuthor;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
 use App\Models\BlogTag;
@@ -36,7 +37,7 @@ class PostController extends Controller
         ];
 
         $posts = BlogPost::query()
-            ->with(['category:id,name,color', 'author:id,name', 'featuredImage'])
+            ->with(['category:id,name,color', 'author:id,name', 'blogAuthor:id,name,avatar_path', 'featuredImage'])
             ->withCount(['comments as pending_comments' => fn (Builder $q) => $q->where('status', 'pending')])
             ->when($filters['search'], fn (Builder $q, $v) => $q->search($v))
             ->when($filters['status'], fn (Builder $q, $v) => $q->where('status', $v))
@@ -274,6 +275,7 @@ class PostController extends Controller
             'excerpt' => (string) $post->excerpt,
             'content' => (string) $post->content,
             'category_id' => $post->category_id,
+            'blog_author_id' => $post->blog_author_id,
             'locale' => $post->locale,
             'status' => $post->status,
             'published_at' => $post->published_at?->format('Y-m-d\TH:i'),
@@ -304,6 +306,14 @@ class PostController extends Controller
     {
         return [
             'categories' => BlogCategory::query()->ordered()->get(['id', 'name', 'color']),
+            'authors' => BlogAuthor::query()
+                ->ordered()
+                ->get()
+                ->map(fn (BlogAuthor $a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'avatar_url' => $a->avatar_url,
+                ]),
             'allTags' => BlogTag::query()->orderBy('name')->pluck('name'),
             'products' => Product::query()
                 ->where('status', 'active')

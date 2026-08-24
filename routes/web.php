@@ -7,6 +7,7 @@ use App\Http\Controllers\BayarcashWebhookController;
 use App\Http\Controllers\Blog\CommentController as BlogCommentController;
 use App\Http\Controllers\Blog\SubscriberController as BlogSubscriberController;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\BlogSeo\AuthorController as BlogSeoAuthorController;
 use App\Http\Controllers\BlogSeo\CategoryController as BlogSeoCategoryController;
 use App\Http\Controllers\BlogSeo\CommentController as BlogSeoCommentController;
 use App\Http\Controllers\BlogSeo\DashboardController as BlogSeoDashboardController;
@@ -1675,6 +1676,11 @@ Route::middleware(['auth', 'role:admin,employee', HandleBlogSeoInertiaRequests::
         Route::post('categories', [BlogSeoCategoryController::class, 'store'])->name('categories.store');
         Route::put('categories/{category}', [BlogSeoCategoryController::class, 'update'])->name('categories.update');
         Route::delete('categories/{category}', [BlogSeoCategoryController::class, 'destroy'])->name('categories.destroy');
+
+        Route::get('authors', [BlogSeoAuthorController::class, 'index'])->name('authors.index');
+        Route::post('authors', [BlogSeoAuthorController::class, 'store'])->name('authors.store');
+        Route::put('authors/{author}', [BlogSeoAuthorController::class, 'update'])->name('authors.update');
+        Route::delete('authors/{author}', [BlogSeoAuthorController::class, 'destroy'])->name('authors.destroy');
 
         Route::get('tags', [BlogSeoTagController::class, 'index'])->name('tags.index');
         Route::post('tags', [BlogSeoTagController::class, 'store'])->name('tags.store');

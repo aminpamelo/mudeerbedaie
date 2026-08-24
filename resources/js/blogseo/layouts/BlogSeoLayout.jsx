@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import {
-  LayoutDashboard, FileText, Gauge, FolderOpen, Hash,
+  LayoutDashboard, FileText, Gauge, FolderOpen, Hash, Users,
   MessageSquare, Mail, LogOut, Menu, X, PenLine, ExternalLink,
 } from 'lucide-react';
 import { cn, initialsFrom } from '@/blogseo/lib/utils';
@@ -12,6 +12,7 @@ const NAV = [
   { label: 'Posts', href: '/blog-seo/posts', icon: FileText },
   { label: 'SEO Health', href: '/blog-seo/seo', icon: Gauge },
   { label: 'Categories', href: '/blog-seo/categories', icon: FolderOpen },
+  { label: 'Authors', href: '/blog-seo/authors', icon: Users },
   { label: 'Tags', href: '/blog-seo/tags', icon: Hash },
   { label: 'Comments', href: '/blog-seo/comments', icon: MessageSquare, badge: 'pendingComments' },
   { label: 'Subscribers', href: '/blog-seo/subscribers', icon: Mail },

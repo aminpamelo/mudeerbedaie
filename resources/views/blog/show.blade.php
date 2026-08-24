@@ -69,9 +69,13 @@
             {{-- Author + meta --}}
             <div class="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2">
                 <div class="flex items-center gap-2.5">
-                    <span class="store-grad font-display grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white">
-                        {{ strtoupper(mb_substr($post->author_name, 0, 1)) }}
-                    </span>
+                    @if ($post->author_avatar_url)
+                        <img src="{{ $post->author_avatar_url }}" alt="{{ $post->author_name }}" class="h-10 w-10 shrink-0 rounded-full object-cover" />
+                    @else
+                        <span class="store-grad font-display grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white">
+                            {{ strtoupper(mb_substr($post->author_name, 0, 1)) }}
+                        </span>
+                    @endif
                     <div class="leading-tight">
                         <p class="text-sm font-bold text-zinc-900">{{ $post->author_name }}</p>
                         <p class="text-xs text-zinc-500">
@@ -206,9 +210,13 @@
 
                 {{-- ---------- AUTHOR ---------- --}}
                 <section class="mt-12 flex flex-col gap-4 rounded-2xl border border-zinc-100 bg-gradient-to-br from-violet-50/60 via-fuchsia-50/40 to-rose-50/40 p-6 sm:flex-row sm:items-center">
-                    <span class="store-grad font-display grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-lg font-extrabold text-white">
-                        {{ strtoupper(mb_substr($post->author_name, 0, 1)) }}
-                    </span>
+                    @if ($post->author_avatar_url)
+                        <img src="{{ $post->author_avatar_url }}" alt="{{ $post->author_name }}" class="h-14 w-14 shrink-0 rounded-2xl object-cover" />
+                    @else
+                        <span class="store-grad font-display grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-lg font-extrabold text-white">
+                            {{ strtoupper(mb_substr($post->author_name, 0, 1)) }}
+                        </span>
+                    @endif
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wide text-violet-600">{{ __('blog.written_by') }}</p>
                         <p class="font-display mt-0.5 text-lg font-bold text-zinc-900">{{ $post->author_name }}</p>

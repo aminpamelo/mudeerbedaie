@@ -1749,7 +1749,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-C1qGfXPF.css",
+    "file": "assets/app-CjJBX4LS.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -1792,7 +1792,7 @@
     "isEntry": true
   },
   "resources/js/blogseo/app.jsx": {
-    "file": "assets/app-LwMXL5xY.js",
+    "file": "assets/app-Bi6NC6bd.js",
     "name": "app",
     "src": "resources/js/blogseo/app.jsx",
     "isEntry": true,
@@ -1806,6 +1806,7 @@
       "_file-text-DjBhZPQF.js",
       "_gauge-BqoaJoKf.js",
       "_folder-open-B1DH00xx.js",
+      "_users-BxyNy30Z.js",
       "_hash-BVed0xLB.js",
       "_message-square-Cu2yKMUy.js",
       "_mail-DDyIyU7_.js",
@@ -1815,6 +1816,7 @@
       "_plus-C4J9fY3P.js",
       "_pencil-Cqe7AAc4.js",
       "_trash-2-u6dDErCk.js",
+      "_image-plus-AOMKTN_4.js",
       "_eye-off-C7AK0Va1.js",
       "_shield-check-DdgNa2kg.js",
       "_check-check-DyfzvfE-.js",
@@ -1840,10 +1842,10 @@
       "_arrow-left-QdAUq2jm.js",
       "_save-Dhz4Uwz8.js",
       "_rocket-D21F_7lC.js",
+      "_chevron-down-DLLQS2h0.js",
       "_star-CzZ71wJw.js",
       "_clock-DMjhAk5J.js",
       "_refresh-cw-Bw7KVR_r.js",
-      "_chevron-down-DLLQS2h0.js",
       "_trending-up-B-km5jP8.js",
       "_info-DPiZBwFF.js",
       "_download-CdFucJWW.js",
@@ -1856,11 +1858,11 @@
       "_index-CKICdfpX.js"
     ],
     "css": [
-      "assets/blogseo-B0xRdTBG.css"
+      "assets/blogseo-CCkyYzE9.css"
     ]
   },
   "resources/js/blogseo/styles/blogseo.css": {
-    "file": "assets/blogseo-B0xRdTBG.css",
+    "file": "assets/blogseo-CCkyYzE9.css",
     "src": "resources/js/blogseo/styles/blogseo.css",
     "isEntry": true,
     "name": "blogseo",
@@ -1869,7 +1871,7 @@
     ]
   },
   "resources/js/ceo/app.jsx": {
-    "file": "assets/app-CL9mCd1a.js",
+    "file": "assets/app-CDgDb4xb.js",
     "name": "app",
     "src": "resources/js/ceo/app.jsx",
     "isEntry": true,
@@ -1913,11 +1915,11 @@
       "_index-KcFgf-gG.js"
     ],
     "css": [
-      "assets/ceo-CEt-A_GX.css"
+      "assets/ceo-DnhSo3P7.css"
     ]
   },
   "resources/js/ceo/styles/ceo.css": {
-    "file": "assets/ceo-CEt-A_GX.css",
+    "file": "assets/ceo-DnhSo3P7.css",
     "src": "resources/js/ceo/styles/ceo.css",
     "isEntry": true,
     "name": "ceo",
@@ -2017,7 +2019,7 @@
     ]
   },
   "resources/js/cms/styles/cms.css": {
-    "file": "assets/cms-Dlj-Zb2W.css",
+    "file": "assets/cms-TbY_c9c5.css",
     "src": "resources/js/cms/styles/cms.css",
     "isEntry": true,
     "name": "cms",
@@ -2035,7 +2037,7 @@
     ]
   },
   "resources/js/fighter/app.jsx": {
-    "file": "assets/app-BSAcQyPF.js",
+    "file": "assets/app-CJlrt_1x.js",
     "name": "app",
     "src": "resources/js/fighter/app.jsx",
     "isEntry": true,
@@ -2101,11 +2103,11 @@
       "_index-CKICdfpX.js"
     ],
     "css": [
-      "assets/fighter-L8wf9cQz.css"
+      "assets/fighter-BSsTgh0n.css"
     ]
   },
   "resources/js/fighter/styles/fighter.css": {
-    "file": "assets/fighter-L8wf9cQz.css",
+    "file": "assets/fighter-BSsTgh0n.css",
     "src": "resources/js/fighter/styles/fighter.css",
     "isEntry": true,
     "name": "fighter",
@@ -2114,7 +2116,7 @@
     ]
   },
   "resources/js/forms/app.jsx": {
-    "file": "assets/app-Brp_F0__.js",
+    "file": "assets/app-ByHjust4.js",
     "name": "app",
     "src": "resources/js/forms/app.jsx",
     "isEntry": true,
@@ -2165,11 +2167,11 @@
       "_index-B8foo2Z8.js"
     ],
     "css": [
-      "assets/forms-B1Fz4J0r.css"
+      "assets/forms-8BQ1iPWy.css"
     ]
   },
   "resources/js/forms/styles/forms.css": {
-    "file": "assets/forms-B1Fz4J0r.css",
+    "file": "assets/forms-8BQ1iPWy.css",
     "src": "resources/js/forms/styles/forms.css",
     "isEntry": true,
     "name": "forms",
@@ -12319,7 +12321,7 @@
     ]
   },
   "resources/js/hr/styles/hr.css": {
-    "file": "assets/hr-UMDCbbmM.css",
+    "file": "assets/hr-C1shADaS.css",
     "src": "resources/js/hr/styles/hr.css",
     "isEntry": true,
     "name": "hr",
@@ -12328,7 +12330,7 @@
     ]
   },
   "resources/js/livehost-pocket/app.jsx": {
-    "file": "assets/app-DefR41Oy.js",
+    "file": "assets/app-BEGWfr2q.js",
     "name": "app",
     "src": "resources/js/livehost-pocket/app.jsx",
     "isEntry": true,
@@ -12383,11 +12385,11 @@
       "_index-KcFgf-gG.js"
     ],
     "css": [
-      "assets/pocket-vg0XhCvu.css"
+      "assets/pocket-BX3_XcvC.css"
     ]
   },
   "resources/js/livehost-pocket/styles/pocket.css": {
-    "file": "assets/pocket-vg0XhCvu.css",
+    "file": "assets/pocket-BX3_XcvC.css",
     "src": "resources/js/livehost-pocket/styles/pocket.css",
     "isEntry": true,
     "name": "pocket",
@@ -12396,7 +12398,7 @@
     ]
   },
   "resources/js/livehost/app.jsx": {
-    "file": "assets/app-iIcp6MPc.js",
+    "file": "assets/app-Cyh8nKrh.js",
     "name": "app",
     "src": "resources/js/livehost/app.jsx",
     "isEntry": true,
@@ -12520,11 +12522,11 @@
       "_getRadiusAndStrokeWidthFromDot-DMgMWjRm.js"
     ],
     "css": [
-      "assets/livehost-DXaS_TEv.css"
+      "assets/livehost-LM7mOyqu.css"
     ]
   },
   "resources/js/livehost/styles/livehost.css": {
-    "file": "assets/livehost-DXaS_TEv.css",
+    "file": "assets/livehost-LM7mOyqu.css",
     "src": "resources/js/livehost/styles/livehost.css",
     "isEntry": true,
     "name": "livehost",
@@ -12533,7 +12535,7 @@
     ]
   },
   "resources/js/mindpal-admin/app.jsx": {
-    "file": "assets/app-CWBuG-hQ.js",
+    "file": "assets/app-cR4Rs03m.js",
     "name": "app",
     "src": "resources/js/mindpal-admin/app.jsx",
     "isEntry": true,
@@ -12571,11 +12573,11 @@
       "_index-B8foo2Z8.js"
     ],
     "css": [
-      "assets/mindpal-aidLy0ms.css"
+      "assets/mindpal-B4LWTpL9.css"
     ]
   },
   "resources/js/mindpal-admin/styles/mindpal.css": {
-    "file": "assets/mindpal-aidLy0ms.css",
+    "file": "assets/mindpal-B4LWTpL9.css",
     "src": "resources/js/mindpal-admin/styles/mindpal.css",
     "isEntry": true,
     "name": "mindpal",
@@ -12584,7 +12586,7 @@
     ]
   },
   "resources/js/pos/index.jsx": {
-    "file": "assets/index-BVFJnkA9.js",
+    "file": "assets/index-DKAqq8Gp.js",
     "name": "index",
     "src": "resources/js/pos/index.jsx",
     "isEntry": true,
@@ -12594,11 +12596,11 @@
       "__commonjsHelpers-CE1G-McA.js"
     ],
     "css": [
-      "assets/pos-DNGB0ide.css"
+      "assets/pos-DCKwAnK6.css"
     ]
   },
   "resources/js/pos/styles/pos.css": {
-    "file": "assets/pos-DNGB0ide.css",
+    "file": "assets/pos-DCKwAnK6.css",
     "src": "resources/js/pos/styles/pos.css",
     "isEntry": true,
     "name": "pos",
@@ -12626,7 +12628,7 @@
     ]
   },
   "resources/js/student/app.jsx": {
-    "file": "assets/app-BEWRR-OJ.js",
+    "file": "assets/app-BGTXMzk3.js",
     "name": "app",
     "src": "resources/js/student/app.jsx",
     "isEntry": true,
@@ -12688,11 +12690,11 @@
       "_index-B8foo2Z8.js"
     ],
     "css": [
-      "assets/student-VWTP6eoe.css"
+      "assets/student-CnpCcoNo.css"
     ]
   },
   "resources/js/student/styles/student.css": {
-    "file": "assets/student-VWTP6eoe.css",
+    "file": "assets/student-CnpCcoNo.css",
     "src": "resources/js/student/styles/student.css",
     "isEntry": true,
     "name": "student",
@@ -12701,7 +12703,7 @@
     ]
   },
   "resources/js/vault/app.jsx": {
-    "file": "assets/app-CUpG3qrv.js",
+    "file": "assets/app-DN6DNC5E.js",
     "name": "app",
     "src": "resources/js/vault/app.jsx",
     "isEntry": true,
@@ -12735,11 +12737,11 @@
       "_index-KcFgf-gG.js"
     ],
     "css": [
-      "assets/vault-C-Ku6LMR.css"
+      "assets/vault-BcOp-97m.css"
     ]
   },
   "resources/js/vault/styles/vault.css": {
-    "file": "assets/vault-C-Ku6LMR.css",
+    "file": "assets/vault-BcOp-97m.css",
     "src": "resources/js/vault/styles/vault.css",
     "isEntry": true,
     "name": "vault",
@@ -12799,7 +12801,7 @@
     ]
   },
   "resources/js/workspace/app.jsx": {
-    "file": "assets/app-DCZZYne_.js",
+    "file": "assets/app-DBQ6itA9.js",
     "name": "app",
     "src": "resources/js/workspace/app.jsx",
     "isEntry": true,
@@ -12826,7 +12828,7 @@
       "resources/js/workspace/pages/TaskDetail.jsx"
     ],
     "css": [
-      "assets/workspace-Bo4Mj61b.css"
+      "assets/workspace-B8NLKCbK.css"
     ]
   },
   "resources/js/workspace/pages/Board.jsx": {
@@ -13255,7 +13257,7 @@
     ]
   },
   "resources/js/workspace/styles/workspace.css": {
-    "file": "assets/workspace-Bo4Mj61b.css",
+    "file": "assets/workspace-B8NLKCbK.css",
     "src": "resources/js/workspace/styles/workspace.css",
     "isEntry": true,
     "name": "workspace",
