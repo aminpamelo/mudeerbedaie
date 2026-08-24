@@ -5,77 +5,32 @@
     $isStudent = $user->isStudent();
 
     if ($isAdmin) {
-        // Basic Metrics
-        $totalCourses = \App\Models\Course::count();
+        // E-commerce sales channel figures — same source of truth as the
+        // Orders & Package Sales Report (app/Services/Reports/SalesChannelDashboard).
+        $salesYear = (int) request('year', (int) date('Y'));
+        $sales = new \App\Services\Reports\SalesChannelDashboard($salesYear);
+        $availableYears = $sales->availableYears();
+
+        if (! empty($availableYears) && ! in_array($salesYear, $availableYears, true)) {
+            $salesYear = $availableYears[0];
+            $sales = new \App\Services\Reports\SalesChannelDashboard($salesYear);
+        }
+
+        $overview = $sales->overview();
+        $monthlyData = $sales->monthlyData();
+        $sourceBreakdown = $sales->sourceBreakdown($monthlyData);
+        $recentOrders = $sales->recentOrders(6);
+        $topProducts = $sales->topProducts(5);
+
+        $yearRevenue = collect($monthlyData)->sum('total_revenue');
+        $yearOrders = collect($monthlyData)->sum('total_orders');
+
+        // Academy snapshot (secondary strip) + subscription health for the alert.
         $activeCourses = \App\Models\Course::where('status', 'active')->count();
-        $totalStudents = \App\Models\Student::count();
+        $totalCourses = \App\Models\Course::count();
         $activeStudents = \App\Models\Student::where('status', 'active')->count();
-        $totalEnrollments = \App\Models\Enrollment::count();
         $activeEnrollments = \App\Models\Enrollment::whereIn('status', ['enrolled', 'active'])->count();
-        $recentEnrollments = \App\Models\Enrollment::with(['student.user', 'course'])
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        // Financial Metrics
-        $totalRevenue = \App\Models\Order::where('status', 'paid')->sum('amount');
-        $monthlyRevenue = \App\Models\Order::where('status', 'paid')
-            ->whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])
-            ->sum('amount');
-        $dailyRevenue = \App\Models\Order::where('status', 'paid')
-            ->whereDate('paid_at', today())
-            ->sum('amount');
-
-        // Payment Success Rate (last 30 days)
-        $totalOrdersLast30Days = \App\Models\Order::where('created_at', '>=', now()->subDays(30))->count();
-        $paidOrdersLast30Days = \App\Models\Order::where('status', 'paid')
-            ->where('created_at', '>=', now()->subDays(30))
-            ->count();
-        $paymentSuccessRate = $totalOrdersLast30Days > 0 ? round(($paidOrdersLast30Days / $totalOrdersLast30Days) * 100, 1) : 0;
-
-        // Critical Alerts
-        $failedPayments = \App\Models\Order::where('status', 'failed')
-            ->where('created_at', '>=', now()->subDays(7))
-            ->count();
-        $pendingOrders = \App\Models\Order::where('status', 'pending')
-            ->where('created_at', '>=', now()->subDays(3))
-            ->count();
-        $subscriptionIssues = \App\Models\Enrollment::whereIn('subscription_status', ['past_due', 'incomplete'])
-            ->count();
-
-        // Growth Metrics (compare to last month)
-        $lastMonthRevenue = \App\Models\Order::where('status', 'paid')
-            ->whereBetween('paid_at', [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()])
-            ->sum('amount');
-        $revenueGrowth = $lastMonthRevenue > 0 ? round((($monthlyRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1) : 0;
-
-        $lastMonthEnrollments = \App\Models\Enrollment::whereBetween('created_at', [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()])->count();
-        $thisMonthEnrollments = \App\Models\Enrollment::whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count();
-        $enrollmentGrowth = $lastMonthEnrollments > 0 ? round((($thisMonthEnrollments - $lastMonthEnrollments) / $lastMonthEnrollments) * 100, 1) : 0;
-
-        // Top Performing Courses (by revenue)
-        $topCourses = \App\Models\Course::withSum(['orders' => function($query) {
-                $query->where('status', 'paid');
-            }], 'amount')
-            ->withCount(['enrollments', 'activeEnrollments'])
-            ->get()
-            ->filter(fn($course) => $course->orders_sum_amount > 0)
-            ->sortByDesc('orders_sum_amount')
-            ->take(5);
-
-        // Monthly Recurring Revenue (MRR) - active subscriptions
-        $mrr = \App\Models\Enrollment::whereIn('subscription_status', ['active', 'trialing'])
-            ->join('courses', 'enrollments.course_id', '=', 'courses.id')
-            ->join('course_fee_settings', 'courses.id', '=', 'course_fee_settings.course_id')
-            ->sum('course_fee_settings.fee_amount');
-
-        // Recent High-Value Orders
-        $highValueOrders = \App\Models\Order::with(['student.user', 'course'])
-            ->where('status', 'paid')
-            ->where('amount', '>=', 100) // High value threshold
-            ->orderBy('paid_at', 'desc')
-            ->limit(5)
-            ->get();
+        $subscriptionIssues = \App\Models\Enrollment::whereIn('subscription_status', ['past_due', 'incomplete'])->count();
     }
     
     if ($isStudent && $user->student) {
@@ -167,14 +122,13 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <flux:button variant="primary" size="sm" href="{{ route('courses.create') }}">
+                        <flux:button variant="primary" size="sm" href="{{ route('admin.orders.report') }}">
                             <div class="flex items-center justify-center">
-                                <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                                Add Course
+                                <flux:icon name="chart-bar" class="w-4 h-4 mr-1" />
+                                Sales Report
                             </div>
                         </flux:button>
-                        <flux:button variant="outline" size="sm" href="{{ route('enrollments.index') }}">Enrollments</flux:button>
-                        <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">Orders</flux:button>
+                        <flux:button variant="outline" size="sm" href="{{ route('admin.orders.index') }}">Orders</flux:button>
                         <flux:button variant="ghost" size="sm" href="{{ route('storefront.home') }}" target="_blank">
                             <div class="flex items-center justify-center">
                                 <flux:icon name="building-storefront" class="w-4 h-4 mr-1" />
@@ -186,7 +140,7 @@
             </div>
 
             <!-- Critical Alerts Banner -->
-            @if($failedPayments > 0 || $pendingOrders > 0 || $subscriptionIssues > 0)
+            @if($overview['pending_orders'] > 0 || $subscriptionIssues > 0)
                 <div class="relative overflow-hidden rounded-xl border border-amber-200/50 dark:border-amber-500/20 bg-gradient-to-r from-amber-50 to-orange-50/50 dark:from-amber-950/40 dark:to-orange-950/20 p-4">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-500"></div>
                     <div class="flex items-center justify-between pl-3">
@@ -197,17 +151,15 @@
                             <div>
                                 <flux:heading size="sm" class="text-amber-900 dark:text-amber-200">Attention Required</flux:heading>
                                 <flux:text size="sm" class="text-amber-700 dark:text-amber-300/80">
-                                    @if($failedPayments > 0) {{ $failedPayments }} failed payments @endif
-                                    @if($failedPayments > 0 && ($pendingOrders > 0 || $subscriptionIssues > 0)) · @endif
-                                    @if($pendingOrders > 0) {{ $pendingOrders }} pending orders @endif
-                                    @if($pendingOrders > 0 && $subscriptionIssues > 0) · @endif
+                                    @if($overview['pending_orders'] > 0) {{ number_format($overview['pending_orders']) }} pending orders @endif
+                                    @if($overview['pending_orders'] > 0 && $subscriptionIssues > 0) · @endif
                                     @if($subscriptionIssues > 0) {{ $subscriptionIssues }} subscription issues @endif
                                 </flux:text>
                             </div>
                         </div>
                         <div class="flex gap-2">
-                            @if($failedPayments > 0)
-                                <flux:button variant="outline" size="sm" href="{{ route('orders.index') }}?status=failed">Fix Payments</flux:button>
+                            @if($overview['pending_orders'] > 0)
+                                <flux:button variant="outline" size="sm" href="{{ route('admin.orders.index') }}?status=pending">Review Orders</flux:button>
                             @endif
                             @if($subscriptionIssues > 0)
                                 <flux:button variant="outline" size="sm" href="{{ route('enrollments.index') }}?subscription_status=past_due,incomplete">Fix Subscriptions</flux:button>
@@ -217,19 +169,32 @@
                 </div>
             @endif
 
-            <!-- Revenue Metrics -->
+            <!-- Sales KPIs -->
             <div>
-                <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Revenue</flux:text>
+                <div class="mb-3 flex items-center justify-between">
+                    <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500">E-commerce Sales</flux:text>
+                    @if(!empty($availableYears))
+                        <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
+                            <label for="year" class="text-xs font-medium text-zinc-400 dark:text-zinc-500">Year</label>
+                            <select id="year" name="year" onchange="this.form.submit()"
+                                class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-1 text-sm text-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                @foreach($availableYears as $year)
+                                    <option value="{{ $year }}" @selected($year === $salesYear)>{{ $year }}</option>
+                                @endforeach
+                            </select>
+                        </form>
+                    @endif
+                </div>
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <!-- Total Revenue -->
+                    <!-- Total Revenue (all time) -->
                     <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/5 dark:hover:border-zinc-600">
                         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
                         <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-emerald-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-emerald-500/40 dark:bg-emerald-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
                                 <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Total Revenue</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-600 to-teal-700 bg-clip-text text-transparent dark:from-emerald-300 dark:to-teal-400">RM {{ number_format($totalRevenue, 2) }}</div>
-                                <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">All time</flux:text>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-600 to-teal-700 bg-clip-text text-transparent dark:from-emerald-300 dark:to-teal-400">RM {{ number_format($overview['total_revenue'], 2) }}</div>
+                                <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">All sources · all time</flux:text>
                             </div>
                             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-emerald-500/25">
                                 <flux:icon icon="currency-dollar" class="w-5 h-5" />
@@ -237,22 +202,22 @@
                         </div>
                     </div>
 
-                    <!-- Monthly Revenue -->
+                    <!-- This Month Revenue -->
                     <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-500/5 dark:hover:border-zinc-600">
                         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
                         <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-blue-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-blue-500/40 dark:bg-blue-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
-                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Monthly Revenue</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-blue-600 to-indigo-700 bg-clip-text text-transparent dark:from-blue-300 dark:to-indigo-400">RM {{ number_format($monthlyRevenue, 2) }}</div>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">This Month</flux:text>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-blue-600 to-indigo-700 bg-clip-text text-transparent dark:from-blue-300 dark:to-indigo-400">RM {{ number_format($overview['this_month_revenue'], 2) }}</div>
                                 <div class="mt-1 flex items-center gap-1">
-                                    @if($revenueGrowth >= 0)
+                                    @if($overview['month_growth'] >= 0)
                                         <flux:icon icon="arrow-trending-up" class="w-3.5 h-3.5 text-emerald-500" />
                                     @else
                                         <flux:icon icon="arrow-trending-down" class="w-3.5 h-3.5 text-red-500" />
                                     @endif
-                                    <flux:text size="sm" class="{{ $revenueGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
-                                        {{ $revenueGrowth > 0 ? '+' : '' }}{{ $revenueGrowth }}% vs last month
+                                    <flux:text size="sm" class="{{ $overview['month_growth'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                        {{ $overview['month_growth'] > 0 ? '+' : '' }}{{ number_format($overview['month_growth'], 1) }}% vs last month
                                     </flux:text>
                                 </div>
                             </div>
@@ -262,216 +227,221 @@
                         </div>
                     </div>
 
-                    <!-- Monthly Recurring Revenue -->
+                    <!-- Total Orders -->
                     <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-500/5 dark:hover:border-zinc-600">
                         <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 to-purple-500"></div>
                         <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-violet-500/40 dark:bg-violet-500/20"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
-                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Monthly Recurring</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-violet-600 to-purple-700 bg-clip-text text-transparent dark:from-violet-300 dark:to-purple-400">RM {{ number_format($mrr, 2) }}</div>
-                                <flux:text size="sm" class="mt-1 text-violet-600 dark:text-violet-400">Active subscriptions</flux:text>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Total Orders</flux:text>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-violet-600 to-purple-700 bg-clip-text text-transparent dark:from-violet-300 dark:to-purple-400">{{ number_format($overview['total_orders']) }}</div>
+                                <flux:text size="sm" class="mt-1 text-violet-600 dark:text-violet-400">{{ number_format($overview['completion_rate'], 1) }}% completed</flux:text>
                             </div>
                             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-violet-500/25">
-                                <flux:icon icon="arrow-trending-up" class="w-5 h-5" />
+                                <flux:icon icon="shopping-bag" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Payment Success -->
+                    <!-- Avg Order Value -->
                     <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r {{ $paymentSuccessRate >= 95 ? 'from-emerald-400 to-green-500' : ($paymentSuccessRate >= 90 ? 'from-amber-400 to-yellow-500' : 'from-red-400 to-rose-500') }}"></div>
+                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
                         <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-amber-500/20 blur-2xl transition-all duration-300 group-hover:scale-125 dark:bg-amber-500/15"></div>
                         <div class="flex items-start justify-between">
                             <div class="min-w-0">
-                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Payment Success</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br bg-clip-text text-transparent {{ $paymentSuccessRate >= 95 ? 'from-emerald-600 to-green-700 dark:from-emerald-300 dark:to-green-400' : ($paymentSuccessRate >= 90 ? 'from-amber-600 to-yellow-700 dark:from-amber-300 dark:to-yellow-400' : 'from-red-600 to-rose-700 dark:from-red-300 dark:to-rose-400') }}">{{ $paymentSuccessRate }}%</div>
-                                <flux:text size="sm" class="mt-1 {{ $paymentSuccessRate >= 95 ? 'text-emerald-600 dark:text-emerald-400' : ($paymentSuccessRate >= 90 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400') }}">
-                                    Last 30 days
-                                </flux:text>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Avg Order Value</flux:text>
+                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-amber-600 to-orange-700 bg-clip-text text-transparent dark:from-amber-300 dark:to-orange-400">RM {{ number_format($overview['avg_order_value'], 2) }}</div>
+                                <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">Today: RM {{ number_format($overview['today_revenue'], 2) }}</flux:text>
                             </div>
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $paymentSuccessRate >= 95 ? 'bg-gradient-to-br from-emerald-500 to-green-600' : ($paymentSuccessRate >= 90 ? 'bg-gradient-to-br from-amber-500 to-yellow-600' : 'bg-gradient-to-br from-red-500 to-rose-600') }} text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110">
-                                <flux:icon icon="check-circle" class="w-5 h-5" />
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-amber-500/25">
+                                <flux:icon icon="calculator" class="w-5 h-5" />
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Operational Metrics -->
-            <div>
-                <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Operations</flux:text>
-                <div class="grid gap-4 sm:grid-cols-3">
-                    <!-- Active Courses -->
-                    <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-400 to-cyan-500"></div>
-                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-sky-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-sky-500/40 dark:bg-sky-500/20"></div>
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Courses</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-sky-600 to-cyan-700 bg-clip-text text-transparent dark:from-sky-300 dark:to-cyan-400">{{ $activeCourses }}</div>
-                                <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">of {{ $totalCourses }} total</flux:text>
-                            </div>
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-sky-500/25">
-                                <flux:icon icon="academic-cap" class="w-5 h-5" />
-                            </div>
-                        </div>
-                    </div>
+            @php
+                $sourceMeta = [
+                    'platform' => ['bar' => 'from-orange-400 to-amber-500', 'icon' => 'globe-alt', 'text' => 'text-orange-600 dark:text-orange-400', 'chip' => 'from-orange-500 to-amber-600 shadow-orange-500/25'],
+                    'agent_company' => ['bar' => 'from-blue-400 to-indigo-500', 'icon' => 'building-office-2', 'text' => 'text-blue-600 dark:text-blue-400', 'chip' => 'from-blue-500 to-indigo-600 shadow-blue-500/25'],
+                    'funnel' => ['bar' => 'from-violet-400 to-purple-500', 'icon' => 'funnel', 'text' => 'text-violet-600 dark:text-violet-400', 'chip' => 'from-violet-500 to-purple-600 shadow-violet-500/25'],
+                    'pos' => ['bar' => 'from-pink-400 to-rose-500', 'icon' => 'computer-desktop', 'text' => 'text-pink-600 dark:text-pink-400', 'chip' => 'from-pink-500 to-rose-600 shadow-pink-500/25'],
+                    'fighter' => ['bar' => 'from-red-400 to-rose-500', 'icon' => 'bolt', 'text' => 'text-red-600 dark:text-red-400', 'chip' => 'from-red-500 to-rose-600 shadow-red-500/25'],
+                ];
+            @endphp
 
-                    <!-- Active Students -->
-                    <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-400 to-emerald-500"></div>
-                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-teal-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-teal-500/40 dark:bg-teal-500/20"></div>
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Students</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-teal-600 to-emerald-700 bg-clip-text text-transparent dark:from-teal-300 dark:to-emerald-400">{{ number_format($activeStudents) }}</div>
-                                <div class="mt-1 flex items-center gap-1">
-                                    @if($enrollmentGrowth >= 0)
-                                        <flux:icon icon="arrow-trending-up" class="w-3.5 h-3.5 text-emerald-500" />
-                                    @else
-                                        <flux:icon icon="arrow-trending-down" class="w-3.5 h-3.5 text-red-500" />
-                                    @endif
-                                    <flux:text size="sm" class="{{ $enrollmentGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
-                                        {{ $enrollmentGrowth > 0 ? '+' : '' }}{{ $enrollmentGrowth }}% this month
-                                    </flux:text>
+            <!-- Sales by Channel -->
+            <div>
+                <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Sales by Channel · {{ $salesYear }}</flux:text>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    @foreach($sourceBreakdown as $source)
+                        @php $meta = $sourceMeta[$source['key']]; @endphp
+                        <div class="group relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
+                            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r {{ $meta['bar'] }}"></div>
+                            <div class="flex items-start justify-between">
+                                <flux:text size="sm" class="font-semibold text-zinc-600 dark:text-zinc-300">{{ $source['label'] }}</flux:text>
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br {{ $meta['chip'] }} text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110">
+                                    <flux:icon icon="{{ $meta['icon'] }}" class="w-4 h-4" />
                                 </div>
                             </div>
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-teal-500/25">
-                                <flux:icon icon="users" class="w-5 h-5" />
-                            </div>
+                            <div class="mt-3 text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white tabular-nums">{{ number_format($source['orders']) }} <span class="text-sm font-medium text-zinc-400 dark:text-zinc-500">orders</span></div>
+                            <div class="mt-1 text-sm font-semibold {{ $meta['text'] }} tabular-nums">RM {{ number_format($source['revenue'], 2) }}</div>
                         </div>
-                    </div>
+                    @endforeach
+                </div>
+            </div>
 
-                    <!-- Active Enrollments -->
-                    <div class="relative overflow-hidden rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:hover:border-zinc-600">
-                        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-400 to-blue-500"></div>
-                        <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-indigo-500/25 blur-2xl transition-all duration-300 group-hover:scale-125 group-hover:bg-indigo-500/40 dark:bg-indigo-500/20"></div>
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Enrollments</flux:text>
-                                <div class="mt-1 text-2xl font-extrabold tracking-tight bg-gradient-to-br from-indigo-600 to-blue-700 bg-clip-text text-transparent dark:from-indigo-300 dark:to-blue-400">{{ number_format($activeEnrollments) }}</div>
-                                <flux:text size="sm" class="mt-1 text-indigo-600 dark:text-indigo-400">{{ $thisMonthEnrollments }} new this month</flux:text>
-                            </div>
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-110 shadow-indigo-500/25">
-                                <flux:icon icon="clipboard-document" class="w-5 h-5" />
-                            </div>
-                        </div>
+            <!-- Charts -->
+            <div class="grid gap-4 lg:grid-cols-2">
+                <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5">
+                    <flux:heading size="lg">Monthly Revenue Trend</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Revenue and order count by month · {{ $salesYear }}</flux:text>
+                    <div class="mt-4 h-72">
+                        <canvas id="dashboardRevenueTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5">
+                    <flux:heading size="lg">Orders by Source</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Channel comparison by month · {{ $salesYear }}</flux:text>
+                    <div class="mt-4 h-72">
+                        <canvas id="dashboardBySourceChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Performance Insights -->
+            <!-- Recent Orders + Top Products -->
             <div class="grid gap-4 lg:grid-cols-2">
-                <!-- Top Revenue Courses -->
+                <!-- Recent Orders -->
                 <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
                     <div class="flex items-center justify-between px-5 pt-5 pb-3">
                         <div>
-                            <flux:heading size="lg">Top Revenue Courses</flux:heading>
-                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Highest earning courses</flux:text>
+                            <flux:heading size="lg">Recent Orders</flux:heading>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Latest across every channel</flux:text>
                         </div>
-                        <flux:button variant="ghost" size="sm" href="{{ route('courses.index') }}">View all</flux:button>
+                        <flux:button variant="ghost" size="sm" href="{{ route('admin.orders.index') }}">View all</flux:button>
                     </div>
 
-                    @if($topCourses->isNotEmpty())
+                    @if($recentOrders->isNotEmpty())
                         <div class="px-5 pb-5 space-y-1">
-                            @foreach($topCourses as $index => $course)
+                            @foreach($recentOrders as $order)
+                                <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 ring-1 ring-indigo-500/20">
+                                        <span class="text-xs font-bold text-indigo-700 dark:text-indigo-400">{{ strtoupper(mb_substr($order['customer'], 0, 1)) }}</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <flux:text class="font-medium truncate">{{ $order['customer'] }}</flux:text>
+                                        <div class="flex items-center gap-1.5">
+                                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 truncate">{{ $order['number'] }}</flux:text>
+                                            <span class="inline-flex items-center rounded-full bg-zinc-100 dark:bg-zinc-700 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">{{ $order['source'] }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">RM {{ number_format($order['amount'], 2) }}</div>
+                                        <flux:text size="xs" class="text-zinc-400 dark:text-zinc-500">{{ $order['date']?->diffForHumans() }}</flux:text>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="px-5 pb-5">
+                            <flux:text class="text-zinc-500 dark:text-zinc-400">No orders yet.</flux:text>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Top Products -->
+                <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
+                    <div class="flex items-center justify-between px-5 pt-5 pb-3">
+                        <div>
+                            <flux:heading size="lg">Top Products</flux:heading>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Best sellers by revenue · {{ $salesYear }}</flux:text>
+                        </div>
+                        <flux:button variant="ghost" size="sm" href="{{ route('admin.orders.report') }}?tab=products">View all</flux:button>
+                    </div>
+
+                    @if(!empty($topProducts))
+                        <div class="px-5 pb-5 space-y-1">
+                            @foreach($topProducts as $index => $product)
                                 <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $index === 0 ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-sm shadow-amber-500/30' : ($index === 1 ? 'bg-gradient-to-br from-zinc-300 to-zinc-400 text-white' : ($index === 2 ? 'bg-gradient-to-br from-orange-400 to-amber-600 text-white' : 'bg-zinc-100 dark:bg-zinc-700/50 text-zinc-500 dark:text-zinc-400')) }} text-sm font-bold tabular-nums">
                                         {{ $index + 1 }}
                                     </div>
                                     <div class="flex-1 min-w-0">
-                                        <flux:text class="font-medium truncate">{{ $course->name }}</flux:text>
+                                        <flux:text class="font-medium truncate">{{ $product['name'] }}</flux:text>
                                         <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">
-                                            {{ $course->enrollments_count }} enrolled · {{ $course->active_enrollments_count }} active
+                                            {{ number_format($product['units']) }} units · {{ number_format($product['orders']) }} orders
                                         </flux:text>
                                     </div>
                                     <div class="text-right shrink-0">
-                                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">RM {{ number_format($course->orders_sum_amount, 2) }}</div>
+                                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">RM {{ number_format($product['revenue'], 2) }}</div>
                                     </div>
                                 </div>
                             @endforeach
                         </div>
                     @else
                         <div class="px-5 pb-5">
-                            <flux:text class="text-zinc-500 dark:text-zinc-400">No revenue data available yet.</flux:text>
+                            <flux:text class="text-zinc-500 dark:text-zinc-400">No product sales in {{ $salesYear }} yet.</flux:text>
                         </div>
                     @endif
                 </div>
+            </div>
 
-                <!-- High-Value Recent Orders -->
-                <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
-                    <div class="flex items-center justify-between px-5 pt-5 pb-3">
+            <!-- Academy Snapshot (secondary) -->
+            <div>
+                <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Academy Snapshot</flux:text>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="flex items-center gap-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-lg shadow-sky-500/25">
+                            <flux:icon icon="academic-cap" class="w-5 h-5" />
+                        </div>
                         <div>
-                            <flux:heading size="lg">Recent High-Value Orders</flux:heading>
-                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Orders ≥ RM 100</flux:text>
+                            <div class="text-lg font-extrabold text-zinc-900 dark:text-white tabular-nums">{{ number_format($activeCourses) }}</div>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active courses · {{ $totalCourses }} total</flux:text>
                         </div>
-                        <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">View all</flux:button>
                     </div>
-
-                    @if($highValueOrders->isNotEmpty())
-                        <div class="px-5 pb-5 space-y-1">
-                            @foreach($highValueOrders as $order)
-                                <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
-                                        <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400">{{ $order->student?->user?->initials() ?? '?' }}</span>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <flux:text class="font-medium truncate">{{ $order->student?->user?->name ?? 'Unknown Student' }}</flux:text>
-                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 truncate">{{ $order->course?->name ?? 'Unknown Course' }}</flux:text>
-                                    </div>
-                                    <div class="text-right shrink-0">
-                                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">RM {{ number_format($order->amount, 2) }}</div>
-                                        <flux:text size="xs" class="text-zinc-400 dark:text-zinc-500">{{ $order->paid_at->diffForHumans() }}</flux:text>
-                                    </div>
-                                </div>
-                            @endforeach
+                    <div class="flex items-center gap-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg shadow-teal-500/25">
+                            <flux:icon icon="users" class="w-5 h-5" />
                         </div>
-                    @else
-                        <div class="px-5 pb-5">
-                            <flux:text class="text-zinc-500 dark:text-zinc-400">No high-value orders yet.</flux:text>
+                        <div>
+                            <div class="text-lg font-extrabold text-zinc-900 dark:text-white tabular-nums">{{ number_format($activeStudents) }}</div>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active students</flux:text>
                         </div>
-                    @endif
+                    </div>
+                    <div class="flex items-center gap-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/70 p-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg shadow-indigo-500/25">
+                            <flux:icon icon="clipboard-document" class="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div class="text-lg font-extrabold text-zinc-900 dark:text-white tabular-nums">{{ number_format($activeEnrollments) }}</div>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active enrollments</flux:text>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Recent Enrollments -->
-            <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
-                <div class="flex items-center justify-between px-5 pt-5 pb-3">
-                    <flux:heading size="lg">Recent Enrollments</flux:heading>
-                    <flux:link href="{{ route('enrollments.index') }}" variant="subtle">View all</flux:link>
-                </div>
+            @vite('resources/js/reports-charts.js')
+            <script>
+                (function () {
+                    const monthlyData = @json(array_values($monthlyData));
 
-                @if($recentEnrollments->isNotEmpty())
-                    <div class="px-5 pb-5 space-y-1">
-                        @foreach($recentEnrollments as $enrollment)
-                            <div class="flex items-center justify-between p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-700 ring-1 ring-zinc-200 dark:ring-zinc-600">
-                                        <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300">{{ $enrollment->student?->user?->initials() ?? '?' }}</span>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <flux:text class="font-medium">{{ $enrollment->student?->user?->name ?? 'Unknown Student' }}</flux:text>
-                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $enrollment->course?->name ?? 'Unknown Course' }}</flux:text>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-3 shrink-0">
-                                    <flux:badge :class="$enrollment->academic_status->badgeClass()">
-                                        {{ $enrollment->academic_status->label() }}
-                                    </flux:badge>
-                                    <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 tabular-nums">
-                                        {{ $enrollment->enrollment_date->format('M d, Y') }}
-                                    </flux:text>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="px-5 pb-5">
-                        <flux:text class="text-zinc-500 dark:text-zinc-400">No enrollments yet.</flux:text>
-                    </div>
-                @endif
-            </div>
+                    function renderDashboardCharts(retry = 0) {
+                        if (typeof window.initializeDashboardSalesCharts === 'function') {
+                            window.initializeDashboardSalesCharts(monthlyData);
+                        } else if (retry < 40) {
+                            setTimeout(() => renderDashboardCharts(retry + 1), 100);
+                        }
+                    }
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => renderDashboardCharts());
+                    } else {
+                        renderDashboardCharts();
+                    }
+                    document.addEventListener('livewire:navigated', () => renderDashboardCharts());
+                })();
+            </script>
 
         @endif
 

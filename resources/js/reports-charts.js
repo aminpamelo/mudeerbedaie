@@ -1583,3 +1583,123 @@ export function destroyOrderReportCustomerCharts() {
 
 window.initializeOrderReportCustomerCharts = initializeOrderReportCustomerCharts;
 window.destroyOrderReportCustomerCharts = destroyOrderReportCustomerCharts;
+
+// ============================================================================
+// Admin Dashboard — Sales Channel Charts
+// Mirrors the Orders & Package Sales Report so the two stay visually in sync.
+// ============================================================================
+let dashboardRevenueInstance = null;
+let dashboardSourceInstance = null;
+
+export function initDashboardRevenueTrend(monthlyData) {
+    const ctx = document.getElementById('dashboardRevenueTrendChart');
+    if (!ctx) return;
+
+    const months = Object.values(monthlyData).map(item => item.month_name);
+    const revenue = Object.values(monthlyData).map(item => item.total_revenue);
+    const orders = Object.values(monthlyData).map(item => item.total_orders);
+
+    if (dashboardRevenueInstance) { dashboardRevenueInstance.destroy(); dashboardRevenueInstance = null; }
+
+    dashboardRevenueInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Revenue (RM)',
+                    data: revenue,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Orders',
+                    data: orders,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: false,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 0) {
+                                return 'Revenue: RM ' + context.parsed.y.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                            return 'Orders: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear', display: true, position: 'left', beginAtZero: true,
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                },
+                y1: {
+                    type: 'linear', display: true, position: 'right', beginAtZero: true,
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+export function initDashboardBySourceChart(monthlyData) {
+    const ctx = document.getElementById('dashboardBySourceChart');
+    if (!ctx) return;
+
+    const months = Object.values(monthlyData).map(item => item.month_name);
+    const pick = (key) => Object.values(monthlyData).map(item => item.by_source[key]?.orders ?? 0);
+
+    if (dashboardSourceInstance) { dashboardSourceInstance.destroy(); dashboardSourceInstance = null; }
+
+    dashboardSourceInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [
+                { label: 'Platform', data: pick('platform'), backgroundColor: 'rgba(249, 115, 22, 0.8)', borderColor: 'rgb(249, 115, 22)', borderWidth: 1 },
+                { label: 'Agent & Co', data: pick('agent_company'), backgroundColor: 'rgba(59, 130, 246, 0.8)', borderColor: 'rgb(59, 130, 246)', borderWidth: 1 },
+                { label: 'Funnel', data: pick('funnel'), backgroundColor: 'rgba(168, 85, 247, 0.8)', borderColor: 'rgb(168, 85, 247)', borderWidth: 1 },
+                { label: 'POS', data: pick('pos'), backgroundColor: 'rgba(236, 72, 153, 0.8)', borderColor: 'rgb(236, 72, 153)', borderWidth: 1 },
+                { label: 'Fighter', data: pick('fighter'), backgroundColor: 'rgba(239, 68, 68, 0.8)', borderColor: 'rgb(239, 68, 68)', borderWidth: 1 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y + ' orders' } }
+            },
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+}
+
+export function initializeDashboardSalesCharts(monthlyData) {
+    requestAnimationFrame(() => {
+        initDashboardRevenueTrend(monthlyData);
+        initDashboardBySourceChart(monthlyData);
+    });
+}
+
+window.initializeDashboardSalesCharts = initializeDashboardSalesCharts;
