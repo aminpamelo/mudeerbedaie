@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Tag,
   Inbox,
+  BarChart3,
   Menu,
   X,
   CheckCircle2,
@@ -52,6 +53,7 @@ function Sidebar({ url, isAdmin, brand }) {
             Admin
           </div>
           <NavItem href="/forms/admin" icon={FileText} label="Semua Borang" url={url} />
+          <NavItem href="/forms/reports" icon={BarChart3} label="Laporan" url={url} />
           <NavItem href="/forms/submissions" icon={Inbox} label="Semua Submission" url={url} />
           <NavItem href="/forms/categories" icon={Tag} label="Kategori" url={url} />
         </>

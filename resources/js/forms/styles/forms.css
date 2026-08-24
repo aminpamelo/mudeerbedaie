@@ -30,7 +30,52 @@ body {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.fade-up { animation: forms-fade-up 0.3s ease both; }
+.fade-up { animation: forms-fade-up 0.4s ease both; }
+
+/* Staggered field entrance (delay set inline per field). */
+.field-in { animation: forms-fade-up 0.45s ease both; }
 
 /* Soft elevation matching the livehost card system. */
 .card-soft { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+
+/* Vibrant floating blobs behind the form card. */
+@keyframes form-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(24px, -32px) scale(1.12); }
+}
+.form-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  opacity: 0.55;
+}
+.form-blob-1 {
+  top: -90px;
+  left: -70px;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.55), transparent 70%);
+  animation: form-float 15s ease-in-out infinite;
+}
+.form-blob-2 {
+  top: 22%;
+  right: -110px;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.45), transparent 70%);
+  animation: form-float 19s ease-in-out infinite reverse;
+}
+.form-blob-3 {
+  bottom: -120px;
+  left: 28%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.42), transparent 70%);
+  animation: form-float 17s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .field-in { animation: none; }
+  .form-blob { animation: none; }
+}

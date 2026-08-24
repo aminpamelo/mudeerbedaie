@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Forms;
 
 use App\Http\Controllers\Controller;
 use App\Models\Form;
+use App\Models\FormCategory;
 use App\Models\FormSubmission;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -19,6 +20,201 @@ use Inertia\Response;
  */
 class ReportController extends Controller
 {
+    /**
+     * System-wide submissions report across every form — headline KPIs, a
+     * submissions trend, the most-answered forms, and per-category / per-status
+     * breakdowns. Admin-only overview complementing the per-form report at
+     * {form}/report. Filterable by form, category, and date range.
+     */
+    public function overview(Request $request): Response
+    {
+        $formId = $request->integer('form') ?: null;
+        $categoryId = $request->integer('category') ?: null;
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $hasDateFilter = filled($from) || filled($to);
+
+        $end = filled($to) ? Carbon::parse($to)->endOfDay() : Carbon::now()->endOfDay();
+        $start = filled($from) ? Carbon::parse($from)->startOfDay() : $end->copy()->subDays(29)->startOfDay();
+        if ($start->gt($end)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+        if ($start->diffInDays($end) > 365) {
+            $start = $end->copy()->subDays(365)->startOfDay();
+        }
+
+        /** @var Collection<int, Form> $forms */
+        $forms = Form::query()
+            ->with('category:id,name,color')
+            ->when($formId, fn ($q) => $q->where('id', $formId))
+            ->when($categoryId, fn ($q) => $q->where('form_category_id', $categoryId))
+            ->get(['id', 'title', 'status', 'form_category_id', 'user_id']);
+
+        $formIds = $forms->pluck('id');
+
+        /** @var Collection<int, FormSubmission> $submissions */
+        $submissions = FormSubmission::query()
+            ->whereIn('form_id', $formIds)
+            ->when($hasDateFilter, fn ($q) => $q->whereBetween('created_at', [$start, $end]))
+            ->get(['form_id', 'created_at']);
+
+        $now = Carbon::now();
+        $last7 = $submissions->filter(fn (FormSubmission $s): bool => $s->created_at?->gte($now->copy()->subDays(7)) ?? false)->count();
+        $today = $submissions->filter(fn (FormSubmission $s): bool => $s->created_at?->isToday() ?? false)->count();
+        $inWindow = $submissions->filter(fn (FormSubmission $s): bool => $s->created_at?->betweenIncluded($start, $end) ?? false)->count();
+        $rangeDays = max(1, $start->diffInDays($end) + 1);
+
+        return Inertia::render('Reports', [
+            'stats' => [
+                'total_forms' => $forms->count(),
+                'published' => $forms->where('status', Form::STATUS_PUBLISHED)->count(),
+                'total_submissions' => $submissions->count(),
+                'creators' => $forms->pluck('user_id')->unique()->count(),
+                'last7' => $last7,
+                'today' => $today,
+                'avg_per_day' => round($inWindow / $rangeDays, 1),
+            ],
+            'timeseries' => $this->rangedTimeseries($submissions, $start->copy(), $end->copy()),
+            'top_forms' => $this->topFormsFromSubmissions($forms, $submissions),
+            'categories' => $this->categoryFromSubmissions($forms, $submissions),
+            'statuses' => $this->statusBreakdown($forms),
+            'filters' => [
+                'form' => $formId,
+                'category' => $categoryId,
+                'from' => $from,
+                'to' => $to,
+            ],
+            'range_label' => $hasDateFilter
+                ? $start->translatedFormat('d M Y').' — '.$end->translatedFormat('d M Y')
+                : '30 Hari',
+            'form_options' => Form::query()->orderBy('title')->get(['id', 'title'])->all(),
+            'category_options' => FormCategory::query()->ordered()->get(['id', 'name'])->all(),
+        ]);
+    }
+
+    /**
+     * Submissions per day across an arbitrary [start, end] window (zero-filled).
+     *
+     * @param  Collection<int, FormSubmission>  $submissions
+     * @return array<int, array{date: string, count: int}>
+     */
+    private function rangedTimeseries(Collection $submissions, Carbon $start, Carbon $end): array
+    {
+        $counts = $submissions
+            ->groupBy(fn (FormSubmission $s): string => $s->created_at?->toDateString() ?? '')
+            ->map(fn (Collection $group): int => $group->count());
+
+        $series = [];
+        foreach (CarbonPeriod::create($start->startOfDay(), $end->startOfDay()) as $day) {
+            $key = $day->toDateString();
+            $series[] = ['date' => $key, 'count' => (int) ($counts[$key] ?? 0)];
+        }
+
+        return $series;
+    }
+
+    /**
+     * Forms ranked by scoped submission volume, capped for the leaderboard.
+     *
+     * @param  Collection<int, Form>  $forms
+     * @param  Collection<int, FormSubmission>  $submissions
+     * @return array<int, array<string, mixed>>
+     */
+    private function topFormsFromSubmissions(Collection $forms, Collection $submissions): array
+    {
+        $formsById = $forms->keyBy('id');
+
+        $rows = $submissions
+            ->groupBy('form_id')
+            ->map(function (Collection $group, $formId) use ($formsById): ?array {
+                $form = $formsById->get($formId);
+                if (! $form) {
+                    return null;
+                }
+
+                return [
+                    'id' => $form->id,
+                    'title' => $form->title,
+                    'status' => $form->status,
+                    'submissions' => $group->count(),
+                ];
+            })
+            ->filter()
+            ->sortByDesc('submissions')
+            ->take(8)
+            ->values();
+
+        $max = max(1, (int) $rows->max('submissions'));
+
+        return $rows->map(fn (array $row): array => [
+            ...$row,
+            'pct' => (int) round($row['submissions'] / $max * 100),
+        ])->all();
+    }
+
+    /**
+     * Scoped submission totals grouped by the parent form's category.
+     *
+     * @param  Collection<int, Form>  $forms
+     * @param  Collection<int, FormSubmission>  $submissions
+     * @return array<int, array<string, mixed>>
+     */
+    private function categoryFromSubmissions(Collection $forms, Collection $submissions): array
+    {
+        $formsById = $forms->keyBy('id');
+
+        $rows = $submissions
+            ->groupBy(fn (FormSubmission $s): string => $formsById->get($s->form_id)?->category?->name ?? '__none__')
+            ->map(function (Collection $group) use ($formsById): array {
+                $category = $formsById->get($group->first()->form_id)?->category;
+
+                return [
+                    'name' => $category?->name ?? 'Tanpa Kategori',
+                    'color' => $category?->color,
+                    'submissions' => $group->count(),
+                ];
+            })
+            ->sortByDesc('submissions')
+            ->values();
+
+        $max = max(1, (int) $rows->max('submissions'));
+
+        return $rows->map(fn (array $row): array => [
+            ...$row,
+            'pct' => (int) round($row['submissions'] / $max * 100),
+        ])->all();
+    }
+
+    /**
+     * Form counts by lifecycle status within the scoped form set.
+     *
+     * @param  Collection<int, Form>  $forms
+     * @return array<int, array{status: string, label: string, count: int, pct: int}>
+     */
+    private function statusBreakdown(Collection $forms): array
+    {
+        $labels = [
+            Form::STATUS_PUBLISHED => 'Diterbitkan',
+            Form::STATUS_DRAFT => 'Draf',
+            Form::STATUS_CLOSED => 'Ditutup',
+        ];
+
+        $total = $forms->count();
+
+        $rows = [];
+        foreach ($labels as $status => $label) {
+            $count = $forms->where('status', $status)->count();
+            $rows[] = [
+                'status' => $status,
+                'label' => $label,
+                'count' => $count,
+                'pct' => $total > 0 ? (int) round($count / $total * 100) : 0,
+            ];
+        }
+
+        return $rows;
+    }
+
     public function show(Request $request, Form $form): Response
     {
         $this->authorizeForm($request, $form);

@@ -1914,6 +1914,7 @@ Route::middleware(['auth', \App\Http\Middleware\HandleFormsInertiaRequests::clas
         // Admin-only oversight + category management (literal paths before {form})
         Route::middleware('role:admin')->group(function () {
             Route::get('admin', [\App\Http\Controllers\Forms\AdminFormController::class, 'index'])->name('admin');
+            Route::get('reports', [\App\Http\Controllers\Forms\ReportController::class, 'overview'])->name('reports');
             Route::get('submissions', [\App\Http\Controllers\Forms\AdminFormController::class, 'submissions'])->name('all-submissions');
             Route::get('categories', [\App\Http\Controllers\Forms\FormCategoryController::class, 'index'])->name('categories.index');
             Route::post('categories', [\App\Http\Controllers\Forms\FormCategoryController::class, 'store'])->name('categories.store');
