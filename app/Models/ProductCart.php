@@ -154,12 +154,11 @@ class ProductCart extends Model
     {
         $this->load('items');
         $subtotal = $this->items->sum('total_price');
-        $taxAmount = $subtotal * 0.06; // 6% GST - adjust as needed
 
         $this->update([
             'subtotal' => $subtotal,
-            'tax_amount' => $taxAmount,
-            'total_amount' => $subtotal + $taxAmount - $this->discount_amount,
+            'tax_amount' => 0,
+            'total_amount' => $subtotal - $this->discount_amount,
         ]);
     }
 

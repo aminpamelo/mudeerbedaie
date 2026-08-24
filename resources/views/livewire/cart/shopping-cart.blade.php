@@ -30,6 +30,12 @@ new #[Layout('components.layouts.store')] class extends Component
         }
 
         if ($this->cart) {
+            // Self-heal carts created before GST was removed so the stored
+            // total no longer carries the old 6% tax.
+            if ((float) $this->cart->tax_amount !== 0.0) {
+                $this->cart->recalculateTotal();
+            }
+
             // Initialize quantities array
             $this->quantities = $this->cart->items->pluck('quantity', 'id')->toArray();
         }
@@ -229,11 +235,6 @@ new #[Layout('components.layouts.store')] class extends Component
                             <div class="flex items-center justify-between">
                                 <span class="text-zinc-500">{{ __('store.cart_subtotal') }} · {{ trans_choice('store.cart_item_count', $cart->items->count(), ['count' => $cart->items->count()]) }}</span>
                                 <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartSubtotal() }}</span>
-                            </div>
-
-                            <div class="flex items-center justify-between">
-                                <span class="text-zinc-500">{{ __('store.cart_tax') }}</span>
-                                <span class="font-semibold tabular-nums text-zinc-800">MYR {{ $this->getCartTax() }}</span>
                             </div>
                         </div>
 
