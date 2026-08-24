@@ -11,6 +11,14 @@ new class extends Component
 {
     public int $selectedYear;
 
+    /** 0 = all months, 1-12 = specific month within the selected year */
+    public int $selectedMonth = 0;
+
+    /** Custom date range (YYYY-MM-DD). When either is set it overrides the year/month filter. */
+    public string $dateFrom = '';
+
+    public string $dateTo = '';
+
     public string $sourceFilter = '';
 
     public array $availableYears = [];
@@ -95,6 +103,38 @@ new class extends Component
             : "MONTH({$column})";
     }
 
+    /** True when a custom date range is active (takes precedence over year/month). */
+    private function hasCustomRange(): bool
+    {
+        return $this->dateFrom !== '' || $this->dateTo !== '';
+    }
+
+    /**
+     * Apply the active period filter to a query. A custom date range (from/to)
+     * takes precedence; otherwise it filters by the selected year and, if set,
+     * the selected month. Centralised so every tab query stays in sync.
+     */
+    private function applyPeriodFilter($query, string $column): void
+    {
+        if ($this->hasCustomRange()) {
+            if ($this->dateFrom !== '') {
+                $query->whereRaw("DATE({$column}) >= ?", [$this->dateFrom]);
+            }
+
+            if ($this->dateTo !== '') {
+                $query->whereRaw("DATE({$column}) <= ?", [$this->dateTo]);
+            }
+
+            return;
+        }
+
+        $query->whereRaw("{$this->yearExpression($column)} = ?", [$this->selectedYear]);
+
+        if ($this->selectedMonth >= 1 && $this->selectedMonth <= 12) {
+            $query->whereRaw("{$this->monthExpression($column)} = ?", [$this->selectedMonth]);
+        }
+    }
+
     public function mount(): void
     {
         $yearExpr = $this->yearExpression('order_date');
@@ -116,7 +156,7 @@ new class extends Component
         $this->loadActiveTabData();
     }
 
-    public function updatedSelectedYear(): void
+    private function reloadReport(): void
     {
         $this->loadedTabs = [];
         $this->loadCoreData();
@@ -124,12 +164,36 @@ new class extends Component
         $this->dispatchActiveTabCharts();
     }
 
+    public function updatedSelectedYear(): void
+    {
+        $this->reloadReport();
+    }
+
+    public function updatedSelectedMonth(): void
+    {
+        $this->reloadReport();
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->reloadReport();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->reloadReport();
+    }
+
+    public function clearCustomRange(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->reloadReport();
+    }
+
     public function updatedSourceFilter(): void
     {
-        $this->loadedTabs = [];
-        $this->loadCoreData();
-        $this->loadActiveTabData();
-        $this->dispatchActiveTabCharts();
+        $this->reloadReport();
     }
 
     private function dispatchActiveTabCharts(): void
@@ -246,7 +310,6 @@ new class extends Component
     /** Load only the data needed for summary cards, source breakdown, and monthly overview (always needed) */
     private function loadCoreData(): void
     {
-        $yearExpr = $this->yearExpression('order_date');
         $monthExpr = $this->monthExpression('order_date');
 
         // Initialize monthly data structure
@@ -272,8 +335,8 @@ new class extends Component
         }
 
         $baseQuery = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear]);
+            ->visibleInAdmin();
+        $this->applyPeriodFilter($baseQuery, 'order_date');
 
         $this->applySourceFilter($baseQuery);
 
@@ -306,8 +369,8 @@ new class extends Component
 
         // Source breakdown per month — single consolidated query instead of 4 separate queries
         $sourceQuery = DB::table('product_orders')
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
             ->whereNotIn('status', ['cancelled', 'refunded', 'draft']);
+        $this->applyPeriodFilter($sourceQuery, 'order_date');
 
         $this->applyVisibleInAdminRaw($sourceQuery, 'product_orders');
 
@@ -386,21 +449,21 @@ new class extends Component
         // Lightweight badge counts — 3 fast COUNT queries
         $countBase = ProductOrder::query()
             ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
             ->whereNotIn('status', ['cancelled', 'refunded', 'draft']);
+        $this->applyPeriodFilter($countBase, 'order_date');
 
         $this->applySourceFilter($countBase);
 
         $productCount = DB::table('product_order_items as poi')
             ->join('product_orders as po', 'poi.order_id', '=', 'po.id')
-            ->whereRaw("{$this->yearExpression('po.order_date')} = ?", [$this->selectedYear])
             ->whereNotIn('po.status', ['cancelled', 'refunded', 'draft']);
+        $this->applyPeriodFilter($productCount, 'po.order_date');
         $this->applyVisibleInAdminRaw($productCount);
         $this->applySourceFilterRaw($productCount);
 
         $statusCount = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear]);
+            ->visibleInAdmin();
+        $this->applyPeriodFilter($statusCount, 'order_date');
         $this->applySourceFilter($statusCount);
 
         $customerCount = (clone $countBase);
@@ -433,21 +496,20 @@ new class extends Component
 
     private function loadTopProducts(): void
     {
-        $yearExpr = $this->yearExpression('po.order_date');
         $monthExpr = $this->monthExpression('po.order_date');
 
         $query = DB::table('product_order_items as poi')
             ->join('product_orders as po', 'poi.order_id', '=', 'po.id')
             ->leftJoin('products as p', 'poi.product_id', '=', 'p.id')
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
             ->whereNotIn('po.status', ['cancelled', 'refunded', 'draft']);
+        $this->applyPeriodFilter($query, 'po.order_date');
 
         $this->applyVisibleInAdminRaw($query);
         $this->applySourceFilterRaw($query);
 
         // When poi.total_price is 0 (common in platform imports), fall back to
         // po.total_amount divided by the number of items in that order
-        $revenueExpr = "SUM(CASE WHEN poi.total_price > 0 THEN poi.total_price ELSE (po.total_amount * 1.0 / (SELECT COUNT(*) FROM product_order_items AS sub WHERE sub.order_id = po.id)) END)";
+        $revenueExpr = 'SUM(CASE WHEN poi.total_price > 0 THEN poi.total_price ELSE (po.total_amount * 1.0 / (SELECT COUNT(*) FROM product_order_items AS sub WHERE sub.order_id = po.id)) END)';
 
         $allData = $query->select([
             DB::raw('COALESCE(p.id, 0) as product_id'),
@@ -470,7 +532,7 @@ new class extends Component
         }
 
         foreach ($allData as $row) {
-            $key = $row->product_id . '|' . $row->product_name;
+            $key = $row->product_id.'|'.$row->product_name;
 
             if (! isset($productTotals[$key])) {
                 $productTotals[$key] = [
@@ -547,11 +609,9 @@ new class extends Component
 
     private function loadStatusBreakdown(): void
     {
-        $yearExpr = $this->yearExpression('order_date');
-
         $query = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear]);
+            ->visibleInAdmin();
+        $this->applyPeriodFilter($query, 'order_date');
 
         $this->applySourceFilter($query);
 
@@ -589,12 +649,10 @@ new class extends Component
 
     private function buildCustomerBaseQuery()
     {
-        $yearExpr = $this->yearExpression('po.order_date');
-
         $query = DB::table('product_orders as po')
             ->leftJoin('users as u', 'po.customer_id', '=', 'u.id')
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
             ->whereNotIn('po.status', ['cancelled', 'refunded', 'draft']);
+        $this->applyPeriodFilter($query, 'po.order_date');
 
         $this->applyVisibleInAdminRaw($query);
         $this->applySourceFilterRaw($query);
@@ -609,9 +667,9 @@ new class extends Component
 
         // Top 10 customers only (for charts and leaderboard)
         $topCustomersQuery = (clone $query)->select([
-            DB::raw("COALESCE(po.customer_id, 0) as customer_id"),
+            DB::raw('COALESCE(po.customer_id, 0) as customer_id'),
             DB::raw("COALESCE(u.name, po.customer_name, 'Guest Customer') as customer_name"),
-            DB::raw("u.email as customer_email"),
+            DB::raw('u.email as customer_email'),
             DB::raw('COUNT(*) as total_orders'),
             DB::raw('SUM(po.total_amount) as total_revenue'),
             DB::raw('AVG(po.total_amount) as avg_order_value'),
@@ -668,10 +726,10 @@ new class extends Component
         }
 
         // Summary via aggregate query (no need to load all rows)
-        $summaryRow = (clone $query)->selectRaw("
+        $summaryRow = (clone $query)->selectRaw('
             COUNT(DISTINCT COALESCE(po.customer_id, po.id)) as total_customers,
             SUM(po.total_amount) as total_revenue
-        ")->first();
+        ')->first();
 
         $totalCustomers = (int) $summaryRow->total_customers;
         $totalCustomerRevenue = (float) $summaryRow->total_revenue;
@@ -693,9 +751,9 @@ new class extends Component
         $query = $this->buildCustomerBaseQuery();
 
         $baseSelect = (clone $query)->select([
-            DB::raw("COALESCE(po.customer_id, 0) as customer_id"),
+            DB::raw('COALESCE(po.customer_id, 0) as customer_id'),
             DB::raw("COALESCE(u.name, po.customer_name, 'Guest Customer') as customer_name"),
-            DB::raw("u.email as customer_email"),
+            DB::raw('u.email as customer_email'),
             DB::raw('COUNT(*) as total_orders'),
             DB::raw('SUM(po.total_amount) as total_revenue'),
             DB::raw('AVG(po.total_amount) as avg_order_value'),
@@ -742,7 +800,15 @@ new class extends Component
 
     public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $filename = "order-report-{$this->selectedYear}.csv";
+        if ($this->hasCustomRange()) {
+            $period = ($this->dateFrom !== '' ? $this->dateFrom : 'start').'_to_'.($this->dateTo !== '' ? $this->dateTo : 'end');
+        } elseif ($this->selectedMonth >= 1 && $this->selectedMonth <= 12) {
+            $period = $this->selectedYear.'-'.str_pad((string) $this->selectedMonth, 2, '0', STR_PAD_LEFT);
+        } else {
+            $period = (string) $this->selectedYear;
+        }
+
+        $filename = "order-report-{$period}.csv";
 
         return response()->streamDownload(function () {
             $handle = fopen('php://output', 'w');
@@ -833,9 +899,17 @@ new class extends Component
         </div>
 
         {{-- Filters --}}
-        <div class="mb-6 flex flex-wrap items-center gap-4">
+        @php
+            $usingCustomRange = $dateFrom !== '' || $dateTo !== '';
+            $monthNames = [
+                1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+                5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+                9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+            ];
+        @endphp
+        <div class="mb-6 flex flex-wrap items-end gap-4">
             <div class="w-48">
-                <flux:select wire:model.live="sourceFilter" placeholder="All Sources">
+                <flux:select wire:model.live="sourceFilter" label="Source" placeholder="All Sources">
                     <flux:select.option value="">All Sources</flux:select.option>
                     <flux:select.option value="platform">Platform</flux:select.option>
                     <flux:select.option value="agent_company">Agent & Co</flux:select.option>
@@ -845,13 +919,44 @@ new class extends Component
                 </flux:select>
             </div>
             <div class="w-32">
-                <flux:select wire:model.live="selectedYear">
+                <flux:select wire:model.live="selectedYear" label="Year" :disabled="$usingCustomRange">
                     @foreach($availableYears as $year)
                         <flux:select.option value="{{ $year }}">{{ $year }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
+            <div class="w-40">
+                <flux:select wire:model.live="selectedMonth" label="Month" :disabled="$usingCustomRange">
+                    <flux:select.option value="0">All Months</flux:select.option>
+                    @foreach($monthNames as $num => $name)
+                        <flux:select.option value="{{ $num }}">{{ $name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <div class="hidden h-10 self-end border-l border-gray-200 dark:border-zinc-700 sm:block"></div>
+
+            <div class="w-40">
+                <flux:input type="date" wire:model.live="dateFrom" label="From date" />
+            </div>
+            <div class="w-40">
+                <flux:input type="date" wire:model.live="dateTo" label="To date" />
+            </div>
+            @if($usingCustomRange)
+                <flux:button wire:click="clearCustomRange" variant="subtle" size="sm">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="x-mark" class="mr-1 h-4 w-4" />
+                        Clear dates
+                    </div>
+                </flux:button>
+            @endif
         </div>
+
+        @if($usingCustomRange)
+            <flux:text class="-mt-2 mb-4 text-sm text-gray-500 dark:text-zinc-400">
+                Showing custom date range{{ $dateFrom !== '' ? ' from '.$dateFrom : '' }}{{ $dateTo !== '' ? ' to '.$dateTo : '' }}. Year &amp; month filters are ignored while a date range is active.
+            </flux:text>
+        @endif
 
         {{-- Summary Cards --}}
         <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -145,6 +145,62 @@ test('the fighter source filter scopes the report to fighter orders only', funct
     expect($component->get('summary')['total_orders'])->toBe(1);
 });
 
+test('the month filter narrows the report to the selected month within the year', function () {
+    $year = (int) now()->year;
+
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 3, 10), 'status' => 'delivered', 'total_amount' => 100]);
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 3, 20), 'status' => 'delivered', 'total_amount' => 150]);
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 7, 5), 'status' => 'delivered', 'total_amount' => 999]);
+
+    $this->actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-report')
+        ->set('selectedYear', $year)
+        ->set('selectedMonth', 3);
+
+    expect($component->get('summary')['total_orders'])->toBe(2)
+        ->and((float) $component->get('summary')['total_revenue'])->toBe(250.0);
+});
+
+test('a custom date range overrides the year and month filters', function () {
+    $year = (int) now()->year;
+
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 3, 5), 'status' => 'delivered', 'total_amount' => 100]);
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 3, 15), 'status' => 'delivered', 'total_amount' => 200]);
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 3, 25), 'status' => 'delivered', 'total_amount' => 400]);
+
+    $this->actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-report')
+        ->set('selectedYear', $year)
+        ->set('selectedMonth', 7) // deliberately a month with no orders — should be ignored
+        ->set('dateFrom', Carbon\Carbon::create($year, 3, 10)->toDateString())
+        ->set('dateTo', Carbon\Carbon::create($year, 3, 20)->toDateString());
+
+    expect($component->get('summary')['total_orders'])->toBe(1)
+        ->and((float) $component->get('summary')['total_revenue'])->toBe(200.0);
+});
+
+test('clearing the custom date range restores the year and month filter', function () {
+    $year = (int) now()->year;
+
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 3, 15), 'status' => 'delivered', 'total_amount' => 200]);
+    ProductOrder::factory()->create(['order_date' => Carbon\Carbon::create($year, 7, 15), 'status' => 'delivered', 'total_amount' => 500]);
+
+    $this->actingAs($this->admin);
+
+    $component = Volt::test('admin.orders.order-report')
+        ->set('selectedYear', $year)
+        ->set('dateFrom', Carbon\Carbon::create($year, 3, 1)->toDateString())
+        ->set('dateTo', Carbon\Carbon::create($year, 3, 31)->toDateString());
+
+    expect($component->get('summary')['total_orders'])->toBe(1);
+
+    $component->call('clearCustomRange');
+
+    expect($component->get('summary')['total_orders'])->toBe(2);
+});
+
 test('cancelled orders are excluded from revenue calculations', function () {
     ProductOrder::factory()->create([
         'order_date' => now(),
