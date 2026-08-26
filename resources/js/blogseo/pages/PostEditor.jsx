@@ -6,6 +6,7 @@ import {
   Link2, Image as ImageIcon, Quote, Code, Eye, Columns2, PenLine,
   CheckCircle2, AlertTriangle, XCircle, Search, X, ShoppingBag, Trash2, Loader2,
   ChevronDown, Check, UserRound, Plus,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
 } from 'lucide-react';
 import BlogSeoLayout from '@/blogseo/layouts/BlogSeoLayout';
 import { Card, SectionTitle, Badge, Button, Field, Input, Textarea, Select, Switch, Modal, ScoreGauge } from '@/blogseo/components/Ui';
@@ -29,9 +30,22 @@ const TOOLS = [
   { key: 'ul', title: 'Bullet list', icon: List, before: '\n- ', after: '' },
   { key: 'ol', title: 'Numbered list', icon: ListOrdered, before: '\n1. ', after: '' },
   { key: 'link', title: 'Link', icon: Link2, before: '[', after: '](https://)' },
-  { key: 'image', title: 'Image', icon: ImageIcon, before: '![alt](', after: ')' },
+  { key: 'image', title: 'Insert image', icon: ImageIcon, picker: true },
   { key: 'quote', title: 'Quote', icon: Quote, before: '\n> ', after: '' },
   { key: 'code', title: 'Code', icon: Code, before: '`', after: '`' },
+];
+
+/**
+ * Paragraph alignment. Markdown has no alignment syntax, so each option wraps
+ * the selection in a `<div>` with an inline `text-align` — CommonMark passes the
+ * raw HTML through (html_input is allowed) and the blank lines let the text
+ * inside still be parsed as Markdown (bold, links, etc.).
+ */
+const ALIGNMENTS = [
+  { key: 'left', title: 'Align left', icon: AlignLeft, value: 'left' },
+  { key: 'center', title: 'Align center', icon: AlignCenter, value: 'center' },
+  { key: 'right', title: 'Align right', icon: AlignRight, value: 'right' },
+  { key: 'justify', title: 'Justify', icon: AlignJustify, value: 'justify' },
 ];
 
 function MediaPickerModal({ open, onClose, media, onPick }) {
@@ -76,6 +90,56 @@ function MediaPickerModal({ open, onClose, media, onPick }) {
         </div>
       )}
     </Modal>
+  );
+}
+
+/** Toolbar dropdown that wraps the current selection in an aligned block. */
+function AlignMenu({ onPick }) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="Text alignment"
+        aria-label="Text alignment"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex h-9 items-center gap-0.5 rounded-lg px-1.5 text-muted transition-colors hover:bg-white hover:text-emerald-600"
+      >
+        <AlignJustify className="h-4 w-4" strokeWidth={2} />
+        <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-1 w-40 rounded-xl border border-line bg-white p-1 shadow-lg">
+          {ALIGNMENTS.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => { onPick(a.value); setOpen(false); }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink-2 transition-colors hover:bg-surface hover:text-emerald-700"
+            >
+              <a.icon className="h-4 w-4 shrink-0" strokeWidth={2} /> {a.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -286,6 +350,7 @@ export default function PostEditor({ post, categories, authors, allTags, product
   const [analysing, setAnalysing] = useState(false);
   const [imageUrl, setImageUrl] = useState(post?.featured_image_url ?? null);
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [insertImageOpen, setInsertImageOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [slugTouched, setSlugTouched] = useState(!isNew);
@@ -347,22 +412,37 @@ export default function PostEditor({ post, categories, authors, allTags, product
   }, [data.title, slugTouched, post?.id, setData]);
 
   /* ------------------------------------------------------------------ toolbar */
-  const applyTool = (tool) => {
+  const replaceSelection = (before, after = '') => {
     const el = editorRef.current;
     if (!el) return;
 
     const [start, end] = [el.selectionStart, el.selectionEnd];
     const selected = el.value.slice(start, end);
-    const next = `${el.value.slice(0, start)}${tool.before}${selected}${tool.after}${el.value.slice(end)}`;
+    const next = `${el.value.slice(0, start)}${before}${selected}${after}${el.value.slice(end)}`;
 
     setData('content', next);
 
     requestAnimationFrame(() => {
       el.focus();
-      const caret = start + tool.before.length + selected.length;
+      const caret = start + before.length + selected.length;
       el.setSelectionRange(caret, caret);
     });
   };
+
+  const applyTool = (tool) => {
+    if (tool.picker) {
+      setInsertImageOpen(true);
+      return;
+    }
+    replaceSelection(tool.before, tool.after);
+  };
+
+  const insertImage = (m) => {
+    const alt = (m.alt || m.title || 'image').replace(/[[\]]/g, '');
+    replaceSelection(`![${alt}](${m.url})`);
+  };
+
+  const applyAlign = (value) => replaceSelection(`\n<div style="text-align: ${value};">\n\n`, `\n\n</div>\n`);
 
   /* ------------------------------------------------------------------ tags */
   const addTag = (raw) => {
@@ -474,6 +554,9 @@ export default function PostEditor({ post, categories, authors, allTags, product
                   </button>
                 );
               })}
+
+              <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
+              <AlignMenu onPick={applyAlign} />
 
               <div className="ml-auto flex items-center gap-1 rounded-lg bg-slate-200/70 p-0.5">
                 {[
@@ -756,6 +839,13 @@ export default function PostEditor({ post, categories, authors, allTags, product
         onClose={() => setMediaOpen(false)}
         media={media}
         onPick={(m) => { setImageUrl(m.url); setData('featured_image_id', m.id); }}
+      />
+
+      <MediaPickerModal
+        open={insertImageOpen}
+        onClose={() => setInsertImageOpen(false)}
+        media={media}
+        onPick={insertImage}
       />
 
       <ProductPicker
