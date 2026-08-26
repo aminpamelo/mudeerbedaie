@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { BookOpen, GraduationCap, Calendar, Home, User, Sparkles, BrainCircuit } from 'lucide-react';
+import { BookOpen, GraduationCap, Home, User, BrainCircuit } from 'lucide-react';
 import { cn, initialsFrom, t } from '@/student/lib/utils';
 import NotificationBell from '@/student/components/NotificationBell';
 import UserMenu from '@/student/components/UserMenu';
@@ -7,8 +7,7 @@ import UserMenu from '@/student/components/UserMenu';
 function navItems(trans) {
   return [
     { label: t('navigation.home', {}, trans), href: '/my', icon: Home, match: (p) => p === '/my' || p === '/my/' },
-    { label: t('navigation.classes', {}, trans), href: '/my/classes', icon: GraduationCap, match: (p) => p.startsWith('/my/classes') },
-    { label: t('navigation.schedule', {}, trans), href: '/my/timetable', icon: Calendar, match: (p) => p.startsWith('/my/timetable') },
+    { label: t('navigation.classes', {}, trans), href: '/my/classes', icon: GraduationCap, match: (p) => p.startsWith('/my/classes') || p.startsWith('/my/timetable') },
     { label: t('navigation.courses', {}, trans), href: '/my/courses', icon: BookOpen, match: (p) => p.startsWith('/my/courses') },
     { label: 'Tanya Ilmu', href: '/my/mindpal', icon: BrainCircuit, match: (p) => p.startsWith('/my/mindpal') },
     { label: t('navigation.account', {}, trans), href: '/my/account', icon: User, match: (p) => p.startsWith('/my/account') || p.startsWith('/my/orders') || p.startsWith('/my/payment') },
@@ -25,8 +24,8 @@ function TopBar({ user, url, translations }) {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
-              <Sparkles className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
+            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
+              <img src="/images/bedaie-brand.png" alt="Bedaie" className="h-7 w-7 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="text-[15px] font-bold leading-tight tracking-[-0.01em] text-white">Student Portal</div>
@@ -73,16 +72,16 @@ function BottomNav({ url, translations }) {
   const items = navItems(translations);
   const bottomItems = [
     { ...items[0] },
-    { ...items[1] },
-    { ...items[2], featured: true },
+    { ...items[1], featured: true },
+    { ...items[2] },
     { ...items[3] },
-    { ...items[5] },
+    { ...items[4] },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-lg shadow-[0_-4px_20px_-4px_rgba(124,58,237,0.12)] lg:hidden">
       <div className="pb-safe">
-        <div className="flex items-end justify-around px-2 py-1.5">
+        <div className="flex items-end justify-around px-1 py-1.5">
           {bottomItems.map((tab) => {
             const Icon = tab.icon;
             const active = tab.match(path);
@@ -92,7 +91,7 @@ function BottomNav({ url, translations }) {
                 <a
                   key={tab.href}
                   href={tab.href}
-                  className="relative -mt-3 flex flex-col items-center px-3 py-1"
+                  className="relative -mt-3 flex flex-col items-center px-1.5 py-1"
                 >
                   <div className={cn(
                     'rounded-2xl p-2.5 shadow-lg transition-all',
@@ -117,7 +116,7 @@ function BottomNav({ url, translations }) {
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  'flex flex-col items-center px-3 py-2 transition-colors',
+                  'flex flex-col items-center px-1.5 py-2 transition-colors',
                   active ? 'text-[var(--color-brand)]' : 'text-muted-2 hover:text-ink'
                 )}
               >
@@ -127,7 +126,7 @@ function BottomNav({ url, translations }) {
                 )}>
                   <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.6} />
                 </div>
-                <span className={cn('text-[10px] font-semibold leading-none', active && 'text-[var(--color-brand)]')}>
+                <span className={cn('whitespace-nowrap text-[10px] font-semibold leading-none', active && 'text-[var(--color-brand)]')}>
                   {tab.label}
                 </span>
               </a>

@@ -232,6 +232,7 @@
                     <flux:navlist.item icon="shopping-cart" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.index') || request()->routeIs('admin.orders.show') || request()->routeIs('admin.orders.create') || request()->routeIs('admin.orders.edit')" wire:navigate>{{ __('Orders & Package Sales') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.orders.report')" :current="request()->routeIs('admin.orders.report')" wire:navigate>{{ __('Sales Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="gift" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chat-bubble-left-right" :href="route('admin.whatsapp-groups.index')" :current="request()->routeIs('admin.whatsapp-groups.*')" wire:navigate>{{ __('WhatsApp Groups') }}</flux:navlist.item>
                     <flux:navlist.item icon="globe-alt" :href="route('admin.external-systems')" :current="request()->routeIs('admin.external-systems*')" wire:navigate>{{ __('External Systems') }}</flux:navlist.item>
                 </flux:navlist.group>
 

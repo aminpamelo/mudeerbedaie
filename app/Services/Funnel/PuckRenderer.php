@@ -601,20 +601,126 @@ class PuckRenderer
         $align = $props['align'] ?? 'left';
         $backgroundColor = $props['backgroundColor'] ?? '#ffffff';
 
+        $textColor = null;
+
+        // When the author pastes a full HTML document (e.g. an AI-generated sales
+        // page), its <body> styling is the intended background — but a nested <body>
+        // does not paint this wrapper, so the default white would hide dark designs.
+        // Honor the document's own body background/color on the wrapper instead.
+        if ($this->isFullDocument($html)) {
+            $bodyStyles = $this->extractDocumentBodyStyles($html);
+
+            if ($bodyStyles['background'] !== null) {
+                $backgroundColor = $bodyStyles['background'];
+            }
+
+            $textColor = $bodyStyles['color'];
+        }
+
         $margin = match ($align) {
             'center' => '0 auto',
             'right' => '0 0 0 auto',
             default => '0 auto 0 0',
         };
 
-        return sprintf(
-            '<div class="puck-custom-html" style="max-width: %s; margin: %s; padding: %s; background-color: %s;">%s</div>',
+        $wrapperStyle = sprintf(
+            'max-width: %s; margin: %s; padding: %s; background-color: %s;',
             e($maxWidth),
             $margin,
             e($padding),
             e($backgroundColor),
+        );
+
+        if ($textColor !== null) {
+            $wrapperStyle .= ' color: '.e($textColor).';';
+        }
+
+        return sprintf(
+            '<div class="puck-custom-html" style="%s">%s</div>',
+            $wrapperStyle,
             $html // Raw, intentional: scripts/styles preserved for embeds & pixels.
         );
+    }
+
+    /**
+     * Detect whether the markup is a full HTML document rather than a fragment.
+     */
+    protected function isFullDocument(string $html): bool
+    {
+        return (bool) preg_match('/<!doctype\s+html|<html[\s>]|<body[\s>]/i', $html);
+    }
+
+    /**
+     * Extract the intended background and text color from a pasted document's
+     * <body>, resolving any CSS custom properties defined on :root/html/body.
+     *
+     * @return array{background: string|null, color: string|null}
+     */
+    protected function extractDocumentBodyStyles(string $html): array
+    {
+        $result = ['background' => null, 'color' => null];
+
+        $background = $this->findBodyDeclaration($html, 'background-color')
+            ?? $this->findBodyDeclaration($html, 'background');
+        $color = $this->findBodyDeclaration($html, 'color');
+
+        if ($background !== null) {
+            $background = $this->resolveCssValue($background, $html);
+            // A background shorthand may include more than a colour (image, position).
+            // Keep only a leading colour token so it is safe as background-color.
+            if (preg_match('/^\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)\s*$/i', $background)) {
+                $result['background'] = trim($background);
+            }
+        }
+
+        if ($color !== null) {
+            $result['color'] = trim($this->resolveCssValue($color, $html));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Find a CSS declaration value inside the document's `body { ... }` rule or the
+     * inline style of its <body> tag.
+     */
+    protected function findBodyDeclaration(string $html, string $property): ?string
+    {
+        $prop = preg_quote($property, '/');
+
+        if (preg_match('/body\s*\{([^}]*)\}/i', $html, $ruleMatch)) {
+            if (preg_match('/(?<![\w-])'.$prop.'\s*:\s*([^;]+)/i', $ruleMatch[1], $declMatch)) {
+                return trim($declMatch[1]);
+            }
+        }
+
+        if (preg_match('/<body[^>]*\sstyle\s*=\s*"([^"]*)"/i', $html, $inlineMatch)) {
+            if (preg_match('/(?<![\w-])'.$prop.'\s*:\s*([^;]+)/i', $inlineMatch[1], $declMatch)) {
+                return trim($declMatch[1]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve a `var(--name)` reference against custom properties declared in the
+     * document. Returns the value unchanged when it is not a variable reference.
+     */
+    protected function resolveCssValue(string $value, string $html): string
+    {
+        if (! preg_match('/var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)/i', $value, $varMatch)) {
+            return $value;
+        }
+
+        $name = preg_quote($varMatch[1], '/');
+
+        if (preg_match('/'.$name.'\s*:\s*([^;}]+)/i', $html, $defMatch)) {
+            return trim($defMatch[1]);
+        }
+
+        // Fall back to the var()'s default value, if one was provided.
+        return isset($varMatch[2]) ? trim($varMatch[2]) : $value;
     }
 
     /**

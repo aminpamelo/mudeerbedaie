@@ -14,11 +14,15 @@ import '@puckeditor/core/puck.css';
 import './styles/funnel-builder.css';
 import './styles/studio-theme.css';
 
-// Mount the app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+// Mount the app when DOM is ready. Guard on readyState instead of relying
+// solely on DOMContentLoaded: ES module scripts are deferred and can execute
+// *after* that event has already fired, in which case a bare listener never
+// runs and the page stays blank until a refresh reshuffles the timing.
+function mountApp() {
     const container = document.getElementById('funnel-builder-app');
 
-    if (container) {
+    if (container && !container.dataset.mounted) {
+        container.dataset.mounted = 'true';
         const root = createRoot(container);
         root.render(
             <React.StrictMode>
@@ -26,4 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </React.StrictMode>
         );
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountApp);
+} else {
+    mountApp();
+}

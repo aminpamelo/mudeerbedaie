@@ -2,7 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useCallback, useRef } from 'react';
 import {
   BookOpen, Search, Users, GraduationCap, CheckCircle, X,
-  SlidersHorizontal, ChevronDown, Sparkles, TrendingUp,
+  SlidersHorizontal, ChevronDown, Sparkles, TrendingUp, ArrowRight,
 } from 'lucide-react';
 import StudentLayout from '@/student/layouts/StudentLayout';
 import { cn, formatMoney, t } from '@/student/lib/utils';
@@ -261,7 +261,8 @@ function FilterPanel({ filters, teachers, onFilter, courseCount }) {
 /* ------------------------------------------------------------------ */
 function CourseCard({ course, index }) {
   return (
-    <div
+    <a
+      href={`/my/courses/${course.id}`}
       className="fade-up group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-200/40 hover:ring-violet-200/60"
       style={{ animationDelay: `${0.04 * index + 0.12}s` }}
     >
@@ -322,14 +323,18 @@ function CourseCard({ course, index }) {
 
         <div className="flex-1" />
 
-        <div className="mt-3 flex items-center gap-3 border-t border-violet-50 pt-3">
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-violet-50 pt-3">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted">
             <Users className="h-3.5 w-3.5 text-violet-400" strokeWidth={2} />
             <span>{t('student.courses.students', { count: course.student_count })}</span>
           </div>
+          <span className="flex items-center gap-1 text-[12px] font-bold text-violet-600 opacity-0 transition-opacity group-hover:opacity-100">
+            {course.is_enrolled ? t('student.courses.continue_learning') : t('student.courses.view_enrollment')}
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </span>
         </div>
       </div>
-    </div>
+    </a>
   );
 }
 

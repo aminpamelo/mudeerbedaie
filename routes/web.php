@@ -110,6 +110,7 @@ use App\Http\Controllers\Vault\DashboardController as VaultDashboardController;
 use App\Http\Controllers\Vault\LockController as VaultLockController;
 use App\Http\Controllers\Vault\SettingsController as VaultSettingsController;
 use App\Http\Controllers\Vault\TagController as VaultTagController;
+use App\Http\Controllers\WhatsAppGroupDirectoryController;
 use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\EnsureVaultUnlocked;
 use App\Http\Middleware\HandleBlogSeoInertiaRequests;
@@ -151,6 +152,9 @@ Route::get('package/{package:slug}', [StorefrontController::class, 'package'])->
 Route::get('courses', [StorefrontController::class, 'courses'])->name('storefront.courses');
 Route::get('course/{course:slug}', [StorefrontController::class, 'course'])->name('storefront.course');
 Route::get('lang/{locale}', [StorefrontController::class, 'setLocale'])->name('locale.switch');
+
+// Public WhatsApp group directory — shareable link + QR that lists joinable groups.
+Route::get('wa/{collection:slug}', [WhatsAppGroupDirectoryController::class, 'show'])->name('wa-groups.show');
 
 // ---------------------------------------------------------------------------
 // Public blog
@@ -250,6 +254,7 @@ Route::middleware(['auth', 'role:student', HandleStudentInertiaRequests::class])
 
         // Courses
         Route::get('courses', [App\Http\Controllers\StudentPortal\CourseController::class, 'index'])->name('courses');
+        Route::get('courses/{course}', [App\Http\Controllers\StudentPortal\CourseController::class, 'show'])->name('courses.show');
 
         // Orders
         Route::get('orders', [App\Http\Controllers\StudentPortal\OrderController::class, 'index'])->name('orders');
@@ -1313,6 +1318,10 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('packages/create', 'admin.packages.create')->name('packages.create');
     Volt::route('packages/{package}', 'admin.packages.show')->name('packages.show');
     Volt::route('packages/{package}/edit', 'admin.packages.edit')->name('packages.edit');
+
+    // WhatsApp Group directory routes (public shareable group collections)
+    Volt::route('whatsapp-groups', 'admin.whatsapp-groups.index')->name('admin.whatsapp-groups.index');
+    Volt::route('whatsapp-groups/{collection}', 'admin.whatsapp-groups.manage')->name('admin.whatsapp-groups.manage');
 
     // Platform Management routes
     Volt::route('platform-integration', 'admin.platforms.dashboard')->name('platforms.dashboard');

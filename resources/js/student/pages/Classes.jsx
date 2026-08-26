@@ -2,7 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useCallback, useRef } from 'react';
 import {
   GraduationCap, Search, ChevronRight, SlidersHorizontal,
-  ChevronDown, X,
+  ChevronDown, X, CalendarDays,
 } from 'lucide-react';
 import StudentLayout from '@/student/layouts/StudentLayout';
 import PageHeader, { HeroStat } from '@/student/components/PageHeader';
@@ -121,9 +121,16 @@ export default function Classes() {
       <Head title={t('student.classes.my_classes')} />
 
       <div className="space-y-4 pt-4">
-        {/* Status chips */}
-        <div className="fade-up">
+        {/* Status chips + schedule link */}
+        <div className="fade-up flex flex-wrap items-center justify-between gap-3">
           <StatusChips statusCounts={statusCounts} current={filters.status} onSelect={(s) => applyFilters({ ...filters, status: s })} />
+          <a
+            href="/my/timetable"
+            className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-3.5 py-1.5 text-[12px] font-semibold text-violet-700 transition-colors hover:bg-violet-200"
+          >
+            <CalendarDays className="h-3.5 w-3.5" strokeWidth={2} />
+            {t('student.classes.view_timetable')}
+          </a>
         </div>
 
         {/* Search bar */}

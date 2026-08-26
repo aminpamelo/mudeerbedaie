@@ -1,7 +1,7 @@
 import { Head, usePage } from '@inertiajs/react';
 import { useState, useCallback } from 'react';
 import {
-  Calendar, ChevronLeft, ChevronRight, X, Clock, CheckCircle, Video,
+  Calendar, ChevronLeft, ChevronRight, X, Clock, CheckCircle, Video, ArrowLeft,
 } from 'lucide-react';
 import StudentLayout from '@/student/layouts/StudentLayout';
 import PageHeader, { HeroStat } from '@/student/components/PageHeader';
@@ -203,6 +203,13 @@ export default function Timetable() {
       <Head title={t('navigation.schedule')} />
 
       <div className="space-y-5 pt-4">
+        <div className="fade-up">
+          <a href="/my/classes" className="inline-flex w-fit items-center gap-1.5 rounded-xl bg-violet-50 px-4 py-2 text-[13px] font-semibold text-violet-700 transition-colors hover:bg-violet-100">
+            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+            {t('student.classes.back_to_classes')}
+          </a>
+        </div>
+
         {/* Controls */}
         <div className="fade-up flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">

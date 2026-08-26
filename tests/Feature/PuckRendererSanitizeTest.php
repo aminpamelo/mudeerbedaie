@@ -327,6 +327,72 @@ it('defaults CustomHtml background to white and respects a custom background col
     expect($custom)->toContain('background-color: transparent');
 });
 
+it('honors a pasted full-document body background on the wrapper when nested beside another block', function () {
+    $puckContent = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => [
+                    'html' => '<!DOCTYPE html><html><head><style>:root{--ink:#121825;--text:#EDF0F8}'
+                        .'body{background:var(--ink);color:var(--text)}</style></head>'
+                        .'<body><h1>Dark hero</h1></body></html>',
+                ],
+            ],
+            [
+                'type' => 'CheckoutForm',
+                'props' => [],
+            ],
+        ],
+    ];
+
+    $result = (string) $this->renderer->render($puckContent);
+
+    expect($result)
+        ->toContain('class="puck-custom-html"')
+        ->toContain('background-color: #121825')
+        ->toContain('color: #EDF0F8')
+        ->not->toContain('background-color: #ffffff');
+});
+
+it('honors an inline body style background from a pasted document', function () {
+    $puckContent = [
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => [
+                    'html' => '<!DOCTYPE html><html><body style="background-color:#0a0a0a">'
+                        .'<h1>Hi</h1></body></html>',
+                ],
+            ],
+            [
+                'type' => 'ButtonBlock',
+                'props' => ['text' => 'Go'],
+            ],
+        ],
+    ];
+
+    $result = (string) $this->renderer->render($puckContent);
+
+    expect($result)->toContain('background-color: #0a0a0a');
+});
+
+it('keeps the white wrapper default for a plain (non-document) CustomHtml fragment', function () {
+    $result = (string) $this->renderer->render([
+        'content' => [
+            [
+                'type' => 'CustomHtml',
+                'props' => ['html' => '<style>body{background:#000}</style><div>fragment</div>'],
+            ],
+            [
+                'type' => 'ButtonBlock',
+                'props' => ['text' => 'Go'],
+            ],
+        ],
+    ]);
+
+    expect($result)->toContain('background-color: #ffffff');
+});
+
 it('renders CustomHtml when nested alongside another component (not the sole block)', function () {
     $puckContent = [
         'content' => [
