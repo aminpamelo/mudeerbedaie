@@ -31,6 +31,7 @@ class WhatsAppManager
         $this->resolvedProvider = match ($providerName) {
             'onsend' => $this->createOnsendProvider(),
             'meta' => $this->createMetaCloudProvider(),
+            'waha' => $this->createWahaProvider(),
             default => throw new InvalidArgumentException("Unknown WhatsApp provider: {$providerName}"),
         };
 
@@ -55,6 +56,18 @@ class WhatsAppManager
         return new OnsendProvider(
             apiUrl: $config['api_url'] ?? config('services.onsend.api_url', 'https://onsend.io/api/v1'),
             apiToken: $config['api_token'] ?? config('services.onsend.api_token', ''),
+        );
+    }
+
+    /**
+     * Create a WahaProvider instance using settings from the database.
+     */
+    private function createWahaProvider(): WahaProvider
+    {
+        return new WahaProvider(
+            apiUrl: $this->settings->get('waha_api_url', config('services.waha.api_url', '')),
+            apiKey: $this->settings->get('waha_api_key', config('services.waha.api_key', '')),
+            session: $this->settings->get('waha_session', config('services.waha.session', 'default')),
         );
     }
 

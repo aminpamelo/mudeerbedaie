@@ -27,6 +27,12 @@ new class extends Component
 
     public string $metaApiVersion = 'v21.0';
 
+    public string $wahaApiUrl = '';
+
+    public string $wahaApiKey = '';
+
+    public string $wahaSession = 'default';
+
     public int $minDelay = 10;
 
     public int $maxDelay = 30;
@@ -73,6 +79,11 @@ new class extends Component
         $this->metaVerifyToken = $settingsService->get('meta_verify_token', '');
         $this->metaApiVersion = $settingsService->get('meta_api_version', 'v21.0');
 
+        // Load WAHA (self-hosted) settings
+        $this->wahaApiUrl = $settingsService->get('waha_api_url', '');
+        $this->wahaApiKey = $settingsService->get('waha_api_key', '');
+        $this->wahaSession = $settingsService->get('waha_session', 'default');
+
         // Load anti-ban settings
         $this->minDelay = (int) $settingsService->get('whatsapp_min_delay', 10);
         $this->maxDelay = (int) $settingsService->get('whatsapp_max_delay', 30);
@@ -97,7 +108,7 @@ new class extends Component
     public function save(): void
     {
         $rules = [
-            'provider' => 'required|in:onsend,meta',
+            'provider' => 'required|in:onsend,meta,waha',
             'minDelay' => 'required|integer|min:5|max:60',
             'maxDelay' => 'required|integer|min:10|max:120',
             'batchSize' => 'required|integer|min:5|max:50',
@@ -119,6 +130,12 @@ new class extends Component
             $rules['metaAppSecret'] = 'nullable|string|max:500';
             $rules['metaVerifyToken'] = 'nullable|string|max:255';
             $rules['metaApiVersion'] = 'required|string|max:20';
+        }
+
+        if ($this->provider === 'waha') {
+            $rules['wahaApiUrl'] = 'required|url|max:255';
+            $rules['wahaApiKey'] = 'required|string|max:500';
+            $rules['wahaSession'] = 'required|string|max:100';
         }
 
         $this->validate($rules);
@@ -154,6 +171,12 @@ new class extends Component
             $settingsService->set('meta_app_secret', $this->metaAppSecret, 'encrypted', 'whatsapp');
             $settingsService->set('meta_verify_token', $this->metaVerifyToken, 'string', 'whatsapp');
             $settingsService->set('meta_api_version', $this->metaApiVersion, 'string', 'whatsapp');
+        }
+
+        if ($this->provider === 'waha') {
+            $settingsService->set('waha_api_url', rtrim($this->wahaApiUrl, '/'), 'string', 'whatsapp');
+            $settingsService->set('waha_api_key', $this->wahaApiKey, 'encrypted', 'whatsapp');
+            $settingsService->set('waha_session', $this->wahaSession, 'string', 'whatsapp');
         }
 
         $settingsService->set('whatsapp_min_delay', $this->minDelay, 'number', 'whatsapp');
@@ -257,6 +280,26 @@ new class extends Component
                 </div>
             </div>
         </div>
+    @elseif($provider === 'waha')
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <flux:icon.exclamation-triangle class="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                    <h3 class="font-semibold text-amber-800">Warning: Unofficial API (Self-Hosted)</h3>
+                    <div class="text-sm text-amber-700 mt-1 space-y-1">
+                        <p>WhatsApp is using WAHA running on our own server. Risks include:</p>
+                        <ul class="list-disc list-inside ml-2 space-y-0.5">
+                            <li>Phone number may be blocked by WhatsApp</li>
+                            <li>Violates WhatsApp Terms of Service</li>
+                            <li>We are responsible for uptime — no vendor support</li>
+                        </ul>
+                        <p class="font-medium mt-2">Use a dedicated SIM, never a personal number.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     @else
         <div class="bg-green-50 border border-green-200 rounded-xl p-4">
             <div class="flex items-start gap-3">
@@ -286,7 +329,7 @@ new class extends Component
                 <flux:text class="text-gray-500 mt-1">Choose the API provider for sending WhatsApp messages</flux:text>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <label class="relative flex cursor-pointer rounded-lg border p-4 transition-colors {{ $provider === 'onsend' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500' : 'border-gray-200 hover:border-gray-300' }}">
                     <input type="radio" wire:model.live="provider" value="onsend" class="sr-only" />
                     <div class="flex items-start gap-3">
@@ -323,6 +366,26 @@ new class extends Component
                                 <flux:badge color="green" size="sm">Official</flux:badge>
                             </div>
                             <p class="text-sm text-gray-500 mt-1">Official WhatsApp Business Platform API by Meta. Safe and reliable.</p>
+                        </div>
+                    </div>
+                </label>
+
+                <label class="relative flex cursor-pointer rounded-lg border p-4 transition-colors {{ $provider === 'waha' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500' : 'border-gray-200 hover:border-gray-300' }}">
+                    <input type="radio" wire:model.live="provider" value="waha" class="sr-only" />
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center {{ $provider === 'waha' ? 'border-blue-500' : 'border-gray-300' }}">
+                                @if($provider === 'waha')
+                                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                @endif
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-gray-900">WAHA</span>
+                                <flux:badge color="amber" size="sm">Self-Hosted</flux:badge>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Unofficial API on our own server. No per-message fee, but carries ban risk.</p>
                         </div>
                     </div>
                 </label>
@@ -437,6 +500,48 @@ new class extends Component
                         </flux:description>
                         @error('apiToken') <flux:error>{{ $message }}</flux:error> @enderror
                     </flux:field>
+                @elseif($provider === 'waha')
+                    <!-- WAHA Self-Hosted Fields -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <flux:field>
+                            <flux:label>Server URL</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="wahaApiUrl"
+                                placeholder="https://waha.bedaie.com.my"
+                            />
+                            <flux:description>
+                                Base URL of our WAHA server, without a trailing slash
+                            </flux:description>
+                            @error('wahaApiUrl') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>API Key</flux:label>
+                            <flux:input
+                                type="password"
+                                wire:model="wahaApiKey"
+                                placeholder="Enter WAHA API key"
+                            />
+                            <flux:description>
+                                Use a session-scoped key, not the admin key
+                            </flux:description>
+                            @error('wahaApiKey') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Session Name</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="wahaSession"
+                                placeholder="default"
+                            />
+                            <flux:description>
+                                Which linked phone number on the WAHA server to send from
+                            </flux:description>
+                            @error('wahaSession') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+                    </div>
                 @else
                     <!-- Meta Cloud API Fields -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -536,8 +641,8 @@ new class extends Component
         </div>
     </flux:card>
 
-    <!-- Anti-Ban Settings (OnSend only) -->
-    @if($provider === 'onsend')
+    <!-- Anti-Ban Settings (unofficial providers only) -->
+    @if($provider === 'onsend' || $provider === 'waha')
     <flux:card>
         <div class="p-6">
             <div class="mb-6">

@@ -523,6 +523,7 @@ class SettingsService
 
         return match ($provider) {
             'meta' => ! empty($this->get('meta_phone_number_id')) && ! empty($this->get('meta_access_token')),
+            'waha' => ! empty($this->get('waha_api_url')) && ! empty($this->get('waha_api_key')),
             default => ! empty($this->get('whatsapp_api_token')),
         };
     }

@@ -70,6 +70,15 @@ class WhatsAppService
     }
 
     /**
+     * Whether the active provider drives a normal WhatsApp account rather than
+     * Meta's official API. These carry a ban risk, so anti-ban measures apply.
+     */
+    public function isUnofficialProvider(): bool
+    {
+        return in_array($this->manager->getProviderName(), ['onsend', 'waha'], true);
+    }
+
+    /**
      * Check if we can send a message now (time restrictions + daily limit).
      */
     public function canSendNow(): bool
@@ -192,9 +201,17 @@ class WhatsAppService
 
     /**
      * Format phone number to international format (Malaysian).
+     *
+     * A WhatsApp chat ID (group `...@g.us` or contact `...@c.us`) is already a
+     * complete address and is returned untouched — stripping its punctuation
+     * would silently turn a group ID into a bogus phone number.
      */
     public function formatPhoneNumber(string $phone): string
     {
+        if (str_contains($phone, '@')) {
+            return $phone;
+        }
+
         // Remove all non-numeric characters
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
@@ -265,8 +282,8 @@ class WhatsAppService
 
         $formattedPhone = $this->formatPhoneNumber($phoneNumber);
 
-        // Only apply message variation for onsend provider (anti-ban)
-        if ($this->manager->getProviderName() === 'onsend') {
+        // Only apply message variation for unofficial providers (anti-ban)
+        if ($this->isUnofficialProvider()) {
             $message = $this->addMessageVariation($message);
         }
 
@@ -304,8 +321,8 @@ class WhatsAppService
 
         $formattedPhone = $this->formatPhoneNumber($phoneNumber);
 
-        // Only apply caption variation for onsend provider (anti-ban)
-        if ($caption && $this->manager->getProviderName() === 'onsend') {
+        // Only apply caption variation for unofficial providers (anti-ban)
+        if ($caption && $this->isUnofficialProvider()) {
             $caption = $this->addMessageVariation($caption);
         }
 

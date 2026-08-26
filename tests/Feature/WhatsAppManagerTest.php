@@ -128,3 +128,30 @@ test('resolves meta provider when configured', function () {
         ->and($provider->accessToken)->toBe('test-access-token')
         ->and($provider->apiVersion)->toBe('v21.0');
 });
+
+test('resolves waha provider when configured', function () {
+    $settings = Mockery::mock(SettingsService::class);
+    $settings->shouldReceive('get')
+        ->with('whatsapp_provider', 'onsend')
+        ->andReturn('waha');
+    $settings->shouldReceive('get')
+        ->with('waha_api_url', Mockery::any())
+        ->andReturn('https://waha.bedaie.com.my');
+    $settings->shouldReceive('get')
+        ->with('waha_api_key', Mockery::any())
+        ->andReturn('test-waha-key');
+    $settings->shouldReceive('get')
+        ->with('waha_session', Mockery::any())
+        ->andReturn('mudeer');
+
+    $manager = new WhatsAppManager($settings);
+    $provider = $manager->provider();
+
+    expect($provider)
+        ->toBeInstanceOf(WhatsAppProviderInterface::class)
+        ->toBeInstanceOf(\App\Services\WhatsApp\WahaProvider::class)
+        ->and($provider->apiUrl)->toBe('https://waha.bedaie.com.my')
+        ->and($provider->apiKey)->toBe('test-waha-key')
+        ->and($provider->session)->toBe('mudeer')
+        ->and($manager->getProviderName())->toBe('waha');
+});

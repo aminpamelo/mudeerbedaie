@@ -587,3 +587,16 @@ test('logs send attempt for sendDocument on success', function () {
     expect($log)->not->toBeNull()
         ->and($log->success_count)->toBe(1);
 });
+
+test('formatPhoneNumber leaves a group chat id untouched', function () {
+    $service = app(\App\Services\WhatsAppService::class);
+
+    expect($service->formatPhoneNumber('120363026078845432@g.us'))
+        ->toBe('120363026078845432@g.us');
+});
+
+test('formatPhoneNumber still normalises a plain phone number', function () {
+    $service = app(\App\Services\WhatsAppService::class);
+
+    expect($service->formatPhoneNumber('0123456789'))->toBe('60123456789');
+});

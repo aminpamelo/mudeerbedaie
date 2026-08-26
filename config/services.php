@@ -102,6 +102,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | WAHA (self-hosted WhatsApp HTTP API)
+    |--------------------------------------------------------------------------
+    |
+    | Unofficial API running on our own server. Credentials are normally set
+    | through admin settings; these env values are the fallback defaults.
+    | The session name maps to one linked phone number on the WAHA server.
+    |
+    */
+
+    'waha' => [
+        'api_url' => env('WAHA_API_URL', ''),
+        'api_key' => env('WAHA_API_KEY', ''),
+        'session' => env('WAHA_SESSION', 'default'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | TikTok Shop API
     |--------------------------------------------------------------------------
     |
