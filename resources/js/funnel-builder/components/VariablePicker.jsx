@@ -326,7 +326,7 @@ export default function VariablePicker({
                 <div
                     ref={dropdownRef}
                     className="fixed z-[70] w-[420px] max-h-[520px] overflow-hidden rounded-2xl border border-gray-200
-                        bg-white shadow-2xl ring-1 ring-black ring-opacity-5"
+                        bg-white shadow-2xl ring-1 ring-black/5"
                     style={{
                         top: `${dropdownPosition.top}px`,
                         left: `${dropdownPosition.left}px`,

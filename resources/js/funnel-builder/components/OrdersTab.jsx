@@ -355,7 +355,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
 
                 <div className="overflow-x-auto">
                     {ordersLoading && (
-                        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                        <div className="absolute inset-0 bg-white/75 flex items-center justify-center z-10">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
                         </div>
                     )}
@@ -450,7 +450,7 @@ export default function OrdersTab({ funnelUuid, showToast }) {
 
                 <div className="overflow-x-auto relative">
                     {cartsLoading && (
-                        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                        <div className="absolute inset-0 bg-white/75 flex items-center justify-center z-10">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
                         </div>
                     )}

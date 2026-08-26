@@ -230,7 +230,7 @@ export default function MediaManager({
         <div className="fixed inset-0 z-50 overflow-hidden">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
+                className="absolute inset-0 bg-black/50 transition-opacity"
                 onClick={onClose}
             />
 
@@ -352,8 +352,8 @@ export default function MediaManager({
                                             )}
 
                                             {/* Hover overlay */}
-                                            <div className={`absolute inset-0 bg-black transition-opacity ${
-                                                isSelected ? 'bg-opacity-10' : 'bg-opacity-0 group-hover:bg-opacity-30'
+                                            <div className={`absolute inset-0 transition-colors ${
+                                                isSelected ? 'bg-black/10' : 'bg-black/0 group-hover:bg-black/30'
                                             }`} />
 
                                             {/* Delete button */}

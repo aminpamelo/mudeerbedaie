@@ -707,7 +707,7 @@ new class extends Component {
                                     @endif
 
                                     <!-- Image info -->
-                                    <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-2">
+                                    <div class="absolute bottom-0 left-0 right-0 bg-black/75 text-white text-xs p-2">
                                         {{ $image->formatted_file_size }}
                                     </div>
                                 </div>

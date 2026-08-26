@@ -546,7 +546,7 @@ new class extends Component
                                     @continue(! $teacher)
                                     <label class="flex items-center mb-2 hover:bg-gray-50 :bg-gray-800 p-2 rounded">
                                         <input type="checkbox" wire:model="selectedTeachers" value="{{ $teacher->id }}" 
-                                               class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                               class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200/50">
                                         <div class="ml-3 flex-1">
                                             <div class="text-sm font-medium text-gray-900">{{ $teacher->name }}</div>
                                             <div class="text-xs text-gray-500">{{ $teacher->email }} • ID: {{ $teacher->id }}</div>
