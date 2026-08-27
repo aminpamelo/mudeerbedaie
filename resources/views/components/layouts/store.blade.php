@@ -111,6 +111,8 @@
             }
             .blog-prose blockquote p { margin-top: 0; }
             .blog-prose img { border-radius: 1rem; margin: 1.75em 0; width: 100%; height: auto; }
+            .blog-prose .blog-video { border-radius: 1rem; margin: 1.75em 0; box-shadow: 0 10px 30px -12px rgba(24,24,27,.25); }
+            .blog-prose .blog-video iframe { border-radius: 1rem; }
             .blog-prose figure { margin: 1.75em 0; }
             .blog-prose figcaption { font-size: .8125rem; color: #a1a1aa; text-align: center; margin-top: .6em; }
             .blog-prose code {

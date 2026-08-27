@@ -137,10 +137,116 @@ class MarkdownService
         $xpath = new DOMXPath($document);
 
         $this->addHeadingIds($xpath);
+        $this->embedVideos($document, $xpath);
         $this->optimiseImages($xpath);
         $this->hardenLinks($xpath);
 
         return $this->extractBodyHtml($document);
+    }
+
+    /**
+     * Turn a paragraph that is just a YouTube/Vimeo link — the shape produced
+     * when an author pastes a bare video URL on its own line — into a
+     * responsive, lazy-loaded embed. Links inside prose (mixed with other text)
+     * are left as ordinary hyperlinks.
+     */
+    private function embedVideos(DOMDocument $document, DOMXPath $xpath): void
+    {
+        $paragraphs = $xpath->query('//p');
+
+        if ($paragraphs === false) {
+            return;
+        }
+
+        $replacements = [];
+
+        foreach ($paragraphs as $paragraph) {
+            if (! $paragraph instanceof DOMElement) {
+                continue;
+            }
+
+            $anchor = $this->soleAnchor($paragraph);
+
+            if (! $anchor instanceof DOMElement) {
+                continue;
+            }
+
+            $embedUrl = $this->videoEmbedUrl($anchor->getAttribute('href'));
+
+            if ($embedUrl === null) {
+                continue;
+            }
+
+            $replacements[] = [$paragraph, $this->buildVideoEmbed($document, $embedUrl)];
+        }
+
+        // Mutate after iterating so we never edit the live NodeList mid-loop.
+        foreach ($replacements as [$paragraph, $embed]) {
+            $paragraph->parentNode?->replaceChild($embed, $paragraph);
+        }
+    }
+
+    /**
+     * Return the anchor when a paragraph holds a single link and nothing else
+     * but whitespace, otherwise null.
+     */
+    private function soleAnchor(DOMElement $paragraph): ?DOMElement
+    {
+        $anchor = null;
+
+        foreach ($paragraph->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                if ($anchor !== null || strtolower($child->nodeName) !== 'a') {
+                    return null;
+                }
+
+                $anchor = $child;
+
+                continue;
+            }
+
+            if (trim($child->textContent) !== '') {
+                return null;
+            }
+        }
+
+        return $anchor;
+    }
+
+    /**
+     * Map a YouTube or Vimeo watch/share URL to its player embed URL.
+     */
+    private function videoEmbedUrl(string $url): ?string
+    {
+        if (preg_match('~(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})~i', $url, $matches) === 1) {
+            return 'https://www.youtube.com/embed/'.$matches[1];
+        }
+
+        if (preg_match('~vimeo\.com/(?:video/)?(\d+)~i', $url, $matches) === 1) {
+            return 'https://player.vimeo.com/video/'.$matches[1];
+        }
+
+        return null;
+    }
+
+    private function buildVideoEmbed(DOMDocument $document, string $embedUrl): DOMElement
+    {
+        $wrapper = $document->createElement('div');
+        $wrapper->setAttribute('class', 'blog-video');
+        $wrapper->setAttribute('style', 'position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;');
+
+        $iframe = $document->createElement('iframe');
+        $iframe->setAttribute('src', $embedUrl);
+        $iframe->setAttribute('title', 'Video');
+        $iframe->setAttribute('loading', 'lazy');
+        $iframe->setAttribute('frameborder', '0');
+        $iframe->setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+        $iframe->setAttribute('allowfullscreen', 'allowfullscreen');
+        $iframe->setAttribute('style', 'position:absolute;top:0;left:0;width:100%;height:100%;border:0;');
+
+        $wrapper->appendChild($iframe);
+
+        return $wrapper;
     }
 
     private function addHeadingIds(DOMXPath $xpath): void
