@@ -38,6 +38,57 @@ it('maps components for Meta with HEADER format field', function () {
     expect($mapped[2])->not->toHaveKey('format');
 });
 
+it('builds a positional BODY example so Meta does not reject missing example', function () {
+    $service = app(TemplateService::class);
+    $reflection = new ReflectionMethod($service, 'mapComponentsForMeta');
+
+    $mapped = $reflection->invoke($service, [
+        ['type' => 'BODY', 'text' => 'Cik {{1}} order {{2}} belum bayar'],
+    ]);
+
+    expect($mapped[0])->toHaveKey('example');
+    expect($mapped[0]['example'])->toBe(['body_text' => [['example_value_1', 'example_value_2']]]);
+});
+
+it('de-duplicates repeated placeholders and tolerates spacing/order', function () {
+    $service = app(TemplateService::class);
+    $reflection = new ReflectionMethod($service, 'mapComponentsForMeta');
+
+    $mapped = $reflection->invoke($service, [
+        ['type' => 'BODY', 'text' => 'Hi {{ 2 }}, {{1}} then {{1}} again'],
+    ]);
+
+    // Two unique params, ordered 1..N, one example value each.
+    expect($mapped[0]['example'])->toBe(['body_text' => [['example_value_1', 'example_value_2']]]);
+});
+
+it('builds named BODY example params when the body uses named variables', function () {
+    $service = app(TemplateService::class);
+    $reflection = new ReflectionMethod($service, 'mapComponentsForMeta');
+
+    $mapped = $reflection->invoke($service, [
+        ['type' => 'BODY', 'text' => 'Hi {{name}}, order {{order_id}}'],
+    ]);
+
+    expect($mapped[0]['example'])->toBe([
+        'body_text_named_params' => [
+            ['param_name' => 'name', 'example' => 'example_name'],
+            ['param_name' => 'order_id', 'example' => 'example_order_id'],
+        ],
+    ]);
+});
+
+it('omits the example key for a BODY without variables', function () {
+    $service = app(TemplateService::class);
+    $reflection = new ReflectionMethod($service, 'mapComponentsForMeta');
+
+    $mapped = $reflection->invoke($service, [
+        ['type' => 'BODY', 'text' => 'Plain body with no variables'],
+    ]);
+
+    expect($mapped[0])->not->toHaveKey('example');
+});
+
 it('submits a local template to Meta successfully', function () {
     Http::fake([
         'graph.facebook.com/*' => Http::response([

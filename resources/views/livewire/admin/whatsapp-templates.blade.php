@@ -6,34 +6,49 @@ use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public string $search = '';
+
     public string $categoryFilter = '';
+
     public string $statusFilter = '';
 
     public bool $showModal = false;
+
     public ?int $editingTemplateId = null;
+
     public bool $isMetaSynced = false;
 
     public bool $showDeleteModal = false;
+
     public ?int $deletingTemplateId = null;
+
     public string $deletingTemplateName = '';
 
     public bool $showPreviewModal = false;
+
     public ?int $previewTemplateId = null;
 
     public bool $showDeleteFromMetaModal = false;
+
     public ?int $deletingFromMetaTemplateId = null;
+
     public string $deletingFromMetaTemplateName = '';
 
     // Form fields
     public string $name = '';
+
     public string $language = 'ms';
+
     public string $category = 'marketing';
+
     public string $status = 'PENDING';
+
     public array $components = [];
+
     public array $variableMappings = [];
 
     protected $queryString = [
@@ -61,7 +76,7 @@ new class extends Component {
     {
         $query = WhatsAppTemplate::query()
             ->when($this->search, function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%');
+                $q->where('name', 'like', '%'.$this->search.'%');
             })
             ->when($this->statusFilter, function ($q) {
                 $q->where('status', $this->statusFilter);
@@ -98,6 +113,7 @@ new class extends Component {
 
     public function openCreateModal(): void
     {
+        $this->closeDeleteModals();
         $this->resetForm();
         $this->editingTemplateId = null;
         $this->isMetaSynced = false;
@@ -106,6 +122,7 @@ new class extends Component {
 
     public function openEditModal(WhatsAppTemplate $template): void
     {
+        $this->closeDeleteModals();
         $this->editingTemplateId = $template->id;
         $this->isMetaSynced = $template->meta_template_id !== null;
         $this->name = $template->name;
@@ -145,8 +162,23 @@ new class extends Component {
 
     public function openPreviewModal(WhatsAppTemplate $template): void
     {
+        $this->closeDeleteModals();
         $this->previewTemplateId = $template->id;
         $this->showPreviewModal = true;
+    }
+
+    /**
+     * Reset any lingering delete-confirmation state so a stale delete modal can
+     * never surface on top of the view/edit modals.
+     */
+    protected function closeDeleteModals(): void
+    {
+        $this->showDeleteModal = false;
+        $this->showDeleteFromMetaModal = false;
+        $this->deletingTemplateId = null;
+        $this->deletingTemplateName = '';
+        $this->deletingFromMetaTemplateId = null;
+        $this->deletingFromMetaTemplateName = '';
     }
 
     public function confirmDelete(WhatsAppTemplate $template): void
@@ -232,7 +264,7 @@ new class extends Component {
         $existingNums = array_map('intval', $matches[1] ?? []);
         $nextNum = empty($existingNums) ? 1 : max($existingNums) + 1;
 
-        $this->components[$componentIndex]['text'] = rtrim($text) . ($text ? ' ' : '') . '{{' . $nextNum . '}}';
+        $this->components[$componentIndex]['text'] = rtrim($text).($text ? ' ' : '').'{{'.$nextNum.'}}';
         $this->syncVariableMappingKeys();
     }
 
@@ -287,6 +319,7 @@ new class extends Component {
 
             if (! $template->meta_template_id) {
                 session()->flash('error', 'Template has not been submitted to Meta yet.');
+
                 return;
             }
 

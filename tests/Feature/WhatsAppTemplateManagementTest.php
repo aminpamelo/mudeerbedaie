@@ -147,6 +147,31 @@ it('deletes a template', function () {
     expect(WhatsAppTemplate::find($template->id))->toBeNull();
 });
 
+it('clears any stale delete-confirmation state when opening the edit modal', function () {
+    $template = WhatsAppTemplate::factory()->create(['name' => 'edit_me']);
+
+    Volt::test('admin.whatsapp-templates')
+        // Simulate a lingering delete-confirmation state.
+        ->call('confirmDelete', $template->id)
+        ->assertSet('showDeleteModal', true)
+        // Opening edit must not leave the delete modal visible on top of it.
+        ->call('openEditModal', $template->id)
+        ->assertSet('showModal', true)
+        ->assertSet('showDeleteModal', false)
+        ->assertSet('deletingTemplateName', '');
+});
+
+it('clears any stale delete-confirmation state when opening the preview modal', function () {
+    $template = WhatsAppTemplate::factory()->create();
+
+    Volt::test('admin.whatsapp-templates')
+        ->call('confirmDelete', $template->id)
+        ->assertSet('showDeleteModal', true)
+        ->call('openPreviewModal', $template->id)
+        ->assertSet('showPreviewModal', true)
+        ->assertSet('showDeleteModal', false);
+});
+
 it('adds and removes components', function () {
     Volt::test('admin.whatsapp-templates')
         ->call('openCreateModal')

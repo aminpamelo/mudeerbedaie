@@ -285,13 +285,10 @@ class TemplateService
             } elseif ($component['type'] === 'BODY') {
                 $mapped['text'] = $component['text'] ?? '';
 
-                // Meta requires example values for body variables
-                preg_match_all('/\{\{(\d+)\}\}/', $mapped['text'], $matches);
-                if (! empty($matches[1])) {
-                    $exampleValues = array_map(fn ($n) => "example_value_{$n}", $matches[1]);
-                    $mapped['example'] = [
-                        'body_text' => [$exampleValues],
-                    ];
+                // Meta rejects a BODY that has variables but no matching example.
+                $example = $this->buildBodyExample($mapped['text']);
+                if ($example !== null) {
+                    $mapped['example'] = $example;
                 }
             } elseif ($component['type'] === 'FOOTER') {
                 $mapped['text'] = $component['text'] ?? '';
@@ -301,5 +298,45 @@ class TemplateService
 
             return $mapped;
         }, $components);
+    }
+
+    /**
+     * Build the `example` payload Meta requires whenever a BODY component
+     * contains variables.
+     *
+     * Supports positional (`{{1}}`) and named (`{{order_id}}`) placeholders,
+     * tolerates surrounding whitespace (`{{ 1 }}`), and de-duplicates repeated
+     * placeholders so the example count always matches the parameter count.
+     * Returns null when the body has no variables (Meta rejects an empty example).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildBodyExample(string $text): ?array
+    {
+        preg_match_all('/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/', $text, $matches);
+        $tokens = $matches[1] ?? [];
+
+        if (empty($tokens)) {
+            return null;
+        }
+
+        $numeric = array_values(array_unique(array_filter($tokens, 'ctype_digit')));
+        $named = array_values(array_unique(array_filter($tokens, fn ($token) => ! ctype_digit($token))));
+
+        // Meta forbids mixing positional and named parameters; prefer named when present.
+        if (! empty($named)) {
+            return [
+                'body_text_named_params' => array_map(
+                    fn ($name) => ['param_name' => $name, 'example' => "example_{$name}"],
+                    $named,
+                ),
+            ];
+        }
+
+        // Positional parameters must be provided in order (1..N).
+        sort($numeric, SORT_NUMERIC);
+        $exampleValues = array_map(fn ($n) => "example_value_{$n}", $numeric);
+
+        return ['body_text' => [$exampleValues]];
     }
 }
