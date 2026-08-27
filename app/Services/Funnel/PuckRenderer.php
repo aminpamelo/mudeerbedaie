@@ -665,19 +665,43 @@ class PuckRenderer
         $color = $this->findBodyDeclaration($html, 'color');
 
         if ($background !== null) {
-            $background = $this->resolveCssValue($background, $html);
-            // A background shorthand may include more than a colour (image, position).
-            // Keep only a leading colour token so it is safe as background-color.
-            if (preg_match('/^\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)\s*$/i', $background)) {
-                $result['background'] = trim($background);
-            }
+            $result['background'] = $this->normalizeColorValue($this->resolveCssValue($background, $html));
         }
 
         if ($color !== null) {
-            $result['color'] = trim($this->resolveCssValue($color, $html));
+            $result['color'] = $this->normalizeColorValue($this->resolveCssValue($color, $html));
         }
 
         return $result;
+    }
+
+    /**
+     * Reduce a CSS colour declaration to a single, safe colour token.
+     *
+     * Strips `!important` flags and CSS comments, then keeps only the leading
+     * colour token — so `#172554 !important` or a `background` shorthand that
+     * leads with a colour (e.g. `#0a0a0a url(bg.png)`) resolves to just the
+     * colour. Returns null when no leading colour token can be found (e.g. a
+     * gradient or image-only background that cannot be used as background-color).
+     */
+    protected function normalizeColorValue(string $value): ?string
+    {
+        $value = preg_replace('/\/\*.*?\*\//s', '', $value);
+        $value = preg_replace('/!\s*important/i', '', $value);
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        // Leading colour token: hex, rgb()/rgba(), hsl()/hsla(), or a bare named
+        // colour. The lookahead rejects functions/identifiers like url() or
+        // linear-gradient() that begin with letters but are not colours.
+        if (preg_match('/^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+(?![\w(-]))/i', $value, $m)) {
+            return trim($m[1]);
+        }
+
+        return null;
     }
 
     /**
