@@ -69,6 +69,11 @@ class FunnelAutomation extends Model
         return $this->trigger_type === 'optin';
     }
 
+    public function isTrackingAddedTrigger(): bool
+    {
+        return $this->trigger_type === 'tracking_added';
+    }
+
     public function isUpsellAcceptedTrigger(): bool
     {
         return $this->trigger_type === 'upsell_accepted';

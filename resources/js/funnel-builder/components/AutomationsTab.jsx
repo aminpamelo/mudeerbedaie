@@ -377,6 +377,9 @@ function CreateAutomationModal({ onClose, onCreate }) {
             FUNNEL_TRIGGER_TYPES.CART_ABANDONMENT,
             FUNNEL_TRIGGER_TYPES.CART_CREATED,
         ],
+        fulfillment: [
+            FUNNEL_TRIGGER_TYPES.TRACKING_ADDED,
+        ],
         optin: [
             FUNNEL_TRIGGER_TYPES.OPTIN_SUBMITTED,
         ],
@@ -399,6 +402,7 @@ function CreateAutomationModal({ onClose, onCreate }) {
     const categoryLabels = {
         purchase: 'Purchase Events',
         cart: 'Cart Events',
+        fulfillment: 'Fulfillment Events',
         optin: 'Opt-in Events',
         upsell: 'Upsell/Downsell Events',
         session: 'Session Events',

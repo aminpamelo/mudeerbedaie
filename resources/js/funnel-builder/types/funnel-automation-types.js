@@ -18,6 +18,9 @@ export const FUNNEL_TRIGGER_TYPES = {
     PURCHASE_COMPLETED: 'purchase_completed',
     PURCHASE_FAILED: 'purchase_failed',
 
+    // Fulfillment Events
+    TRACKING_ADDED: 'tracking_added',
+
     // Opt-in Events
     OPTIN_SUBMITTED: 'optin_submitted',
 
@@ -135,6 +138,13 @@ export const FUNNEL_TRIGGER_CONFIGS = {
         icon: '❌',
         color: '#EF4444',
         category: 'purchase',
+    },
+    [FUNNEL_TRIGGER_TYPES.TRACKING_ADDED]: {
+        label: 'Tracking Number Added',
+        description: 'Triggers when a shipping tracking number is keyed in for an order',
+        icon: '🚚',
+        color: '#0D9488',
+        category: 'fulfillment',
     },
     [FUNNEL_TRIGGER_TYPES.OPTIN_SUBMITTED]: {
         label: 'Opt-in Submitted',

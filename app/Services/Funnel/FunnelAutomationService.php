@@ -90,6 +90,47 @@ class FunnelAutomationService
     }
 
     /**
+     * Trigger automation when a shipping tracking number is keyed in for an order.
+     *
+     * Scoped to funnel orders: the trigger only fires when the order can be tied
+     * back to a funnel, so a funnel's tracking_added automations never fire for
+     * unrelated (POS / non-funnel) orders that happen to get a tracking number.
+     */
+    public function triggerTrackingAdded(ProductOrder $productOrder, ?FunnelSession $session = null): void
+    {
+        $funnelId = $productOrder->metadata['funnel_id'] ?? null;
+
+        if (! $funnelId && $session) {
+            $funnelId = $session->funnel_id;
+        }
+
+        $funnelOrder = null;
+        if (! $funnelId) {
+            $funnelOrder = FunnelOrder::where('product_order_id', $productOrder->id)->first();
+            if ($funnelOrder) {
+                $funnelId = $funnelOrder->funnel_id;
+                $session = $session ?? $funnelOrder->session;
+            }
+        }
+
+        // Not a funnel order — nothing to trigger.
+        if (! $funnelId) {
+            return;
+        }
+
+        $context = $this->buildPurchaseContext($productOrder, $session);
+
+        Log::info('FunnelAutomation: Triggering tracking_added', [
+            'order_id' => $productOrder->id,
+            'order_number' => $productOrder->order_number,
+            'funnel_id' => $funnelId,
+            'tracking_number' => $productOrder->tracking_id,
+        ]);
+
+        $this->trigger('tracking_added', $context, $funnelId);
+    }
+
+    /**
      * Find automations that match the given event and context.
      */
     protected function findMatchingAutomations(string $eventType, array $context, ?int $funnelId = null): Collection

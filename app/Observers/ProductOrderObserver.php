@@ -6,6 +6,7 @@ use App\Models\ProductOrder;
 use App\Models\Student;
 use App\Services\Enrolment\CourseEnrolmentFromOrder;
 use App\Services\ExternalProvisioning\ExternalProvisioningManager;
+use App\Services\Funnel\FunnelAutomationService;
 use App\Services\Workflow\WorkflowEngine;
 use Illuminate\Support\Facades\Log;
 
@@ -15,6 +16,7 @@ class ProductOrderObserver
         protected WorkflowEngine $workflowEngine,
         protected ExternalProvisioningManager $provisioningManager,
         protected CourseEnrolmentFromOrder $courseEnrolment,
+        protected FunnelAutomationService $funnelAutomationService,
     ) {}
 
     /**
@@ -57,6 +59,13 @@ class ProductOrderObserver
         if ($this->wasJustPaid($productOrder, $changes)) {
             $this->provisionExternalAccounts($productOrder);
             $this->enrolCourses($productOrder);
+        }
+
+        // Funnel automation: fire when a tracking number is first keyed in
+        // (empty -> filled). Covers every entry point — funnel studio, admin
+        // order list, POS, EasyParcel booking — and needs no linked Student.
+        if ($this->trackingWasJustAdded($productOrder, $changes)) {
+            $this->triggerTrackingAdded($productOrder);
         }
 
         $student = $this->getStudentFromOrder($productOrder);
@@ -163,6 +172,32 @@ class ProductOrderObserver
     protected function wasJustCancelled(ProductOrder $order, array $changes): bool
     {
         return isset($changes['status']) && $order->status === 'cancelled';
+    }
+
+    /**
+     * Check if a tracking number was just keyed in (empty -> filled).
+     */
+    protected function trackingWasJustAdded(ProductOrder $order, array $changes): bool
+    {
+        return array_key_exists('tracking_id', $changes)
+            && filled($order->tracking_id)
+            && blank($order->getOriginal('tracking_id'));
+    }
+
+    /**
+     * Fire the funnel tracking_added automation for an order. Wrapped so an
+     * automation hiccup never breaks the order save.
+     */
+    protected function triggerTrackingAdded(ProductOrder $order): void
+    {
+        try {
+            $this->funnelAutomationService->triggerTrackingAdded($order);
+        } catch (\Throwable $e) {
+            Log::error('Funnel tracking_added automation dispatch failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
