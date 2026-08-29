@@ -74,6 +74,7 @@ class BlogController extends Controller
             'post' => $post,
             'toc' => $this->markdown->tableOfContents($post->content_html),
             'related' => $this->relatedPosts($post),
+            'rail' => $this->railPosts($post),
             'comments' => $post->allow_comments
                 ? $post->approvedComments()->with(['user:id,name', 'replies.user:id,name'])->get()
                 : new Collection,
@@ -225,6 +226,31 @@ class BlogController extends Controller
             ->get();
 
         return $related->concat($filler);
+    }
+
+    /**
+     * Sidebar discovery rail for the article page: the newest articles and the
+     * most-read ones, each excluding the post being read. `baseQuery()` already
+     * eager-loads the featured image the list thumbnails render.
+     *
+     * @return array{latest: Collection<int, BlogPost>, popular: Collection<int, BlogPost>}
+     */
+    private function railPosts(BlogPost $post): array
+    {
+        $limit = (int) config('blog.rail_limit');
+
+        return [
+            'latest' => $this->baseQuery()
+                ->whereKeyNot($post->id)
+                ->latest('published_at')
+                ->limit($limit)
+                ->get(),
+            'popular' => $this->baseQuery()
+                ->whereKeyNot($post->id)
+                ->orderByDesc('view_count')
+                ->limit($limit)
+                ->get(),
+        ];
     }
 
     /**

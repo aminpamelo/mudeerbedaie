@@ -27,6 +27,7 @@ return [
     'categories_title' => 'Layari mengikut topik',
     'all_categories' => 'Semua topik',
     'popular_title' => 'Paling dibaca',
+    'latest_title' => 'Terkini',
     'article_count' => ':count artikel|:count artikel',
 
     // Cards & article meta

@@ -18,6 +18,10 @@ return [
 
     'related_limit' => 3,
 
+    // Articles listed in each tab of the article-page discovery rail
+    // (Latest / Most read).
+    'rail_limit' => 5,
+
     // Articles shown in the "From the blog" strip on the storefront homepage.
     'home_limit' => 3,
 

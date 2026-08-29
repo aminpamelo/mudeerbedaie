@@ -353,6 +353,8 @@
                         </nav>
                     @endif
 
+                    <x-store.article-rail :latest="$rail['latest']" :popular="$rail['popular']" />
+
                     @if(config('blog.newsletter_enabled'))
                         <x-store.newsletter-form context="sidebar" :post="$post" />
                     @endif
