@@ -102,9 +102,6 @@
                             <a href="{{ route('shop') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-700 transition-colors hover:border-violet-300 hover:bg-violet-50">
                                 {{ __('store.categories_all') }} <flux:icon name="arrow-right" class="h-4 w-4" />
                             </a>
-                            <a href="#packages" class="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-zinc-600 transition-colors hover:text-violet-700">
-                                <flux:icon name="gift" class="h-4 w-4" /> {{ __('store.hero_cta_packages') }}
-                            </a>
                         </div>
                     </div>
 
@@ -346,8 +343,8 @@
         @endif
     </section>
 
-    {{-- ===================== PACKAGE DEALS ===================== --}}
-    @if($packages->isNotEmpty())
+    {{-- ===================== PACKAGE DEALS (hidden) ===================== --}}
+    @if(false && $packages->isNotEmpty())
         <section id="packages" class="relative overflow-hidden bg-zinc-50 py-16 scroll-mt-20">
             <span class="store-drift pointer-events-none absolute -left-20 top-10 h-64 w-64 rounded-full bg-violet-200/40 blur-3xl"></span>
             <span class="store-drift-slow pointer-events-none absolute -right-20 bottom-10 h-64 w-64 rounded-full bg-rose-200/40 blur-3xl"></span>
@@ -406,8 +403,8 @@
         </section>
     @endif
 
-    {{-- ===================== LMS / COURSES ===================== --}}
-    @if($courses->isNotEmpty())
+    {{-- ===================== LMS / COURSES (hidden) ===================== --}}
+    @if(false && $courses->isNotEmpty())
         <section class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
             <div class="flex items-end justify-between gap-4">
                 <div>

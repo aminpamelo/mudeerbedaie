@@ -163,8 +163,6 @@
                 <nav class="ml-4 hidden items-center gap-1 md:flex">
                     <a href="{{ route('storefront.home') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_home') }}</a>
                     <a href="{{ route('shop') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_shop') }}</a>
-                    <a href="{{ route('storefront.home') }}#packages" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_packages') }}</a>
-                    <a href="{{ route('storefront.courses') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_courses') }}</a>
                     <a href="{{ route('blog.index') }}" @class(['rounded-lg px-3 py-2 text-sm font-semibold transition-colors hover:bg-violet-50 hover:text-violet-700', 'text-violet-700' => request()->routeIs('blog.*'), 'text-zinc-600' => ! request()->routeIs('blog.*')])>{{ __('blog.nav_blog') }}</a>
                 </nav>
 
@@ -198,8 +196,6 @@
                 <nav class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3">
                     <a href="{{ route('storefront.home') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_home') }}</a>
                     <a href="{{ route('shop') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_shop') }}</a>
-                    <a href="{{ route('storefront.home') }}#packages" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_packages') }}</a>
-                    <a href="{{ route('storefront.courses') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('store.nav_courses') }}</a>
                     <a href="{{ route('blog.index') }}" class="rounded-lg px-3 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-violet-50 hover:text-violet-700">{{ __('blog.nav_blog') }}</a>
                     <div class="mt-1 flex items-center justify-between border-t border-zinc-100 pt-3">
                         <div class="flex items-center rounded-lg bg-zinc-100 p-0.5 text-xs font-bold">
@@ -244,8 +240,6 @@
                         <ul class="mt-4 space-y-2.5 text-sm text-zinc-500">
                             <li><a href="{{ route('storefront.home') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_home') }}</a></li>
                             <li><a href="{{ route('shop') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_shop') }}</a></li>
-                            <li><a href="{{ route('storefront.home') }}#packages" class="transition-colors hover:text-violet-700">{{ __('store.nav_packages') }}</a></li>
-                            <li><a href="{{ route('storefront.courses') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_courses') }}</a></li>
                             <li><a href="{{ route('blog.index') }}" class="transition-colors hover:text-violet-700">{{ __('blog.nav_blog') }}</a></li>
                             <li><a href="{{ route('cart') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_cart') }}</a></li>
                         </ul>
@@ -304,11 +298,6 @@
                     @if($navShop)<span class="store-grad absolute top-0 h-0.5 w-8 rounded-full"></span>@endif
                     <flux:icon name="squares-2x2" class="h-[22px] w-[22px]" />
                     <span class="whitespace-nowrap">{{ __('store.nav_shop') }}</span>
-                </a>
-
-                <a href="{{ route('storefront.home') }}#packages" class="relative flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold leading-none text-zinc-500 transition-colors">
-                    <flux:icon name="gift" class="h-[22px] w-[22px]" />
-                    <span class="whitespace-nowrap">{{ __('store.nav_packages') }}</span>
                 </a>
 
                 @php $navCart = request()->routeIs('cart'); @endphp
