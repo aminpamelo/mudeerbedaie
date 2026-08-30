@@ -2,7 +2,6 @@
 
 use App\Models\ClassModel;
 use App\Models\WhatsAppGroupCollection;
-use App\Models\WhatsAppGroupCollectionItem;
 use Livewire\Attributes\Computed;
 use Livewire\Volt\Component;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -211,8 +210,41 @@ new class extends Component
             <flux:text class="mt-1">Kongsi link atau QR ini kepada orang ramai untuk mereka pilih group.</flux:text>
 
             <div class="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
-                <div class="shrink-0 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700">
-                    {!! $this->qrSvg() !!}
+                <div
+                    class="flex shrink-0 flex-col items-center gap-2"
+                    x-data="{
+                        downloadQr() {
+                            const svg = $refs.qrBox.querySelector('svg');
+                            if (! svg) { return; }
+                            const xml = new XMLSerializer().serializeToString(svg);
+                            const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const img = new Image();
+                            img.onload = () => {
+                                const size = 1024;
+                                const canvas = document.createElement('canvas');
+                                canvas.width = size;
+                                canvas.height = size;
+                                const ctx = canvas.getContext('2d');
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillRect(0, 0, size, size);
+                                ctx.drawImage(img, 0, 0, size, size);
+                                URL.revokeObjectURL(url);
+                                const link = document.createElement('a');
+                                link.href = canvas.toDataURL('image/png');
+                                link.download = 'qr-{{ $collection->slug }}.png';
+                                link.click();
+                            };
+                            img.src = url;
+                        }
+                    }"
+                >
+                    <div x-ref="qrBox" class="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700">
+                        {!! $this->qrSvg() !!}
+                    </div>
+                    <flux:button type="button" size="sm" variant="ghost" icon="arrow-down-tray" class="w-full" x-on:click="downloadQr()">
+                        Muat turun QR
+                    </flux:button>
                 </div>
 
                 <div class="min-w-0 flex-1" x-data="{ copied: false }">
