@@ -576,79 +576,79 @@ new class extends Component
                                             {{-- Meta sync actions --}}
                                             @if(! $template->meta_template_id)
                                                 <flux:button
+                                                    wire:key="tpl-submit-{{ $template->id }}"
                                                     size="sm"
                                                     variant="ghost"
                                                     icon="cloud-arrow-up"
+                                                    tooltip="Submit to Meta"
                                                     wire:click="submitTemplateToMeta({{ $template->id }})"
                                                     wire:loading.attr="disabled"
                                                     wire:target="submitTemplateToMeta({{ $template->id }})"
                                                     class="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                >
-                                                    <flux:tooltip content="Submit to Meta" />
-                                                </flux:button>
+                                                />
                                             @else
                                                 <flux:button
+                                                    wire:key="tpl-refresh-{{ $template->id }}"
                                                     size="sm"
                                                     variant="ghost"
                                                     icon="arrow-path"
+                                                    tooltip="Refresh Status"
                                                     wire:click="refreshTemplateStatus({{ $template->id }})"
                                                     wire:loading.attr="disabled"
                                                     wire:target="refreshTemplateStatus({{ $template->id }})"
                                                     class="text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                                                >
-                                                    <flux:tooltip content="Refresh Status" />
-                                                </flux:button>
+                                                />
                                                 <flux:button
+                                                    wire:key="tpl-push-{{ $template->id }}"
                                                     size="sm"
                                                     variant="ghost"
                                                     icon="cloud-arrow-up"
+                                                    tooltip="Push Update to Meta"
                                                     wire:click="updateTemplateOnMeta({{ $template->id }})"
                                                     wire:loading.attr="disabled"
                                                     wire:target="updateTemplateOnMeta({{ $template->id }})"
                                                     class="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                >
-                                                    <flux:tooltip content="Push Update to Meta" />
-                                                </flux:button>
+                                                />
                                             @endif
 
                                             <flux:button
+                                                wire:key="tpl-preview-{{ $template->id }}"
                                                 size="sm"
                                                 variant="ghost"
                                                 icon="eye"
+                                                tooltip="Preview"
                                                 wire:click="openPreviewModal({{ $template->id }})"
-                                            >
-                                                <flux:tooltip content="Preview" />
-                                            </flux:button>
+                                            />
                                             <flux:button
+                                                wire:key="tpl-edit-{{ $template->id }}"
                                                 size="sm"
                                                 variant="ghost"
                                                 icon="pencil-square"
+                                                tooltip="Edit"
                                                 wire:click="openEditModal({{ $template->id }})"
-                                            >
-                                                <flux:tooltip content="Edit" />
-                                            </flux:button>
+                                            />
 
                                             @if($template->meta_template_id)
                                                 <flux:button
+                                                    wire:key="tpl-delete-meta-{{ $template->id }}"
                                                     size="sm"
                                                     variant="ghost"
                                                     icon="cloud-arrow-down"
+                                                    tooltip="Delete from Meta"
                                                     class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                     wire:click="confirmDeleteFromMeta({{ $template->id }})"
-                                                >
-                                                    <flux:tooltip content="Delete from Meta" />
-                                                </flux:button>
+                                                />
                                             @endif
 
                                             <flux:button
+                                                wire:key="tpl-delete-{{ $template->id }}"
                                                 size="sm"
                                                 variant="ghost"
                                                 icon="trash"
+                                                tooltip="Delete locally"
                                                 class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 wire:click="confirmDelete({{ $template->id }})"
-                                            >
-                                                <flux:tooltip content="Delete locally" />
-                                            </flux:button>
+                                            />
                                         </div>
                                     </td>
                                 </tr>
