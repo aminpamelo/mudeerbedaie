@@ -33,11 +33,17 @@ class BlogController extends Controller
             ->paginate(config('blog.per_page'))
             ->withQueryString();
 
+        // The news-portal front page (ticker, lead block, category sections) is
+        // only assembled for the unfiltered first page; searches and deeper
+        // pages fall back to the plain article list.
+        $isFront = $search === '' && (int) $request->query('page', 1) === 1;
+
         return view('blog.index', [
             'posts' => $posts,
             'featured' => $this->featuredPost($search),
             'categories' => $this->categoriesWithCounts(),
             'popular' => $this->popularPosts(),
+            'news' => $isFront ? $this->newsPayload() : null,
             'search' => $search,
             'activeCategory' => null,
             'activeTag' => null,
@@ -102,6 +108,7 @@ class BlogController extends Controller
             'featured' => null,
             'categories' => $this->categoriesWithCounts(),
             'popular' => $this->popularPosts(),
+            'news' => null,
             'search' => $search,
             'activeCategory' => $category,
             'activeTag' => null,
@@ -133,6 +140,7 @@ class BlogController extends Controller
             'featured' => null,
             'categories' => $this->categoriesWithCounts(),
             'popular' => $this->popularPosts(),
+            'news' => null,
             'search' => '',
             'activeCategory' => null,
             'activeTag' => $tag,
@@ -169,6 +177,53 @@ class BlogController extends Controller
 
         return $this->baseQuery()->featured()->latest('published_at')->first()
             ?? $this->baseQuery()->latest('published_at')->first();
+    }
+
+    /**
+     * Assemble the news-portal front page: a lead story, a rail of secondary
+     * headlines, a headline ticker and per-category section strips. Everything
+     * is drawn from the same eager-loaded base query so the page stays flat on
+     * queries no matter how many blocks render.
+     *
+     * @return array{lead: ?BlogPost, secondary: Collection<int, BlogPost>, ticker: Collection<int, BlogPost>, sections: Collection<int, array{category: BlogCategory, posts: Collection<int, BlogPost>}>}
+     */
+    private function newsPayload(): array
+    {
+        $recent = $this->baseQuery()->latest('published_at')->limit(9)->get();
+
+        // An editor-pinned post leads; otherwise the newest article does.
+        $lead = $this->baseQuery()->featured()->latest('published_at')->first()
+            ?? $recent->first();
+
+        if (! $lead instanceof BlogPost) {
+            return ['lead' => null, 'secondary' => collect(), 'ticker' => collect(), 'sections' => collect()];
+        }
+
+        $secondary = $recent->reject(fn (BlogPost $p) => $p->is($lead))->take(4)->values();
+
+        // Section strips only earn their space once the blog has enough articles
+        // to fill them without echoing the lead block back at the reader.
+        $sections = $recent->count() >= 6
+            ? $this->categoriesWithCounts()
+                ->take(4)
+                ->map(fn (BlogCategory $category) => [
+                    'category' => $category,
+                    'posts' => $this->baseQuery()
+                        ->where('category_id', $category->id)
+                        ->latest('published_at')
+                        ->limit(4)
+                        ->get(),
+                ])
+                ->filter(fn (array $section) => $section['posts']->isNotEmpty())
+                ->values()
+            : collect();
+
+        return [
+            'lead' => $lead,
+            'secondary' => $secondary,
+            'ticker' => $recent->take(8)->values(),
+            'sections' => $sections,
+        ];
     }
 
     /**

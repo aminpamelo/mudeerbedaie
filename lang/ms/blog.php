@@ -28,6 +28,7 @@ return [
     'all_categories' => 'Semua topik',
     'popular_title' => 'Paling dibaca',
     'latest_title' => 'Terkini',
+    'section_view_all' => 'Lihat semua',
     'article_count' => ':count artikel|:count artikel',
 
     // Cards & article meta

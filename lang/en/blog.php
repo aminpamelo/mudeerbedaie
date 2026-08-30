@@ -28,6 +28,7 @@ return [
     'all_categories' => 'All topics',
     'popular_title' => 'Most read',
     'latest_title' => 'Latest',
+    'section_view_all' => 'View all',
     'article_count' => ':count article|:count articles',
 
     // Cards & article meta
