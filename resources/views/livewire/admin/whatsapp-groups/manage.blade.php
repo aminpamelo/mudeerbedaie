@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\ClassModel;
 use App\Models\WhatsAppGroupCollection;
 use Livewire\Attributes\Computed;
 use Livewire\Volt\Component;
@@ -13,10 +12,6 @@ new class extends Component
     public bool $showModal = false;
 
     public ?int $editingItemId = null;
-
-    public string $classSearch = '';
-
-    public ?int $class_id = null;
 
     public string $label = '';
 
@@ -34,10 +29,9 @@ new class extends Component
     public function rules(): array
     {
         return [
-            'class_id' => 'nullable|integer|exists:classes,id',
             'label' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:500',
-            'invite_link' => 'nullable|url|max:2048',
+            'invite_link' => 'required|url|max:2048',
             'item_is_active' => 'boolean',
         ];
     }
@@ -45,19 +39,7 @@ new class extends Component
     #[Computed]
     public function items()
     {
-        return $this->collection->items()->with('class')->get();
-    }
-
-    #[Computed]
-    public function classOptions()
-    {
-        return ClassModel::query()
-            ->whereNotNull('whatsapp_group_link')
-            ->where('whatsapp_group_link', '!=', '')
-            ->when($this->classSearch, fn ($q) => $q->where('title', 'like', '%'.$this->classSearch.'%'))
-            ->orderBy('title')
-            ->limit(50)
-            ->get(['id', 'title', 'whatsapp_group_link']);
+        return $this->collection->items()->get();
     }
 
     public function qrSvg(): string
@@ -76,7 +58,6 @@ new class extends Component
         $item = $this->collection->items()->findOrFail($id);
 
         $this->editingItemId = $item->id;
-        $this->class_id = $item->class_id;
         $this->label = (string) $item->label;
         $this->description = (string) $item->description;
         $this->invite_link = (string) $item->invite_link;
@@ -90,14 +71,7 @@ new class extends Component
     {
         $this->validate();
 
-        if (! $this->class_id && ! $this->invite_link) {
-            $this->addError('invite_link', 'Pilih satu kelas atau masukkan link jemputan secara manual.');
-
-            return;
-        }
-
         $attributes = [
-            'class_id' => $this->class_id,
             'label' => $this->label ?: null,
             'description' => $this->description ?: null,
             'invite_link' => $this->invite_link ?: null,
@@ -167,19 +141,9 @@ new class extends Component
         unset($this->items);
     }
 
-    public function updatedClassId($value): void
-    {
-        if ($value && ! $this->label) {
-            $class = ClassModel::find($value);
-            if ($class) {
-                $this->label = $class->title;
-            }
-        }
-    }
-
     private function resetForm(): void
     {
-        $this->reset(['editingItemId', 'class_id', 'label', 'description', 'invite_link', 'classSearch']);
+        $this->reset(['editingItemId', 'label', 'description', 'invite_link']);
         $this->item_is_active = true;
         $this->resetValidation();
     }
@@ -301,7 +265,7 @@ new class extends Component
         <div class="grid place-items-center rounded-xl border border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
             <flux:icon name="user-group" class="h-10 w-10 text-zinc-300" />
             <flux:heading size="lg" class="mt-3">Belum ada group</flux:heading>
-            <flux:text class="mt-1">Tambah group WhatsApp dari kelas sedia ada.</flux:text>
+            <flux:text class="mt-1">Tambah group WhatsApp dengan link jemputan.</flux:text>
         </div>
     @else
         <div class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
@@ -321,9 +285,6 @@ new class extends Component
                                 <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->display_label }}</div>
                                 @if($item->description)
                                     <div class="text-xs text-zinc-400">{{ $item->description }}</div>
-                                @endif
-                                @if($item->class)
-                                    <flux:badge size="sm" color="blue" class="mt-1">{{ $item->class->title }}</flux:badge>
                                 @endif
                             </td>
                             <td class="px-4 py-3">
@@ -360,28 +321,19 @@ new class extends Component
         <form wire:submit="saveItem" class="space-y-5">
             <div>
                 <flux:heading size="lg">{{ $editingItemId ? 'Edit group' : 'Tambah group' }}</flux:heading>
-                <flux:text class="mt-1">Pilih kelas sedia ada — link jemputan WhatsApp akan ditarik automatik.</flux:text>
+                <flux:text class="mt-1">Masukkan link jemputan WhatsApp dan nama paparan untuk group ini.</flux:text>
             </div>
 
             <flux:field>
-                <flux:label>Cari kelas</flux:label>
-                <flux:input wire:model.live.debounce.300ms="classSearch" placeholder="Taip nama kelas…" icon="magnifying-glass" />
-            </flux:field>
-
-            <flux:field>
-                <flux:label>Kelas</flux:label>
-                <flux:select wire:model.live="class_id" placeholder="Pilih kelas">
-                    @foreach($this->classOptions as $class)
-                        <flux:select.option value="{{ $class->id }}">{{ $class->title }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <flux:description>Hanya kelas yang ada link group WhatsApp dipaparkan.</flux:description>
-                <flux:error name="class_id" />
+                <flux:label>Link jemputan</flux:label>
+                <flux:input wire:model="invite_link" placeholder="https://chat.whatsapp.com/..." />
+                <flux:description>Link jemputan group WhatsApp yang akan dibuka bila orang klik.</flux:description>
+                <flux:error name="invite_link" />
             </flux:field>
 
             <flux:field>
                 <flux:label>Nama paparan</flux:label>
-                <flux:input wire:model="label" placeholder="Guna nama kelas jika dikosongkan" />
+                <flux:input wire:model="label" placeholder="Cth: Group Safinah" />
                 <flux:error name="label" />
             </flux:field>
 
@@ -389,13 +341,6 @@ new class extends Component
                 <flux:label>Penerangan</flux:label>
                 <flux:input wire:model="description" placeholder="Cth: Sesi pagi (pilihan)" />
                 <flux:error name="description" />
-            </flux:field>
-
-            <flux:field>
-                <flux:label>Link jemputan manual</flux:label>
-                <flux:input wire:model="invite_link" placeholder="https://chat.whatsapp.com/... (pilihan)" />
-                <flux:description>Isi hanya jika mahu guna link selain dari kelas.</flux:description>
-                <flux:error name="invite_link" />
             </flux:field>
 
             <flux:field variant="inline">
