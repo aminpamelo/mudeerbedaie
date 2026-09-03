@@ -153,6 +153,9 @@ Route::get('courses', [StorefrontController::class, 'courses'])->name('storefron
 Route::get('course/{course:slug}', [StorefrontController::class, 'course'])->name('storefront.course');
 Route::get('lang/{locale}', [StorefrontController::class, 'setLocale'])->name('locale.switch');
 
+// Legal — public Privacy Policy (required for Meta/WhatsApp app review & go-live).
+Route::view('privacy-policy', 'store.privacy')->name('privacy-policy');
+
 // Public WhatsApp group directory — shareable link + QR that lists joinable groups.
 Route::get('wa/{collection:slug}', [WhatsAppGroupDirectoryController::class, 'show'])->name('wa-groups.show');
 

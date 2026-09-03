@@ -242,6 +242,7 @@
                             <li><a href="{{ route('shop') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_shop') }}</a></li>
                             <li><a href="{{ route('blog.index') }}" class="transition-colors hover:text-violet-700">{{ __('blog.nav_blog') }}</a></li>
                             <li><a href="{{ route('cart') }}" class="transition-colors hover:text-violet-700">{{ __('store.nav_cart') }}</a></li>
+                            <li><a href="{{ route('privacy-policy') }}" class="transition-colors hover:text-violet-700">{{ $locale === 'ms' ? 'Dasar Privasi' : 'Privacy Policy' }}</a></li>
                         </ul>
                     </div>
 
