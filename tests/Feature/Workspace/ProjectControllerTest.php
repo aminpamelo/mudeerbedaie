@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Employee;
 use App\Models\Task;
 use App\Models\TmsProject;
 use App\Models\User;
@@ -117,6 +118,30 @@ test('member can be removed from a project', function () {
         ->assertSuccessful();
 
     expect($project->members()->where('user_id', $member->id)->exists())->toBeFalse();
+});
+
+test('the project owner cannot be removed from members', function () {
+    $project = TmsProject::factory()->create(['owner_id' => $this->user->id]);
+    $project->members()->attach($this->user->id, ['role' => 'owner']);
+
+    $this->actingAs($this->user)
+        ->deleteJson("/workspace/projects/{$project->id}/members/{$this->user->id}")
+        ->assertStatus(422);
+
+    expect($project->members()->where('user_id', $this->user->id)->exists())->toBeTrue();
+});
+
+test('project detail page includes assignable staff', function () {
+    $project = TmsProject::factory()->create(['owner_id' => $this->user->id]);
+    $employee = Employee::factory()->create();
+
+    $response = $this->actingAs($this->user)
+        ->get("/workspace/projects/{$project->id}")
+        ->assertSuccessful();
+
+    $staff = collect($response->viewData('page')['props']['staff']);
+
+    expect($staff->pluck('user_id'))->toContain($employee->user_id);
 });
 
 test('projects are not accessible to unauthenticated users', function () {

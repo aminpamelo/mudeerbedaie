@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Users, Calendar, FolderKanban } from 'lucide-react';
 import WorkspaceLayout from '@/workspace/layouts/WorkspaceLayout';
 import TaskCard from '@/workspace/components/TaskCard';
 import TaskForm from '@/workspace/components/TaskForm';
+import ProjectMembers from '@/workspace/components/ProjectMembers';
 import { cn, formatDate } from '@/workspace/lib/utils';
 
 const STATUS_COLORS = {
@@ -13,7 +14,7 @@ const STATUS_COLORS = {
     archived: 'bg-slate-100 text-slate-500',
 };
 
-export default function ProjectDetail({ project, tasks = [] }) {
+export default function ProjectDetail({ project, tasks = [], staff = [] }) {
     const [showForm, setShowForm] = useState(false);
     const reload = () => router.reload({ preserveScroll: true });
 
@@ -98,6 +99,9 @@ export default function ProjectDetail({ project, tasks = [] }) {
                     {progress}% complete
                 </p>
             </div>
+
+            {/* Team / members */}
+            <ProjectMembers project={project} staff={staff} onChanged={reload} />
 
             {/* Tasks */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

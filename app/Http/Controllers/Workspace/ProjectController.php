@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Workspace;
 
 use App\Http\Controllers\Controller;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\TmsProject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,7 @@ class ProjectController extends Controller
         return Inertia::render('ProjectDetail', [
             'project' => $project,
             'tasks' => $tasks,
+            'staff' => $this->assignableStaff(),
         ]);
     }
 
@@ -112,8 +114,34 @@ class ProjectController extends Controller
 
     public function removeMember(TmsProject $project, int $userId): JsonResponse
     {
+        if ($project->owner_id === $userId) {
+            return response()->json(['message' => 'The project owner cannot be removed.'], 422);
+        }
+
         $project->members()->detach($userId);
 
         return response()->json(['message' => 'Member removed.']);
+    }
+
+    /**
+     * Staff who can be assigned to a project — every employee with a linked
+     * user account. `user_id` is what the members pivot keys on.
+     *
+     * @return \Illuminate\Support\Collection<int, array{user_id: int, name: string, department: ?string}>
+     */
+    private function assignableStaff(): \Illuminate\Support\Collection
+    {
+        return Employee::query()
+            ->with(['user:id,name', 'department:id,name'])
+            ->whereHas('user')
+            ->orderBy('full_name')
+            ->get()
+            ->map(fn (Employee $employee) => [
+                'user_id' => $employee->user_id,
+                'name' => $employee->user?->name ?? $employee->full_name,
+                'department' => $employee->department?->name,
+            ])
+            ->unique('user_id')
+            ->values();
     }
 }
