@@ -429,9 +429,55 @@ new class extends Component
                         <div>
                             <p class="font-semibold text-red-800">Disconnected</p>
                             <p class="text-sm text-red-600">{{ $deviceStatus['message'] ?? 'Please check device configuration' }}</p>
+                            @php
+                                $statusMsg = $deviceStatus['message'] ?? '';
+                                $statusHint = match(true) {
+                                    str_contains($statusMsg, '(#200)') => 'Meta has blocked API access for this app/account. Check the app status in developers.facebook.com and Account Quality in Meta Business — a new token will not help until the restriction is cleared.',
+                                    str_contains($statusMsg, '(#190)') => 'Access token is invalid or expired. Generate a permanent System User token in Meta Business Settings.',
+                                    str_contains($statusMsg, '(#10)') || str_contains($statusMsg, '(#803)') => 'Permission issue. Ensure the System User has Full access to this WABA and phone number.',
+                                    str_contains($statusMsg, '(#131') => 'Number/messaging configuration issue. Check the phone number and recipient rules.',
+                                    default => null,
+                                };
+                            @endphp
+                            @if($statusHint)
+                                <p class="mt-1 text-xs text-red-500">{{ $statusHint }}</p>
+                            @endif
                         </div>
                     @endif
                 </div>
+
+                @if($provider === 'meta')
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Meta Credentials</p>
+                        <div class="space-y-2">
+                            @php
+                                $metaCredentials = [
+                                    ['label' => 'Access Token', 'hint' => 'sending', 'set' => filled($metaAccessToken), 'required' => true],
+                                    ['label' => 'Phone Number ID', 'hint' => 'sending', 'set' => filled($metaPhoneNumberId), 'required' => true],
+                                    ['label' => 'WhatsApp Business Account ID', 'hint' => 'templates', 'set' => filled($metaWabaId), 'required' => false],
+                                    ['label' => 'App Secret', 'hint' => 'webhooks', 'set' => filled($metaAppSecret), 'required' => false],
+                                ];
+                            @endphp
+                            @foreach($metaCredentials as $cred)
+                                <div class="flex items-center justify-between text-sm" wire:key="cred-{{ $loop->index }}">
+                                    <span class="text-gray-700">
+                                        {{ $cred['label'] }}
+                                        <span class="text-gray-400 text-xs">({{ $cred['required'] ? 'required · '.$cred['hint'] : $cred['hint'] }})</span>
+                                    </span>
+                                    @if($cred['set'])
+                                        <span class="inline-flex items-center gap-1 text-green-600 font-medium">
+                                            <flux:icon.check-circle class="w-4 h-4" /> Set
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 {{ $cred['required'] ? 'text-red-600' : 'text-gray-400' }} font-medium">
+                                            <flux:icon.x-circle class="w-4 h-4" /> {{ $cred['required'] ? 'Missing' : 'Not set' }}
+                                        </span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
         </flux:card>
 

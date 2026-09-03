@@ -61,6 +61,49 @@ it('saves meta provider settings', function () {
     expect($settings->get('meta_api_version'))->toBe('v21.0');
 });
 
+it('shows meta credential status as Set when configured', function () {
+    Volt::test('admin.settings-whatsapp')
+        ->set('provider', 'meta')
+        ->set('metaAccessToken', 'tok')
+        ->set('metaPhoneNumberId', '123456789')
+        ->assertSee('Meta Credentials')
+        ->assertSee('Access Token')
+        ->assertSee('Set');
+});
+
+it('flags a missing required meta credential', function () {
+    Volt::test('admin.settings-whatsapp')
+        ->set('provider', 'meta')
+        ->set('metaAccessToken', '')
+        ->set('metaPhoneNumberId', '')
+        ->assertSee('Meta Credentials')
+        ->assertSee('Missing');
+});
+
+it('does not show the meta credential checklist for the onsend provider', function () {
+    Volt::test('admin.settings-whatsapp')
+        ->set('provider', 'onsend')
+        ->assertDontSee('Meta Credentials');
+});
+
+it('shows a decoded hint when Meta returns a #200 block', function () {
+    $whatsApp = Mockery::mock(WhatsAppService::class);
+    $whatsApp->shouldReceive('checkDeviceStatus')->andReturn([
+        'success' => false,
+        'status' => 'error',
+        'message' => '(#200) API access blocked.',
+    ]);
+    $whatsApp->shouldReceive('getTodayStats')->andReturn([
+        'message_count' => 0, 'success_count' => 0, 'failure_count' => 0, 'is_unlimited' => true, 'remaining' => 0,
+    ]);
+    app()->instance(WhatsAppService::class, $whatsApp);
+
+    Volt::test('admin.settings-whatsapp')
+        ->set('provider', 'meta')
+        ->assertSee('(#200) API access blocked.')
+        ->assertSee('Account Quality');
+});
+
 it('saves onsend provider settings', function () {
     Volt::test('admin.settings-whatsapp')
         ->set('provider', 'onsend')
