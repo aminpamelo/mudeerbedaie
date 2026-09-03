@@ -201,7 +201,7 @@ test('handles Meta API 401 error response', function () {
     expect($result)
         ->toBeArray()
         ->toHaveKey('success', false)
-        ->toHaveKey('error', 'Invalid OAuth access token.');
+        ->toHaveKey('error', '(#190) Invalid OAuth access token.');
 });
 
 test('handles Meta API 400 error with error object', function () {
@@ -293,5 +293,21 @@ test('checkStatus handles API error', function () {
     expect($result)
         ->toBeArray()
         ->toHaveKey('success', false)
-        ->toHaveKey('status', 'error');
+        ->toHaveKey('status', 'error')
+        ->toHaveKey('message', '(#190) Invalid token');
+});
+
+test('describeError prefixes the Meta code but does not double an embedded one', function () {
+    Http::fake([
+        'graph.facebook.com/v21.0/123456/messages' => Http::sequence()
+            ->push(['error' => ['message' => 'Permissions error', 'code' => 200]], 403)
+            ->push(['error' => ['message' => '(#131030) Recipient not in allowed list', 'code' => 131030]], 400)
+            ->push(['error' => []], 400),
+    ]);
+
+    $provider = new MetaCloudProvider('123456', 'test-access-token');
+
+    expect($provider->send('60123456789', 'a'))->toHaveKey('error', '(#200) Permissions error');
+    expect($provider->send('60123456789', 'b'))->toHaveKey('error', '(#131030) Recipient not in allowed list');
+    expect($provider->send('60123456789', 'c'))->toHaveKey('error', 'Meta Cloud API error (HTTP 400)');
 });

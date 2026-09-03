@@ -242,12 +242,19 @@ class MetaCloudProvider implements WhatsAppProviderInterface
                 ];
             }
 
-            $errorMessage = $response->json('error.message', 'Failed to connect to Meta Cloud API');
+            Log::warning('Meta Cloud API: status check failed', [
+                'status' => $response->status(),
+                'error' => $response->json('error.message'),
+                'code' => $response->json('error.code'),
+                'error_subcode' => $response->json('error.error_subcode'),
+                'type' => $response->json('error.type'),
+                'fbtrace_id' => $response->json('error.fbtrace_id'),
+            ]);
 
             return [
                 'success' => false,
                 'status' => 'error',
-                'message' => $errorMessage,
+                'message' => $this->describeError($response),
             ];
         } catch (\Exception $e) {
             Log::error('Meta Cloud API: status check failed', ['error' => $e->getMessage()]);
@@ -306,17 +313,42 @@ class MetaCloudProvider implements WhatsAppProviderInterface
             ];
         }
 
-        $errorMessage = $response->json('error.message', 'Unknown error');
-
         Log::warning("Meta Cloud API: {$type} message failed", [
             'phone' => $phoneNumber,
-            'error' => $errorMessage,
+            'error' => $response->json('error.message'),
+            'code' => $response->json('error.code'),
+            'error_subcode' => $response->json('error.error_subcode'),
+            'type' => $response->json('error.type'),
             'status' => $response->status(),
+            'fbtrace_id' => $response->json('error.fbtrace_id'),
         ]);
 
         return [
             'success' => false,
-            'error' => $errorMessage,
+            'error' => $this->describeError($response),
         ];
+    }
+
+    /**
+     * Build a human-readable error string from a failed Meta response, prefixing
+     * Meta's numeric error code (e.g. "(#190) Invalid OAuth access token.") so the
+     * device-status card and toast reveal the actual reason instead of a bare
+     * message. Codes already embedded by Meta (e.g. "(#131030) …") are not doubled.
+     */
+    private function describeError(\Illuminate\Http\Client\Response $response): string
+    {
+        $message = $response->json('error.message');
+
+        if (empty($message)) {
+            return 'Meta Cloud API error (HTTP '.$response->status().')';
+        }
+
+        $code = $response->json('error.code');
+
+        if ($code !== null && ! str_starts_with(ltrim($message), '(#')) {
+            return "(#{$code}) {$message}";
+        }
+
+        return $message;
     }
 }
