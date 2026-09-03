@@ -59,6 +59,8 @@ new class extends Component
 
     public array $todayStats = [];
 
+    public ?string $lastCheckedAt = null;
+
     public function mount(): void
     {
         $settingsService = app(SettingsService::class);
@@ -103,6 +105,26 @@ new class extends Component
         $whatsApp = app(WhatsAppService::class);
         $this->deviceStatus = $whatsApp->checkDeviceStatus();
         $this->todayStats = $whatsApp->getTodayStats();
+        $this->lastCheckedAt = now()->format('g:i:s A');
+    }
+
+    /**
+     * Refresh triggered from the "Refresh" button. Reuses refreshStatus() but also
+     * fires a toast with the outcome — refreshStatus() itself stays toast-free
+     * because it also runs silently on mount(), save(), and sendTestMessage().
+     */
+    public function refreshDeviceStatus(): void
+    {
+        $this->refreshStatus();
+
+        $connected = ($this->deviceStatus['status'] ?? '') === 'connected';
+
+        $this->dispatch('status-refreshed',
+            connected: $connected,
+            message: $connected
+                ? 'WhatsApp is connected and ready.'
+                : ($this->deviceStatus['message'] ?? 'WhatsApp is disconnected.'),
+        );
     }
 
     public function save(): void
@@ -400,8 +422,13 @@ new class extends Component
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
                     <flux:heading size="lg">Device Status</flux:heading>
-                    <flux:button variant="ghost" size="sm" wire:click="refreshStatus" icon="arrow-path">
-                        Refresh
+                    <flux:button variant="ghost" size="sm" wire:click="refreshDeviceStatus"
+                        wire:target="refreshDeviceStatus" wire:loading.attr="disabled">
+                        <span class="flex items-center gap-1.5">
+                            <flux:icon.arrow-path class="w-4 h-4" wire:loading.class="animate-spin" wire:target="refreshDeviceStatus" />
+                            <span wire:loading.remove wire:target="refreshDeviceStatus">Refresh</span>
+                            <span wire:loading wire:target="refreshDeviceStatus">Checking…</span>
+                        </span>
                     </flux:button>
                 </div>
 
@@ -478,6 +505,15 @@ new class extends Component
                         </div>
                     </div>
                 @endif
+
+                @if($lastCheckedAt)
+                    <p class="mt-4 text-xs text-gray-400" wire:loading.remove wire:target="refreshDeviceStatus">
+                        Last checked: {{ $lastCheckedAt }}
+                    </p>
+                @endif
+                <p class="mt-4 text-xs text-gray-400" wire:loading wire:target="refreshDeviceStatus">
+                    Checking with Meta…
+                </p>
             </div>
         </flux:card>
 
@@ -982,6 +1018,7 @@ new class extends Component
         x-on:settings-saved.window="show = true; message = 'Settings saved successfully'; type = 'success'; setTimeout(() => show = false, 4000)"
         x-on:test-message-success.window="show = true; message = 'Test message sent successfully! ID: ' + $event.detail.messageId; type = 'success'; setTimeout(() => show = false, 4000)"
         x-on:test-message-failed.window="show = true; message = 'Failed to send message: ' + $event.detail.error; type = 'error'; setTimeout(() => show = false, 6000)"
+        x-on:status-refreshed.window="show = true; message = $event.detail.connected ? $event.detail.message : ('Status: ' + $event.detail.message); type = $event.detail.connected ? 'success' : 'error'; setTimeout(() => show = false, 5000)"
         x-show="show"
         x-transition
         class="fixed bottom-4 right-4 z-50"

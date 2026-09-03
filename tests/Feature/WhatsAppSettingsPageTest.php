@@ -104,6 +104,16 @@ it('shows a decoded hint when Meta returns a #200 block', function () {
         ->assertSee('Account Quality');
 });
 
+it('stamps last-checked and dispatches a toast on manual refresh', function () {
+    Volt::test('admin.settings-whatsapp')
+        ->set('lastCheckedAt', null)
+        ->assertDontSee('Last checked:')
+        ->call('refreshDeviceStatus')
+        ->assertSee('Last checked:')
+        ->assertSet('lastCheckedAt', fn ($value) => filled($value))
+        ->assertDispatched('status-refreshed');
+});
+
 it('saves onsend provider settings', function () {
     Volt::test('admin.settings-whatsapp')
         ->set('provider', 'onsend')
