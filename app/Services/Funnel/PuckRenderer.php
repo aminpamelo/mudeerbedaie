@@ -639,10 +639,34 @@ class PuckRenderer
             $wrapperStyle .= ' color: '.e($textColor).';';
         }
 
+        // A pasted full document nests its own <html>/<head>/<body> inside the page.
+        // The stray </body> is the real danger: Livewire's asset injector inserts its
+        // <script src="livewire.js"> before EVERY </body>, so a nested one makes
+        // Livewire + Alpine boot twice ("multiple instances" → in-app browsers such as
+        // the Facebook/TikTok webview blank out). Flatten the document to a fragment —
+        // drop the structural tag shells but keep their contents (title/style/link,
+        // body content, scripts) so styles, pixels and embeds still work.
+        $html = $this->stripDocumentWrapperTags($html);
+
         return sprintf(
             '<div class="puck-custom-html" style="%s">%s</div>',
             $wrapperStyle,
             $html // Raw, intentional: scripts/styles preserved for embeds & pixels.
+        );
+    }
+
+    /**
+     * Remove the structural document tag shells (<!doctype>, <html>, <head>, <body>
+     * and their closers) from pasted markup, keeping everything between them. This
+     * turns an accidentally-nested full document into a valid in-page fragment with
+     * no stray </body> for Livewire's asset injector to collide with.
+     */
+    protected function stripDocumentWrapperTags(string $html): string
+    {
+        return (string) preg_replace(
+            '/<!doctype[^>]*>|<\/?(?:html|head|body)\b[^>]*>/i',
+            '',
+            $html,
         );
     }
 

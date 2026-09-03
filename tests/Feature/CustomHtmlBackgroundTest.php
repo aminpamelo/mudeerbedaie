@@ -81,3 +81,26 @@ it('keeps the default white for a fragment with no body style rule', function ()
 
     expect(($this->render)($html))->toContain('background-color: #ffffff');
 });
+
+it('flattens a pasted full document so no nested doctype/html/body tag survives', function () {
+    // A stray </body> makes Livewire inject its script twice (Alpine boots twice →
+    // in-app browsers blank out). The rendered block must carry no document wrapper
+    // tags, while keeping the content, <style> and <script>.
+    $html = '<!DOCTYPE html><html lang="ms"><head><title>Sales</title>'
+        .'<style>body{background:#ebe9dc}.reveal{opacity:0}</style></head>'
+        .'<body><section class="reveal">Buy now</section>'
+        .'<script>new IntersectionObserver(()=>{});</script></body></html>';
+
+    $result = ($this->render)($html);
+
+    expect($result)
+        ->not->toContain('</body>')
+        ->not->toContain('<body')
+        ->not->toContain('<!DOCTYPE')
+        ->not->toContain('<html')
+        ->not->toContain('</head>')
+        ->toContain('background-color: #ebe9dc')   // body bg still lifted onto the wrapper
+        ->toContain('<title>Sales</title>')         // head contents preserved
+        ->toContain('IntersectionObserver')         // scripts preserved
+        ->toContain('Buy now');                     // body content preserved
+});
