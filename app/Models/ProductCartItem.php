@@ -85,6 +85,24 @@ class ProductCartItem extends Model
         return ! $this->isPackage() && ! $this->isCourse();
     }
 
+    /**
+     * Whether this item needs physical delivery. Courses are always digital;
+     * products and packages ship only when their fulfillment_type is 'physical'
+     * (digital / external_system items — e.g. the system subscription — do not).
+     */
+    public function requiresShipping(): bool
+    {
+        if ($this->isCourse()) {
+            return false;
+        }
+
+        if ($this->isPackage()) {
+            return ($this->package?->fulfillment_type ?? 'physical') === 'physical';
+        }
+
+        return ($this->product?->fulfillment_type ?? 'physical') === 'physical';
+    }
+
     // Helper methods
     public function updateQuantity(int $quantity): void
     {

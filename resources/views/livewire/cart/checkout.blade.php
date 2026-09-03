@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ProductCart;
+use App\Models\ProductCartItem;
 use App\Models\ProductOrder;
 use App\Services\BayarcashService;
 use App\Services\SettingsService;
@@ -66,7 +67,7 @@ new #[Layout('components.layouts.store')] class extends Component
 
     public bool $isLoadingRates = false;
 
-    public bool $hasShippingProviders = true; // Always true — flat-rate shipping
+    public bool $hasShippingProviders = true; // Recomputed in mount() from cart contents
 
     /** East Malaysia states for RM 14 rate. */
     private const EAST_MALAYSIA_STATES = ['sabah', 'sarawak', 'labuan'];
@@ -79,18 +80,29 @@ new #[Layout('components.layouts.store')] class extends Component
         // Redirect if cart is empty
         if (! $this->cart || $this->cart->isEmpty()) {
             $this->redirectRoute('cart');
+
+            return;
         }
+
+        // Skip shipping entirely when nothing in the cart needs physical delivery
+        // (e.g. a system-subscription-only purchase). No shipping step, no fee.
+        $this->hasShippingProviders = $this->cartRequiresShipping();
+    }
+
+    private function cartRequiresShipping(): bool
+    {
+        return (bool) $this->cart?->items->contains(fn (ProductCartItem $item): bool => $item->requiresShipping());
     }
 
     public function loadCart(): void
     {
         if (auth()->check()) {
             $this->cart = ProductCart::where('user_id', auth()->id())
-                ->with(['items.product', 'items.variant', 'items.warehouse'])
+                ->with(['items.product', 'items.variant', 'items.warehouse', 'items.package', 'items.course'])
                 ->first();
         } else {
             $this->cart = ProductCart::where('session_id', session()->getId())
-                ->with(['items.product', 'items.variant', 'items.warehouse'])
+                ->with(['items.product', 'items.variant', 'items.warehouse', 'items.package', 'items.course'])
                 ->first();
         }
     }

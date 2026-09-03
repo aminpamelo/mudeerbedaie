@@ -60,3 +60,24 @@ it('still honors a plain body background without !important', function () {
 
     expect(($this->render)($html))->toContain('background-color: #123456');
 });
+
+it('honors a body background rule in a fragment with no html/body tags', function () {
+    // Real-world pattern (TAFSIR SURAH funnel): a pasted fragment that starts with
+    // <title>/<style> — no <!doctype>, <html> or <body> tag — but its stylesheet still
+    // sets the intended dark page background via a `body { ... }` rule + :root vars.
+    $html = '<title>Soalan Lazim</title><style>:root{--ink:#121825;--text:#EDF0F8}'
+        .'*{margin:0;box-sizing:border-box}html{scroll-behavior:smooth}'
+        .'body{background:var(--ink);color:var(--text);font-size:19px}</style>'
+        .'<section><h2>Sebelum anda bertanya...</h2></section>';
+
+    expect(($this->render)($html))
+        ->toContain('background-color: #121825')
+        ->toContain('color: #EDF0F8')
+        ->not->toContain('background-color: #ffffff');
+});
+
+it('keeps the default white for a fragment with no body style rule', function () {
+    $html = '<section style="padding:40px"><h2>Hello</h2><p>Just a snippet.</p></section>';
+
+    expect(($this->render)($html))->toContain('background-color: #ffffff');
+});

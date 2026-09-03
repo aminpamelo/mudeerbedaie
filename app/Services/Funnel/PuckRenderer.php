@@ -607,7 +607,11 @@ class PuckRenderer
         // page), its <body> styling is the intended background — but a nested <body>
         // does not paint this wrapper, so the default white would hide dark designs.
         // Honor the document's own body background/color on the wrapper instead.
-        if ($this->isFullDocument($html)) {
+        // A pasted page that dropped its <html>/<body> tags counts too: when the
+        // markup styles the body (a `body { ... }` CSS rule) AND carries page-level
+        // signals (a <title>, a stylesheet <link>, a :root token block, or <head>/
+        // <meta>), its intended background otherwise falls back silently to white.
+        if ($this->isFullDocument($html) || $this->isPastedPageFragment($html)) {
             $bodyStyles = $this->extractDocumentBodyStyles($html);
 
             if ($bodyStyles['background'] !== null) {
@@ -648,6 +652,25 @@ class PuckRenderer
     protected function isFullDocument(string $html): bool
     {
         return (bool) preg_match('/<!doctype\s+html|<html[\s>]|<body[\s>]/i', $html);
+    }
+
+    /**
+     * Detect a pasted page whose <html>/<body> tags were stripped but which still
+     * carries page-level styling.
+     *
+     * Requires both a `body { ... }` CSS rule (where the intended background lives)
+     * and a page-level signal — a <title>, a stylesheet <link>, a :root custom-
+     * property block, or <head>/<meta>. The pairing avoids adopting a body colour
+     * from a bare snippet like `<style>body{background:#000}</style><div>…</div>`,
+     * which should keep the default white wrapper.
+     */
+    protected function isPastedPageFragment(string $html): bool
+    {
+        if (! preg_match('/body\s*\{[^}]*\}/i', $html)) {
+            return false;
+        }
+
+        return (bool) preg_match('/<title[\s>]|<link[^>]+stylesheet|:root\s*\{|<head[\s>]|<meta[\s>]/i', $html);
     }
 
     /**
