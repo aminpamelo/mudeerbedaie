@@ -5,6 +5,7 @@ namespace App\Services\Cekbot;
 use App\Models\CekbotBotSetting;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
+use App\Models\CekbotProduct;
 use App\Models\MindpalChunk;
 use App\Services\MindpalEmbeddingService;
 use Illuminate\Support\Facades\Log;
@@ -74,6 +75,11 @@ PROMPT;
             $messages[] = ['role' => 'system', 'content' => "Konteks daripada pangkalan pengetahuan:\n\n{$context}"];
         }
 
+        $products = $this->productContext();
+        if ($products !== null) {
+            $messages[] = ['role' => 'system', 'content' => $products];
+        }
+
         foreach ($this->history($conversation) as $entry) {
             $messages[] = $entry;
         }
@@ -111,6 +117,31 @@ PROMPT;
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /**
+     * Build the sales product-knowledge context, or null when there are no
+     * active products.
+     */
+    private function productContext(): ?string
+    {
+        $products = CekbotProduct::query()
+            ->active()
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get();
+
+        if ($products->isEmpty()) {
+            return null;
+        }
+
+        $lines = $products->values()
+            ->map(fn (CekbotProduct $p, int $i) => ($i + 1).'. '.$p->toContextLine())
+            ->implode("\n");
+
+        return 'Senarai produk syarikat (untuk jualan). Bila pelanggan tanya tentang produk, harga atau nak beli, '
+            ."guna senarai ini, cadangkan produk yang sesuai, dan kongsi link bila ada:\n\n".$lines;
     }
 
     /**

@@ -1,13 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { Bot, Smartphone, MessageCircle, Zap, BarChart3, Settings, Menu, X, ArrowLeft } from 'lucide-react';
+import { Bot, Smartphone, MessageCircle, Zap, Package, BarChart3, Settings, Menu, X, ArrowLeft } from 'lucide-react';
 import { cn, initialsFrom } from '@/cekbot-admin/lib/utils';
 
 const NAV = [
   { label: 'Nombor WhatsApp', href: '/admin/cekbot', icon: Smartphone, exact: true },
   { label: 'Mesej', href: '/admin/cekbot/inbox', icon: MessageCircle },
   { label: 'Auto-Reply', href: '/admin/cekbot/auto-reply', icon: Zap },
+  { label: 'Produk', href: '/admin/cekbot/products', icon: Package },
   { label: 'Analitik', href: '/admin/cekbot/analytics', icon: BarChart3 },
   { label: 'Tetapan', href: '/admin/cekbot/settings', icon: Settings },
 ];

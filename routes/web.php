@@ -18,6 +18,7 @@ use App\Http\Controllers\BlogSeo\TagController as BlogSeoTagController;
 use App\Http\Controllers\Cekbot\AnalyticsController as CekbotAnalyticsController;
 use App\Http\Controllers\Cekbot\AutoReplyController as CekbotAutoReplyController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
+use App\Http\Controllers\Cekbot\ProductController as CekbotProductController;
 use App\Http\Controllers\Cekbot\SessionController as CekbotSessionController;
 use App\Http\Controllers\Cekbot\SettingsController as CekbotSettingsController;
 use App\Http\Controllers\Ceo\CeoPwaController;
@@ -1923,6 +1924,13 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::post('inbox/{conversation}/assign', [CekbotInboxController::class, 'assign'])->name('inbox.assign');
         Route::post('inbox/{conversation}/labels', [CekbotInboxController::class, 'setLabels'])->name('inbox.labels');
         Route::post('inbox/{conversation}/notes', [CekbotInboxController::class, 'addNote'])->name('inbox.notes');
+
+        // Product knowledge (sales bot)
+        Route::get('products', [CekbotProductController::class, 'index'])->name('products');
+        Route::get('products-search', [CekbotProductController::class, 'searchCatalog'])->name('products.search');
+        Route::post('products', [CekbotProductController::class, 'store'])->name('products.store');
+        Route::post('products/{product}', [CekbotProductController::class, 'update'])->name('products.update');
+        Route::delete('products/{product}', [CekbotProductController::class, 'destroy'])->name('products.destroy');
 
         // Fasa 3 — Auto-reply rules + bot settings
         Route::get('auto-reply', [CekbotAutoReplyController::class, 'index'])->name('auto-reply');
