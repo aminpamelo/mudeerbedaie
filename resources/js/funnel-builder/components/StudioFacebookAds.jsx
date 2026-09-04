@@ -47,6 +47,7 @@ export default function StudioFacebookAds() {
     const [toast, setToast] = useState(null);
     const [showWizard, setShowWizard] = useState(false);
     const [syncingId, setSyncingId] = useState(null);
+    const [editing, setEditing] = useState(null);
 
     const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
 
@@ -168,6 +169,12 @@ export default function StudioFacebookAds() {
                                         {syncingId === connection.id ? 'Syncing...' : 'Sync Now'}
                                     </button>
                                     <button
+                                        onClick={() => setEditing(connection)}
+                                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
                                         onClick={() => handleDelete(connection)}
                                         className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
                                     >
@@ -234,6 +241,157 @@ export default function StudioFacebookAds() {
                     }}
                 />
             )}
+
+            {editing && (
+                <EditConnectionModal
+                    connection={editing}
+                    showToast={showToast}
+                    onClose={() => setEditing(null)}
+                    onSaved={() => {
+                        setEditing(null);
+                        loadConnections();
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+/**
+ * Edit a connection's name, Business Manager ID, and (optionally) access token.
+ * Leaving the token blank keeps the current one. Changing the BM ID or pasting
+ * a new token re-verifies with Facebook server-side before the change sticks.
+ */
+function EditConnectionModal({ connection, onClose, onSaved, showToast }) {
+    const [form, setForm] = useState({
+        name: connection.name || '',
+        business_manager_id: connection.business_manager_id || '',
+        access_token: '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
+
+    const cleanBmId = form.business_manager_id.replace(/\s/g, '');
+    const bmChanged = cleanBmId !== connection.business_manager_id;
+    const tokenProvided = form.access_token.trim().length > 0;
+    const willReverify = bmChanged || tokenProvided;
+
+    const save = async () => {
+        if (!form.name.trim()) {
+            setError('Give this connection a name so your team recognises it.');
+            return;
+        }
+        if (!/^\d{6,}$/.test(cleanBmId)) {
+            setError('The Business Manager ID should be numbers only (usually 15-16 digits).');
+            return;
+        }
+        if (tokenProvided && form.access_token.trim().length < 30) {
+            setError('That token looks too short — make sure you copied the whole thing.');
+            return;
+        }
+
+        setError(null);
+        setSaving(true);
+        try {
+            const response = await fetch(`/api/v1/facebook-ads/connections/${connection.id}`, {
+                method: 'PUT',
+                headers: apiHeaders(),
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    name: form.name.trim(),
+                    business_manager_id: cleanBmId,
+                    access_token: form.access_token.trim(),
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast(data.message || 'Connection updated');
+                onSaved();
+            } else {
+                setError(data.message || 'Could not update the connection.');
+            }
+        } catch (err) {
+            setError('Network error — could not reach the server.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Edit connection</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div className="space-y-4 px-6 py-5">
+                    <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Connection name</label>
+                        <input
+                            type="text"
+                            value={form.name}
+                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Business Manager ID</label>
+                        <input
+                            type="text"
+                            value={form.business_manager_id}
+                            onChange={(e) => setForm({ ...form, business_manager_id: e.target.value })}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                            New access token <span className="font-normal text-gray-400">— leave blank to keep the current one</span>
+                        </label>
+                        <textarea
+                            value={form.access_token}
+                            onChange={(e) => setForm({ ...form, access_token: e.target.value })}
+                            rows={3}
+                            placeholder="Paste a new System User token to rotate it"
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                            The current token is never shown. Paste a new one only if you need to rotate it.
+                        </p>
+                    </div>
+
+                    {willReverify && (
+                        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
+                            {bmChanged
+                                ? 'Changing the Business Manager ID will re-verify with Facebook and re-sync its ad accounts.'
+                                : 'The new token will be verified with Facebook before it is saved.'}
+                        </div>
+                    )}
+
+                    {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                    <button onClick={onClose} className="rounded-lg px-4 py-2 font-medium text-gray-600 hover:bg-gray-100">
+                        Cancel
+                    </button>
+                    <button
+                        onClick={save}
+                        disabled={saving}
+                        className="fs-cta rounded-lg px-5 py-2 font-medium text-white disabled:opacity-50"
+                    >
+                        {saving
+                            ? (willReverify ? 'Verifying…' : 'Saving…')
+                            : (willReverify ? 'Save & re-verify' : 'Save changes')}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

@@ -226,6 +226,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     // Facebook Ads connections (multi Business Manager)
     Route::get('facebook-ads/connections', [FacebookAdsController::class, 'index'])->name('api.facebook-ads.index');
     Route::post('facebook-ads/connections', [FacebookAdsController::class, 'store'])->name('api.facebook-ads.store');
+    Route::put('facebook-ads/connections/{connection}', [FacebookAdsController::class, 'update'])->name('api.facebook-ads.update');
     Route::delete('facebook-ads/connections/{connection}', [FacebookAdsController::class, 'destroy'])->name('api.facebook-ads.destroy');
     Route::post('facebook-ads/connections/{connection}/sync', [FacebookAdsController::class, 'sync'])->name('api.facebook-ads.sync');
     Route::get('facebook-ads/accounts', [FacebookAdsController::class, 'accounts'])->name('api.facebook-ads.accounts');
