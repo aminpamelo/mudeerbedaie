@@ -6,6 +6,7 @@ use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
 use App\Services\Cekbot\CekbotBotService;
+use App\Services\WhatsApp\WahaSessionManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -73,17 +74,30 @@ class ProcessCekbotWebhookJob implements ShouldQueue
             return;
         }
 
+        // Skip WhatsApp Status / broadcast / channel noise — not real chats.
+        if ($chatId === 'status@broadcast' || str_contains($chatId, '@newsletter') || str_ends_with($chatId, '@broadcast')) {
+            return;
+        }
+
         $isGroup = str_contains((string) $chatId, '@g.us');
+        $type = $this->resolveType($payload);
         $body = $this->extractBody($payload);
-        $type = $this->normaliseType($payload['type'] ?? 'text');
 
         $conversation = CekbotConversation::query()->firstOrCreate(
             ['cekbot_session_id' => $session->id, 'chat_id' => $chatId],
-            ['is_group' => $isGroup, 'name' => $payload['notifyName'] ?? null],
+            ['is_group' => $isGroup],
         );
 
-        if (! $conversation->name && ! empty($payload['notifyName'])) {
-            $conversation->name = $payload['notifyName'];
+        // Fill a display name once — notifyName if present, else resolve via WAHA
+        // (GOWS usually omits notifyName; contacts/groups endpoints have it).
+        if (blank($conversation->name)) {
+            $name = $payload['notifyName'] ?? ($payload['_data']['notifyName'] ?? null);
+            if (blank($name)) {
+                $name = app(WahaSessionManager::class)->resolveName($session->session_name, $chatId);
+            }
+            if (filled($name)) {
+                $conversation->name = $name;
+            }
         }
 
         CekbotMessage::create([
@@ -102,7 +116,7 @@ class ProcessCekbotWebhookJob implements ShouldQueue
 
         $conversation->forceFill([
             'last_message_at' => now(),
-            'last_message_preview' => Str::limit($body ?: '['.$type.']', 255),
+            'last_message_preview' => Str::limit($body ?: $this->mediaLabel($type), 255),
             'unread_count' => $fromMe ? $conversation->unread_count : $conversation->unread_count + 1,
         ])->save();
 
@@ -151,11 +165,49 @@ class ProcessCekbotWebhookJob implements ShouldQueue
             ?? ($payload['text'] ?? ($payload['caption'] ?? null));
     }
 
-    private function normaliseType(string $type): string
+    /**
+     * Derive a message type from the payload (text / image / video / audio /
+     * document / location / contact).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveType(array $payload): string
+    {
+        if (! empty($payload['location'])) {
+            return 'location';
+        }
+
+        if (! empty($payload['vCards'])) {
+            return 'contact';
+        }
+
+        if (! empty($payload['hasMedia']) || ! empty($payload['media']['mimetype'])) {
+            $mime = (string) ($payload['media']['mimetype'] ?? $payload['mimetype'] ?? '');
+
+            return match (true) {
+                str_starts_with($mime, 'image/') => 'image',
+                str_starts_with($mime, 'video/') => 'video',
+                str_starts_with($mime, 'audio/') => 'audio',
+                $mime !== '' => 'document',
+                default => 'document',
+            };
+        }
+
+        $type = (string) ($payload['type'] ?? 'text');
+
+        return in_array($type, ['chat', 'text'], true) ? 'text' : $type;
+    }
+
+    private function mediaLabel(string $type): string
     {
         return match ($type) {
-            'chat', 'text' => 'text',
-            default => $type,
+            'image' => '📷 Gambar',
+            'video' => '🎥 Video',
+            'audio' => '🎙️ Audio',
+            'document' => '📄 Dokumen',
+            'location' => '📍 Lokasi',
+            'contact' => '👤 Kad hubungan',
+            default => '💬 Mesej',
         };
     }
 }

@@ -134,3 +134,40 @@ it('sends a reply through WAHA and stores it outbound', function () {
     Http::assertSent(fn ($req) => str_contains($req->url(), '/api/sendText')
         && $req['chatId'] === '60126666666@c.us' && $req['text'] === 'Terima kasih!');
 });
+
+it('skips WhatsApp status/broadcast noise', function () {
+    Http::fake(['waha.test/*' => Http::response([], 200)]);
+
+    $this->postJson('/api/cekbot/webhook', [
+        'event' => 'message', 'session' => 'default',
+        'payload' => ['id' => 'st1', 'from' => 'status@broadcast', 'fromMe' => false, 'body' => 'x', 'type' => 'chat'],
+    ])->assertOk();
+
+    expect(CekbotConversation::query()->count())->toBe(0);
+});
+
+it('resolves a contact name from WAHA when notifyName is absent', function () {
+    Http::fake([
+        'waha.test/api/contacts*' => Http::response(['id' => '60129@c.us', 'name' => '', 'pushname' => 'Afiq'], 200),
+        'waha.test/*' => Http::response([], 200),
+    ]);
+
+    $this->postJson('/api/cekbot/webhook', [
+        'event' => 'message', 'session' => 'default',
+        'payload' => ['id' => 'n1', 'from' => '60129@c.us', 'fromMe' => false, 'body' => 'hi', 'type' => 'chat'],
+    ])->assertOk();
+
+    expect(CekbotConversation::where('chat_id', '60129@c.us')->value('name'))->toBe('Afiq');
+});
+
+it('labels a media message that has no text body', function () {
+    Http::fake(['waha.test/*' => Http::response([], 200)]);
+
+    $this->postJson('/api/cekbot/webhook', [
+        'event' => 'message', 'session' => 'default',
+        'payload' => ['id' => 'md1', 'from' => '60128@c.us', 'fromMe' => false, 'type' => 'image', 'hasMedia' => true, 'media' => ['mimetype' => 'image/jpeg']],
+    ])->assertOk();
+
+    $this->assertDatabaseHas('cekbot_messages', ['waha_message_id' => 'md1', 'type' => 'image']);
+    expect(CekbotConversation::where('chat_id', '60128@c.us')->value('last_message_preview'))->toContain('Gambar');
+});

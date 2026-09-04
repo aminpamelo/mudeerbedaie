@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Send, Loader2, Check, CheckCheck, User, Users, Bot } from 'lucide-react';
-import { cn, clockTime, formatPhone } from '@/cekbot-admin/lib/utils';
+import { cn, clockTime, formatPhone, contactDisplay, mediaLabel } from '@/cekbot-admin/lib/utils';
 
 function AckIcon({ ack }) {
   if (!ack) return null;
@@ -27,7 +27,7 @@ function MessageBubble({ message }) {
         )}
         {message.body
           ? <p className="whitespace-pre-wrap break-words">{message.body}</p>
-          : <p className="italic text-white/60">[{message.type}]</p>}
+          : <p className="italic text-white/60">{mediaLabel(message.type) || '💬 Mesej'}</p>}
         <div className={cn('mt-1 flex items-center justify-end gap-1 text-[10.5px]', out ? 'text-white/70' : 'text-white/35')}>
           {out && message.sent_by && <span className="mr-1">{message.sent_by}</span>}
           <span>{clockTime(message.sent_at)}</span>
@@ -61,7 +61,9 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
     );
   }
 
-  const title = conversation.name || formatPhone(conversation.phone);
+  const title = contactDisplay(conversation.name, conversation.phone, conversation.is_group);
+  const digits = String(conversation.phone || '').replace(/\D/g, '');
+  const subPhone = (conversation.is_group || digits.length > 14) ? null : formatPhone(conversation.phone);
 
   function submit(e) {
     e.preventDefault();
@@ -82,7 +84,7 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
         <div className="min-w-0">
           <p className="truncate text-[14px] font-semibold text-white">{title}</p>
           <p className="truncate text-[11.5px] text-white/40">
-            {formatPhone(conversation.phone)}{conversation.session ? ` · ${conversation.session.label}` : ''}
+            {[subPhone, conversation.session?.label].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
 

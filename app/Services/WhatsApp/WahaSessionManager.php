@@ -97,6 +97,43 @@ class WahaSessionManager
     }
 
     /**
+     * Resolve a human display name for a chat id — a contact's name/pushname, or
+     * a group's subject. Returns null when unavailable. GOWS often omits
+     * notifyName on the webhook, so we look it up here.
+     */
+    public function resolveName(string $sessionName, string $chatId): ?string
+    {
+        try {
+            if (str_contains($chatId, '@g.us')) {
+                $response = $this->client()->get('/api/'.rawurlencode($sessionName).'/groups/'.rawurlencode($chatId));
+
+                return $response->successful()
+                    ? $this->cleanName($response->json()['Name'] ?? $response->json()['name'] ?? $response->json()['subject'] ?? null)
+                    : null;
+            }
+
+            $response = $this->client()->get('/api/contacts', ['session' => $sessionName, 'contactId' => $chatId]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $data = $response->json();
+
+            return $this->cleanName(($data['name'] ?: null) ?? ($data['pushname'] ?: null));
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function cleanName(?string $name): ?string
+    {
+        $name = trim((string) $name);
+
+        return $name !== '' ? $name : null;
+    }
+
+    /**
      * List every session with its live status. Includes STOPPED sessions.
      *
      * @return array<int, array<string, mixed>>

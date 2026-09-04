@@ -40,6 +40,28 @@ export function clockTime(iso) {
   return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** A friendly display name for a conversation, tolerant of missing names, groups and WhatsApp LIDs. */
+export function contactDisplay(name, phone, isGroup) {
+  if (name) return name;
+  if (isGroup) return 'Group WhatsApp';
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length > 14) return 'Pengguna WhatsApp'; // WhatsApp LID (privacy id) — not a real number
+  return d ? formatPhone(phone) : 'Pengguna WhatsApp';
+}
+
+/** Label for a non-text message type, or null for text. */
+export function mediaLabel(type) {
+  switch (type) {
+    case 'image': return '📷 Gambar';
+    case 'video': return '🎥 Video';
+    case 'audio': return '🎙️ Audio';
+    case 'document': return '📄 Dokumen';
+    case 'location': return '📍 Lokasi';
+    case 'contact': return '👤 Kad hubungan';
+    default: return null;
+  }
+}
+
 /** Pretty-print a Malaysian-style number, e.g. "60123456789" -> "+60 12-345 6789". */
 export function formatPhone(digits) {
   if (!digits) return '';

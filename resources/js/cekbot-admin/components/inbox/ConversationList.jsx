@@ -1,5 +1,5 @@
 import { Users, User } from 'lucide-react';
-import { cn, timeAgo, formatPhone } from '@/cekbot-admin/lib/utils';
+import { cn, timeAgo, contactDisplay } from '@/cekbot-admin/lib/utils';
 
 export default function ConversationList({ conversations, selectedId, onSelect, multiSession }) {
   if (!conversations.length) {
@@ -17,7 +17,7 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
     <div className="scroll-thin flex-1 overflow-y-auto">
       {conversations.map((c) => {
         const active = c.id === selectedId;
-        const title = c.name || formatPhone(c.phone);
+        const title = contactDisplay(c.name, c.phone, c.is_group);
         return (
           <button
             key={c.id}
