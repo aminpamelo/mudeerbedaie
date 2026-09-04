@@ -97,6 +97,35 @@ class WahaSessionManager
     }
 
     /**
+     * Fetch a media file hosted on the WAHA server (for proxying to the browser).
+     * SSRF-guarded: only URLs on the configured WAHA host are fetched.
+     *
+     * @return array{body: string, mime: string}|null
+     */
+    public function fetchMediaBody(string $url): ?array
+    {
+        if ($this->apiUrl === '' || ! str_starts_with($url, $this->apiUrl)) {
+            return null;
+        }
+
+        try {
+            $headers = $this->apiKey !== '' ? ['X-Api-Key' => $this->apiKey] : [];
+            $response = Http::withHeaders($headers)->timeout(25)->get($url);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            return [
+                'body' => $response->body(),
+                'mime' => $response->header('Content-Type') ?: 'application/octet-stream',
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
      * Resolve a human display name for a chat id — a contact's name/pushname, or
      * a group's subject. Returns null when unavailable. GOWS often omits
      * notifyName on the webhook, so we look it up here.

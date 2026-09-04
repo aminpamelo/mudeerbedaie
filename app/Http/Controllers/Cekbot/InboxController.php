@@ -149,6 +149,23 @@ class InboxController extends Controller
         return back()->with('success', 'Perbualan diarkibkan.');
     }
 
+    /**
+     * Stream a message's media through the app (WAHA files aren't
+     * browser-reachable and may need the API key).
+     */
+    public function media(CekbotMessage $message): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless($message->media_url, 404);
+
+        $media = $this->waha->fetchMediaBody($message->media_url);
+
+        abort_unless($media, 404);
+
+        return response($media['body'], 200)
+            ->header('Content-Type', $media['mime'])
+            ->header('Cache-Control', 'private, max-age=3600');
+    }
+
     public function assign(Request $request, CekbotConversation $conversation): RedirectResponse
     {
         $validated = $request->validate([
@@ -227,7 +244,7 @@ class InboxController extends Controller
             'from_me' => $m->from_me,
             'type' => $m->type,
             'body' => $m->body,
-            'media_url' => $m->media_url,
+            'media_url' => $m->media_url ? route('cekbot.inbox.media', $m->id) : null,
             'ack' => $m->ack,
             'sent_by' => $m->sentBy?->name,
             'sent_at' => ($m->sent_at ?? $m->created_at)?->toIso8601String(),

@@ -1915,6 +1915,7 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         // Fasa 2 — Inbox (terima mesej + balas)
         Route::get('inbox', [CekbotInboxController::class, 'index'])->name('inbox');
         Route::get('inbox/{conversation}/messages', [CekbotInboxController::class, 'messages'])->name('inbox.messages');
+        Route::get('inbox/messages/{message}/media', [CekbotInboxController::class, 'media'])->name('inbox.media');
         Route::post('inbox/{conversation}/reply', [CekbotInboxController::class, 'reply'])->name('inbox.reply');
         Route::post('inbox/{conversation}/archive', [CekbotInboxController::class, 'archive'])->name('inbox.archive');
         Route::post('inbox/{conversation}/handover', [CekbotInboxController::class, 'handover'])->name('inbox.handover');

@@ -207,3 +207,30 @@ it('adds an internal note', function () {
         'cekbot_conversation_id' => $c->id, 'body' => 'Ikut up esok', 'user_id' => $this->admin->id,
     ]);
 });
+
+it('proxies media hosted on the WAHA server', function () {
+    Http::fake(['waha.test/api/files/*' => Http::response('IMGDATA', 200, ['Content-Type' => 'image/jpeg'])]);
+    $c = CekbotConversation::factory()->create(['cekbot_session_id' => $this->session->id]);
+    $m = CekbotMessage::factory()->create([
+        'cekbot_conversation_id' => $c->id, 'cekbot_session_id' => $this->session->id,
+        'type' => 'image', 'media_url' => 'https://waha.test/api/files/default/x.jpeg',
+    ]);
+
+    $res = $this->actingAs($this->admin)->get("/admin/cekbot/inbox/messages/{$m->id}/media");
+
+    $res->assertOk();
+    expect($res->headers->get('Content-Type'))->toContain('image/jpeg')
+        ->and($res->getContent())->toBe('IMGDATA');
+});
+
+it('refuses to proxy media from a foreign host (SSRF guard)', function () {
+    $c = CekbotConversation::factory()->create(['cekbot_session_id' => $this->session->id]);
+    $m = CekbotMessage::factory()->create([
+        'cekbot_conversation_id' => $c->id, 'cekbot_session_id' => $this->session->id,
+        'type' => 'image', 'media_url' => 'https://evil.example.com/x.jpeg',
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get("/admin/cekbot/inbox/messages/{$m->id}/media")
+        ->assertNotFound();
+});

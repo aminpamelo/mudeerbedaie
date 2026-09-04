@@ -26,9 +26,26 @@ function MessageBubble({ message }) {
             <Bot className="h-3 w-3" strokeWidth={2.4} /> Cekbot
           </span>
         )}
-        {message.body
-          ? <p className="whitespace-pre-wrap break-words">{message.body}</p>
-          : <p className="italic text-white/60">{mediaLabel(message.type) || '💬 Mesej'}</p>}
+        {message.media_url && message.type === 'image' && (
+          <a href={message.media_url} target="_blank" rel="noopener">
+            <img src={message.media_url} alt="" loading="lazy" className="mb-1 max-h-64 rounded-lg object-cover" />
+          </a>
+        )}
+        {message.media_url && message.type === 'video' && (
+          <video src={message.media_url} controls className="mb-1 max-h-64 rounded-lg" />
+        )}
+        {message.media_url && message.type === 'audio' && (
+          <audio src={message.media_url} controls className="mb-1 w-56" />
+        )}
+        {message.media_url && !['image', 'video', 'audio'].includes(message.type) && (
+          <a href={message.media_url} target="_blank" rel="noopener" className="mb-1 inline-flex items-center gap-1.5 rounded-lg bg-black/20 px-2.5 py-1.5 text-[12.5px] underline">
+            📄 Buka dokumen
+          </a>
+        )}
+        {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
+        {!message.media_url && !message.body && (
+          <p className="italic text-white/60">{mediaLabel(message.type) || '💬 Mesej'}</p>
+        )}
         <div className={cn('mt-1 flex items-center justify-end gap-1 text-[10.5px]', out ? 'text-white/70' : 'text-white/35')}>
           {out && message.sent_by && <span className="mr-1">{message.sent_by}</span>}
           <span>{clockTime(message.sent_at)}</span>
