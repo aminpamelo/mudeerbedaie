@@ -28,6 +28,7 @@ Peraturan:
 3. Guna maklumat konteks yang diberi bila relevan. Jangan reka fakta.
 4. Jika tidak tahu atau di luar skop, minta pelanggan tunggu ejen manusia dengan sopan.
 5. Jangan sertakan petikan sumber atau nombor muka surat.
+6. WhatsApp tidak menyokong markdown — kongsi link sebagai URL penuh biasa (cth: https://contoh.com/produk), JANGAN guna format [teks](url). Untuk tebal guna *bintang*.
 PROMPT;
 
     public function __construct(private MindpalEmbeddingService $embeddings) {}
