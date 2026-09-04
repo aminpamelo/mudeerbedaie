@@ -15,6 +15,11 @@ use App\Http\Controllers\BlogSeo\PostController as BlogSeoPostController;
 use App\Http\Controllers\BlogSeo\SeoController as BlogSeoSeoController;
 use App\Http\Controllers\BlogSeo\SubscriberController as BlogSeoSubscriberController;
 use App\Http\Controllers\BlogSeo\TagController as BlogSeoTagController;
+use App\Http\Controllers\Cekbot\AnalyticsController as CekbotAnalyticsController;
+use App\Http\Controllers\Cekbot\AutoReplyController as CekbotAutoReplyController;
+use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
+use App\Http\Controllers\Cekbot\SessionController as CekbotSessionController;
+use App\Http\Controllers\Cekbot\SettingsController as CekbotSettingsController;
 use App\Http\Controllers\Ceo\CeoPwaController;
 use App\Http\Controllers\Ceo\CeoTaskController;
 use App\Http\Controllers\Ceo\DepartmentController;
@@ -114,6 +119,7 @@ use App\Http\Controllers\WhatsAppGroupDirectoryController;
 use App\Http\Middleware\AffiliateSessionLifetime;
 use App\Http\Middleware\EnsureVaultUnlocked;
 use App\Http\Middleware\HandleBlogSeoInertiaRequests;
+use App\Http\Middleware\HandleCekbotInertiaRequests;
 use App\Http\Middleware\HandleCeoInertiaRequests;
 use App\Http\Middleware\HandleFighterInertiaRequests;
 use App\Http\Middleware\HandleMindpalInertiaRequests;
@@ -1882,6 +1888,51 @@ Route::middleware(['auth', 'role:admin', HandleMindpalInertiaRequests::class])
 
         Route::get('settings', [MindpalSettingsController::class, 'index'])->name('settings');
         Route::put('settings', [MindpalSettingsController::class, 'update'])->name('settings.update');
+    });
+
+// ============================================================================
+// CEKBOT — WhatsApp number/session manager at /admin/cekbot, powered by WAHA.
+// HandleCekbotInertiaRequests overrides the root view to `cekbot.app`.
+// ============================================================================
+Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
+    ->prefix('admin/cekbot')
+    ->name('cekbot.')
+    ->group(function () {
+        Route::get('/', [CekbotSessionController::class, 'index'])->name('index');
+
+        Route::post('sessions', [CekbotSessionController::class, 'store'])->name('sessions.store');
+        Route::put('sessions/{session}', [CekbotSessionController::class, 'update'])->name('sessions.update');
+        Route::delete('sessions/{session}', [CekbotSessionController::class, 'destroy'])->name('sessions.destroy');
+
+        Route::post('sessions/{session}/logout', [CekbotSessionController::class, 'logout'])->name('sessions.logout');
+        Route::post('sessions/{session}/stop', [CekbotSessionController::class, 'stop'])->name('sessions.stop');
+        Route::post('sessions/{session}/restart', [CekbotSessionController::class, 'restart'])->name('sessions.restart');
+
+        Route::post('sessions/{session}/connect', [CekbotSessionController::class, 'connect'])->name('sessions.connect');
+        Route::get('sessions/{session}/status', [CekbotSessionController::class, 'status'])->name('sessions.status');
+        Route::post('sessions/{session}/pairing-code', [CekbotSessionController::class, 'pairingCode'])->name('sessions.pairing');
+
+        // Fasa 2 — Inbox (terima mesej + balas)
+        Route::get('inbox', [CekbotInboxController::class, 'index'])->name('inbox');
+        Route::get('inbox/{conversation}/messages', [CekbotInboxController::class, 'messages'])->name('inbox.messages');
+        Route::post('inbox/{conversation}/reply', [CekbotInboxController::class, 'reply'])->name('inbox.reply');
+        Route::post('inbox/{conversation}/archive', [CekbotInboxController::class, 'archive'])->name('inbox.archive');
+        Route::post('inbox/{conversation}/handover', [CekbotInboxController::class, 'handover'])->name('inbox.handover');
+        Route::post('inbox/{conversation}/release', [CekbotInboxController::class, 'release'])->name('inbox.release');
+
+        // Fasa 3 — Auto-reply rules + bot settings
+        Route::get('auto-reply', [CekbotAutoReplyController::class, 'index'])->name('auto-reply');
+        Route::put('auto-reply/{session}/settings', [CekbotAutoReplyController::class, 'updateSettings'])->name('auto-reply.settings');
+        Route::post('auto-reply/{session}/rules', [CekbotAutoReplyController::class, 'storeRule'])->name('auto-reply.rules.store');
+        Route::put('auto-reply/rules/{rule}', [CekbotAutoReplyController::class, 'updateRule'])->name('auto-reply.rules.update');
+        Route::delete('auto-reply/rules/{rule}', [CekbotAutoReplyController::class, 'destroyRule'])->name('auto-reply.rules.destroy');
+
+        // Fasa 6 — Analytics
+        Route::get('analytics', [CekbotAnalyticsController::class, 'index'])->name('analytics');
+
+        // WAHA connection settings (switch local/production)
+        Route::get('settings', [CekbotSettingsController::class, 'index'])->name('settings');
+        Route::put('settings', [CekbotSettingsController::class, 'update'])->name('settings.update');
     });
 
 // Legacy Flux admin URLs, superseded by the workspace above. Kept inside the

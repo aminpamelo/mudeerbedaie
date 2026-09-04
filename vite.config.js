@@ -47,6 +47,8 @@ export default defineConfig({
                 'resources/js/vault/styles/vault.css',
                 'resources/js/mindpal-admin/app.jsx',
                 'resources/js/mindpal-admin/styles/mindpal.css',
+                'resources/js/cekbot-admin/app.jsx',
+                'resources/js/cekbot-admin/styles/cekbot.css',
                 'resources/js/workspace/app.jsx',
                 'resources/js/workspace/styles/workspace.css',
             ],
