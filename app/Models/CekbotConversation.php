@@ -24,6 +24,8 @@ class CekbotConversation extends Model
         'archived_at',
         'handed_over_at',
         'handed_over_by',
+        'assigned_to',
+        'labels',
     ];
 
     /**
@@ -37,7 +39,24 @@ class CekbotConversation extends Model
             'last_message_at' => 'datetime',
             'archived_at' => 'datetime',
             'handed_over_at' => 'datetime',
+            'labels' => 'array',
         ];
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * @return HasMany<CekbotConversationNote, $this>
+     */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(CekbotConversationNote::class, 'cekbot_conversation_id');
     }
 
     /**

@@ -56,6 +56,11 @@ class CekbotBotService
      */
     private function decideReply(CekbotConversation $conversation, \App\Models\CekbotBotSetting $settings, string $body): ?string
     {
+        // Outside business hours → away message (takes precedence when set).
+        if (! $settings->isWithinBusinessHours() && filled($settings->away_message)) {
+            return $settings->away_message;
+        }
+
         $text = trim($body);
 
         // 0. System checks (order status, etc.) — answered with live data.

@@ -17,6 +17,7 @@ export default function Index() {
 
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [mobileView, setMobileView] = useState('list');
@@ -27,6 +28,7 @@ export default function Index() {
     try {
       const { data } = await axios.get(route('cekbot.inbox.messages', id));
       setMessages(data.messages);
+      setNotes(data.notes || []);
       setSelected((prev) => (prev && prev.id === id ? { ...prev, ...data.conversation } : prev));
     } catch {
       /* transient */
@@ -93,6 +95,29 @@ export default function Index() {
     });
   }
 
+  function assign(userId) {
+    if (!selected) return;
+    router.post(route('cekbot.inbox.assign', selected.id), { assigned_to: userId }, {
+      preserveScroll: true, preserveState: true, onSuccess: () => loadMessages(selected.id, { silent: true }),
+    });
+  }
+
+  function setConvLabels(labels) {
+    if (!selected) return;
+    router.post(route('cekbot.inbox.labels', selected.id), { labels }, {
+      preserveScroll: true, preserveState: true, onSuccess: () => loadMessages(selected.id, { silent: true }),
+    });
+  }
+
+  function addNote(body, done) {
+    if (!selected) return;
+    router.post(route('cekbot.inbox.notes', selected.id), { body }, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => { loadMessages(selected.id, { silent: true }); if (done) done(); },
+    });
+  }
+
   return (
     <CekbotLayout
       title="Mesej"
@@ -139,6 +164,12 @@ export default function Index() {
             onBack={() => setMobileView('list')}
             onHandover={handover}
             onRelease={release}
+            staff={props.staff || []}
+            availableLabels={props.availableLabels || []}
+            notes={notes}
+            onAssign={assign}
+            onLabels={setConvLabels}
+            onAddNote={addNote}
             canReply
           />
         </div>

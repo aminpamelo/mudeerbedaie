@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Send, Loader2, Check, CheckCheck, User, Users, Bot } from 'lucide-react';
 import { cn, clockTime, formatPhone, contactDisplay, mediaLabel } from '@/cekbot-admin/lib/utils';
+import ConversationTools from '@/cekbot-admin/components/inbox/ConversationTools';
 
 function AckIcon({ ack }) {
   if (!ack) return null;
@@ -38,7 +39,7 @@ function MessageBubble({ message }) {
   );
 }
 
-export default function ChatPanel({ conversation, messages, loading, onSend, sending, onBack, canReply, onHandover, onRelease }) {
+export default function ChatPanel({ conversation, messages, loading, onSend, sending, onBack, canReply, onHandover, onRelease, staff = [], availableLabels = [], notes = [], onAssign, onLabels, onAddNote }) {
   const [text, setText] = useState('');
   const scrollRef = useRef(null);
 
@@ -107,6 +108,16 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
           )}
         </div>
       </div>
+
+      <ConversationTools
+        conversation={conversation}
+        staff={staff}
+        availableLabels={availableLabels}
+        notes={notes}
+        onAssign={onAssign}
+        onLabels={onLabels}
+        onAddNote={onAddNote}
+      />
 
       <div ref={scrollRef} className="scroll-thin flex-1 space-y-2 overflow-y-auto px-4 py-4">
         {loading ? (

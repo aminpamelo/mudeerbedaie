@@ -50,6 +50,13 @@ class AutoReplyController extends Controller
             'checks_enabled' => 'boolean',
             'welcome_message' => 'nullable|string|max:4096',
             'default_reply' => 'nullable|string|max:4096',
+            'away_message' => 'nullable|string|max:4096',
+            'business_hours' => 'nullable|array',
+            'business_hours.enabled' => 'boolean',
+            'business_hours.start' => 'nullable|string|max:5',
+            'business_hours.end' => 'nullable|string|max:5',
+            'business_hours.days' => 'nullable|array',
+            'business_hours.days.*' => 'integer|min:1|max:7',
             'ai_enabled' => 'boolean',
             'ai_system_prompt' => 'nullable|string|max:4096',
         ]);
@@ -120,6 +127,8 @@ class AutoReplyController extends Controller
             'checks_enabled' => (bool) $settings?->checks_enabled,
             'welcome_message' => $settings?->welcome_message,
             'default_reply' => $settings?->default_reply,
+            'away_message' => $settings?->away_message,
+            'business_hours' => $settings?->business_hours ?? ['enabled' => false, 'start' => '09:00', 'end' => '18:00', 'days' => [1, 2, 3, 4, 5]],
             'ai_enabled' => (bool) $settings?->ai_enabled,
             'ai_system_prompt' => $settings?->ai_system_prompt,
         ];

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Zap, Bot, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, Bot, Sparkles, Clock } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
-import { Card, Button, Badge, Field, Textarea, Toggle, EmptyState } from '@/cekbot-admin/components/Ui';
+import { Card, Button, Badge, Field, Input, Textarea, Toggle, EmptyState } from '@/cekbot-admin/components/Ui';
 import RuleModal from '@/cekbot-admin/components/autoreply/RuleModal';
 import { cn } from '@/cekbot-admin/lib/utils';
 
@@ -16,8 +16,18 @@ export default function Index() {
   const [ruleModal, setRuleModal] = useState({ open: false, editing: null });
 
   const settings = useForm({
-    bot_enabled: false, reply_to_groups: false, checks_enabled: false, welcome_message: '', default_reply: '', ai_enabled: false, ai_system_prompt: '',
+    bot_enabled: false, reply_to_groups: false, checks_enabled: false, welcome_message: '', default_reply: '',
+    away_message: '', business_hours: { enabled: false, start: '09:00', end: '18:00', days: [1, 2, 3, 4, 5] },
+    ai_enabled: false, ai_system_prompt: '',
   });
+
+  const DAYS = [[1, 'Isn'], [2, 'Sel'], [3, 'Rab'], [4, 'Kha'], [5, 'Jum'], [6, 'Sab'], [7, 'Ahd']];
+  const bh = settings.data.business_hours || {};
+  const setBh = (patch) => settings.setData('business_hours', { ...bh, ...patch });
+  const toggleDay = (d) => {
+    const days = bh.days || [];
+    setBh({ days: (days.includes(d) ? days.filter((x) => x !== d) : [...days, d]).sort((a, b) => a - b) });
+  };
 
   useEffect(() => {
     if (selected) {
@@ -27,6 +37,8 @@ export default function Index() {
         checks_enabled: selected.settings.checks_enabled,
         welcome_message: selected.settings.welcome_message ?? '',
         default_reply: selected.settings.default_reply ?? '',
+        away_message: selected.settings.away_message ?? '',
+        business_hours: selected.settings.business_hours ?? { enabled: false, start: '09:00', end: '18:00', days: [1, 2, 3, 4, 5] },
         ai_enabled: selected.settings.ai_enabled,
         ai_system_prompt: selected.settings.ai_system_prompt ?? '',
       });
@@ -109,6 +121,40 @@ export default function Index() {
                 <Textarea rows={2} value={settings.data.default_reply} onChange={(e) => settings.setData('default_reply', e.target.value)}
                   placeholder="Cth: Maaf, kami akan balas secepat mungkin." disabled={!settings.data.bot_enabled} />
               </Field>
+
+              {/* Jam operasi + mesej luar waktu */}
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5">
+                <label className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[13px] font-semibold text-white/80">
+                    <Clock className="h-4 w-4 text-sky-300" /> Hadkan jam operasi
+                  </span>
+                  <Toggle checked={bh.enabled} onChange={(v) => setBh({ enabled: v })} disabled={!settings.data.bot_enabled} />
+                </label>
+                {bh.enabled && (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-end gap-2">
+                      <Field label="Buka" className="w-28"><Input type="time" value={bh.start} onChange={(e) => setBh({ start: e.target.value })} /></Field>
+                      <Field label="Tutup" className="w-28"><Input type="time" value={bh.end} onChange={(e) => setBh({ end: e.target.value })} /></Field>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {DAYS.map(([d, label]) => {
+                        const on = (bh.days || []).includes(d);
+                        return (
+                          <button key={d} type="button" onClick={() => toggleDay(d)}
+                            className={cn('rounded-lg px-2.5 py-1 text-[11.5px] font-semibold transition-colors',
+                              on ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-inset ring-emerald-400/30' : 'bg-white/5 text-white/40 hover:bg-white/10')}>
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Field label="Mesej luar waktu operasi">
+                      <Textarea rows={2} value={settings.data.away_message} onChange={(e) => settings.setData('away_message', e.target.value)}
+                        placeholder="Cth: Kami di luar waktu operasi (9 pagi–6 petang). Kami akan balas esok. 🙏" disabled={!settings.data.bot_enabled} />
+                    </Field>
+                  </div>
+                )}
+              </div>
 
               {/* Fasa 4 — AI */}
               <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5">

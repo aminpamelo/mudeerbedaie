@@ -171,3 +171,39 @@ it('labels a media message that has no text body', function () {
     $this->assertDatabaseHas('cekbot_messages', ['waha_message_id' => 'md1', 'type' => 'image']);
     expect(CekbotConversation::where('chat_id', '60128@c.us')->value('last_message_preview'))->toContain('Gambar');
 });
+
+it('assigns a conversation to a staff member', function () {
+    $staff = User::factory()->create();
+    $c = CekbotConversation::factory()->create(['cekbot_session_id' => $this->session->id]);
+
+    $this->actingAs($this->admin)
+        ->post("/admin/cekbot/inbox/{$c->id}/assign", ['assigned_to' => $staff->id])
+        ->assertRedirect();
+
+    expect($c->fresh()->assigned_to)->toBe($staff->id);
+});
+
+it('sets allowed labels and rejects unknown ones', function () {
+    $c = CekbotConversation::factory()->create(['cekbot_session_id' => $this->session->id]);
+
+    $this->actingAs($this->admin)
+        ->post("/admin/cekbot/inbox/{$c->id}/labels", ['labels' => ['penting', 'selesai']])
+        ->assertRedirect();
+    expect($c->fresh()->labels)->toBe(['penting', 'selesai']);
+
+    $this->actingAs($this->admin)
+        ->post("/admin/cekbot/inbox/{$c->id}/labels", ['labels' => ['bogus']])
+        ->assertSessionHasErrors('labels.0');
+});
+
+it('adds an internal note', function () {
+    $c = CekbotConversation::factory()->create(['cekbot_session_id' => $this->session->id]);
+
+    $this->actingAs($this->admin)
+        ->post("/admin/cekbot/inbox/{$c->id}/notes", ['body' => 'Ikut up esok'])
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('cekbot_conversation_notes', [
+        'cekbot_conversation_id' => $c->id, 'body' => 'Ikut up esok', 'user_id' => $this->admin->id,
+    ]);
+});

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cekbot;
 
 use App\Http\Controllers\Controller;
 use App\Models\CekbotConversation;
+use App\Models\CekbotConversationNote;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
 use App\Services\WhatsApp\WahaSessionManager;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,12 +20,22 @@ class InboxController extends Controller
 {
     public function __construct(private WahaSessionManager $waha) {}
 
+    /**
+     * Colour-coded labels a conversation can be tagged with.
+     */
+    public const LABELS = [
+        ['key' => 'baru', 'name' => 'Baru', 'color' => 'blue'],
+        ['key' => 'pending', 'name' => 'Pending', 'color' => 'amber'],
+        ['key' => 'selesai', 'name' => 'Selesai', 'color' => 'green'],
+        ['key' => 'penting', 'name' => 'Penting', 'color' => 'red'],
+    ];
+
     public function index(Request $request): Response
     {
         $sessionId = $request->integer('session') ?: null;
 
         $conversations = CekbotConversation::query()
-            ->with(['session:id,label,session_name,phone_number', 'handedOverBy:id,name'])
+            ->with(['session:id,label,session_name,phone_number', 'handedOverBy:id,name', 'assignee:id,name'])
             ->active()
             ->when($sessionId, fn ($q) => $q->where('cekbot_session_id', $sessionId))
             ->orderByDesc('last_message_at')
@@ -43,6 +55,12 @@ class InboxController extends Controller
                     'is_working' => $s->isWorking(),
                 ]),
             'filterSessionId' => $sessionId,
+            'staff' => \App\Models\User::query()
+                ->whereIn('role', ['admin', 'employee'])
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name]),
+            'availableLabels' => self::LABELS,
         ]);
     }
 
@@ -58,8 +76,14 @@ class InboxController extends Controller
             ->map(fn (CekbotMessage $m) => $this->shapeMessage($m));
 
         return response()->json([
-            'conversation' => $this->shapeConversation($conversation->load(['session:id,label,session_name,phone_number', 'handedOverBy:id,name'])),
+            'conversation' => $this->shapeConversation($conversation->load(['session:id,label,session_name,phone_number', 'handedOverBy:id,name', 'assignee:id,name'])),
             'messages' => $messages,
+            'notes' => $conversation->notes()->with('author:id,name')->latest('id')->get()->map(fn (CekbotConversationNote $n) => [
+                'id' => $n->id,
+                'body' => $n->body,
+                'author' => $n->author?->name,
+                'created_ago' => $n->created_at?->diffForHumans(),
+            ]),
         ]);
     }
 
@@ -125,6 +149,44 @@ class InboxController extends Controller
         return back()->with('success', 'Perbualan diarkibkan.');
     }
 
+    public function assign(Request $request, CekbotConversation $conversation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'assigned_to' => 'nullable|exists:users,id',
+        ]);
+
+        $conversation->update(['assigned_to' => $validated['assigned_to'] ?? null]);
+
+        return back()->with('success', $validated['assigned_to'] ? 'Perbualan ditugaskan.' : 'Tugasan dibuang.');
+    }
+
+    public function setLabels(Request $request, CekbotConversation $conversation): RedirectResponse
+    {
+        $allowed = array_column(self::LABELS, 'key');
+        $validated = $request->validate([
+            'labels' => 'array',
+            'labels.*' => ['string', Rule::in($allowed)],
+        ]);
+
+        $conversation->update(['labels' => array_values(array_unique($validated['labels'] ?? []))]);
+
+        return back()->with('success', 'Label dikemas kini.');
+    }
+
+    public function addNote(Request $request, CekbotConversation $conversation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'body' => 'required|string|max:2000',
+        ]);
+
+        $conversation->notes()->create([
+            'user_id' => $request->user()->id,
+            'body' => $validated['body'],
+        ]);
+
+        return back()->with('success', 'Nota ditambah.');
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -143,6 +205,9 @@ class InboxController extends Controller
                 'at' => $c->handed_over_at->toIso8601String(),
                 'by' => $c->relationLoaded('handedOverBy') ? $c->handedOverBy?->name : null,
             ] : null,
+            'assigned_to' => $c->assigned_to,
+            'assignee' => $c->relationLoaded('assignee') ? $c->assignee?->name : null,
+            'labels' => $c->labels ?? [],
             'session' => $c->relationLoaded('session') && $c->session ? [
                 'id' => $c->session->id,
                 'label' => $c->session->label,

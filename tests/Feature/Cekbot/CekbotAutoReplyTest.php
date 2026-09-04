@@ -115,6 +115,34 @@ it('admin can create an auto-reply rule', function () {
     ]);
 });
 
+it('sends the away message outside business hours', function () {
+    Illuminate\Support\Carbon::setTestNow(Illuminate\Support\Carbon::parse('2026-09-05 22:00:00')); // Saturday 10pm
+    enableBot($this->session, [
+        'welcome_message' => 'Hai!',
+        'away_message' => 'Kami di luar waktu operasi. Balas esok. 🙏',
+        'business_hours' => ['enabled' => true, 'start' => '09:00', 'end' => '18:00', 'days' => [1, 2, 3, 4, 5]],
+    ]);
+
+    test()->postJson('/api/cekbot/webhook', cekbotInbound('hello', 'bh1'))->assertOk();
+
+    expect(CekbotMessage::query()->where('direction', 'out')->value('body'))->toBe('Kami di luar waktu operasi. Balas esok. 🙏');
+    Illuminate\Support\Carbon::setTestNow();
+});
+
+it('replies normally inside business hours', function () {
+    Illuminate\Support\Carbon::setTestNow(Illuminate\Support\Carbon::parse('2026-09-07 10:00:00')); // Monday 10am
+    enableBot($this->session, [
+        'welcome_message' => 'Hai!',
+        'away_message' => 'Tutup.',
+        'business_hours' => ['enabled' => true, 'start' => '09:00', 'end' => '18:00', 'days' => [1, 2, 3, 4, 5]],
+    ]);
+
+    test()->postJson('/api/cekbot/webhook', cekbotInbound('hello', 'bh2'))->assertOk();
+
+    expect(CekbotMessage::query()->where('direction', 'out')->value('body'))->toBe('Hai!');
+    Illuminate\Support\Carbon::setTestNow();
+});
+
 it('renders the auto-reply page', function () {
     test()->actingAs($this->admin)
         ->get('/admin/cekbot/auto-reply')

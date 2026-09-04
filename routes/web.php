@@ -1919,6 +1919,9 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::post('inbox/{conversation}/archive', [CekbotInboxController::class, 'archive'])->name('inbox.archive');
         Route::post('inbox/{conversation}/handover', [CekbotInboxController::class, 'handover'])->name('inbox.handover');
         Route::post('inbox/{conversation}/release', [CekbotInboxController::class, 'release'])->name('inbox.release');
+        Route::post('inbox/{conversation}/assign', [CekbotInboxController::class, 'assign'])->name('inbox.assign');
+        Route::post('inbox/{conversation}/labels', [CekbotInboxController::class, 'setLabels'])->name('inbox.labels');
+        Route::post('inbox/{conversation}/notes', [CekbotInboxController::class, 'addNote'])->name('inbox.notes');
 
         // Fasa 3 — Auto-reply rules + bot settings
         Route::get('auto-reply', [CekbotAutoReplyController::class, 'index'])->name('auto-reply');
