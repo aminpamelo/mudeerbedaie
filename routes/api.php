@@ -528,6 +528,9 @@ Route::post('whatsapp/webhook', [WhatsAppWebhookController::class, 'handle'])
     ->middleware(VerifyWhatsAppWebhook::class)
     ->name('api.whatsapp.webhook.handle');
 
+// Cekbot — WAHA webhook (public; HMAC-verified inside the controller if a secret is set)
+Route::post('cekbot/webhook', [\App\Http\Controllers\Cekbot\WebhookController::class, 'handle'])->name('api.cekbot.webhook');
+
 /*
 |--------------------------------------------------------------------------
 | HR Module API Routes

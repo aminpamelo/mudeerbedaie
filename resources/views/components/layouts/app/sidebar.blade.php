@@ -461,6 +461,13 @@
                     >
                         {{ __('MindPal') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="chat-bubble-oval-left"
+                        href="/admin/cekbot"
+                    >
+                        {{ __('Cekbot') }}
+                    </flux:navlist.item>
                 @endif
 
                 <flux:navlist.group
