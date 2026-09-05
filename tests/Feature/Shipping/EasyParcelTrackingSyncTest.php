@@ -17,7 +17,9 @@ uses(RefreshDatabase::class);
 // Start every test with no webhook secret so the endpoint is open by default;
 // the auth-specific tests opt in by setting it. Keeps tests independent of
 // whatever EASYPARCEL_WEBHOOK_SECRET happens to be in the environment.
-beforeEach(fn () => config()->set('services.easyparcel.webhook_secret', null));
+// The webhook now fails closed, so a secret must be configured for the
+// business-logic tests below; each authenticated post carries ?secret=...
+beforeEach(fn () => config()->set('services.easyparcel.webhook_secret', 'test-webhook-secret'));
 
 /**
  * Build a fake EasyParcel provider that returns a fixed tracking result, and
@@ -247,7 +249,7 @@ it('the command no-ops when EasyParcel is not connected', function () {
 it('the webhook marks the matching order delivered', function () {
     $order = shippedEasyParcelOrder();
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'awb_no' => 'EP-AWB-123',
         'tracking_status' => 'Delivered',
     ])->assertOk()->assertJson(['received' => true]);
@@ -258,7 +260,7 @@ it('the webhook marks the matching order delivered', function () {
 it('the webhook accepts a nested data payload', function () {
     $order = shippedEasyParcelOrder();
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'data' => ['tracking_number' => 'EP-AWB-123', 'latest_tracking_status' => 'Delivered'],
     ])->assertOk();
 
@@ -268,7 +270,7 @@ it('the webhook accepts a nested data payload', function () {
 it('the webhook 200s and changes nothing for an unknown AWB', function () {
     $order = shippedEasyParcelOrder();
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'awb_no' => 'DOES-NOT-EXIST',
         'tracking_status' => 'Delivered',
     ])->assertOk();
@@ -281,7 +283,7 @@ it('the webhook rejects a bad signature when a secret is configured', function (
 
     $order = shippedEasyParcelOrder();
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'awb_no' => 'EP-AWB-123',
         'tracking_status' => 'Delivered',
     ])->assertStatus(401);
@@ -329,7 +331,7 @@ it('handles the real shipment.tracking.update payload via the numeric code (igno
     $order = shippedEasyParcelOrder();
 
     // Verbatim shape from EasyParcel docs: code 5 = Delivered, label literally misspelt "Deliverd".
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'topic' => 'shipment.tracking.update',
         'shipment_number' => 'ES-2504-G7FDF',
         'uuid' => 'webhook-test-uuid-123',
@@ -352,7 +354,7 @@ it('handles the real shipment.tracking.update payload via the numeric code (igno
 it('handles the real shipment.status.update payload (shipment_status + shipment_status_code)', function () {
     $order = shippedEasyParcelOrder();
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'topic' => 'shipment.status.update',
         'awb_number' => 'EP-AWB-123',
         'event_date' => '2017-10-28 11:40:00',
@@ -367,7 +369,7 @@ it('handles the real shipment.status.update payload (shipment_status + shipment_
 it('keeps the order shipped for the in-transit code (4)', function () {
     $order = shippedEasyParcelOrder();
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'topic' => 'shipment.status.update',
         'awb_number' => 'EP-AWB-123',
         'shipment_number' => 'ES-2504-G7FDF',
@@ -381,7 +383,7 @@ it('keeps the order shipped for the in-transit code (4)', function () {
 it('auto-cancels the order and refunds payment on cancelled code (0)', function () {
     $order = shippedEasyParcelOrder(['payment_status' => 'paid']);
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'topic' => 'shipment.status.update',
         'awb_number' => 'EP-AWB-123',
         'shipment_number' => 'ES-2504-G7FDF',
@@ -398,7 +400,7 @@ it('auto-cancels the order and refunds payment on cancelled code (0)', function 
 it('auto-returns the order on returned code (6)', function () {
     $order = shippedEasyParcelOrder(['payment_status' => 'paid']);
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'topic' => 'shipment.tracking.update',
         'awb_number' => 'EP-AWB-123',
         'shipment_number' => 'ES-2504-G7FDF',
@@ -437,7 +439,7 @@ it('backfills the AWB from shipment.awb.update for an order booked with a pendin
         ],
     ]);
 
-    $this->postJson('/webhooks/easyparcel', [
+    $this->postJson('/webhooks/easyparcel?secret=test-webhook-secret', [
         'topic' => 'shipment.awb.update',
         'shipment_number' => 'ES-2504-G7FDF',
         'uuid' => 'webhook-test-uuid-123',

@@ -954,3 +954,25 @@ it('does not notify when the funnel owner is not a fighter', function () {
 
     expect($employee->fresh()->notifications()->count())->toBe(0);
 });
+
+it('preserves an existing discount when a fighter edits order items', function () {
+    $f = fighter();
+    $product = Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'base_price' => 30]);
+    $order = makeFighterOrder($f, $product, 1, 30);
+
+    // Simulate a RM10 discount that was applied at checkout.
+    $order->update(['discount_amount' => 10, 'total_amount' => 20]);
+    $itemId = $order->items()->first()->id;
+
+    // Fighter bumps the quantity to 2 (subtotal 60). The stored discount must
+    // survive the recompute rather than being silently dropped.
+    $this->actingAs($f)->post("/fighter/orders/{$order->id}", [
+        'customer_name' => 'Buyer One', 'customer_phone' => '60123456789',
+        'payment_method' => 'cash', 'payment_status' => 'pending',
+        'items' => [['id' => $itemId, 'itemable_type' => 'product', 'itemable_id' => $product->id, 'quantity' => 2, 'unit_price' => 30]],
+    ])->assertOk();
+
+    $order->refresh();
+    expect((float) $order->discount_amount)->toEqual(10.0)
+        ->and((float) $order->total_amount)->toEqual(50.0); // 60 - 10 discount, not 60
+});
