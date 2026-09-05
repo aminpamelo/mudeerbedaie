@@ -139,8 +139,16 @@ class EasyParcelWebhookController extends Controller
     {
         $secret = config('services.easyparcel.webhook_secret');
 
+        // Fail closed: with no configured secret the endpoint has no authentication,
+        // so a forged callback could mark COD orders delivered → paid without the
+        // courier ever collecting cash. Reject rather than accept, and rely on the
+        // cron poller (SyncEasyParcelTracking) until a secret is configured.
         if (blank($secret)) {
-            return true;
+            Log::warning('EasyParcel webhook secret is not configured; rejecting callback (fail-closed).', [
+                'ip' => $request->ip(),
+            ]);
+
+            return false;
         }
 
         $provided = $request->query('secret') ?: $request->header('X-EasyParcel-Signature');

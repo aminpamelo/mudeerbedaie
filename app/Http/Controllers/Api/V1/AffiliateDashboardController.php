@@ -8,6 +8,7 @@ use App\Models\FunnelAffiliate;
 use App\Models\FunnelSessionEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AffiliateDashboardController extends Controller
 {
@@ -18,19 +19,38 @@ class AffiliateDashboardController extends Controller
         ]);
 
         $phone = $this->normalizePhone($request->phone);
+
+        // Throttle to blunt phone-number enumeration and brute-force account
+        // takeover. Keyed by phone + IP. NOTE: this is a mitigation, not a full
+        // fix — phone-only auth still lacks a second factor (OTP); see the
+        // security follow-up.
+        $throttleKey = 'affiliate-login:'.$phone.'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            return response()->json([
+                'message' => 'Too many attempts. Please try again in '.RateLimiter::availableIn($throttleKey).' seconds.',
+            ], 429);
+        }
+
         $affiliate = FunnelAffiliate::where('phone', $phone)->first();
 
         if (! $affiliate) {
+            RateLimiter::hit($throttleKey, 900);
+
             return response()->json([
                 'message' => 'No affiliate account found with this phone number.',
             ], 404);
         }
 
         if (! $affiliate->isActive()) {
+            RateLimiter::hit($throttleKey, 900);
+
             return response()->json([
                 'message' => 'Your account is not active.',
             ], 403);
         }
+
+        RateLimiter::clear($throttleKey);
 
         session(['affiliate_id' => $affiliate->id]);
         $affiliate->update(['last_login_at' => now()]);
@@ -47,6 +67,17 @@ class AffiliateDashboardController extends Controller
             'phone' => 'required|string|max:50',
             'email' => 'nullable|email|max:255',
         ]);
+
+        // Throttle registrations per IP to limit mass phone-number squatting.
+        $throttleKey = 'affiliate-register:'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            return response()->json([
+                'message' => 'Too many attempts. Please try again in '.RateLimiter::availableIn($throttleKey).' seconds.',
+            ], 429);
+        }
+
+        RateLimiter::hit($throttleKey, 3600);
 
         $phone = $this->normalizePhone($request->phone);
 

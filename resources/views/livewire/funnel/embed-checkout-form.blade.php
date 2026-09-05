@@ -597,7 +597,7 @@ new class extends Component
                 'amount' => $order->total_amount,
                 'payer_name' => $this->name,
                 'payer_email' => $this->email ?: '',
-                'payer_phone' => $fullPhone,
+                'payer_phone' => $this->getFullPhone() ?: null,
             ]);
 
             // Store Bayarcash transaction info

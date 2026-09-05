@@ -6,10 +6,10 @@ use App\Models\Funnel;
 use App\Models\FunnelAnalytics;
 use App\Models\FunnelCart;
 use App\Models\FunnelOrder;
+use App\Models\FunnelOrderBump;
+use App\Models\FunnelProduct;
 use App\Models\FunnelSession;
 use App\Models\FunnelStep;
-use App\Models\FunnelStepOrderBump;
-use App\Models\FunnelStepProduct;
 use App\Models\PackagePurchase;
 use App\Models\Product;
 use App\Models\ProductOrder;
@@ -52,13 +52,13 @@ class FunnelCheckoutService
     ): array {
         return DB::transaction(function () use ($session, $step, $selectedProducts, $selectedBumps, $customerData, $billingAddress) {
             // Load products and bumps
-            $products = FunnelStepProduct::whereIn('id', array_keys($selectedProducts))
-                ->where('step_id', $step->id)
+            $products = FunnelProduct::whereIn('id', array_keys($selectedProducts))
+                ->where('funnel_step_id', $step->id)
                 ->where('is_active', true)
                 ->get();
 
-            $bumps = FunnelStepOrderBump::whereIn('id', array_keys($selectedBumps))
-                ->where('step_id', $step->id)
+            $bumps = FunnelOrderBump::whereIn('id', array_keys($selectedBumps))
+                ->where('funnel_step_id', $step->id)
                 ->where('is_active', true)
                 ->get();
 
@@ -366,10 +366,29 @@ class FunnelCheckoutService
                 ];
             }
 
-            // Find and update the order
-            $order = ProductOrder::where('metadata->stripe_payment_intent_id', $paymentIntentId)
-                ->orWhereJsonContains('metadata', ['stripe_payment_intent_id' => $paymentIntentId])
+            // Find the order. Scope to funnel orders so the JSON metadata match
+            // is narrowed by the indexed `source` column instead of scanning the
+            // whole product_orders table (and so the orWhere cannot leak across
+            // other sources).
+            $order = ProductOrder::query()
+                ->where('source', 'funnel')
+                ->where(function ($query) use ($paymentIntentId) {
+                    $query->where('metadata->stripe_payment_intent_id', $paymentIntentId)
+                        ->orWhereJsonContains('metadata', ['stripe_payment_intent_id' => $paymentIntentId]);
+                })
                 ->first();
+
+            // Idempotency: if the order is already settled, this is a duplicate
+            // or retried confirmation (double-click, network retry, or a race with
+            // the webhook). Do NOT deduct stock or create commission again.
+            if ($order && $order->payment_status === 'paid') {
+                return [
+                    'success' => true,
+                    'status' => 'succeeded',
+                    'order' => $order,
+                    'payment_intent' => $paymentIntent,
+                ];
+            }
 
             if ($order) {
                 $order->update([
@@ -450,7 +469,7 @@ class FunnelCheckoutService
     public function processOneClickUpsell(
         FunnelSession $session,
         FunnelStep $upsellStep,
-        FunnelStepProduct $upsellProduct,
+        FunnelProduct $upsellProduct,
         FunnelOrder $originalOrder
     ): array {
         // Can only do one-click if we have a saved payment method
@@ -629,7 +648,7 @@ class FunnelCheckoutService
     public function declineUpsell(
         FunnelSession $session,
         FunnelStep $upsellStep,
-        FunnelStepProduct $upsellProduct,
+        FunnelProduct $upsellProduct,
         FunnelOrder $originalOrder
     ): void {
         $originalOrder->recordUpsellOffered();

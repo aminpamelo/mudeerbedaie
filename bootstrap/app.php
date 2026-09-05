@@ -60,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // - Funnel event tracking (public, no auth)
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
+            'bayarcash/callback',
             'webhooks/tiktok',
             'webhooks/easyparcel',
             'api/workflows',

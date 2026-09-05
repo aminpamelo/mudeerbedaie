@@ -6,6 +6,7 @@ use App\Models\FunnelAffiliateCommission;
 use App\Models\FunnelAffiliateCommissionRule;
 use App\Models\FunnelOrder;
 use App\Models\FunnelSession;
+use Illuminate\Database\QueryException;
 
 class AffiliateCommissionService
 {
@@ -16,6 +17,16 @@ class AffiliateCommissionService
     {
         if (! $session->affiliate_id) {
             return null;
+        }
+
+        // Idempotency guard: a single order must never earn commission twice.
+        // The Bayarcash server-to-server callback and the browser return redirect
+        // can both reach this method for the same order within milliseconds, and
+        // client retries happen — never double-pay an affiliate. The DB unique
+        // index on funnel_order_id is the hard backstop for the race window.
+        $existing = FunnelAffiliateCommission::where('funnel_order_id', $funnelOrder->id)->first();
+        if ($existing) {
+            return $existing;
         }
 
         $funnel = $funnelOrder->funnel;
@@ -57,17 +68,24 @@ class AffiliateCommissionService
             return null;
         }
 
-        return FunnelAffiliateCommission::create([
-            'affiliate_id' => $session->affiliate_id,
-            'funnel_id' => $funnel->id,
-            'funnel_order_id' => $funnelOrder->id,
-            'product_order_id' => $funnelOrder->product_order_id,
-            'session_id' => $session->id,
-            'commission_type' => $commissionType,
-            'commission_rate' => $commissionRate,
-            'order_amount' => $orderAmount,
-            'commission_amount' => $totalCommission,
-            'status' => 'pending',
-        ]);
+        try {
+            return FunnelAffiliateCommission::create([
+                'affiliate_id' => $session->affiliate_id,
+                'funnel_id' => $funnel->id,
+                'funnel_order_id' => $funnelOrder->id,
+                'product_order_id' => $funnelOrder->product_order_id,
+                'session_id' => $session->id,
+                'commission_type' => $commissionType,
+                'commission_rate' => $commissionRate,
+                'order_amount' => $orderAmount,
+                'commission_amount' => $totalCommission,
+                'status' => 'pending',
+            ]);
+        } catch (QueryException $e) {
+            // A concurrent request won the race and inserted first, tripping the
+            // unique index on funnel_order_id. Return that existing commission
+            // instead of surfacing the constraint violation.
+            return FunnelAffiliateCommission::where('funnel_order_id', $funnelOrder->id)->first();
+        }
     }
 }

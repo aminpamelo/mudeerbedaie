@@ -15,6 +15,7 @@ use App\Services\Funnel\FunnelAutomationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class BayarcashWebhookController extends Controller
@@ -79,6 +80,19 @@ class BayarcashWebhookController extends Controller
             return response('Already processed', 200);
         }
 
+        // Never let a late or out-of-order non-success callback downgrade an
+        // order that is already settled (e.g. a delayed "unsuccessful" retry
+        // arriving after the "successful" callback already marked it paid).
+        if ($status !== '3' && $order->isPaid()) {
+            Log::info('Bayarcash callback ignored: order already settled', [
+                'order_number' => $orderNumber,
+                'incoming_status' => $status,
+                'transaction_id' => $transactionId,
+            ]);
+
+            return response('Already settled', 200);
+        }
+
         // Process based on payment status
         // Bayarcash status codes: 1 = Pending, 2 = Unsuccessful, 3 = Successful
         match ($status) {
@@ -118,8 +132,10 @@ class BayarcashWebhookController extends Controller
             return;
         }
 
-        // Check if conversion was already tracked (by return endpoint)
-        if (isset($metadata['conversion_tracked']) && $metadata['conversion_tracked'] === true) {
+        // Atomically claim conversion tracking so a concurrent return-endpoint
+        // request cannot also process this order (prevents double analytics and
+        // duplicate affiliate commission on the callback↔return race).
+        if (! $this->claimConversionTracking($order)) {
             Log::info('Funnel conversion already tracked by return endpoint, skipping callback tracking', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
@@ -177,10 +193,7 @@ class BayarcashWebhookController extends Controller
             $funnelAnalytics = FunnelAnalytics::getOrCreateForToday($funnelOrder->funnel_id);
             $funnelAnalytics->incrementConversions($funnelOrder->funnel_revenue);
 
-            // Mark conversion as tracked to prevent duplicate tracking
-            $order->update([
-                'metadata' => array_merge($metadata, ['conversion_tracked' => true]),
-            ]);
+            // Conversion tracking was already claimed atomically above.
 
             // Trigger funnel automations for purchase completed
             $this->automationService->triggerPurchaseCompleted($order, $funnelOrder->session);
@@ -264,7 +277,7 @@ class BayarcashWebhookController extends Controller
             if ($status !== '3') {
                 // For funnel orders with failed payment, redirect back to checkout
                 if ($isFunnelOrder) {
-                    return $this->handleFunnelReturn($order, $funnelMetadata, $status ?? '2', $data);
+                    return $this->handleFunnelReturn($order, $funnelMetadata, $status ?? '2', $data, false);
                 }
 
                 // For non-funnel orders, redirect to home with error
@@ -293,7 +306,7 @@ class BayarcashWebhookController extends Controller
 
         // Handle funnel order return
         if ($isFunnelOrder) {
-            return $this->handleFunnelReturn($order, $funnelMetadata, $status, $data);
+            return $this->handleFunnelReturn($order, $funnelMetadata, $status, $data, $verificationPassed);
         }
 
         // Redirect based on payment status (non-funnel orders)
@@ -326,7 +339,7 @@ class BayarcashWebhookController extends Controller
      * @param  array<string, mixed>  $metadata
      * @param  array<string, mixed>  $data  The full callback data from Bayarcash
      */
-    private function handleFunnelReturn(ProductOrder $order, array $metadata, ?string $status, array $data = []): RedirectResponse
+    private function handleFunnelReturn(ProductOrder $order, array $metadata, ?string $status, array $data = [], bool $verificationPassed = false): RedirectResponse
     {
         $funnelSlug = $metadata['funnel_slug'] ?? null;
         $stepSlug = $metadata['step_slug'] ?? null;
@@ -401,24 +414,33 @@ class BayarcashWebhookController extends Controller
         }
 
         if ($status === '3') {
-            // Payment successful - update order status using the service
-            $this->bayarcashService->processSuccessfulPayment($order, $data);
+            // Only settle from the browser return when the return data is
+            // signature-verified. An unverified ?status=3 (spoofed or tampered)
+            // must NOT mark the order paid — the signed server-to-server callback
+            // is the source of truth and will settle it. processSuccessfulPayment
+            // is idempotent, and we skip it if the callback already settled.
+            if ($verificationPassed) {
+                if (! $order->isPaid()) {
+                    $this->bayarcashService->processSuccessfulPayment($order, $data);
+                }
 
-            // Track funnel conversion (in case callback doesn't fire or is delayed)
-            // This is safe to call - it will be idempotent if callback already tracked it
-            $this->handleFunnelConversionFromReturn($order);
-
-            // Redirect to thank you page or next step
-            $thankYouStep = $funnel->steps()->where('type', 'thankyou')->first();
-
-            if ($thankYouStep) {
-                return redirect("/f/{$funnel->slug}/{$thankYouStep->slug}?order={$order->order_number}")
-                    ->with('success', 'Payment successful! Thank you for your purchase.');
+                // Track funnel conversion (in case callback doesn't fire or is delayed).
+                // Idempotent: skipped if the callback already tracked it.
+                $this->handleFunnelConversionFromReturn($order);
             }
 
-            // No thank you step - redirect to funnel with completion flag
-            return redirect("/f/{$funnel->slug}?complete=1&order={$order->order_number}")
-                ->with('success', 'Payment successful! Thank you for your purchase.');
+            // Redirect the buyer forward. When the return was not verified we
+            // still move them on, but with a neutral "processing" message rather
+            // than a spoofable success state until the signed callback settles it.
+            $settled = $verificationPassed || $order->isPaid();
+            $thankYouStep = $funnel->steps()->where('type', 'thankyou')->first();
+            $redirectUrl = $thankYouStep
+                ? "/f/{$funnel->slug}/{$thankYouStep->slug}?order={$order->order_number}"
+                : "/f/{$funnel->slug}?complete=1&order={$order->order_number}";
+
+            return $settled
+                ? redirect($redirectUrl)->with('success', 'Payment successful! Thank you for your purchase.')
+                : redirect($redirectUrl)->with('info', 'Your payment is being processed. We will notify you once it is confirmed.');
 
         } elseif ($status === '2') {
             // Payment failed - redirect back to checkout step
@@ -451,9 +473,12 @@ class BayarcashWebhookController extends Controller
      */
     private function handleFunnelConversionFromReturn(ProductOrder $order): void
     {
-        // Check if conversion was already tracked by looking at a flag in metadata
+        // Keep a copy of metadata for later (session_uuid lookup below).
         $metadata = $order->metadata ?? [];
-        if (isset($metadata['conversion_tracked']) && $metadata['conversion_tracked'] === true) {
+
+        // Atomically claim conversion tracking so a concurrent callback request
+        // cannot also process this order (see handleFunnelConversion).
+        if (! $this->claimConversionTracking($order)) {
             Log::info('Funnel conversion already tracked, skipping', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
@@ -522,10 +547,7 @@ class BayarcashWebhookController extends Controller
         $funnelAnalytics = FunnelAnalytics::getOrCreateForToday($funnelOrder->funnel_id);
         $funnelAnalytics->incrementConversions($funnelOrder->funnel_revenue);
 
-        // Mark conversion as tracked to prevent duplicate tracking from callback
-        $order->update([
-            'metadata' => array_merge($metadata, ['conversion_tracked' => true]),
-        ]);
+        // Conversion tracking was already claimed atomically above.
 
         // Trigger funnel automations for purchase completed
         $this->automationService->triggerPurchaseCompleted($order, $funnelOrder->session);
@@ -541,6 +563,40 @@ class BayarcashWebhookController extends Controller
                 $session->cart->markAsRecovered($order);
             }
         }
+    }
+
+    /**
+     * Atomically claim conversion tracking for an order so that only one of the
+     * two racing handlers — the signed server-to-server callback and the browser
+     * return redirect, which typically fire within the same second — proceeds.
+     *
+     * Uses a locked read + compare-and-swap on the metadata flag so both
+     * requests cannot pass the guard concurrently and double-count analytics or
+     * create a duplicate affiliate commission.
+     *
+     * @return bool True if this caller won the claim, false if already tracked.
+     */
+    private function claimConversionTracking(ProductOrder $order): bool
+    {
+        return DB::transaction(function () use ($order): bool {
+            $locked = ProductOrder::whereKey($order->id)->lockForUpdate()->first();
+
+            if (! $locked) {
+                return false;
+            }
+
+            $metadata = $locked->metadata ?? [];
+
+            if (! empty($metadata['conversion_tracked'])) {
+                return false;
+            }
+
+            $locked->update([
+                'metadata' => array_merge($metadata, ['conversion_tracked' => true]),
+            ]);
+
+            return true;
+        });
     }
 
     /**

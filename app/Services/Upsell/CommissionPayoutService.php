@@ -141,6 +141,23 @@ class CommissionPayoutService
                 );
             }
 
+            // Re-validate against the database — not just the caller-supplied list,
+            // which may come from a stale preview — that none of these sessions are
+            // already covered by an existing payout. The composite unique index is
+            // (payout_id, class_session_id), so the DB alone won't stop the same
+            // session landing in two different payouts; this locked check does.
+            $alreadyCovered = UpsellCommissionPayoutSession::query()
+                ->whereIn('class_session_id', $sessionIds)
+                ->lockForUpdate()
+                ->pluck('class_session_id')
+                ->all();
+
+            if (! empty($alreadyCovered)) {
+                throw new RuntimeException(
+                    'These sessions are already covered by an existing payout: '.implode(', ', $alreadyCovered)
+                );
+            }
+
             $totalCommission = 0.0;
             $sessionRows = [];
 

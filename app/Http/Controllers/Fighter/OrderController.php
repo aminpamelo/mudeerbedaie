@@ -208,7 +208,10 @@ class OrderController extends Controller
                 }
 
                 $shippingCost = $validated['shipping_cost'] ?? 0;
-                $totalAmount = max(0, $subtotal + $shippingCost);
+                // Preserve the order's existing discount when recomputing totals.
+                // Editing items must not silently drop a coupon/discount applied at
+                // checkout, which would overcharge the customer and inflate revenue.
+                $totalAmount = max(0, $subtotal - (float) $order->discount_amount + $shippingCost);
             }
 
             $customerAddress = $validated['customer_address'] ?? null;

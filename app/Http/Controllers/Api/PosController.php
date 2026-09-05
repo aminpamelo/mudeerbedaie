@@ -324,6 +324,7 @@ class PosController extends Controller
                 'shipping_cost' => $shippingCost,
                 'total_amount' => $totalAmount,
                 'payment_method' => $validated['payment_method'],
+                'payment_status' => $validated['payment_status'],
                 'receipt_attachment' => $receiptPath,
                 'order_date' => now(),
                 'paid_time' => ($validated['payment_status'] === 'paid') ? now() : null,
@@ -396,7 +397,7 @@ class PosController extends Controller
                     'total_amount' => number_format($order->total_amount, 2, '.', ''),
                     'payment_method' => $order->payment_method,
                     'payment_reference' => $order->metadata['payment_reference'] ?? null,
-                    'payment_status' => $order->metadata['payment_status'] ?? 'pending',
+                    'payment_status' => $order->payment_status ?? ($order->metadata['payment_status'] ?? 'pending'),
                     'receipt_attachment_url' => $order->receipt_attachment_url,
                     'sales_source_id' => $order->sales_source_id,
                     'items' => $order->items,
@@ -498,6 +499,7 @@ class PosController extends Controller
             $sale->update([
                 'paid_time' => now(),
                 'status' => 'confirmed',
+                'payment_status' => 'paid',
             ]);
             $sale->payments()->update([
                 'status' => 'completed',
@@ -507,15 +509,24 @@ class PosController extends Controller
             $sale->update([
                 'paid_time' => null,
                 'status' => 'pending',
+                'payment_status' => 'pending',
             ]);
             $sale->payments()->update([
                 'status' => 'pending',
                 'paid_at' => null,
             ]);
         } elseif ($newStatus === 'cancelled') {
+            // markAsCancelled() flips payment_status paid -> refunded; now that the
+            // column is populated on create/paid, that transition works correctly.
             $sale->markAsCancelled('Cancelled from POS');
             $sale->payments()->update(['status' => 'cancelled']);
         }
+
+        // Keep the legacy metadata copy in sync with the authoritative column so
+        // older readers of metadata.payment_status stay consistent.
+        $sale->update([
+            'metadata' => array_merge($sale->metadata ?? [], ['payment_status' => $sale->payment_status]),
+        ]);
 
         $sale->load(['items', 'customer']);
 

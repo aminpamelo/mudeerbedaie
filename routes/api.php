@@ -464,7 +464,10 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 | POS (Point of Sale) API Routes
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:web'])->prefix('pos')->group(function () {
+// Catalog reads + creating a sale: used by the POS SPA (admin/employee/sales)
+// AND the fighter order-create page (fighter). createSale server-side forces a
+// fighter to their own sales source.
+Route::middleware(['auth:web', 'role:admin,employee,sales,fighter'])->prefix('pos')->group(function () {
     Route::get('sales-sources', [PosController::class, 'salesSources'])->name('api.pos.sales-sources');
     Route::get('products', [PosController::class, 'products'])->name('api.pos.products');
     Route::get('packages', [PosController::class, 'packages'])->name('api.pos.packages');
@@ -474,6 +477,12 @@ Route::middleware(['auth:web'])->prefix('pos')->group(function () {
     Route::get('upsell-sessions', [PosController::class, 'upsellSessions'])->name('api.pos.upsell-sessions');
     Route::get('upsell-sessions/{id}', [PosController::class, 'upsellSessionDetail'])->name('api.pos.upsell-sessions.show');
     Route::post('sales', [PosController::class, 'createSale'])->name('api.pos.sales.store');
+});
+
+// Viewing/editing/deleting existing sales + reports: POS back-office only.
+// Fighters manage their own orders via the /fighter surface, not here, so they
+// are intentionally excluded (this closes the cross-account IDOR).
+Route::middleware(['auth:web', 'role:admin,employee,sales'])->prefix('pos')->group(function () {
     Route::get('sales/export', [PosController::class, 'exportSales'])->name('api.pos.sales.export');
     Route::get('sales', [PosController::class, 'salesHistory'])->name('api.pos.sales.index');
     Route::get('sales/{sale}', [PosController::class, 'saleDetail'])->name('api.pos.sales.show');

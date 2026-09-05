@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Funnel;
 use App\Models\FunnelOrder;
+use App\Models\FunnelProduct;
 use App\Models\FunnelSession;
-use App\Models\FunnelStepProduct;
 use App\Services\Funnel\FunnelCheckoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,9 +25,9 @@ class FunnelCheckoutController extends Controller
         $request->validate([
             'session_uuid' => ['required', 'string'],
             'products' => ['required', 'array', 'min:1'],
-            'products.*' => ['integer', 'exists:funnel_step_products,id'],
+            'products.*' => ['integer', 'exists:funnel_products,id'],
             'bumps' => ['nullable', 'array'],
-            'bumps.*' => ['integer', 'exists:funnel_step_order_bumps,id'],
+            'bumps.*' => ['integer', 'exists:funnel_order_bumps,id'],
             'customer' => ['required', 'array'],
             'customer.email' => ['required', 'email'],
             'customer.name' => ['required', 'string', 'min:2'],
@@ -137,7 +137,7 @@ class FunnelCheckoutController extends Controller
     {
         $request->validate([
             'session_uuid' => ['required', 'string'],
-            'product_id' => ['required', 'integer', 'exists:funnel_step_products,id'],
+            'product_id' => ['required', 'integer', 'exists:funnel_products,id'],
             'original_order_id' => ['required', 'integer', 'exists:funnel_orders,id'],
         ]);
 
@@ -151,8 +151,8 @@ class FunnelCheckoutController extends Controller
             ->where('funnel_id', $funnel->id)
             ->firstOrFail();
 
-        $upsellProduct = FunnelStepProduct::where('id', $request->input('product_id'))
-            ->where('step_id', $step->id)
+        $upsellProduct = FunnelProduct::where('id', $request->input('product_id'))
+            ->where('funnel_step_id', $step->id)
             ->where('is_active', true)
             ->firstOrFail();
 
@@ -197,7 +197,7 @@ class FunnelCheckoutController extends Controller
     {
         $request->validate([
             'session_uuid' => ['required', 'string'],
-            'product_id' => ['required', 'integer', 'exists:funnel_step_products,id'],
+            'product_id' => ['required', 'integer', 'exists:funnel_products,id'],
             'original_order_id' => ['required', 'integer', 'exists:funnel_orders,id'],
         ]);
 
@@ -211,8 +211,8 @@ class FunnelCheckoutController extends Controller
             ->where('funnel_id', $funnel->id)
             ->firstOrFail();
 
-        $upsellProduct = FunnelStepProduct::where('id', $request->input('product_id'))
-            ->where('step_id', $step->id)
+        $upsellProduct = FunnelProduct::where('id', $request->input('product_id'))
+            ->where('funnel_step_id', $step->id)
             ->firstOrFail();
 
         $originalOrder = FunnelOrder::findOrFail($request->input('original_order_id'));

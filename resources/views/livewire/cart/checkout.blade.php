@@ -284,11 +284,14 @@ new #[Layout('components.layouts.store')] class extends Component
 
             $order->update($orderUpdate);
 
-            // Create payment record
+            // Create payment record. Use the order's total_amount (which now
+            // includes shipping after the update above) rather than the cart
+            // total, which never carries shipping — otherwise the payment record
+            // is short by the shipping fee for every shipped, non-FPX order.
             $payment = $order->payments()->create([
                 'payment_method' => $this->paymentMethod,
                 'payment_provider' => $this->getPaymentProvider(),
-                'amount' => $this->cart->total_amount,
+                'amount' => $order->total_amount,
                 'currency' => $this->cart->currency,
                 'status' => 'pending',
                 'transaction_id' => $this->generateTransactionId(),

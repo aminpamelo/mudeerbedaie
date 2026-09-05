@@ -79,7 +79,7 @@ new class extends Component
     public function mount(Funnel $funnel, FunnelStep $step, ?FunnelSession $session = null): void
     {
         $this->funnel = $funnel;
-        $this->step = $step->load(['products.product', 'products.course', 'orderBumps.product']);
+        $this->step = $step->load(['products.product', 'products.course', 'products.package.items', 'orderBumps.product']);
         $this->funnelSession = $session;
         $this->disableShipping = (bool) $funnel->disable_shipping;
         $this->productSelectionMode = $funnel->settings['product_selection_mode'] ?? 'multi';
@@ -813,6 +813,17 @@ new class extends Component
                 ]);
                 $this->addError('payment', 'Payment verification failed.');
                 $this->isProcessing = false;
+
+                return;
+            }
+
+            // Idempotency: if this order is already settled, a duplicate or
+            // replayed call reached us (double-click, retry, or a client that
+            // re-invokes this method). Skip re-running analytics, pixel, commission
+            // and automations — just move the buyer forward.
+            if ($order->payment_status === 'paid') {
+                $this->isProcessing = false;
+                $this->redirectToNextStep($order);
 
                 return;
             }
