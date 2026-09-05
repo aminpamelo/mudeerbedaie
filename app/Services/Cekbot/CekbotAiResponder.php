@@ -42,21 +42,156 @@ PROMPT;
         try {
             $messages = $this->buildMessages($conversation, $message, $settings);
 
-            $response = OpenAI::chat()->create([
-                'model' => config('openai.model', 'gpt-4o-mini'),
-                'messages' => $messages,
-                'temperature' => 0.4,
-                'max_tokens' => 500,
-            ]);
+            // Function-calling loop: the model may call tools (check order,
+            // search products); we run them and feed results back until it
+            // produces a final text answer.
+            for ($round = 0; $round < 4; $round++) {
+                $response = OpenAI::chat()->create([
+                    'model' => config('openai.model', 'gpt-4o-mini'),
+                    'messages' => $messages,
+                    'tools' => $this->tools(),
+                    'temperature' => 0.4,
+                    'max_tokens' => 600,
+                ]);
 
-            $content = trim((string) ($response->choices[0]->message->content ?? ''));
+                $choice = $response->choices[0]->message;
+                $toolCalls = $choice->toolCalls ?? [];
 
-            return $content !== '' ? $content : null;
+                if (empty($toolCalls)) {
+                    $content = trim((string) ($choice->content ?? ''));
+
+                    return $content !== '' ? $content : null;
+                }
+
+                $messages[] = [
+                    'role' => 'assistant',
+                    'content' => $choice->content ?? '',
+                    'tool_calls' => array_map(fn ($tc) => [
+                        'id' => $tc->id,
+                        'type' => 'function',
+                        'function' => ['name' => $tc->function->name, 'arguments' => $tc->function->arguments],
+                    ], $toolCalls),
+                ];
+
+                foreach ($toolCalls as $tc) {
+                    $args = json_decode($tc->function->arguments, true) ?: [];
+                    $messages[] = [
+                        'role' => 'tool',
+                        'tool_call_id' => $tc->id,
+                        'content' => $this->runTool($tc->function->name, $args),
+                    ];
+                }
+            }
+
+            return null;
         } catch (\Throwable $e) {
             Log::warning('Cekbot AI reply failed', ['error' => $e->getMessage()]);
 
             return null;
         }
+    }
+
+    /**
+     * Tools the sales/service AI can call.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function tools(): array
+    {
+        return [
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'check_order_status',
+                    'description' => 'Semak status pesanan & penghantaran pelanggan menggunakan nombor pesanan.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'order_number' => ['type' => 'string', 'description' => 'Nombor pesanan, cth: ORD123'],
+                        ],
+                        'required' => ['order_number'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'search_products',
+                    'description' => 'Cari produk yang dijual (nama, harga, link, penerangan) mengikut kata kunci.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'query' => ['type' => 'string', 'description' => 'Kata kunci produk, cth: kurma'],
+                        ],
+                        'required' => ['query'],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $args
+     */
+    private function runTool(string $name, array $args): string
+    {
+        return match ($name) {
+            'check_order_status' => $this->toolCheckOrder((string) ($args['order_number'] ?? '')),
+            'search_products' => $this->toolSearchProducts((string) ($args['query'] ?? '')),
+            default => json_encode(['error' => 'Tool tidak dikenali.']),
+        };
+    }
+
+    private function toolCheckOrder(string $orderNumber): string
+    {
+        $orderNumber = trim($orderNumber);
+
+        if ($orderNumber === '') {
+            return json_encode(['error' => 'Nombor pesanan diperlukan.']);
+        }
+
+        $order = \App\Models\ProductOrder::query()
+            ->where('order_number', $orderNumber)
+            ->orWhere('platform_order_number', $orderNumber)
+            ->latest('id')
+            ->first();
+
+        if (! $order) {
+            return json_encode(['found' => false, 'message' => 'Pesanan tidak dijumpai.'], JSON_UNESCAPED_UNICODE);
+        }
+
+        return json_encode([
+            'found' => true,
+            'order_number' => $order->order_number,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'total' => $order->total_amount,
+            'currency' => $order->currency,
+            'tracking_id' => $order->tracking_id,
+            'tracking_url' => $order->tracking_id ? 'https://www.tracking.my/instant/'.rawurlencode($order->tracking_id) : null,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function toolSearchProducts(string $query): string
+    {
+        $query = trim($query);
+
+        $products = CekbotProduct::query()
+            ->active()
+            ->when($query !== '', fn ($w) => $w->where(fn ($x) => $x
+                ->where('name', 'like', "%{$query}%")
+                ->orWhere('description', 'like', "%{$query}%")))
+            ->orderBy('sort_order')
+            ->limit(8)
+            ->get();
+
+        return json_encode($products->map(fn (CekbotProduct $p) => [
+            'name' => $p->name,
+            'price' => $p->price,
+            'currency' => $p->currency,
+            'url' => $p->url,
+            'description' => \Illuminate\Support\Str::limit((string) $p->description, 300),
+        ])->all(), JSON_UNESCAPED_UNICODE);
     }
 
     /**
