@@ -261,14 +261,17 @@ class ProductOrderItem extends Model
         // Get warehouse from order item or use package default
         $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
 
+        // Batch-load stock levels for every package product in one query.
+        $package->loadMissing('products.stockLevels');
+
         // Deduct stock for each product in the package
         foreach ($package->products as $product) {
             $requiredQuantity = $product->pivot->quantity * $this->quantity_ordered;
             $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
 
-            $stockLevel = $product->stockLevels()
-                ->where('warehouse_id', $productWarehouseId)
-                ->first();
+            $stockLevel = $productWarehouseId === null
+                ? null
+                : $product->stockLevels->firstWhere('warehouse_id', $productWarehouseId);
 
             if ($stockLevel) {
                 // Record quantity before deduction
@@ -387,13 +390,16 @@ class ProductOrderItem extends Model
         $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
         $packagesOrdered = $quantity ?? $this->quantity_ordered;
 
+        // Batch-load stock levels for every package product in one query.
+        $package->loadMissing('products.stockLevels');
+
         foreach ($package->products as $product) {
             $requiredQuantity = $product->pivot->quantity * $packagesOrdered;
             $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
 
-            $stockLevel = $product->stockLevels()
-                ->where('warehouse_id', $productWarehouseId)
-                ->first();
+            $stockLevel = $productWarehouseId === null
+                ? null
+                : $product->stockLevels->firstWhere('warehouse_id', $productWarehouseId);
 
             if ($stockLevel) {
                 $quantityBefore = $stockLevel->quantity;
@@ -492,14 +498,17 @@ class ProductOrderItem extends Model
 
             $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
 
+            // Batch-load stock levels for every package product in one query.
+            $package->loadMissing('products.stockLevels');
+
             foreach ($package->products as $product) {
                 $quantityPerPackage = $product->pivot->quantity;
                 $totalQuantityNeeded = $quantityPerPackage * $this->quantity_ordered;
                 $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
 
-                $stockLevel = $product->stockLevels()
-                    ->where('warehouse_id', $productWarehouseId)
-                    ->first();
+                $stockLevel = $productWarehouseId === null
+                    ? null
+                    : $product->stockLevels->firstWhere('warehouse_id', $productWarehouseId);
 
                 $availableStock = $stockLevel ? $stockLevel->quantity : 0;
 

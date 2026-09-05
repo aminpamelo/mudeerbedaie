@@ -52,10 +52,14 @@ class AffiliateCommissionService
         $commissionType = 'fixed';
         $commissionRate = 0;
 
+        // Fetch every applicable rule in one query rather than one per product.
+        $rules = FunnelAffiliateCommissionRule::where('funnel_id', $funnel->id)
+            ->whereIn('funnel_product_id', $products->pluck('id'))
+            ->get()
+            ->keyBy('funnel_product_id');
+
         foreach ($products as $product) {
-            $rule = FunnelAffiliateCommissionRule::where('funnel_id', $funnel->id)
-                ->where('funnel_product_id', $product->id)
-                ->first();
+            $rule = $rules->get($product->id);
 
             if ($rule) {
                 $totalCommission += $rule->calculateCommission((float) $product->funnel_price);

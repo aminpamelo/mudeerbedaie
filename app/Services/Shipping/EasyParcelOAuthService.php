@@ -24,6 +24,13 @@ class EasyParcelOAuthService
     /** Refresh a little before the token actually expires. */
     private const EXPIRY_BUFFER_SECONDS = 120;
 
+    /**
+     * Per-instance memo of the resolved access token, so repeated apiRequest()
+     * calls in the same process don't re-read the settings cache 3× each. Cleared
+     * whenever a refresh mints a new token so the 401-retry path stays correct.
+     */
+    private ?string $cachedAccessToken = null;
+
     public function __construct(private SettingsService $settings) {}
 
     /**
@@ -81,15 +88,19 @@ class EasyParcelOAuthService
      */
     public function accessToken(): ?string
     {
+        if ($this->cachedAccessToken !== null) {
+            return $this->cachedAccessToken;
+        }
+
         if (! $this->settings->isEasyParcelConnected()) {
             return null;
         }
 
         if ($this->tokenIsFresh()) {
-            return (string) $this->settings->get('easyparcel_access_token');
+            return $this->cachedAccessToken = (string) $this->settings->get('easyparcel_access_token');
         }
 
-        return $this->refresh()
+        return $this->cachedAccessToken = $this->refresh()
             ? (string) $this->settings->get('easyparcel_access_token')
             : null;
     }
@@ -121,6 +132,10 @@ class EasyParcelOAuthService
             $token['refresh_token'] ?? $refreshToken,
             $this->resolveExpiry($token),
         );
+
+        // A new token was minted — drop the memo so accessToken() re-reads it
+        // (the apiRequest 401-retry relies on getting the fresh token here).
+        $this->cachedAccessToken = null;
 
         return true;
     }

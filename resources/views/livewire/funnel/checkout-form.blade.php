@@ -504,6 +504,13 @@ new class extends Component
 
     public function processOrder(): void
     {
+        // Re-entrancy guard: a fast double-click or a slow-network re-submit can
+        // fire two calls before the button visually disables. Without this, each
+        // would create its own order/charge for a single intended purchase.
+        if ($this->isProcessing) {
+            return;
+        }
+
         // Single-page checkout: run product + contact + delivery validation first
         // so any field errors surface inline before we create the order or touch
         // the payment provider. A hard field failure throws and stops here.

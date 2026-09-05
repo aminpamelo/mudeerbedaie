@@ -67,42 +67,44 @@ class FunnelOrderController extends Controller
     {
         $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
 
-        // Total orders and revenue
-        $totalOrders = FunnelOrder::forFunnel($funnel->id)->count();
-        $totalRevenue = (float) FunnelOrder::forFunnel($funnel->id)->sum('funnel_revenue');
+        // Order counts + revenue, grouped by type in a single aggregate query.
+        $orderAgg = FunnelOrder::forFunnel($funnel->id)
+            ->selectRaw('order_type, COUNT(*) as orders_count, COALESCE(SUM(funnel_revenue), 0) as revenue')
+            ->groupBy('order_type')
+            ->get()
+            ->keyBy('order_type');
+
+        $totalOrders = (int) $orderAgg->sum('orders_count');
+        $totalRevenue = (float) $orderAgg->sum('revenue');
         $avgOrderValue = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 2) : 0;
 
-        // Order type breakdown
-        $typeBreakdown = [
-            'main' => [
-                'count' => FunnelOrder::forFunnel($funnel->id)->main()->count(),
-                'revenue' => (float) FunnelOrder::forFunnel($funnel->id)->main()->sum('funnel_revenue'),
-            ],
-            'upsell' => [
-                'count' => FunnelOrder::forFunnel($funnel->id)->upsells()->count(),
-                'revenue' => (float) FunnelOrder::forFunnel($funnel->id)->upsells()->sum('funnel_revenue'),
-            ],
-            'downsell' => [
-                'count' => FunnelOrder::forFunnel($funnel->id)->downsells()->count(),
-                'revenue' => (float) FunnelOrder::forFunnel($funnel->id)->downsells()->sum('funnel_revenue'),
-            ],
-            'bump' => [
-                'count' => FunnelOrder::forFunnel($funnel->id)->bumps()->count(),
-                'revenue' => (float) FunnelOrder::forFunnel($funnel->id)->bumps()->sum('funnel_revenue'),
-            ],
+        $typeRow = fn (string $type): array => [
+            'count' => (int) ($orderAgg->get($type)?->orders_count ?? 0),
+            'revenue' => (float) ($orderAgg->get($type)?->revenue ?? 0),
         ];
 
-        // Cart recovery stats
+        $typeBreakdown = [
+            'main' => $typeRow('main'),
+            'upsell' => $typeRow('upsell'),
+            'downsell' => $typeRow('downsell'),
+            'bump' => $typeRow('bump'),
+        ];
+
+        // Abandoned-cart recovery stats, grouped by status in a single query.
+        $cartAgg = FunnelCart::forFunnel($funnel->id)
+            ->whereNotNull('abandoned_at')
+            ->selectRaw('recovery_status, COUNT(*) as carts_count, COALESCE(SUM(total_amount), 0) as value')
+            ->groupBy('recovery_status')
+            ->get()
+            ->keyBy('recovery_status');
+
         $cartStats = [
-            'total' => FunnelCart::forFunnel($funnel->id)->whereNotNull('abandoned_at')->count(),
-            'pending' => FunnelCart::forFunnel($funnel->id)->whereNotNull('abandoned_at')->where('recovery_status', 'pending')->count(),
-            'sent' => FunnelCart::forFunnel($funnel->id)->whereNotNull('abandoned_at')->where('recovery_status', 'sent')->count(),
-            'recovered' => FunnelCart::forFunnel($funnel->id)->whereNotNull('abandoned_at')->where('recovery_status', 'recovered')->count(),
-            'expired' => FunnelCart::forFunnel($funnel->id)->whereNotNull('abandoned_at')->where('recovery_status', 'expired')->count(),
-            'recoverable_value' => (float) FunnelCart::forFunnel($funnel->id)
-                ->whereNotNull('abandoned_at')
-                ->whereIn('recovery_status', ['pending', 'sent'])
-                ->sum('total_amount'),
+            'total' => (int) $cartAgg->sum('carts_count'),
+            'pending' => (int) ($cartAgg->get('pending')?->carts_count ?? 0),
+            'sent' => (int) ($cartAgg->get('sent')?->carts_count ?? 0),
+            'recovered' => (int) ($cartAgg->get('recovered')?->carts_count ?? 0),
+            'expired' => (int) ($cartAgg->get('expired')?->carts_count ?? 0),
+            'recoverable_value' => (float) (($cartAgg->get('pending')?->value ?? 0) + ($cartAgg->get('sent')?->value ?? 0)),
         ];
 
         return response()->json([

@@ -156,7 +156,12 @@ class FunnelCheckoutController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
-        $originalOrder = FunnelOrder::findOrFail($request->input('original_order_id'));
+        // Scope to the caller's own session so a guessed/enumerated order id
+        // from another customer cannot be used to seed this upsell (which would
+        // copy their PII and bump their conversion counters).
+        $originalOrder = FunnelOrder::where('id', $request->input('original_order_id'))
+            ->where('session_id', $session->id)
+            ->firstOrFail();
 
         try {
             $result = $this->checkoutService->processOneClickUpsell(
@@ -215,7 +220,12 @@ class FunnelCheckoutController extends Controller
             ->where('funnel_step_id', $step->id)
             ->firstOrFail();
 
-        $originalOrder = FunnelOrder::findOrFail($request->input('original_order_id'));
+        // Scope to the caller's own session so a guessed/enumerated order id
+        // from another customer cannot be used to seed this upsell (which would
+        // copy their PII and bump their conversion counters).
+        $originalOrder = FunnelOrder::where('id', $request->input('original_order_id'))
+            ->where('session_id', $session->id)
+            ->firstOrFail();
 
         $this->checkoutService->declineUpsell(
             session: $session,
