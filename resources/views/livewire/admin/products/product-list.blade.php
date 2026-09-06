@@ -167,17 +167,17 @@ new class extends Component
         class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-opacity dark:border-zinc-700 dark:bg-zinc-800"
         wire:loading.class.delay="opacity-60"
     >
-        <div class="overflow-x-auto">
-            <table class="min-w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700">
+        <div>
+            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700">
                 <colgroup>
-                    <col class="w-[30%]"> <!-- Product name -->
+                    <col class="w-[32%]"> <!-- Product name -->
                     <col class="w-[11%]"> <!-- Category -->
                     <col class="w-[10%]"> <!-- SKU -->
                     <col class="w-[9%]">  <!-- Price -->
                     <col class="w-[11%]"> <!-- Stock -->
                     <col class="w-[8%]">  <!-- Status -->
-                    <col class="w-[10%]"> <!-- Storefront -->
-                    <col class="w-[6%]">  <!-- Type -->
+                    <col class="w-[7%]">  <!-- Storefront -->
+                    <col class="w-[7%]">  <!-- Type -->
                     <col class="w-[5%]">  <!-- Actions -->
                 </colgroup>
                 <thead class="bg-gray-50 dark:bg-zinc-700/50">
@@ -239,7 +239,7 @@ new class extends Component
                             <td class="px-3 py-3">
                                 <code class="inline-block max-w-full truncate rounded bg-gray-100 px-1.5 py-0.5 align-middle font-mono text-xs text-gray-600 dark:bg-zinc-700 dark:text-gray-300">{{ $product->sku }}</code>
                             </td>
-                            <td class="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
+                            <td class="px-3 py-3 text-right text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
                                 {{ $product->formatted_price }}
                             </td>
                             <td class="px-3 py-3">
@@ -255,7 +255,7 @@ new class extends Component
                                         <div class="text-sm font-medium tabular-nums {{ $availableStock <= 10 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100' }}">
                                             {{ number_format($totalStock) }}
                                         </div>
-                                        <div class="whitespace-nowrap text-xs tabular-nums text-gray-500 dark:text-gray-400">{{ number_format($availableStock) }} available</div>
+                                        <div class="text-xs tabular-nums text-gray-500 dark:text-gray-400">{{ number_format($availableStock) }} available</div>
                                     </div>
                                 @endif
                             </td>
@@ -277,13 +277,12 @@ new class extends Component
                                         wire:click="toggleStorefront({{ $product->id }})"
                                         wire:loading.attr="disabled"
                                         wire:target="toggleStorefront({{ $product->id }})"
-                                        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 {{ $visible
-                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-zinc-700 dark:text-gray-400 dark:hover:bg-zinc-600' }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:opacity-50 {{ $visible
+                                            ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-zinc-700 dark:text-gray-500 dark:hover:bg-zinc-600' }}"
                                         aria-label="{{ $visible ? 'Hide' : 'Show' }} {{ $product->name }} in storefront"
                                     >
-                                        <flux:icon :name="$visible ? 'eye' : 'eye-slash'" class="h-3.5 w-3.5" />
-                                        {{ $visible ? 'Visible' : 'Hidden' }}
+                                        <flux:icon :name="$visible ? 'eye' : 'eye-slash'" class="h-4 w-4" />
                                     </button>
                                 </flux:tooltip>
                             </td>
