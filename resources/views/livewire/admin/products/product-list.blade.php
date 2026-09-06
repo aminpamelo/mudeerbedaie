@@ -62,6 +62,11 @@ new class extends Component
         $product->update(['status' => $newStatus]);
     }
 
+    public function toggleStorefront(Product $product): void
+    {
+        $product->update(['show_on_storefront' => ! $product->show_on_storefront]);
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['search', 'categoryFilter', 'statusFilter', 'typeFilter']);
@@ -165,14 +170,15 @@ new class extends Component
         <div class="overflow-x-auto">
             <table class="min-w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700">
                 <colgroup>
-                    <col class="w-[33%]"> <!-- Product name -->
-                    <col class="w-[12%]"> <!-- Category -->
-                    <col class="w-[11%]"> <!-- SKU -->
-                    <col class="w-[10%]"> <!-- Price -->
-                    <col class="w-[12%]"> <!-- Stock -->
+                    <col class="w-[30%]"> <!-- Product name -->
+                    <col class="w-[11%]"> <!-- Category -->
+                    <col class="w-[10%]"> <!-- SKU -->
+                    <col class="w-[9%]">  <!-- Price -->
+                    <col class="w-[11%]"> <!-- Stock -->
                     <col class="w-[8%]">  <!-- Status -->
-                    <col class="w-[8%]">  <!-- Type -->
-                    <col class="w-[6%]">  <!-- Actions -->
+                    <col class="w-[10%]"> <!-- Storefront -->
+                    <col class="w-[6%]">  <!-- Type -->
+                    <col class="w-[5%]">  <!-- Actions -->
                 </colgroup>
                 <thead class="bg-gray-50 dark:bg-zinc-700/50">
                     <tr>
@@ -182,6 +188,7 @@ new class extends Component
                         <th scope="col" class="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Price</th>
                         <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Stock</th>
                         <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Storefront</th>
                         <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Type</th>
                         <th scope="col" class="py-3 pl-3 pr-4 text-right sm:pr-6">
                             <span class="sr-only">Actions</span>
@@ -263,6 +270,24 @@ new class extends Component
                                 </flux:badge>
                             </td>
                             <td class="px-3 py-3">
+                                @php $visible = $product->show_on_storefront; @endphp
+                                <flux:tooltip :content="$visible ? 'Visible in storefront — click to hide' : 'Hidden from storefront — click to show'">
+                                    <button
+                                        type="button"
+                                        wire:click="toggleStorefront({{ $product->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="toggleStorefront({{ $product->id }})"
+                                        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 {{ $visible
+                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-zinc-700 dark:text-gray-400 dark:hover:bg-zinc-600' }}"
+                                        aria-label="{{ $visible ? 'Hide' : 'Show' }} {{ $product->name }} in storefront"
+                                    >
+                                        <flux:icon :name="$visible ? 'eye' : 'eye-slash'" class="h-3.5 w-3.5" />
+                                        {{ $visible ? 'Visible' : 'Hidden' }}
+                                    </button>
+                                </flux:tooltip>
+                            </td>
+                            <td class="px-3 py-3">
                                 <flux:badge variant="outline" size="sm">
                                     {{ ucfirst($product->type) }}
                                 </flux:badge>
@@ -290,7 +315,7 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-16 text-center">
+                            <td colspan="9" class="px-6 py-16 text-center">
                                 <flux:icon name="cube" class="mx-auto h-12 w-12 text-gray-300 dark:text-zinc-600" />
                                 <h3 class="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">No products found</h3>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">

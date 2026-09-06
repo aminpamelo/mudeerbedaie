@@ -114,6 +114,7 @@ class StorefrontController extends Controller
 
         $query = fn () => Product::query()
             ->active()
+            ->storefrontVisible()
             ->inStock()
             ->where('type', 'simple')
             ->with(['primaryImage', 'category:id,name,slug', 'stockLevels']);
@@ -198,6 +199,7 @@ class StorefrontController extends Controller
 
         return Product::query()
             ->active()
+            ->storefrontVisible()
             ->whereIn('category_id', $missing->pluck('id'))
             ->whereHas('primaryImage')
             ->with('primaryImage')
@@ -225,12 +227,13 @@ class StorefrontController extends Controller
      */
     public function product(Product $product): View
     {
-        abort_unless($product->status === 'active' && $product->type === 'simple', 404);
+        abort_unless($product->status === 'active' && $product->show_on_storefront && $product->type === 'simple', 404);
 
         $product->load(['images', 'primaryImage', 'category:id,name,slug', 'stockLevels']);
 
         $related = Product::query()
             ->active()
+            ->storefrontVisible()
             ->inStock()
             ->where('type', 'simple')
             ->whereKeyNot($product->id)

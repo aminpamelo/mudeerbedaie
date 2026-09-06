@@ -25,6 +25,7 @@ class Product extends Model
         'cost_price',
         'category_id',
         'status',
+        'show_on_storefront',
         'created_by_fighter_id',
         'type',
         'fulfillment_type',
@@ -40,6 +41,7 @@ class Product extends Model
             'base_price' => 'decimal:2',
             'cost_price' => 'decimal:2',
             'track_quantity' => 'boolean',
+            'show_on_storefront' => 'boolean',
             'min_quantity' => 'integer',
             'dimensions' => 'array',
             'metadata' => 'array',
@@ -161,6 +163,11 @@ class Product extends Model
         return $this->status === 'inactive';
     }
 
+    public function isVisibleOnStorefront(): bool
+    {
+        return $this->show_on_storefront === true;
+    }
+
     public function isVariable(): bool
     {
         return $this->type === 'variable';
@@ -219,6 +226,16 @@ class Product extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    /**
+     * Products the admin has surfaced on the public storefront. Independent of
+     * status: an active product can still be hidden from the shop while
+     * remaining usable in POS and orders.
+     */
+    public function scopeStorefrontVisible($query)
+    {
+        return $query->where('show_on_storefront', true);
     }
 
     /**

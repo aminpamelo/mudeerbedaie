@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Volt\Volt;
 
 uses(RefreshDatabase::class);
 
@@ -66,6 +67,29 @@ describe('shop', function () {
             ->assertOk()
             ->assertSee('In Category')
             ->assertDontSee('No Category');
+    });
+
+    it('hides active products flagged off the storefront', function () {
+        Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'show_on_storefront' => true, 'name' => 'Shown Book']);
+        Product::factory()->create(['status' => 'active', 'track_quantity' => false, 'show_on_storefront' => false, 'name' => 'Hidden Book']);
+
+        Volt::test('store.shop-browser')
+            ->assertSee('Shown Book')
+            ->assertDontSee('Hidden Book');
+    });
+});
+
+describe('product detail visibility', function () {
+    it('shows an active, storefront-visible product', function () {
+        $product = Product::factory()->create(['status' => 'active', 'show_on_storefront' => true, 'type' => 'simple']);
+
+        $this->get('/product/'.$product->slug)->assertOk();
+    });
+
+    it('404s a product hidden from the storefront', function () {
+        $product = Product::factory()->create(['status' => 'active', 'show_on_storefront' => false, 'type' => 'simple']);
+
+        $this->get('/product/'.$product->slug)->assertNotFound();
     });
 });
 

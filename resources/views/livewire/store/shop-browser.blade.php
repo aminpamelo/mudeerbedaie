@@ -65,6 +65,7 @@ new class extends Component
 
         return Product::query()
             ->active()
+            ->storefrontVisible()
             ->inStock()
             ->where('type', 'simple')
             ->with(['primaryImage', 'category:id,name,slug', 'stockLevels'])
