@@ -101,4 +101,14 @@ return [
     'home_section_title' => 'Guides, tips & product stories',
     'home_section_subtitle' => 'Practical reads from the team',
     'home_section_cta' => 'Read the blog',
+
+    // Admin-only preview banner
+    'preview_badge' => 'Preview',
+    'preview_admin_only' => 'Only admins/staff can see this page. The public cannot view it yet.',
+    'preview_status_draft' => 'This is a DRAFT post — not yet published.',
+    'preview_status_scheduled' => 'This post is SCHEDULED — it will be published on :date.',
+    'preview_status_archived' => 'This post has been ARCHIVED.',
+    'preview_status_published' => 'This post is already LIVE.',
+    'preview_view_live' => 'View live version',
+    'preview_edit' => 'Edit post',
 ];

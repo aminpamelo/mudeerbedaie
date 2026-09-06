@@ -89,6 +89,45 @@ class BlogController extends Controller
     }
 
     /**
+     * Admin-only preview of an unpublished (draft/scheduled/archived) — or live —
+     * article, rendered through the exact same {@see blog.show} view the public
+     * gets, so what an editor previews is byte-for-byte what will ship. The route
+     * lives behind the blog-seo auth+role gate, so the public can never reach it;
+     * a status banner is layered on top and the view count is left untouched.
+     */
+    public function preview(Request $request, BlogPost $post): View
+    {
+        $post->load([
+            'author:id,name',
+            'category',
+            'tags',
+            'featuredImage',
+            'ogImage',
+            'products' => fn ($q) => $q->where('products.status', 'active')
+                ->where('products.type', 'simple')
+                ->with(['primaryImage', 'category:id,name,slug', 'stockLevels']),
+        ]);
+
+        return view('blog.show', [
+            'post' => $post,
+            'toc' => $this->markdown->tableOfContents($post->content_html),
+            'related' => $this->relatedPosts($post),
+            'rail' => $this->railPosts($post),
+            'comments' => $post->allow_comments
+                ? $post->approvedComments()->with(['user:id,name', 'replies.user:id,name'])->get()
+                : new Collection,
+            // A preview URL must never be indexed, even though it is auth-gated.
+            'seo' => array_merge($this->postSeo($post), ['noindex' => true]),
+            'preview' => [
+                'status' => $post->status,
+                'publishAt' => $post->published_at,
+                'editUrl' => route('blogseo.posts.edit', $post),
+                'liveUrl' => $post->is_published ? route('blog.show', $post->slug) : null,
+            ],
+        ]);
+    }
+
+    /**
      * Posts within one category.
      */
     public function category(Request $request, string $slug): View

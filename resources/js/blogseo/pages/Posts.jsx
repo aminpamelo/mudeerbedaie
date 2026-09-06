@@ -31,6 +31,17 @@ function RowMenu({ post, onClose }) {
           <PenLine className="h-3.5 w-3.5 text-muted" /> Edit
         </Link>
 
+        {post.previewUrl && (
+          <a
+            href={post.previewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-ink-2 hover:bg-surface"
+          >
+            <Eye className="h-3.5 w-3.5 text-muted" /> Preview
+          </a>
+        )}
+
         {post.publicUrl && (
           <a
             href={post.publicUrl}

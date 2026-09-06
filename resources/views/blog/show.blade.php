@@ -13,6 +13,57 @@
 
 <x-layouts.store :seo="$seo">
 
+    {{-- ============ ADMIN PREVIEW BANNER ============
+         Only rendered when the admin-only preview route passes `$preview`; the
+         public `show()` never sets it, so real readers never see this bar. --}}
+    @if(($preview ?? null))
+        @php
+            $pvStatus = $preview['status'];
+            $pvTheme = match ($pvStatus) {
+                'published' => ['bar' => 'bg-emerald-600 text-emerald-50', 'chip' => 'bg-emerald-500/90 text-white'],
+                'scheduled' => ['bar' => 'bg-blue-600 text-blue-50', 'chip' => 'bg-blue-500/90 text-white'],
+                'archived' => ['bar' => 'bg-zinc-700 text-zinc-100', 'chip' => 'bg-zinc-600 text-white'],
+                default => ['bar' => 'bg-amber-500 text-amber-950', 'chip' => 'bg-amber-950/90 text-amber-50'],
+            };
+            $pvMessage = match ($pvStatus) {
+                'published' => __('blog.preview_status_published'),
+                'scheduled' => __('blog.preview_status_scheduled', [
+                    'date' => $preview['publishAt']?->translatedFormat('j F Y, g:i A') ?? '—',
+                ]),
+                'archived' => __('blog.preview_status_archived'),
+                default => __('blog.preview_status_draft'),
+            };
+        @endphp
+        <div class="{{ $pvTheme['bar'] }} print:hidden">
+            <div class="mx-auto flex max-w-7xl flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                <div class="flex items-start gap-3 sm:items-center">
+                    <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full {{ $pvTheme['chip'] }} px-2.5 py-1 text-[11px] font-black uppercase tracking-wide">
+                        <flux:icon name="eye" class="h-3.5 w-3.5" />
+                        {{ __('blog.preview_badge') }}
+                    </span>
+                    <div class="leading-tight">
+                        <p class="text-sm font-bold">{{ $pvMessage }}</p>
+                        <p class="text-xs font-medium opacity-80">{{ __('blog.preview_admin_only') }}</p>
+                    </div>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                    @if(! empty($preview['liveUrl']))
+                        <a href="{{ $preview['liveUrl'] }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold transition hover:bg-white/30">
+                            <flux:icon name="arrow-top-right-on-square" class="h-3.5 w-3.5" />
+                            {{ __('blog.preview_view_live') }}
+                        </a>
+                    @endif
+                    <a href="{{ $preview['editUrl'] }}"
+                       class="inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold transition hover:bg-white/30">
+                        <flux:icon name="pencil-square" class="h-3.5 w-3.5" />
+                        {{ __('blog.preview_edit') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- ============ READING PROGRESS ============
          Purely decorative, so it is hidden from assistive tech and disabled
          entirely when the visitor asks for reduced motion. --}}

@@ -1677,6 +1677,9 @@ Route::middleware(['auth', 'role:admin,employee', HandleBlogSeoInertiaRequests::
         Route::post('posts/analyze', [BlogSeoPostController::class, 'analyze'])->name('posts.analyze');
         Route::get('posts/slugify', [BlogSeoPostController::class, 'slugify'])->name('posts.slugify');
         Route::get('posts/{post}/edit', [BlogSeoPostController::class, 'edit'])->name('posts.edit');
+        // Admin-only full-page preview: renders the public article view for a
+        // draft/scheduled/archived post so editors can see it before it ships.
+        Route::get('posts/{post}/preview', [BlogController::class, 'preview'])->name('posts.preview');
         Route::put('posts/{post}', [BlogSeoPostController::class, 'update'])->name('posts.update');
         Route::post('posts/{post}/publish', [BlogSeoPostController::class, 'publish'])->name('posts.publish');
         Route::post('posts/{post}/unpublish', [BlogSeoPostController::class, 'unpublish'])->name('posts.unpublish');

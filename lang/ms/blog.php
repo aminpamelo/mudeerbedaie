@@ -101,4 +101,14 @@ return [
     'home_section_title' => 'Panduan, tip & cerita produk',
     'home_section_subtitle' => 'Bacaan praktikal daripada pasukan kami',
     'home_section_cta' => 'Baca blog',
+
+    // Admin-only preview banner
+    'preview_badge' => 'Pratonton',
+    'preview_admin_only' => 'Hanya admin/staf boleh melihat halaman ini. Orang awam belum boleh melihatnya.',
+    'preview_status_draft' => 'Ini ialah post DRAF — belum diterbitkan.',
+    'preview_status_scheduled' => 'Ini post DIJADUALKAN — akan diterbitkan pada :date.',
+    'preview_status_archived' => 'Post ini telah DIARKIBKAN.',
+    'preview_status_published' => 'Post ini sudah TERBIT (langsung).',
+    'preview_view_live' => 'Lihat versi langsung',
+    'preview_edit' => 'Edit post',
 ];

@@ -488,6 +488,11 @@ export default function PostEditor({ post, categories, authors, allTags, product
       actions={
         <>
           <Button variant="ghost" href="/blog-seo/posts"><ArrowLeft className="h-4 w-4" /> Posts</Button>
+          {post?.previewUrl && (
+            <Button variant="secondary" href={post.previewUrl} target="_blank" rel="noopener noreferrer">
+              <Eye className="h-4 w-4" /> Preview post
+            </Button>
+          )}
           {post?.publicUrl && (
             <Button variant="secondary" href={post.publicUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" /> View live
