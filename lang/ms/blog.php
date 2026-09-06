@@ -111,4 +111,11 @@ return [
     'preview_status_published' => 'Post ini sudah TERBIT (langsung).',
     'preview_view_live' => 'Lihat versi langsung',
     'preview_edit' => 'Edit post',
+
+    // New-article newsletter email
+    'email_intro' => ':store baru sahaja menerbitkan artikel baharu — inilah bacaan anda hari ini:',
+    'email_read_cta' => 'Baca artikel',
+    'email_signoff' => 'Selamat membaca,<br>Pasukan :store',
+    'email_reason' => 'Anda menerima emel ini kerana melanggan kemas kini :store.',
+    'email_unsubscribe' => 'Berhenti melanggan',
 ];

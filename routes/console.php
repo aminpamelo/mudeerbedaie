@@ -27,6 +27,9 @@ Schedule::job(new DetectAbandonedSessions)->everyFifteenMinutes();
 Schedule::job(new ProcessCartAbandonment)->everyThirtyMinutes();
 Schedule::job(new UpdateFunnelAnalytics)->dailyAt('02:00');
 
+// Publish scheduled blog posts the minute their time arrives (fires the newsletter).
+Schedule::command('blog:publish-scheduled')->everyMinute()->withoutOverlapping();
+
 // Daily pixel installation health check on published funnels
 Schedule::command('funnel:pixel-health')->dailyAt('02:30');
 

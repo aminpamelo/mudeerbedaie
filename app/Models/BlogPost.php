@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\SendNewPostNewsletter;
 use App\Services\Blog\MarkdownService;
 use Carbon\CarbonInterface;
 use Database\Factories\BlogPostFactory;
@@ -49,6 +50,7 @@ class BlogPost extends Model
         'locale',
         'status',
         'published_at',
+        'newsletter_sent_at',
         'reading_time',
         'view_count',
         'is_featured',
@@ -71,6 +73,7 @@ class BlogPost extends Model
     {
         return [
             'published_at' => 'datetime',
+            'newsletter_sent_at' => 'datetime',
             'seo_checked_at' => 'datetime',
             'is_featured' => 'boolean',
             'allow_comments' => 'boolean',
@@ -315,5 +318,30 @@ class BlogPost extends Model
         // Direct increment without touching timestamps, so a read never bumps
         // updated_at or re-triggers the Markdown render hook.
         static::withoutTimestamps(fn () => $this->increment('view_count'));
+    }
+
+    /**
+     * Fan the new-article newsletter out to subscribers the first time a post
+     * goes live. Called from every publish path; the `newsletter_sent_at` stamp
+     * is written up-front (quietly, so it never re-enters the save hooks) which
+     * makes the trigger idempotent — re-saving or re-publishing never re-sends.
+     */
+    public function dispatchNewsletterIfDue(): void
+    {
+        if (! config('blog.newsletter_enabled')) {
+            return;
+        }
+
+        $isLive = $this->status === self::STATUS_PUBLISHED
+            && $this->published_at !== null
+            && $this->published_at->lessThanOrEqualTo(now());
+
+        if (! $isLive || $this->newsletter_sent_at !== null) {
+            return;
+        }
+
+        $this->forceFill(['newsletter_sent_at' => now()])->saveQuietly();
+
+        SendNewPostNewsletter::dispatch($this);
     }
 }

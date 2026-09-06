@@ -92,6 +92,7 @@ class PostController extends Controller
         $this->syncRelations($post, $request);
         $this->analyzer->analyseAndStore($post->fresh());
         cache()->forget('seo.sitemap.xml');
+        $post->dispatchNewsletterIfDue();
 
         return redirect()
             ->route('blogseo.posts.edit', $post)
@@ -105,6 +106,7 @@ class PostController extends Controller
         $this->syncRelations($post, $request);
         $this->analyzer->analyseAndStore($post->fresh());
         cache()->forget('seo.sitemap.xml');
+        $post->dispatchNewsletterIfDue();
 
         return back()->with('success', 'Post saved.');
     }
@@ -167,6 +169,7 @@ class PostController extends Controller
 
         $this->analyzer->analyseAndStore($post->fresh());
         cache()->forget('seo.sitemap.xml');
+        $post->dispatchNewsletterIfDue();
 
         return back()->with('success', 'Post published.');
     }

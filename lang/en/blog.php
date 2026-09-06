@@ -111,4 +111,11 @@ return [
     'preview_status_published' => 'This post is already LIVE.',
     'preview_view_live' => 'View live version',
     'preview_edit' => 'Edit post',
+
+    // New-article newsletter email
+    'email_intro' => ':store just published a new article — here is your read for today:',
+    'email_read_cta' => 'Read the article',
+    'email_signoff' => 'Happy reading,<br>The :store team',
+    'email_reason' => 'You are receiving this because you subscribed to :store updates.',
+    'email_unsubscribe' => 'Unsubscribe',
 ];
