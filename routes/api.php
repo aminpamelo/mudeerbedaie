@@ -222,6 +222,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::get('studio/automations/{automationId}', [FunnelStudioController::class, 'automationDetail'])->name('api.studio.automations.detail');
     Route::post('studio/automations/{automationId}/toggle', [FunnelStudioController::class, 'toggleAutomation'])->name('api.studio.automations.toggle');
     Route::get('studio/analytics', [FunnelStudioController::class, 'analytics'])->name('api.studio.analytics');
+    Route::get('studio/daily-reporting', [FunnelStudioController::class, 'dailyReporting'])->name('api.studio.daily-reporting');
 
     // Facebook Ads connections (multi Business Manager)
     Route::get('facebook-ads/connections', [FacebookAdsController::class, 'index'])->name('api.facebook-ads.index');

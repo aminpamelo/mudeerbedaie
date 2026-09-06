@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\FacebookAdAccount;
+use App\Models\FacebookAdInsight;
 use App\Models\Funnel;
 use App\Models\FunnelOrder;
 use App\Models\FunnelProduct;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Cross-funnel pages for the Funnel Studio shell: global Orders, Products,
@@ -17,6 +20,12 @@ use Illuminate\Http\Request;
  */
 class FunnelStudioController extends Controller
 {
+    /**
+     * Malaysian Service Tax charged by Meta on ad spend (8% since 1 Mar 2024).
+     * The "Spend + SST" column is raw spend grossed up by this rate.
+     */
+    private const SST_RATE = 0.08;
+
     /**
      * @return array<int, int>
      */
@@ -760,6 +769,177 @@ class FunnelStudioController extends Controller
                 'by_team' => $this->teamPerformance($funnelIds, $from),
             ],
         ]);
+    }
+
+    /**
+     * Daily ads-vs-sales report for team performance. For each day in the
+     * window it pairs Facebook ad spend (raw and grossed up by SST) with the
+     * funnel sales it drove, then rolls the same figures up per calendar month,
+     * per funnel, and per team member. Spend is scoped to the ad accounts the
+     * viewer may see (admin/employee: every account; fighter: only accounts
+     * under connections they own). Sales use the standard Studio funnel scope.
+     */
+    public function dailyReporting(Request $request): JsonResponse
+    {
+        $funnelIds = $this->scopedFunnelIds($request);
+        $days = (int) $request->input('days', 30);
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+        $from = now()->subDays($days - 1)->startOfDay();
+
+        // Which ad accounts' spend the viewer is allowed to see.
+        $user = $request->user();
+        $isPrivileged = $user && in_array($user->role, ['admin', 'employee'], true);
+        $adAccountIds = FacebookAdAccount::query()
+            ->when(! $isPrivileged, fn (Builder $q) => $q->whereHas(
+                'connection',
+                fn (Builder $c) => $c->where('user_id', $user?->id)
+            ))
+            ->pluck('id')
+            ->all();
+
+        // Daily ad spend — insights are stored per campaign per day, so sum
+        // across every campaign/account into one figure per day.
+        $spendByDay = FacebookAdInsight::query()
+            ->whereIn('facebook_ad_account_id', $adAccountIds)
+            ->where('date', '>=', $from->toDateString())
+            ->selectRaw('DATE(date) as day, SUM(spend) as spend')
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
+
+        // Daily funnel sales, same basis as the Reports page.
+        $salesByDay = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->where('created_at', '>=', $from)
+            ->selectRaw('DATE(created_at) as day, SUM(funnel_revenue) as revenue, COUNT(*) as orders')
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
+
+        // Day-by-day series, most-recent first (the frontend reverses it for
+        // the left-to-right chart). Totals are summed from these rows so the
+        // headline numbers always reconcile with the table.
+        $series = [];
+        for ($i = 0; $i < $days; $i++) {
+            $day = now()->subDays($i)->toDateString();
+            $spend = (float) ($spendByDay[$day]->spend ?? 0);
+            $sales = (float) ($salesByDay[$day]->revenue ?? 0);
+            $orders = (int) ($salesByDay[$day]->orders ?? 0);
+            $spendWithSst = round($spend * (1 + self::SST_RATE), 2);
+
+            $series[] = [
+                'day' => $day,
+                'spend' => round($spend, 2),
+                'spend_with_sst' => $spendWithSst,
+                'sales' => round($sales, 2),
+                'orders' => $orders,
+                'roas' => $spend > 0 ? round($sales / $spend, 2) : null,
+                'net' => round($sales - $spendWithSst, 2),
+            ];
+        }
+        $rows = collect($series);
+
+        // Per-calendar-month rollup so the whole month's performance shows here.
+        $monthly = $rows
+            ->groupBy(fn (array $row) => substr($row['day'], 0, 7))
+            ->map(function ($group, string $month) {
+                $spend = round($group->sum('spend'), 2);
+                $spendWithSst = round($group->sum('spend_with_sst'), 2);
+                $sales = round($group->sum('sales'), 2);
+                $orders = (int) $group->sum('orders');
+
+                return [
+                    'month' => $month,
+                    'month_label' => Carbon::parse($month.'-01')->format('M Y'),
+                    'spend' => $spend,
+                    'spend_with_sst' => $spendWithSst,
+                    'sales' => $sales,
+                    'orders' => $orders,
+                    'roas' => $spend > 0 ? round($sales / $spend, 2) : null,
+                    'net' => round($sales - $spendWithSst, 2),
+                ];
+            })
+            ->values()
+            ->sortByDesc('month')
+            ->values();
+
+        $totalSpend = round($rows->sum('spend'), 2);
+        $totalSpendWithSst = round($rows->sum('spend_with_sst'), 2);
+        $totalSales = round($rows->sum('sales'), 2);
+        $totalOrders = (int) $rows->sum('orders');
+
+        return response()->json([
+            'data' => [
+                'days' => $days,
+                'sst_rate' => self::SST_RATE,
+                'can_see_spend' => $isPrivileged,
+                'totals' => [
+                    'spend' => $totalSpend,
+                    'spend_with_sst' => $totalSpendWithSst,
+                    'sales' => $totalSales,
+                    'orders' => $totalOrders,
+                    'roas' => $totalSpend > 0 ? round($totalSales / $totalSpend, 2) : null,
+                    'net' => round($totalSales - $totalSpendWithSst, 2),
+                    'avg_order_value' => $totalOrders > 0 ? round($totalSales / $totalOrders, 2) : 0,
+                ],
+                'daily' => $series,
+                'monthly' => $monthly,
+                'by_funnel' => $this->dailyReportingByFunnel($funnelIds, $from, $adAccountIds),
+                'by_team' => $this->teamPerformance($funnelIds, $from),
+            ],
+        ]);
+    }
+
+    /**
+     * Per-funnel slice of the daily report: sales & orders in the window, plus
+     * the spend and ROAS of the ad account the funnel is linked to (its
+     * Ads Source), when one is set. Only funnels with activity are returned.
+     *
+     * @param  array<int, int>  $funnelIds
+     * @param  array<int, int>  $adAccountIds
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    protected function dailyReportingByFunnel(array $funnelIds, Carbon $from, array $adAccountIds): \Illuminate\Support\Collection
+    {
+        $salesByFunnel = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->where('created_at', '>=', $from)
+            ->selectRaw('funnel_id, SUM(funnel_revenue) as revenue, COUNT(*) as orders')
+            ->groupBy('funnel_id')
+            ->get()
+            ->keyBy('funnel_id');
+
+        $spendByAccount = FacebookAdInsight::query()
+            ->whereIn('facebook_ad_account_id', $adAccountIds)
+            ->where('date', '>=', $from->toDateString())
+            ->selectRaw('facebook_ad_account_id, SUM(spend) as spend')
+            ->groupBy('facebook_ad_account_id')
+            ->get()
+            ->keyBy('facebook_ad_account_id');
+
+        return Funnel::query()
+            ->whereIn('id', $funnelIds)
+            ->get(['id', 'uuid', 'name', 'status', 'settings'])
+            ->map(function (Funnel $funnel) use ($salesByFunnel, $spendByAccount) {
+                $sales = (float) ($salesByFunnel[$funnel->id]->revenue ?? 0);
+                $orders = (int) ($salesByFunnel[$funnel->id]->orders ?? 0);
+                $accountId = data_get($funnel->settings, 'ads.facebook_ad_account_id');
+                $spend = $accountId !== null ? (float) ($spendByAccount[$accountId]->spend ?? 0) : null;
+
+                return [
+                    'funnel_uuid' => $funnel->uuid,
+                    'funnel_name' => $funnel->name,
+                    'status' => $funnel->status,
+                    'sales' => round($sales, 2),
+                    'orders' => $orders,
+                    'linked_spend' => $spend !== null ? round($spend, 2) : null,
+                    'linked_spend_with_sst' => $spend !== null ? round($spend * (1 + self::SST_RATE), 2) : null,
+                    'roas' => ($spend !== null && $spend > 0) ? round($sales / $spend, 2) : null,
+                ];
+            })
+            ->filter(fn (array $row) => $row['sales'] > 0 || $row['orders'] > 0 || ($row['linked_spend'] ?? 0) > 0)
+            ->sortByDesc('sales')
+            ->values();
     }
 
     /**
