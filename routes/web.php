@@ -17,6 +17,7 @@ use App\Http\Controllers\BlogSeo\SubscriberController as BlogSeoSubscriberContro
 use App\Http\Controllers\BlogSeo\TagController as BlogSeoTagController;
 use App\Http\Controllers\Cekbot\AnalyticsController as CekbotAnalyticsController;
 use App\Http\Controllers\Cekbot\AutoReplyController as CekbotAutoReplyController;
+use App\Http\Controllers\Cekbot\BroadcastController as CekbotBroadcastController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
 use App\Http\Controllers\Cekbot\ProductController as CekbotProductController;
 use App\Http\Controllers\Cekbot\SessionController as CekbotSessionController;
@@ -1944,6 +1945,12 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
 
         // Fasa 6 — Analytics
         Route::get('analytics', [CekbotAnalyticsController::class, 'index'])->name('analytics');
+
+        // Broadcast & follow-up
+        Route::get('broadcast', [CekbotBroadcastController::class, 'index'])->name('broadcast');
+        Route::get('broadcast-recipients-count', [CekbotBroadcastController::class, 'recipientsCount'])->name('broadcast.count');
+        Route::post('broadcast', [CekbotBroadcastController::class, 'store'])->name('broadcast.store');
+        Route::delete('broadcast/{broadcast}', [CekbotBroadcastController::class, 'destroy'])->name('broadcast.destroy');
 
         // WAHA connection settings (switch local/production)
         Route::get('settings', [CekbotSettingsController::class, 'index'])->name('settings');
