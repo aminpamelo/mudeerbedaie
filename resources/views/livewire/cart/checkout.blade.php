@@ -50,7 +50,7 @@ new #[Layout('components.layouts.store')] class extends Component
 
     public bool $sameAsBilling = true;
 
-    public string $paymentMethod = 'credit_card';
+    public string $paymentMethod = 'fpx';
 
     public bool $isProcessing = false;
 
@@ -236,10 +236,19 @@ new #[Layout('components.layouts.store')] class extends Component
         $this->isProcessing = true;
 
         try {
-            // Validate payment method
+            // Validate payment method. Only FPX (Bayarcash) and COD are wired to
+            // an actual settlement path; card/e-wallet options were removed
+            // because they never reached a gateway and left orders stuck pending.
             $this->validate([
-                'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cod,fpx,grabpay,boost',
+                'paymentMethod' => 'required|in:fpx,cod',
             ]);
+
+            // Guard before creating anything: FPX is the only online method, so if
+            // Bayarcash is not configured we must stop here rather than fall through
+            // to the confirmation step and leave an unpayable "pending" order.
+            if ($this->paymentMethod === 'fpx' && ! $this->isBayarcashEnabled()) {
+                throw new Exception('Pembayaran dalam talian (FPX) tidak tersedia buat masa ini. Sila cuba sebentar lagi atau hubungi kami.');
+            }
 
             // Final stock validation (products only; packages/courses have no inventory)
             foreach ($this->cart->items as $item) {
@@ -618,12 +627,11 @@ new #[Layout('components.layouts.store')] class extends Component
                         <h2 class="font-display text-lg font-extrabold text-zinc-900">{{ __('store.co_payment_method') }}</h2>
 
                         @php
+                            // Only FPX (Bayarcash) is offered for online payment — card and
+                            // e-wallet options were never connected to a gateway and left
+                            // orders stuck "pending". COD stays if the admin has enabled it.
                             $methods = [
-                                ['value' => 'credit_card', 'icon' => 'credit-card', 'title' => __('store.co_pm_credit_card'), 'sub' => __('store.co_pm_cards_sub')],
-                                ['value' => 'debit_card', 'icon' => 'credit-card', 'title' => __('store.co_pm_debit_card'), 'sub' => __('store.co_pm_cards_sub')],
                                 ['value' => 'fpx', 'icon' => 'building-library', 'title' => __('store.co_pm_fpx'), 'sub' => __('store.co_pm_fpx_sub')],
-                                ['value' => 'grabpay', 'icon' => 'wallet', 'title' => __('store.co_pm_grabpay'), 'sub' => __('store.co_pm_wallet_sub')],
-                                ['value' => 'boost', 'icon' => 'wallet', 'title' => __('store.co_pm_boost'), 'sub' => __('store.co_pm_wallet_sub')],
                             ];
                             if (app(\App\Services\SettingsService::class)->isCodEnabled()) {
                                 $methods[] = ['value' => 'cod', 'icon' => 'banknotes', 'title' => __('store.co_pm_cod'), 'sub' => __('store.co_pm_cod_sub')];
