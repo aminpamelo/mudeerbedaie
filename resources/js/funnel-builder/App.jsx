@@ -16,6 +16,7 @@ import StudioFacebookAds from './components/StudioFacebookAds';
 import StudioAutomations from './components/StudioAutomations';
 import StudioAnalytics from './components/StudioAnalytics';
 import StudioDailyReporting from './components/StudioDailyReporting';
+import StudioConnectAI from './components/StudioConnectAI';
 import { stepApi } from './services/api';
 
 // View states
@@ -31,6 +32,7 @@ const VIEWS = {
     AUTOMATIONS: 'automations',
     ANALYTICS: 'analytics',
     DAILY_REPORTING: 'daily_reporting',
+    CONNECT_AI: 'connect_ai',
 };
 
 // Static SPA pages (must be matched before the /funnel-builder/{uuid} branch)
@@ -43,6 +45,7 @@ const STATIC_PATHS = {
     '/funnel-builder/automations': VIEWS.AUTOMATIONS,
     '/funnel-builder/analytics': VIEWS.ANALYTICS,
     '/funnel-builder/daily-reporting': VIEWS.DAILY_REPORTING,
+    '/funnel-builder/connect-ai': VIEWS.CONNECT_AI,
 };
 
 export default function App() {
@@ -225,6 +228,8 @@ export default function App() {
                 return <StudioAnalytics onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.DAILY_REPORTING:
                 return <StudioDailyReporting onSelectFunnel={handleSelectFunnel} />;
+            case VIEWS.CONNECT_AI:
+                return <StudioConnectAI />;
             case VIEWS.EDITOR:
                 return (
                     <FunnelEditor

@@ -8,6 +8,7 @@ use App\Models\FacebookAdInsight;
 use App\Models\Funnel;
 use App\Models\FunnelOrder;
 use App\Models\FunnelProduct;
+use App\Services\Funnel\FunnelStudioReportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,12 +21,6 @@ use Illuminate\Support\Carbon;
  */
 class FunnelStudioController extends Controller
 {
-    /**
-     * Malaysian Service Tax charged by Meta on ad spend (8% since 1 Mar 2024).
-     * The "Spend + SST" column is raw spend grossed up by this rate.
-     */
-    private const SST_RATE = 0.08;
-
     /**
      * @return array<int, int>
      */
@@ -779,12 +774,10 @@ class FunnelStudioController extends Controller
      * viewer may see (admin/employee: every account; fighter: only accounts
      * under connections they own). Sales use the standard Studio funnel scope.
      */
-    public function dailyReporting(Request $request): JsonResponse
+    public function dailyReporting(Request $request, FunnelStudioReportService $reports): JsonResponse
     {
         $funnelIds = $this->scopedFunnelIds($request);
         $days = (int) $request->input('days', 30);
-        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
-        $from = now()->subDays($days - 1)->startOfDay();
 
         // Which ad accounts' spend the viewer is allowed to see.
         $user = $request->user();
@@ -797,96 +790,15 @@ class FunnelStudioController extends Controller
             ->pluck('id')
             ->all();
 
-        // Daily ad spend — insights are stored per campaign per day, so sum
-        // across every campaign/account into one figure per day.
-        $spendByDay = FacebookAdInsight::query()
-            ->whereIn('facebook_ad_account_id', $adAccountIds)
-            ->where('date', '>=', $from->toDateString())
-            ->selectRaw('DATE(date) as day, SUM(spend) as spend')
-            ->groupBy('day')
-            ->get()
-            ->keyBy('day');
-
-        // Daily funnel sales, same basis as the Reports page.
-        $salesByDay = FunnelOrder::query()
-            ->whereIn('funnel_id', $funnelIds)
-            ->where('created_at', '>=', $from)
-            ->selectRaw('DATE(created_at) as day, SUM(funnel_revenue) as revenue, COUNT(*) as orders')
-            ->groupBy('day')
-            ->get()
-            ->keyBy('day');
-
-        // Day-by-day series, most-recent first (the frontend reverses it for
-        // the left-to-right chart). Totals are summed from these rows so the
-        // headline numbers always reconcile with the table.
-        $series = [];
-        for ($i = 0; $i < $days; $i++) {
-            $day = now()->subDays($i)->toDateString();
-            $spend = (float) ($spendByDay[$day]->spend ?? 0);
-            $sales = (float) ($salesByDay[$day]->revenue ?? 0);
-            $orders = (int) ($salesByDay[$day]->orders ?? 0);
-            $spendWithSst = round($spend * (1 + self::SST_RATE), 2);
-
-            $series[] = [
-                'day' => $day,
-                'spend' => round($spend, 2),
-                'spend_with_sst' => $spendWithSst,
-                'sales' => round($sales, 2),
-                'orders' => $orders,
-                'roas' => $spend > 0 ? round($sales / $spend, 2) : null,
-                'net' => round($sales - $spendWithSst, 2),
-            ];
-        }
-        $rows = collect($series);
-
-        // Per-calendar-month rollup so the whole month's performance shows here.
-        $monthly = $rows
-            ->groupBy(fn (array $row) => substr($row['day'], 0, 7))
-            ->map(function ($group, string $month) {
-                $spend = round($group->sum('spend'), 2);
-                $spendWithSst = round($group->sum('spend_with_sst'), 2);
-                $sales = round($group->sum('sales'), 2);
-                $orders = (int) $group->sum('orders');
-
-                return [
-                    'month' => $month,
-                    'month_label' => Carbon::parse($month.'-01')->format('M Y'),
-                    'spend' => $spend,
-                    'spend_with_sst' => $spendWithSst,
-                    'sales' => $sales,
-                    'orders' => $orders,
-                    'roas' => $spend > 0 ? round($sales / $spend, 2) : null,
-                    'net' => round($sales - $spendWithSst, 2),
-                ];
-            })
-            ->values()
-            ->sortByDesc('month')
-            ->values();
-
-        $totalSpend = round($rows->sum('spend'), 2);
-        $totalSpendWithSst = round($rows->sum('spend_with_sst'), 2);
-        $totalSales = round($rows->sum('sales'), 2);
-        $totalOrders = (int) $rows->sum('orders');
+        $report = $reports->dailyReport($funnelIds, $adAccountIds, $days);
+        $from = now()->subDays($report['days'] - 1)->startOfDay();
 
         return response()->json([
-            'data' => [
-                'days' => $days,
-                'sst_rate' => self::SST_RATE,
+            'data' => array_merge($report, [
                 'can_see_spend' => $isPrivileged,
-                'totals' => [
-                    'spend' => $totalSpend,
-                    'spend_with_sst' => $totalSpendWithSst,
-                    'sales' => $totalSales,
-                    'orders' => $totalOrders,
-                    'roas' => $totalSpend > 0 ? round($totalSales / $totalSpend, 2) : null,
-                    'net' => round($totalSales - $totalSpendWithSst, 2),
-                    'avg_order_value' => $totalOrders > 0 ? round($totalSales / $totalOrders, 2) : 0,
-                ],
-                'daily' => $series,
-                'monthly' => $monthly,
                 'by_funnel' => $this->dailyReportingByFunnel($funnelIds, $from, $adAccountIds),
                 'by_team' => $this->teamPerformance($funnelIds, $from),
-            ],
+            ]),
         ]);
     }
 
@@ -933,7 +845,7 @@ class FunnelStudioController extends Controller
                     'sales' => round($sales, 2),
                     'orders' => $orders,
                     'linked_spend' => $spend !== null ? round($spend, 2) : null,
-                    'linked_spend_with_sst' => $spend !== null ? round($spend * (1 + self::SST_RATE), 2) : null,
+                    'linked_spend_with_sst' => $spend !== null ? round($spend * (1 + FunnelStudioReportService::SST_RATE), 2) : null,
                     'roas' => ($spend !== null && $spend > 0) ? round($sales / $spend, 2) : null,
                 ];
             })
