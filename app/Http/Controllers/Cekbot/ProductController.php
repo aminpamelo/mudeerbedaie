@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cekbot;
 
 use App\Http\Controllers\Controller;
 use App\Models\CekbotProduct;
+use App\Models\CekbotProductTestimonial;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +29,15 @@ class ProductController extends Controller
         ]);
     }
 
+    public function show(CekbotProduct $product): Response
+    {
+        $product->load(['product:id,name', 'product.images', 'testimonials']);
+
+        return Inertia::render('Products/Show', [
+            'product' => $this->shape($product),
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validateProduct($request);
@@ -37,6 +47,36 @@ class ProductController extends Controller
         CekbotProduct::create($validated);
 
         return back()->with('success', 'Produk ditambah.');
+    }
+
+    /**
+     * Update the detailed product knowledge (long-form notes + FAQ pairs) used
+     * by the sales bot.
+     */
+    public function updateKnowledge(Request $request, CekbotProduct $product): RedirectResponse
+    {
+        $validated = $request->validate([
+            'knowledge' => 'nullable|string|max:20000',
+            'faqs' => 'nullable|array|max:100',
+            'faqs.*.question' => 'nullable|string|max:500',
+            'faqs.*.answer' => 'nullable|string|max:5000',
+        ]);
+
+        $faqs = collect($validated['faqs'] ?? [])
+            ->map(fn ($faq) => [
+                'question' => trim((string) ($faq['question'] ?? '')),
+                'answer' => trim((string) ($faq['answer'] ?? '')),
+            ])
+            ->filter(fn (array $faq) => $faq['question'] !== '' || $faq['answer'] !== '')
+            ->values()
+            ->all();
+
+        $product->update([
+            'knowledge' => $validated['knowledge'] ?? null,
+            'faqs' => $faqs ?: null,
+        ]);
+
+        return back()->with('success', 'Product knowledge dikemas kini.');
     }
 
     public function update(Request $request, CekbotProduct $product): RedirectResponse
@@ -60,15 +100,85 @@ class ProductController extends Controller
         return back()->with('success', 'Produk dikemas kini.');
     }
 
+    /**
+     * Manage a product's own gallery images from the detail page — append new
+     * uploads and/or remove existing ones in a single request.
+     */
+    public function updateImages(Request $request, CekbotProduct $product): RedirectResponse
+    {
+        $request->validate([
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:5120',
+            'removed_images' => 'nullable|array',
+            'removed_images.*' => 'string',
+        ]);
+
+        $images = $product->images ?? [];
+
+        foreach ((array) $request->input('removed_images', []) as $path) {
+            if (($key = array_search($path, $images, true)) !== false) {
+                Storage::disk('public')->delete($path);
+                unset($images[$key]);
+            }
+        }
+
+        $product->update([
+            'images' => array_values(array_merge($images, $this->storeImages($request))),
+        ]);
+
+        return back()->with('success', 'Gambar produk dikemas kini.');
+    }
+
+    /**
+     * Add a customer testimonial (image + text) to a product.
+     */
+    public function storeTestimonial(Request $request, CekbotProduct $product): RedirectResponse
+    {
+        $validated = $request->validate([
+            'author' => 'nullable|string|max:255',
+            'text' => 'nullable|string|max:2000',
+            'image' => 'nullable|image|max:5120',
+        ]);
+
+        if (blank($validated['text'] ?? null) && ! $request->hasFile('image')) {
+            return back()->withErrors(['text' => 'Masukkan teks atau gambar testimoni.']);
+        }
+
+        $product->testimonials()->create([
+            'author' => $validated['author'] ?? null,
+            'text' => $validated['text'] ?? null,
+            'image' => $request->hasFile('image') ? $request->file('image')->store('cekbot-testimonials', 'public') : null,
+        ]);
+
+        return back()->with('success', 'Testimoni ditambah.');
+    }
+
+    public function destroyTestimonial(CekbotProduct $product, CekbotProductTestimonial $testimonial): RedirectResponse
+    {
+        abort_unless($testimonial->cekbot_product_id === $product->id, 404);
+
+        if ($testimonial->image) {
+            Storage::disk('public')->delete($testimonial->image);
+        }
+
+        $testimonial->delete();
+
+        return back()->with('success', 'Testimoni dipadam.');
+    }
+
     public function destroy(CekbotProduct $product): RedirectResponse
     {
         foreach ($product->images ?? [] as $path) {
             Storage::disk('public')->delete($path);
         }
 
+        foreach ($product->testimonials()->pluck('image')->filter() as $path) {
+            Storage::disk('public')->delete($path);
+        }
+
         $product->delete();
 
-        return back()->with('success', 'Produk dipadam.');
+        return redirect()->route('cekbot.products')->with('success', 'Produk dipadam.');
     }
 
     /**
@@ -142,12 +252,30 @@ class ProductController extends Controller
             'currency' => $p->currency,
             'url' => $p->url,
             'description' => $p->description,
+            'knowledge' => $p->knowledge,
+            'faqs' => $p->faqPairs(),
+            'faqs_count' => count($p->faqPairs()),
+            'has_knowledge' => filled($p->knowledge) || count($p->faqPairs()) > 0,
             'is_active' => $p->is_active,
             'sort_order' => $p->sort_order,
             'product_id' => $p->product_id,
             'linked_product' => $p->product?->name,
             'images' => $p->images ?? [],
             'image_urls' => $p->imageUrls(),
+            'own_images' => collect($p->images ?? [])
+                ->map(fn ($path) => ['path' => $path, 'url' => Storage::disk('public')->url($path)])
+                ->all(),
+            'linked_image_urls' => $p->relationLoaded('product') && $p->product
+                ? $p->product->images->pluck('url')->filter()->values()->all()
+                : [],
+            'testimonials' => $p->relationLoaded('testimonials')
+                ? $p->testimonials->map(fn (CekbotProductTestimonial $t) => [
+                    'id' => $t->id,
+                    'author' => $t->author,
+                    'text' => $t->text,
+                    'image_url' => $t->imageUrl(),
+                ])->all()
+                : [],
         ];
     }
 }

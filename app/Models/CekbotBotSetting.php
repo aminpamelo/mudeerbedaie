@@ -10,6 +10,8 @@ class CekbotBotSetting extends Model
     protected $fillable = [
         'cekbot_session_id',
         'bot_enabled',
+        'test_mode',
+        'test_numbers',
         'reply_to_groups',
         'checks_enabled',
         'welcome_message',
@@ -27,11 +29,54 @@ class CekbotBotSetting extends Model
     {
         return [
             'bot_enabled' => 'boolean',
+            'test_mode' => 'boolean',
+            'test_numbers' => 'array',
             'reply_to_groups' => 'boolean',
             'checks_enabled' => 'boolean',
             'ai_enabled' => 'boolean',
             'business_hours' => 'array',
         ];
+    }
+
+    /**
+     * Whether the bot is allowed to reply to the given WhatsApp chat id.
+     *
+     * When test mode is on, the bot only replies to whitelisted numbers (so it
+     * won't blast every customer during testing). With test mode off it replies
+     * to everyone.
+     */
+    public function repliesTo(string $chatId): bool
+    {
+        if (! $this->test_mode) {
+            return true;
+        }
+
+        $allowed = collect($this->test_numbers ?? [])
+            ->map(fn ($number) => static::normalizePhone((string) $number))
+            ->filter()
+            ->all();
+
+        if (empty($allowed)) {
+            return false;
+        }
+
+        return in_array(static::normalizePhone($chatId), $allowed, true);
+    }
+
+    /**
+     * Reduce a raw phone/chat id to digits only, coercing a leading Malaysian
+     * "0" to the "60" country code so "0123456789", "+60 12-345 6789" and
+     * "60123456789@c.us" all compare equal.
+     */
+    public static function normalizePhone(string $raw): string
+    {
+        $digits = preg_replace('/\D+/', '', $raw) ?? '';
+
+        if ($digits !== '' && str_starts_with($digits, '0')) {
+            $digits = '60'.substr($digits, 1);
+        }
+
+        return $digits;
     }
 
     /**

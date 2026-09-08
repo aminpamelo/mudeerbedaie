@@ -46,6 +46,9 @@ class AutoReplyController extends Controller
     {
         $validated = $request->validate([
             'bot_enabled' => 'boolean',
+            'test_mode' => 'boolean',
+            'test_numbers' => 'nullable|array|max:50',
+            'test_numbers.*' => 'nullable|string|max:30',
             'reply_to_groups' => 'boolean',
             'checks_enabled' => 'boolean',
             'welcome_message' => 'nullable|string|max:4096',
@@ -60,6 +63,15 @@ class AutoReplyController extends Controller
             'ai_enabled' => 'boolean',
             'ai_system_prompt' => 'nullable|string|max:4096',
         ]);
+
+        if (array_key_exists('test_numbers', $validated)) {
+            $validated['test_numbers'] = collect($validated['test_numbers'] ?? [])
+                ->map(fn ($number) => trim((string) $number))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
 
         CekbotBotSetting::updateOrCreate(
             ['cekbot_session_id' => $session->id],
@@ -123,6 +135,8 @@ class AutoReplyController extends Controller
     {
         return [
             'bot_enabled' => (bool) $settings?->bot_enabled,
+            'test_mode' => (bool) $settings?->test_mode,
+            'test_numbers' => $settings?->test_numbers ?? [],
             'reply_to_groups' => (bool) $settings?->reply_to_groups,
             'checks_enabled' => (bool) $settings?->checks_enabled,
             'welcome_message' => $settings?->welcome_message,

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 class CekbotProduct extends Model
@@ -17,6 +18,8 @@ class CekbotProduct extends Model
         'product_id',
         'name',
         'description',
+        'knowledge',
+        'faqs',
         'price',
         'currency',
         'url',
@@ -33,6 +36,7 @@ class CekbotProduct extends Model
     {
         return [
             'images' => 'array',
+            'faqs' => 'array',
             'price' => 'decimal:2',
             'is_active' => 'boolean',
         ];
@@ -46,6 +50,16 @@ class CekbotProduct extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Customer testimonials (social proof) shown for this product.
+     *
+     * @return HasMany<CekbotProductTestimonial, $this>
+     */
+    public function testimonials(): HasMany
+    {
+        return $this->hasMany(CekbotProductTestimonial::class)->orderBy('sort_order')->orderByDesc('id');
     }
 
     /**
@@ -72,6 +86,23 @@ class CekbotProduct extends Model
             : [];
 
         return array_values(array_filter(array_merge($own, $linked)));
+    }
+
+    /**
+     * Normalised, non-empty question/answer pairs for this product.
+     *
+     * @return array<int, array{question: string, answer: string}>
+     */
+    public function faqPairs(): array
+    {
+        return collect($this->faqs ?? [])
+            ->map(fn ($faq) => [
+                'question' => trim((string) ($faq['question'] ?? '')),
+                'answer' => trim((string) ($faq['answer'] ?? '')),
+            ])
+            ->filter(fn (array $faq) => $faq['question'] !== '' && $faq['answer'] !== '')
+            ->values()
+            ->all();
     }
 
     /**

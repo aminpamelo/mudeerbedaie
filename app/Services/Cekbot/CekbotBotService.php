@@ -33,6 +33,11 @@ class CekbotBotService
             return;
         }
 
+        // Test mode: only reply to whitelisted numbers (avoid blasting everyone).
+        if (! $settings->repliesTo($conversation->chat_id)) {
+            return;
+        }
+
         if ($conversation->is_group && ! $settings->reply_to_groups) {
             return;
         }

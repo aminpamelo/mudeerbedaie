@@ -19,6 +19,7 @@ use App\Http\Controllers\Cekbot\AnalyticsController as CekbotAnalyticsController
 use App\Http\Controllers\Cekbot\AutoReplyController as CekbotAutoReplyController;
 use App\Http\Controllers\Cekbot\BroadcastController as CekbotBroadcastController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
+use App\Http\Controllers\Cekbot\LeadController as CekbotLeadController;
 use App\Http\Controllers\Cekbot\ProductController as CekbotProductController;
 use App\Http\Controllers\Cekbot\SessionController as CekbotSessionController;
 use App\Http\Controllers\Cekbot\SettingsController as CekbotSettingsController;
@@ -1917,6 +1918,14 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::get('sessions/{session}/status', [CekbotSessionController::class, 'status'])->name('sessions.status');
         Route::post('sessions/{session}/pairing-code', [CekbotSessionController::class, 'pairingCode'])->name('sessions.pairing');
 
+        // Leads — semua nombor yang pernah mesej (+ Kanban pipeline)
+        Route::get('leads', [CekbotLeadController::class, 'index'])->name('leads');
+        Route::get('leads/export', [CekbotLeadController::class, 'export'])->name('leads.export');
+        Route::post('leads/categories', [CekbotLeadController::class, 'storeCategory'])->name('leads.categories.store');
+        Route::put('leads/categories/{category}', [CekbotLeadController::class, 'updateCategory'])->name('leads.categories.update');
+        Route::delete('leads/categories/{category}', [CekbotLeadController::class, 'destroyCategory'])->name('leads.categories.destroy');
+        Route::post('leads/{lead}/move', [CekbotLeadController::class, 'moveLead'])->name('leads.move');
+
         // Fasa 2 — Inbox (terima mesej + balas)
         Route::get('inbox', [CekbotInboxController::class, 'index'])->name('inbox');
         Route::get('inbox/{conversation}/messages', [CekbotInboxController::class, 'messages'])->name('inbox.messages');
@@ -1932,8 +1941,13 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         // Product knowledge (sales bot)
         Route::get('products', [CekbotProductController::class, 'index'])->name('products');
         Route::get('products-search', [CekbotProductController::class, 'searchCatalog'])->name('products.search');
+        Route::get('products/{product}', [CekbotProductController::class, 'show'])->name('products.show');
         Route::post('products', [CekbotProductController::class, 'store'])->name('products.store');
         Route::post('products/{product}', [CekbotProductController::class, 'update'])->name('products.update');
+        Route::post('products/{product}/knowledge', [CekbotProductController::class, 'updateKnowledge'])->name('products.knowledge');
+        Route::post('products/{product}/images', [CekbotProductController::class, 'updateImages'])->name('products.images');
+        Route::post('products/{product}/testimonials', [CekbotProductController::class, 'storeTestimonial'])->name('products.testimonials.store');
+        Route::delete('products/{product}/testimonials/{testimonial}', [CekbotProductController::class, 'destroyTestimonial'])->name('products.testimonials.destroy');
         Route::delete('products/{product}', [CekbotProductController::class, 'destroy'])->name('products.destroy');
 
         // Fasa 3 — Auto-reply rules + bot settings

@@ -20,6 +20,7 @@ export default function Index() {
   const [notes, setNotes] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const pollRef = useRef(null);
 
@@ -42,6 +43,22 @@ export default function Index() {
     setMessages([]);
     setMobileView('chat');
     loadMessages(c.id);
+  }
+
+  function refresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    router.reload({
+      only: ['conversations'],
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        if (selected) loadMessages(selected.id, { silent: true });
+        toast.success('Inbox dikemas kini');
+      },
+      onError: () => toast.error('Gagal menyegar. Cuba lagi.'),
+      onFinish: () => setRefreshing(false),
+    });
   }
 
   // Poll the open conversation for new messages.
@@ -123,8 +140,8 @@ export default function Index() {
       title="Mesej"
       subtitle="Inbox WhatsApp masuk & balasan"
       actions={
-        <Button variant="secondary" onClick={() => router.reload({ only: ['conversations'] })}>
-          <RefreshCw className="h-4 w-4" strokeWidth={2.2} /> Segar semula
+        <Button variant="secondary" onClick={refresh} disabled={refreshing}>
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={2.2} /> {refreshing ? 'Menyegar…' : 'Segar semula'}
         </Button>
       }
     >

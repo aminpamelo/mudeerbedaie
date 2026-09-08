@@ -149,3 +149,67 @@ it('renders the auto-reply page', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('AutoReply/Index', false)->has('sessions'));
 });
+
+it('replies only to whitelisted numbers in test mode', function () {
+    enableBot($this->session, [
+        'welcome_message' => 'Hai ujian!',
+        'test_mode' => true,
+        'test_numbers' => ['60129999999'],
+    ]);
+
+    test()->postJson('/api/cekbot/webhook', cekbotInbound('hi', 'tm1', '60129999999@c.us'))->assertOk();
+
+    expect(CekbotMessage::query()->where('direction', 'out')->value('body'))->toBe('Hai ujian!');
+});
+
+it('stays silent for numbers not in the test whitelist', function () {
+    enableBot($this->session, [
+        'welcome_message' => 'Hai ujian!',
+        'test_mode' => true,
+        'test_numbers' => ['60129999999'],
+    ]);
+
+    test()->postJson('/api/cekbot/webhook', cekbotInbound('hi', 'tm2', '60188888888@c.us'))->assertOk();
+
+    expect(CekbotMessage::query()->where('direction', 'out')->count())->toBe(0);
+});
+
+it('matches whitelist numbers regardless of 0 or 60 prefix', function () {
+    enableBot($this->session, [
+        'welcome_message' => 'Hai ujian!',
+        'test_mode' => true,
+        'test_numbers' => ['0129999999'], // entered in local format
+    ]);
+
+    // sender arrives as 60-prefixed chat id
+    test()->postJson('/api/cekbot/webhook', cekbotInbound('hi', 'tm3', '60129999999@c.us'))->assertOk();
+
+    expect(CekbotMessage::query()->where('direction', 'out')->value('body'))->toBe('Hai ujian!');
+});
+
+it('stays silent when test mode is on but the whitelist is empty', function () {
+    enableBot($this->session, [
+        'welcome_message' => 'Hai ujian!',
+        'test_mode' => true,
+        'test_numbers' => [],
+    ]);
+
+    test()->postJson('/api/cekbot/webhook', cekbotInbound('hi', 'tm4', '60129999999@c.us'))->assertOk();
+
+    expect(CekbotMessage::query()->where('direction', 'out')->count())->toBe(0);
+});
+
+it('saves test mode settings and cleans blank/duplicate numbers', function () {
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.auto-reply.settings', $this->session->id), [
+            'bot_enabled' => true,
+            'test_mode' => true,
+            'test_numbers' => ['60129999999', ' 60129999999 ', '', '60188888888'],
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $settings = CekbotBotSetting::query()->where('cekbot_session_id', $this->session->id)->first();
+    expect($settings->test_mode)->toBeTrue()
+        ->and($settings->test_numbers)->toBe(['60129999999', '60188888888']);
+});

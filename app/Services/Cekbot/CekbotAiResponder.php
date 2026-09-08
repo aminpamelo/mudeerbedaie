@@ -6,6 +6,7 @@ use App\Models\CekbotBotSetting;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
 use App\Models\CekbotProduct;
+use App\Models\CekbotProductTestimonial;
 use App\Models\MindpalChunk;
 use App\Services\MindpalEmbeddingService;
 use Illuminate\Support\Facades\Log;
@@ -117,7 +118,7 @@ PROMPT;
                 'type' => 'function',
                 'function' => [
                     'name' => 'search_products',
-                    'description' => 'Cari produk yang dijual (nama, harga, link, penerangan) mengikut kata kunci.',
+                    'description' => 'Cari produk yang dijual mengikut kata kunci. Memulangkan nama, harga, link, penerangan, product knowledge terperinci, soalan lazim (FAQ) dan testimoni pelanggan. Guna untuk jawab soalan spesifik tentang produk dan kongsi testimoni sebagai social proof bila pelanggan teragak-agak.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -178,6 +179,7 @@ PROMPT;
 
         $products = CekbotProduct::query()
             ->active()
+            ->with('testimonials')
             ->when($query !== '', fn ($w) => $w->where(fn ($x) => $x
                 ->where('name', 'like', "%{$query}%")
                 ->orWhere('description', 'like', "%{$query}%")))
@@ -185,13 +187,24 @@ PROMPT;
             ->limit(8)
             ->get();
 
-        return json_encode($products->map(fn (CekbotProduct $p) => [
+        return json_encode($products->map(fn (CekbotProduct $p) => array_filter([
             'name' => $p->name,
             'price' => $p->price,
             'currency' => $p->currency,
             'url' => $p->url,
             'description' => \Illuminate\Support\Str::limit((string) $p->description, 300),
-        ])->all(), JSON_UNESCAPED_UNICODE);
+            'knowledge' => filled($p->knowledge) ? \Illuminate\Support\Str::limit((string) $p->knowledge, 1500) : null,
+            'faqs' => $p->faqPairs() ?: null,
+            'testimonials' => $p->testimonials
+                ->filter(fn (CekbotProductTestimonial $t) => filled($t->text))
+                ->take(5)
+                ->map(fn (CekbotProductTestimonial $t) => array_filter([
+                    'author' => $t->author,
+                    'text' => \Illuminate\Support\Str::limit((string) $t->text, 300),
+                ]))
+                ->values()
+                ->all() ?: null,
+        ], fn ($value) => $value !== null && $value !== ''))->all(), JSON_UNESCAPED_UNICODE);
     }
 
     /**

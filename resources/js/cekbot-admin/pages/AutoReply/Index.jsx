@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Zap, Bot, Sparkles, Clock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, Bot, Sparkles, Clock, FlaskConical, X } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Badge, Field, Input, Textarea, Toggle, EmptyState } from '@/cekbot-admin/components/Ui';
 import RuleModal from '@/cekbot-admin/components/autoreply/RuleModal';
@@ -16,10 +16,21 @@ export default function Index() {
   const [ruleModal, setRuleModal] = useState({ open: false, editing: null });
 
   const settings = useForm({
-    bot_enabled: false, reply_to_groups: false, checks_enabled: false, welcome_message: '', default_reply: '',
+    bot_enabled: false, test_mode: false, test_numbers: [], reply_to_groups: false, checks_enabled: false, welcome_message: '', default_reply: '',
     away_message: '', business_hours: { enabled: false, start: '09:00', end: '18:00', days: [1, 2, 3, 4, 5] },
     ai_enabled: false, ai_system_prompt: '',
   });
+
+  const [numberInput, setNumberInput] = useState('');
+  function addNumber() {
+    const n = numberInput.trim();
+    if (!n) return;
+    if (!settings.data.test_numbers.includes(n)) settings.setData('test_numbers', [...settings.data.test_numbers, n]);
+    setNumberInput('');
+  }
+  function removeNumber(n) {
+    settings.setData('test_numbers', settings.data.test_numbers.filter((x) => x !== n));
+  }
 
   const DAYS = [[1, 'Isn'], [2, 'Sel'], [3, 'Rab'], [4, 'Kha'], [5, 'Jum'], [6, 'Sab'], [7, 'Ahd']];
   const bh = settings.data.business_hours || {};
@@ -33,6 +44,8 @@ export default function Index() {
     if (selected) {
       settings.setData({
         bot_enabled: selected.settings.bot_enabled,
+        test_mode: selected.settings.test_mode ?? false,
+        test_numbers: selected.settings.test_numbers ?? [],
         reply_to_groups: selected.settings.reply_to_groups,
         checks_enabled: selected.settings.checks_enabled,
         welcome_message: selected.settings.welcome_message ?? '',
@@ -102,6 +115,43 @@ export default function Index() {
             </div>
 
             <div className={cn('space-y-4 transition-opacity', !settings.data.bot_enabled && 'opacity-50')}>
+              {/* Mod ujian — hadkan balasan kepada nombor terpilih */}
+              <div className="rounded-xl border border-amber-400/25 bg-amber-500/[0.06] p-3.5">
+                <label className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[13px] font-semibold text-white/80">
+                    <FlaskConical className="h-4 w-4 text-amber-300" /> Mod ujian (balas nombor terpilih sahaja)
+                  </span>
+                  <Toggle checked={settings.data.test_mode} onChange={(v) => settings.setData('test_mode', v)} disabled={!settings.data.bot_enabled} />
+                </label>
+                {settings.data.test_mode && (
+                  <div className="mt-3 space-y-2.5">
+                    <div className="flex gap-2">
+                      <Input
+                        value={numberInput}
+                        onChange={(e) => setNumberInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNumber(); } }}
+                        placeholder="Cth: 60123456789 atau 0123456789"
+                        disabled={!settings.data.bot_enabled}
+                      />
+                      <Button variant="secondary" onClick={addNumber} disabled={!settings.data.bot_enabled}><Plus className="h-4 w-4" /> Tambah</Button>
+                    </div>
+                    {settings.data.test_numbers.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {settings.data.test_numbers.map((n) => (
+                          <span key={n} className="inline-flex items-center gap-1 rounded-lg bg-white/8 px-2 py-1 text-[12px] font-medium text-white/75 ring-1 ring-inset ring-white/10">
+                            {n}
+                            <button type="button" onClick={() => removeNumber(n)} className="text-white/40 hover:text-rose-300" aria-label={`Buang ${n}`}><X className="h-3 w-3" /></button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11.5px] text-amber-300/80">⚠️ Senarai kosong — bot takkan balas sesiapa. Tambah nombor ujian anda.</p>
+                    )}
+                    <p className="text-[11.5px] text-white/40">Bila mod ujian ON, bot hanya balas nombor dalam senarai ni. Matikan untuk balas semua pelanggan.</p>
+                  </div>
+                )}
+              </div>
+
               <label className="flex items-center justify-between gap-3">
                 <span className="text-[13px] text-white/70">Balas dalam group juga</span>
                 <Toggle checked={settings.data.reply_to_groups} onChange={(v) => settings.setData('reply_to_groups', v)} disabled={!settings.data.bot_enabled} />

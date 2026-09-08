@@ -26,6 +26,7 @@ class CekbotConversation extends Model
         'handed_over_by',
         'assigned_to',
         'labels',
+        'lead_category_id',
     ];
 
     /**
@@ -65,6 +66,16 @@ class CekbotConversation extends Model
     public function session(): BelongsTo
     {
         return $this->belongsTo(CekbotSession::class, 'cekbot_session_id');
+    }
+
+    /**
+     * The pipeline category this lead is filed under (for the Kanban board).
+     *
+     * @return BelongsTo<CekbotLeadCategory, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(CekbotLeadCategory::class, 'lead_category_id');
     }
 
     /**
