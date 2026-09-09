@@ -6,6 +6,7 @@ namespace App\Mcp\Concerns;
 
 use App\Models\FacebookAdAccount;
 use App\Models\Funnel;
+use App\Models\FunnelStep;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -75,5 +76,15 @@ trait ScopesToMarketer
         return Product::query()
             ->where('status', 'active')
             ->when($user->isFighter(), fn (Builder $q) => $q->sellableByFighter($user->id));
+    }
+
+    /**
+     * Resolve a step within a funnel the user may see. Null if not found.
+     */
+    protected function findFunnelStep(User $user, string $funnelUuid, int|string $stepId): ?FunnelStep
+    {
+        $funnel = $this->findScopedFunnel($user, $funnelUuid);
+
+        return $funnel?->steps()->whereKey($stepId)->first();
     }
 }
