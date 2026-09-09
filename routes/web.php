@@ -1924,6 +1924,9 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::post('leads/categories', [CekbotLeadController::class, 'storeCategory'])->name('leads.categories.store');
         Route::put('leads/categories/{category}', [CekbotLeadController::class, 'updateCategory'])->name('leads.categories.update');
         Route::delete('leads/categories/{category}', [CekbotLeadController::class, 'destroyCategory'])->name('leads.categories.destroy');
+        Route::post('leads/labels', [CekbotLeadController::class, 'storeLabel'])->name('leads.labels.store');
+        Route::put('leads/labels/{label}', [CekbotLeadController::class, 'updateLabel'])->name('leads.labels.update');
+        Route::delete('leads/labels/{label}', [CekbotLeadController::class, 'destroyLabel'])->name('leads.labels.destroy');
         Route::post('leads/{lead}/move', [CekbotLeadController::class, 'moveLead'])->name('leads.move');
 
         // Fasa 2 — Inbox (terima mesej + balas)

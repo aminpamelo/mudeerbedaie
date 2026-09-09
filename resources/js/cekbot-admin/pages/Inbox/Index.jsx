@@ -8,6 +8,7 @@ import { Button } from '@/cekbot-admin/components/Ui';
 import ConversationList from '@/cekbot-admin/components/inbox/ConversationList';
 import ChatPanel from '@/cekbot-admin/components/inbox/ChatPanel';
 import { csrfToken } from '@/cekbot-admin/lib/utils';
+import { getEcho } from '@/cekbot-admin/echo';
 
 export default function Index() {
   const { props } = usePage();
@@ -21,8 +22,11 @@ export default function Index() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [live, setLive] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const pollRef = useRef(null);
+  const selectedIdRef = useRef(null);
+  useEffect(() => { selectedIdRef.current = selected?.id ?? null; }, [selected?.id]);
 
   const loadMessages = useCallback(async (id, { silent = false } = {}) => {
     if (!silent) setLoadingMessages(true);
@@ -61,18 +65,44 @@ export default function Index() {
     });
   }
 
-  // Poll the open conversation for new messages.
+  // Poll the open conversation for new messages (fallback if WebSocket drops).
   useEffect(() => {
     if (!selected) return undefined;
-    pollRef.current = setInterval(() => loadMessages(selected.id, { silent: true }), 5000);
+    pollRef.current = setInterval(() => loadMessages(selected.id, { silent: true }), 15000);
     return () => clearInterval(pollRef.current);
   }, [selected?.id, loadMessages]);
 
-  // Periodically refresh the conversation list.
+  // Periodically refresh the conversation list (fallback if WebSocket drops).
   useEffect(() => {
-    const t = setInterval(() => router.reload({ only: ['conversations'], preserveScroll: true, preserveState: true }), 12000);
+    const t = setInterval(() => router.reload({ only: ['conversations'], preserveScroll: true, preserveState: true }), 30000);
     return () => clearInterval(t);
   }, []);
+
+  // Real-time inbox via Laravel Reverb (WebSocket). Instantly refreshes the
+  // conversation list and the open chat when a message is stored server-side.
+  useEffect(() => {
+    const echo = getEcho();
+    if (!echo) return undefined;
+
+    const conn = echo.connector?.pusher?.connection;
+    const onState = () => setLive(conn?.state === 'connected');
+    conn?.bind('state_change', onState);
+    onState();
+
+    const channel = echo.private('cekbot-inbox').listen('.message.new', (e) => {
+      router.reload({ only: ['conversations'], preserveScroll: true, preserveState: true });
+      if (selectedIdRef.current && Number(e.conversation_id) === Number(selectedIdRef.current)) {
+        loadMessages(selectedIdRef.current, { silent: true });
+      } else if (e.direction === 'in') {
+        toast('💬 Mesej baru masuk', { id: 'cekbot-new-msg' });
+      }
+    });
+
+    return () => {
+      conn?.unbind('state_change', onState);
+      echo.leave('cekbot-inbox');
+    };
+  }, [loadMessages]);
 
   async function send(text, clear) {
     if (!selected) return;
@@ -140,9 +170,18 @@ export default function Index() {
       title="Mesej"
       subtitle="Inbox WhatsApp masuk & balasan"
       actions={
-        <Button variant="secondary" onClick={refresh} disabled={refreshing}>
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={2.2} /> {refreshing ? 'Menyegar…' : 'Segar semula'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold ${live ? 'bg-emerald-500/12 text-emerald-300' : 'bg-white/5 text-white/40'}`}
+            title={live ? 'Sambungan masa nyata aktif' : 'Tiada sambungan masa nyata — guna auto-refresh'}
+          >
+            <span className={`h-2 w-2 rounded-full ${live ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'}`} />
+            {live ? 'Live' : 'Luar talian'}
+          </span>
+          <Button variant="secondary" onClick={refresh} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={2.2} /> {refreshing ? 'Menyegar…' : 'Segar semula'}
+          </Button>
+        </div>
       }
     >
       <Head title="Mesej" />

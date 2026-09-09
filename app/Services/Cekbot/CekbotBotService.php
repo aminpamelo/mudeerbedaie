@@ -2,6 +2,7 @@
 
 namespace App\Services\Cekbot;
 
+use App\Events\Cekbot\CekbotMessageReceived;
 use App\Models\CekbotAutoReply;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
@@ -137,5 +138,7 @@ class CekbotBotService
             'last_message_at' => now(),
             'last_message_preview' => Str::limit($reply, 255),
         ]);
+
+        CekbotMessageReceived::dispatch($conversation->id, $session->id, 'out');
     }
 }

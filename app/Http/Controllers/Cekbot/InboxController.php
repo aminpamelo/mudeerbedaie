@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Cekbot;
 
+use App\Events\Cekbot\CekbotMessageReceived;
 use App\Http\Controllers\Controller;
 use App\Models\CekbotConversation;
 use App\Models\CekbotConversationNote;
+use App\Models\CekbotLabel;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
 use App\Services\WhatsApp\WahaSessionManager;
@@ -19,16 +21,6 @@ use Inertia\Response;
 class InboxController extends Controller
 {
     public function __construct(private WahaSessionManager $waha) {}
-
-    /**
-     * Colour-coded labels a conversation can be tagged with.
-     */
-    public const LABELS = [
-        ['key' => 'baru', 'name' => 'Baru', 'color' => 'blue'],
-        ['key' => 'pending', 'name' => 'Pending', 'color' => 'amber'],
-        ['key' => 'selesai', 'name' => 'Selesai', 'color' => 'green'],
-        ['key' => 'penting', 'name' => 'Penting', 'color' => 'red'],
-    ];
 
     public function index(Request $request): Response
     {
@@ -60,7 +52,7 @@ class InboxController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name]),
-            'availableLabels' => self::LABELS,
+            'availableLabels' => CekbotLabel::options(),
         ]);
     }
 
@@ -121,6 +113,8 @@ class InboxController extends Controller
             'handed_over_by' => $conversation->handed_over_by ?? $request->user()->id,
         ]);
 
+        CekbotMessageReceived::dispatch($conversation->id, $conversation->cekbot_session_id, 'out');
+
         return response()->json([
             'success' => $result['success'],
             'error' => $result['error'] ?? null,
@@ -179,7 +173,7 @@ class InboxController extends Controller
 
     public function setLabels(Request $request, CekbotConversation $conversation): RedirectResponse
     {
-        $allowed = array_column(self::LABELS, 'key');
+        $allowed = CekbotLabel::allowedKeys();
         $validated = $request->validate([
             'labels' => 'array',
             'labels.*' => ['string', Rule::in($allowed)],

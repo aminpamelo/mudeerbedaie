@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Users, Search, Download, MessageCircle, UserPlus, UserCheck, List, LayoutGrid, ChevronDown, X, Building2, Tag } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
-import { Card, Button, Badge, Select, Input, EmptyState } from '@/cekbot-admin/components/Ui';
+import { Card, Button, Select, Input, EmptyState } from '@/cekbot-admin/components/Ui';
 import LeadBoard from '@/cekbot-admin/components/leads/LeadBoard';
 import CategoryModal from '@/cekbot-admin/components/leads/CategoryModal';
+import TaxonomyManagerModal from '@/cekbot-admin/components/leads/TaxonomyManagerModal';
 import { cn, contactDisplay, formatPhone, formatDate, timeAgo, initialsFrom } from '@/cekbot-admin/lib/utils';
 import { leadColor, avatarTint } from '@/cekbot-admin/lib/leadColors';
 
@@ -53,6 +54,15 @@ function CategoryChip({ category }) {
   );
 }
 
+function LabelChip({ color, name }) {
+  const c = leadColor(color);
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11.5px] font-medium', c.chip)}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', c.dot)} /> {name}
+    </span>
+  );
+}
+
 export default function Index() {
   const { props } = usePage();
   const view = props.view ?? 'list';
@@ -63,10 +73,15 @@ export default function Index() {
   const stats = props.stats ?? {};
   const filters = props.filters ?? {};
   const colorOptions = props.colorOptions ?? [];
+  const categories = props.categories ?? [];
 
-  const labelColor = Object.fromEntries(labels.map((l) => [l.key, l.color]));
+  const labelByKey = Object.fromEntries(labels.map((l) => [l.key, l]));
+  const labelItems = labels.map((l) => ({ id: l.id, name: l.name, color: l.color }));
+  const categoryItems = categories.map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.leads_count }));
   const [search, setSearch] = useState(filters.search ?? '');
   const [categoryModal, setCategoryModal] = useState({ open: false, editing: null });
+  const [manageLabels, setManageLabels] = useState(false);
+  const [manageCategories, setManageCategories] = useState(false);
   const first = useRef(true);
 
   function visit(params) {
@@ -114,7 +129,13 @@ export default function Index() {
     <CekbotLayout
       title="Leads"
       subtitle="Semua nombor yang pernah mesej anda"
-      actions={<Button variant="secondary" href={exportHref} target="_blank"><Download className="h-4 w-4" /> Export CSV</Button>}
+      actions={
+        <>
+          <Button variant="secondary" onClick={() => setManageLabels(true)}><Tag className="h-4 w-4" /> Label</Button>
+          <Button variant="secondary" onClick={() => setManageCategories(true)}><LayoutGrid className="h-4 w-4" /> Kategori</Button>
+          <Button variant="secondary" href={exportHref} target="_blank"><Download className="h-4 w-4" /> Export CSV</Button>
+        </>
+      }
     >
       <Head title="Leads" />
 
@@ -210,7 +231,10 @@ export default function Index() {
                       <div className="flex flex-wrap gap-1">
                         {(lead.labels || []).length === 0
                           ? <span className="text-white/25">—</span>
-                          : lead.labels.map((k) => <Badge key={k} color={labelColor[k] ?? 'slate'}>{labels.find((l) => l.key === k)?.name ?? k}</Badge>)}
+                          : lead.labels.map((k) => {
+                              const meta = labelByKey[k];
+                              return <LabelChip key={k} color={meta?.color ?? 'slate'} name={meta?.name ?? k} />;
+                            })}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-center tabular-nums text-white/70">{lead.messages_count}</td>
@@ -252,6 +276,32 @@ export default function Index() {
         editing={categoryModal.editing}
         colorOptions={colorOptions}
         onClose={() => setCategoryModal({ open: false, editing: null })}
+      />
+
+      <TaxonomyManagerModal
+        open={manageLabels}
+        onClose={() => setManageLabels(false)}
+        title="Urus label"
+        hint="Label untuk menanda perbualan (Inbox), tapis leads & sasar broadcast."
+        items={labelItems}
+        colorOptions={colorOptions}
+        routeNames={{ store: 'cekbot.leads.labels.store', update: 'cekbot.leads.labels.update', destroy: 'cekbot.leads.labels.destroy' }}
+        namePlaceholder="Cth: Baru, Pending, Penting"
+        deleteConfirm={(it) => `Padam label "${it.name}"? Ia akan ditanggalkan dari semua perbualan.`}
+        emptyText="Belum ada label."
+      />
+
+      <TaxonomyManagerModal
+        open={manageCategories}
+        onClose={() => setManageCategories(false)}
+        title="Urus kategori"
+        hint="Kategori jadi lajur dalam papan Kanban leads."
+        items={categoryItems}
+        colorOptions={colorOptions}
+        routeNames={{ store: 'cekbot.leads.categories.store', update: 'cekbot.leads.categories.update', destroy: 'cekbot.leads.categories.destroy' }}
+        namePlaceholder="Cth: Berminat, Follow-up, Deal"
+        deleteConfirm={(it) => `Padam kategori "${it.name}"? Leads di dalamnya kembali ke "Tiada kategori".`}
+        emptyText="Belum ada kategori."
       />
     </CekbotLayout>
   );

@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { UserPlus, StickyNote } from 'lucide-react';
 import { Modal, Button, Textarea } from '@/cekbot-admin/components/Ui';
 import { cn } from '@/cekbot-admin/lib/utils';
-
-const LABEL_ON = {
-  blue: 'bg-sky-500/20 text-sky-300 ring-sky-400/30',
-  amber: 'bg-amber-500/20 text-amber-300 ring-amber-400/30',
-  green: 'bg-emerald-500/20 text-emerald-300 ring-emerald-400/30',
-  red: 'bg-rose-500/20 text-rose-300 ring-rose-400/30',
-};
+import { leadColor } from '@/cekbot-admin/lib/leadColors';
 
 export default function ConversationTools({ conversation, staff, availableLabels, notes, onAssign, onLabels, onAddNote }) {
   const [notesOpen, setNotesOpen] = useState(false);
@@ -45,6 +39,7 @@ export default function ConversationTools({ conversation, staff, availableLabels
       <div className="flex flex-wrap items-center gap-1">
         {availableLabels.map((l) => {
           const on = labels.includes(l.key);
+          const c = leadColor(l.color);
           return (
             <button
               key={l.key}
@@ -52,7 +47,7 @@ export default function ConversationTools({ conversation, staff, availableLabels
               onClick={() => toggleLabel(l.key)}
               className={cn(
                 'rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset transition-colors',
-                on ? LABEL_ON[l.color] : 'text-white/40 ring-white/10 hover:bg-white/5'
+                on ? cn(c.chip, c.ring) : 'text-white/40 ring-white/10 hover:bg-white/5'
               )}
             >
               {l.name}

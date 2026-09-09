@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Cekbot;
 
 use App\Http\Controllers\Controller;
 use App\Models\CekbotConversation;
+use App\Models\CekbotLabel;
 use App\Models\CekbotLeadCategory;
 use App\Models\CekbotSession;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -42,7 +44,7 @@ class LeadController extends Controller
             'colorOptions' => self::COLORS,
             'sessions' => CekbotSession::query()->orderBy('label')->get(['id', 'label', 'phone_number'])
                 ->map(fn ($s) => ['id' => $s->id, 'label' => $s->label, 'phone_number' => $s->phone_number]),
-            'availableLabels' => InboxController::LABELS,
+            'availableLabels' => CekbotLabel::options(),
             'stats' => $this->stats(),
         ];
 
@@ -109,6 +111,69 @@ class LeadController extends Controller
         $lead->update(['lead_category_id' => $validated['lead_category_id'] ?? null]);
 
         return back(303)->with('success', 'Lead dipindahkan.');
+    }
+
+    public function storeLabel(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:40',
+            'color' => 'required|string|in:'.implode(',', self::COLORS),
+        ]);
+
+        CekbotLabel::create([
+            'key' => $this->uniqueLabelKey($validated['name']),
+            'name' => $validated['name'],
+            'color' => $validated['color'],
+            'sort_order' => (int) CekbotLabel::max('sort_order') + 1,
+        ]);
+
+        return back()->with('success', 'Label ditambah.');
+    }
+
+    public function updateLabel(Request $request, CekbotLabel $label): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:40',
+            'color' => 'required|string|in:'.implode(',', self::COLORS),
+        ]);
+
+        // Key stays stable so conversations already tagged keep this label.
+        $label->update($validated);
+
+        return back()->with('success', 'Label dikemas kini.');
+    }
+
+    public function destroyLabel(CekbotLabel $label): RedirectResponse
+    {
+        CekbotConversation::query()
+            ->whereJsonContains('labels', $label->key)
+            ->get(['id', 'labels'])
+            ->each(function (CekbotConversation $conversation) use ($label): void {
+                $conversation->update([
+                    'labels' => array_values(array_diff($conversation->labels ?? [], [$label->key])),
+                ]);
+            });
+
+        $label->delete();
+
+        return back()->with('success', 'Label dipadam dan ditanggalkan dari semua perbualan.');
+    }
+
+    /**
+     * Slug the name into a stable, unique key (append -2, -3… on collision).
+     */
+    private function uniqueLabelKey(string $name): string
+    {
+        $base = Str::slug($name) ?: 'label';
+        $key = $base;
+        $suffix = 2;
+
+        while (CekbotLabel::where('key', $key)->exists()) {
+            $key = $base.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $key;
     }
 
     public function export(Request $request): StreamedResponse

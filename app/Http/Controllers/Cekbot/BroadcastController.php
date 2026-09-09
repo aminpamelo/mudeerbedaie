@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendCekbotBroadcastJob;
 use App\Models\CekbotBroadcast;
 use App\Models\CekbotConversation;
+use App\Models\CekbotLabel;
 use App\Models\CekbotSession;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +30,7 @@ class BroadcastController extends Controller
             'broadcasts' => $broadcasts,
             'sessions' => CekbotSession::query()->orderBy('label')->get(['id', 'label', 'phone_number'])
                 ->map(fn ($s) => ['id' => $s->id, 'label' => $s->label, 'phone_number' => $s->phone_number]),
-            'availableLabels' => InboxController::LABELS,
+            'availableLabels' => CekbotLabel::options(),
         ]);
     }
 

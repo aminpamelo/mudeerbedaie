@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Events\Cekbot\CekbotMessageReceived;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
@@ -119,6 +120,8 @@ class ProcessCekbotWebhookJob implements ShouldQueue
             'last_message_preview' => Str::limit($body ?: $this->mediaLabel($type), 255),
             'unread_count' => $fromMe ? $conversation->unread_count : $conversation->unread_count + 1,
         ])->save();
+
+        CekbotMessageReceived::dispatch($conversation->id, $session->id, $fromMe ? 'out' : 'in');
 
         // Only genuine inbound (not our own echoed sends) trigger the bot.
         if (! $fromMe) {
