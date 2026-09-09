@@ -1,24 +1,11 @@
 /**
- * Studio Connect AI — lets a marketer connect their AI assistant (Claude /
- * ChatGPT) to the Funnel Studio MCP server: shows the server URL, lets them
- * generate/copy/revoke personal access tokens, and gives paste-in setup steps.
+ * Studio Connect AI — instructions for connecting an AI assistant (Claude /
+ * ChatGPT) to the Funnel Studio MCP server. The server is protected by OAuth,
+ * so there are no tokens to generate: the marketer adds the server URL as a
+ * custom connector, clicks Connect, and signs in to Kelasify to approve.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-
-const getCsrfToken = () =>
-    document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1]
-        ?.replace(/%3D/g, '=') || '';
-
-const api = (url, options = {}) =>
-    fetch(url, {
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
-        credentials: 'same-origin',
-        ...options,
-    });
+import React, { useState } from 'react';
 
 function CopyButton({ value, label = 'Copy' }) {
     const [copied, setCopied] = useState(false);
@@ -42,53 +29,7 @@ function CopyButton({ value, label = 'Copy' }) {
 }
 
 export default function StudioConnectAI() {
-    const [serverUrl, setServerUrl] = useState('');
-    const [tokens, setTokens] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [newName, setNewName] = useState('');
-    const [creating, setCreating] = useState(false);
-    const [freshToken, setFreshToken] = useState(null);
-
-    const load = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await api('/api/v1/studio/mcp-tokens');
-            const data = await res.json();
-            setServerUrl(data.data?.server_url || `${window.location.origin}/mcp/funnel-studio`);
-            setTokens(data.data?.tokens || []);
-        } catch (e) {
-            setServerUrl(`${window.location.origin}/mcp/funnel-studio`);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        load();
-    }, [load]);
-
-    const generate = async () => {
-        setCreating(true);
-        try {
-            const res = await api('/api/v1/studio/mcp-tokens', {
-                method: 'POST',
-                body: JSON.stringify({ name: newName.trim() || 'AI Connection' }),
-            });
-            const data = await res.json();
-            if (data.data?.plain_text_token) {
-                setFreshToken(data.data.plain_text_token);
-                setNewName('');
-                load();
-            }
-        } finally {
-            setCreating(false);
-        }
-    };
-
-    const revoke = async (id) => {
-        await api(`/api/v1/studio/mcp-tokens/${id}`, { method: 'DELETE' });
-        load();
-    };
+    const serverUrl = `${window.location.origin}/mcp/funnel-studio`;
 
     return (
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -107,100 +48,13 @@ export default function StudioConnectAI() {
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                     <h3 className="mb-1 text-lg font-semibold text-gray-900">Your MCP server</h3>
                     <p className="mb-4 text-xs text-gray-500">
-                        Add this as a custom connector in your AI, then authenticate with a token below. Works with Claude
-                        and ChatGPT.
+                        Add this as a custom connector in your AI, then click Connect and sign in to Kelasify to approve.
+                        No tokens or API keys to copy. Works with Claude and ChatGPT.
                     </p>
                     <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
                         <code className="flex-1 truncate px-2 font-mono text-sm text-gray-800">{serverUrl}</code>
                         <CopyButton value={serverUrl} label="Copy URL" />
                     </div>
-                </div>
-
-                {/* Tokens */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900">Access tokens</h3>
-                            <p className="text-xs text-gray-500">
-                                Each token connects one AI to your account. Revoke a token to disconnect it.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Fresh token reveal (shown once) */}
-                    {freshToken && (
-                        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                            <p className="mb-2 text-sm font-semibold text-emerald-900">
-                                Token created — copy it now. You won't be able to see it again.
-                            </p>
-                            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-white p-2">
-                                <code className="flex-1 truncate px-2 font-mono text-xs text-gray-800">{freshToken}</code>
-                                <CopyButton value={freshToken} label="Copy token" />
-                            </div>
-                            <button
-                                onClick={() => setFreshToken(null)}
-                                className="mt-2 text-xs font-medium text-emerald-800 hover:text-emerald-900 cursor-pointer"
-                            >
-                                I've copied it — dismiss
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Generate */}
-                    <div className="mb-4 flex flex-wrap items-center gap-2">
-                        <input
-                            type="text"
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && generate()}
-                            placeholder="Name (e.g. My Claude, ChatGPT work)"
-                            className="min-w-[220px] flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-gray-400"
-                        />
-                        <button
-                            onClick={generate}
-                            disabled={creating}
-                            className="fs-cta rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 cursor-pointer"
-                        >
-                            {creating ? 'Generating…' : 'Generate token'}
-                        </button>
-                    </div>
-
-                    {/* Token list */}
-                    {loading ? (
-                        <p className="py-6 text-center text-sm text-gray-500">Loading…</p>
-                    ) : tokens.length === 0 ? (
-                        <p className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-sm text-gray-500">
-                            No tokens yet. Generate one to connect your AI.
-                        </p>
-                    ) : (
-                        <div className="overflow-hidden rounded-lg border border-gray-200">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 text-left text-[11px] uppercase tracking-wider text-gray-500">
-                                        <th className="px-4 py-2.5 font-medium">Name</th>
-                                        <th className="px-4 py-2.5 font-medium">Last used</th>
-                                        <th className="px-4 py-2.5 text-right font-medium">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tokens.map((t) => (
-                                        <tr key={t.id} className="border-t border-gray-100">
-                                            <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
-                                            <td className="px-4 py-3 text-gray-500">{t.last_used_at || 'Never'}</td>
-                                            <td className="px-4 py-3 text-right">
-                                                <button
-                                                    onClick={() => revoke(t.id)}
-                                                    className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 cursor-pointer"
-                                                >
-                                                    Revoke
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
                 </div>
 
                 {/* How to connect */}
@@ -212,7 +66,8 @@ export default function StudioConnectAI() {
                             <ol className="list-decimal space-y-1.5 pl-4 text-[13px] text-gray-600">
                                 <li>Settings → Connectors → Add custom connector.</li>
                                 <li>Paste the MCP server URL above.</li>
-                                <li>When asked to authenticate, use a Bearer token — paste a token from above.</li>
+                                <li>Leave Authentication on <span className="font-medium">"Always required"</span> (OAuth) — it's auto-detected.</li>
+                                <li>Click Connect → sign in to Kelasify → Approve.</li>
                                 <li>Ask Claude: "Show my Facebook ad spend this week."</li>
                             </ol>
                         </div>
@@ -221,15 +76,28 @@ export default function StudioConnectAI() {
                             <ol className="list-decimal space-y-1.5 pl-4 text-[13px] text-gray-600">
                                 <li>Settings → Connectors → Add a custom MCP server.</li>
                                 <li>Paste the MCP server URL above.</li>
-                                <li>Set the Authorization header to <code className="font-mono text-xs">Bearer &lt;token&gt;</code>.</li>
+                                <li>Keep Authentication on <span className="font-medium">OAuth</span>.</li>
+                                <li>Create it → sign in to Kelasify → Approve.</li>
                                 <li>Ask it to build and publish a landing page for your offer.</li>
                             </ol>
                         </div>
                     </div>
-                    <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        Keep your token secret — anyone with it can act on your Funnel Studio account. Revoke it here if it
-                        leaks.
+                    <p className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                        You sign in with your own Kelasify account, so the AI only ever sees and changes the funnels and
+                        ad accounts you already have access to. You can disconnect anytime from your AI's connector
+                        settings.
                     </p>
+                </div>
+
+                {/* What it can do */}
+                <div className="rounded-lg border border-gray-200 bg-white p-6">
+                    <h3 className="mb-3 text-lg font-semibold text-gray-900">What your AI can do</h3>
+                    <ul className="grid gap-2 text-[13px] text-gray-600 sm:grid-cols-2">
+                        <li>• Review Facebook ad spend, ROAS, and your daily profit report.</li>
+                        <li>• List your funnels, their sales, and the products you can sell.</li>
+                        <li>• Build a landing page with a working checkout from a price + HTML.</li>
+                        <li>• Update a page and publish it live — or take it offline.</li>
+                    </ul>
                 </div>
             </div>
         </div>

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
@@ -34,6 +35,16 @@ class AppServiceProvider extends ServiceProvider
 
             return $manager;
         });
+
+        // PHP 8.3 shim for Laravel MCP OAuth: swap in our ClientRepository that
+        // adds Passport 13's createAuthorizationCodeGrantClient() on top of
+        // Passport 12 (the newest Passport that supports PHP 8.3). Preserves
+        // Passport's own personal-access-client constructor args.
+        $this->app->singleton(\Laravel\Passport\ClientRepository::class, function ($app) {
+            $config = $app->make('config')->get('passport.personal_access_client');
+
+            return new \App\Passport\ClientRepository($config['id'] ?? null, $config['secret'] ?? null);
+        });
     }
 
     /**
@@ -46,6 +57,12 @@ class AppServiceProvider extends ServiceProvider
             return Route::post('/livewire/update', $handle)
                 ->middleware('web');
         });
+
+        // Funnel Studio MCP OAuth (Laravel MCP + Passport), shimmed for PHP 8.3.
+        Passport::useClientModel(\App\Passport\Client::class);
+        Passport::tokensCan(['mcp:use' => 'Operate your Funnel Studio account from an AI assistant']);
+        // Consent screen shown when an AI assistant connects to the MCP server.
+        Passport::authorizationView(fn ($parameters) => view('mcp.authorize', $parameters));
 
         Event::listen(MessageSending::class, BlockExampleEmails::class);
 

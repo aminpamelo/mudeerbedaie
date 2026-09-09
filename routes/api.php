@@ -136,7 +136,6 @@ use App\Http\Controllers\Api\V1\FunnelPixelLibraryController;
 use App\Http\Controllers\Api\V1\FunnelProductController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
 use App\Http\Controllers\Api\V1\FunnelStudioController;
-use App\Http\Controllers\Api\V1\McpConnectionController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use App\Http\Middleware\AffiliateSessionLifetime;
@@ -224,11 +223,6 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::post('studio/automations/{automationId}/toggle', [FunnelStudioController::class, 'toggleAutomation'])->name('api.studio.automations.toggle');
     Route::get('studio/analytics', [FunnelStudioController::class, 'analytics'])->name('api.studio.analytics');
     Route::get('studio/daily-reporting', [FunnelStudioController::class, 'dailyReporting'])->name('api.studio.daily-reporting');
-
-    // MCP connection tokens (marketer connects their AI to the Funnel Studio MCP)
-    Route::get('studio/mcp-tokens', [McpConnectionController::class, 'index'])->name('api.studio.mcp-tokens.index');
-    Route::post('studio/mcp-tokens', [McpConnectionController::class, 'store'])->name('api.studio.mcp-tokens.store');
-    Route::delete('studio/mcp-tokens/{tokenId}', [McpConnectionController::class, 'destroy'])->name('api.studio.mcp-tokens.destroy');
 
     // Facebook Ads connections (multi Business Manager)
     Route::get('facebook-ads/connections', [FacebookAdsController::class, 'index'])->name('api.facebook-ads.index');
