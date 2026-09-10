@@ -230,6 +230,17 @@ class ProductOrder extends Model
         return $this->hasMany(ExternalProvisioningRequest::class);
     }
 
+    /**
+     * Tracking-number notifications sent to the customer (email / WhatsApp),
+     * newest first — powers the "Notified" indicator and resend history.
+     *
+     * @return HasMany<OrderTrackingNotification, $this>
+     */
+    public function trackingNotifications(): HasMany
+    {
+        return $this->hasMany(OrderTrackingNotification::class)->latest();
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(ProductOrderPayment::class, 'order_id');

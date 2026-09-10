@@ -1,0 +1,259 @@
+<?php
+
+namespace App\Services\Orders;
+
+use App\Helpers\PhoneNumberHelper;
+use App\Mail\OrderShippedNotification;
+use App\Models\CekbotSession;
+use App\Models\OrderTrackingNotification;
+use App\Models\ProductOrder;
+use App\Models\WhatsAppTemplate;
+use App\Services\WhatsApp\WahaSessionManager;
+use App\Services\WhatsApp\WhatsAppManager;
+use Illuminate\Support\Facades\Mail;
+
+class TrackingNotificationService
+{
+    /**
+     * Build the default customer-friendly Malay message with the order's
+     * tracking details filled in. WhatsApp *bold* markers are used; the email
+     * view strips them.
+     */
+    public function defaultMessage(ProductOrder $order): string
+    {
+        $name = $order->getCustomerName();
+        $store = (string) config('store.name', config('app.name', 'Kami'));
+        $courier = $order->shipping_provider_label;
+        $tracking = $order->tracking_id ?: '—';
+        $url = $order->tracking_url;
+
+        $lines = [];
+        $lines[] = "Salam {$name} 👋";
+        $lines[] = '';
+        $lines[] = "Terima kasih kerana membeli-belah dengan {$store}! 🌸";
+        $lines[] = '';
+        $via = $courier ? " melalui {$courier}" : '';
+        $lines[] = "Pesanan anda *{$order->order_number}* telah pun dihantar{$via}.";
+        $lines[] = '';
+        $lines[] = "📦 No. Tracking: *{$tracking}*";
+        if ($url) {
+            $lines[] = "🔗 Jejak pakej: {$url}";
+        }
+        $lines[] = '';
+        $lines[] = 'Anda boleh menyemak status penghantaran menggunakan pautan di atas. Jika ada sebarang pertanyaan, balas sahaja mesej ini — kami sedia membantu 🤍';
+        $lines[] = '';
+        $lines[] = 'Ikhlas,';
+        $lines[] = "Pasukan {$store}";
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Which channels can actually reach this order's customer, with a reason
+     * when they cannot.
+     *
+     * @return array<string, array{available: bool, target: string, reason: ?string}>
+     */
+    public function channelAvailability(ProductOrder $order): array
+    {
+        $email = $order->getCustomerEmail();
+        $emailValid = $email !== 'No email provided' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+
+        $rawPhone = $order->getCustomerPhone();
+        $phone = PhoneNumberHelper::normalize($rawPhone);
+        $hasPhone = $phone !== null;
+
+        $waha = app(WahaSessionManager::class);
+        $wahaConfigured = $waha->isConfigured();
+        $wahaSession = CekbotSession::where('status', CekbotSession::STATUS_WORKING)->exists();
+
+        $metaConfigured = app(WhatsAppManager::class)->metaProvider()->isConfigured();
+        $hasApprovedTemplate = WhatsAppTemplate::approved()->exists();
+
+        return [
+            OrderTrackingNotification::CHANNEL_EMAIL => [
+                'available' => $emailValid,
+                'target' => $emailValid ? $email : ($email === 'No email provided' ? '—' : $email),
+                'reason' => $emailValid ? null : 'Tiada alamat e-mel pelanggan',
+            ],
+            OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA => [
+                'available' => $hasPhone && $wahaConfigured && $wahaSession,
+                'target' => $hasPhone ? PhoneNumberHelper::format($phone) : ($rawPhone ?: '—'),
+                'reason' => match (true) {
+                    ! $hasPhone => 'Nombor telefon tiada / disembunyikan',
+                    ! $wahaConfigured => 'Pelayan WAHA belum dikonfigurasi',
+                    ! $wahaSession => 'Tiada sesi Cekbot yang aktif',
+                    default => null,
+                },
+            ],
+            OrderTrackingNotification::CHANNEL_WHATSAPP_META => [
+                'available' => $hasPhone && $metaConfigured && $hasApprovedTemplate,
+                'target' => $hasPhone ? PhoneNumberHelper::format($phone) : ($rawPhone ?: '—'),
+                'reason' => match (true) {
+                    ! $hasPhone => 'Nombor telefon tiada / disembunyikan',
+                    ! $metaConfigured => 'Meta Cloud API belum dikonfigurasi',
+                    ! $hasApprovedTemplate => 'Tiada template diluluskan',
+                    default => null,
+                },
+            ],
+        ];
+    }
+
+    /**
+     * Send a tracking notification through the chosen channel and record it.
+     *
+     * @param  array{message?: string, template?: ?WhatsAppTemplate, components?: array<int, mixed>, language?: string}  $payload
+     */
+    public function send(ProductOrder $order, string $channel, array $payload = [], ?int $userId = null): OrderTrackingNotification
+    {
+        return match ($channel) {
+            OrderTrackingNotification::CHANNEL_EMAIL => $this->notifyEmail($order, (string) ($payload['message'] ?? ''), $userId),
+            OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA => $this->notifyWaha($order, (string) ($payload['message'] ?? ''), $userId),
+            OrderTrackingNotification::CHANNEL_WHATSAPP_META => $this->notifyMeta(
+                $order,
+                $payload['template'] ?? null,
+                (array) ($payload['components'] ?? []),
+                (string) ($payload['language'] ?? ''),
+                $userId,
+            ),
+            default => $this->record($order, $channel, null, OrderTrackingNotification::STATUS_FAILED, null, null, 'Saluran tidak dikenali', [], $userId),
+        };
+    }
+
+    protected function notifyEmail(ProductOrder $order, string $message, ?int $userId): OrderTrackingNotification
+    {
+        $email = $order->getCustomerEmail();
+
+        if ($email === 'No email provided' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_EMAIL, null, OrderTrackingNotification::STATUS_FAILED, null, $message, 'Tiada alamat e-mel yang sah', [], $userId);
+        }
+
+        try {
+            Mail::to($email)->queue(new OrderShippedNotification($order, $message));
+
+            return $this->record($order, OrderTrackingNotification::CHANNEL_EMAIL, $email, OrderTrackingNotification::STATUS_SENT, null, $message, null, ['queued' => true], $userId);
+        } catch (\Throwable $e) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_EMAIL, $email, OrderTrackingNotification::STATUS_FAILED, null, $message, $e->getMessage(), [], $userId);
+        }
+    }
+
+    protected function notifyWaha(ProductOrder $order, string $message, ?int $userId): OrderTrackingNotification
+    {
+        $phone = PhoneNumberHelper::normalize($order->getCustomerPhone());
+
+        if ($phone === null) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA, null, OrderTrackingNotification::STATUS_FAILED, null, $message, 'Nombor telefon tiada / disembunyikan', [], $userId);
+        }
+
+        $manager = app(WahaSessionManager::class);
+
+        if (! $manager->isConfigured()) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA, $phone, OrderTrackingNotification::STATUS_FAILED, null, $message, 'Pelayan WAHA belum dikonfigurasi', [], $userId);
+        }
+
+        $session = CekbotSession::where('status', CekbotSession::STATUS_WORKING)->first();
+
+        if ($session === null) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA, $phone, OrderTrackingNotification::STATUS_FAILED, null, $message, 'Tiada sesi Cekbot yang aktif', [], $userId);
+        }
+
+        $result = $manager->sendText($session->session_name, $phone, $message);
+
+        return $this->record(
+            $order,
+            OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA,
+            $phone,
+            $result['success'] ? OrderTrackingNotification::STATUS_SENT : OrderTrackingNotification::STATUS_FAILED,
+            $result['message_id'] ?? null,
+            $message,
+            $result['success'] ? null : ($result['error'] ?? 'Gagal menghantar'),
+            ['session' => $session->session_name],
+            $userId,
+        );
+    }
+
+    /**
+     * @param  array<int, mixed>  $components
+     */
+    protected function notifyMeta(ProductOrder $order, ?WhatsAppTemplate $template, array $components, string $language, ?int $userId): OrderTrackingNotification
+    {
+        if (! $template instanceof WhatsAppTemplate) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_META, null, OrderTrackingNotification::STATUS_FAILED, null, null, 'Tiada template dipilih', [], $userId);
+        }
+
+        $phone = PhoneNumberHelper::normalize($order->getCustomerPhone());
+
+        if ($phone === null) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_META, null, OrderTrackingNotification::STATUS_FAILED, null, null, 'Nombor telefon tiada / disembunyikan', ['template' => $template->name], $userId);
+        }
+
+        $provider = app(WhatsAppManager::class)->metaProvider();
+
+        if (! $provider->isConfigured()) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_META, $phone, OrderTrackingNotification::STATUS_FAILED, null, null, 'Meta Cloud API belum dikonfigurasi', ['template' => $template->name], $userId);
+        }
+
+        $language = $language !== '' ? $language : $template->language;
+        $result = $provider->sendTemplate($phone, $template->name, $language, $components);
+
+        return $this->record(
+            $order,
+            OrderTrackingNotification::CHANNEL_WHATSAPP_META,
+            $phone,
+            $result['success'] ? OrderTrackingNotification::STATUS_SENT : OrderTrackingNotification::STATUS_FAILED,
+            $result['message_id'] ?? null,
+            null,
+            $result['success'] ? null : ($result['error'] ?? 'Gagal menghantar'),
+            ['template' => $template->name, 'language' => $language, 'components' => $components],
+            $userId,
+        );
+    }
+
+    /**
+     * Persist a notification row, stamp a summary on the order for the list
+     * badge, and drop a system note on the order timeline.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    protected function record(
+        ProductOrder $order,
+        string $channel,
+        ?string $recipient,
+        string $status,
+        ?string $providerMessageId,
+        ?string $message,
+        ?string $error,
+        array $meta,
+        ?int $userId,
+    ): OrderTrackingNotification {
+        $notification = $order->trackingNotifications()->create([
+            'channel' => $channel,
+            'recipient' => $recipient,
+            'status' => $status,
+            'provider_message_id' => $providerMessageId,
+            'message' => $message,
+            'error' => $error,
+            'meta' => $meta,
+            'sent_by' => $userId,
+        ]);
+
+        $order->update([
+            'metadata' => array_merge($order->metadata ?? [], [
+                'tracking_notified' => [
+                    'at' => now()->toIso8601String(),
+                    'channel' => $channel,
+                    'status' => $status,
+                ],
+            ]),
+        ]);
+
+        $order->addSystemNote(
+            $status === OrderTrackingNotification::STATUS_SENT
+                ? "Tracking dihantar kepada pelanggan via {$notification->channelLabel()}".($recipient ? " ({$recipient})" : '')
+                : "Gagal hantar tracking via {$notification->channelLabel()}: {$error}",
+            ['tracking_notification_id' => $notification->id],
+        );
+
+        return $notification;
+    }
+}

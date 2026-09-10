@@ -39,28 +39,49 @@ it('displays tracking number in orders list', function () {
         ->assertSee('TRACK123456');
 });
 
-it('can inline edit tracking number', function () {
+it('can add a tracking number via the modal (save only)', function () {
     $order = ProductOrder::factory()->create([
         'tracking_id' => null,
+        'status' => 'processing',
     ]);
 
     Volt::test('admin.orders.order-list')
-        ->call('startEditingTracking', $order->id, null)
-        ->assertSet('editingTrackingOrderId', $order->id)
-        ->set('editingTrackingValue', 'NEW-TRACK-789')
-        ->call('saveTracking')
-        ->assertSet('editingTrackingOrderId', null);
+        ->call('openTrackingModal', $order->id)
+        ->assertSet('showTrackingModal', true)
+        ->assertSet('trackingStep', 'input')
+        ->set('trackingNumber', 'NEW-TRACK-789')
+        ->call('checkTracking')
+        ->assertSet('trackingStep', 'verify')
+        ->set('trackingMarkShipped', true)
+        ->call('saveTrackingOnly')
+        ->assertSet('showTrackingModal', false);
 
-    expect($order->fresh()->tracking_id)->toBe('NEW-TRACK-789');
+    $fresh = $order->fresh();
+    expect($fresh->tracking_id)->toBe('NEW-TRACK-789');
+    expect($fresh->status)->toBe('shipped');
+    expect($fresh->shipped_at)->not->toBeNull();
 });
 
-it('can cancel editing tracking number', function () {
-    $order = ProductOrder::factory()->create();
+it('requires a tracking number before reaching the verify step', function () {
+    $order = ProductOrder::factory()->create(['tracking_id' => null]);
 
     Volt::test('admin.orders.order-list')
-        ->call('startEditingTracking', $order->id, 'OLD-TRACK')
-        ->assertSet('editingTrackingOrderId', $order->id)
-        ->call('cancelEditingTracking')
-        ->assertSet('editingTrackingOrderId', null)
-        ->assertSet('editingTrackingValue', '');
+        ->call('openTrackingModal', $order->id)
+        ->set('trackingNumber', '')
+        ->call('checkTracking')
+        ->assertHasErrors('trackingNumber')
+        ->assertSet('trackingStep', 'input');
+});
+
+it('can close the tracking modal without saving', function () {
+    $order = ProductOrder::factory()->create(['tracking_id' => null]);
+
+    Volt::test('admin.orders.order-list')
+        ->call('openTrackingModal', $order->id)
+        ->set('trackingNumber', 'SHOULD-NOT-SAVE')
+        ->call('closeTrackingModal')
+        ->assertSet('showTrackingModal', false)
+        ->assertSet('trackingNumber', '');
+
+    expect($order->fresh()->tracking_id)->toBeNull();
 });

@@ -12,6 +12,7 @@ use App\Models\SalesSource;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\WhatsAppTemplate;
+use App\Services\Orders\TrackingNotificationService;
 use App\Services\WhatsApp\WhatsAppBlastService;
 use App\Services\WhatsApp\WhatsAppManager;
 use App\Services\WhatsAppService;
@@ -77,10 +78,34 @@ new class extends Component
 
     public string $editingPhoneValue = '';
 
-    // Inline tracking number editing
-    public ?int $editingTrackingOrderId = null;
+    // ─── Tracking number entry + customer notification ───
+    public bool $showTrackingModal = false;
 
-    public string $editingTrackingValue = '';
+    public ?int $trackingModalOrderId = null;
+
+    /** input | verify */
+    public string $trackingStep = 'input';
+
+    /** enter | manage */
+    public string $trackingMode = 'enter';
+
+    public string $trackingNumber = '';
+
+    public string $trackingCourier = '';
+
+    public bool $trackingMarkShipped = true;
+
+    /** email | whatsapp_waha | whatsapp_meta */
+    public string $trackingChannel = 'whatsapp_waha';
+
+    public string $trackingMessage = '';
+
+    public bool $trackingMessageDirty = false;
+
+    public ?int $trackingMetaTemplateId = null;
+
+    /** @var array<string, array<int, array{source: string, field: string, value: string}>> */
+    public array $trackingMetaMapping = ['body' => []];
 
     public function startEditingPhone(int $orderId, ?string $currentPhone): void
     {
@@ -106,28 +131,231 @@ new class extends Component
         $this->editingPhoneValue = '';
     }
 
-    public function startEditingTracking(int $orderId, ?string $currentTracking): void
+    public function openTrackingModal(int $orderId): void
     {
-        $this->editingTrackingOrderId = $orderId;
-        $this->editingTrackingValue = $currentTracking ?? '';
+        $this->prepareTrackingModal($orderId, 'enter');
     }
 
-    public function saveTracking(): void
+    public function openTrackingManage(int $orderId): void
     {
-        if ($this->editingTrackingOrderId) {
-            $order = ProductOrder::findOrFail($this->editingTrackingOrderId);
-            $order->update(['tracking_id' => $this->editingTrackingValue ?: null]);
+        $this->prepareTrackingModal($orderId, 'manage');
+    }
 
-            $this->dispatch('order-updated', message: "Tracking number updated for order {$order->order_number}");
+    protected function prepareTrackingModal(int $orderId, string $mode): void
+    {
+        $order = ProductOrder::findOrFail($orderId);
+
+        $this->resetErrorBag();
+        $this->trackingModalOrderId = $order->id;
+        $this->trackingMode = $mode;
+        $this->trackingStep = $mode === 'manage' ? 'verify' : 'input';
+        $this->trackingNumber = $order->tracking_id ?? '';
+        $this->trackingCourier = $order->shipping_provider ?? '';
+        $this->trackingMarkShipped = ! in_array($order->status, ['shipped', 'delivered'], true);
+        $this->trackingMessageDirty = false;
+        $this->trackingMessage = app(TrackingNotificationService::class)->defaultMessage($order);
+
+        // Default to the first channel that can actually reach the customer.
+        $availability = app(TrackingNotificationService::class)->channelAvailability($order);
+        $this->trackingChannel = collect($availability)
+            ->filter(fn ($c) => $c['available'])
+            ->keys()
+            ->first() ?? 'whatsapp_waha';
+
+        $this->trackingMetaTemplateId = optional($this->approvedWaTemplates->first())->id;
+        $this->initTrackingMetaMapping();
+
+        $this->showTrackingModal = true;
+    }
+
+    public function checkTracking(): void
+    {
+        $number = trim($this->trackingNumber);
+
+        if ($number === '') {
+            $this->addError('trackingNumber', 'Sila masukkan nombor tracking.');
+
+            return;
         }
 
-        $this->cancelEditingTracking();
+        $this->resetErrorBag('trackingNumber');
+
+        // Rebuild the default message with the just-entered number, unless the
+        // admin has already customised it.
+        if (! $this->trackingMessageDirty && $this->trackingModalOrderId) {
+            $order = ProductOrder::find($this->trackingModalOrderId);
+            if ($order) {
+                $order->tracking_id = $number;
+                if ($this->trackingCourier !== '') {
+                    $order->shipping_provider = $this->trackingCourier;
+                }
+                $this->trackingMessage = app(TrackingNotificationService::class)->defaultMessage($order);
+            }
+        }
+
+        $this->trackingStep = 'verify';
     }
 
-    public function cancelEditingTracking(): void
+    public function backToTrackingInput(): void
     {
-        $this->editingTrackingOrderId = null;
-        $this->editingTrackingValue = '';
+        $this->trackingStep = 'input';
+    }
+
+    public function updatedTrackingMessage(): void
+    {
+        $this->trackingMessageDirty = true;
+    }
+
+    public function updatedTrackingMetaTemplateId(): void
+    {
+        $this->initTrackingMetaMapping();
+    }
+
+    protected function initTrackingMetaMapping(): void
+    {
+        $this->trackingMetaMapping = ['body' => []];
+
+        $template = $this->trackingMetaTemplateId
+            ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
+            : null;
+
+        if (! $template) {
+            return;
+        }
+
+        $count = app(WhatsAppBlastService::class)->variableCount($template, 'BODY');
+        $defaults = ['customer_name', 'order_number', 'tracking_number', 'tracking_url', 'courier'];
+
+        for ($i = 1; $i <= $count; $i++) {
+            $this->trackingMetaMapping['body'][$i] = [
+                'source' => 'order_field',
+                'field' => $defaults[$i - 1] ?? 'tracking_number',
+                'value' => '',
+            ];
+        }
+    }
+
+    protected function persistTrackingNumber(ProductOrder $order): void
+    {
+        $number = trim($this->trackingNumber) ?: null;
+
+        $data = ['tracking_id' => $number];
+
+        if ($this->trackingCourier !== '') {
+            $data['shipping_provider'] = $this->trackingCourier;
+        }
+
+        if ($this->trackingMarkShipped && $number) {
+            $data['status'] = 'shipped';
+            if (! $order->shipped_at) {
+                $data['shipped_at'] = now();
+            }
+        }
+
+        $order->update($data);
+
+        if ($number) {
+            $order->addSystemNote('Tracking set: '.$number.($this->trackingMarkShipped ? ' · ditanda sebagai Shipped' : ''));
+        }
+    }
+
+    public function saveTrackingOnly(): void
+    {
+        $order = ProductOrder::findOrFail($this->trackingModalOrderId);
+        $this->persistTrackingNumber($order);
+
+        $this->dispatch('order-updated', message: "Tracking disimpan untuk {$order->order_number}");
+        $this->closeTrackingModal();
+    }
+
+    public function confirmAndSendTracking(): void
+    {
+        $order = ProductOrder::findOrFail($this->trackingModalOrderId);
+
+        $this->persistTrackingNumber($order);
+        $order->refresh();
+
+        $notification = $this->dispatchTrackingSend($order);
+
+        $this->dispatch('order-updated', message: $notification->wasSent()
+            ? "Tracking dihantar via {$notification->channelLabel()} ✓"
+            : "Gagal hantar: {$notification->error}");
+
+        $this->closeTrackingModal();
+    }
+
+    protected function dispatchTrackingSend(ProductOrder $order): \App\Models\OrderTrackingNotification
+    {
+        $service = app(TrackingNotificationService::class);
+        $userId = auth()->id();
+
+        if ($this->trackingChannel === 'whatsapp_meta') {
+            $template = $this->trackingMetaTemplateId
+                ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
+                : null;
+
+            $components = $template
+                ? app(WhatsAppBlastService::class)->buildComponentsForOrder($order, $this->trackingMetaMapping)
+                : [];
+
+            return $service->send($order, 'whatsapp_meta', [
+                'template' => $template,
+                'components' => $components,
+                'language' => $template?->language ?? '',
+            ], $userId);
+        }
+
+        return $service->send($order, $this->trackingChannel, [
+            'message' => $this->trackingMessage,
+        ], $userId);
+    }
+
+    public function closeTrackingModal(): void
+    {
+        $this->showTrackingModal = false;
+        $this->trackingModalOrderId = null;
+        $this->trackingStep = 'input';
+        $this->trackingMode = 'enter';
+        $this->trackingNumber = '';
+        $this->trackingCourier = '';
+        $this->trackingMessage = '';
+        $this->trackingMessageDirty = false;
+        $this->trackingMetaTemplateId = null;
+        $this->trackingMetaMapping = ['body' => []];
+        $this->resetErrorBag();
+    }
+
+    public function getTrackingOrderProperty(): ?ProductOrder
+    {
+        if (! $this->trackingModalOrderId) {
+            return null;
+        }
+
+        return ProductOrder::with('trackingNotifications')->find($this->trackingModalOrderId);
+    }
+
+    /**
+     * @return array<string, array{available: bool, target: string, reason: ?string}>
+     */
+    public function getTrackingChannelInfoProperty(): array
+    {
+        $order = $this->trackingOrder;
+
+        return $order ? app(TrackingNotificationService::class)->channelAvailability($order) : [];
+    }
+
+    public function getTrackingMetaPreviewProperty(): string
+    {
+        $order = $this->trackingOrder;
+        $template = $this->trackingMetaTemplateId
+            ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
+            : null;
+
+        if (! $order || ! $template) {
+            return '';
+        }
+
+        return app(WhatsAppBlastService::class)->renderBodyPreview($template, $this->trackingMetaMapping, $order);
     }
 
     public function updatingSearch(): void
@@ -2344,39 +2572,26 @@ new class extends Component
                                     @endif
 
                                     {{-- Tracking --}}
-                                    @if($editingTrackingOrderId === $order->id)
-                                        <div class="inline-flex items-center gap-1">
-                                            <input
-                                                type="text"
-                                                wire:model="editingTrackingValue"
-                                                wire:keydown.enter="saveTracking"
-                                                wire:keydown.escape="cancelEditingTracking"
-                                                class="w-36 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
-                                                placeholder="Tracking number"
-                                                autofocus
-                                            />
-                                            <button wire:click="saveTracking" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
-                                                <flux:icon name="check" class="w-3.5 h-3.5" />
-                                            </button>
-                                            <button wire:click="cancelEditingTracking" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
-                                                <flux:icon name="x-mark" class="w-3.5 h-3.5" />
-                                            </button>
-                                        </div>
-                                    @else
-                                        <button
-                                            wire:click="startEditingTracking({{ $order->id }}, {{ json_encode($order->tracking_id ?? '') }})"
-                                            class="group/track inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                            title="Click to edit tracking"
-                                        >
-                                            <flux:icon name="truck" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover/track:text-blue-500 transition-colors shrink-0" />
-                                            @if($order->tracking_id)
-                                                <span class="font-mono text-zinc-600 dark:text-zinc-300">{{ $order->tracking_id }}</span>
-                                            @else
-                                                <span class="italic text-zinc-400 dark:text-zinc-500">Add tracking</span>
-                                            @endif
+                                    @php $trackNotified = $order->metadata['tracking_notified'] ?? null; @endphp
+                                    <button
+                                        wire:click="{{ $order->tracking_id ? 'openTrackingManage' : 'openTrackingModal' }}({{ $order->id }})"
+                                        class="group/track inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                        title="{{ $order->tracking_id ? 'Urus / hantar semula tracking' : 'Tambah tracking & notify pelanggan' }}"
+                                    >
+                                        <flux:icon name="truck" class="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover/track:text-blue-500 transition-colors shrink-0" />
+                                        @if($order->tracking_id)
+                                            <span class="font-mono text-zinc-600 dark:text-zinc-300">{{ $order->tracking_id }}</span>
+                                        @else
+                                            <span class="italic text-zinc-400 dark:text-zinc-500">Add tracking</span>
+                                        @endif
+                                        @if($trackNotified && ($trackNotified['status'] ?? null) === 'sent')
+                                            <flux:icon name="check-badge" class="w-3.5 h-3.5 text-emerald-500" title="Pelanggan telah dinotify" />
+                                        @elseif($trackNotified && ($trackNotified['status'] ?? null) === 'failed')
+                                            <flux:icon name="exclamation-circle" class="w-3.5 h-3.5 text-amber-500" title="Notifikasi gagal — cuba semula" />
+                                        @else
                                             <flux:icon name="pencil" class="w-3 h-3 opacity-50 group-hover/track:opacity-100 transition-opacity text-zinc-400" />
-                                        </button>
-                                    @endif
+                                        @endif
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -3062,6 +3277,193 @@ new class extends Component
                 </flux:button>
             </div>
         </div>
+    </flux:modal>
+
+    {{-- Tracking number + customer notification modal --}}
+    <flux:modal wire:model.self="showTrackingModal" class="md:w-xl">
+        @php $tOrder = $this->trackingOrder; @endphp
+        @if($tOrder)
+            @php
+                $tChannels = $this->trackingChannelInfo;
+                $tHistory = $tOrder->trackingNotifications;
+                $tMetaTemplates = $this->approvedWaTemplates;
+                $tActive = $tChannels[$trackingChannel] ?? ['available' => false];
+                $tSendDisabled = empty($tActive['available']);
+                if ($trackingChannel === 'whatsapp_meta' && ($trackingMetaTemplateId === null || $tMetaTemplates->isEmpty())) {
+                    $tSendDisabled = true;
+                }
+                $tChannelMeta = [
+                    'email' => ['E-mel', 'envelope'],
+                    'whatsapp_waha' => ['WhatsApp · Cekbot', 'chat-bubble-left-right'],
+                    'whatsapp_meta' => ['WhatsApp · Rasmi', 'check-badge'],
+                ];
+            @endphp
+            <div class="space-y-5">
+                {{-- Header --}}
+                <div>
+                    <flux:heading size="lg" class="flex items-center gap-2">
+                        <flux:icon name="truck" class="w-5 h-5 text-blue-600" />
+                        {{ $trackingMode === 'manage' ? 'Urus tracking' : 'Tambah tracking' }}
+                    </flux:heading>
+                    <flux:text size="sm" class="mt-1 text-zinc-500 dark:text-zinc-400">
+                        Pesanan {{ $tOrder->order_number }} · {{ $tOrder->getCustomerName() }}
+                    </flux:text>
+                </div>
+
+                @if($trackingStep === 'input')
+                    {{-- STEP 1 — enter tracking --}}
+                    <div class="space-y-3">
+                        <flux:input wire:model="trackingNumber" wire:keydown.enter="checkTracking" label="Nombor tracking" placeholder="cth. EP123456789MY" />
+                        <flux:input wire:model="trackingCourier" label="Kurier (pilihan)" placeholder="cth. J&T Express, Pos Malaysia" />
+                        @error('trackingNumber') <flux:text size="sm" class="text-red-500">{{ $message }}</flux:text> @enderror
+                    </div>
+                    <div class="flex items-center justify-end gap-2 pt-1">
+                        <flux:button variant="ghost" wire:click="closeTrackingModal">Batal</flux:button>
+                        <flux:button variant="primary" wire:click="checkTracking">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="arrow-right" class="w-4 h-4 mr-1.5" />
+                                Semak
+                            </div>
+                        </flux:button>
+                    </div>
+                @else
+                    {{-- STEP 2 — verify + notify --}}
+                    <flux:callout variant="warning" icon="magnifying-glass">
+                        <flux:callout.heading>Sila semak nombor ini betul</flux:callout.heading>
+                        <flux:callout.text>Pastikan nombor tracking betul sebelum kami hantar kepada pelanggan.</flux:callout.text>
+                    </flux:callout>
+
+                    <div class="flex items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/50">
+                        <div class="min-w-0">
+                            <flux:text size="sm" class="text-zinc-500">Nombor tracking</flux:text>
+                            <div class="font-mono text-lg font-semibold text-zinc-900 dark:text-white break-all">{{ trim($trackingNumber) ?: '—' }}</div>
+                            @if($trackingCourier)
+                                <flux:text size="sm" class="text-zinc-500">{{ $trackingCourier }}</flux:text>
+                            @endif
+                        </div>
+                        @if(trim($trackingNumber) !== '')
+                            <a href="https://www.tracking.my/instant/{{ rawurlencode(trim($trackingNumber)) }}" target="_blank" rel="noopener"
+                                class="inline-flex shrink-0 items-center gap-1 text-sm text-blue-600 hover:underline dark:text-blue-400">
+                                <flux:icon name="arrow-top-right-on-square" class="w-4 h-4" /> Semak
+                            </a>
+                        @endif
+                    </div>
+
+                    <flux:checkbox wire:model="trackingMarkShipped" label="Tandakan pesanan sebagai 'Shipped'" />
+
+                    {{-- Channel picker --}}
+                    <div class="space-y-2">
+                        <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Hantar kepada pelanggan melalui</flux:text>
+                        <div class="grid gap-2 sm:grid-cols-3">
+                            @foreach($tChannelMeta as $chKey => $chMeta)
+                                @php $ch = $tChannels[$chKey] ?? ['available' => false, 'target' => '—', 'reason' => null]; @endphp
+                                <button type="button" wire:key="tch-{{ $chKey }}"
+                                    @if($ch['available']) wire:click="$set('trackingChannel', '{{ $chKey }}')" @endif
+                                    @disabled(! $ch['available'])
+                                    class="text-left rounded-xl border p-3 transition-colors
+                                        {{ $trackingChannel === $chKey ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/60 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-700' }}
+                                        {{ $ch['available'] ? 'hover:border-blue-400 cursor-pointer' : 'opacity-50 cursor-not-allowed' }}">
+                                    <div class="flex items-center gap-1.5">
+                                        <flux:icon name="{{ $chMeta[1] }}" class="w-4 h-4 {{ $trackingChannel === $chKey ? 'text-blue-600' : 'text-zinc-400' }}" />
+                                        <span class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ $chMeta[0] }}</span>
+                                    </div>
+                                    <div class="mt-1 truncate text-xs {{ $ch['available'] ? 'text-zinc-500' : 'text-amber-600 dark:text-amber-400' }}" title="{{ $ch['available'] ? $ch['target'] : $ch['reason'] }}">
+                                        {{ $ch['available'] ? $ch['target'] : $ch['reason'] }}
+                                    </div>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- Compose --}}
+                    @if($trackingChannel === 'whatsapp_meta')
+                        @if($tMetaTemplates->isEmpty())
+                            <flux:callout variant="secondary" icon="document-text">
+                                <flux:callout.heading>Tiada template diluluskan</flux:callout.heading>
+                                <flux:callout.text>Cipta &amp; luluskan template di <a href="{{ route('admin.whatsapp.templates') }}" class="underline" wire:navigate>WhatsApp Templates</a> dahulu.</flux:callout.text>
+                            </flux:callout>
+                        @else
+                            <flux:select wire:model.live="trackingMetaTemplateId" label="Template rasmi">
+                                @foreach($tMetaTemplates as $t)
+                                    <flux:select.option value="{{ $t->id }}">{{ $t->name }} ({{ strtoupper($t->language) }})</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            @if($this->trackingMetaPreview !== '')
+                                <div class="rounded-xl bg-emerald-50 p-3 text-sm leading-relaxed whitespace-pre-line text-zinc-800 ring-1 ring-emerald-100 dark:bg-emerald-900/20 dark:text-zinc-100 dark:ring-emerald-900/40">{{ $this->trackingMetaPreview }}</div>
+                            @endif
+                            @if(!empty($trackingMetaMapping['body']))
+                                <div class="space-y-2">
+                                    <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Isi pembolehubah template</flux:text>
+                                    @foreach($trackingMetaMapping['body'] as $index => $var)
+                                        <div wire:key="tmvar-{{ $index }}" class="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
+                                            <span class="inline-flex h-7 min-w-9 items-center justify-center rounded-md bg-zinc-100 px-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">{{ '{'.'{'.$index.'}'.'}' }}</span>
+                                            <div class="w-36">
+                                                <flux:select size="sm" wire:model.live="trackingMetaMapping.body.{{ $index }}.source">
+                                                    <flux:select.option value="order_field">Order field</flux:select.option>
+                                                    <flux:select.option value="static">Custom text</flux:select.option>
+                                                </flux:select>
+                                            </div>
+                                            <div class="min-w-44 flex-1">
+                                                @if(($var['source'] ?? 'order_field') === 'order_field')
+                                                    <flux:select size="sm" wire:model.live="trackingMetaMapping.body.{{ $index }}.field">
+                                                        @foreach($this->waOrderFields() as $fieldKey => $fieldLabel)
+                                                            <flux:select.option value="{{ $fieldKey }}">{{ $fieldLabel }}</flux:select.option>
+                                                        @endforeach
+                                                    </flux:select>
+                                                @else
+                                                    <flux:input size="sm" wire:model.live.debounce.400ms="trackingMetaMapping.body.{{ $index }}.value" placeholder="Taip nilai…" />
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        @endif
+                    @else
+                        <flux:textarea wire:model="trackingMessage" label="{{ $trackingChannel === 'email' ? 'Isi e-mel' : 'Mesej WhatsApp' }}" rows="9" />
+                        <flux:text size="xs" class="text-zinc-400">Template Melayu mesra pelanggan — boleh ubah suai sebelum hantar.</flux:text>
+                    @endif
+
+                    {{-- Notification history --}}
+                    @if($tHistory->isNotEmpty())
+                        <div class="space-y-1.5">
+                            <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Sejarah notifikasi</flux:text>
+                            <div class="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-zinc-100 p-2 dark:border-zinc-800">
+                                @foreach($tHistory as $h)
+                                    <div wire:key="thist-{{ $h->id }}" class="flex items-center justify-between gap-2 text-xs">
+                                        <span class="flex min-w-0 items-center gap-1.5">
+                                            <flux:icon name="{{ $h->wasSent() ? 'check-circle' : 'x-circle' }}" class="w-3.5 h-3.5 shrink-0 {{ $h->wasSent() ? 'text-emerald-500' : 'text-red-500' }}" />
+                                            <span class="text-zinc-600 dark:text-zinc-300">{{ $h->channelLabel() }}</span>
+                                            <span class="truncate text-zinc-400">{{ $h->recipient }}</span>
+                                        </span>
+                                        <span class="shrink-0 text-zinc-400">{{ $h->created_at->diffForHumans() }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Actions --}}
+                    <div class="flex items-center justify-between gap-2 pt-1">
+                        <flux:button variant="ghost" wire:click="{{ $trackingMode === 'manage' ? 'closeTrackingModal' : 'backToTrackingInput' }}">
+                            {{ $trackingMode === 'manage' ? 'Tutup' : 'Kembali' }}
+                        </flux:button>
+                        <div class="flex items-center gap-2">
+                            <flux:button variant="outline" wire:click="saveTrackingOnly" wire:target="saveTrackingOnly" wire:loading.attr="disabled">Simpan sahaja</flux:button>
+                            <flux:button variant="primary" wire:click="confirmAndSendTracking"
+                                wire:target="confirmAndSendTracking" wire:loading.attr="disabled"
+                                :disabled="$tSendDisabled">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="paper-airplane" class="w-4 h-4 mr-1.5" wire:loading.remove wire:target="confirmAndSendTracking" />
+                                    <flux:icon name="arrow-path" class="w-4 h-4 mr-1.5 animate-spin" wire:loading wire:target="confirmAndSendTracking" />
+                                    {{ $trackingMode === 'manage' ? 'Hantar semula' : 'Sahkan & Hantar' }}
+                                </div>
+                            </flux:button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        @endif
     </flux:modal>
 
     <!-- Toast Notification -->

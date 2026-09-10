@@ -25,6 +25,9 @@ class WhatsAppBlastService
         'order_status' => 'Order status',
         'payment_status' => 'Payment status',
         'store_name' => 'Store name',
+        'tracking_number' => 'Tracking number',
+        'tracking_url' => 'Tracking link',
+        'courier' => 'Courier name',
     ];
 
     /**
@@ -223,6 +226,43 @@ class WhatsAppBlastService
     }
 
     /**
+     * Build Meta template components straight from an order (no campaign
+     * recipient) — used by the single-order tracking send.
+     *
+     * @param  array<string, array<int, mixed>>  $variableMapping
+     * @return array<int, array{type: string, parameters: array<int, array{type: string, text: string}>}>
+     */
+    public function buildComponentsForOrder(ProductOrder $order, array $variableMapping): array
+    {
+        $components = [];
+
+        foreach ($variableMapping as $componentType => $vars) {
+            if (! is_array($vars) || $vars === []) {
+                continue;
+            }
+
+            ksort($vars);
+            $parameters = [];
+
+            foreach ($vars as $def) {
+                $parameters[] = [
+                    'type' => 'text',
+                    'text' => $this->resolveVariable($def, $order, null, $order->getCustomerName()),
+                ];
+            }
+
+            if ($parameters !== []) {
+                $components[] = [
+                    'type' => $componentType,
+                    'parameters' => $parameters,
+                ];
+            }
+        }
+
+        return $components;
+    }
+
+    /**
      * Render the template body with variables resolved for a sample order
      * (used for the compose preview).
      *
@@ -344,6 +384,9 @@ class WhatsAppBlastService
             'order_status' => ucwords((string) ($order?->status ?? '')),
             'payment_status' => ucwords((string) ($order?->payment_status ?? '')),
             'store_name' => (string) config('store.name', config('app.name', '')),
+            'tracking_number' => (string) ($order?->tracking_id ?? ''),
+            'tracking_url' => (string) ($order?->tracking_url ?? ''),
+            'courier' => (string) ($order?->shipping_provider_label ?? ''),
             default => '',
         };
     }
