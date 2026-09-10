@@ -208,6 +208,8 @@ class WahaSessionManager
      */
     public function createSession(string $name, array $config = [], bool $start = true): array
     {
+        $config = $this->withWebhooks($config);
+
         $response = $this->client()->post('/api/sessions', [
             'name' => $name,
             'start' => $start,
@@ -219,6 +221,60 @@ class WahaSessionManager
         }
 
         return (array) $response->json();
+    }
+
+    /**
+     * (Re)apply the configured inbound webhook to an existing WAHA session,
+     * preserving its current metadata. Returns false when no webhook URL is
+     * configured or the session does not exist on the server.
+     */
+    public function setWebhook(string $name): bool
+    {
+        if (blank(config('cekbot.webhook_url'))) {
+            return false;
+        }
+
+        $session = $this->getSession($name);
+
+        if ($session === null) {
+            return false;
+        }
+
+        $config = $this->withWebhooks((array) ($session['config'] ?? []));
+
+        $response = $this->client()->put('/api/sessions/'.rawurlencode($name), [
+            'config' => $config,
+        ]);
+
+        if (! $response->successful()) {
+            throw $this->error('set webhook', $response->status(), $response->json());
+        }
+
+        return true;
+    }
+
+    /**
+     * Merge the configured Cekbot webhook into a WAHA session config, so every
+     * created/updated session reports messages back automatically. No-op when
+     * CEKBOT_WEBHOOK_URL is unset.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    private function withWebhooks(array $config): array
+    {
+        $url = config('cekbot.webhook_url');
+
+        if (blank($url)) {
+            return $config;
+        }
+
+        $config['webhooks'] = [[
+            'url' => $url,
+            'events' => config('cekbot.webhook_events', ['message', 'session.status', 'message.ack']),
+        ]];
+
+        return $config;
     }
 
     public function startSession(string $name): void
