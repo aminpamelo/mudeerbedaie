@@ -10,7 +10,9 @@ use App\Models\ProductOrder;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsApp\WahaSessionManager;
 use App\Services\WhatsApp\WhatsAppManager;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class TrackingNotificationService
 {
@@ -57,7 +59,9 @@ class TrackingNotificationService
     public function channelAvailability(ProductOrder $order): array
     {
         $email = $order->getCustomerEmail();
-        $emailValid = $email !== 'No email provided' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+        $hasEmail = $email !== 'No email provided';
+        $emailSyntaxOk = $hasEmail && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+        $emailDeliverable = $emailSyntaxOk && $this->isEmailDeliverable($email);
 
         $rawPhone = $order->getCustomerPhone();
         $phone = PhoneNumberHelper::normalize($rawPhone);
@@ -72,9 +76,14 @@ class TrackingNotificationService
 
         return [
             OrderTrackingNotification::CHANNEL_EMAIL => [
-                'available' => $emailValid,
-                'target' => $emailValid ? $email : ($email === 'No email provided' ? '—' : $email),
-                'reason' => $emailValid ? null : 'Tiada alamat e-mel pelanggan',
+                'available' => $emailDeliverable,
+                'target' => $hasEmail ? $email : '—',
+                'reason' => match (true) {
+                    ! $hasEmail => 'Tiada alamat e-mel pelanggan',
+                    ! $emailSyntaxOk => 'Format e-mel tidak sah',
+                    ! $emailDeliverable => 'Domain e-mel tiada rekod MX — risiko bounce',
+                    default => null,
+                },
             ],
             OrderTrackingNotification::CHANNEL_WHATSAPP_WAHA => [
                 'available' => $hasPhone && $wahaConfigured && $wahaSession,
@@ -97,6 +106,36 @@ class TrackingNotificationService
                 },
             ],
         ];
+    }
+
+    /**
+     * Whether an email is worth sending to: valid syntax AND the domain has a
+     * mail record (MX, or fallback A). Cached per domain so the DNS lookup runs
+     * at most once a day. Guards our SMTP reputation against hard bounces.
+     */
+    public function isEmailDeliverable(?string $email): bool
+    {
+        if ($email === null || $email === '' || $email === 'No email provided') {
+            return false;
+        }
+
+        if (! str_contains($email, '@') || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return false;
+        }
+
+        $domain = strtolower(Str::afterLast($email, '@'));
+
+        if ($domain === '') {
+            return false;
+        }
+
+        return Cache::remember('tracking_mx:'.$domain, now()->addDay(), function () use ($domain) {
+            try {
+                return checkdnsrr($domain, 'MX') || checkdnsrr($domain, 'A');
+            } catch (\Throwable $e) {
+                return false;
+            }
+        });
     }
 
     /**
@@ -124,8 +163,8 @@ class TrackingNotificationService
     {
         $email = $order->getCustomerEmail();
 
-        if ($email === 'No email provided' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            return $this->record($order, OrderTrackingNotification::CHANNEL_EMAIL, null, OrderTrackingNotification::STATUS_FAILED, null, $message, 'Tiada alamat e-mel yang sah', [], $userId);
+        if (! $this->isEmailDeliverable($email)) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_EMAIL, $email === 'No email provided' ? null : $email, OrderTrackingNotification::STATUS_FAILED, null, $message, 'E-mel tidak sah atau domain berisiko bounce', [], $userId);
         }
 
         try {
@@ -235,16 +274,6 @@ class TrackingNotificationService
             'error' => $error,
             'meta' => $meta,
             'sent_by' => $userId,
-        ]);
-
-        $order->update([
-            'metadata' => array_merge($order->metadata ?? [], [
-                'tracking_notified' => [
-                    'at' => now()->toIso8601String(),
-                    'channel' => $channel,
-                    'status' => $status,
-                ],
-            ]),
         ]);
 
         $order->addSystemNote(

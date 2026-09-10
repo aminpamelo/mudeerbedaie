@@ -95,8 +95,8 @@ new class extends Component
 
     public bool $trackingMarkShipped = true;
 
-    /** email | whatsapp_waha | whatsapp_meta */
-    public string $trackingChannel = 'whatsapp_waha';
+    /** @var array<int, string> selected channels: email | whatsapp_waha | whatsapp_meta */
+    public array $trackingChannels = [];
 
     public string $trackingMessage = '';
 
@@ -155,12 +155,11 @@ new class extends Component
         $this->trackingMessageDirty = false;
         $this->trackingMessage = app(TrackingNotificationService::class)->defaultMessage($order);
 
-        // Default to the first channel that can actually reach the customer.
+        // Pre-tick the first channel that can actually reach the customer; the
+        // admin can tick more (e.g. email + WhatsApp together).
         $availability = app(TrackingNotificationService::class)->channelAvailability($order);
-        $this->trackingChannel = collect($availability)
-            ->filter(fn ($c) => $c['available'])
-            ->keys()
-            ->first() ?? 'whatsapp_waha';
+        $firstAvailable = collect($availability)->filter(fn ($c) => $c['available'])->keys()->first();
+        $this->trackingChannels = $firstAvailable ? [$firstAvailable] : [];
 
         $this->trackingMetaTemplateId = optional($this->approvedWaTemplates->first())->id;
         $this->initTrackingMetaMapping();
@@ -209,6 +208,23 @@ new class extends Component
     public function updatedTrackingMetaTemplateId(): void
     {
         $this->initTrackingMetaMapping();
+    }
+
+    /**
+     * Tick / untick a send channel. Only channels that can actually reach the
+     * customer may be selected.
+     */
+    public function toggleTrackingChannel(string $channel): void
+    {
+        if (! ($this->trackingChannelInfo[$channel]['available'] ?? false)) {
+            return;
+        }
+
+        if (in_array($channel, $this->trackingChannels, true)) {
+            $this->trackingChannels = array_values(array_diff($this->trackingChannels, [$channel]));
+        } else {
+            $this->trackingChannels[] = $channel;
+        }
     }
 
     protected function initTrackingMetaMapping(): void
@@ -275,39 +291,94 @@ new class extends Component
         $this->persistTrackingNumber($order);
         $order->refresh();
 
-        $notification = $this->dispatchTrackingSend($order);
+        $results = $this->dispatchTrackingSends($order);
 
-        $this->dispatch('order-updated', message: $notification->wasSent()
-            ? "Tracking dihantar via {$notification->channelLabel()} ✓"
-            : "Gagal hantar: {$notification->error}");
+        if ($results === []) {
+            $this->dispatch('order-updated', message: 'Sila pilih sekurang-kurangnya satu saluran untuk hantar.');
 
+            return;
+        }
+
+        $this->stampTrackingBadge($order, $results);
+
+        $sent = collect($results)->filter->wasSent();
+        $failed = collect($results)->reject->wasSent();
+
+        if ($failed->isEmpty()) {
+            $message = 'Tracking dihantar via '.$sent->map->channelLabel()->implode(', ').' ✓';
+        } elseif ($sent->isNotEmpty()) {
+            $message = 'Sebahagian dihantar ('.$sent->map->channelLabel()->implode(', ').'). Gagal: '.$failed->map->channelLabel()->implode(', ');
+        } else {
+            $message = 'Gagal hantar: '.$failed->first()->error;
+        }
+
+        $this->dispatch('order-updated', message: $message);
         $this->closeTrackingModal();
     }
 
-    protected function dispatchTrackingSend(ProductOrder $order): \App\Models\OrderTrackingNotification
+    /**
+     * Send the tracking notification through every ticked channel (run together).
+     *
+     * @return array<int, \App\Models\OrderTrackingNotification>
+     */
+    protected function dispatchTrackingSends(ProductOrder $order): array
     {
         $service = app(TrackingNotificationService::class);
         $userId = auth()->id();
+        $results = [];
 
-        if ($this->trackingChannel === 'whatsapp_meta') {
-            $template = $this->trackingMetaTemplateId
-                ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
-                : null;
+        foreach ($this->trackingChannels as $channel) {
+            if ($channel === 'whatsapp_meta') {
+                $template = $this->trackingMetaTemplateId
+                    ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
+                    : null;
 
-            $components = $template
-                ? app(WhatsAppBlastService::class)->buildComponentsForOrder($order, $this->trackingMetaMapping)
-                : [];
+                $components = $template
+                    ? app(WhatsAppBlastService::class)->buildComponentsForOrder($order, $this->trackingMetaMapping)
+                    : [];
 
-            return $service->send($order, 'whatsapp_meta', [
-                'template' => $template,
-                'components' => $components,
-                'language' => $template?->language ?? '',
+                $results[] = $service->send($order, 'whatsapp_meta', [
+                    'template' => $template,
+                    'components' => $components,
+                    'language' => $template?->language ?? '',
+                ], $userId);
+
+                continue;
+            }
+
+            $results[] = $service->send($order, $channel, [
+                'message' => $this->trackingMessage,
             ], $userId);
         }
 
-        return $service->send($order, $this->trackingChannel, [
-            'message' => $this->trackingMessage,
-        ], $userId);
+        return $results;
+    }
+
+    /**
+     * Stamp a compact summary on the order so the list row can show a "notified"
+     * badge without loading the notifications relation per row. Prefers a sent
+     * status when at least one channel succeeded.
+     *
+     * @param  array<int, \App\Models\OrderTrackingNotification>  $results
+     */
+    protected function stampTrackingBadge(ProductOrder $order, array $results): void
+    {
+        if ($results === []) {
+            return;
+        }
+
+        $sent = collect($results)->first(fn ($r) => $r->wasSent());
+        $chosen = $sent ?? $results[0];
+
+        $order->update([
+            'metadata' => array_merge($order->metadata ?? [], [
+                'tracking_notified' => [
+                    'at' => now()->toIso8601String(),
+                    'channel' => $chosen->channel,
+                    'status' => $sent ? 'sent' : 'failed',
+                ],
+            ]),
+        ]);
     }
 
     public function closeTrackingModal(): void
@@ -318,6 +389,7 @@ new class extends Component
         $this->trackingMode = 'enter';
         $this->trackingNumber = '';
         $this->trackingCourier = '';
+        $this->trackingChannels = [];
         $this->trackingMessage = '';
         $this->trackingMessageDirty = false;
         $this->trackingMetaTemplateId = null;
@@ -3287,11 +3359,13 @@ new class extends Component
                 $tChannels = $this->trackingChannelInfo;
                 $tHistory = $tOrder->trackingNotifications;
                 $tMetaTemplates = $this->approvedWaTemplates;
-                $tActive = $tChannels[$trackingChannel] ?? ['available' => false];
-                $tSendDisabled = empty($tActive['available']);
-                if ($trackingChannel === 'whatsapp_meta' && ($trackingMetaTemplateId === null || $tMetaTemplates->isEmpty())) {
-                    $tSendDisabled = true;
-                }
+                $tWantEmail = in_array('email', $trackingChannels, true);
+                $tWantWaha = in_array('whatsapp_waha', $trackingChannels, true);
+                $tWantMeta = in_array('whatsapp_meta', $trackingChannels, true);
+                $tMetaReady = $trackingMetaTemplateId !== null && ! $tMetaTemplates->isEmpty();
+                // Sendable = every ticked channel that can actually go out right now.
+                $tSendable = collect($trackingChannels)->filter(fn ($c) => $c === 'whatsapp_meta' ? $tMetaReady : true);
+                $tSendDisabled = $tSendable->isEmpty();
                 $tChannelMeta = [
                     'email' => ['E-mel', 'envelope'],
                     'whatsapp_waha' => ['WhatsApp · Cekbot', 'chat-bubble-left-right'],
@@ -3351,20 +3425,26 @@ new class extends Component
 
                     <flux:checkbox wire:model="trackingMarkShipped" label="Tandakan pesanan sebagai 'Shipped'" />
 
-                    {{-- Channel picker --}}
+                    {{-- Channel picker (multi-select — tick one or more, hantar serentak) --}}
                     <div class="space-y-2">
-                        <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Hantar kepada pelanggan melalui</flux:text>
+                        <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Hantar kepada pelanggan melalui <span class="font-normal text-zinc-400">(boleh pilih lebih dari satu)</span></flux:text>
                         <div class="grid gap-2 sm:grid-cols-3">
                             @foreach($tChannelMeta as $chKey => $chMeta)
-                                @php $ch = $tChannels[$chKey] ?? ['available' => false, 'target' => '—', 'reason' => null]; @endphp
+                                @php
+                                    $ch = $tChannels[$chKey] ?? ['available' => false, 'target' => '—', 'reason' => null];
+                                    $chOn = in_array($chKey, $trackingChannels, true);
+                                @endphp
                                 <button type="button" wire:key="tch-{{ $chKey }}"
-                                    @if($ch['available']) wire:click="$set('trackingChannel', '{{ $chKey }}')" @endif
+                                    @if($ch['available']) wire:click="toggleTrackingChannel('{{ $chKey }}')" @endif
                                     @disabled(! $ch['available'])
                                     class="text-left rounded-xl border p-3 transition-colors
-                                        {{ $trackingChannel === $chKey ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/60 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-700' }}
+                                        {{ $chOn ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/60 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-700' }}
                                         {{ $ch['available'] ? 'hover:border-blue-400 cursor-pointer' : 'opacity-50 cursor-not-allowed' }}">
                                     <div class="flex items-center gap-1.5">
-                                        <flux:icon name="{{ $chMeta[1] }}" class="w-4 h-4 {{ $trackingChannel === $chKey ? 'text-blue-600' : 'text-zinc-400' }}" />
+                                        <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded border {{ $chOn ? 'border-blue-500 bg-blue-500 text-white' : 'border-zinc-300 dark:border-zinc-600' }}">
+                                            @if($chOn)<flux:icon name="check" class="h-3 w-3" />@endif
+                                        </span>
+                                        <flux:icon name="{{ $chMeta[1] }}" class="w-4 h-4 {{ $chOn ? 'text-blue-600' : 'text-zinc-400' }}" />
                                         <span class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ $chMeta[0] }}</span>
                                     </div>
                                     <div class="mt-1 truncate text-xs {{ $ch['available'] ? 'text-zinc-500' : 'text-amber-600 dark:text-amber-400' }}" title="{{ $ch['available'] ? $ch['target'] : $ch['reason'] }}">
@@ -3375,15 +3455,26 @@ new class extends Component
                         </div>
                     </div>
 
-                    {{-- Compose --}}
-                    @if($trackingChannel === 'whatsapp_meta')
+                    {{-- Compose: shared free-text for Email + WhatsApp Cekbot --}}
+                    @if($tWantEmail || $tWantWaha)
+                        @php
+                            $composeLabel = ($tWantEmail && $tWantWaha)
+                                ? 'Mesej (E-mel & WhatsApp Cekbot)'
+                                : ($tWantEmail ? 'Isi e-mel' : 'Mesej WhatsApp');
+                        @endphp
+                        <flux:textarea wire:model="trackingMessage" label="{{ $composeLabel }}" rows="8" />
+                        <flux:text size="xs" class="text-zinc-400">Template Melayu mesra pelanggan — boleh ubah suai sebelum hantar.</flux:text>
+                    @endif
+
+                    {{-- Compose: Meta official template --}}
+                    @if($tWantMeta)
                         @if($tMetaTemplates->isEmpty())
                             <flux:callout variant="secondary" icon="document-text">
                                 <flux:callout.heading>Tiada template diluluskan</flux:callout.heading>
-                                <flux:callout.text>Cipta &amp; luluskan template di <a href="{{ route('admin.whatsapp.templates') }}" class="underline" wire:navigate>WhatsApp Templates</a> dahulu.</flux:callout.text>
+                                <flux:callout.text>Cipta &amp; luluskan template di <a href="{{ route('admin.whatsapp.templates') }}" class="underline" wire:navigate>WhatsApp Templates</a> dahulu untuk guna WhatsApp Rasmi.</flux:callout.text>
                             </flux:callout>
                         @else
-                            <flux:select wire:model.live="trackingMetaTemplateId" label="Template rasmi">
+                            <flux:select wire:model.live="trackingMetaTemplateId" label="Template rasmi (WhatsApp Rasmi)">
                                 @foreach($tMetaTemplates as $t)
                                     <flux:select.option value="{{ $t->id }}">{{ $t->name }} ({{ strtoupper($t->language) }})</flux:select.option>
                                 @endforeach
@@ -3419,9 +3510,6 @@ new class extends Component
                                 </div>
                             @endif
                         @endif
-                    @else
-                        <flux:textarea wire:model="trackingMessage" label="{{ $trackingChannel === 'email' ? 'Isi e-mel' : 'Mesej WhatsApp' }}" rows="9" />
-                        <flux:text size="xs" class="text-zinc-400">Template Melayu mesra pelanggan — boleh ubah suai sebelum hantar.</flux:text>
                     @endif
 
                     {{-- Notification history --}}
