@@ -5,6 +5,7 @@ import { CalendarClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, C
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { MONTH_SHORT_MS } from '@/livehost-pocket/lib/format';
 import { initialsFrom } from '@/livehost-pocket/lib/utils';
+import VideoMonthGrid from '@/livehost-pocket/components/VideoMonthGrid';
 
 /** Colour tone for a 0-100 KPI score — mirrors the PIC desk's score bands. */
 function kpiTone(score) {
@@ -335,8 +336,6 @@ function rmCompact(n) {
 
 const CATEGORY_LABELS = { lateness: 'Lateness', absence: 'Absence', rule_violation: 'Rule violation', misconduct: 'Misconduct', other: 'Other' };
 
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
 /**
  * The day-by-day card. Two views over the same month share one card: the
  * horizontal sales strip (default) and a video-content calendar. The header
@@ -375,7 +374,7 @@ function DailyBreakdownCard({ daily, view, onViewChange, onSelectDay }) {
         </div>
       </div>
       {isCalendar
-        ? <DailyCalendar daily={daily} onSelectDay={onSelectDay} />
+        ? <VideoMonthGrid year={daily.year} month={daily.month} days={daily.days} onSelectDay={onSelectDay} />
         : <DailyStripBody daily={daily} onSelectDay={onSelectDay} />}
     </div>
   );
@@ -464,68 +463,6 @@ function DailyStripBody({ daily, onSelectDay }) {
 }
 
 /**
- * The video-content calendar: a Sunday-first month grid. Days with a video
- * logged read green (daily compliance); un-logged past days stay neutral;
- * future days (current month) sit faded and un-tappable. Today gets a ring.
- */
-function DailyCalendar({ daily, onSelectDay }) {
-  const { year, month, days } = daily;
-  const byDay = new Map(days.map((d) => [d.day, d]));
-  const firstWeekday = new Date(year, month - 1, 1).getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const now = new Date();
-  const todayDay = now.getFullYear() === year && now.getMonth() + 1 === month ? now.getDate() : null;
-
-  const cells = [];
-  for (let i = 0; i < firstWeekday; i += 1) {
-    cells.push(null);
-  }
-  for (let dnum = 1; dnum <= daysInMonth; dnum += 1) {
-    cells.push(dnum);
-  }
-
-  return (
-    <div>
-      <div className="mb-1 grid grid-cols-7 gap-1">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="text-center font-mono text-[9px] font-bold uppercase tracking-wide text-[var(--fg-3)]">{w}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((dnum, i) => {
-          if (dnum === null) {
-            return <div key={`b-${i}`} />;
-          }
-          const d = byDay.get(dnum);
-          const isFuture = !d;
-          const isToday = dnum === todayDay;
-          const logged = Boolean(d && d.videos > 0);
-
-          return (
-            <button
-              type="button"
-              key={dnum}
-              disabled={isFuture}
-              onClick={() => d && onSelectDay(d.date)}
-              className={`flex min-h-[46px] flex-col items-center justify-center gap-0.5 rounded-[9px] border px-0.5 py-1 transition ${
-                isToday ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-[var(--hair)]'
-              } ${isFuture ? 'bg-[var(--app-bg)] opacity-40' : logged ? 'bg-[#ECFDF5]' : 'bg-[var(--app-bg)] active:scale-95'}`}
-            >
-              <span className={`text-[10px] font-semibold leading-none ${logged ? 'text-[#047857]' : 'text-[var(--fg-3)]'}`}>{dnum}</span>
-              {!isFuture && (
-                <span className={`flex items-center gap-0.5 text-[10px] font-bold leading-none tabular-nums ${logged ? 'text-[#047857]' : 'text-[var(--fg-3)]'}`}>
-                  {logged ? (<><Video className="h-2.5 w-2.5" strokeWidth={2.4} />{d.videos}</>) : '·'}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/**
  * The day-by-day strip with a month browser. `months` is newest-first; switching
  * month fetches that month's strip from the JSON endpoint (the rest of the page
  * stays put). The previous month stays visible, dimmed, while the next loads.
@@ -533,7 +470,7 @@ function DailyCalendar({ daily, onSelectDay }) {
 function DailyStripSection({ initialDaily, months }) {
   const [daily, setDaily] = useState(initialDaily);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('strip');
+  const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(null);
 
   const list = months.length > 0 ? months : (daily ? [{ year: daily.year, month: daily.month, label: daily.month_label }] : []);

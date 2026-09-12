@@ -13,6 +13,7 @@ import {
   shortGreetingFor,
 } from '@/livehost-pocket/lib/utils';
 import { accountLabel, formatRinggitInt, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
+import VideoMonthGrid from '@/livehost-pocket/components/VideoMonthGrid';
 
 /**
  * Today screen (Batch 2) — host-scoped overview with live-now card, daily
@@ -551,7 +552,6 @@ function VideoSummary({ summary }) {
   const pct = summary.pct ?? 0;
   const met = hasTarget && summary.count >= summary.target;
   const barColor = met ? '#10B981' : 'var(--accent)';
-  const maxDay = Math.max(1, ...summary.last7.map((d) => d.count));
 
   return (
     <Link
@@ -593,28 +593,14 @@ function VideoSummary({ summary }) {
       </div>
 
       <div className="mt-3 border-t border-[var(--hair)] pt-3">
-        <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Last 7 days</div>
-        <div className="flex items-end gap-[5px]" style={{ height: '30px' }}>
-          {summary.last7.map((d, i) => {
-            const h = d.count === 0 ? 3 : Math.max(5, Math.round((d.count / maxDay) * 26));
-            const isToday = i === summary.last7.length - 1;
-            return (
-              <div key={d.date} className="flex flex-1 items-end">
-                <div
-                  className="w-full rounded-[3px]"
-                  style={{ height: `${h}px`, backgroundColor: d.count === 0 ? 'var(--hair-2)' : 'var(--accent)', opacity: d.count === 0 ? 0.5 : isToday ? 1 : 0.7 }}
-                />
-              </div>
-            );
-          })}
+        <div className="mb-2 flex items-center justify-between">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">{summary.month_label}</span>
+          <span className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-wide text-[var(--fg-3)]">
+            <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" /> logged</span>
+            <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--hair-2)]" /> none</span>
+          </span>
         </div>
-        <div className="mt-1 flex gap-[5px]">
-          {summary.last7.map((d, i) => (
-            <div key={d.date} className={`flex-1 text-center font-mono text-[8px] uppercase ${i === summary.last7.length - 1 ? 'font-bold text-[var(--fg-2)]' : 'text-[var(--fg-3)]'}`}>
-              {d.dow.slice(0, 1)}
-            </div>
-          ))}
-        </div>
+        <VideoMonthGrid year={summary.year} month={summary.month} days={summary.days} dense />
       </div>
 
       {summary.by_category.length > 0 && (

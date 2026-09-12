@@ -92,11 +92,11 @@ class DashboardController extends Controller
     /**
      * A personalised video-content report for the Today screen: this month's
      * videos against the host's monthly video KPI, days logged, a per-category
-     * breakdown, a 7-day mini-trend, and how many videos still await the host's
-     * reply. Scoped entirely to the host's own active enrolment. Null when the
-     * host isn't in a live mentoring program.
+     * breakdown, a per-day month grid (for the calendar), and how many videos
+     * still await the host's reply. Scoped entirely to the host's own active
+     * enrolment. Null when the host isn't in a live mentoring program.
      *
-     * @return array{month_label: string, count: int, target: int|null, pct: int|null, days_logged: int, today_count: int, logged_today: bool, by_category: list<array{key: string, label: string, count: int}>, last7: list<array{date: string, dow: string, count: int}>, awaiting_reply: int}|null
+     * @return array{month_label: string, year: int, month: int, count: int, target: int|null, pct: int|null, days_logged: int, today_count: int, logged_today: bool, by_category: list<array{key: string, label: string, count: int}>, days: list<array{day: int, date: string, videos: int}>, awaiting_reply: int}|null
      */
     private function videoSummary(?LiveHostMentee $mentee): ?array
     {
@@ -131,22 +131,22 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
-        $recent = $mentee->dailyVideos()
-            ->whereBetween('video_date', [$now->subDays(6)->toDateString(), $now->toDateString()])
-            ->get(['video_date'])
-            ->countBy(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->toDateString());
-
-        $last7 = collect(range(6, 0))
-            ->map(function (int $i) use ($now, $recent): array {
-                $d = $now->subDays($i);
-
-                return ['date' => $d->toDateString(), 'dow' => $d->format('D'), 'count' => (int) $recent->get($d->toDateString(), 0)];
-            })
+        // Per-day counts (day 1 → today) drive the month calendar on the card.
+        $lastDay = (int) $now->format('j');
+        $countsByDay = $monthVideos->countBy(fn (LiveHostMenteeDailyVideo $v) => (int) $v->video_date->format('j'));
+        $days = collect(range(1, $lastDay))
+            ->map(fn (int $d): array => [
+                'day' => $d,
+                'date' => $now->startOfMonth()->addDays($d - 1)->toDateString(),
+                'videos' => (int) $countsByDay->get($d, 0),
+            ])
             ->values()
             ->all();
 
         return [
             'month_label' => $now->format('F'),
+            'year' => (int) $now->format('Y'),
+            'month' => (int) $now->format('n'),
             'count' => $count,
             'target' => $target !== null ? (int) $target : null,
             'pct' => $pct,
@@ -154,7 +154,7 @@ class DashboardController extends Controller
             'today_count' => $todayCount,
             'logged_today' => $todayCount > 0,
             'by_category' => $byCategory,
-            'last7' => $last7,
+            'days' => $days,
             'awaiting_reply' => $this->awaitingReplyCount($mentee),
         ];
     }
