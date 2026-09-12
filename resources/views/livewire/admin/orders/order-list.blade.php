@@ -104,9 +104,6 @@ new class extends Component
 
     public ?int $trackingMetaTemplateId = null;
 
-    /** @var array<string, array<int, array{source: string, field: string, value: string}>> */
-    public array $trackingMetaMapping = ['body' => []];
-
     public function startEditingPhone(int $orderId, ?string $currentPhone): void
     {
         $this->editingPhoneOrderId = $orderId;
@@ -162,7 +159,6 @@ new class extends Component
         $this->trackingChannels = $firstAvailable ? [$firstAvailable] : [];
 
         $this->trackingMetaTemplateId = optional($this->approvedWaTemplates->first())->id;
-        $this->initTrackingMetaMapping();
 
         $this->showTrackingModal = true;
     }
@@ -205,11 +201,6 @@ new class extends Component
         $this->trackingMessageDirty = true;
     }
 
-    public function updatedTrackingMetaTemplateId(): void
-    {
-        $this->initTrackingMetaMapping();
-    }
-
     /**
      * Tick / untick a send channel. Only channels that can actually reach the
      * customer may be selected.
@@ -224,30 +215,6 @@ new class extends Component
             $this->trackingChannels = array_values(array_diff($this->trackingChannels, [$channel]));
         } else {
             $this->trackingChannels[] = $channel;
-        }
-    }
-
-    protected function initTrackingMetaMapping(): void
-    {
-        $this->trackingMetaMapping = ['body' => []];
-
-        $template = $this->trackingMetaTemplateId
-            ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
-            : null;
-
-        if (! $template) {
-            return;
-        }
-
-        $count = app(WhatsAppBlastService::class)->variableCount($template, 'BODY');
-        $defaults = ['customer_name', 'order_number', 'tracking_number', 'tracking_url', 'courier'];
-
-        for ($i = 1; $i <= $count; $i++) {
-            $this->trackingMetaMapping['body'][$i] = [
-                'source' => 'order_field',
-                'field' => $defaults[$i - 1] ?? 'tracking_number',
-                'value' => '',
-            ];
         }
     }
 
@@ -333,15 +300,7 @@ new class extends Component
                     ? $this->approvedWaTemplates->firstWhere('id', $this->trackingMetaTemplateId)
                     : null;
 
-                $components = $template
-                    ? app(WhatsAppBlastService::class)->buildComponentsForOrder($order, $this->trackingMetaMapping)
-                    : [];
-
-                $results[] = $service->send($order, 'whatsapp_meta', [
-                    'template' => $template,
-                    'components' => $components,
-                    'language' => $template?->language ?? '',
-                ], $userId);
+                $results[] = $service->send($order, 'whatsapp_meta', ['template' => $template], $userId);
 
                 continue;
             }
@@ -393,7 +352,6 @@ new class extends Component
         $this->trackingMessage = '';
         $this->trackingMessageDirty = false;
         $this->trackingMetaTemplateId = null;
-        $this->trackingMetaMapping = ['body' => []];
         $this->resetErrorBag();
     }
 
@@ -427,7 +385,7 @@ new class extends Component
             return '';
         }
 
-        return app(WhatsAppBlastService::class)->renderBodyPreview($template, $this->trackingMetaMapping, $order);
+        return app(TrackingNotificationService::class)->renderMetaPreview($template, $order);
     }
 
     public function updatingSearch(): void
@@ -3482,33 +3440,10 @@ new class extends Component
                             @if($this->trackingMetaPreview !== '')
                                 <div class="rounded-xl bg-emerald-50 p-3 text-sm leading-relaxed whitespace-pre-line text-zinc-800 ring-1 ring-emerald-100 dark:bg-emerald-900/20 dark:text-zinc-100 dark:ring-emerald-900/40">{{ $this->trackingMetaPreview }}</div>
                             @endif
-                            @if(!empty($trackingMetaMapping['body']))
-                                <div class="space-y-2">
-                                    <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Isi pembolehubah template</flux:text>
-                                    @foreach($trackingMetaMapping['body'] as $index => $var)
-                                        <div wire:key="tmvar-{{ $index }}" class="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
-                                            <span class="inline-flex h-7 min-w-9 items-center justify-center rounded-md bg-zinc-100 px-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">{{ '{'.'{'.$index.'}'.'}' }}</span>
-                                            <div class="w-36">
-                                                <flux:select size="sm" wire:model.live="trackingMetaMapping.body.{{ $index }}.source">
-                                                    <flux:select.option value="order_field">Order field</flux:select.option>
-                                                    <flux:select.option value="static">Custom text</flux:select.option>
-                                                </flux:select>
-                                            </div>
-                                            <div class="min-w-44 flex-1">
-                                                @if(($var['source'] ?? 'order_field') === 'order_field')
-                                                    <flux:select size="sm" wire:model.live="trackingMetaMapping.body.{{ $index }}.field">
-                                                        @foreach($this->waOrderFields() as $fieldKey => $fieldLabel)
-                                                            <flux:select.option value="{{ $fieldKey }}">{{ $fieldLabel }}</flux:select.option>
-                                                        @endforeach
-                                                    </flux:select>
-                                                @else
-                                                    <flux:input size="sm" wire:model.live.debounce.400ms="trackingMetaMapping.body.{{ $index }}.value" placeholder="Taip nilai…" />
-                                                @endif
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
+                            <flux:text size="xs" class="text-zinc-400">
+                                Pembolehubah dinamik diisi automatik ikut pemetaan yang anda set pada template. Ubah pemetaan di
+                                <a href="{{ route('admin.whatsapp.templates') }}" class="underline" wire:navigate>WhatsApp Templates</a>.
+                            </flux:text>
                         @endif
                     @endif
 

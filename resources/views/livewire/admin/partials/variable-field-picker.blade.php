@@ -51,6 +51,8 @@
                     ['value' => 'order.coupon_code', 'label' => 'Coupon Code', 'tag' => '{{order.coupon_code}}'],
                     ['value' => 'order.date', 'label' => 'Date', 'tag' => '{{order.date}}'],
                     ['value' => 'order.tracking_number', 'label' => 'Tracking Number', 'tag' => '{{order.tracking_number}}'],
+                    ['value' => 'order.tracking_url', 'label' => 'Tracking Link', 'tag' => '{{order.tracking_url}}'],
+                    ['value' => 'order.courier', 'label' => 'Courier Name', 'tag' => '{{order.courier}}'],
                 ],
             ],
         ];

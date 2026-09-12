@@ -36,8 +36,26 @@ class OrderDataProvider implements DataProviderInterface
             'date' => $this->formatDate($order),
             'shipping_address' => $this->getShippingAddress($order),
             'billing_address' => $this->getBillingAddress($order),
+            'tracking_number', 'tracking' => $this->getTrackingNumber($order),
+            'tracking_url' => $this->getTrackingUrl($order),
+            'courier', 'courier_name' => $this->getCourier($order),
             default => null,
         };
+    }
+
+    protected function getTrackingNumber(ProductOrder|FunnelOrder $order): string
+    {
+        return $order instanceof ProductOrder ? (string) ($order->tracking_id ?? '') : '';
+    }
+
+    protected function getTrackingUrl(ProductOrder|FunnelOrder $order): string
+    {
+        return $order instanceof ProductOrder ? (string) ($order->tracking_url ?? '') : '';
+    }
+
+    protected function getCourier(ProductOrder|FunnelOrder $order): string
+    {
+        return $order instanceof ProductOrder ? (string) ($order->shipping_provider_label ?? '') : '';
     }
 
     protected function getOrderNumber(ProductOrder|FunnelOrder $order): string

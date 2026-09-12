@@ -209,6 +209,21 @@ class VariableRegistry
                         'example' => '123 Main St, City',
                         'description' => 'Formatted billing address',
                     ],
+                    'order.tracking_number' => [
+                        'label' => 'Tracking Number',
+                        'example' => 'EP123456789MY',
+                        'description' => 'Shipment tracking / AWB number',
+                    ],
+                    'order.tracking_url' => [
+                        'label' => 'Tracking Link',
+                        'example' => 'https://www.tracking.my/instant/EP123456789MY',
+                        'description' => 'Public tracking link for the parcel',
+                    ],
+                    'order.courier' => [
+                        'label' => 'Courier Name',
+                        'example' => 'J&T Express',
+                        'description' => 'Courier / shipping provider name',
+                    ],
                 ],
             ],
         ];
