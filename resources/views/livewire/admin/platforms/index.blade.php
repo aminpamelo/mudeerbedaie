@@ -284,7 +284,7 @@ new class extends Component {
                     Platforms
                 </h1>
                 <p class="mt-2 text-[14px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Connect, monitor and orchestrate every marketplace and channel that feeds orders into Mudeer Bedaie.
+                    Connect, monitor and orchestrate every marketplace and channel that feeds orders into Bedaie.
                 </p>
             </div>
             <div class="flex items-center gap-2">

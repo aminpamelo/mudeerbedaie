@@ -19,7 +19,7 @@ class CeoPwaController extends Controller
 {
     public function manifest(SettingsService $settings): JsonResponse
     {
-        $brand = (string) $settings->get('site_name', config('app.name', 'Mudeer Bedaie'));
+        $brand = (string) $settings->get('site_name', config('app.name', 'Bedaie'));
 
         $manifest = [
             'name' => $brand.' · CEO',

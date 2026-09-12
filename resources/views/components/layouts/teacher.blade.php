@@ -13,7 +13,7 @@
                     <flux:icon name="academic-cap" class="w-5 h-5" />
                 </div>
                 <div class="flex flex-col leading-tight">
-                    <span class="teacher-display text-[15px] font-bold text-slate-900 dark:text-white">Mudeer Bedaie</span>
+                    <span class="teacher-display text-[15px] font-bold text-slate-900 dark:text-white">Bedaie</span>
                     <span class="text-[10px] font-semibold uppercase tracking-[0.18em] bg-gradient-to-r from-violet-700 to-violet-600 dark:from-violet-400 dark:to-violet-400 bg-clip-text text-transparent">Teacher</span>
                 </div>
             </a>

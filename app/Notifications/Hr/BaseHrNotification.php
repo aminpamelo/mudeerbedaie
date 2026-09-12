@@ -106,6 +106,6 @@ abstract class BaseHrNotification extends Notification implements ShouldQueue
             ->greeting("Hello {$notifiable->name}!")
             ->line($this->body())
             ->action('View Details', url($this->actionUrl()))
-            ->line('This is an automated notification from Mudeer HR.');
+            ->line('This is an automated notification from Bedaie HR.');
     }
 }

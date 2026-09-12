@@ -19,7 +19,7 @@ import { fetchPwaSettings, updatePwaSettings } from '../../lib/api';
 export default function PwaSettings() {
     const queryClient = useQueryClient();
     const [form, setForm] = useState({
-        pwa_app_name: 'Mudeer HR',
+        pwa_app_name: 'Bedaie HR',
         pwa_short_name: 'HR',
         pwa_description: '',
         pwa_theme_color: '#1e40af',
@@ -51,7 +51,7 @@ export default function PwaSettings() {
             const settings = data.data;
             setForm((p) => ({
                 ...p,
-                pwa_app_name: settings.pwa_app_name || 'Mudeer HR',
+                pwa_app_name: settings.pwa_app_name || 'Bedaie HR',
                 pwa_short_name: settings.pwa_short_name || 'HR',
                 pwa_description: settings.pwa_description || '',
                 pwa_theme_color: settings.pwa_theme_color || '#1e40af',
@@ -159,7 +159,7 @@ export default function PwaSettings() {
                                 value={form.pwa_app_name}
                                 onChange={(e) => handleChange('pwa_app_name', e.target.value)}
                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                                placeholder="e.g. Mudeer HR"
+                                placeholder="e.g. Bedaie HR"
                             />
                         </div>
                         <div>

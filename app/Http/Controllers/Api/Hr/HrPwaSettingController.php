@@ -13,9 +13,9 @@ class HrPwaSettingController extends Controller
     private const SETTINGS_GROUP = 'pwa';
 
     private const DEFAULTS = [
-        'pwa_app_name' => 'Mudeer HR',
+        'pwa_app_name' => 'Bedaie HR',
         'pwa_short_name' => 'HR',
-        'pwa_description' => 'Mudeer HR - Attendance & Leave Management',
+        'pwa_description' => 'Bedaie HR - Attendance & Leave Management',
         'pwa_theme_color' => '#1e40af',
         'pwa_background_color' => '#ffffff',
         'pwa_display' => 'standalone',

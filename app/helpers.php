@@ -31,7 +31,7 @@ if (! function_exists('site_name')) {
      */
     function site_name(): string
     {
-        return setting('site_name', 'Mudeer Bedaie');
+        return setting('site_name', 'Bedaie');
     }
 }
 

@@ -37,7 +37,7 @@ class PayrollSettingsSeeder extends Seeder
             ['key' => 'unpaid_leave_divisor', 'value' => '26', 'description' => 'Days divisor for unpaid leave daily rate (26 or 30)'],
             ['key' => 'pay_day', 'value' => '25', 'description' => 'Salary payment day of month'],
             ['key' => 'epf_employee_default_rate', 'value' => '11', 'description' => 'Default EPF employee percentage'],
-            ['key' => 'company_name', 'value' => 'Mudeer Bedaie Sdn Bhd', 'description' => 'Company name for payslip header'],
+            ['key' => 'company_name', 'value' => 'Bedaie Sdn Bhd', 'description' => 'Company name for payslip header'],
             ['key' => 'company_address', 'value' => '', 'description' => 'Company address for payslip header'],
             ['key' => 'company_epf_number', 'value' => '', 'description' => 'Company EPF registration number'],
             ['key' => 'company_socso_number', 'value' => '', 'description' => 'Company SOCSO registration number'],

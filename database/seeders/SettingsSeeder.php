@@ -16,7 +16,7 @@ class SettingsSeeder extends Seeder
             // General Settings
             [
                 'key' => 'site_name',
-                'value' => 'Mudeer Bedaie',
+                'value' => 'Bedaie',
                 'type' => 'string',
                 'group' => 'general',
                 'description' => 'The name of the website',
@@ -106,7 +106,7 @@ class SettingsSeeder extends Seeder
             ],
             [
                 'key' => 'footer_text',
-                'value' => '© 2025 Mudeer Bedaie. All rights reserved.',
+                'value' => '© 2025 Bedaie. All rights reserved.',
                 'type' => 'text',
                 'group' => 'appearance',
                 'description' => 'Footer copyright text',
@@ -214,7 +214,7 @@ class SettingsSeeder extends Seeder
             ],
             [
                 'key' => 'mail_from_name',
-                'value' => 'Mudeer Bedaie',
+                'value' => 'Bedaie',
                 'type' => 'string',
                 'group' => 'email',
                 'description' => 'Default from name',

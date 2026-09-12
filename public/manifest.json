@@ -1,7 +1,7 @@
 {
-    "name": "Mudeer HR",
+    "name": "Bedaie HR",
     "short_name": "HR",
-    "description": "Mudeer HR - Attendance & Leave Management",
+    "description": "Bedaie HR - Attendance & Leave Management",
     "start_url": "/hr/clock",
     "display": "standalone",
     "background_color": "#ffffff",

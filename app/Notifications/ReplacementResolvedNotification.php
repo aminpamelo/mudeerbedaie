@@ -77,7 +77,7 @@ class ReplacementResolvedNotification extends Notification implements ShouldQueu
             ->greeting("Salam {$notifiable->name},")
             ->line($body)
             ->action('Lihat Jadual Saya', route('live-host.schedule'))
-            ->salutation('Terima kasih, Mudeer Bedaie');
+            ->salutation('Terima kasih, Bedaie');
     }
 
     public function toArray(object $notifiable): array

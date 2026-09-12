@@ -25,7 +25,7 @@ new class extends Component {
         // Load current settings values
         $this->primary_color = $this->settingsService()->get('primary_color', '#3B82F6');
         $this->secondary_color = $this->settingsService()->get('secondary_color', '#10B981');
-        $this->footer_text = $this->settingsService()->get('footer_text', '© 2025 Mudeer Bedaie. All rights reserved.');
+        $this->footer_text = $this->settingsService()->get('footer_text', '© 2025 Bedaie. All rights reserved.');
         
         // Get current logo and favicon URLs
         $this->current_logo = $this->settingsService()->getLogo();
@@ -256,7 +256,7 @@ new class extends Component {
                     </flux:description>
                     <flux:input 
                         wire:model="footer_text" 
-                        placeholder="© 2025 Mudeer Bedaie. All rights reserved."
+                        placeholder="© 2025 Bedaie. All rights reserved."
                     />
                     <flux:error name="footer_text" />
                 </flux:field>

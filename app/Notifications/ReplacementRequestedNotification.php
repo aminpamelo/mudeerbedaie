@@ -51,7 +51,7 @@ class ReplacementRequestedNotification extends Notification implements ShouldQue
             ->line('**Catatan:** '.($req->reason_note ?: '—'))
             ->line('Sila tetapkan pengganti di pautan di bawah.')
             ->action('Lihat Permohonan', route('livehost.replacements.show', $req))
-            ->salutation('Terima kasih, Mudeer Bedaie');
+            ->salutation('Terima kasih, Bedaie');
     }
 
     public function toArray(object $notifiable): array

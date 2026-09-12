@@ -10,7 +10,7 @@ test('manifest.json exists in public directory with required PWA fields', functi
     $manifest = json_decode(file_get_contents($manifestPath), true);
 
     expect($manifest)
-        ->toHaveKey('name', 'Mudeer HR')
+        ->toHaveKey('name', 'Bedaie HR')
         ->toHaveKey('short_name', 'HR')
         ->toHaveKey('start_url', '/hr/clock')
         ->toHaveKey('display', 'standalone')

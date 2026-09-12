@@ -18,7 +18,7 @@ new class extends Component {
         $this->settingsService = app(SettingsService::class);
         
         // Load current settings values
-        $this->site_name = $this->settingsService->get('site_name', 'Mudeer Bedaie');
+        $this->site_name = $this->settingsService->get('site_name', 'Bedaie');
         $this->site_description = $this->settingsService->get('site_description', 'Educational Management System');
         $this->admin_email = $this->settingsService->get('admin_email', 'admin@example.com');
         $this->timezone = $this->settingsService->get('timezone', 'Asia/Kuala_Lumpur');

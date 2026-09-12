@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" {{ $attributes }}>
-    <!-- Education/School themed logo for Mudeer Bedaie -->
+    <!-- Education/School themed logo for Bedaie -->
     <!-- Book/Knowledge symbol -->
     <path 
         fill="currentColor" 

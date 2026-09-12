@@ -407,7 +407,7 @@ class SettingsService
     public function getSiteConfig(): array
     {
         return [
-            'name' => $this->get('site_name', 'Mudeer Bedaie'),
+            'name' => $this->get('site_name', 'Bedaie'),
             'description' => $this->get('site_description', 'Educational Management System'),
             'admin_email' => $this->get('admin_email', 'admin@example.com'),
             'timezone' => $this->get('timezone', 'Asia/Kuala_Lumpur'),
@@ -427,7 +427,7 @@ class SettingsService
             'favicon' => $this->getFavicon(),
             'primary_color' => $this->get('primary_color', '#3B82F6'),
             'secondary_color' => $this->get('secondary_color', '#10B981'),
-            'footer_text' => $this->get('footer_text', '© 2025 Mudeer Bedaie. All rights reserved.'),
+            'footer_text' => $this->get('footer_text', '© 2025 Bedaie. All rights reserved.'),
         ];
     }
 
@@ -438,7 +438,7 @@ class SettingsService
     {
         return [
             'from_address' => $this->get('mail_from_address', 'noreply@example.com'),
-            'from_name' => $this->get('mail_from_name', 'Mudeer Bedaie'),
+            'from_name' => $this->get('mail_from_name', 'Bedaie'),
             'smtp_host' => $this->get('smtp_host'),
             'smtp_port' => $this->get('smtp_port'),
             'smtp_username' => $this->get('smtp_username'),

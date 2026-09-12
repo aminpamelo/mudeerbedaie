@@ -128,17 +128,17 @@ function getAllFromStore(store) {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-    let payload = { title: 'Mudeer HR', body: 'New notification' };
+    let payload = { title: 'Bedaie HR', body: 'New notification' };
     try {
         payload = event.data?.json() || payload;
     } catch (e) {
         // If JSON parse fails, try text
         const text = event.data?.text() || '';
-        payload = { title: 'Mudeer HR', body: text };
+        payload = { title: 'Bedaie HR', body: text };
     }
 
     // WebPushMessage sends: { title, body, icon, badge, data: { url } }
-    const title = payload.title || 'Mudeer HR';
+    const title = payload.title || 'Bedaie HR';
     const options = {
         body: payload.body || 'New notification',
         icon: payload.icon || '/icons/hr-192.svg',

@@ -142,7 +142,7 @@ new class extends Component {
                             <flux:field>
                                 <flux:label>From Name</flux:label>
                                 <flux:text class="text-sm text-gray-600 mb-2">The name that will appear as the sender.</flux:text>
-                                <flux:input wire:model="from_name" placeholder="Mudeer Bedaie" />
+                                <flux:input wire:model="from_name" placeholder="Bedaie" />
                                 <flux:error name="from_name" />
                             </flux:field>
                         </div>

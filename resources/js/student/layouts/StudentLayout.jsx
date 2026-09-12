@@ -29,7 +29,7 @@ function TopBar({ user, url, translations }) {
             </div>
             <div className="min-w-0">
               <div className="text-[15px] font-bold leading-tight tracking-[-0.01em] text-white">Student Portal</div>
-              <div className="hidden text-[11px] font-medium text-white/60 sm:block">Mudeer Bedaie</div>
+              <div className="hidden text-[11px] font-medium text-white/60 sm:block">Bedaie</div>
             </div>
           </div>
 

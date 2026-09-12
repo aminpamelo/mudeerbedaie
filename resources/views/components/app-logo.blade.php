@@ -1,7 +1,7 @@
 @php
     $settingsService = app(\App\Services\SettingsService::class);
     $dynamicLogo = $settingsService->getLogo();
-    $siteName = $settingsService->get('site_name', 'Mudeer Bedaie');
+    $siteName = $settingsService->get('site_name', 'Bedaie');
 @endphp
 
 @if($dynamicLogo)

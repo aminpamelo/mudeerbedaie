@@ -27,7 +27,7 @@ new class extends Component
 
         // Load current settings values
         $this->mail_from_address = $settingsService->get('mail_from_address', 'noreply@example.com');
-        $this->mail_from_name = $settingsService->get('mail_from_name', 'Mudeer Bedaie');
+        $this->mail_from_name = $settingsService->get('mail_from_name', 'Bedaie');
         $this->smtp_host = $settingsService->get('smtp_host', '');
         $this->smtp_port = $settingsService->get('smtp_port', 587);
         $this->smtp_username = $settingsService->get('smtp_username', '');
@@ -70,7 +70,7 @@ new class extends Component
             // Create a simple test email
             Mail::raw('This is a test email from your email settings configuration.', function ($message) {
                 $message->to($this->test_email)
-                    ->subject('Test Email from '.($this->mail_from_name ?: 'Mudeer Bedaie'))
+                    ->subject('Test Email from '.($this->mail_from_name ?: 'Bedaie'))
                     ->from($this->mail_from_address, $this->mail_from_name);
             });
 
@@ -146,7 +146,7 @@ new class extends Component
                             </flux:description>
                             <flux:input 
                                 wire:model="mail_from_name" 
-                                placeholder="Mudeer Bedaie"
+                                placeholder="Bedaie"
                             />
                             <flux:error name="mail_from_name" />
                         </flux:field>

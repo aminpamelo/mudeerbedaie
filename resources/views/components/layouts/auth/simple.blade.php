@@ -8,7 +8,7 @@
             <div class="flex w-full max-w-sm flex-col gap-2">
                 @php
                     $settingsService = app(\App\Services\SettingsService::class);
-                    $siteName = $settingsService->get('site_name', 'Mudeer Bedaie');
+                    $siteName = $settingsService->get('site_name', 'Bedaie');
                     $siteDescription = $settingsService->get('site_description', 'Educational Management System');
                     $dynamicLogo = $settingsService->getLogo();
                 @endphp

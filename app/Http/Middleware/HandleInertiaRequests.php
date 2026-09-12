@@ -85,7 +85,7 @@ class HandleInertiaRequests extends Middleware
         $settings = app(SettingsService::class);
 
         return [
-            'name' => (string) $settings->get('site_name', config('app.name', 'Mudeer Bedaie')),
+            'name' => (string) $settings->get('site_name', config('app.name', 'Bedaie')),
             'logoUrl' => $settings->getLogo(),
         ];
     }
