@@ -429,6 +429,11 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
         Route::get('my-path/daily', [MentoringController::class, 'daily'])
             ->name('my-path.daily');
 
+        // Full breakdown for a single day (JSON) — powers the tap-a-date detail
+        // sheet: that day's sales, sessions, videos + threads, comments, conduct.
+        Route::get('my-path/day', [MentoringController::class, 'dayDetail'])
+            ->name('my-path.day');
+
         // Daily video log — the host records the video(s) they made today
         // (title + optional link). A mentoring KPI, scoped to the active
         // enrollment; multiple per day allowed.

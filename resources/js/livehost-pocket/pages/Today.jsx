@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, Minus, TrendingDown, TrendingUp, Trophy, Video } from 'lucide-react';
+import { CheckCircle2, ChevronRight, MessageSquare, Minus, TrendingDown, TrendingUp, Trophy, Video } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import {
   firstNameFrom,
@@ -22,7 +22,7 @@ import { accountLabel, formatRinggitInt, liveHeading, shopSubline } from '@/live
  * `docs/design-mockups/livehost-mobile-v3-grounded.html`.
  */
 export default function Today() {
-  const { auth, stats, liveNow, upcoming, features, mentoring, videoLog, performanceSummary } = usePage().props;
+  const { auth, stats, liveNow, upcoming, features, mentoring, videoLog, videoSummary, performanceSummary } = usePage().props;
   const user = auth?.user ?? null;
   const firstName = firstNameFrom(user?.name);
   const initials = initialsFrom(user?.name);
@@ -76,6 +76,17 @@ export default function Today() {
               Performance
             </SectionHeading>
             <PerformanceSummary summary={performanceSummary} />
+          </>
+        )}
+
+        {videoSummary && (
+          <>
+            <SectionHeading
+              link={{ href: '/live-host/videos', label: 'Log \u2192' }}
+            >
+              Video content
+            </SectionHeading>
+            <VideoSummary summary={videoSummary} />
           </>
         )}
 
@@ -523,6 +534,107 @@ function PerformanceSummary({ summary }) {
           </div>
         )}
       </div>
+    </Link>
+  );
+}
+
+/**
+ * Video-content report glance — a personalised home-screen summary of the
+ * host's monthly video output against their KPI, mirroring the depth of the
+ * Performance card. Surfaces this month's count vs target (with a progress
+ * bar), days logged, today's count, a 7-day mini-trend, a per-category
+ * breakdown, and how many videos still await the host's reply. Taps through to
+ * the full Daily Video Log.
+ */
+function VideoSummary({ summary }) {
+  const hasTarget = Boolean(summary.target && summary.target > 0);
+  const pct = summary.pct ?? 0;
+  const met = hasTarget && summary.count >= summary.target;
+  const barColor = met ? '#10B981' : 'var(--accent)';
+  const maxDay = Math.max(1, ...summary.last7.map((d) => d.count));
+
+  return (
+    <Link
+      href="/live-host/videos"
+      className="mb-3 block rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-4 transition active:scale-[0.99]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+            Videos this month
+          </div>
+          <div className="mt-1 flex items-baseline gap-1.5 font-display tabular-nums tracking-[-0.02em] text-[var(--fg)]">
+            <span className="text-[30px] font-medium leading-none">{summary.count}</span>
+            {hasTarget && <span className="text-[13px] font-medium text-[var(--fg-3)]">/ {summary.target}</span>}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {hasTarget && (
+            <span className="font-mono text-[12px] font-bold tabular-nums" style={{ color: met ? '#047857' : 'var(--accent)' }}>
+              {pct}%
+            </span>
+          )}
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+            <Video className="h-5 w-5" strokeWidth={2.2} />
+          </span>
+        </div>
+      </div>
+
+      {hasTarget && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--hair)]">
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--fg-2)]">
+        <span><span className="font-bold tabular-nums text-[var(--fg)]">{summary.days_logged}</span> day{summary.days_logged === 1 ? '' : 's'} logged</span>
+        <span className="text-[var(--hair-2)]">·</span>
+        <span>{summary.logged_today ? `${summary.today_count} today` : 'None today'}</span>
+      </div>
+
+      <div className="mt-3 border-t border-[var(--hair)] pt-3">
+        <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Last 7 days</div>
+        <div className="flex items-end gap-[5px]" style={{ height: '30px' }}>
+          {summary.last7.map((d, i) => {
+            const h = d.count === 0 ? 3 : Math.max(5, Math.round((d.count / maxDay) * 26));
+            const isToday = i === summary.last7.length - 1;
+            return (
+              <div key={d.date} className="flex flex-1 items-end">
+                <div
+                  className="w-full rounded-[3px]"
+                  style={{ height: `${h}px`, backgroundColor: d.count === 0 ? 'var(--hair-2)' : 'var(--accent)', opacity: d.count === 0 ? 0.5 : isToday ? 1 : 0.7 }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-1 flex gap-[5px]">
+          {summary.last7.map((d, i) => (
+            <div key={d.date} className={`flex-1 text-center font-mono text-[8px] uppercase ${i === summary.last7.length - 1 ? 'font-bold text-[var(--fg-2)]' : 'text-[var(--fg-3)]'}`}>
+              {d.dow.slice(0, 1)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {summary.by_category.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {summary.by_category.map((c) => (
+            <span key={c.key} className="inline-flex items-center gap-1 rounded-full bg-[var(--app-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--fg-2)] ring-1 ring-[var(--hair)]">
+              {c.label} <span className="font-bold tabular-nums text-[var(--fg)]">{c.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {summary.awaiting_reply > 0 && (
+        <div className="mt-3 flex items-center gap-2 rounded-[12px] border border-[#F6C9D2] bg-[#FEECEF] px-3 py-2">
+          <MessageSquare className="h-4 w-4 shrink-0 text-[#B91C1C]" strokeWidth={2.2} />
+          <span className="text-[12px] font-semibold text-[#B91C1C]">
+            {summary.awaiting_reply} video{summary.awaiting_reply === 1 ? '' : 's'} awaiting your reply
+          </span>
+        </div>
+      )}
     </Link>
   );
 }

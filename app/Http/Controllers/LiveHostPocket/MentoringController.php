@@ -5,8 +5,10 @@ namespace App\Http\Controllers\LiveHostPocket;
 use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
 use App\Models\LiveHostMenteeDailyComment;
+use App\Models\LiveHostMenteeDailyVideo;
 use App\Models\LiveHostMentoringLevel;
 use App\Models\User;
+use App\Services\LiveHost\VideoReportService;
 use App\Services\Mentoring\MenteeDailySalesResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -167,6 +169,76 @@ class MentoringController extends Controller
         }
 
         return response()->json($this->dailyData($mentee, (int) $requested->format('Y'), (int) $requested->format('n')));
+    }
+
+    /**
+     * JSON: the full breakdown for a single day, powering the tap-a-date detail
+     * sheet — that day's effective sales + session count, the video(s) logged
+     * (each with its full staff/host comment thread and the month's video KPI
+     * for context), PIC daily comments, and any conduct record. The date is
+     * clamped to [enrolment start, today]; future dates are rejected.
+     */
+    public function dayDetail(Request $request): JsonResponse
+    {
+        $mentee = $this->resolveMentee($request->user(), []);
+        abort_if($mentee === null, 403);
+
+        try {
+            $day = CarbonImmutable::parse($request->string('date')->toString())->startOfDay();
+        } catch (\Throwable) {
+            abort(422, 'Invalid date.');
+        }
+
+        $now = CarbonImmutable::now();
+        abort_if($day->greaterThan($now->startOfDay()), 422, 'Future date.');
+
+        $dateStr = $day->toDateString();
+        $year = (int) $day->format('Y');
+        $month = (int) $day->format('n');
+
+        $row = collect(app(MenteeDailySalesResolver::class)->dailyBreakdown($mentee, $year, $month))
+            ->firstWhere('date', $dateStr);
+
+        $cell = app(VideoReportService::class)
+            ->cell($mentee, $dateStr, $dateStr, $day->format('l, j F Y'), $request->user());
+
+        $videoTarget = $mentee->monthlyScores()
+            ->where('year', $year)
+            ->where('month', $month)
+            ->value('video_target');
+
+        $comments = $mentee->dailyComments()
+            ->with('user:id,name')
+            ->whereDate('metric_date', $dateStr)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (LiveHostMenteeDailyComment $c) => [
+                'comment' => $c->comment,
+                'by' => $c->user?->name,
+            ])
+            ->values();
+
+        $conduct = $mentee->disciplinaryRecords()
+            ->whereDate('incident_date', $dateStr)
+            ->get()
+            ->map(fn ($r) => [
+                'category' => $r->category,
+                'severity' => $r->severity,
+                'description' => $r->description,
+            ])
+            ->values();
+
+        return response()->json([
+            'date' => $dateStr,
+            'date_human' => $day->format('l, j F Y'),
+            'sales' => $row ? round((float) $row['effective'], 2) : 0.0,
+            'sessions' => $row ? (int) $row['sessions'] : 0,
+            'videos' => $cell['videos'],
+            'video_count' => count($cell['videos']),
+            'video_target' => $videoTarget !== null ? (int) $videoTarget : null,
+            'comments' => $comments,
+            'conduct' => $conduct,
+        ]);
     }
 
     /**
@@ -348,6 +420,17 @@ class MentoringController extends Controller
             ->get()
             ->keyBy(fn ($r) => $r->incident_date->toDateString());
 
+        // Per-day video counts drive the calendar view's video-content KPI.
+        $videoCountsByDate = $mentee->dailyVideos()
+            ->whereBetween('video_date', [$period->startOfMonth()->toDateString(), $period->endOfMonth()->toDateString()])
+            ->get(['video_date'])
+            ->countBy(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->toDateString());
+
+        $videoTarget = $mentee->monthlyScores()
+            ->where('year', $year)
+            ->where('month', $month)
+            ->value('video_target');
+
         $days = collect(app(MenteeDailySalesResolver::class)->dailyBreakdown($mentee, $year, $month))
             ->filter(fn ($d) => $d['day'] <= $lastDay)
             ->map(fn ($d) => [
@@ -355,6 +438,7 @@ class MentoringController extends Controller
                 'day' => $d['day'],
                 'sales' => $d['effective'],
                 'sessions' => $d['sessions'],
+                'videos' => (int) $videoCountsByDate->get($d['date'], 0),
                 'has_comment' => $d['has_comment'],
                 'has_disciplinary' => $discByDate->has($d['date']),
             ])
@@ -365,6 +449,8 @@ class MentoringController extends Controller
             'month' => $month,
             'month_label' => $period->format('F Y'),
             'total' => round((float) $days->sum('sales'), 2),
+            'video_total' => (int) $videoCountsByDate->sum(),
+            'video_target' => $videoTarget !== null ? (int) $videoTarget : null,
             'days' => $days,
         ];
     }

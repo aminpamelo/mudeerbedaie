@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
-import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Circle, Crown, GraduationCap, Loader2, MessageSquare, Minus, PartyPopper, Star, TrendingDown, TrendingUp, Trophy, Video } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { CalendarClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Circle, Crown, ExternalLink, GalleryHorizontalEnd, GraduationCap, Loader2, MessageSquare, Minus, PartyPopper, Star, TrendingDown, TrendingUp, Trophy, Video, X } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { MONTH_SHORT_MS } from '@/livehost-pocket/lib/format';
 import { initialsFrom } from '@/livehost-pocket/lib/utils';
@@ -334,38 +335,191 @@ function rmCompact(n) {
 
 const CATEGORY_LABELS = { lateness: 'Lateness', absence: 'Absence', rule_violation: 'Rule violation', misconduct: 'Misconduct', other: 'Other' };
 
-function DailyStrip({ daily }) {
+const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+/**
+ * The day-by-day card. Two views over the same month share one card: the
+ * horizontal sales strip (default) and a video-content calendar. The header
+ * adapts per view — sales total for the strip, the monthly video KPI for the
+ * calendar. Every day is tappable to open the full day detail.
+ */
+function DailyBreakdownCard({ daily, view, onViewChange, onSelectDay }) {
   if (!daily || !daily.days || daily.days.length === 0) {
     return (
       <div className="rounded-[16px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-6 text-center">
-        <div className="text-[13px] font-medium text-[var(--fg-2)]">No sales logged this month yet</div>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--fg-3)]">Your daily sales show up here as you go live.</p>
+        <div className="text-[13px] font-medium text-[var(--fg-2)]">Nothing logged this month yet</div>
+        <p className="mt-1 text-[12px] leading-relaxed text-[var(--fg-3)]">Your daily sales and videos show up here as you go.</p>
       </div>
     );
   }
+
+  const isCalendar = view === 'calendar';
+
   return (
     <div className="rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-[16px]">
-      <div className="mb-3 flex items-end justify-between">
-        <div>
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">{daily.month_label} · total</div>
-          <div className="font-display text-[22px] font-medium tracking-[-0.03em] tabular-nums text-[var(--fg)]">{rm(daily.total)}</div>
-        </div>
-        <div className="flex items-center gap-2 font-mono text-[9.5px] uppercase tracking-wide text-[var(--fg-3)]">
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> comment</span>
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" /> conduct</span>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        {isCalendar ? <VideoKpiHeader daily={daily} /> : <SalesTotalHeader daily={daily} />}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <DailyViewToggle view={view} onChange={onViewChange} />
+          {isCalendar ? (
+            <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wide text-[var(--fg-3)]">
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" /> logged</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--hair-2)]" /> none</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 font-mono text-[9.5px] uppercase tracking-wide text-[var(--fg-3)]">
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> comment</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" /> conduct</span>
+            </div>
+          )}
         </div>
       </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {daily.days.map((d) => (
-          <div key={d.date} className={`flex w-[46px] shrink-0 flex-col items-center gap-0.5 rounded-[10px] border px-1 py-1.5 ${d.sales > 0 ? 'border-[var(--hair)] bg-[var(--app-bg-2)]' : 'border-[var(--hair)] bg-[var(--app-bg)]'}`}>
-            <span className={`text-[10px] font-semibold ${d.sessions > 0 ? 'text-[var(--fg)]' : 'text-[var(--fg-3)]'}`}>{d.day}</span>
-            <span className="text-[9.5px] font-bold tabular-nums text-[var(--fg)]">{d.sales > 0 ? rmCompact(d.sales).replace('RM ', '') : '·'}</span>
-            <span className="flex h-1.5 items-center gap-0.5">
-              {d.has_comment && <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />}
-              {d.has_disciplinary && <span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />}
-            </span>
-          </div>
+      {isCalendar
+        ? <DailyCalendar daily={daily} onSelectDay={onSelectDay} />
+        : <DailyStripBody daily={daily} onSelectDay={onSelectDay} />}
+    </div>
+  );
+}
+
+function SalesTotalHeader({ daily }) {
+  return (
+    <div className="min-w-0">
+      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">{daily.month_label} · total</div>
+      <div className="font-display text-[22px] font-medium tracking-[-0.03em] tabular-nums text-[var(--fg)]">{rm(daily.total)}</div>
+    </div>
+  );
+}
+
+/** Monthly video KPI: total logged vs the PIC's per-month target, with a bar. */
+function VideoKpiHeader({ daily }) {
+  const count = daily.video_total ?? 0;
+  const target = daily.video_target ?? null;
+  const hasTarget = target !== null && target > 0;
+  const pct = hasTarget ? Math.min(100, Math.round((count / target) * 100)) : 0;
+  const met = hasTarget && count >= target;
+
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">{daily.month_label} · videos</div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-display text-[22px] font-medium tracking-[-0.03em] tabular-nums text-[var(--fg)]">{count}</span>
+        {hasTarget
+          ? <span className="text-[13px] font-medium text-[var(--fg-3)]">/ {target}</span>
+          : <span className="text-[12px] font-medium text-[var(--fg-3)]">videos</span>}
+      </div>
+      {hasTarget && (
+        <div className="mt-1.5 h-1.5 w-[150px] max-w-full overflow-hidden rounded-full bg-[var(--hair)]">
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: met ? '#10B981' : 'var(--accent)' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Segmented strip/calendar switch, styled like the page's other segmented controls. */
+function DailyViewToggle({ view, onChange }) {
+  const item = (key, Icon, label) => {
+    const active = view === key;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(key)}
+        aria-label={label}
+        aria-pressed={active}
+        className={`grid h-7 w-7 place-items-center rounded-[8px] transition ${active ? 'bg-[var(--app-bg-2)] text-[var(--accent)] shadow-sm' : 'text-[var(--fg-3)] active:text-[var(--fg-2)]'}`}
+      >
+        <Icon className="h-4 w-4" strokeWidth={2.2} />
+      </button>
+    );
+  };
+  return (
+    <div className="flex gap-0.5 rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-3)] p-0.5">
+      {item('strip', GalleryHorizontalEnd, 'Strip view')}
+      {item('calendar', CalendarDays, 'Calendar view')}
+    </div>
+  );
+}
+
+/** The horizontal sales strip — one tappable chip per day. */
+function DailyStripBody({ daily, onSelectDay }) {
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-1">
+      {daily.days.map((d) => (
+        <button
+          type="button"
+          key={d.date}
+          onClick={() => onSelectDay(d.date)}
+          className={`flex w-[46px] shrink-0 flex-col items-center gap-0.5 rounded-[10px] border px-1 py-1.5 transition active:scale-95 ${d.sales > 0 ? 'border-[var(--hair)] bg-[var(--app-bg-2)]' : 'border-[var(--hair)] bg-[var(--app-bg)]'}`}
+        >
+          <span className={`text-[10px] font-semibold ${d.sessions > 0 ? 'text-[var(--fg)]' : 'text-[var(--fg-3)]'}`}>{d.day}</span>
+          <span className="text-[9.5px] font-bold tabular-nums text-[var(--fg)]">{d.sales > 0 ? rmCompact(d.sales).replace('RM ', '') : '·'}</span>
+          <span className="flex h-1.5 items-center gap-0.5">
+            {d.has_comment && <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />}
+            {d.has_disciplinary && <span className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The video-content calendar: a Sunday-first month grid. Days with a video
+ * logged read green (daily compliance); un-logged past days stay neutral;
+ * future days (current month) sit faded and un-tappable. Today gets a ring.
+ */
+function DailyCalendar({ daily, onSelectDay }) {
+  const { year, month, days } = daily;
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  const firstWeekday = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const now = new Date();
+  const todayDay = now.getFullYear() === year && now.getMonth() + 1 === month ? now.getDate() : null;
+
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i += 1) {
+    cells.push(null);
+  }
+  for (let dnum = 1; dnum <= daysInMonth; dnum += 1) {
+    cells.push(dnum);
+  }
+
+  return (
+    <div>
+      <div className="mb-1 grid grid-cols-7 gap-1">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="text-center font-mono text-[9px] font-bold uppercase tracking-wide text-[var(--fg-3)]">{w}</div>
         ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((dnum, i) => {
+          if (dnum === null) {
+            return <div key={`b-${i}`} />;
+          }
+          const d = byDay.get(dnum);
+          const isFuture = !d;
+          const isToday = dnum === todayDay;
+          const logged = Boolean(d && d.videos > 0);
+
+          return (
+            <button
+              type="button"
+              key={dnum}
+              disabled={isFuture}
+              onClick={() => d && onSelectDay(d.date)}
+              className={`flex min-h-[46px] flex-col items-center justify-center gap-0.5 rounded-[9px] border px-0.5 py-1 transition ${
+                isToday ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-[var(--hair)]'
+              } ${isFuture ? 'bg-[var(--app-bg)] opacity-40' : logged ? 'bg-[#ECFDF5]' : 'bg-[var(--app-bg)] active:scale-95'}`}
+            >
+              <span className={`text-[10px] font-semibold leading-none ${logged ? 'text-[#047857]' : 'text-[var(--fg-3)]'}`}>{dnum}</span>
+              {!isFuture && (
+                <span className={`flex items-center gap-0.5 text-[10px] font-bold leading-none tabular-nums ${logged ? 'text-[#047857]' : 'text-[var(--fg-3)]'}`}>
+                  {logged ? (<><Video className="h-2.5 w-2.5" strokeWidth={2.4} />{d.videos}</>) : '·'}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -379,6 +533,8 @@ function DailyStrip({ daily }) {
 function DailyStripSection({ initialDaily, months }) {
   const [daily, setDaily] = useState(initialDaily);
   const [loading, setLoading] = useState(false);
+  const [view, setView] = useState('strip');
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const list = months.length > 0 ? months : (daily ? [{ year: daily.year, month: daily.month, label: daily.month_label }] : []);
   const idx = list.findIndex((m) => m.year === daily?.year && m.month === daily?.month);
@@ -422,9 +578,194 @@ function DailyStripSection({ initialDaily, months }) {
         </button>
       </div>
       <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-        <DailyStrip daily={daily} />
+        <DailyBreakdownCard daily={daily} view={view} onViewChange={setView} onSelectDay={setSelectedDate} />
       </div>
+      {selectedDate && <DayDetailSheet date={selectedDate} onClose={() => setSelectedDate(null)} />}
     </>
+  );
+}
+
+/**
+ * Pocket design tokens, mirrored from the `.pocket-shell` scope in pocket.css.
+ * The detail sheet is portalled to <body> (escaping any transformed ancestor
+ * that would trap its fixed positioning), which also escapes the `.pocket-shell`
+ * token scope — so we re-declare the tokens inline on the overlay root. The
+ * Pocket ships light-only, so these values are stable.
+ */
+const POCKET_TOKENS = {
+  '--app-bg': '#F8F7FA',
+  '--app-bg-2': '#FFFFFF',
+  '--app-bg-3': '#F1EEF7',
+  '--fg': '#14101F',
+  '--fg-2': 'rgba(20, 16, 31, 0.60)',
+  '--fg-3': 'rgba(20, 16, 31, 0.40)',
+  '--hair': 'rgba(20, 16, 31, 0.08)',
+  '--hair-2': 'rgba(20, 16, 31, 0.14)',
+  '--accent': '#7C3AED',
+  '--accent-soft': 'rgba(124, 58, 237, 0.10)',
+};
+
+/**
+ * The tap-a-date detail sheet — a bottom sheet portalled to <body> (so no
+ * blurred/transformed ancestor can trap its fixed positioning). Fetches the
+ * day's full breakdown on open: sales, sessions, the video(s) logged with their
+ * feedback threads, PIC comments, and any conduct. Read-only — each video links
+ * into the Daily Video Log to reply.
+ */
+function DayDetailSheet({ date, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError(false);
+    fetch(`/live-host/my-path/day?date=${date}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then((r) => { if (!r.ok) { throw new Error('failed'); } return r.json(); })
+      .then((d) => { if (alive) { setData(d); setLoading(false); } })
+      .catch(() => { if (alive) { setError(true); setLoading(false); } });
+    return () => { alive = false; };
+  }, [date]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { onClose(); } };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end justify-center" style={POCKET_TOKENS} role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/40" />
+      <div className="relative z-10 max-h-[85vh] w-full max-w-[480px] overflow-y-auto rounded-t-[22px] border border-[var(--hair)] bg-[var(--app-bg)] pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--hair)] bg-[var(--app-bg)] px-4 pt-3 pb-3">
+          <div className="min-w-0">
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Day detail</div>
+            <div className="truncate font-display text-[16px] font-medium tracking-[-0.02em] text-[var(--fg)]">{data?.date_human ?? '…'}</div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[var(--hair-2)] text-[var(--fg-2)] transition active:scale-95">
+            <X className="h-4 w-4" strokeWidth={2.2} />
+          </button>
+        </div>
+
+        <div className="px-4 pt-3">
+          {loading && <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-[var(--fg-3)]" /></div>}
+          {error && <div className="py-12 text-center text-[13px] text-[var(--fg-2)]">Couldn’t load this day. Tap outside to close.</div>}
+          {data && !loading && !error && <DayDetailBody data={data} />}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function DayDetailBody({ data }) {
+  return (
+    <div className="space-y-4 pb-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2.5">
+          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Sales</div>
+          <div className="mt-1 font-display text-[18px] font-medium tabular-nums text-[var(--fg)]">{rm(data.sales)}</div>
+        </div>
+        <div className="rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2.5">
+          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Sessions</div>
+          <div className="mt-1 font-display text-[18px] font-medium tabular-nums text-[var(--fg)]">{data.sessions}</div>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Videos · {data.video_count}</div>
+          {data.video_target ? <span className="font-mono text-[9.5px] text-[var(--fg-3)]">Month KPI {data.video_target}</span> : null}
+        </div>
+        {data.videos.length === 0 ? (
+          <div className="rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-4 text-center text-[12px] text-[var(--fg-3)]">
+            No video logged on this day.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {data.videos.map((v) => <DayVideoRow key={v.id} video={v} />)}
+          </div>
+        )}
+      </div>
+
+      {data.comments.length > 0 && (
+        <div>
+          <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Coach comments</div>
+          <div className="space-y-2">
+            {data.comments.map((c, i) => (
+              <div key={i} className="rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2.5">
+                {c.by && <div className="mb-0.5 text-[10px] font-semibold text-[var(--fg-3)]">{c.by}</div>}
+                <p className="whitespace-pre-wrap text-[13px] leading-snug text-[var(--fg)]">{c.comment}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.conduct.length > 0 && (
+        <div>
+          <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">Conduct</div>
+          <div className="overflow-hidden rounded-[14px] border border-[#F0C8C8] bg-[#FEF7F7]">
+            <ul className="divide-y divide-[#F5DADA]">
+              {data.conduct.map((r, i) => (
+                <li key={i} className="px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide ${r.severity === 'major' ? 'bg-[#FEE2E2] text-[#B91C1C]' : 'bg-[#FEF3C7] text-[#B45309]'}`}>{r.severity}</span>
+                    <span className="text-[12.5px] font-semibold text-[var(--fg)]">{CATEGORY_LABELS[r.category] ?? r.category}</span>
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-[12.5px] leading-snug text-[var(--fg-2)]">{r.description}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One logged video inside the day sheet — taps through to the video log to reply. */
+function DayVideoRow({ video }) {
+  const lastComment = video.comments.length > 0 ? video.comments[video.comments.length - 1] : null;
+  const awaitingReply = Boolean(lastComment && !lastComment.is_host);
+
+  return (
+    <Link
+      href={`/live-host/videos?video=${video.id}`}
+      className="block rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2.5 transition active:scale-[0.99]"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold text-[var(--fg)]">{video.title}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {video.category_label && (
+              <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">{video.category_label}</span>
+            )}
+            {video.comments.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--fg-3)]">
+                <MessageSquare className="h-3 w-3" strokeWidth={2} />{video.comments.length}
+              </span>
+            )}
+            {awaitingReply && (
+              <span className="rounded-full bg-[#FEECEF] px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[#B91C1C]">Reply</span>
+            )}
+          </div>
+        </div>
+        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
+      </div>
+      {lastComment && (
+        <div className="mt-2 rounded-[10px] bg-[var(--app-bg)] px-2.5 py-2">
+          <div className="mb-0.5 text-[10px] font-semibold text-[var(--fg-3)]">{lastComment.is_host ? 'You' : (lastComment.author?.name ?? 'Coach')}</div>
+          <p className="line-clamp-2 whitespace-pre-wrap text-[12px] leading-snug text-[var(--fg-2)]">{lastComment.body}</p>
+        </div>
+      )}
+    </Link>
   );
 }
 

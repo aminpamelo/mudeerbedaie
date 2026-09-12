@@ -4,6 +4,8 @@ namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveHostMentee;
+use App\Models\LiveHostMenteeDailyVideo;
+use App\Models\LiveHostMenteeVideoComment;
 use App\Models\LiveSession;
 use App\Models\User;
 use App\Services\Mentoring\MenteeDailySalesResolver;
@@ -82,8 +84,101 @@ class DashboardController extends Controller
             'upcoming' => $upcoming,
             'mentoring' => $this->mentoringGlance($host, $mentee),
             'videoLog' => $this->videoGlance($mentee),
+            'videoSummary' => $this->videoSummary($mentee),
             'performanceSummary' => $this->performanceSummary($mentee),
         ]);
+    }
+
+    /**
+     * A personalised video-content report for the Today screen: this month's
+     * videos against the host's monthly video KPI, days logged, a per-category
+     * breakdown, a 7-day mini-trend, and how many videos still await the host's
+     * reply. Scoped entirely to the host's own active enrolment. Null when the
+     * host isn't in a live mentoring program.
+     *
+     * @return array{month_label: string, count: int, target: int|null, pct: int|null, days_logged: int, today_count: int, logged_today: bool, by_category: list<array{key: string, label: string, count: int}>, last7: list<array{date: string, dow: string, count: int}>, awaiting_reply: int}|null
+     */
+    private function videoSummary(?LiveHostMentee $mentee): ?array
+    {
+        if ($mentee === null) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now();
+
+        $monthVideos = $mentee->dailyVideos()
+            ->whereBetween('video_date', [$now->startOfMonth()->toDateString(), $now->endOfMonth()->toDateString()])
+            ->get(['video_date', 'category']);
+
+        $count = $monthVideos->count();
+        $daysLogged = $monthVideos->map(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->toDateString())->unique()->count();
+        $todayCount = $monthVideos->filter(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->isSameDay($now))->count();
+
+        $target = $mentee->monthlyScores()
+            ->where('year', (int) $now->format('Y'))
+            ->where('month', (int) $now->format('n'))
+            ->value('video_target');
+        $pct = ($target && $target > 0) ? min(100, (int) round(($count / $target) * 100)) : null;
+
+        $byCategory = collect(LiveHostMenteeDailyVideo::CATEGORIES)
+            ->map(fn (string $label, string $key): array => [
+                'key' => $key,
+                'label' => $label,
+                'count' => $monthVideos->where('category', $key)->count(),
+            ])
+            ->filter(fn (array $c): bool => $c['count'] > 0)
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+
+        $recent = $mentee->dailyVideos()
+            ->whereBetween('video_date', [$now->subDays(6)->toDateString(), $now->toDateString()])
+            ->get(['video_date'])
+            ->countBy(fn (LiveHostMenteeDailyVideo $v) => $v->video_date->toDateString());
+
+        $last7 = collect(range(6, 0))
+            ->map(function (int $i) use ($now, $recent): array {
+                $d = $now->subDays($i);
+
+                return ['date' => $d->toDateString(), 'dow' => $d->format('D'), 'count' => (int) $recent->get($d->toDateString(), 0)];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'month_label' => $now->format('F'),
+            'count' => $count,
+            'target' => $target !== null ? (int) $target : null,
+            'pct' => $pct,
+            'days_logged' => $daysLogged,
+            'today_count' => $todayCount,
+            'logged_today' => $todayCount > 0,
+            'by_category' => $byCategory,
+            'last7' => $last7,
+            'awaiting_reply' => $this->awaitingReplyCount($mentee),
+        ];
+    }
+
+    /**
+     * How many of the host's videos are awaiting THEIR reply — i.e. the latest
+     * comment on the thread is from staff (feedback the host hasn't answered).
+     * Counted across all of the host's videos so nothing outstanding is missed.
+     */
+    private function awaitingReplyCount(LiveHostMentee $mentee): int
+    {
+        $videoIds = $mentee->dailyVideos()->pluck('id');
+        if ($videoIds->isEmpty()) {
+            return 0;
+        }
+
+        return LiveHostMenteeVideoComment::query()
+            ->whereIn('video_id', $videoIds)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['video_id', 'author_role'])
+            ->groupBy('video_id')
+            ->filter(fn ($rows): bool => $rows->last()->author_role !== 'host')
+            ->count();
     }
 
     /**
