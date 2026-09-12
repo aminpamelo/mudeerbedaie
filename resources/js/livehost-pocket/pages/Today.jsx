@@ -14,6 +14,7 @@ import {
 } from '@/livehost-pocket/lib/utils';
 import { accountLabel, formatRinggitInt, liveHeading, shopSubline } from '@/livehost-pocket/lib/format';
 import VideoMonthGrid from '@/livehost-pocket/components/VideoMonthGrid';
+import DayDetailSheet from '@/livehost-pocket/components/DayDetailSheet';
 
 /**
  * Today screen (Batch 2) — host-scoped overview with live-now card, daily
@@ -552,12 +553,11 @@ function VideoSummary({ summary }) {
   const pct = summary.pct ?? 0;
   const met = hasTarget && summary.count >= summary.target;
   const barColor = met ? '#10B981' : 'var(--accent)';
+  const [selectedDate, setSelectedDate] = useState(null);
 
   return (
-    <Link
-      href="/live-host/videos"
-      className="mb-3 block rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-4 transition active:scale-[0.99]"
-    >
+    <>
+    <div className="mb-3 rounded-[16px] border border-[var(--hair)] bg-[var(--app-bg-2)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
@@ -600,7 +600,7 @@ function VideoSummary({ summary }) {
             <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--hair-2)]" /> none</span>
           </span>
         </div>
-        <VideoMonthGrid year={summary.year} month={summary.month} days={summary.days} dense />
+        <VideoMonthGrid year={summary.year} month={summary.month} days={summary.days} onSelectDay={setSelectedDate} dense />
       </div>
 
       {summary.by_category.length > 0 && (
@@ -621,7 +621,9 @@ function VideoSummary({ summary }) {
           </span>
         </div>
       )}
-    </Link>
+    </div>
+    {selectedDate && <DayDetailSheet date={selectedDate} onClose={() => setSelectedDate(null)} />}
+    </>
   );
 }
 
