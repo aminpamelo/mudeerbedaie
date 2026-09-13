@@ -430,16 +430,20 @@ new class extends Component {
             }
         }
 
-        // Update primary image
+        // Ensure exactly one image stays flagged primary. Flip the flags with
+        // query-builder updates keyed by id: updating the pre-fetched $allImages
+        // model would be a no-op when it was already primary (true -> true isn't
+        // "dirty"), so after the mass clear NO row stayed primary and the product
+        // lost its image in lists/shop even though the files still existed.
         $allImages = $this->product->media()->images()->ordered()->get();
-        if ($allImages->count() > 0 && $this->primary_image_index < $allImages->count()) {
-            // Clear all primary flags first
-            $this->product->media()->update(['is_primary' => false]);
+        if ($allImages->isNotEmpty()) {
+            $primaryIndex = $this->primary_image_index < $allImages->count() ? $this->primary_image_index : 0;
+            $primaryId = $allImages->get($primaryIndex)?->id;
 
-            // Set the selected image as primary
-            $primaryImage = $allImages->get($this->primary_image_index);
-            if ($primaryImage) {
-                $primaryImage->update(['is_primary' => true]);
+            ProductMedia::where('product_id', $this->product->id)->update(['is_primary' => false]);
+
+            if ($primaryId) {
+                ProductMedia::whereKey($primaryId)->update(['is_primary' => true]);
             }
         }
 
