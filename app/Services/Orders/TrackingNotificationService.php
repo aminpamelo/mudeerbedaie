@@ -8,7 +8,6 @@ use App\Models\CekbotSession;
 use App\Models\OrderTrackingNotification;
 use App\Models\ProductOrder;
 use App\Models\WhatsAppTemplate;
-use App\Services\MergeTag\MergeTagEngine;
 use App\Services\WhatsApp\WahaSessionManager;
 use App\Services\WhatsApp\WhatsAppBlastService;
 use App\Services\WhatsApp\WhatsAppManager;
@@ -243,104 +242,23 @@ class TrackingNotificationService
     }
 
     /**
-     * Build Meta template BODY components by resolving the template's OWN saved
-     * variable mappings (configured in the WhatsApp Templates module) against the
-     * order through the MergeTag engine. This makes the template module the single
-     * source of truth — {{2}} => order.tracking_number is honoured everywhere.
+     * Build Meta template BODY components from the template's saved variable
+     * mapping. Delegates to the shared resolver so the tracking send, the bulk
+     * blast, and funnel automation all behave identically.
      *
      * @return array<int, array{type: string, parameters: array<int, array{type: string, text: string}>}>
      */
     public function buildMetaComponents(WhatsAppTemplate $template, ProductOrder $order): array
     {
-        $params = $this->resolvedBodyParams($template, $order);
-
-        if ($params === []) {
-            return [];
-        }
-
-        return [[
-            'type' => 'body',
-            'parameters' => array_map(
-                fn (string $text): array => ['type' => 'text', 'text' => $text],
-                array_values($params),
-            ),
-        ]];
+        return app(WhatsAppBlastService::class)->buildTemplateComponents($template, $order);
     }
 
     /**
-     * Render the template BODY with each {{n}} replaced by the value its saved
-     * mapping resolves to for this order (used for the modal preview). Unmapped
-     * placeholders are kept visible so gaps are obvious.
+     * Render the template BODY with this order's mapped values (modal preview).
      */
     public function renderMetaPreview(WhatsAppTemplate $template, ProductOrder $order): string
     {
-        $body = app(WhatsAppBlastService::class)->bodyText($template);
-
-        if ($body === '') {
-            return '';
-        }
-
-        $params = $this->resolvedBodyParams($template, $order);
-
-        return preg_replace_callback('/\{\{\s*(\d+)\s*\}\}/', function (array $m) use ($params): string {
-            $index = (int) $m[1];
-
-            if (array_key_exists($index, $params) && $params[$index] !== '') {
-                return $params[$index];
-            }
-
-            return $m[0];
-        }, $body);
-    }
-
-    /**
-     * Resolve each BODY placeholder (1..N) to a string using the template's saved
-     * variable mapping. Empty / "custom" slots resolve to an empty string so the
-     * parameter count always matches the placeholder count (Meta requirement).
-     * When a template has no mapping at all, fall back to sensible order defaults.
-     *
-     * @return array<int, string> 1-indexed resolved values
-     */
-    protected function resolvedBodyParams(WhatsAppTemplate $template, ProductOrder $order): array
-    {
-        $count = app(WhatsAppBlastService::class)->variableCount($template, 'BODY');
-
-        if ($count < 1) {
-            return [];
-        }
-
-        $mappings = is_array($template->variable_mappings) ? ($template->variable_mappings['body'] ?? []) : [];
-        $hasMapping = collect($mappings)->contains(fn ($f) => is_string($f) && $f !== '' && $f !== 'custom');
-        $defaults = ['contact.name', 'order.number', 'order.tracking_number', 'order.tracking_url', 'order.courier'];
-
-        $engine = app(MergeTagEngine::class)->setContext($this->mergeTagContext($order));
-
-        $params = [];
-        for ($i = 1; $i <= $count; $i++) {
-            $field = $mappings[$i] ?? $mappings[(string) $i] ?? '';
-
-            if ((! is_string($field) || $field === '' || $field === 'custom') && ! $hasMapping) {
-                $field = $defaults[$i - 1] ?? 'order.number';
-            }
-
-            $params[$i] = (is_string($field) && $field !== '' && $field !== 'custom')
-                ? $engine->resolve('{{'.$field.'}}')
-                : '';
-        }
-
-        return $params;
-    }
-
-    /**
-     * MergeTag context for an order (loads items so order.items_list resolves).
-     *
-     * @return array<string, mixed>
-     */
-    protected function mergeTagContext(ProductOrder $order): array
-    {
-        $order->loadMissing(['items.product']);
-
-        return ['product_order' => $order];
+        return app(WhatsAppBlastService::class)->renderTemplatePreview($template, $order);
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\ProductOrder;
 use App\Models\WhatsAppCampaign;
 use App\Models\WhatsAppCampaignRecipient;
 use App\Models\WhatsAppTemplate;
+use App\Services\MergeTag\MergeTagEngine;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -244,6 +245,93 @@ class WhatsAppBlastService
         }
 
         return $body;
+    }
+
+    /**
+     * Build Meta template BODY components by resolving the template's OWN saved
+     * variable mappings (from the WhatsApp Templates module) against the order
+     * via the MergeTag engine. This is the single source of truth shared by the
+     * tracking send, the bulk blast, funnel automation, and certificates — so a
+     * mapping set once on the template is honoured everywhere.
+     *
+     * @return array<int, array{type: string, parameters: array<int, array{type: string, text: string}>}>
+     */
+    public function buildTemplateComponents(WhatsAppTemplate $template, ProductOrder $order): array
+    {
+        $params = $this->resolveTemplateBodyParams($template, $order);
+
+        if ($params === []) {
+            return [];
+        }
+
+        return [[
+            'type' => 'body',
+            'parameters' => array_map(
+                fn (string $text): array => ['type' => 'text', 'text' => $text],
+                array_values($params),
+            ),
+        ]];
+    }
+
+    /**
+     * Render the template BODY with each {{n}} replaced by its mapped, resolved
+     * value for the given order (compose preview). Unmapped placeholders stay
+     * visible so gaps are obvious.
+     */
+    public function renderTemplatePreview(WhatsAppTemplate $template, ?ProductOrder $order): string
+    {
+        $body = $this->bodyText($template);
+
+        if ($body === '' || ! $order instanceof ProductOrder) {
+            return $body;
+        }
+
+        $params = $this->resolveTemplateBodyParams($template, $order);
+
+        return preg_replace_callback('/\{\{\s*(\d+)\s*\}\}/', function (array $m) use ($params): string {
+            $index = (int) $m[1];
+
+            return (array_key_exists($index, $params) && $params[$index] !== '') ? $params[$index] : $m[0];
+        }, $body);
+    }
+
+    /**
+     * Resolve each BODY placeholder (1..N) to a string using the template's saved
+     * variable mapping. Empty / "custom" slots resolve to '' so the parameter
+     * count always matches the placeholder count (Meta requirement). Templates
+     * with no mapping fall back to sensible order defaults so sends never break.
+     *
+     * @return array<int, string> 1-indexed resolved values
+     */
+    public function resolveTemplateBodyParams(WhatsAppTemplate $template, ProductOrder $order): array
+    {
+        $count = $this->variableCount($template, 'BODY');
+
+        if ($count < 1) {
+            return [];
+        }
+
+        $mappings = is_array($template->variable_mappings) ? ($template->variable_mappings['body'] ?? []) : [];
+        $hasMapping = collect($mappings)->contains(fn ($f) => is_string($f) && $f !== '' && $f !== 'custom');
+        $defaults = ['contact.name', 'order.number', 'order.tracking_number', 'order.tracking_url', 'order.courier'];
+
+        $order->loadMissing(['items.product']);
+        $engine = app(MergeTagEngine::class)->setContext(['product_order' => $order]);
+
+        $params = [];
+        for ($i = 1; $i <= $count; $i++) {
+            $field = $mappings[$i] ?? $mappings[(string) $i] ?? '';
+
+            if ((! is_string($field) || $field === '' || $field === 'custom') && ! $hasMapping) {
+                $field = $defaults[$i - 1] ?? 'order.number';
+            }
+
+            $params[$i] = (is_string($field) && $field !== '' && $field !== 'custom')
+                ? $engine->resolve('{{'.$field.'}}')
+                : '';
+        }
+
+        return $params;
     }
 
     /**

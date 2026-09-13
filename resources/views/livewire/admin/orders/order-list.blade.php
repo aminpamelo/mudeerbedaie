@@ -1099,9 +1099,6 @@ new class extends Component
 
     public ?int $waTemplateId = null;
 
-    /** @var array<string, array<int, array{source: string, field: string, value: string}>> */
-    public array $waVariableMapping = ['body' => []];
-
     // Recipient preview, computed once when the modal opens (selection is fixed
     // for the life of the modal) so variable-mapping keystrokes don't re-query.
     public int $waRecipientCount = 0;
@@ -1179,34 +1176,7 @@ new class extends Component
         $this->waSampleOrderId = $preview['sample']?->id;
 
         $this->waTemplateId = optional($this->approvedWaTemplates->first())->id;
-        $this->initWaVariableMapping();
         $this->showWhatsAppModal = true;
-    }
-
-    public function updatedWaTemplateId(): void
-    {
-        $this->initWaVariableMapping();
-    }
-
-    protected function initWaVariableMapping(): void
-    {
-        $this->waVariableMapping = ['body' => []];
-
-        $template = $this->selectedWaTemplate;
-        if (! $template) {
-            return;
-        }
-
-        $count = app(WhatsAppBlastService::class)->variableCount($template, 'BODY');
-        $defaults = ['customer_name', 'order_number', 'order_total', 'order_status', 'store_name'];
-
-        for ($i = 1; $i <= $count; $i++) {
-            $this->waVariableMapping['body'][$i] = [
-                'source' => 'order_field',
-                'field' => $defaults[$i - 1] ?? 'customer_name',
-                'value' => '',
-            ];
-        }
     }
 
     public function sendWhatsAppBlast(): void
@@ -1236,10 +1206,12 @@ new class extends Component
             return;
         }
 
+        // Mapping is resolved from the template itself at send time, so no
+        // per-blast mapping is passed here.
         $campaign = app(WhatsAppBlastService::class)->createFromOrders(
             $this->whatsAppOrderIds,
             $template,
-            $this->waVariableMapping,
+            [],
             auth()->id(),
         );
 
@@ -1287,14 +1259,9 @@ new class extends Component
         return [
             'recipients' => $this->waRecipientCount,
             'skipped' => $this->waSkippedCount,
-            'body' => $service->renderBodyPreview($template, $this->waVariableMapping, $sample),
+            'body' => $service->renderTemplatePreview($template, $sample),
             'cost' => $service->estimateCost($template, $this->waRecipientCount),
         ];
-    }
-
-    public function waOrderFields(): array
-    {
-        return WhatsAppBlastService::ORDER_FIELDS;
     }
 
     public function clearOrderSelection(): void
@@ -3313,34 +3280,11 @@ new class extends Component
                         </div>
                     </div>
 
-                    {{-- Variable mapping --}}
-                    @if(!empty($waVariableMapping['body']))
-                        <div class="space-y-2.5">
-                            <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-300">Fill template variables</flux:text>
-                            @foreach($waVariableMapping['body'] as $index => $var)
-                                <div wire:key="wavar-{{ $index }}" class="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
-                                    <span class="inline-flex h-7 min-w-9 items-center justify-center rounded-md bg-zinc-100 px-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">{{ '{'.'{'.$index.'}'.'}' }}</span>
-                                    <div class="w-36">
-                                        <flux:select size="sm" wire:model.live="waVariableMapping.body.{{ $index }}.source">
-                                            <flux:select.option value="order_field">Order field</flux:select.option>
-                                            <flux:select.option value="static">Custom text</flux:select.option>
-                                        </flux:select>
-                                    </div>
-                                    <div class="min-w-44 flex-1">
-                                        @if(($var['source'] ?? 'order_field') === 'order_field')
-                                            <flux:select size="sm" wire:model.live="waVariableMapping.body.{{ $index }}.field">
-                                                @foreach($this->waOrderFields() as $fieldKey => $fieldLabel)
-                                                    <flux:select.option value="{{ $fieldKey }}">{{ $fieldLabel }}</flux:select.option>
-                                                @endforeach
-                                            </flux:select>
-                                        @else
-                                            <flux:input size="sm" wire:model.live.debounce.400ms="waVariableMapping.body.{{ $index }}.value" placeholder="Type a value…" />
-                                        @endif
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
+                    {{-- Variables are resolved from the template's own mapping --}}
+                    <flux:text size="xs" class="text-zinc-400">
+                        Pembolehubah dinamik diisi automatik ikut pemetaan yang anda set pada template. Ubah di
+                        <a href="{{ route('admin.whatsapp.templates') }}" class="underline" wire:navigate>WhatsApp Templates</a>.
+                    </flux:text>
 
                     {{-- Recipients summary --}}
                     <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-800/50">

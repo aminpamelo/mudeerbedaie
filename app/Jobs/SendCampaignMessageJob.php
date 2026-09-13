@@ -59,7 +59,7 @@ class SendCampaignMessageJob implements ShouldQueue
 
     public function handle(WhatsAppService $whatsApp, WhatsAppBlastService $blast): void
     {
-        $recipient = WhatsAppCampaignRecipient::with('campaign')->find($this->recipientId);
+        $recipient = WhatsAppCampaignRecipient::with(['campaign.template', 'order'])->find($this->recipientId);
 
         if (! $recipient || ! $recipient->campaign) {
             return;
@@ -121,7 +121,12 @@ class SendCampaignMessageJob implements ShouldQueue
             $campaign->update(['status' => 'sending']);
         }
 
-        $components = $blast->buildComponents($recipient, $campaign->variable_mapping ?? []);
+        // Resolve variables from the template's own saved mapping (single source
+        // of truth). Older campaigns created before this used a per-campaign
+        // mapping — fall back to that when the template/order isn't available.
+        $components = ($campaign->template && $recipient->order)
+            ? $blast->buildTemplateComponents($campaign->template, $recipient->order)
+            : $blast->buildComponents($recipient, $campaign->variable_mapping ?? []);
 
         $result = $whatsApp->sendTemplate(
             $recipient->phone,
