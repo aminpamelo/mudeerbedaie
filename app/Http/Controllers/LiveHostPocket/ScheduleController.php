@@ -180,6 +180,7 @@ class ScheduleController extends Controller
     {
         $start = $this->resolveMonthStart($month);
         $end = $start->endOfMonth();
+        $fulfilled = $this->fulfilledSlots($hostId);
 
         $sessions = LiveSession::query()
             ->with(['attachments', 'platformAccount.platform', 'liveAccount'])
@@ -192,6 +193,14 @@ class ScheduleController extends Controller
 
         $itemsByDate = [];
         foreach ($sessions as $session) {
+            // Skip artifact 'scheduled' rows: no roster assignment, or a slot
+            // the host already completed in a separate (twin) session.
+            if ($session->status === 'scheduled'
+                && ($session->live_schedule_assignment_id === null
+                    || $this->isPhantomScheduled($session, $fulfilled))) {
+                continue;
+            }
+
             $recap = $this->buildRecapAction($session);
             if ($recap === null) {
                 continue;
@@ -264,6 +273,12 @@ class ScheduleController extends Controller
             ->whereDate('scheduled_start_at', '<=', $weekEnd->toDateString())
             ->with(['attachments'])
             ->withCount('attachments')
+            // A slot can carry a scaffolded 'scheduled' row AND a real completed
+            // one (the host went live under a fresh session). Order completed
+            // last so keyBy() keeps it — the card then shows the true recap
+            // state instead of nagging "REKAP TERTUNDA" for a slot already done.
+            ->orderByRaw("CASE WHEN status IN ('ended', 'missed') THEN 1 ELSE 0 END")
+            ->orderBy('id')
             ->get()
             ->keyBy(fn (LiveSession $s): string => $s->live_schedule_assignment_id.'|'.$s->scheduled_start_at?->toDateString())
             ->all();
@@ -331,6 +346,8 @@ class ScheduleController extends Controller
      */
     private function pendingRecapsFor(int $hostId): array
     {
+        $fulfilled = $this->fulfilledSlots($hostId);
+
         return LiveSession::query()
             ->with(['platformAccount.platform', 'liveAccount'])
             ->withCount('attachments')
@@ -338,19 +355,25 @@ class ScheduleController extends Controller
             ->where(function ($q): void {
                 $q->where('status', 'ended')
                     ->orWhere(fn ($q) => $q->where('status', 'scheduled')
-                        ->where('scheduled_start_at', '<', now()));
+                        ->where('scheduled_start_at', '<', now())
+                        // A scheduled row with no roster assignment is an
+                        // artifact, not a real slot the host owes a recap on
+                        // ("takde assign tapi ada slot").
+                        ->whereNotNull('live_schedule_assignment_id'));
             })
             ->orderByDesc('scheduled_start_at')
             ->limit(20)
             ->get()
-            ->filter(function (LiveSession $session): bool {
+            ->filter(function (LiveSession $session) use ($fulfilled): bool {
                 if ($session->status === 'ended') {
                     // Settled (verified/TikTok) sessions are done — never overdue.
                     return ((int) ($session->attachments_count ?? 0)) === 0
                         && ! $session->isRecapSettled();
                 }
 
-                return $session->canRecap();
+                // Drop scaffolded twins the host already completed elsewhere.
+                return ! $this->isPhantomScheduled($session, $fulfilled)
+                    && $session->canRecap();
             })
             ->values()
             ->map(fn (LiveSession $session): array => [
@@ -367,6 +390,61 @@ class ScheduleController extends Controller
                 'needsUpload' => $session->status === 'ended',
             ])
             ->all();
+    }
+
+    /**
+     * The slot occurrences this host has already completed — used to suppress
+     * phantom 'scheduled' scaffolds. When the host goes live, a fresh
+     * (ended/missed) session is created for the slot while the scaffolded
+     * 'scheduled' row lingers; that stale row must not keep nagging for a recap.
+     *
+     * Two keys, both precise enough never to hide a genuinely-pending recap:
+     *   - "{assignmentId}|{Y-m-d}" — same roster slot, same date
+     *   - "{Y-m-d H:i:s}"          — same exact planned start time
+     *
+     * @return array{slots: array<string, true>, times: array<string, true>}
+     */
+    private function fulfilledSlots(int $hostId): array
+    {
+        $completed = LiveSession::query()
+            ->where('live_host_id', $hostId)
+            ->whereIn('status', ['ended', 'missed'])
+            ->get(['live_schedule_assignment_id', 'scheduled_start_at']);
+
+        $slots = [];
+        $times = [];
+        foreach ($completed as $session) {
+            $date = $session->scheduled_start_at?->toDateString();
+            if ($session->live_schedule_assignment_id !== null && $date !== null) {
+                $slots[$session->live_schedule_assignment_id.'|'.$date] = true;
+            }
+            if ($session->scheduled_start_at !== null) {
+                $times[$session->scheduled_start_at->toDateTimeString()] = true;
+            }
+        }
+
+        return ['slots' => $slots, 'times' => $times];
+    }
+
+    /**
+     * True when a 'scheduled' session is a leftover scaffold for a slot the host
+     * already completed in a separate session (see {@see fulfilledSlots}).
+     *
+     * @param  array{slots: array<string, true>, times: array<string, true>}  $fulfilled
+     */
+    private function isPhantomScheduled(LiveSession $session, array $fulfilled): bool
+    {
+        if ($session->status !== 'scheduled' || $session->scheduled_start_at === null) {
+            return false;
+        }
+
+        $date = $session->scheduled_start_at->toDateString();
+        $slotKey = $session->live_schedule_assignment_id !== null
+            ? $session->live_schedule_assignment_id.'|'.$date
+            : null;
+
+        return ($slotKey !== null && isset($fulfilled['slots'][$slotKey]))
+            || isset($fulfilled['times'][$session->scheduled_start_at->toDateTimeString()]);
     }
 
     private function resolveWeekStart(?string $value): CarbonImmutable
