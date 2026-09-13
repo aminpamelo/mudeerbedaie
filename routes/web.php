@@ -441,6 +441,8 @@ Route::middleware(['auth', 'role:live_host', HandlePocketInertiaRequests::class]
             ->name('videos.index');
         Route::post('videos', [DailyVideoController::class, 'store'])
             ->name('videos.store');
+        Route::patch('videos/{video}', [DailyVideoController::class, 'update'])
+            ->name('videos.update');
         Route::delete('videos/{video}', [DailyVideoController::class, 'destroy'])
             ->name('videos.destroy');
         // Host reply on a staff feedback thread for one of their videos.

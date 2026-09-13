@@ -7,6 +7,7 @@ use App\Models\LiveHostMentee;
 use App\Models\LiveHostMenteeDailyVideo;
 use App\Models\LiveHostMenteeVideoComment;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -128,13 +129,43 @@ class DailyVideoController extends Controller
     }
 
     /**
-     * Remove a video the host logged. Only the owning host may delete it.
+     * Edit one of the host's own videos (title, category, link) — powers the
+     * inline edit in the day-detail modal. Returns JSON for the modal's fetch.
+     * The date isn't editable here (that stays a delete + re-log decision).
      */
-    public function destroy(Request $request, LiveHostMenteeDailyVideo $video): RedirectResponse
+    public function update(Request $request, LiveHostMenteeDailyVideo $video): JsonResponse
+    {
+        abort_unless($video->mentee?->mentee_user_id === $request->user()->id, 403);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'category' => ['required', Rule::in(array_keys(LiveHostMenteeDailyVideo::CATEGORIES))],
+            'link' => ['nullable', 'string', 'url', 'max:2048'],
+        ]);
+
+        $video->update([
+            'title' => $data['title'],
+            'category' => $data['category'],
+            'link' => $data['link'] ?? null,
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Remove a video the host logged. Only the owning host may delete it.
+     * Answers JSON for the day-detail modal's fetch, a redirect for the
+     * Inertia Daily Video Log page.
+     */
+    public function destroy(Request $request, LiveHostMenteeDailyVideo $video): RedirectResponse|JsonResponse
     {
         abort_unless($video->mentee?->mentee_user_id === $request->user()->id, 403);
 
         $video->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true]);
+        }
 
         return back()->with('success', 'Video removed.');
     }

@@ -236,6 +236,9 @@ class MentoringController extends Controller
             'videos' => $cell['videos'],
             'video_count' => count($cell['videos']),
             'video_target' => $videoTarget !== null ? (int) $videoTarget : null,
+            'categories' => collect(LiveHostMenteeDailyVideo::CATEGORIES)
+                ->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])
+                ->values(),
             'comments' => $comments,
             'conduct' => $conduct,
         ]);
