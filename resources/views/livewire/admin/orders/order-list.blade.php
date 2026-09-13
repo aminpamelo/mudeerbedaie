@@ -44,6 +44,8 @@ new class extends Component
 
     public string $salesSourceFilter = '';
 
+    public string $picFilter = '';
+
     public string $paymentStatusFilter = 'all';
 
     public bool $needsProvisioningOnly = false;
@@ -426,6 +428,13 @@ new class extends Component
     {
         $this->resetPage();
         $this->selectedOrderIds = [];
+        $this->picFilter = '';
+    }
+
+    public function updatingPicFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
     }
 
     public function updatingProductFilter(): void
@@ -549,6 +558,9 @@ new class extends Component
             })
             ->when($this->salesSourceFilter !== '', function ($query) {
                 $query->where('sales_source_id', $this->salesSourceFilter);
+            })
+            ->when($this->picFilter !== '', function ($query) {
+                $query->whereRaw("json_extract(metadata, '$.salesperson_id') = ?", [(int) $this->picFilter]);
             })
             ->when($this->needsProvisioningOnly, function ($query) {
                 // Orders that contain an external-system product/package but have
@@ -820,6 +832,10 @@ new class extends Component
             $query->where('sales_source_id', $this->salesSourceFilter);
         }
 
+        if ($this->picFilter !== '') {
+            $query->whereRaw("json_extract(metadata, '$.salesperson_id') = ?", [(int) $this->picFilter]);
+        }
+
         $byStatus = $query
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
@@ -914,6 +930,37 @@ new class extends Component
     public function getSalesSources()
     {
         return SalesSource::query()->active()->ordered()->get();
+    }
+
+    /**
+     * The distinct salespeople (PICs) who have created POS orders, resolved to
+     * User records for display in the "by PIC" filter. Cross-driver safe: uses
+     * json_extract (supported by both MySQL and SQLite) to read the salesperson
+     * id stored in the POS order metadata.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     */
+    public function getPosPics(): \Illuminate\Support\Collection
+    {
+        $ids = ProductOrder::query()
+            ->where('source', 'pos')
+            ->whereRaw("json_extract(metadata, '$.salesperson_id') is not null")
+            ->selectRaw("json_extract(metadata, '$.salesperson_id') as pic_id")
+            ->distinct()
+            ->pluck('pic_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return User::withTrashed()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     /**
@@ -2042,6 +2089,16 @@ new class extends Component
                             @endforeach
                         </flux:select>
                     </div>
+                    @if($sourceTab === 'pos')
+                        <div class="w-44">
+                            <flux:select wire:model.live="picFilter" placeholder="All PIC">
+                                <option value="">All PIC</option>
+                                @foreach($this->getPosPics() as $pic)
+                                    <option value="{{ $pic->id }}">{{ $pic->name }}</option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+                    @endif
                     <div class="w-40">
                         <flux:select wire:model.live="paymentStatusFilter" placeholder="All Payments">
                             <option value="all">All Payments</option>
@@ -2085,7 +2142,7 @@ new class extends Component
             </div>
 
             <!-- Active Filter Tags -->
-            @if($search || $sourceTab !== 'all' || $productFilter || $paymentStatusFilter !== 'all' || $needsProvisioningOnly || $dateFilter || $dateFrom || $dateTo)
+            @if($search || $sourceTab !== 'all' || $productFilter || $picFilter || $paymentStatusFilter !== 'all' || $needsProvisioningOnly || $dateFilter || $dateFrom || $dateTo)
                 <div class="flex items-center gap-2 mt-3 flex-wrap">
                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">Filters:</flux:text>
                     @if($needsProvisioningOnly)
@@ -2112,6 +2169,12 @@ new class extends Component
                             <button wire:click="$set('productFilter', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
+                    @if($picFilter)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            PIC: {{ optional($this->getPosPics()->firstWhere('id', (int) $picFilter))->name ?? $picFilter }}
+                            <button wire:click="$set('picFilter', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
+                    @endif
                     @if($paymentStatusFilter !== 'all')
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                             Payment: {{ $this->getPaymentStatusLabel($paymentStatusFilter) }}
@@ -2130,7 +2193,7 @@ new class extends Component
                             <button wire:click="$set('dateFrom', ''); $set('dateTo', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
-                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('paymentStatusFilter', 'all'); $set('needsProvisioningOnly', false); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
+                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('picFilter', ''); $set('paymentStatusFilter', 'all'); $set('needsProvisioningOnly', false); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
                         class="text-xs text-zinc-400 hover:text-red-500 transition-colors font-medium">
                         Clear all
                     </button>
