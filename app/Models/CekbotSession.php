@@ -79,6 +79,16 @@ class CekbotSession extends Model
     }
 
     /**
+     * Guided sales-funnel flows configured for this number.
+     *
+     * @return HasMany<CekbotFlow, $this>
+     */
+    public function flows(): HasMany
+    {
+        return $this->hasMany(CekbotFlow::class);
+    }
+
+    /**
      * Whether the linked number is authenticated and ready to send/receive.
      */
     public function isWorking(): bool

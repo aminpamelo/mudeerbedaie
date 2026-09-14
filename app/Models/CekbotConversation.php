@@ -103,6 +103,25 @@ class CekbotConversation extends Model
     }
 
     /**
+     * @return HasMany<CekbotFlowEnrollment, $this>
+     */
+    public function flowEnrollments(): HasMany
+    {
+        return $this->hasMany(CekbotFlowEnrollment::class, 'cekbot_conversation_id');
+    }
+
+    /**
+     * The in-progress guided-funnel enrollment for this conversation, if any.
+     */
+    public function activeFlowEnrollment(): ?CekbotFlowEnrollment
+    {
+        return $this->flowEnrollments()
+            ->where('status', CekbotFlowEnrollment::STATUS_ACTIVE)
+            ->latest('id')
+            ->first();
+    }
+
+    /**
      * @param  Builder<CekbotConversation>  $query
      * @return Builder<CekbotConversation>
      */

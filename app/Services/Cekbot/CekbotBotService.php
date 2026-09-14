@@ -22,6 +22,7 @@ class CekbotBotService
         private WahaSessionManager $waha,
         private CekbotAiResponder $ai,
         private CekbotCheckService $checks,
+        private CekbotFlowService $flow,
     ) {}
 
     public function handleIncoming(CekbotConversation $conversation, ?string $body, string $type): void
@@ -45,6 +46,12 @@ class CekbotBotService
 
         // A conversation taken over by a human pauses the bot (Fasa 6).
         if ($conversation->handed_over_at !== null) {
+            return;
+        }
+
+        // Guided sales-funnel flows take precedence over keyword/AI replies:
+        // if a flow starts or advances, it owns this turn.
+        if ($this->flow->handle($conversation, (string) $body, $type, $this)) {
             return;
         }
 

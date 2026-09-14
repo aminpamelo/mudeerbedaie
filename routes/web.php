@@ -18,6 +18,7 @@ use App\Http\Controllers\BlogSeo\TagController as BlogSeoTagController;
 use App\Http\Controllers\Cekbot\AnalyticsController as CekbotAnalyticsController;
 use App\Http\Controllers\Cekbot\AutoReplyController as CekbotAutoReplyController;
 use App\Http\Controllers\Cekbot\BroadcastController as CekbotBroadcastController;
+use App\Http\Controllers\Cekbot\FlowController as CekbotFlowController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
 use App\Http\Controllers\Cekbot\LeadController as CekbotLeadController;
 use App\Http\Controllers\Cekbot\ProductController as CekbotProductController;
@@ -1959,6 +1960,14 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::post('products/{product}/testimonials', [CekbotProductController::class, 'storeTestimonial'])->name('products.testimonials.store');
         Route::delete('products/{product}/testimonials/{testimonial}', [CekbotProductController::class, 'destroyTestimonial'])->name('products.testimonials.destroy');
         Route::delete('products/{product}', [CekbotProductController::class, 'destroy'])->name('products.destroy');
+
+        // Flows — guided sales-funnel builder (greet → pilih pakej → bayar → order)
+        Route::get('flows', [CekbotFlowController::class, 'index'])->name('flows');
+        Route::post('flows', [CekbotFlowController::class, 'store'])->name('flows.store');
+        Route::get('flows/{flow}', [CekbotFlowController::class, 'show'])->name('flows.show');
+        Route::put('flows/{flow}', [CekbotFlowController::class, 'update'])->name('flows.update');
+        Route::put('flows/{flow}/active', [CekbotFlowController::class, 'toggle'])->name('flows.toggle');
+        Route::delete('flows/{flow}', [CekbotFlowController::class, 'destroy'])->name('flows.destroy');
 
         // Fasa 3 — Auto-reply rules + bot settings
         Route::get('auto-reply', [CekbotAutoReplyController::class, 'index'])->name('auto-reply');
