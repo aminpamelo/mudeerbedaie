@@ -312,7 +312,6 @@ class WhatsAppBlastService
         }
 
         $mappings = is_array($template->variable_mappings) ? ($template->variable_mappings['body'] ?? []) : [];
-        $hasMapping = collect($mappings)->contains(fn ($f) => is_string($f) && $f !== '' && $f !== 'custom');
         $defaults = ['contact.name', 'order.number', 'order.tracking_number', 'order.tracking_url', 'order.courier'];
 
         $order->loadMissing(['items.product']);
@@ -322,48 +321,27 @@ class WhatsAppBlastService
         for ($i = 1; $i <= $count; $i++) {
             $field = $mappings[$i] ?? $mappings[(string) $i] ?? '';
 
-            if ((! is_string($field) || $field === '' || $field === 'custom') && ! $hasMapping) {
-                $field = $defaults[$i - 1] ?? 'order.number';
-            }
-
-            $params[$i] = (is_string($field) && $field !== '' && $field !== 'custom')
+            $value = (is_string($field) && $field !== '' && $field !== 'custom')
                 ? $engine->resolve('{{'.$field.'}}')
                 : '';
+
+            // The mapped field has no value in this send's context (e.g. a class
+            // template's {{1}} -> class_name blasted to e-commerce orders) — fall
+            // back to an order field so we never send an EMPTY param, which Meta
+            // rejects with a cryptic #132000. This preserves the long-standing
+            // behaviour where such blasts filled the variable with the customer name.
+            if ($value === '') {
+                $value = $engine->resolve('{{'.($defaults[$i - 1] ?? 'contact.name').'}}');
+            }
+
+            if ($value === '') {
+                $value = $engine->resolve('{{order.number}}'); // order number always resolves
+            }
+
+            $params[$i] = $value;
         }
 
         return $params;
-    }
-
-    /**
-     * When a BODY variable resolves to empty for this order, Meta rejects the
-     * whole send with the cryptic "(#132000) Number of parameters does not match"
-     * (it drops the empty param, so the count no longer matches). Return an
-     * actionable message naming the offending variable(s), or null when every
-     * variable resolves to a non-empty value.
-     *
-     * Common cause: the template is mapped to a field that has no value in this
-     * send's context (e.g. {{1}} -> class_name blasted to e-commerce orders).
-     */
-    public function emptyParamError(WhatsAppTemplate $template, ProductOrder $order): ?string
-    {
-        $params = $this->resolveTemplateBodyParams($template, $order);
-        $mappings = is_array($template->variable_mappings) ? ($template->variable_mappings['body'] ?? []) : [];
-
-        $empty = [];
-        foreach ($params as $index => $value) {
-            if ((string) $value === '') {
-                $field = $mappings[$index] ?? $mappings[(string) $index] ?? null;
-                $empty[] = '{{'.$index.'}}'.(is_string($field) && $field !== '' ? ' ('.$field.')' : '');
-            }
-        }
-
-        if ($empty === []) {
-            return null;
-        }
-
-        return 'Template variable '.implode(', ', $empty).' resolved to empty for this order, '
-            .'so WhatsApp rejects the send (#132000). In WhatsApp Templates, map it to a field '
-            .'available for this send (e.g. Customer name / Order number).';
     }
 
     /**

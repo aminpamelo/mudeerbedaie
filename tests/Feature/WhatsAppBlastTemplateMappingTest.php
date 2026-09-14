@@ -54,41 +54,31 @@ it('renders the blast preview with resolved template values', function () {
     expect($preview)->toContain('EPPREV2')->toContain('J&T Express')->not->toContain('{{2}}');
 });
 
-it('flags a template variable that resolves empty with an actionable #132000 error', function () {
-    $order = ProductOrder::factory()->create(['customer_name' => 'Ali']);
+it('never emits an empty param — falls back to an order field so blasts do not hit #132000', function () {
+    $order = ProductOrder::factory()->create(['customer_name' => 'Ali', 'order_number' => 'PO-EMPTY']);
 
-    // {{1}} -> class_name has no provider in the order/blast context => empty.
+    // Mirrors kelas_solat_97_baru: {{1}} -> class_name, which has no value for order sends.
     $classTemplate = WhatsAppTemplate::create([
         'name' => 'blast_'.bin2hex(random_bytes(4)),
         'language' => 'ms',
         'category' => 'utility',
         'status' => 'APPROVED',
-        'components' => [['type' => 'BODY', 'text' => 'Didaftarkan {{1}} ke kelas']],
+        'components' => [['type' => 'BODY', 'text' => 'Didaftarkan {{1}} ke Kelas Solat 97']],
         'variable_mappings' => ['body' => [1 => 'class_name']],
     ]);
 
-    $error = app(WhatsAppBlastService::class)->emptyParamError($classTemplate, $order);
-    expect($error)->not->toBeNull();
-    expect($error)->toContain('132000')->toContain('class_name');
+    $components = app(WhatsAppBlastService::class)->buildTemplateComponents($classTemplate, $order);
 
-    // A resolvable mapping produces no error.
-    $okTemplate = WhatsAppTemplate::create([
-        'name' => 'blast_'.bin2hex(random_bytes(4)),
-        'language' => 'ms',
-        'category' => 'utility',
-        'status' => 'APPROVED',
-        'components' => [['type' => 'BODY', 'text' => 'Hi {{1}}']],
-        'variable_mappings' => ['body' => [1 => 'contact.name']],
-    ]);
-
-    expect(app(WhatsAppBlastService::class)->emptyParamError($okTemplate, $order))->toBeNull();
+    // {{1}} falls back to the customer name (never empty) — exactly the pre-regression behaviour.
+    expect($components[0]['parameters'][0]['text'])->toBe('Ali');
+    expect($components[0]['parameters'][0]['text'])->not->toBe('');
 });
 
-it('fails a campaign recipient with a clear message (no Meta call) when a variable is empty', function () {
+it('campaign job sends a class-mapped template to orders (regression: worked, then #132000, now fixed)', function () {
     Queue::fake();
 
     $order = ProductOrder::factory()->create([
-        'customer_name' => 'Ali',
+        'customer_name' => 'Ahmad Amin',
         'customer_phone' => '60123456789',
     ]);
 
@@ -97,23 +87,30 @@ it('fails a campaign recipient with a clear message (no Meta call) when a variab
         'language' => 'ms',
         'category' => 'utility',
         'status' => 'APPROVED',
-        'components' => [['type' => 'BODY', 'text' => 'Didaftarkan {{1}} ke kelas']],
+        'components' => [['type' => 'BODY', 'text' => 'Didaftarkan {{1}} ke Kelas Solat 97']],
         'variable_mappings' => ['body' => [1 => 'class_name']],
     ]);
 
     $campaign = app(WhatsAppBlastService::class)->createFromOrders([$order->id], $template, [], null);
     $recipient = $campaign->recipients()->first();
 
-    $this->mock(WhatsAppService::class, function ($mock) {
+    $captured = null;
+    $this->mock(WhatsAppService::class, function ($mock) use (&$captured) {
         $mock->shouldReceive('canSendNow')->andReturn(true);
-        $mock->shouldReceive('sendTemplate')->never(); // guard must prevent the wasted send
+        $mock->shouldReceive('shouldPauseBatch')->andReturn(false);
+        $mock->shouldReceive('getBatchPauseDuration')->andReturn(0);
+        $mock->shouldReceive('sendTemplate')->once()->andReturnUsing(function ($phone, $name, $lang, $components) use (&$captured) {
+            $captured = $components;
+
+            return ['success' => true, 'message_id' => 'wamid-1'];
+        });
     });
 
     (new SendCampaignMessageJob($recipient->id))->handle(app(WhatsAppService::class), app(WhatsAppBlastService::class));
 
-    $recipient->refresh();
-    expect($recipient->status)->toBe('failed');
-    expect($recipient->error_message)->toContain('132000');
+    // {{1}} falls back to the customer name (non-empty) -> Meta accepts -> sent (no #132000).
+    expect($captured[0]['parameters'][0]['text'])->toBe('Ahmad Amin');
+    expect($recipient->fresh()->status)->toBe('sent');
 });
 
 it('campaign job sends components resolved from the template mapping (not the old defaults)', function () {
