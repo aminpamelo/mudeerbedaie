@@ -80,16 +80,39 @@ describe('shop', function () {
 });
 
 describe('product detail visibility', function () {
-    it('shows an active, storefront-visible product', function () {
+    it('shows an active, storefront-visible product and lets search engines index it', function () {
         $product = Product::factory()->create(['status' => 'active', 'show_on_storefront' => true, 'type' => 'simple']);
 
-        $this->get('/product/'.$product->slug)->assertOk();
+        $this->get('/product/'.$product->slug)
+            ->assertOk()
+            ->assertSee('index, follow', false)
+            ->assertDontSee('noindex', false);
     });
 
-    it('404s a product hidden from the storefront', function () {
+    it('still serves a product hidden from the storefront by direct link, but marks it noindex', function () {
         $product = Product::factory()->create(['status' => 'active', 'show_on_storefront' => false, 'type' => 'simple']);
 
+        $this->get('/product/'.$product->slug)
+            ->assertOk()
+            ->assertSee('noindex, nofollow', false);
+    });
+
+    it('404s a product that is not active', function () {
+        $product = Product::factory()->create(['status' => 'draft', 'show_on_storefront' => true, 'type' => 'simple']);
+
         $this->get('/product/'.$product->slug)->assertNotFound();
+    });
+});
+
+describe('sitemap', function () {
+    it('lists storefront-visible products but omits hidden ones', function () {
+        $visible = Product::factory()->create(['status' => 'active', 'show_on_storefront' => true, 'type' => 'simple', 'slug' => 'visible-book']);
+        $hidden = Product::factory()->create(['status' => 'active', 'show_on_storefront' => false, 'type' => 'simple', 'slug' => 'hidden-book']);
+
+        $this->get('/sitemap.xml')
+            ->assertOk()
+            ->assertSee('/product/'.$visible->slug, false)
+            ->assertDontSee('/product/'.$hidden->slug, false);
     });
 });
 

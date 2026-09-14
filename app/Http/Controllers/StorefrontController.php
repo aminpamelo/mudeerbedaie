@@ -221,13 +221,14 @@ class StorefrontController extends Controller
 
     /**
      * Product detail page. Only active simple products are viewable (variable
-     * products have no storefront variant picker). Out-of-stock products are
-     * hidden from listings but still reachable by direct link, where the page
-     * shows the sold-out state.
+     * products have no storefront variant picker). Products hidden from the
+     * storefront — like out-of-stock ones — are dropped from the catalogue and
+     * from search engines, but stay reachable by direct link so an admin can
+     * share an "unlisted" product URL; the page then carries a noindex tag.
      */
     public function product(Product $product): View
     {
-        abort_unless($product->status === 'active' && $product->show_on_storefront && $product->type === 'simple', 404);
+        abort_unless($product->status === 'active' && $product->type === 'simple', 404);
 
         $product->load(['images', 'primaryImage', 'category:id,name,slug', 'stockLevels']);
 
@@ -255,6 +256,9 @@ class StorefrontController extends Controller
                     : Str::limit(strip_tags((string) $product->description), 155),
                 'canonical' => route('storefront.product', $product->slug),
                 'type' => 'product',
+                // Hidden-from-storefront products are reachable by direct link
+                // but must not be indexed — they're deliberately unlisted.
+                'noindex' => ! $product->show_on_storefront,
                 'image' => $product->primaryImage?->url,
                 'breadcrumbs' => array_values(array_filter([
                     ['name' => config('store.name'), 'url' => route('storefront.home')],

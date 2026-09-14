@@ -64,8 +64,11 @@ class SitemapGenerator
             });
 
         // ---- storefront products ----
+        // Only catalogued products belong in the sitemap; products hidden from
+        // the storefront are unlisted (reachable by direct link only, noindex).
         Product::query()
             ->where('status', 'active')
+            ->storefrontVisible()
             ->where('type', 'simple')
             ->chunk(500, function (Collection $products) use (&$entries): void {
                 foreach ($products as $product) {
