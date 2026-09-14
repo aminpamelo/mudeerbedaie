@@ -124,9 +124,21 @@ class SendCampaignMessageJob implements ShouldQueue
         // Resolve variables from the template's own saved mapping (single source
         // of truth). Older campaigns created before this used a per-campaign
         // mapping — fall back to that when the template/order isn't available.
-        $components = ($campaign->template && $recipient->order)
-            ? $blast->buildTemplateComponents($campaign->template, $recipient->order)
-            : $blast->buildComponents($recipient, $campaign->variable_mapping ?? []);
+        if ($campaign->template && $recipient->order) {
+            // Meta rejects an empty param with a cryptic #132000; fail with a
+            // clear, actionable message instead of burning the send.
+            if ($paramError = $blast->emptyParamError($campaign->template, $recipient->order)) {
+                $recipient->update(['status' => 'failed', 'error_message' => $paramError]);
+                $campaign->increment('failed_count');
+                $this->finalizeIfDone($recipient);
+
+                return;
+            }
+
+            $components = $blast->buildTemplateComponents($campaign->template, $recipient->order);
+        } else {
+            $components = $blast->buildComponents($recipient, $campaign->variable_mapping ?? []);
+        }
 
         $result = $whatsApp->sendTemplate(
             $recipient->phone,

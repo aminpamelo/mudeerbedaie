@@ -224,6 +224,10 @@ class TrackingNotificationService
             return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_META, $phone, OrderTrackingNotification::STATUS_FAILED, null, null, 'Meta Cloud API belum dikonfigurasi', ['template' => $template->name], $userId);
         }
 
+        if ($paramError = app(WhatsAppBlastService::class)->emptyParamError($template, $order)) {
+            return $this->record($order, OrderTrackingNotification::CHANNEL_WHATSAPP_META, $phone, OrderTrackingNotification::STATUS_FAILED, null, null, $paramError, ['template' => $template->name], $userId);
+        }
+
         $language = $template->language;
         $components = $this->buildMetaComponents($template, $order);
         $result = $provider->sendTemplate($phone, $template->name, $language, $components);

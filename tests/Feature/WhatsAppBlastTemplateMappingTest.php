@@ -54,6 +54,68 @@ it('renders the blast preview with resolved template values', function () {
     expect($preview)->toContain('EPPREV2')->toContain('J&T Express')->not->toContain('{{2}}');
 });
 
+it('flags a template variable that resolves empty with an actionable #132000 error', function () {
+    $order = ProductOrder::factory()->create(['customer_name' => 'Ali']);
+
+    // {{1}} -> class_name has no provider in the order/blast context => empty.
+    $classTemplate = WhatsAppTemplate::create([
+        'name' => 'blast_'.bin2hex(random_bytes(4)),
+        'language' => 'ms',
+        'category' => 'utility',
+        'status' => 'APPROVED',
+        'components' => [['type' => 'BODY', 'text' => 'Didaftarkan {{1}} ke kelas']],
+        'variable_mappings' => ['body' => [1 => 'class_name']],
+    ]);
+
+    $error = app(WhatsAppBlastService::class)->emptyParamError($classTemplate, $order);
+    expect($error)->not->toBeNull();
+    expect($error)->toContain('132000')->toContain('class_name');
+
+    // A resolvable mapping produces no error.
+    $okTemplate = WhatsAppTemplate::create([
+        'name' => 'blast_'.bin2hex(random_bytes(4)),
+        'language' => 'ms',
+        'category' => 'utility',
+        'status' => 'APPROVED',
+        'components' => [['type' => 'BODY', 'text' => 'Hi {{1}}']],
+        'variable_mappings' => ['body' => [1 => 'contact.name']],
+    ]);
+
+    expect(app(WhatsAppBlastService::class)->emptyParamError($okTemplate, $order))->toBeNull();
+});
+
+it('fails a campaign recipient with a clear message (no Meta call) when a variable is empty', function () {
+    Queue::fake();
+
+    $order = ProductOrder::factory()->create([
+        'customer_name' => 'Ali',
+        'customer_phone' => '60123456789',
+    ]);
+
+    $template = WhatsAppTemplate::create([
+        'name' => 'blast_'.bin2hex(random_bytes(4)),
+        'language' => 'ms',
+        'category' => 'utility',
+        'status' => 'APPROVED',
+        'components' => [['type' => 'BODY', 'text' => 'Didaftarkan {{1}} ke kelas']],
+        'variable_mappings' => ['body' => [1 => 'class_name']],
+    ]);
+
+    $campaign = app(WhatsAppBlastService::class)->createFromOrders([$order->id], $template, [], null);
+    $recipient = $campaign->recipients()->first();
+
+    $this->mock(WhatsAppService::class, function ($mock) {
+        $mock->shouldReceive('canSendNow')->andReturn(true);
+        $mock->shouldReceive('sendTemplate')->never(); // guard must prevent the wasted send
+    });
+
+    (new SendCampaignMessageJob($recipient->id))->handle(app(WhatsAppService::class), app(WhatsAppBlastService::class));
+
+    $recipient->refresh();
+    expect($recipient->status)->toBe('failed');
+    expect($recipient->error_message)->toContain('132000');
+});
+
 it('campaign job sends components resolved from the template mapping (not the old defaults)', function () {
     Queue::fake();
 

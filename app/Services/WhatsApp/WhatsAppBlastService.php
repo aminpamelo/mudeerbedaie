@@ -335,6 +335,38 @@ class WhatsAppBlastService
     }
 
     /**
+     * When a BODY variable resolves to empty for this order, Meta rejects the
+     * whole send with the cryptic "(#132000) Number of parameters does not match"
+     * (it drops the empty param, so the count no longer matches). Return an
+     * actionable message naming the offending variable(s), or null when every
+     * variable resolves to a non-empty value.
+     *
+     * Common cause: the template is mapped to a field that has no value in this
+     * send's context (e.g. {{1}} -> class_name blasted to e-commerce orders).
+     */
+    public function emptyParamError(WhatsAppTemplate $template, ProductOrder $order): ?string
+    {
+        $params = $this->resolveTemplateBodyParams($template, $order);
+        $mappings = is_array($template->variable_mappings) ? ($template->variable_mappings['body'] ?? []) : [];
+
+        $empty = [];
+        foreach ($params as $index => $value) {
+            if ((string) $value === '') {
+                $field = $mappings[$index] ?? $mappings[(string) $index] ?? null;
+                $empty[] = '{{'.$index.'}}'.(is_string($field) && $field !== '' ? ' ('.$field.')' : '');
+            }
+        }
+
+        if ($empty === []) {
+            return null;
+        }
+
+        return 'Template variable '.implode(', ', $empty).' resolved to empty for this order, '
+            .'so WhatsApp rejects the send (#132000). In WhatsApp Templates, map it to a field '
+            .'available for this send (e.g. Customer name / Order number).';
+    }
+
+    /**
      * Extract the BODY text of a template (with {{n}} placeholders).
      */
     public function bodyText(WhatsAppTemplate $template): string
