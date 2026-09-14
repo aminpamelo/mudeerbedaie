@@ -230,7 +230,14 @@ new class extends Component
                             <td class="whitespace-nowrap px-4 py-3 text-xs text-slate-500">{{ $recipient->read_at?->format('d M H:i') ?? '—' }}</td>
                             <td class="px-4 py-3 text-xs">
                                 @if ($recipient->error_message)
-                                    <span class="block max-w-xs truncate text-rose-500" title="{{ $recipient->error_message }}">{{ $recipient->error_message }}</span>
+                                    <div x-data="{ open: false }" class="max-w-xs">
+                                        <button type="button" @click="open = !open"
+                                            class="flex w-full items-start gap-1 text-left text-rose-500 hover:text-rose-600"
+                                            :title="open ? 'Click to collapse' : 'Click to view the full error'">
+                                            <flux:icon name="chevron-right" class="mt-0.5 h-3 w-3 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
+                                            <span class="flex-1" :class="open ? 'whitespace-pre-wrap break-words' : 'truncate'">{{ $recipient->error_message }}</span>
+                                        </button>
+                                    </div>
                                 @else
                                     <span class="text-slate-300">—</span>
                                 @endif
