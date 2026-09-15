@@ -53,6 +53,8 @@ it('saves the flow and syncs its packages', function () {
         ->put(route('cekbot.flows.update', $flow->id), [
             'name' => 'Funnel Siap',
             'is_active' => true,
+            'use_ai' => true,
+            'ai_instructions' => 'Guna bahasa santai.',
             'match_type' => 'contains',
             'trigger_keywords' => ['minat', 'nak order', ''],
             'welcome_message' => 'Salam!',
@@ -72,6 +74,8 @@ it('saves the flow and syncs its packages', function () {
     $flow->refresh();
     expect($flow->name)->toBe('Funnel Siap')
         ->and($flow->is_active)->toBeTrue()
+        ->and($flow->use_ai)->toBeTrue()
+        ->and($flow->ai_instructions)->toBe('Guna bahasa santai.')
         ->and($flow->trigger_keywords)->toBe(['minat', 'nak order']) // blank dropped
         ->and($flow->packages()->count())->toBe(2);
 

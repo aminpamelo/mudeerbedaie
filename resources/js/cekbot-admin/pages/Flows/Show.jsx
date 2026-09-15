@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Field, Input, Textarea, Select, Toggle } from '@/cekbot-admin/components/Ui';
 import { buildPreview } from '@/cekbot-admin/lib/flowPreview';
@@ -36,10 +36,13 @@ export default function Show() {
   const flow = props.flow;
   const products = props.products ?? [];
   const salesSources = props.salesSources ?? [];
+  const aiAvailable = props.aiAvailable;
 
   const form = useForm({
     name: flow.name ?? '',
     is_active: flow.is_active ?? false,
+    use_ai: flow.use_ai ?? true,
+    ai_instructions: flow.ai_instructions ?? '',
     match_type: flow.match_type ?? 'contains',
     trigger_keywords: flow.trigger_keywords ?? [],
     welcome_message: flow.welcome_message ?? '',
@@ -173,7 +176,34 @@ export default function Show() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={MessageSquareText} title="Mesej alu-aluan" hint="Mesej pertama + arahan pilih pakej.">
+          <SectionCard icon={Sparkles} title="Mod jawapan" hint="Cara bot berbual dengan pelanggan.">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-violet-400/25 bg-violet-500/[0.06] p-3.5">
+                <div>
+                  <p className="flex items-center gap-1.5 text-[13px] font-semibold text-white/85">
+                    <Sparkles className="h-4 w-4 text-violet-300" /> Guna AI (disyorkan)
+                  </p>
+                  <p className="mt-1 text-[11.5px] leading-relaxed text-white/50">
+                    AI faham ayat biasa (tak paksa pilih nombor), jawab soalan, kesan bila pelanggan berminat, kumpul & sahkan borang, baru cipta order. Bila off, bot guna menu bernombor tetap.
+                  </p>
+                </div>
+                <Toggle checked={form.data.use_ai} onChange={(v) => setData('use_ai', v)} disabled={!aiAvailable} />
+              </div>
+
+              {!aiAvailable && (
+                <p className="text-[11.5px] text-amber-300/80">⚠️ OpenAI belum dikonfigur — flow akan guna menu bernombor sehingga OPENAI_API_KEY ditetapkan.</p>
+              )}
+
+              {form.data.use_ai && aiAvailable && (
+                <Field label="Arahan tambahan untuk AI (pilihan)" hint="Cth: tekankan promosi, gaya bahasa, jangan janji diskaun, dsb." error={errors.ai_instructions}>
+                  <Textarea rows={3} value={form.data.ai_instructions} onChange={(e) => setData('ai_instructions', e.target.value)}
+                    placeholder="Cth: Guna bahasa santai & mesra. Galakkan COD. Jangan janji apa-apa yang tiada dalam maklumat pakej." />
+                </Field>
+              )}
+            </div>
+          </SectionCard>
+
+          <SectionCard icon={MessageSquareText} title="Mesej alu-aluan" hint={form.data.use_ai && aiAvailable ? 'Panduan gaya untuk AI (AI akan olah sendiri).' : 'Mesej pertama + arahan pilih pakej.'}>
             <div className="space-y-4">
               <Field label="Mesej alu-aluan (pilihan)" error={errors.welcome_message}>
                 <Textarea rows={2} value={data.welcome_message} onChange={(e) => setData('welcome_message', e.target.value)}
@@ -330,6 +360,12 @@ export default function Show() {
             </div>
 
             <div className="max-h-[70vh] space-y-2 overflow-y-auto bg-[#0A140F] p-3.5">
+              {data.use_ai && aiAvailable && (
+                <div className="mb-1 flex items-start gap-1.5 rounded-lg bg-violet-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-violet-200/80">
+                  <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>Mod AI aktif — perbualan sebenar lebih dinamik & ikut pelanggan. Ini cuma contoh aliran.</span>
+                </div>
+              )}
               {preview.map((m, i) => (
                 <div key={i} className={cn('flex', m.from === 'cust' ? 'justify-end' : 'justify-start')}>
                   <div className={cn(

@@ -22,6 +22,8 @@ class CekbotFlow extends Model
         'cekbot_session_id',
         'name',
         'is_active',
+        'use_ai',
+        'ai_instructions',
         'match_type',
         'trigger_keywords',
         'welcome_message',
@@ -46,6 +48,7 @@ class CekbotFlow extends Model
     {
         return [
             'is_active' => 'boolean',
+            'use_ai' => 'boolean',
             'trigger_keywords' => 'array',
             'ask_payment' => 'boolean',
             'payment_transfer_enabled' => 'boolean',
@@ -97,6 +100,16 @@ class CekbotFlow extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Whether this flow should be driven by the AI sales agent (natural
+     * language, intent + confirmation) rather than the numbered-menu fallback.
+     * Requires an OpenAI key; otherwise the deterministic path runs.
+     */
+    public function aiEnabled(): bool
+    {
+        return $this->use_ai && filled(config('openai.api_key'));
     }
 
     /**

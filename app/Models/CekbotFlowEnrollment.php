@@ -22,6 +22,8 @@ class CekbotFlowEnrollment extends Model
 
     public const STATUS_ABANDONED = 'abandoned';
 
+    public const STEP_AI = 'ai';
+
     public const STEP_AWAIT_PACKAGE = 'await_package';
 
     public const STEP_AWAIT_PAYMENT = 'await_payment';

@@ -34,6 +34,7 @@ class FlowController extends Controller
                     'id' => $flow->id,
                     'name' => $flow->name,
                     'is_active' => $flow->is_active,
+                    'use_ai' => $flow->use_ai,
                     'trigger_keywords' => $flow->trigger_keywords ?? [],
                     'packages_count' => $flow->packages_count,
                 ])->values(),
@@ -41,6 +42,7 @@ class FlowController extends Controller
 
         return Inertia::render('Flows/Index', [
             'sessions' => $sessions,
+            'aiAvailable' => filled(config('openai.api_key')),
         ]);
     }
 
@@ -87,6 +89,7 @@ class FlowController extends Controller
                 ->ordered()
                 ->get(['id', 'name'])
                 ->map(fn (SalesSource $s) => ['id' => $s->id, 'name' => $s->name]),
+            'aiAvailable' => filled(config('openai.api_key')),
         ]);
     }
 
@@ -95,6 +98,8 @@ class FlowController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'is_active' => 'boolean',
+            'use_ai' => 'boolean',
+            'ai_instructions' => 'nullable|string|max:4096',
             'match_type' => 'required|in:contains,exact,starts',
             'trigger_keywords' => 'nullable|array|max:50',
             'trigger_keywords.*' => 'nullable|string|max:255',
@@ -191,6 +196,8 @@ class FlowController extends Controller
             'session_label' => $flow->session?->label,
             'name' => $flow->name,
             'is_active' => $flow->is_active,
+            'use_ai' => $flow->use_ai,
+            'ai_instructions' => $flow->ai_instructions,
             'match_type' => $flow->match_type,
             'trigger_keywords' => $flow->trigger_keywords ?? [],
             'welcome_message' => $flow->welcome_message,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Workflow, Pencil, Trash2, ShoppingBag, Sparkles } from 'lucide-react';
+import { Plus, Workflow, Pencil, Trash2, ShoppingBag, Sparkles, List } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Badge, Field, Input, Toggle, EmptyState, Modal } from '@/cekbot-admin/components/Ui';
 import { cn } from '@/cekbot-admin/lib/utils';
@@ -58,6 +58,9 @@ function FlowCard({ flow }) {
           <div className="flex flex-wrap items-center gap-1.5">
             <h3 className="truncate text-[14px] font-bold text-white">{flow.name}</h3>
             <Badge color={flow.is_active ? 'emerald' : 'slate'}>{flow.is_active ? 'Aktif' : 'Draf'}</Badge>
+            <Badge color={flow.use_ai ? 'blue' : 'slate'}>
+              {flow.use_ai ? <><Sparkles className="h-2.5 w-2.5" /> AI</> : <><List className="h-2.5 w-2.5" /> Menu</>}
+            </Badge>
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
             {(flow.trigger_keywords || []).length ? (
@@ -92,6 +95,7 @@ function FlowCard({ flow }) {
 export default function Index() {
   const { props } = usePage();
   const sessions = props.sessions ?? [];
+  const aiAvailable = props.aiAvailable;
 
   const [selectedId, setSelectedId] = useState(sessions[0]?.id ?? null);
   const selected = sessions.find((s) => s.id === selectedId) ?? sessions[0] ?? null;
@@ -128,6 +132,15 @@ export default function Index() {
           bot akan tunjuk pakej → tanya cara bayar (Transfer/COD) → kumpul butiran → <span className="font-semibold text-emerald-300">auto-cipta order</span> dalam sistem.
         </p>
       </div>
+
+      {!aiAvailable && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-amber-400/25 bg-amber-500/[0.06] p-3.5">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <p className="text-[12.5px] leading-relaxed text-white/60">
+            OpenAI belum dikonfigur di server ini. Flow AI akan <span className="font-semibold text-white/80">fallback ke menu bernombor</span> sehingga <span className="font-mono text-amber-200/90">OPENAI_API_KEY</span> ditetapkan dalam .env.
+          </p>
+        </div>
+      )}
 
       {sessions.length > 1 && (
         <div className="mb-5 flex flex-wrap gap-2">

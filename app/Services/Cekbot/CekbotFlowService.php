@@ -7,7 +7,6 @@ use App\Models\CekbotFlow;
 use App\Models\CekbotFlowEnrollment;
 use App\Models\CekbotFlowPackage;
 use App\Models\CekbotLeadCategory;
-use App\Models\Product;
 use App\Models\ProductOrder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +28,11 @@ class CekbotFlowService
 
     private const CANCEL_WORDS = ['batal', 'cancel', 'stop', 'tak jadi', 'ttak jadi'];
 
+    public function __construct(
+        private CekbotFlowAgent $agent,
+        private CekbotFlowOrderCreator $orders,
+    ) {}
+
     /**
      * Intercept an inbound message. Returns true when the funnel handled it.
      */
@@ -38,7 +42,13 @@ class CekbotFlowService
             $enrollment = $conversation->activeFlowEnrollment();
 
             if ($enrollment) {
-                $this->advance($enrollment, $conversation, $body, $type, $bot);
+                $enrollment->loadMissing('flow.packages.cekbotProduct');
+
+                if ($enrollment->flow->aiEnabled()) {
+                    $this->advanceAi($enrollment, $conversation, $body, $bot);
+                } else {
+                    $this->advance($enrollment, $conversation, $body, $type, $bot);
+                }
 
                 return true;
             }
@@ -46,7 +56,11 @@ class CekbotFlowService
             $flow = $this->matchingFlow($conversation, $body);
 
             if ($flow) {
-                $this->start($flow, $conversation, $bot);
+                if ($flow->aiEnabled()) {
+                    $this->startAi($flow, $conversation, $body, $bot);
+                } else {
+                    $this->start($flow, $conversation, $bot);
+                }
 
                 return true;
             }
@@ -99,6 +113,68 @@ class CekbotFlowService
         $menu = $this->packageMenu($flow);
 
         $bot->sendReply($conversation, $intro !== '' ? $intro."\n\n".$menu : $menu);
+    }
+
+    /**
+     * Start an AI-driven flow: enrol, then let the agent respond to the very
+     * message that triggered it (so it greets & presents packages naturally).
+     */
+    private function startAi(CekbotFlow $flow, CekbotConversation $conversation, string $body, CekbotBotService $bot): void
+    {
+        $enrollment = CekbotFlowEnrollment::create([
+            'cekbot_conversation_id' => $conversation->id,
+            'cekbot_flow_id' => $flow->id,
+            'status' => CekbotFlowEnrollment::STATUS_ACTIVE,
+            'current_step' => CekbotFlowEnrollment::STEP_AI,
+            'data' => [],
+            'started_at' => now(),
+            'last_activity_at' => now(),
+        ]);
+
+        $this->setCategory($conversation, 'Berminat');
+
+        $this->runAgent($enrollment, $flow, $conversation, $body, $bot);
+    }
+
+    /**
+     * Advance an AI-driven flow.
+     */
+    private function advanceAi(CekbotFlowEnrollment $enrollment, CekbotConversation $conversation, string $body, CekbotBotService $bot): void
+    {
+        $enrollment->update(['last_activity_at' => now()]);
+
+        if ($this->isCancel(trim($body))) {
+            $enrollment->update(['status' => CekbotFlowEnrollment::STATUS_ABANDONED]);
+            $bot->sendReply($conversation, 'Baik, saya batalkan tempahan ini. Kalau nak mula semula, taip mesej bila-bila masa ye 🙂');
+
+            return;
+        }
+
+        $this->runAgent($enrollment, $enrollment->flow, $conversation, $body, $bot);
+    }
+
+    /**
+     * Run the AI agent for a turn: send its reply, and finalise the enrollment
+     * when it creates an order.
+     */
+    private function runAgent(CekbotFlowEnrollment $enrollment, CekbotFlow $flow, CekbotConversation $conversation, string $body, CekbotBotService $bot): void
+    {
+        $result = $this->agent->respond($flow, $conversation, $body);
+
+        if ($result['order']) {
+            $this->orders->completeEnrollment($enrollment, $result['order']);
+            $this->setCategory($conversation, 'Deal');
+        }
+
+        $reply = $result['reply'];
+
+        if ($reply === null || trim($reply) === '') {
+            // AI produced nothing usable (e.g. transient API failure) — nudge
+            // rather than going silent so the customer can continue.
+            $reply = 'Maaf, boleh ulang sekali lagi? 🙂';
+        }
+
+        $bot->sendReply($conversation, $reply);
     }
 
     /**
@@ -275,82 +351,24 @@ class CekbotFlowService
      */
     private function finalize(CekbotFlowEnrollment $enrollment, CekbotFlow $flow, CekbotConversation $conversation, CekbotBotService $bot): void
     {
-        $order = $this->createOrder($enrollment, $flow, $conversation);
-
-        $enrollment->update([
-            'status' => CekbotFlowEnrollment::STATUS_COMPLETED,
-            'current_step' => CekbotFlowEnrollment::STEP_DONE,
-            'product_order_id' => $order->id,
-            'completed_at' => now(),
+        $order = $this->orders->create($flow, $conversation, [
+            'label' => (string) $enrollment->answer('package_label', 'Pakej'),
+            'price' => (float) $enrollment->answer('price', 0),
+            'currency' => (string) $enrollment->answer('currency', 'RM'),
+            'product_id' => $enrollment->answer('product_id'),
+            'payment_method' => $enrollment->answer('payment_method'),
+            'name' => $enrollment->answer('name'),
+            'phone' => $conversation->phoneNumber(),
+            'address' => $enrollment->answer('address'),
+            'receipt' => $enrollment->answer('receipt'),
+            'driver' => 'flow',
         ]);
+
+        $this->orders->completeEnrollment($enrollment, $order);
 
         $this->setCategory($conversation, 'Deal');
 
         $bot->sendReply($conversation, $this->confirmationMessage($enrollment, $flow, $order));
-    }
-
-    private function createOrder(CekbotFlowEnrollment $enrollment, CekbotFlow $flow, CekbotConversation $conversation): ProductOrder
-    {
-        $label = (string) $enrollment->answer('package_label', 'Pakej');
-        $price = (float) $enrollment->answer('price', 0);
-        $currency = (string) $enrollment->answer('currency', 'RM');
-        $name = trim((string) $enrollment->answer('name')) ?: ($conversation->name ?: $conversation->phoneNumber());
-        $phone = $conversation->phoneNumber();
-        $method = $enrollment->answer('payment_method'); // bank_transfer|cod|null
-        $address = $enrollment->answer('address');
-        $catalogProductId = $enrollment->answer('product_id');
-
-        $order = ProductOrder::create([
-            'order_number' => ProductOrder::generateOrderNumber(),
-            'status' => 'pending',
-            'payment_status' => 'pending',
-            'source' => 'whatsapp_bot',
-            'source_reference' => 'cekbot:'.$conversation->session->session_name,
-            'sales_source_id' => $flow->sales_source_id,
-            'currency' => $currency,
-            'subtotal' => $price,
-            'total_amount' => $price,
-            'customer_name' => $name,
-            'customer_phone' => $phone,
-            'payment_method' => $method,
-            'order_date' => now(),
-            'shipping_address' => $address ? [
-                'name' => $name,
-                'phone' => $phone,
-                'full_address' => $address,
-            ] : null,
-            'metadata' => [
-                'cekbot_flow_id' => $flow->id,
-                'cekbot_flow_name' => $flow->name,
-                'cekbot_conversation_id' => $conversation->id,
-                'cekbot_session' => $conversation->session->session_name,
-                'chat_id' => $conversation->chat_id,
-                'receipt' => $enrollment->answer('receipt'),
-            ],
-        ]);
-
-        $order->items()->create([
-            'product_id' => $catalogProductId,
-            'itemable_type' => $catalogProductId ? Product::class : null,
-            'itemable_id' => $catalogProductId,
-            'product_name' => $label,
-            'quantity_ordered' => 1,
-            'unit_price' => $price,
-            'total_price' => $price,
-            'unit_cost' => 0,
-        ]);
-
-        // The free-text COD address lives in the shipping_address JSON column
-        // (set above), the same as funnel/POS/lead orders — ProductOrder's
-        // effectiveAddress() normalises it for courier booking (postcode/state
-        // are derived), so we don't force a half-empty structured address row.
-
-        $order->addSystemNote('Order created from WhatsApp Cekbot flow: '.$flow->name, [
-            'cekbot_flow_id' => $flow->id,
-            'payment_method' => $method,
-        ]);
-
-        return $order;
     }
 
     /**

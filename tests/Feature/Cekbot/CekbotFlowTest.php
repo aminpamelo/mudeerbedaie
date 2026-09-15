@@ -38,6 +38,7 @@ function makeFlow(int $sessionId, array $overrides = [], array $packages = []): 
         'cekbot_session_id' => $sessionId,
         'name' => 'Funnel Jualan',
         'is_active' => true,
+        'use_ai' => false, // these cases exercise the deterministic numbered-menu fallback
         'match_type' => 'contains',
         'trigger_keywords' => ['order', 'minat'],
         'welcome_message' => 'Salam! 🙌 Terima kasih berminat.',
