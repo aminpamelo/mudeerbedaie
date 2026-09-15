@@ -1967,6 +1967,8 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::get('flows/{flow}', [CekbotFlowController::class, 'show'])->name('flows.show');
         Route::put('flows/{flow}', [CekbotFlowController::class, 'update'])->name('flows.update');
         Route::put('flows/{flow}/active', [CekbotFlowController::class, 'toggle'])->name('flows.toggle');
+        Route::post('flows/{flow}/bank-image', [CekbotFlowController::class, 'uploadBankImage'])->name('flows.bank-image.store');
+        Route::delete('flows/{flow}/bank-image', [CekbotFlowController::class, 'destroyBankImage'])->name('flows.bank-image.destroy');
         Route::delete('flows/{flow}', [CekbotFlowController::class, 'destroy'])->name('flows.destroy');
 
         // Fasa 3 — Auto-reply rules + bot settings

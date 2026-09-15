@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\SalesSource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -156,8 +157,38 @@ class FlowController extends Controller
         return back()->with('success', $flow->is_active ? 'Flow diaktifkan.' : 'Flow dimatikan.');
     }
 
+    public function uploadBankImage(Request $request, CekbotFlow $flow): RedirectResponse
+    {
+        $request->validate([
+            'bank_image' => 'required|image|max:5120',
+        ]);
+
+        if (filled($flow->bank_image)) {
+            Storage::disk('public')->delete($flow->bank_image);
+        }
+
+        $path = $request->file('bank_image')->store('cekbot-flows', 'public');
+        $flow->update(['bank_image' => $path]);
+
+        return back()->with('success', 'Gambar bank/QR dimuat naik.');
+    }
+
+    public function destroyBankImage(CekbotFlow $flow): RedirectResponse
+    {
+        if (filled($flow->bank_image)) {
+            Storage::disk('public')->delete($flow->bank_image);
+            $flow->update(['bank_image' => null]);
+        }
+
+        return back()->with('success', 'Gambar dibuang.');
+    }
+
     public function destroy(CekbotFlow $flow): RedirectResponse
     {
+        if (filled($flow->bank_image)) {
+            Storage::disk('public')->delete($flow->bank_image);
+        }
+
         $flow->delete();
 
         return redirect()
@@ -222,6 +253,7 @@ class FlowController extends Controller
             'payment_transfer_enabled' => $flow->payment_transfer_enabled,
             'payment_cod_enabled' => $flow->payment_cod_enabled,
             'bank_details' => $flow->bank_details,
+            'bank_image_url' => $flow->bankImageUrl(),
             'transfer_instructions' => $flow->transfer_instructions,
             'ask_name' => $flow->ask_name,
             'sales_source_id' => $flow->sales_source_id,

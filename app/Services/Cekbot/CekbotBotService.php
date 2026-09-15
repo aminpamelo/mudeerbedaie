@@ -148,4 +148,35 @@ class CekbotBotService
 
         CekbotMessageReceived::dispatch($conversation->id, $session->id, 'out');
     }
+
+    /**
+     * Send an image (by public URL) as a bot reply, recording it as an outbound
+     * image message. Used e.g. for the transfer QR poster.
+     */
+    public function sendImageReply(CekbotConversation $conversation, string $url, ?string $caption = null): void
+    {
+        $session = $conversation->session;
+        $result = $this->waha->sendImage($session->session_name, $conversation->chat_id, $url, $caption);
+
+        CekbotMessage::create([
+            'cekbot_conversation_id' => $conversation->id,
+            'cekbot_session_id' => $session->id,
+            'waha_message_id' => $result['message_id'] ?? null,
+            'direction' => CekbotMessage::DIRECTION_OUT,
+            'from_me' => true,
+            'type' => 'image',
+            'body' => $caption,
+            'media_url' => $url,
+            'ack' => $result['success'] ? 'sent' : 'failed',
+            'sent_by_user_id' => null,
+            'sent_at' => now(),
+        ]);
+
+        $conversation->update([
+            'last_message_at' => now(),
+            'last_message_preview' => Str::limit($caption ?: '📷 Gambar', 255),
+        ]);
+
+        CekbotMessageReceived::dispatch($conversation->id, $session->id, 'out');
+    }
 }

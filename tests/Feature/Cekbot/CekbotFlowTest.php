@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     config(['services.waha.api_url' => 'https://waha.test', 'services.waha.api_key' => 'test-key']);
-    Http::fake(['waha.test/api/sendText' => Http::response(['id' => 'bot-out'], 201)]);
+    Http::fake([
+        'waha.test/api/sendText' => Http::response(['id' => 'bot-out'], 201),
+        'waha.test/api/sendImage' => Http::response(['id' => 'img-out'], 201),
+    ]);
     $this->session = CekbotSession::factory()->working()->create(['session_name' => 'default']);
     CekbotBotSetting::create(['cekbot_session_id' => $this->session->id, 'bot_enabled' => true]);
 });
@@ -137,6 +140,22 @@ it('shows bank details on the transfer path and creates the order after the rece
         ->and($order->payment_method)->toBe('bank_transfer')
         ->and((float) $order->total_amount)->toBe(97.0)
         ->and($order->customer_name)->toBe('Siti');
+});
+
+it('sends the QR image with the bank details on the transfer path', function () {
+    makeFlow($this->session->id, ['bank_image' => 'cekbot-flows/qr.png']);
+
+    flowInbound('minat', 'i1');
+    flowInbound('1', 'i2');       // Pakej A → payment menu
+    flowInbound('1', 'i3');       // Transfer → ask name
+    flowInbound('Siti', 'i4');    // name → bank details sent as an image (caption)
+
+    $img = CekbotMessage::query()->where('type', 'image')->latest('id')->first();
+    expect($img)->not->toBeNull()
+        ->and($img->media_url)->toContain('cekbot-flows/qr.png')
+        ->and($img->body)->toContain('Maybank'); // caption carries the bank details
+
+    Http::assertSent(fn ($r) => str_contains($r->url(), '/api/sendImage'));
 });
 
 it('skips the payment question when only one method is enabled', function () {

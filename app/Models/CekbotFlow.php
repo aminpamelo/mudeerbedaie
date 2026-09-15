@@ -33,6 +33,7 @@ class CekbotFlow extends Model
         'payment_transfer_enabled',
         'payment_cod_enabled',
         'bank_details',
+        'bank_image',
         'transfer_instructions',
         'ask_name',
         'sales_source_id',
@@ -100,6 +101,16 @@ class CekbotFlow extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Public URL of the transfer/QR poster, or null when none is uploaded.
+     */
+    public function bankImageUrl(): ?string
+    {
+        return filled($this->bank_image)
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->bank_image)
+            : null;
     }
 
     /**

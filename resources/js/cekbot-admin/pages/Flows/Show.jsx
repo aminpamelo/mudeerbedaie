@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Field, Input, Textarea, Select, Toggle } from '@/cekbot-admin/components/Ui';
 import { buildPreview } from '@/cekbot-admin/lib/flowPreview';
@@ -13,6 +13,47 @@ function WaText({ text }) {
     <span className="whitespace-pre-wrap break-words">
       {parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : <span key={i}>{part}</span>))}
     </span>
+  );
+}
+
+/** Upload / preview / remove the transfer QR or bank poster (own endpoint). */
+function BankImage({ flowId, imageUrl }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  function onFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    router.post(route('cekbot.flows.bank-image.store', flowId), { bank_image: file }, {
+      forceFormData: true,
+      preserveScroll: true,
+      onFinish: () => { setUploading(false); if (fileRef.current) fileRef.current.value = ''; },
+    });
+  }
+
+  function remove() {
+    if (!window.confirm('Buang gambar ni?')) return;
+    router.delete(route('cekbot.flows.bank-image.destroy', flowId), { preserveScroll: true });
+  }
+
+  return (
+    <Field label="Gambar QR / poster bank (pilihan)" hint="Dihantar bersama maklumat bank bila pelanggan pilih transfer.">
+      {imageUrl ? (
+        <div className="flex items-center gap-3">
+          <img src={imageUrl} alt="QR bank" className="h-24 w-24 rounded-lg object-cover ring-1 ring-inset ring-white/10" />
+          <div className="flex flex-col gap-2">
+            <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} loading={uploading}>Tukar</Button>
+            <Button variant="danger" size="sm" onClick={remove}>Buang</Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="secondary" onClick={() => fileRef.current?.click()} loading={uploading}>
+          <ImageIcon className="h-4 w-4" /> Muat naik QR / gambar
+        </Button>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+    </Field>
   );
 }
 
@@ -314,6 +355,7 @@ export default function Show() {
                           <Input value={data.transfer_instructions} onChange={(e) => setData('transfer_instructions', e.target.value)}
                             placeholder="Cth: Guna nama penuh sebagai rujukan." />
                         </Field>
+                        <BankImage flowId={flow.id} imageUrl={flow.bank_image_url} />
                       </div>
                     )}
                   </div>

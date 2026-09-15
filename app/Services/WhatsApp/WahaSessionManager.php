@@ -396,6 +396,33 @@ class WahaSessionManager
     }
 
     /**
+     * Send an image by public URL, with an optional caption.
+     *
+     * @return array{success: bool, message_id: ?string, error: ?string}
+     */
+    public function sendImage(string $sessionName, string $chatId, string $url, ?string $caption = null): array
+    {
+        try {
+            $response = $this->client()->post('/api/sendImage', [
+                'session' => $sessionName,
+                'chatId' => $this->chatId($chatId),
+                'file' => ['url' => $url],
+                'caption' => $caption,
+            ]);
+
+            $data = $response->json();
+
+            if ($response->successful() && ! empty($data['id'])) {
+                return ['success' => true, 'message_id' => is_array($data['id']) ? ($data['id']['_serialized'] ?? null) : $data['id'], 'error' => null];
+            }
+
+            return ['success' => false, 'message_id' => null, 'error' => $this->error('send image', $response->status(), $data)->getMessage()];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message_id' => null, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Convert a recipient into a WAHA chat id (pass through existing ids).
      */
     private function chatId(string $recipient): string

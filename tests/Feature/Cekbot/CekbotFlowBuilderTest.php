@@ -5,6 +5,8 @@ use App\Models\CekbotFlowPackage;
 use App\Models\CekbotSession;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
@@ -136,6 +138,27 @@ it('toggles a flow active state', function () {
         ->assertRedirect();
 
     expect($flow->refresh()->is_active)->toBeTrue();
+});
+
+it('uploads and removes a transfer QR image', function () {
+    Storage::fake('public');
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+
+    test()->actingAs($this->admin)
+        ->post(route('cekbot.flows.bank-image.store', $flow->id), [
+            'bank_image' => UploadedFile::fake()->image('qr.png'),
+        ])
+        ->assertRedirect();
+
+    $flow->refresh();
+    expect($flow->bank_image)->not->toBeNull();
+    Storage::disk('public')->assertExists($flow->bank_image);
+
+    test()->actingAs($this->admin)
+        ->delete(route('cekbot.flows.bank-image.destroy', $flow->id))
+        ->assertRedirect();
+
+    expect($flow->refresh()->bank_image)->toBeNull();
 });
 
 it('deletes a flow', function () {
