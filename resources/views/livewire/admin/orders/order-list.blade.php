@@ -1155,7 +1155,9 @@ new class extends Component
 
     protected function ensureCanBlast(): void
     {
-        abort_unless(auth()->user()?->isAdmin(), 403, 'Only admins can send WhatsApp blasts.');
+        $user = auth()->user();
+
+        abort_unless($user?->isAdmin() || $user?->isEmployee(), 403, 'You are not allowed to send WhatsApp blasts.');
     }
 
     public function openBulkWhatsAppModal(): void
@@ -2184,7 +2186,7 @@ new class extends Component
             </div>
             <div class="flex items-center justify-end gap-2">
                 <flux:button size="sm" variant="ghost" wire:click="clearOrderSelection">Clear selection</flux:button>
-                @if(auth()->user()?->isAdmin())
+                @if(auth()->user()?->isAdmin() || auth()->user()?->isEmployee())
                 <flux:button size="sm" variant="outline" wire:click="openBulkWhatsAppModal"
                     wire:target="openBulkWhatsAppModal" wire:loading.attr="disabled">
                     <div class="flex items-center justify-center text-emerald-700 dark:text-emerald-400">
