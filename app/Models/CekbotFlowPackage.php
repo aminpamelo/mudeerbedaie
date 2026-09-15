@@ -18,6 +18,7 @@ class CekbotFlowPackage extends Model
     protected $fillable = [
         'cekbot_flow_id',
         'cekbot_product_id',
+        'product_id',
         'label',
         'price',
         'currency',
@@ -54,8 +55,18 @@ class CekbotFlowPackage extends Model
     }
 
     /**
-     * Effective selling price — the package override, else the linked product's
-     * price, else 0.
+     * The catalogue (shop) product this package sells (optional).
+     *
+     * @return BelongsTo<Product, $this>
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Effective selling price — the package override, else the linked catalogue
+     * product's price, else the Cekbot product's price, else 0.
      */
     public function effectivePrice(): float
     {
@@ -63,15 +74,28 @@ class CekbotFlowPackage extends Model
             return (float) $this->price;
         }
 
+        if ($this->product_id && $this->product) {
+            return (float) ($this->product->price ?? 0);
+        }
+
         return (float) ($this->cekbotProduct?->price ?? 0);
     }
 
     /**
-     * Currency to bill in — the package's, else the linked product's, else RM.
+     * Currency to bill in — the package's, else the Cekbot product's, else RM.
      */
     public function effectiveCurrency(): string
     {
         return $this->currency
             ?: ($this->cekbotProduct?->currency ?? 'RM');
+    }
+
+    /**
+     * The catalogue product id to record on the order line — a direct catalogue
+     * link takes precedence, else the one behind the Cekbot product.
+     */
+    public function orderProductId(): ?int
+    {
+        return $this->product_id ?? $this->cekbotProduct?->product_id;
     }
 }

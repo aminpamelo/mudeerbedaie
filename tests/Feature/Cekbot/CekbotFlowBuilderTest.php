@@ -3,6 +3,7 @@
 use App\Models\CekbotFlow;
 use App\Models\CekbotFlowPackage;
 use App\Models\CekbotSession;
+use App\Models\Product;
 use App\Models\User;
 
 beforeEach(function () {
@@ -43,7 +44,34 @@ it('renders the builder page for a flow', function () {
     test()->actingAs($this->admin)
         ->get(route('cekbot.flows.show', $flow->id))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Flows/Show', false)->has('flow')->has('products'));
+        ->assertInertia(fn ($page) => $page->component('Flows/Show', false)->has('flow')->has('catalogProducts')->has('cekbotProducts'));
+});
+
+it('links a package to a catalogue product and resolves its price', function () {
+    $product = Product::factory()->create(['name' => 'Kelas Combo', 'base_price' => 160]);
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.flows.update', $flow->id), [
+            'name' => 'F1',
+            'match_type' => 'contains',
+            'trigger_keywords' => ['minat'],
+            'ask_payment' => true,
+            'payment_transfer_enabled' => true,
+            'payment_cod_enabled' => true,
+            'ask_name' => true,
+            'packages' => [
+                // No price override — should fall back to the catalogue price.
+                ['product_id' => $product->id, 'cekbot_product_id' => null, 'label' => 'Combo', 'price' => null, 'currency' => 'RM'],
+            ],
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $pkg = $flow->packages()->first();
+    expect($pkg->product_id)->toBe($product->id)
+        ->and($pkg->effectivePrice())->toBe(160.0)
+        ->and($pkg->orderProductId())->toBe($product->id);
 });
 
 it('saves the flow and syncs its packages', function () {

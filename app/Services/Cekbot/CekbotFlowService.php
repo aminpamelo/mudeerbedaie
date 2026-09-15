@@ -42,7 +42,7 @@ class CekbotFlowService
             $enrollment = $conversation->activeFlowEnrollment();
 
             if ($enrollment) {
-                $enrollment->loadMissing('flow.packages.cekbotProduct');
+                $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product']);
 
                 if ($enrollment->flow->aiEnabled()) {
                     $this->advanceAi($enrollment, $conversation, $body, $bot);
@@ -85,7 +85,7 @@ class CekbotFlowService
         return $conversation->session
             ->flows()
             ->active()
-            ->with('packages.cekbotProduct')
+            ->with(['packages.cekbotProduct', 'packages.product'])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -182,7 +182,7 @@ class CekbotFlowService
      */
     private function advance(CekbotFlowEnrollment $enrollment, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
     {
-        $enrollment->loadMissing('flow.packages.cekbotProduct');
+        $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product']);
         $flow = $enrollment->flow;
         $text = trim($body);
 
@@ -216,12 +216,12 @@ class CekbotFlowService
             return;
         }
 
-        $package->loadMissing('cekbotProduct');
+        $package->loadMissing(['cekbotProduct', 'product']);
 
         $enrollment->putData([
             'package_id' => $package->id,
             'cekbot_product_id' => $package->cekbot_product_id,
-            'product_id' => $package->cekbotProduct?->product_id,
+            'product_id' => $package->orderProductId(),
             'package_label' => $package->label,
             'price' => $package->effectivePrice(),
             'currency' => $package->effectiveCurrency(),

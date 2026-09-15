@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CekbotFlow;
 use App\Models\CekbotProduct;
 use App\Models\CekbotSession;
+use App\Models\Product;
 use App\Models\SalesSource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,7 +74,19 @@ class FlowController extends Controller
 
         return Inertia::render('Flows/Show', [
             'flow' => $this->shape($flow),
-            'products' => CekbotProduct::query()
+            // Shop catalogue products — the primary thing merchants link a
+            // package to (so the order references a real product).
+            'catalogProducts' => Product::query()
+                ->orderBy('name')
+                ->limit(500)
+                ->get(['id', 'name', 'base_price'])
+                ->map(fn (Product $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'price' => $p->price !== null ? (float) $p->price : null,
+                ]),
+            // Cekbot knowledge products — optional, feed richer info to the AI.
+            'cekbotProducts' => CekbotProduct::query()
                 ->active()
                 ->orderBy('sort_order')
                 ->orderByDesc('id')
@@ -116,6 +129,7 @@ class FlowController extends Controller
             'packages' => 'nullable|array|max:30',
             'packages.*.id' => 'nullable|integer',
             'packages.*.cekbot_product_id' => 'nullable|exists:cekbot_products,id',
+            'packages.*.product_id' => 'nullable|exists:products,id',
             'packages.*.label' => 'required|string|max:255',
             'packages.*.price' => 'nullable|numeric|min:0|max:9999999',
             'packages.*.currency' => 'nullable|string|max:8',
@@ -164,6 +178,7 @@ class FlowController extends Controller
         foreach (array_values($packages) as $index => $package) {
             $attributes = [
                 'cekbot_product_id' => $package['cekbot_product_id'] ?? null,
+                'product_id' => $package['product_id'] ?? null,
                 'label' => trim((string) $package['label']),
                 'price' => $package['price'] !== null && $package['price'] !== '' ? $package['price'] : null,
                 'currency' => $package['currency'] ?? 'RM',
@@ -213,6 +228,7 @@ class FlowController extends Controller
             'packages' => $flow->packages->map(fn ($p) => [
                 'id' => $p->id,
                 'cekbot_product_id' => $p->cekbot_product_id,
+                'product_id' => $p->product_id,
                 'label' => $p->label,
                 'price' => $p->price !== null ? (float) $p->price : null,
                 'currency' => $p->currency,

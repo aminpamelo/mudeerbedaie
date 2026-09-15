@@ -34,7 +34,8 @@ function SectionCard({ icon: Icon, title, hint, children }) {
 export default function Show() {
   const { props } = usePage();
   const flow = props.flow;
-  const products = props.products ?? [];
+  const catalogProducts = props.catalogProducts ?? [];
+  const cekbotProducts = props.cekbotProducts ?? [];
   const salesSources = props.salesSources ?? [];
   const aiAvailable = props.aiAvailable;
 
@@ -58,6 +59,7 @@ export default function Show() {
     packages: (flow.packages ?? []).map((p) => ({
       id: p.id,
       cekbot_product_id: p.cekbot_product_id ?? '',
+      product_id: p.product_id ?? '',
       label: p.label ?? '',
       price: p.price ?? '',
       currency: p.currency ?? 'RM',
@@ -78,7 +80,7 @@ export default function Show() {
   }
 
   function addPackage() {
-    setData('packages', [...data.packages, { cekbot_product_id: '', label: '', price: '', currency: 'RM' }]);
+    setData('packages', [...data.packages, { cekbot_product_id: '', product_id: '', label: '', price: '', currency: 'RM' }]);
   }
   function updatePackage(index, patch) {
     setData('packages', data.packages.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -86,18 +88,38 @@ export default function Show() {
   function removePackage(index) {
     setData('packages', data.packages.filter((_, i) => i !== index));
   }
-  function onSelectProduct(index, productId) {
-    if (!productId) {
-      updatePackage(index, { cekbot_product_id: '' });
+  // The product select encodes which source is linked: "catalog:ID" (shop
+  // product) or "cekbot:ID" (Cekbot knowledge product).
+  function packageSelectValue(pkg) {
+    if (pkg.product_id) return `catalog:${pkg.product_id}`;
+    if (pkg.cekbot_product_id) return `cekbot:${pkg.cekbot_product_id}`;
+    return '';
+  }
+  function onSelectProduct(index, value) {
+    const row = data.packages[index];
+    if (!value) {
+      updatePackage(index, { product_id: '', cekbot_product_id: '' });
       return;
     }
-    const product = products.find((p) => String(p.id) === String(productId));
-    updatePackage(index, {
-      cekbot_product_id: productId,
-      label: data.packages[index].label || product?.name || '',
-      price: data.packages[index].price === '' && product?.price != null ? product.price : data.packages[index].price,
-      currency: product?.currency || data.packages[index].currency || 'RM',
-    });
+    const [type, id] = value.split(':');
+    if (type === 'catalog') {
+      const product = catalogProducts.find((p) => String(p.id) === String(id));
+      updatePackage(index, {
+        product_id: id,
+        cekbot_product_id: '',
+        label: row.label || product?.name || '',
+        price: row.price === '' && product?.price != null ? product.price : row.price,
+      });
+    } else {
+      const product = cekbotProducts.find((p) => String(p.id) === String(id));
+      updatePackage(index, {
+        cekbot_product_id: id,
+        product_id: '',
+        label: row.label || product?.name || '',
+        price: row.price === '' && product?.price != null ? product.price : row.price,
+        currency: product?.currency || row.currency || 'RM',
+      });
+    }
   }
 
   function save(e) {
@@ -230,12 +252,24 @@ export default function Show() {
                     <button type="button" onClick={() => removePackage(i)} className="text-white/40 hover:text-rose-300" aria-label="Buang pakej"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                   <div className="grid gap-2.5 sm:grid-cols-2">
-                    <Field label="Produk (pilihan)" className="sm:col-span-2">
-                      <Select value={pkg.cekbot_product_id || ''} onChange={(e) => onSelectProduct(i, e.target.value)}>
+                    <Field label="Link ke produk (pilihan)" className="sm:col-span-2"
+                      hint={catalogProducts.length === 0 && cekbotProducts.length === 0 ? 'Belum ada produk — tambah di Produk (kedai) dahulu, atau isi label + harga secara manual.' : 'Link ke produk kedai supaya order rujuk produk sebenar & harga auto-isi.'}>
+                      <Select value={packageSelectValue(pkg)} onChange={(e) => onSelectProduct(i, e.target.value)}>
                         <option value="">— Custom (tiada link produk) —</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}{p.price != null ? ` (${p.currency}${p.price})` : ''}</option>
-                        ))}
+                        {catalogProducts.length > 0 && (
+                          <optgroup label="Produk kedai">
+                            {catalogProducts.map((p) => (
+                              <option key={`c${p.id}`} value={`catalog:${p.id}`}>{p.name}{p.price != null ? ` (RM${p.price})` : ''}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {cekbotProducts.length > 0 && (
+                          <optgroup label="Cekbot Produk (info AI)">
+                            {cekbotProducts.map((p) => (
+                              <option key={`k${p.id}`} value={`cekbot:${p.id}`}>{p.name}{p.price != null ? ` (${p.currency}${p.price})` : ''}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </Select>
                     </Field>
                     <Field label="Label dipapar" error={errors[`packages.${i}.label`]}>

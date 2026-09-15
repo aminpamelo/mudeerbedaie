@@ -38,7 +38,7 @@ class CekbotFlowAgent
             return ['reply' => null, 'order' => null];
         }
 
-        $flow->loadMissing('packages.cekbotProduct');
+        $flow->loadMissing(['packages.cekbotProduct', 'packages.product']);
 
         try {
             $messages = $this->buildMessages($flow, $conversation, $message);
@@ -194,7 +194,7 @@ class CekbotFlowAgent
             'label' => $package->label,
             'price' => $package->effectivePrice(),
             'currency' => $package->effectiveCurrency(),
-            'product_id' => $package->cekbotProduct?->product_id,
+            'product_id' => $package->orderProductId(),
             'payment_method' => $method,
             'name' => $customerName,
             'phone' => $phoneRaw,
@@ -261,6 +261,13 @@ class CekbotFlowAgent
         $lines[] = '';
         $lines[] = 'PAKEJ YANG DITAWARKAN:';
         $lines[] = $this->packageContext($flow);
+
+        if (filled($flow->welcome_message)) {
+            $lines[] = '';
+            $lines[] = 'MAKLUMAT / SKRIP RUJUKAN SYARIKAT (guna untuk terangkan pakej):';
+            $lines[] = trim((string) $flow->welcome_message);
+        }
+
         $lines[] = '';
         $lines[] = 'CARA BAYAR:';
 
