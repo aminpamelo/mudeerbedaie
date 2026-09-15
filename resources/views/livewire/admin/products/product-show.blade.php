@@ -474,6 +474,57 @@ new class extends Component {
 
         <!-- Sidebar Information -->
         <div class="space-y-6">
+            <!-- Storefront Link -->
+            @php $storefrontUrl = route('storefront.product', $product->slug); @endphp
+            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <flux:heading size="lg">Storefront Link</flux:heading>
+                    @if($product->show_on_storefront)
+                        <flux:badge variant="success" size="sm" icon="eye">Visible</flux:badge>
+                    @else
+                        <flux:badge variant="warning" size="sm" icon="eye-slash">Unlisted</flux:badge>
+                    @endif
+                </div>
+
+                @if($product->status === 'active' && $product->type === 'simple')
+                    <div x-data="{ copied: false, url: @js($storefrontUrl) }" class="space-y-3">
+                        <div class="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/40 px-3 py-2">
+                            <flux:icon name="link" class="h-4 w-4 shrink-0 text-gray-400" />
+                            <span class="truncate text-sm text-gray-700 dark:text-gray-200" title="{{ $storefrontUrl }}">{{ $storefrontUrl }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <flux:button
+                                size="sm"
+                                variant="primary"
+                                class="flex-1"
+                                icon="clipboard-document"
+                                x-on:click="navigator.clipboard.writeText(url); copied = true; setTimeout(() => copied = false, 2000)"
+                            >
+                                <span x-text="copied ? 'Copied!' : 'Copy Link'">Copy Link</span>
+                            </flux:button>
+                            <flux:button
+                                size="sm"
+                                variant="outline"
+                                href="{{ $storefrontUrl }}"
+                                target="_blank"
+                                icon="arrow-top-right-on-square"
+                            >
+                                Open
+                            </flux:button>
+                        </div>
+                        @unless($product->show_on_storefront)
+                            <flux:text class="text-xs text-gray-500 dark:text-gray-400">
+                                Hidden from the catalogue — reachable by this direct link only (unlisted).
+                            </flux:text>
+                        @endunless
+                    </div>
+                @else
+                    <flux:text class="text-sm text-gray-500 dark:text-gray-400">
+                        Not available on the storefront yet — the public page needs the product to be <strong>Active</strong> and of <strong>Simple</strong> type.
+                    </flux:text>
+                @endif
+            </div>
+
             <!-- Product Image -->
             @if($product->primaryImage)
                 <div class="rounded-lg border border-gray-200 bg-white p-6">
