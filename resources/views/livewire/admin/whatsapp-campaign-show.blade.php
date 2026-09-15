@@ -15,7 +15,7 @@ new class extends Component
 
     public function mount(WhatsAppCampaign $campaign): void
     {
-        if (! auth()->user()?->isAdmin()) {
+        if (! (auth()->user()?->isAdmin() || auth()->user()?->isEmployee())) {
             abort(403, 'Access denied');
         }
 
@@ -24,7 +24,7 @@ new class extends Component
 
     public function resume(): void
     {
-        if (! auth()->user()?->isAdmin()) {
+        if (! (auth()->user()?->isAdmin() || auth()->user()?->isEmployee())) {
             abort(403, 'Access denied');
         }
 

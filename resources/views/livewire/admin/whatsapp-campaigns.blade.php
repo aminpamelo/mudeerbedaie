@@ -10,14 +10,14 @@ new class extends Component {
 
     public function mount(): void
     {
-        if (! auth()->user()?->isAdmin()) {
+        if (! (auth()->user()?->isAdmin() || auth()->user()?->isEmployee())) {
             abort(403, 'Access denied');
         }
     }
 
     public function resume(int $id): void
     {
-        if (! auth()->user()?->isAdmin()) {
+        if (! (auth()->user()?->isAdmin() || auth()->user()?->isEmployee())) {
             abort(403, 'Access denied');
         }
 
