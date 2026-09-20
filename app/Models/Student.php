@@ -210,18 +210,18 @@ class Student extends Model
 
     public function getNameAttribute(): string
     {
-        return $this->user->name ?? '';
+        return $this->user?->name ?? '';
     }
 
     public function getEmailAttribute(): ?string
     {
-        return $this->user->email ?? null;
+        return $this->user?->email ?? null;
     }
 
     public function getPhoneNumberAttribute(): ?string
     {
         // Return phone from student profile first, fallback to user phone
-        return $this->phone ?: ($this->user->phone ?? null);
+        return $this->phone ?: ($this->user?->phone ?? null);
     }
 
     public function getFullAddressAttribute(): string

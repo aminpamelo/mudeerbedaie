@@ -498,8 +498,8 @@ new class extends Component {
                                         <div class="ml-3 flex-1">
                                             <div class="flex items-center justify-between">
                                                 <div>
-                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student->user->name }}</div>
-                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $student->user->email }} · ID: {{ $student->student_id }}</div>
+                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student->name ?: 'Tiada nama' }}</div>
+                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $student->email ?: '—' }} · ID: {{ $student->student_id }}</div>
                                                 </div>
                                                 <div class="flex items-center gap-3">
                                                     @if($student->country)
