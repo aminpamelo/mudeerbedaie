@@ -5,6 +5,7 @@ import {
   SlidersHorizontal, ChevronDown, Sparkles, TrendingUp, ArrowRight,
 } from 'lucide-react';
 import StudentLayout from '@/student/layouts/StudentLayout';
+import PageHeader, { HeroStat } from '@/student/components/PageHeader';
 import { cn, formatMoney, t } from '@/student/lib/utils';
 
 /* ------------------------------------------------------------------ */
@@ -12,50 +13,14 @@ import { cn, formatMoney, t } from '@/student/lib/utils';
 /* ------------------------------------------------------------------ */
 function HeroSection({ stats }) {
   return (
-    <div className="hero-gradient relative overflow-hidden">
-      <div className="dot-pattern">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-rose-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-violet-400/20 blur-3xl" />
-
-        <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div className="fade-up">
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/80 ring-1 ring-white/20">
-                <Sparkles className="h-3 w-3" strokeWidth={2.5} />
-                {t('student.courses.available_courses')}
-              </div>
-              <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.03em] text-white sm:text-[34px]">
-                {t('student.courses.available_courses')}
-              </h1>
-              <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-white/65">
-                {t('student.courses.discover_enroll')}
-              </p>
-            </div>
-
-            <div className="fade-up flex gap-3" style={{ animationDelay: '0.1s' }}>
-              <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/15 backdrop-blur-sm">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/15">
-                  <BookOpen className="h-5 w-5 text-white" strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-white/55">{t('student.courses.available')}</p>
-                  <p className="text-[22px] font-extrabold leading-tight text-white">{stats?.totalCourses ?? 0}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/15 backdrop-blur-sm">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-400/20">
-                  <TrendingUp className="h-5 w-5 text-emerald-300" strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-white/55">{t('student.courses.enrolled')}</p>
-                  <p className="text-[22px] font-extrabold leading-tight text-white">{stats?.myEnrollments ?? 0}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageHeader
+      icon={BookOpen}
+      title={t('student.courses.available_courses')}
+      subtitle={t('student.courses.discover_enroll')}
+    >
+      <HeroStat icon={BookOpen} label={t('student.courses.available')} value={stats?.totalCourses ?? 0} />
+      <HeroStat icon={TrendingUp} label={t('student.courses.enrolled')} value={stats?.myEnrollments ?? 0} />
+    </PageHeader>
   );
 }
 

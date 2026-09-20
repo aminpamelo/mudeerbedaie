@@ -52,18 +52,18 @@ export default function UserMenu({ user }) {
         onClick={() => setOpen(!open)}
         className={cn(
           'flex items-center gap-2 rounded-xl py-1.5 pl-1.5 pr-2.5 transition-all',
-          'bg-white/10 ring-1 ring-white/15 hover:bg-white/20',
-          open && 'bg-white/20'
+          'bg-white ring-1 ring-line hover:bg-brand-soft',
+          open && 'bg-brand-soft ring-brand-100'
         )}
       >
-        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-400 to-rose-400 text-[11px] font-bold text-white">
+        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-rose-500 text-[11px] font-bold text-white">
           {initialsFrom(user?.name)}
         </div>
-        <span className="hidden max-w-[120px] truncate text-[13px] font-medium text-white/90 sm:block">
+        <span className="hidden max-w-[120px] truncate text-[13px] font-semibold text-ink sm:block">
           {user?.name}
         </span>
         <ChevronDown className={cn(
-          'h-3.5 w-3.5 text-white/50 transition-transform',
+          'h-3.5 w-3.5 text-muted transition-transform',
           open && 'rotate-180'
         )} strokeWidth={2} />
       </button>

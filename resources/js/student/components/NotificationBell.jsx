@@ -88,12 +88,12 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={toggle}
-        className="relative grid h-9 w-9 place-items-center rounded-xl text-white/70 transition-all hover:bg-white/15 hover:text-white"
+        className="relative grid h-10 w-10 place-items-center rounded-xl text-muted transition-all hover:bg-brand-soft hover:text-brand-ink"
         aria-label={`Notifications${count ? ` (${count} unread)` : ''}`}
       >
-        <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
+        <Bell className="h-[19px] w-[19px]" strokeWidth={1.9} />
         {count > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] animate-pulse place-items-center rounded-full bg-[var(--color-accent)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-violet-900/60">
+          <span className="absolute right-1 top-1 grid h-[17px] min-w-[17px] animate-pulse place-items-center rounded-full bg-[var(--color-accent)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {count > 99 ? '99+' : count}
           </span>
         )}

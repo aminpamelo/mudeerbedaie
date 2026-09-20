@@ -12,76 +12,74 @@ import { cn, t } from '@/student/lib/utils';
 /* ------------------------------------------------------------------ */
 function Hero({ course, stats }) {
   return (
-    <div className="hero-gradient relative overflow-hidden">
-      <div className="dot-pattern">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-rose-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-violet-400/20 blur-3xl" />
+    <div className="hero-banner fade-up relative overflow-hidden rounded-3xl ring-1 ring-brand-100">
+      <div className="pattern-islamic absolute inset-0 opacity-60" />
+      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/40 blur-3xl" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-          <a
-            href="/my/courses"
-            className="mb-5 inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3.5 py-2 text-[13px] font-semibold text-white/90 ring-1 ring-white/20 transition-colors hover:bg-white/25"
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            {t('student.courses.back_to_courses')}
-          </a>
+      <div className="relative p-6 sm:p-8">
+        <a
+          href="/my/courses"
+          className="mb-5 inline-flex items-center gap-1.5 rounded-xl bg-white/70 px-3.5 py-2 text-[13px] font-semibold text-brand-ink ring-1 ring-brand-100 transition-colors hover:bg-white"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+          {t('student.courses.back_to_courses')}
+        </a>
 
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div className="fade-up min-w-0">
-              {course.has_access && (
-                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-100 ring-1 ring-emerald-300/30">
-                  <CheckCircle className="h-3 w-3" strokeWidth={2.5} />
-                  {t('student.courses.enrolled')}
-                </div>
-              )}
-              <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] text-white sm:text-[32px]">
-                {course.name}
-              </h1>
-              {course.teacher_name && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="grid h-6 w-6 place-items-center rounded-full bg-white/20 text-[10px] font-bold text-white">
-                    {course.teacher_name.charAt(0)}
-                  </div>
-                  <p className="text-[14px] font-medium text-white/80">{course.teacher_name}</p>
-                </div>
-              )}
-            </div>
-
-            {course.has_access ? (
-              <div className="fade-up flex gap-3" style={{ animationDelay: '0.1s' }}>
-                <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/15 backdrop-blur-sm">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/15">
-                    <TrendingUp className="h-5 w-5 text-white" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-white/55">{t('student.courses.overall_progress')}</p>
-                    <p className="text-[22px] font-extrabold leading-tight text-white">{stats.overallProgress}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/15 backdrop-blur-sm">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-400/20">
-                    <GraduationCap className="h-5 w-5 text-emerald-300" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-white/55">{t('navigation.classes')}</p>
-                    <p className="text-[22px] font-extrabold leading-tight text-white">{stats.classCount}</p>
-                  </div>
-                </div>
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            {course.has_access && (
+              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-200">
+                <CheckCircle className="h-3 w-3" strokeWidth={2.5} />
+                {t('student.courses.enrolled')}
               </div>
-            ) : (
-              <div className="fade-up flex items-center gap-3 rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/15 backdrop-blur-sm" style={{ animationDelay: '0.1s' }}>
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-white/55">{t('student.courses.available')}</p>
-                  <p className="text-[22px] font-extrabold leading-tight text-white">
-                    {course.fee === 0 ? t('student.courses.free') : course.fee_formatted}
-                    {course.billing_interval && course.fee !== 0 && (
-                      <span className="text-[13px] font-medium text-white/60"> {t('student.courses.per_month')}</span>
-                    )}
-                  </p>
+            )}
+            <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-[32px]">
+              {course.name}
+            </h1>
+            {course.teacher_name && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="grid h-6 w-6 place-items-center rounded-full bg-brand-soft text-[10px] font-bold text-brand-ink">
+                  {course.teacher_name.charAt(0)}
                 </div>
+                <p className="text-[14px] font-medium text-ink-2">{course.teacher_name}</p>
               </div>
             )}
           </div>
+
+          {course.has_access ? (
+            <div className="flex gap-3">
+              <div className="flex items-center gap-3 rounded-2xl bg-white/75 px-5 py-3.5 ring-1 ring-brand-100 backdrop-blur-sm">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand-soft">
+                  <TrendingUp className="h-5 w-5 text-brand" strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted">{t('student.courses.overall_progress')}</p>
+                  <p className="text-[22px] font-extrabold leading-tight text-ink">{stats.overallProgress}%</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl bg-white/75 px-5 py-3.5 ring-1 ring-brand-100 backdrop-blur-sm">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100">
+                  <GraduationCap className="h-5 w-5 text-emerald-600" strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted">{t('navigation.classes')}</p>
+                  <p className="text-[22px] font-extrabold leading-tight text-ink">{stats.classCount}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-2xl bg-white/75 px-5 py-3.5 ring-1 ring-brand-100 backdrop-blur-sm">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted">{t('student.courses.available')}</p>
+                <p className="text-[22px] font-extrabold leading-tight text-ink">
+                  {course.fee === 0 ? t('student.courses.free') : course.fee_formatted}
+                  {course.billing_interval && course.fee !== 0 && (
+                    <span className="text-[13px] font-medium text-muted"> {t('student.courses.per_month')}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

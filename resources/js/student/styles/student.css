@@ -4,21 +4,23 @@
   --font-sans: "Geist", system-ui, sans-serif;
   --font-mono: "Geist Mono", monospace;
 
-  /* Ink / surface scale */
-  --color-ink: #111827;
-  --color-ink-2: #374151;
-  --color-muted: #6B7280;
-  --color-muted-2: #9CA3AF;
-  --color-line: #E5E7EB;
-  --color-surface: #F5F3FF;
+  /* Ink / surface scale — dark text on a light lavender canvas */
+  --color-ink: #1F1B2E;
+  --color-ink-2: #413B54;
+  --color-muted: #6E6A82;
+  --color-muted-2: #A5A1B4;
+  --color-line: #ECE9F4;
+  --color-surface: #F6F4FC;
 
-  /* Student brand — deep purple + rose red */
+  /* BeDaie brand — deep violet + rose accent */
   --color-brand: #7C3AED;
   --color-brand-ink: #6D28D9;
-  --color-brand-soft: #F5F3FF;
+  --color-brand-deep: #5B21B6;
+  --color-brand-soft: #F3F0FE;
+  --color-brand-100: #EDE9FE;
   --color-accent: #F43F5E;
   --color-accent-ink: #BE123C;
-  --color-accent-soft: #FFF1F2;
+  --color-accent-soft: #FFF1F3;
 
   --color-emerald: #10B981;
   --color-emerald-ink: #047857;
@@ -30,30 +32,87 @@
   --color-rose-ink: #BE123C;
 }
 
-/* Body with subtle purple-tinted bg */
+/* ------------------------------------------------------------------ *
+ *  Canvas — soft lavender wash, matching the BeDaie mockup            *
+ * ------------------------------------------------------------------ */
 body {
-  background: linear-gradient(135deg, #F5F3FF 0%, #FDF2F8 50%, #EDE9FE 100%);
+  background:
+    radial-gradient(1100px 560px at 100% -12%, #ECE6FD 0%, transparent 55%),
+    radial-gradient(820px 520px at -12% 112%, #F4ECFA 0%, transparent 52%),
+    #F6F4FC;
+  background-attachment: fixed;
   color: var(--color-ink);
   min-height: 100dvh;
 }
 
-/* Hero gradient — used on the header bar and hero sections */
-.hero-gradient {
-  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 30%, #4C1D95 60%, #BE123C 100%);
+/* ------------------------------------------------------------------ *
+ *  Brand gradient — logo mark, primary buttons, active accents        *
+ * ------------------------------------------------------------------ */
+.brand-gradient { background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 48%, #6D28D9 100%); }
+
+/* Legacy alias kept so existing pages/buttons stay on-brand */
+.hero-gradient { background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 48%, #6D28D9 100%); }
+
+/* Light hero banner used at the top of pages */
+.hero-banner {
+  background: linear-gradient(115deg, #EDE7FE 0%, #F1EBFE 42%, #FBEDF2 100%);
 }
 
-/* Glass panel for cards and containers */
+/* ------------------------------------------------------------------ *
+ *  Cards                                                              *
+ * ------------------------------------------------------------------ */
+.ui-card {
+  background: #FFFFFF;
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 2px rgba(31, 27, 46, 0.04), 0 14px 34px -22px rgba(90, 45, 165, 0.28);
+}
+
+/* Re-skinned so the 70+ existing usages become clean white cards */
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: #FFFFFF;
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 2px rgba(31, 27, 46, 0.04), 0 14px 34px -24px rgba(90, 45, 165, 0.26);
 }
 
-/* Thin, unobtrusive scrollbars inside scroll regions. */
+.card-hover { transition: transform .2s ease, box-shadow .2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -20px rgba(90, 45, 165, 0.34); }
+
+/* ------------------------------------------------------------------ *
+ *  Islamic geometry — faint 8-point khatam tile for hero backdrops    *
+ * ------------------------------------------------------------------ */
+.pattern-islamic {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cpath fill='none' stroke='%237C3AED' stroke-width='1' stroke-opacity='0.12' d='M24 6l4.9 8.2 9.3 2.1-6.3 7.1 0.9 9.5L24 39l-8.7 3-0.9-9.5-6.3-7.1 9.3-2.1z'/%3E%3C/svg%3E");
+  background-size: 48px 48px;
+}
+
+.dot-pattern {
+  background-image: radial-gradient(rgba(124, 58, 237, 0.10) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Sidebar                                                            *
+ * ------------------------------------------------------------------ */
+.sidebar-shell {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FBFAFE 100%);
+  border-right: 1px solid var(--color-line);
+}
+
+.sidebar-link-active {
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0.04) 100%);
+  color: var(--color-brand-ink);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Scrollbars                                                         *
+ * ------------------------------------------------------------------ */
 .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.25); border-radius: 9999px; }
 .scroll-thin::-webkit-scrollbar-track { background: transparent; }
 
+/* ------------------------------------------------------------------ *
+ *  Motion                                                             *
+ * ------------------------------------------------------------------ */
 @keyframes student-fade-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -72,8 +131,6 @@ body {
 }
 .float { animation: float 3s ease-in-out infinite; }
 
-/* Subtle dot pattern overlay */
-.dot-pattern {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
-  background-size: 20px 20px;
+@media (prefers-reduced-motion: reduce) {
+  .fade-up, .fade-in, .float { animation: none; }
 }

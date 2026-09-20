@@ -1,297 +1,425 @@
 import { Head, usePage } from '@inertiajs/react';
 import {
-  BookOpen, GraduationCap, Calendar, ChevronRight, CheckCircle,
-  Megaphone, ArrowRight, Sparkles, Clock,
+  BookOpen, PlayCircle, GraduationCap, Library, CalendarDays, Clock,
+  UserRound, Megaphone, ChevronRight, ArrowRight, Radio, Sparkles,
 } from 'lucide-react';
 import StudentLayout from '@/student/layouts/StudentLayout';
-import PageHeader, { HeroStat } from '@/student/components/PageHeader';
-import { cn, t } from '@/student/lib/utils';
+import { HADITH_QUOTES, MOTIVATION_LINES, pickDaily } from '@/student/components/BrandArt';
+import { cn } from '@/student/lib/utils';
 
 /* ------------------------------------------------------------------ */
-/*  Live Session Alert                                                 */
+/*  Hero — hadith quote                                                */
+/* ------------------------------------------------------------------ */
+function QuoteHero({ dateLabel }) {
+  const quote = pickDaily(HADITH_QUOTES);
+  return (
+    <div className="hero-banner fade-up relative overflow-hidden rounded-3xl ring-1 ring-brand-100">
+      <div className="pattern-islamic absolute inset-0 opacity-60" />
+      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/40 blur-3xl" />
+      {dateLabel && (
+        <div className="absolute right-5 top-5 hidden rounded-full bg-white/65 px-3 py-1 text-[11px] font-semibold text-brand-ink ring-1 ring-brand-100 sm:block">
+          {dateLabel}
+        </div>
+      )}
+      <div className="relative flex items-start gap-4 p-6 sm:items-center sm:gap-5 sm:p-8">
+        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/70 ring-1 ring-brand-100 sm:h-16 sm:w-16">
+          <BookOpen className="h-7 w-7 text-brand sm:h-8 sm:w-8" strokeWidth={1.7} />
+        </div>
+        <div className="min-w-0 flex-1 pr-2">
+          <p className="text-[15px] font-medium italic leading-relaxed text-ink-2 sm:text-[17px]">
+            &ldquo;{quote.text}&rdquo;
+          </p>
+          <p className="mt-2 text-[13px] font-semibold text-brand-ink">&mdash; {quote.source}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Live now                                                           */
 /* ------------------------------------------------------------------ */
 function LiveAlert({ session }) {
   if (!session) return null;
   return (
-    <div className="fade-up glass-card overflow-hidden rounded-2xl border border-emerald-200/60 bg-emerald-50/80 shadow-sm">
-      <div className="flex items-center justify-between gap-3 p-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="relative flex h-3 w-3 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[14px] font-bold text-emerald-800">{t('student.dashboard.live_now')}</p>
-            <p className="truncate text-[12px] text-emerald-600">{session.classTitle}</p>
-          </div>
-        </div>
-        {session.meetingUrl && (
-          <a
-            href={session.meetingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-xl bg-emerald-600 px-4 py-2 text-[13px] font-semibold text-white shadow-md shadow-emerald-500/30 transition-colors hover:bg-emerald-700"
-          >
-            {t('student.dashboard.join')}
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Unread Announcements                                               */
-/* ------------------------------------------------------------------ */
-function AnnouncementWidget({ announcements, count }) {
-  if (count <= 0) return null;
-  return (
-    <div className="fade-up glass-card overflow-hidden rounded-2xl border border-violet-200/60 shadow-sm" style={{ animationDelay: '0.05s' }}>
-      <div className="flex items-center gap-3 border-b border-violet-100/60 px-4 py-3">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-violet-100">
-          <Megaphone className="h-4 w-4 text-violet-600" strokeWidth={2} />
-        </div>
-        <p className="text-[14px] font-bold text-violet-900">{count} pengumuman baru</p>
-      </div>
-      <div className="divide-y divide-violet-50">
-        {announcements.map((a) => (
-          <a
-            key={a.id}
-            href={`/my/classes/${a.class_id}?tab=announcements`}
-            className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] transition-colors hover:bg-violet-50/60"
-          >
-            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-violet-400" strokeWidth={2} />
-            <span className="font-semibold text-violet-800 truncate">{a.class_title}</span>
-            <span className="text-muted truncate">&mdash; {a.title}</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Today's Schedule                                                   */
-/* ------------------------------------------------------------------ */
-function TodaySchedule({ schedule }) {
-  const statusBadge = (slot) => {
-    if (slot.status === 'ongoing') return (
-      <span className="flex items-center gap-1.5">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">{t('student.status.live')}</span>
-      </span>
-    );
-    if (slot.status === 'completed' || slot.status === 'no_show') return (
-      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600">{t('student.status.done')}</span>
-    );
-    if (slot.isPast) return (
-      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">{t('student.status.missed')}</span>
-    );
-    return (
-      <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">{t('student.status.upcoming')}</span>
-    );
-  };
-
-  const formatTime = (t24) => {
-    const [h, m] = t24.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return { time: `${h12}:${m.toString().padStart(2, '0')}`, period: ampm };
-  };
-
-  return (
-    <div className="fade-up glass-card overflow-hidden rounded-2xl shadow-sm" style={{ animationDelay: '0.1s' }}>
-      <div className="flex items-center justify-between border-b border-violet-100/60 px-4 py-3">
-        <h3 className="text-[14px] font-bold text-ink">{t('student.dashboard.today_schedule')}</h3>
-        <span className="text-[12px] font-medium text-muted">
-          {schedule.length} {schedule.length === 1 ? 'session' : 'sessions'}
+    <a
+      href={session.meetingUrl || `/my/classes/${session.classId}`}
+      target={session.meetingUrl ? '_blank' : undefined}
+      rel="noopener noreferrer"
+      className="fade-up flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="relative flex h-3 w-3 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
         </span>
+        <div className="min-w-0">
+          <p className="text-[14px] font-bold text-emerald-800">Kelas sedang berlangsung</p>
+          <p className="truncate text-[12px] text-emerald-600">{session.classTitle}</p>
+        </div>
       </div>
-
-      {schedule.length === 0 ? (
-        <div className="flex flex-col items-center py-10 text-center">
-          <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-violet-50">
-            <Calendar className="h-6 w-6 text-violet-300" strokeWidth={1.5} />
-          </div>
-          <p className="text-[13px] font-medium text-muted">{t('student.dashboard.no_sessions_today')}</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-violet-50">
-          {schedule.map((slot, i) => {
-            const { time, period } = formatTime(slot.time);
-            return (
-              <div key={i} className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-violet-50/40">
-                <div className="w-[60px] shrink-0 text-center">
-                  <p className="text-[18px] font-bold leading-tight text-ink">{time}</p>
-                  <p className="text-[10px] font-semibold uppercase text-muted">{period}</p>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-ink">{slot.classTitle}</p>
-                      <p className="truncate text-[12px] text-muted">{slot.courseName}</p>
-                    </div>
-                    {statusBadge(slot)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <a
-        href="/my/timetable"
-        className="flex items-center justify-center gap-1.5 border-t border-violet-100/60 bg-violet-50/30 py-3 text-[13px] font-semibold text-violet-600 transition-colors hover:bg-violet-50/60"
-      >
-        {t('student.dashboard.view_full_schedule')}
-        <ChevronRight className="h-4 w-4" strokeWidth={2} />
-      </a>
-    </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-[13px] font-semibold text-white">
+        <Radio className="h-4 w-4" strokeWidth={2} /> Sertai
+      </span>
+    </a>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Quick Stats                                                        */
+/*  Stat tiles                                                         */
 /* ------------------------------------------------------------------ */
-function QuickStats({ stats }) {
-  const items = [
-    { label: t('student.stats.active_classes'), value: stats.activeClasses, color: 'text-violet-600' },
-    { label: t('student.stats.this_week'), value: stats.thisWeekSessions, color: 'text-purple-600' },
-    { label: t('student.stats.completed'), value: stats.completedSessions, color: 'text-emerald-600' },
+function StatTiles({ stats }) {
+  const tiles = [
+    { key: 'aktif', label: 'Kelas Aktif', value: stats.active, sub: `dari ${stats.total} kelas`, icon: PlayCircle, ring: 'bg-emerald-100 text-emerald-600', href: '/my/classes' },
+    { key: 'lengkap', label: 'Kelas Lengkap', value: stats.completed, sub: 'Semua modul selesai', icon: GraduationCap, ring: 'bg-brand-soft text-brand', href: '/my/classes' },
+    { key: 'tamat', label: 'Kelas Tamat', value: stats.tamat, sub: 'Rakaman masih boleh diakses', icon: Library, ring: 'bg-sky-100 text-sky-600', href: '/my/classes' },
   ];
   return (
-    <div className="fade-up grid grid-cols-3 gap-3" style={{ animationDelay: '0.15s' }}>
-      {items.map((s, i) => (
-        <div key={i} className="glass-card rounded-2xl p-4 text-center shadow-sm">
-          <p className={cn('text-[22px] font-extrabold leading-tight', s.color)}>{s.value}</p>
-          <p className="mt-1 text-[11px] font-medium text-muted">{s.label}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Upcoming Schedule                                                  */
-/* ------------------------------------------------------------------ */
-function UpcomingSchedule({ schedule }) {
-  if (schedule.length === 0) return null;
-  return (
-    <div className="fade-up glass-card overflow-hidden rounded-2xl shadow-sm" style={{ animationDelay: '0.2s' }}>
-      <div className="border-b border-violet-100/60 px-4 py-3">
-        <h3 className="text-[14px] font-bold text-ink">{t('student.dashboard.upcoming_schedule')}</h3>
-      </div>
-      <div className="divide-y divide-violet-50">
-        {schedule.map((slot, i) => {
-          const [h, m] = slot.time.split(':').map(Number);
-          const ampm = h >= 12 ? 'PM' : 'AM';
-          const h12 = h % 12 || 12;
-          return (
-            <a key={i} href={`/my/classes/${slot.classId}`} className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-violet-50/40">
-              <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-violet-50">
-                <span className="text-[10px] font-semibold uppercase leading-none text-violet-500">{slot.dateMonth}</span>
-                <span className="text-[18px] font-extrabold leading-none text-violet-700">{slot.dateDay}</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-ink">{slot.classTitle}</p>
-                <p className="text-[12px] text-muted">
-                  {h12}:{m.toString().padStart(2, '0')} {ampm}
-                  {slot.durationMinutes ? ` \u2022 ${slot.durationMinutes} min` : ''}
-                </p>
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0 text-violet-300" strokeWidth={1.8} />
-            </a>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Recent Activity                                                    */
-/* ------------------------------------------------------------------ */
-function RecentActivity({ activity }) {
-  if (activity.length === 0) return null;
-  return (
-    <div className="fade-up glass-card overflow-hidden rounded-2xl shadow-sm" style={{ animationDelay: '0.25s' }}>
-      <div className="border-b border-violet-100/60 px-4 py-3">
-        <h3 className="text-[14px] font-bold text-ink">{t('student.dashboard.recent_activity')}</h3>
-      </div>
-      <div className="divide-y divide-violet-50">
-        {activity.map((a, i) => (
-          <div key={i} className="flex items-center gap-4 px-4 py-3">
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100">
-              <CheckCircle className="h-4 w-4 text-emerald-500" strokeWidth={2} />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {tiles.map((tl, i) => {
+        const Icon = tl.icon;
+        return (
+          <a
+            key={tl.key}
+            href={tl.href}
+            className="glass-card card-hover fade-up flex items-center gap-4 rounded-2xl p-4"
+            style={{ animationDelay: `${0.04 * i}s` }}
+          >
+            <div className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-2xl', tl.ring)}>
+              <Icon className="h-6 w-6" strokeWidth={2} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-ink">{a.title}</p>
-              <p className="text-[12px] text-muted">{a.description}</p>
+              <p className="text-[13px] font-semibold text-muted">{tl.label}</p>
+              <p className="text-[26px] font-extrabold leading-tight text-ink">{tl.value}</p>
+              <p className="truncate text-[11px] text-muted-2">{tl.sub}</p>
             </div>
-            <span className="shrink-0 text-[11px] text-muted-2">{a.dateHuman}</span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-2" strokeWidth={2} />
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Progress ring                                                      */
+/* ------------------------------------------------------------------ */
+function ProgressRing({ value, size = 128, stroke = 12 }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EDE9FE" strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke="url(#ringGrad)"
+          strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+        />
+        <defs>
+          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#8B5CF6" />
+            <stop offset="100%" stopColor="#F43F5E" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 grid place-items-center text-center">
+        <div>
+          <p className="text-[26px] font-extrabold leading-none text-ink">{value}%</p>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Keseluruhan</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHead({ icon: Icon, title, subtitle, href, action = 'Lihat Semua' }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+      <div className="flex items-center gap-2.5">
+        {Icon && (
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-soft">
+            <Icon className="h-4 w-4 text-brand" strokeWidth={2} />
           </div>
-        ))}
+        )}
+        <div>
+          <h3 className="text-[15px] font-bold text-ink">{title}</h3>
+          {subtitle && <p className="text-[12px] text-muted">{subtitle}</p>}
+        </div>
+      </div>
+      {href && (
+        <a href={href} className="mt-1 inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-brand transition-colors hover:text-brand-ink">
+          {action} <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+        </a>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Progress Kelas                                                     */
+/* ------------------------------------------------------------------ */
+function ProgressKelas({ overall, classes }) {
+  return (
+    <div className="glass-card fade-up flex h-full flex-col rounded-2xl">
+      <SectionHead icon={Sparkles} title="Progress Kelas" subtitle="Perkembangan pembelajaran anda" href="/my/classes" />
+      <div className="flex flex-col items-center gap-6 p-5 sm:flex-row sm:items-center">
+        <ProgressRing value={overall} />
+        <div className="w-full min-w-0 flex-1 space-y-3.5">
+          {classes.length === 0 && (
+            <p className="text-[13px] text-muted">Tiada kelas aktif buat masa ini.</p>
+          )}
+          {classes.map((c) => (
+            <a key={c.id} href={`/my/classes/${c.id}`} className="flex items-center gap-3">
+              <Thumb src={c.thumbnail} className="h-11 w-11 rounded-xl" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-bold text-ink">{c.title}</p>
+                <p className="text-[11px] text-muted">Modul {c.moduleDone} dari {c.moduleTotal}</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-100">
+                    <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-rose-500" style={{ width: `${c.progress}%` }} />
+                  </div>
+                  <span className="shrink-0 text-[11px] font-bold text-brand">{c.progress}%</span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Thumb({ src, className, icon: Icon = BookOpen }) {
+  if (src) {
+    return <img src={src} alt="" className={cn('shrink-0 object-cover ring-1 ring-line', className)} />;
+  }
+  return (
+    <div className={cn('grid shrink-0 place-items-center bg-gradient-to-br from-violet-100 to-rose-100 ring-1 ring-line', className)}>
+      <Icon className="h-1/2 w-1/2 text-brand/60" strokeWidth={1.6} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Kelas Seterusnya                                                   */
+/* ------------------------------------------------------------------ */
+function KelasSeterusnya({ next }) {
+  return (
+    <div className="glass-card fade-up flex h-full flex-col rounded-2xl" style={{ animationDelay: '0.05s' }}>
+      <SectionHead icon={CalendarDays} title="Kelas Seterusnya" href="/my/timetable" />
+      {next ? (
+        <div className="flex flex-1 flex-col p-5">
+          <div className="flex items-start gap-4">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-brand-soft text-center">
+              <div>
+                <p className="text-[22px] font-extrabold leading-none text-brand-ink">{next.dateDay}</p>
+                <p className="text-[11px] font-semibold uppercase text-brand">{next.dateMonth}</p>
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-bold text-ink">{next.title}</p>
+              {next.courseName && <p className="truncate text-[12px] text-muted">{next.courseName}</p>}
+              <div className="mt-2 space-y-1.5">
+                <p className="flex items-center gap-2 text-[12px] text-ink-2">
+                  <Clock className="h-3.5 w-3.5 text-brand" strokeWidth={2} /> {next.timeRange}
+                </p>
+                {next.teacherName && (
+                  <p className="flex items-center gap-2 text-[12px] text-ink-2">
+                    <UserRound className="h-3.5 w-3.5 text-brand" strokeWidth={2} /> {next.teacherName}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          <a
+            href={`/my/classes/${next.classId}`}
+            className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-soft px-4 py-2.5 text-[13px] font-semibold text-brand-ink transition-colors hover:bg-brand-100"
+          >
+            Lihat Kelas <ArrowRight className="h-4 w-4" strokeWidth={2} />
+          </a>
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+          <CalendarDays className="h-8 w-8 text-brand/30" strokeWidth={1.5} />
+          <p className="text-[13px] font-medium text-muted">Tiada kelas dijadualkan</p>
+          <a href="/my/timetable" className="text-[12px] font-semibold text-brand hover:text-brand-ink">Lihat jadual penuh &rarr;</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pengumuman                                                         */
+/* ------------------------------------------------------------------ */
+const DOT = { amber: 'bg-amber-400', sky: 'bg-sky-400', emerald: 'bg-emerald-400', violet: 'bg-violet-400' };
+
+function Pengumuman({ items }) {
+  return (
+    <div className="glass-card fade-up flex h-full flex-col rounded-2xl" style={{ animationDelay: '0.1s' }}>
+      <SectionHead icon={Megaphone} title="Pengumuman" href="/my/classes" />
+      {items.length ? (
+        <div className="flex-1 divide-y divide-line">
+          {items.map((a) => (
+            <a key={a.id} href={`/my/classes/${a.classId}?tab=announcements`} className="flex items-start gap-3 px-5 py-3 transition-colors hover:bg-brand-soft/40">
+              <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', DOT[a.color] || DOT.violet)} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold leading-snug text-ink">{a.title}</p>
+                <p className="mt-0.5 text-[11px] text-muted-2">{a.dateLabel}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+          <Megaphone className="h-8 w-8 text-brand/30" strokeWidth={1.5} />
+          <p className="text-[13px] font-medium text-muted">Tiada pengumuman baharu</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Jadual Kelas (calendar) + Aktiviti                                 */
+/* ------------------------------------------------------------------ */
+const WEEKDAYS = ['Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab', 'Ahd'];
+
+function JadualKelas({ calendar, activities }) {
+  return (
+    <div className="glass-card fade-up rounded-2xl" style={{ animationDelay: '0.05s' }}>
+      <SectionHead icon={CalendarDays} title="Jadual Kelas" subtitle="Kelas &amp; aktiviti anda" href="/my/timetable" />
+      <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
+        {/* Calendar */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[14px] font-bold text-ink">{calendar.monthLabel}</p>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {WEEKDAYS.map((d) => (
+              <div key={d} className="pb-1 text-[10px] font-bold uppercase text-muted-2">{d}</div>
+            ))}
+            {calendar.days.map((d, i) => (
+              <div key={i} className="relative grid aspect-square place-items-center">
+                <span
+                  className={cn(
+                    'grid h-8 w-8 place-items-center rounded-full text-[12px] font-semibold',
+                    d.isToday && 'bg-brand text-white shadow-md shadow-brand/30',
+                    !d.isToday && d.inMonth && 'text-ink',
+                    !d.inMonth && 'text-muted-2/40'
+                  )}
+                >
+                  {d.day}
+                </span>
+                {d.hasEvent && !d.isToday && (
+                  <span className={cn('absolute bottom-0.5 h-1 w-1 rounded-full', d.inMonth ? 'bg-brand' : 'bg-muted-2/40')} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Activities */}
+        <div className="lg:border-l lg:border-line lg:pl-5">
+          <p className="mb-3 text-[14px] font-bold text-ink">Aktiviti Bulan Ini</p>
+          {activities.length ? (
+            <div className="space-y-3">
+              {activities.map((a, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-[11px] font-bold leading-tight text-brand-ink">
+                    {a.dateLabel.split(' ')[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-ink">{a.title}</p>
+                    <p className="text-[11px] text-muted">{a.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[13px] text-muted">Tiada aktiviti akan datang bulan ini.</p>
+          )}
+          <a href="/my/timetable" className="mt-4 inline-flex items-center gap-1 text-[12px] font-semibold text-brand hover:text-brand-ink">
+            Lihat Semua Aktiviti <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+          </a>
+        </div>
       </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Quick Actions                                                      */
+/*  Motivation + popular courses                                       */
 /* ------------------------------------------------------------------ */
-function QuickActions() {
+function MotivationCard() {
+  const line = pickDaily(MOTIVATION_LINES);
   return (
-    <div className="fade-up grid grid-cols-2 gap-3" style={{ animationDelay: '0.3s' }}>
-      <a
-        href="/my/classes"
-        className="glass-card flex flex-col rounded-2xl p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-      >
-        <GraduationCap className="mb-2 h-7 w-7 text-violet-500" strokeWidth={1.8} />
-        <p className="text-[13px] font-bold text-ink">{t('student.quick_actions.my_classes')}</p>
-        <p className="text-[11px] text-muted">{t('student.quick_actions.view_enrolled')}</p>
-      </a>
-      <a
-        href="/my/courses"
-        className="glass-card flex flex-col rounded-2xl p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-      >
-        <BookOpen className="mb-2 h-7 w-7 text-purple-500" strokeWidth={1.8} />
-        <p className="text-[13px] font-bold text-ink">{t('student.quick_actions.browse_courses')}</p>
-        <p className="text-[11px] text-muted">{t('student.quick_actions.find_new')}</p>
-      </a>
+    <div className="fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg shadow-brand/20" style={{ animationDelay: '0.1s' }}>
+      <div className="pattern-islamic absolute inset-0 opacity-20" />
+      <div className="relative">
+        <p className="text-[15px] font-medium italic leading-relaxed">&ldquo;{line}&rdquo;</p>
+        <a href="/my/courses" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-[13px] font-bold text-brand-ink transition-transform hover:-translate-y-0.5">
+          Lihat Kursus <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function KursusPopular({ courses }) {
+  if (!courses.length) return null;
+  return (
+    <div className="glass-card fade-up rounded-2xl" style={{ animationDelay: '0.15s' }}>
+      <SectionHead icon={BookOpen} title="Kursus Popular" href="/my/courses" />
+      <div className="divide-y divide-line">
+        {courses.map((c) => (
+          <a key={c.id} href="/my/courses" className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-brand-soft/40">
+            <Thumb src={c.thumbnail} className="h-10 w-10 rounded-lg" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold text-ink">{c.name}</p>
+              {c.shortDescription && <p className="truncate text-[11px] text-muted">{c.shortDescription}</p>}
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-2" strokeWidth={2} />
+          </a>
+        ))}
+      </div>
     </div>
   );
 }
 
 /* ================================================================== */
-/*  Page Component                                                     */
+/*  Page                                                               */
 /* ================================================================== */
 export default function Dashboard() {
   const {
-    greeting, dateLabel, todaySchedule, upcomingSchedule,
-    ongoingSession, stats, recentActivity,
-    unreadAnnouncements, unreadAnnouncementCount, studentStats,
+    dateLabel, stats, overallProgress, activeClassProgress,
+    nextClass, ongoingSession, announcements, calendar, monthActivities, popularCourses,
   } = usePage().props;
 
-  const hero = (
-    <PageHeader title={greeting} subtitle={dateLabel}>
-      <HeroStat icon={GraduationCap} label={t('student.stats.active_classes')} value={stats.activeClasses} />
-      <HeroStat icon={Clock} label={t('student.stats.this_week')} value={stats.thisWeekSessions} iconClassName="bg-emerald-400/20" />
-    </PageHeader>
-  );
-
   return (
-    <StudentLayout hero={hero}>
-      <Head title={t('navigation.home')} />
+    <StudentLayout hero={<QuoteHero dateLabel={dateLabel} />}>
+      <Head title="Utama" />
 
-      <div className="space-y-5 pt-4">
+      <div className="space-y-5 pt-5">
         <LiveAlert session={ongoingSession} />
-        <AnnouncementWidget announcements={unreadAnnouncements} count={unreadAnnouncementCount} />
-        <TodaySchedule schedule={todaySchedule} />
-        <QuickStats stats={stats} />
-        <UpcomingSchedule schedule={upcomingSchedule} />
-        <RecentActivity activity={recentActivity} />
-        <QuickActions />
+
+        <StatTiles stats={stats} />
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12">
+          <div className="md:col-span-2 xl:col-span-5"><ProgressKelas overall={overallProgress} classes={activeClassProgress} /></div>
+          <div className="xl:col-span-4"><KelasSeterusnya next={nextClass} /></div>
+          <div className="xl:col-span-3"><Pengumuman items={announcements} /></div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <div className="xl:col-span-8"><JadualKelas calendar={calendar} activities={monthActivities} /></div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:col-span-4 xl:grid-cols-1">
+            <MotivationCard />
+            <KursusPopular courses={popularCourses} />
+          </div>
+        </div>
       </div>
     </StudentLayout>
   );

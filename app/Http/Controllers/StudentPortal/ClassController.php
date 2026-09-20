@@ -12,92 +12,103 @@ use App\Models\ClassStudent;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ClassController extends Controller
 {
+    private const MS_MONTHS = [
+        1 => 'Januari', 2 => 'Februari', 3 => 'Mac', 4 => 'April', 5 => 'Mei', 6 => 'Jun',
+        7 => 'Julai', 8 => 'Ogos', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Disember',
+    ];
+
+    private const MS_DAYS = [
+        'Sunday' => 'Ahad', 'Monday' => 'Isnin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
+        'Thursday' => 'Khamis', 'Friday' => 'Jumaat', 'Saturday' => 'Sabtu',
+    ];
+
     public function index(Request $request): Response
     {
         $student = $request->user()->student;
 
         if (! $student) {
             return Inertia::render('Classes', [
-                'classStudents' => new LengthAwarePaginator([], 0, 12, 1, ['path' => $request->url()]),
-                'courses' => [],
-                'statusCounts' => ['active' => 0, 'completed' => 0, 'transferred' => 0, 'quit' => 0],
-                'totalClasses' => 0,
-                'filters' => [
-                    'search' => $request->input('search', ''),
-                    'status' => $request->input('status', ''),
-                    'course' => $request->input('course', ''),
-                ],
+                'stats' => ['active' => 0, 'completed' => 0, 'tamat' => 0, 'total' => 0, 'activeProgress' => 0],
+                'aktif' => [],
+                'lengkap' => [],
+                'tamat' => [],
             ]);
         }
 
-        $query = ClassStudent::where('student_id', $student->id)
-            ->with(['class.course', 'class.teacher.user', 'class.sessions'])
-            ->when($request->input('search'), function ($q, $search) {
-                $q->whereHas('class', function ($cq) use ($search) {
-                    $cq->where('title', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('course', fn ($c) => $c->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('teacher.user', fn ($t) => $t->where('name', 'like', "%{$search}%"));
-                });
-            })
-            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
-            ->when($request->input('course'), function ($q, $courseId) {
-                $q->whereHas('class', fn ($c) => $c->where('course_id', $courseId));
-            })
-            ->orderByDesc('enrolled_at');
+        $enrollments = ClassStudent::where('student_id', $student->id)
+            ->with(['class' => function ($q) {
+                $q->with(['course', 'teacher.user', 'timetable'])
+                    ->withCount([
+                        'sessions as total_sessions_count',
+                        'sessions as completed_sessions_count' => fn ($s) => $s->whereIn('status', ['completed', 'no_show']),
+                        'sessions as recorded_sessions_count' => fn ($s) => $s->whereNotNull('recording_url'),
+                    ]);
+            }])
+            ->orderByDesc('enrolled_at')
+            ->get();
 
-        $classStudents = $query->paginate(12)->withQueryString();
+        $aktif = collect();
+        $lengkap = collect();
+        $tamat = collect();
+        $activeTotal = 0;
+        $activeDone = 0;
 
-        $classStudents->getCollection()->transform(function (ClassStudent $cs) {
+        foreach ($enrollments as $cs) {
             $class = $cs->class;
-            $totalSessions = $class->sessions->count();
-            $completedSessions = $class->sessions->whereIn('status', ['completed', 'no_show'])->count();
+            if (! $class) {
+                continue;
+            }
 
-            return [
-                'id' => $cs->id,
-                'class_id' => $class->id,
+            $total = (int) $class->total_sessions_count;
+            $done = (int) $class->completed_sessions_count;
+
+            $base = [
+                'classId' => $class->id,
                 'title' => $class->title,
-                'course_name' => $class->course?->name,
-                'teacher_name' => $class->teacher?->user?->name,
-                'status' => $cs->status,
-                'total_sessions' => $totalSessions,
-                'completed_sessions' => $completedSessions,
-                'progress' => $totalSessions > 0 ? round(($completedSessions / $totalSessions) * 100) : 0,
+                'courseName' => $class->course?->name,
+                'teacherName' => $class->teacher?->user?->name,
+                'thumbnail' => $class->course?->thumbnail_url,
+                'moduleDone' => $done,
+                'moduleTotal' => $total,
+                'progress' => $total > 0 ? (int) round($done / $total * 100) : 0,
+                'hasRecording' => (int) $class->recorded_sessions_count > 0,
             ];
-        });
 
-        $courses = ClassModel::whereHas('classStudents', fn ($q) => $q->where('student_id', $student->id))
-            ->with('course')
-            ->get()
-            ->pluck('course')
-            ->filter()
-            ->unique('id')
-            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
-            ->values();
-
-        $statusCounts = [
-            'active' => ClassStudent::where('student_id', $student->id)->where('status', 'active')->count(),
-            'completed' => ClassStudent::where('student_id', $student->id)->where('status', 'completed')->count(),
-            'transferred' => ClassStudent::where('student_id', $student->id)->where('status', 'transferred')->count(),
-            'quit' => ClassStudent::where('student_id', $student->id)->where('status', 'quit')->count(),
-        ];
+            if ($cs->status === 'active') {
+                $activeTotal += $total;
+                $activeDone += $done;
+                $aktif->push($base + [
+                    'startLabel' => $class->timetable?->start_date
+                        ? 'Bermula '.$this->malayDate($class->timetable->start_date)
+                        : null,
+                    'scheduleLabel' => $this->scheduleLabel($class->timetable),
+                ]);
+            } elseif ($cs->status === 'completed') {
+                $lengkap->push($base + ['endLabel' => $this->endLabel($cs, $class)]);
+            } else {
+                $tamat->push($base + [
+                    'endLabel' => $this->endLabel($cs, $class),
+                    'statusLabel' => $cs->status === 'transferred' ? 'Ditukar' : 'Tamat',
+                ]);
+            }
+        }
 
         return Inertia::render('Classes', [
-            'classStudents' => $classStudents,
-            'courses' => $courses,
-            'statusCounts' => $statusCounts,
-            'totalClasses' => array_sum($statusCounts),
-            'filters' => [
-                'search' => $request->input('search', ''),
-                'status' => $request->input('status', ''),
-                'course' => $request->input('course', ''),
+            'stats' => [
+                'active' => $aktif->count(),
+                'completed' => $lengkap->count(),
+                'tamat' => $tamat->count(),
+                'total' => $aktif->count() + $lengkap->count() + $tamat->count(),
+                'activeProgress' => $activeTotal > 0 ? (int) round($activeDone / $activeTotal * 100) : 0,
             ],
+            'aktif' => $aktif->values(),
+            'lengkap' => $lengkap->values(),
+            'tamat' => $tamat->values(),
         ]);
     }
 
@@ -490,6 +501,77 @@ class ClassController extends Controller
         }
 
         return $weekData;
+    }
+
+    private function malayDate($date): string
+    {
+        $date = $date instanceof Carbon ? $date : Carbon::parse($date);
+
+        return $date->day.' '.self::MS_MONTHS[$date->month].' '.$date->year;
+    }
+
+    private function msTime(string $hi): string
+    {
+        [$h, $m] = array_map('intval', array_pad(explode(':', $hi), 2, 0));
+        $period = match (true) {
+            $h < 5 => 'malam',
+            $h < 12 => 'pagi',
+            $h === 12 => 'tengah hari',
+            $h < 19 => 'petang',
+            default => 'malam',
+        };
+        $h12 = $h % 12 === 0 ? 12 : $h % 12;
+
+        return $h12.'.'.str_pad((string) $m, 2, '0', STR_PAD_LEFT).' '.$period;
+    }
+
+    private function endLabel(ClassStudent $cs, ClassModel $class): ?string
+    {
+        $date = $cs->left_at ?? $class->timetable?->end_date;
+
+        return $date ? 'Tamat pada '.$this->malayDate($date) : null;
+    }
+
+    private function scheduleLabel($timetable): ?string
+    {
+        if (! $timetable) {
+            return null;
+        }
+
+        $schedule = $timetable->weekly_schedule ?? [];
+        $dayTimes = [];
+
+        if ($timetable->recurrence_pattern === 'monthly') {
+            foreach ($schedule as $days) {
+                if (! is_array($days)) {
+                    continue;
+                }
+                foreach ($days as $day => $times) {
+                    if (! empty($times) && ! isset($dayTimes[$day])) {
+                        $dayTimes[$day] = $times[0];
+                    }
+                }
+            }
+        } else {
+            foreach ($schedule as $day => $times) {
+                if (is_array($times) && ! empty($times)) {
+                    $dayTimes[$day] = $times[0];
+                }
+            }
+        }
+
+        if (empty($dayTimes)) {
+            return null;
+        }
+
+        $order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        uksort($dayTimes, fn ($a, $b) => array_search($a, $order) <=> array_search($b, $order));
+
+        $dayNames = array_map(fn ($d) => self::MS_DAYS[ucfirst($d)] ?? ucfirst($d), array_keys($dayTimes));
+        $firstTime = reset($dayTimes);
+        $prefix = $timetable->recurrence_pattern === 'bi_weekly' ? 'Dua minggu sekali,' : 'Setiap';
+
+        return $prefix.' '.implode(', ', $dayNames).', '.$this->msTime($firstTime);
     }
 
     private function timesForDate($timetable, Carbon $date, string $dayName): array
