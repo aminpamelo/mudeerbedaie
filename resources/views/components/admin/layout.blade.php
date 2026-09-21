@@ -44,15 +44,15 @@
                 <flux:navlist.group
                     expandable
                     heading="Product Management"
-                    :expanded="request()->routeIs('products.*', 'product-categories.*', 'product-attributes.*', 'platforms.*', 'admin.orders.*', 'warehouses.*', 'inventory.*', 'stock.*')"
+                    :expanded="request()->routeIs('products.*', 'packages.*', 'product-categories.*', 'product-attributes.*', 'platforms.*', 'admin.orders.*', 'warehouses.*', 'inventory.*', 'stock.*')"
                 >
                     <flux:navlist.item
                         icon="cube"
                         :href="route('products.index')"
-                        :current="request()->routeIs('products.*')"
+                        :current="request()->routeIs('products.*', 'packages.*')"
                         wire:navigate
                     >
-                        {{ __('Products') }}
+                        {{ __('Products & Packages') }}
                     </flux:navlist.item>
 
                     <flux:navlist.item
@@ -84,7 +84,6 @@
                 <!-- Commerce & Packages -->
                 <flux:navlist.group :heading="__('Commerce &amp; Packages')" class="grid">
                     <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.*')" wire:navigate>{{ __('Orders &amp; Package Sales') }}</flux:navlist.item>
-                    <flux:navlist.item icon="cube" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <!-- Storefront -->

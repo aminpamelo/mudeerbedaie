@@ -15,14 +15,18 @@ new class extends Component
 
     public $creatorFilter = '';
 
+    public $shopFilter = '';
+
     public function with(): array
     {
         return [
             'packages' => Package::query()
-                ->with(['creator', 'products', 'courses', 'purchases'])
+                ->with(['creator', 'products', 'courses', 'purchases', 'activePlatformSkuMappings.platformAccount'])
                 ->when($this->search, fn ($query) => $query->search($this->search))
                 ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
                 ->when($this->creatorFilter, fn ($query) => $query->where('created_by', $this->creatorFilter))
+                ->when($this->shopFilter === 'linked', fn ($query) => $query->linkedToShop())
+                ->when($this->shopFilter === 'unlinked', fn ($query) => $query->notLinkedToShop())
                 ->latest()
                 ->paginate(15),
             'creators' => User::whereIn('id', Package::distinct()->pluck('created_by'))->get(),
@@ -75,12 +79,14 @@ new class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter', 'creatorFilter']);
+        $this->reset(['search', 'statusFilter', 'creatorFilter', 'shopFilter']);
         $this->resetPage();
     }
 }; ?>
 
 <div>
+    @include('livewire.admin.partials.catalog-tabs', ['active' => 'packages'])
+
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Packages</flux:heading>
@@ -92,7 +98,7 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-5">
         <flux:input
             wire:model.live.debounce.300ms="search"
             placeholder="Search packages..."
@@ -111,6 +117,12 @@ new class extends Component
             @foreach($creators as $creator)
                 <flux:select.option value="{{ $creator->id }}">{{ $creator->name }}</flux:select.option>
             @endforeach
+        </flux:select>
+
+        <flux:select wire:model.live="shopFilter" placeholder="All Shop Links">
+            <flux:select.option value="">All Shop Links</flux:select.option>
+            <flux:select.option value="linked">Linked to shop</flux:select.option>
+            <flux:select.option value="unlinked">Not linked</flux:select.option>
         </flux:select>
 
         <flux:button wire:click="clearFilters" variant="outline" icon="x-mark">
@@ -204,6 +216,7 @@ new class extends Component
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sales</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Shop</th>
                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -291,6 +304,9 @@ new class extends Component
                         <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                             {{ $package->creator->name }}
                         </td>
+                        <td class="px-3 py-4 text-sm">
+                            @include('livewire.admin.partials.shop-link-badge', ['item' => $package])
+                        </td>
                         <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                             <div class="flex items-center justify-end space-x-1">
                                 <flux:button
@@ -336,7 +352,7 @@ new class extends Component
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center">
+                        <td colspan="9" class="px-6 py-12 text-center">
                             <div>
                                 <flux:icon name="gift" class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No packages found</h3>

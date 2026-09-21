@@ -6,11 +6,13 @@ import { Button, EmptyState, Modal } from '@/cekbot-admin/components/Ui';
 import SessionCard from '@/cekbot-admin/components/SessionCard';
 import AddNumberModal from '@/cekbot-admin/components/AddNumberModal';
 import ConnectModal from '@/cekbot-admin/components/ConnectModal';
+import CloudConnectModal from '@/cekbot-admin/components/CloudConnectModal';
 
 export default function Index() {
   const { props } = usePage();
   const sessions = props.sessions ?? [];
   const waha = props.waha ?? {};
+  const cloud = props.cloud ?? {};
   const canManage = waha.canManage !== false; // default allow when tier unknown
   const dashboardUrl = waha.dashboardUrl;
 
@@ -138,10 +140,17 @@ export default function Index() {
         </div>
       )}
 
-      <AddNumberModal open={addOpen} editing={editing} onClose={() => { setAddOpen(false); setEditing(null); }} />
+      <AddNumberModal
+        open={addOpen}
+        editing={editing}
+        defaultApiVersion={cloud.apiVersion}
+        onClose={() => { setAddOpen(false); setEditing(null); }}
+      />
 
       {connectSession && (
-        <ConnectModal session={connectSession} dashboardUrl={dashboardUrl} onClose={() => setConnectSession(null)} />
+        connectSession.provider === 'cloud_api'
+          ? <CloudConnectModal session={connectSession} cloud={cloud} onClose={() => setConnectSession(null)} />
+          : <ConnectModal session={connectSession} dashboardUrl={dashboardUrl} onClose={() => setConnectSession(null)} />
       )}
 
       <Modal
@@ -149,7 +158,11 @@ export default function Index() {
         onClose={() => setDeleting(null)}
         size="sm"
         title="Padam nombor"
-        hint={deleting ? `"${deleting.label}" akan di-log keluar dan dipadam dari server WAHA.` : null}
+        hint={deleting
+          ? (deleting.provider === 'cloud_api'
+              ? `"${deleting.label}" akan dipadam. Nombor WhatsApp Rasmi anda di Meta tidak terjejas.`
+              : `"${deleting.label}" akan di-log keluar dan dipadam dari server WAHA.`)
+          : null}
         footer={
           <>
             <Button variant="ghost" onClick={() => setDeleting(null)}>Batal</Button>

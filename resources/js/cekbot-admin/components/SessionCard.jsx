@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { QrCode, LogOut, Pencil, Trash2, RefreshCw, Phone } from 'lucide-react';
+import { QrCode, LogOut, Pencil, Trash2, RefreshCw, Phone, ShieldCheck, Server, Link2 } from 'lucide-react';
 import { Card, Badge, Button } from '@/cekbot-admin/components/Ui';
 import { statusMeta } from '@/cekbot-admin/components/status';
 import { cn, formatPhone } from '@/cekbot-admin/lib/utils';
@@ -11,6 +11,7 @@ export default function SessionCard({ session, onConnect, onEdit, onDelete, canM
   const StatusIcon = meta.Icon;
   const working = session.status === 'WORKING';
   const recoverable = session.status === 'FAILED' || session.status === 'STOPPED';
+  const isCloud = session.provider === 'cloud_api';
 
   function act(action, confirmText) {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -31,6 +32,11 @@ export default function SessionCard({ session, onConnect, onEdit, onDelete, canM
               <StatusIcon className={cn('h-3 w-3', meta.spin && 'animate-spin')} strokeWidth={2.4} />
               {meta.label}
             </Badge>
+            {isCloud ? (
+              <Badge color="emerald"><ShieldCheck className="h-3 w-3" strokeWidth={2.4} /> Rasmi</Badge>
+            ) : (
+              <Badge color="slate"><Server className="h-3 w-3" strokeWidth={2.4} /> WAHA</Badge>
+            )}
           </div>
 
           {session.phone_number ? (
@@ -39,10 +45,16 @@ export default function SessionCard({ session, onConnect, onEdit, onDelete, canM
               {formatPhone(session.phone_number)}
             </p>
           ) : (
-            <p className="mt-1.5 text-[12.5px] text-white/40">Belum ada nombor dipautkan</p>
+            <p className="mt-1.5 text-[12.5px] text-white/40">
+              {isCloud ? 'Belum disahkan' : 'Belum ada nombor dipautkan'}
+            </p>
           )}
 
-          <p className="mt-2 font-mono text-[11px] text-white/30">{session.session_name}</p>
+          <p className="mt-2 font-mono text-[11px] text-white/30">
+            {isCloud
+              ? (session.phone_number_id ? `ID ···${String(session.phone_number_id).slice(-6)}` : 'ID belum ditetapkan')
+              : session.session_name}
+          </p>
         </div>
       </div>
 
@@ -54,7 +66,21 @@ export default function SessionCard({ session, onConnect, onEdit, onDelete, canM
         </span>
 
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {!canManage ? (
+          {isCloud ? (
+            <>
+              <Button size="sm" variant={working ? 'secondary' : 'primary'} onClick={() => onConnect(session)}>
+                {working
+                  ? <><RefreshCw className="h-3.5 w-3.5" strokeWidth={2.2} /> Semak</>
+                  : <><Link2 className="h-3.5 w-3.5" strokeWidth={2.2} /> Sambung</>}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onEdit(session)} aria-label="Edit">
+                <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} />
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => onDelete(session)} aria-label="Padam">
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={2.2} />
+              </Button>
+            </>
+          ) : !canManage ? (
             <>
               {!working && dashboardUrl && (
                 <Button size="sm" variant="primary" href={dashboardUrl} target="_blank" rel="noopener">

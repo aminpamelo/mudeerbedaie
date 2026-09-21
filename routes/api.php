@@ -541,6 +541,11 @@ Route::post('whatsapp/webhook', [WhatsAppWebhookController::class, 'handle'])
 // Cekbot — WAHA webhook (public; HMAC-verified inside the controller if a secret is set)
 Route::post('cekbot/webhook', [\App\Http\Controllers\Cekbot\WebhookController::class, 'handle'])->name('api.cekbot.webhook');
 
+// Cekbot — official WhatsApp Cloud API webhook (public; verify token + per-number
+// X-Hub-Signature-256 checked inside the controller).
+Route::get('cekbot/cloud/webhook', [\App\Http\Controllers\Cekbot\CloudWebhookController::class, 'verify'])->name('api.cekbot.cloud.webhook.verify');
+Route::post('cekbot/cloud/webhook', [\App\Http\Controllers\Cekbot\CloudWebhookController::class, 'handle'])->name('api.cekbot.cloud.webhook.handle');
+
 /*
 |--------------------------------------------------------------------------
 | HR Module API Routes

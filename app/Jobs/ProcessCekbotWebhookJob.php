@@ -2,23 +2,24 @@
 
 namespace App\Jobs;
 
-use App\Events\Cekbot\CekbotMessageReceived;
-use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
 use App\Services\Cekbot\CekbotBotService;
+use App\Services\Cekbot\CekbotInboundIngestor;
 use App\Services\WhatsApp\WahaSessionManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Str;
 
 /**
  * Processes a single WAHA webhook payload for Cekbot: stores inbound messages,
  * keeps session status in sync, updates delivery acks, and hands new inbound
  * messages to the bot engine for a possible auto-reply.
+ *
+ * WAHA-specific payload parsing lives here; the actual storing + bot dispatch is
+ * delegated to CekbotInboundIngestor, shared with the official Cloud API job.
  */
 class ProcessCekbotWebhookJob implements ShouldQueue
 {
@@ -29,7 +30,7 @@ class ProcessCekbotWebhookJob implements ShouldQueue
      */
     public function __construct(public array $event) {}
 
-    public function handle(CekbotBotService $bot): void
+    public function handle(CekbotBotService $bot, CekbotInboundIngestor $ingestor): void
     {
         $event = $this->event;
         $type = $event['event'] ?? null;
@@ -47,7 +48,7 @@ class ProcessCekbotWebhookJob implements ShouldQueue
         }
 
         match ($type) {
-            'message', 'message.any' => $this->handleMessage($session, $payload, $bot),
+            'message', 'message.any' => $this->handleMessage($session, $payload, $bot, $ingestor),
             'session.status' => $this->handleSessionStatus($session, $payload),
             'message.ack' => $this->handleAck($session, $payload),
             default => null,
@@ -57,15 +58,8 @@ class ProcessCekbotWebhookJob implements ShouldQueue
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function handleMessage(CekbotSession $session, array $payload, CekbotBotService $bot): void
+    private function handleMessage(CekbotSession $session, array $payload, CekbotBotService $bot, CekbotInboundIngestor $ingestor): void
     {
-        $wahaId = $payload['id'] ?? null;
-
-        // Idempotency — WAHA can retry deliveries.
-        if ($wahaId && CekbotMessage::query()->where('waha_message_id', $wahaId)->exists()) {
-            return;
-        }
-
         $fromMe = (bool) ($payload['fromMe'] ?? false);
         $chatId = $fromMe
             ? ($payload['to'] ?? $payload['chatId'] ?? null)
@@ -75,58 +69,26 @@ class ProcessCekbotWebhookJob implements ShouldQueue
             return;
         }
 
-        // Skip WhatsApp Status / broadcast / channel noise — not real chats.
-        if ($chatId === 'status@broadcast' || str_contains($chatId, '@newsletter') || str_ends_with($chatId, '@broadcast')) {
-            return;
-        }
-
-        $isGroup = str_contains((string) $chatId, '@g.us');
-        $type = $this->resolveType($payload);
-        $body = $this->extractBody($payload);
-
-        $conversation = CekbotConversation::query()->firstOrCreate(
-            ['cekbot_session_id' => $session->id, 'chat_id' => $chatId],
-            ['is_group' => $isGroup],
+        $ingestor->ingest(
+            $session,
+            [
+                'provider_message_id' => $payload['id'] ?? null,
+                'from_me' => $fromMe,
+                'chat_id' => $chatId,
+                'name' => $payload['notifyName'] ?? ($payload['_data']['notifyName'] ?? null),
+                'type' => $this->resolveType($payload),
+                'body' => $this->extractBody($payload),
+                'media_url' => $payload['mediaUrl'] ?? ($payload['media']['url'] ?? null),
+                'media_mime' => $payload['mimetype'] ?? ($payload['media']['mimetype'] ?? null),
+                'timestamp' => isset($payload['timestamp']) ? (int) $payload['timestamp'] : null,
+                'is_group' => str_contains((string) $chatId, '@g.us'),
+                'payload' => $payload,
+            ],
+            $bot,
+            // GOWS usually omits notifyName; resolve lazily via WAHA only if the
+            // conversation still has no name.
+            fn () => app(WahaSessionManager::class)->resolveName($session->session_name, $chatId),
         );
-
-        // Fill a display name once — notifyName if present, else resolve via WAHA
-        // (GOWS usually omits notifyName; contacts/groups endpoints have it).
-        if (blank($conversation->name)) {
-            $name = $payload['notifyName'] ?? ($payload['_data']['notifyName'] ?? null);
-            if (blank($name)) {
-                $name = app(WahaSessionManager::class)->resolveName($session->session_name, $chatId);
-            }
-            if (filled($name)) {
-                $conversation->name = $name;
-            }
-        }
-
-        CekbotMessage::create([
-            'cekbot_conversation_id' => $conversation->id,
-            'cekbot_session_id' => $session->id,
-            'waha_message_id' => $wahaId,
-            'direction' => $fromMe ? CekbotMessage::DIRECTION_OUT : CekbotMessage::DIRECTION_IN,
-            'from_me' => $fromMe,
-            'type' => $type,
-            'body' => $body,
-            'media_url' => $payload['mediaUrl'] ?? ($payload['media']['url'] ?? null),
-            'media_mime' => $payload['mimetype'] ?? ($payload['media']['mimetype'] ?? null),
-            'payload' => $payload,
-            'sent_at' => isset($payload['timestamp']) ? now()->setTimestamp((int) $payload['timestamp']) : now(),
-        ]);
-
-        $conversation->forceFill([
-            'last_message_at' => now(),
-            'last_message_preview' => Str::limit($body ?: $this->mediaLabel($type), 255),
-            'unread_count' => $fromMe ? $conversation->unread_count : $conversation->unread_count + 1,
-        ])->save();
-
-        CekbotMessageReceived::dispatch($conversation->id, $session->id, $fromMe ? 'out' : 'in');
-
-        // Only genuine inbound (not our own echoed sends) trigger the bot.
-        if (! $fromMe) {
-            $bot->handleIncoming($conversation->fresh(), $body, $type);
-        }
     }
 
     /**
@@ -199,18 +161,5 @@ class ProcessCekbotWebhookJob implements ShouldQueue
         $type = (string) ($payload['type'] ?? 'text');
 
         return in_array($type, ['chat', 'text'], true) ? 'text' : $type;
-    }
-
-    private function mediaLabel(string $type): string
-    {
-        return match ($type) {
-            'image' => '📷 Gambar',
-            'video' => '🎥 Video',
-            'audio' => '🎙️ Audio',
-            'document' => '📄 Dokumen',
-            'location' => '📍 Lokasi',
-            'contact' => '👤 Kad hubungan',
-            default => '💬 Mesej',
-        };
     }
 }

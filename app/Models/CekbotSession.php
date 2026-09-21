@@ -33,6 +33,15 @@ class CekbotSession extends Model
      */
     public const STATUS_UNKNOWN = 'UNKNOWN';
 
+    /**
+     * Transport a number sends/receives through. WAHA is the unofficial
+     * self-hosted engine (QR-linked); Cloud API is Meta's official WhatsApp
+     * Business Cloud API (credential-linked, no QR).
+     */
+    public const PROVIDER_WAHA = 'waha';
+
+    public const PROVIDER_CLOUD_API = 'cloud_api';
+
     protected $fillable = [
         'session_name',
         'label',
@@ -42,6 +51,13 @@ class CekbotSession extends Model
         'notes',
         'created_by',
         'last_synced_at',
+        'provider',
+        'phone_number_id',
+        'waba_id',
+        'access_token',
+        'app_secret',
+        'verify_token',
+        'api_version',
     ];
 
     /**
@@ -51,7 +67,56 @@ class CekbotSession extends Model
     {
         return [
             'last_synced_at' => 'datetime',
+            'access_token' => 'encrypted',
+            'app_secret' => 'encrypted',
         ];
+    }
+
+    /**
+     * Whether this number runs on Meta's official WhatsApp Cloud API.
+     */
+    public function isCloudApi(): bool
+    {
+        return $this->provider === self::PROVIDER_CLOUD_API;
+    }
+
+    /**
+     * Whether this number runs on the unofficial WAHA engine (the default).
+     */
+    public function isWaha(): bool
+    {
+        return $this->provider !== self::PROVIDER_CLOUD_API;
+    }
+
+    /**
+     * Graph API version for this number, falling back to the global default.
+     */
+    public function resolvedApiVersion(): string
+    {
+        return $this->api_version
+            ?: (config('services.whatsapp.meta.api_version') ?: 'v21.0');
+    }
+
+    /**
+     * App secret used to verify inbound Cloud API webhook signatures. Per-number
+     * override, else the global Meta app secret (settings → config).
+     */
+    public function resolvedAppSecret(): ?string
+    {
+        return $this->app_secret
+            ?: (app(\App\Services\SettingsService::class)->get('meta_app_secret')
+                ?: (config('services.whatsapp.meta.app_secret') ?: null));
+    }
+
+    /**
+     * Verify token Meta echoes during webhook subscription. Per-number override,
+     * else the global Meta verify token (settings → config).
+     */
+    public function resolvedVerifyToken(): ?string
+    {
+        return $this->verify_token
+            ?: (app(\App\Services\SettingsService::class)->get('meta_verify_token')
+                ?: (config('services.whatsapp.meta.verify_token') ?: null));
     }
 
     /**

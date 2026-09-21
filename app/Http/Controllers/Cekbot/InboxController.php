@@ -9,6 +9,7 @@ use App\Models\CekbotConversationNote;
 use App\Models\CekbotLabel;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
+use App\Services\Cekbot\CekbotOutbound;
 use App\Services\WhatsApp\WahaSessionManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +21,7 @@ use Inertia\Response;
 
 class InboxController extends Controller
 {
-    public function __construct(private WahaSessionManager $waha) {}
+    public function __construct(private WahaSessionManager $waha, private CekbotOutbound $out) {}
 
     public function index(Request $request): Response
     {
@@ -86,8 +87,8 @@ class InboxController extends Controller
         ]);
 
         $conversation->loadMissing('session');
-        $result = $this->waha->sendText(
-            $conversation->session->session_name,
+        $result = $this->out->sendText(
+            $conversation->session,
             $conversation->chat_id,
             $validated['message'],
         );

@@ -46,12 +46,29 @@ class SendCekbotBroadcastJob implements ShouldQueue
             return;
         }
 
+        $session = $broadcast->session;
+
+        // Broadcasts are unsolicited sends; on the official Cloud API those are
+        // only allowed via pre-approved message templates (out of scope for v1).
+        // Official numbers keep broadcasts on WAHA — fail fast with a clear
+        // reason rather than firing a WAHA call for a number that has no session.
+        if ($session && $session->isCloudApi()) {
+            $broadcast->recipients()->where('status', 'pending')->update([
+                'status' => 'failed',
+                'error' => 'Broadcast belum disokong untuk WhatsApp Rasmi (Cloud API). Guna nombor WAHA untuk broadcast.',
+            ]);
+            $broadcast->update([
+                'status' => CekbotBroadcast::STATUS_FAILED,
+                'completed_at' => now(),
+            ]);
+
+            return;
+        }
+
         $broadcast->update([
             'status' => CekbotBroadcast::STATUS_SENDING,
             'started_at' => $broadcast->started_at ?? now(),
         ]);
-
-        $session = $broadcast->session;
 
         $broadcast->recipients()
             ->where('status', 'pending')

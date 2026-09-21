@@ -17,6 +17,8 @@ new class extends Component
 
     public $typeFilter = '';
 
+    public $shopFilter = '';
+
     public function with(): array
     {
         $statusCounts = Product::query()
@@ -26,11 +28,13 @@ new class extends Component
 
         return [
             'products' => Product::query()
-                ->with(['category', 'stockLevels', 'media', 'creatorFighter'])
+                ->with(['category', 'stockLevels', 'media', 'creatorFighter', 'activePlatformSkuMappings.platformAccount'])
                 ->when($this->search, fn ($query) => $query->search($this->search))
                 ->when($this->categoryFilter, fn ($query) => $query->where('category_id', $this->categoryFilter))
                 ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
                 ->when($this->typeFilter, fn ($query) => $query->where('type', $this->typeFilter))
+                ->when($this->shopFilter === 'linked', fn ($query) => $query->linkedToShop())
+                ->when($this->shopFilter === 'unlinked', fn ($query) => $query->notLinkedToShop())
                 ->latest()
                 ->paginate(15),
             'categories' => ProductCategory::active()->ordered()->get(),
@@ -69,12 +73,14 @@ new class extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'categoryFilter', 'statusFilter', 'typeFilter']);
+        $this->reset(['search', 'categoryFilter', 'statusFilter', 'typeFilter', 'shopFilter']);
         $this->resetPage();
     }
 }; ?>
 
 <div>
+    @include('livewire.admin.partials.catalog-tabs', ['active' => 'products'])
+
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <flux:heading size="xl">Products</flux:heading>
@@ -110,7 +116,7 @@ new class extends Component
 
     <!-- Filters -->
     <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <div class="lg:col-span-2">
                 <flux:input
                     wire:model.live.debounce.300ms="search"
@@ -139,6 +145,12 @@ new class extends Component
                 <flux:select.option value="simple">Simple</flux:select.option>
                 <flux:select.option value="variable">Variable</flux:select.option>
             </flux:select>
+
+            <flux:select wire:model.live="shopFilter" placeholder="All Shop Links">
+                <flux:select.option value="">All Shop Links</flux:select.option>
+                <flux:select.option value="linked">Linked to shop</flux:select.option>
+                <flux:select.option value="unlinked">Not linked</flux:select.option>
+            </flux:select>
         </div>
     </div>
 
@@ -155,7 +167,7 @@ new class extends Component
                 No products match your filters
             @endif
         </p>
-        @if($search || $categoryFilter || $statusFilter || $typeFilter)
+        @if($search || $categoryFilter || $statusFilter || $typeFilter || $shopFilter)
             <flux:button wire:click="clearFilters" variant="ghost" size="sm" icon="x-mark">
                 Clear filters
             </flux:button>
@@ -170,15 +182,16 @@ new class extends Component
         <div>
             <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-700">
                 <colgroup>
-                    <col class="w-[32%]"> <!-- Product name -->
-                    <col class="w-[11%]"> <!-- Category -->
-                    <col class="w-[10%]"> <!-- SKU -->
-                    <col class="w-[9%]">  <!-- Price -->
-                    <col class="w-[11%]"> <!-- Stock -->
-                    <col class="w-[8%]">  <!-- Status -->
-                    <col class="w-[7%]">  <!-- Storefront -->
-                    <col class="w-[7%]">  <!-- Type -->
-                    <col class="w-[5%]">  <!-- Actions -->
+                    <col class="w-[28%]"> <!-- Product name -->
+                    <col class="w-[10%]"> <!-- Category -->
+                    <col class="w-[9%]">  <!-- SKU -->
+                    <col class="w-[8%]">  <!-- Price -->
+                    <col class="w-[10%]"> <!-- Stock -->
+                    <col class="w-[7%]">  <!-- Status -->
+                    <col class="w-[6%]">  <!-- Storefront -->
+                    <col class="w-[6%]">  <!-- Type -->
+                    <col class="w-[10%]"> <!-- Shop -->
+                    <col class="w-[6%]">  <!-- Actions -->
                 </colgroup>
                 <thead class="bg-gray-50 dark:bg-zinc-700/50">
                     <tr>
@@ -190,6 +203,7 @@ new class extends Component
                         <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
                         <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Storefront</th>
                         <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Type</th>
+                        <th scope="col" class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Shop</th>
                         <th scope="col" class="py-3 pl-3 pr-4 text-right sm:pr-6">
                             <span class="sr-only">Actions</span>
                         </th>
@@ -291,6 +305,9 @@ new class extends Component
                                     {{ ucfirst($product->type) }}
                                 </flux:badge>
                             </td>
+                            <td class="px-3 py-3">
+                                @include('livewire.admin.partials.shop-link-badge', ['item' => $product])
+                            </td>
                             <td class="py-3 pl-3 pr-4 sm:pr-6">
                                 <div class="flex items-center justify-end gap-0.5 opacity-80 transition-opacity group-hover:opacity-100">
                                     <flux:tooltip content="View">
@@ -314,18 +331,18 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-6 py-16 text-center">
+                            <td colspan="10" class="px-6 py-16 text-center">
                                 <flux:icon name="cube" class="mx-auto h-12 w-12 text-gray-300 dark:text-zinc-600" />
                                 <h3 class="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">No products found</h3>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    @if($search || $categoryFilter || $statusFilter || $typeFilter)
+                                    @if($search || $categoryFilter || $statusFilter || $typeFilter || $shopFilter)
                                         Try adjusting your search or filters.
                                     @else
                                         Get started by creating your first product.
                                     @endif
                                 </p>
                                 <div class="mt-6 flex items-center justify-center gap-2">
-                                    @if($search || $categoryFilter || $statusFilter || $typeFilter)
+                                    @if($search || $categoryFilter || $statusFilter || $typeFilter || $shopFilter)
                                         <flux:button wire:click="clearFilters" variant="outline" icon="x-mark">Clear filters</flux:button>
                                     @endif
                                     <flux:button variant="primary" href="{{ route('products.create') }}" icon="plus">Add Product</flux:button>

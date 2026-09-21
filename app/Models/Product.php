@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasFulfillmentType;
+use App\Models\Concerns\HasPlatformShopLinks;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ class Product extends Model
 {
     use HasFactory;
     use HasFulfillmentType;
+    use HasPlatformShopLinks;
 
     protected $fillable = [
         'name',

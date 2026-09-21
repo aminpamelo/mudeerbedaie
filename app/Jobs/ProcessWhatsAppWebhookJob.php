@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\CekbotSession;
 use App\Models\NotificationLog;
 use App\Models\Student;
 use App\Models\WhatsAppCampaignRecipient;
@@ -48,11 +49,35 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             foreach ($changes as $change) {
                 $value = $change['value'] ?? [];
 
+                // If this number is a Cekbot Cloud API number, it owns the whole
+                // change — route to the Cekbot pipeline and skip the campaign
+                // inbox so official Cekbot chats never land in the wrong place.
+                // Covers the case where one Meta app serves both surfaces.
+                $phoneNumberId = $value['metadata']['phone_number_id'] ?? null;
+                if ($phoneNumberId && $this->belongsToCekbot($phoneNumberId)) {
+                    ProcessCekbotCloudWebhookJob::dispatch($value);
+
+                    continue;
+                }
+
                 $this->processStatuses($value['statuses'] ?? []);
                 $this->processMessages($value['messages'] ?? [], $value['contacts'] ?? []);
                 $this->processErrors($value['errors'] ?? []);
             }
         }
+    }
+
+    /**
+     * Whether a phone number id belongs to a Cekbot Cloud API number, in which
+     * case inbound events are owned by the Cekbot pipeline, not this campaign
+     * inbox.
+     */
+    private function belongsToCekbot(string $phoneNumberId): bool
+    {
+        return CekbotSession::query()
+            ->where('provider', CekbotSession::PROVIDER_CLOUD_API)
+            ->where('phone_number_id', $phoneNumberId)
+            ->exists();
     }
 
     /**

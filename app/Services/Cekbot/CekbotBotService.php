@@ -6,20 +6,21 @@ use App\Events\Cekbot\CekbotMessageReceived;
 use App\Models\CekbotAutoReply;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
-use App\Services\WhatsApp\WahaSessionManager;
 use Illuminate\Support\Str;
 
 /**
  * The Cekbot auto-reply engine.
  *
- * Decides how to respond to an inbound message and sends the reply through
- * WAHA. Reply priority: matching rule → first-message welcome → AI fallback
- * (Fasa 4) → default reply. Human-handled conversations are skipped (Fasa 6).
+ * Decides how to respond to an inbound message and sends the reply through the
+ * number's configured provider (WAHA or the official Cloud API) via
+ * CekbotOutbound. Reply priority: matching rule → first-message welcome → AI
+ * fallback (Fasa 4) → default reply. Human-handled conversations are skipped
+ * (Fasa 6).
  */
 class CekbotBotService
 {
     public function __construct(
-        private WahaSessionManager $waha,
+        private CekbotOutbound $out,
         private CekbotAiResponder $ai,
         private CekbotCheckService $checks,
         private CekbotFlowService $flow,
@@ -126,7 +127,7 @@ class CekbotBotService
     public function sendReply(CekbotConversation $conversation, string $reply): void
     {
         $session = $conversation->session;
-        $result = $this->waha->sendText($session->session_name, $conversation->chat_id, $reply);
+        $result = $this->out->sendText($session, $conversation->chat_id, $reply);
 
         CekbotMessage::create([
             'cekbot_conversation_id' => $conversation->id,
@@ -156,7 +157,7 @@ class CekbotBotService
     public function sendImageReply(CekbotConversation $conversation, string $url, ?string $caption = null): void
     {
         $session = $conversation->session;
-        $result = $this->waha->sendImage($session->session_name, $conversation->chat_id, $url, $caption);
+        $result = $this->out->sendImage($session, $conversation->chat_id, $url, $caption);
 
         CekbotMessage::create([
             'cekbot_conversation_id' => $conversation->id,
