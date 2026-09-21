@@ -64,6 +64,93 @@ class EasyParcelTrackingSync
     }
 
     /**
+     * Read-only resolution of an EasyParcel status into one of our order statuses,
+     * with no side effects. Mirrors the precedence {@see apply()} uses: numeric
+     * code first, then the human label, then a dated terminal event in the courier
+     * log. Used to re-verify an order without mutating it.
+     *
+     * @param  array<int, array{status?: string, datetime?: string, location?: string, description?: string}>  $events
+     */
+    public function resolveStatus(?string $rawStatus, ?int $statusCode = null, array $events = []): ?string
+    {
+        $mapped = $statusCode !== null ? $this->mapStatusCode($statusCode) : null;
+
+        if ($mapped === null) {
+            $mapped = $this->mapToOrderStatus($rawStatus);
+        }
+
+        if (! in_array($mapped, ['delivered', 'returned', 'cancelled'], true)) {
+            $terminal = $this->resolveTerminalFromEvents($events);
+
+            if ($terminal !== null) {
+                $mapped = $terminal['mapped'];
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * Re-verify an order that is currently marked delivered and revert it when the
+     * live courier status says otherwise. This undoes a previously mis-applied
+     * "delivered" (e.g. a dateless "Delivered" placeholder step that briefly flipped
+     * a still-in-transit parcel), restoring it to shipped and reversing any COD
+     * payment that was auto-collected on that false delivery. Returns 'reverted',
+     * 'kept' (genuinely delivered/returned/cancelled), or null when it could not be
+     * verified.
+     */
+    public function repairFalseDelivered(ProductOrder $order): ?string
+    {
+        if ($order->shipping_provider !== 'easyparcel' || $order->status !== 'delivered' || ! $order->tracking_id) {
+            return null;
+        }
+
+        try {
+            $result = $this->shippingManager->getProvider('easyparcel')->getTracking($order->tracking_id);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (! $result->success) {
+            return null;
+        }
+
+        $true = $this->resolveStatus($result->currentStatus, $result->currentStatusCode, $result->events);
+
+        // Still genuinely terminal — leave it alone.
+        if (in_array($true, ['delivered', 'returned', 'cancelled'], true)) {
+            return 'kept';
+        }
+
+        $metadata = $order->metadata ?? [];
+        $metadata['easyparcel_tracking_status'] = $result->currentStatus;
+        $metadata['easyparcel_tracking_synced_at'] = now()->toIso8601String();
+
+        if ($result->currentStatusCode !== null) {
+            $metadata['easyparcel_status_code'] = $result->currentStatusCode;
+        }
+
+        $order->update([
+            'status' => 'shipped',
+            'delivered_at' => null,
+            'metadata' => $metadata,
+        ]);
+
+        // Undo a COD payment that our own delivery flow auto-collected — the parcel
+        // was never actually delivered, so the cash was never actually collected.
+        if ($order->isCashOnDelivery()
+            && $order->payment_status === 'paid'
+            && $order->notes()->where('message', 'COD payment auto-marked as paid on delivery.')->exists()) {
+            $order->update(['payment_status' => 'pending', 'paid_time' => null]);
+        }
+
+        $reported = filled($result->currentStatus) ? $result->currentStatus : 'not yet delivered';
+        $order->addSystemNote("Reverted an incorrect 'delivered' status — EasyParcel reports \"{$reported}\". (auto-correction)");
+
+        return 'reverted';
+    }
+
+    /**
      * Apply an EasyParcel status to an order. The numeric status code, when
      * present, is authoritative — EasyParcel warns the human label varies by
      * courier (and their own samples misspell "Delivered"), so we map the code
@@ -78,29 +165,20 @@ class EasyParcelTrackingSync
      */
     public function apply(ProductOrder $order, ?string $rawStatus, ?int $statusCode = null, array $events = []): ?string
     {
-        // The numeric code is authoritative when it carries an actionable
-        // transition, but EasyParcel does not always send one — and some couriers
-        // report a delivered/returned label with a code we don't map (or no code
-        // at all). Map the code first, then fall back to keyword-matching the human
-        // label so a courier-confirmed delivery is never missed.
-        $mapped = $statusCode !== null ? $this->mapStatusCode($statusCode) : null;
+        $mapped = $this->resolveStatus($rawStatus, $statusCode, $events);
 
-        if ($mapped === null) {
-            $mapped = $this->mapToOrderStatus($rawStatus);
-        }
+        // When the courier event log (not the top-level summary) is what upgraded
+        // us to a terminal state, relabel the note to that real event so the
+        // timeline reads truthfully instead of the stale summary label.
+        if (in_array($mapped, ['delivered', 'returned', 'cancelled'], true)) {
+            $summaryMapped = $statusCode !== null
+                ? $this->mapStatusCode($statusCode)
+                : $this->mapToOrderStatus($rawStatus);
 
-        // EasyParcel's top-level shipment status can lag reality — self drop-off
-        // parcels notably stay "Schedule In Arrangement" (code 7) even after the
-        // courier has delivered. The per-event courier log is the ground truth for
-        // terminal states, so a delivered/returned/cancelled event overrides a
-        // non-terminal summary (and relabels the note to the real event).
-        if (! in_array($mapped, ['delivered', 'returned', 'cancelled'], true)) {
-            $terminal = $this->resolveTerminalFromEvents($events);
+            if (! in_array($summaryMapped, ['delivered', 'returned', 'cancelled'], true)) {
+                $terminal = $this->resolveTerminalFromEvents($events);
 
-            if ($terminal !== null) {
-                $mapped = $terminal['mapped'];
-
-                if (filled($terminal['label'])) {
+                if ($terminal !== null && filled($terminal['label'])) {
                     $rawStatus = $terminal['label'];
                 }
             }
@@ -291,6 +369,14 @@ class EasyParcelTrackingSync
         $found = null;
 
         foreach ($events as $event) {
+            // Only trust an event that actually happened. EasyParcel's tracking log
+            // carries the "Delivered" milestone as a dateless placeholder step until
+            // the courier truly delivers — matching its label without a real event
+            // date would flip a still-in-transit parcel to delivered.
+            if (blank($event['datetime'] ?? null)) {
+                continue;
+            }
+
             $label = (string) ($event['status'] ?? $event['description'] ?? '');
             $mapped = $this->mapToOrderStatus($label);
 
