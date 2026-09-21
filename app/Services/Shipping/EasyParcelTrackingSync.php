@@ -306,16 +306,25 @@ class EasyParcelTrackingSync
             str_contains($status, 'problem'),
             str_contains($status, 'gagal') => null,
 
+            // In-motion labels checked BEFORE delivery: these all contain courier
+            // words that must not be read as a completed delivery. "Received by
+            // J&T" means the courier collected it, not the customer; "Delivery in
+            // transit" and "Out for delivery" are still on the way.
             str_contains($status, 'out for deliver'),
-            str_contains($status, 'on the way') => 'shipped',
+            str_contains($status, 'on the way'),
+            str_contains($status, 'in transit'),
+            str_contains($status, 'received by j&t'),
+            str_contains($status, 'received by courier'),
+            str_contains($status, 'transit'),
+            str_contains($status, 'pick'),
+            str_contains($status, 'collect') => 'shipped',
 
-            // English + Malay proof-of-delivery labels. EasyParcel's Malaysian
-            // couriers report delivery as e.g. "Penerima Sendiri" (received by the
-            // recipient) or "Wakil Penerima" (received by a representative), which
-            // carry no English "deliver" keyword.
-            str_contains($status, 'deliver'),
+            // Proof-of-delivery only. Match the full word "delivered" (not the stem
+            // "deliver", which also appears in "delivery in transit"/"out for
+            // delivery") plus the Malay recipient labels "Penerima Sendiri" /
+            // "Wakil Penerima" and "berjaya dihantar" (successfully delivered).
+            str_contains($status, 'delivered'),
             str_contains($status, 'completed'),
-            str_contains($status, 'received by'),
             str_contains($status, 'penerima sendiri'),
             str_contains($status, 'wakil penerima'),
             str_contains($status, 'berjaya dihantar') => 'delivered',
@@ -326,10 +335,6 @@ class EasyParcelTrackingSync
 
             str_contains($status, 'cancel'),
             str_contains($status, 'batal') => 'cancelled',
-
-            str_contains($status, 'transit'),
-            str_contains($status, 'pick'),
-            str_contains($status, 'collect') => 'shipped',
 
             default => null,
         };
