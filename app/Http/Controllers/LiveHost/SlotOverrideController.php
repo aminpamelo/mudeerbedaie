@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveTimeSlot;
 use App\Models\LiveTimeSlotOverride;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Per-creator slot overrides — a date-ranged set of slots that replaces a live
@@ -90,18 +92,51 @@ class SlotOverrideController extends Controller
      */
     private function syncSlots(LiveTimeSlotOverride $override, array $slots): void
     {
-        $override->slots()->delete(); // replace the whole set
-
+        // Diff the incoming slots against the existing rows keyed by (day, start, end)
+        // and PRESERVE the ids of unchanged slots. live_schedule_assignments FK to
+        // live_time_slots with onDelete('cascade') (and their live_sessions cascade in
+        // turn), so a blanket delete-and-recreate would silently wipe every scheduled
+        // session on the override — even on dates the edit never touched.
+        $incoming = [];
         foreach (array_values($slots) as $i => $slot) {
-            $override->slots()->create([
-                'day_of_week' => $slot['day_of_week'],
+            $key = (int) $slot['day_of_week'].'|'.$slot['start_time'].'|'.$slot['end_time'];
+            $incoming[$key] = [
+                'day_of_week' => (int) $slot['day_of_week'],
                 'start_time' => $slot['start_time'],
                 'end_time' => $slot['end_time'],
-                'is_active' => true,
                 'sort_order' => $i,
-                'created_by' => $override->created_by,
-            ]);
+            ];
         }
+
+        $existing = $override->slots()->get()->keyBy(fn (LiveTimeSlot $s): string => (int) $s->day_of_week
+            .'|'.substr((string) $s->start_time, 0, 5)
+            .'|'.substr((string) $s->end_time, 0, 5));
+
+        DB::transaction(function () use ($override, $incoming, $existing) {
+            // Remove only slots that are genuinely gone; their assignments cascade — intended.
+            $staleIds = $existing->reject(fn (LiveTimeSlot $s, string $key) => isset($incoming[$key]))->pluck('id');
+            if ($staleIds->isNotEmpty()) {
+                $override->slots()->whereIn('id', $staleIds)->delete();
+            }
+
+            foreach ($incoming as $key => $slot) {
+                if ($existing->has($key)) {
+                    // Unchanged slot — keep its id (and thus its scheduled sessions).
+                    $existing->get($key)->update(['sort_order' => $slot['sort_order'], 'is_active' => true]);
+
+                    continue;
+                }
+
+                $override->slots()->create([
+                    'day_of_week' => $slot['day_of_week'],
+                    'start_time' => $slot['start_time'],
+                    'end_time' => $slot['end_time'],
+                    'is_active' => true,
+                    'sort_order' => $slot['sort_order'],
+                    'created_by' => $override->created_by,
+                ]);
+            }
+        });
     }
 
     /**
