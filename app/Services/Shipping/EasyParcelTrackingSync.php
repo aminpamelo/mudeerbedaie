@@ -74,9 +74,16 @@ class EasyParcelTrackingSync
      */
     public function apply(ProductOrder $order, ?string $rawStatus, ?int $statusCode = null): ?string
     {
-        $mapped = $statusCode !== null
-            ? $this->mapStatusCode($statusCode)
-            : $this->mapToOrderStatus($rawStatus);
+        // The numeric code is authoritative when it carries an actionable
+        // transition, but EasyParcel does not always send one — and some couriers
+        // report a delivered/returned label with a code we don't map (or no code
+        // at all). Map the code first, then fall back to keyword-matching the human
+        // label so a courier-confirmed delivery is never missed.
+        $mapped = $statusCode !== null ? $this->mapStatusCode($statusCode) : null;
+
+        if ($mapped === null) {
+            $mapped = $this->mapToOrderStatus($rawStatus);
+        }
 
         $displayStatus = filled($rawStatus)
             ? $rawStatus
@@ -100,8 +107,8 @@ class EasyParcelTrackingSync
         $canTransition = ! in_array($order->status, self::PROTECTED_STATUSES, true);
         $context = $displayStatus ? " ({$displayStatus})" : '';
 
-        if ($canTransition && $mapped === 'delivered' && ! $order->delivered_at) {
-            $order->update(['status' => 'delivered', 'delivered_at' => now()]);
+        if ($canTransition && $mapped === 'delivered') {
+            $order->update(['status' => 'delivered', 'delivered_at' => $order->delivered_at ?? now()]);
             $order->addSystemNote("Auto-marked as delivered from EasyParcel tracking{$context}.");
 
             // COD is collected by the courier at the doorstep, so a delivered COD
@@ -197,17 +204,29 @@ class EasyParcelTrackingSync
             str_contains($status, 'fail'),
             str_contains($status, 'unsuccess'),
             str_contains($status, 'exception'),
-            str_contains($status, 'problem') => null,
+            str_contains($status, 'problem'),
+            str_contains($status, 'gagal') => null,
 
             str_contains($status, 'out for deliver'),
             str_contains($status, 'on the way') => 'shipped',
 
+            // English + Malay proof-of-delivery labels. EasyParcel's Malaysian
+            // couriers report delivery as e.g. "Penerima Sendiri" (received by the
+            // recipient) or "Wakil Penerima" (received by a representative), which
+            // carry no English "deliver" keyword.
             str_contains($status, 'deliver'),
-            str_contains($status, 'completed') => 'delivered',
+            str_contains($status, 'completed'),
+            str_contains($status, 'received by'),
+            str_contains($status, 'penerima sendiri'),
+            str_contains($status, 'wakil penerima'),
+            str_contains($status, 'berjaya dihantar') => 'delivered',
 
-            str_contains($status, 'return') => 'returned',
+            str_contains($status, 'return'),
+            str_contains($status, 'dipulangkan'),
+            str_contains($status, 'dikembalikan') => 'returned',
 
-            str_contains($status, 'cancel') => 'cancelled',
+            str_contains($status, 'cancel'),
+            str_contains($status, 'batal') => 'cancelled',
 
             str_contains($status, 'transit'),
             str_contains($status, 'pick'),
