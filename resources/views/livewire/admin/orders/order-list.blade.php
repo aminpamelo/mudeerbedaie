@@ -48,6 +48,8 @@ new class extends Component
 
     public string $paymentStatusFilter = 'all';
 
+    public string $fulfillmentFilter = 'all';
+
     public bool $needsProvisioningOnly = false;
 
     public string $dateFilter = '';
@@ -455,6 +457,12 @@ new class extends Component
         $this->selectedOrderIds = [];
     }
 
+    public function updatingFulfillmentFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
+    }
+
     public function updatingNeedsProvisioningOnly(): void
     {
         $this->resetPage();
@@ -554,6 +562,25 @@ new class extends Component
                     'pos' => $this->excludeFighterSources($query->where('source', 'pos')),
                     'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
                     default => $query
+                };
+            })
+            ->when($this->fulfillmentFilter !== 'all', function ($query) {
+                match ($this->fulfillmentFilter) {
+                    // Booked through our EasyParcel integration.
+                    'easyparcel' => $query->whereRaw('LOWER(shipping_provider) = ?', ['easyparcel']),
+                    // Fulfilled by the sales platform (e.g. TikTok Shop assigns the courier).
+                    'platform' => $query->whereNotNull('platform_id')
+                        ->where(function ($q) {
+                            $q->whereNull('shipping_provider')
+                                ->orWhereRaw('LOWER(shipping_provider) != ?', ['easyparcel']);
+                        }),
+                    // Handled in-house (POS/funnel/storefront/manual) and not routed through EasyParcel.
+                    'manual' => $query->whereNull('platform_id')
+                        ->where(function ($q) {
+                            $q->whereNull('shipping_provider')
+                                ->orWhereRaw('LOWER(shipping_provider) != ?', ['easyparcel']);
+                        }),
+                    default => $query,
                 };
             })
             ->when($this->salesSourceFilter !== '', function ($query) {
@@ -2077,6 +2104,14 @@ new class extends Component
                             <option value="refunded">Refunded</option>
                         </flux:select>
                     </div>
+                    <div class="w-44">
+                        <flux:select wire:model.live="fulfillmentFilter" placeholder="All Fulfillment">
+                            <option value="all">All Fulfillment</option>
+                            <option value="platform">Platform</option>
+                            <option value="easyparcel">EasyParcel</option>
+                            <option value="manual">Manual</option>
+                        </flux:select>
+                    </div>
                     <div class="w-36">
                         <flux:select wire:model.live="dateFilter" placeholder="All Time">
                             <option value="">All Time</option>
@@ -2111,7 +2146,7 @@ new class extends Component
             </div>
 
             <!-- Active Filter Tags -->
-            @if($search || $sourceTab !== 'all' || $productFilter || $picFilter || $paymentStatusFilter !== 'all' || $needsProvisioningOnly || $dateFilter || $dateFrom || $dateTo)
+            @if($search || $sourceTab !== 'all' || $productFilter || $picFilter || $paymentStatusFilter !== 'all' || $fulfillmentFilter !== 'all' || $needsProvisioningOnly || $dateFilter || $dateFrom || $dateTo)
                 <div class="flex items-center gap-2 mt-3 flex-wrap">
                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">Filters:</flux:text>
                     @if($needsProvisioningOnly)
@@ -2150,6 +2185,12 @@ new class extends Component
                             <button wire:click="$set('paymentStatusFilter', 'all')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
+                    @if($fulfillmentFilter !== 'all')
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            Fulfillment: {{ match($fulfillmentFilter) { 'platform' => 'Platform', 'easyparcel' => 'EasyParcel', 'manual' => 'Manual', default => $fulfillmentFilter } }}
+                            <button wire:click="$set('fulfillmentFilter', 'all')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
+                    @endif
                     @if($dateFilter)
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                             {{ ucfirst($dateFilter) }}
@@ -2162,7 +2203,7 @@ new class extends Component
                             <button wire:click="$set('dateFrom', ''); $set('dateTo', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
-                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('picFilter', ''); $set('paymentStatusFilter', 'all'); $set('needsProvisioningOnly', false); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
+                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('picFilter', ''); $set('paymentStatusFilter', 'all'); $set('fulfillmentFilter', 'all'); $set('needsProvisioningOnly', false); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
                         class="text-xs text-zinc-400 hover:text-red-500 transition-colors font-medium">
                         Clear all
                     </button>
