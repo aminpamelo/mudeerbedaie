@@ -10,6 +10,7 @@ use App\Models\StockLevel;
 use App\Models\StockMovement;
 use App\Models\Student;
 use App\Services\SettingsService;
+use App\Services\Shipping\EasyParcelTrackingSync;
 use App\Services\Shipping\ShippingManager;
 use App\Services\TikTok\OrderItemLinker;
 use Illuminate\Support\Facades\DB;
@@ -882,6 +883,66 @@ new class extends Component
         $this->order->refresh();
     }
 
+    public function syncEasyParcelStatus(): void
+    {
+        if ($this->order->shipping_provider !== 'easyparcel') {
+            session()->flash('error', 'This order is not shipped via EasyParcel.');
+
+            return;
+        }
+
+        if (! $this->order->tracking_id) {
+            session()->flash('error', 'No EasyParcel tracking number (AWB) on this order yet.');
+
+            return;
+        }
+
+        // The synced-at timestamp only advances when EasyParcel actually returns
+        // a status, so it doubles as a reliable "did the pull succeed" signal.
+        $syncedBefore = data_get($this->order->metadata, 'easyparcel_tracking_synced_at');
+        $statusBefore = $this->order->status;
+
+        try {
+            app(EasyParcelTrackingSync::class)->syncOrder($this->order);
+        } catch (Exception $e) {
+            session()->flash('error', 'EasyParcel sync failed: '.$e->getMessage());
+            $this->order->addSystemNote('Manual EasyParcel status sync failed: '.$e->getMessage());
+            $this->order->refresh();
+
+            return;
+        }
+
+        $this->order->refresh();
+        $syncedAfter = data_get($this->order->metadata, 'easyparcel_tracking_synced_at');
+
+        if ($syncedBefore === $syncedAfter) {
+            session()->flash('error', 'Could not reach EasyParcel for a status update. Please try again shortly.');
+            $this->order->addSystemNote('Manual EasyParcel status sync attempted, but no update was returned.');
+            $this->order->refresh();
+
+            return;
+        }
+
+        $courierStatus = data_get($this->order->metadata, 'easyparcel_tracking_status') ?: 'no status text';
+        $actor = auth()->user()?->name ?? 'Admin';
+        $statusChanged = $this->order->status !== $statusBefore;
+
+        $note = "Manual EasyParcel status sync by {$actor}: courier reports \"{$courierStatus}\".";
+        if ($statusChanged) {
+            $note .= " Order status updated to {$this->order->status}.";
+        }
+        $this->order->addSystemNote($note);
+
+        // Keep the inline Order Status dropdown aligned with any transition.
+        $this->orderStatus = $this->order->status;
+
+        session()->flash('success', $statusChanged
+            ? "Synced from EasyParcel — order is now {$this->order->status}."
+            : "Synced from EasyParcel — latest status: {$courierStatus}.");
+
+        $this->order->refresh();
+    }
+
     // Class Assignment
     public bool $showAssignClassModal = false;
 
@@ -1614,6 +1675,16 @@ new class extends Component
                                         <div class="flex items-center justify-center">
                                             <flux:icon name="magnifying-glass" class="w-4 h-4 mr-1" />
                                             View Tracking
+                                        </div>
+                                    </flux:button>
+                                @endif
+
+                                @if($order->shipping_provider === 'easyparcel' && $order->tracking_id)
+                                    <flux:button variant="outline" size="sm" wire:click="syncEasyParcelStatus" wire:loading.attr="disabled" wire:target="syncEasyParcelStatus">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                                            <span wire:loading.remove wire:target="syncEasyParcelStatus">Sync Status</span>
+                                            <span wire:loading wire:target="syncEasyParcelStatus">Syncing...</span>
                                         </div>
                                     </flux:button>
                                 @endif
