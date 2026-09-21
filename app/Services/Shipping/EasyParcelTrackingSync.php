@@ -60,7 +60,7 @@ class EasyParcelTrackingSync
             return null;
         }
 
-        return $this->apply($order, $result->currentStatus, $result->currentStatusCode);
+        return $this->apply($order, $result->currentStatus, $result->currentStatusCode, $result->events);
     }
 
     /**
@@ -71,8 +71,12 @@ class EasyParcelTrackingSync
      * latest status in metadata; transitions the order to delivered / returned /
      * cancelled when EasyParcel reports it and the order is not already in a
      * protected state. Returns the mapped local status (or null when unmapped).
+     *
+     * @param  array<int, array{status?: string, datetime?: string, location?: string, description?: string}>  $events
+     *                                                                                                                  The courier tracking log (status_log), used as ground truth when the
+     *                                                                                                                  top-level shipment status lags reality.
      */
-    public function apply(ProductOrder $order, ?string $rawStatus, ?int $statusCode = null): ?string
+    public function apply(ProductOrder $order, ?string $rawStatus, ?int $statusCode = null, array $events = []): ?string
     {
         // The numeric code is authoritative when it carries an actionable
         // transition, but EasyParcel does not always send one — and some couriers
@@ -83,6 +87,23 @@ class EasyParcelTrackingSync
 
         if ($mapped === null) {
             $mapped = $this->mapToOrderStatus($rawStatus);
+        }
+
+        // EasyParcel's top-level shipment status can lag reality — self drop-off
+        // parcels notably stay "Schedule In Arrangement" (code 7) even after the
+        // courier has delivered. The per-event courier log is the ground truth for
+        // terminal states, so a delivered/returned/cancelled event overrides a
+        // non-terminal summary (and relabels the note to the real event).
+        if (! in_array($mapped, ['delivered', 'returned', 'cancelled'], true)) {
+            $terminal = $this->resolveTerminalFromEvents($events);
+
+            if ($terminal !== null) {
+                $mapped = $terminal['mapped'];
+
+                if (filled($terminal['label'])) {
+                    $rawStatus = $terminal['label'];
+                }
+            }
         }
 
         $displayStatus = filled($rawStatus)
@@ -255,5 +276,33 @@ class EasyParcelTrackingSync
             6 => 'returned',
             default => null,
         };
+    }
+
+    /**
+     * Scan the courier tracking log for the strongest terminal signal. Returned /
+     * cancelled supersede delivered (a parcel that came back is not "delivered"),
+     * so we never downgrade one terminal state to another.
+     *
+     * @param  array<int, array{status?: string, datetime?: string, location?: string, description?: string}>  $events
+     * @return array{mapped: string, label: string}|null
+     */
+    private function resolveTerminalFromEvents(array $events): ?array
+    {
+        $found = null;
+
+        foreach ($events as $event) {
+            $label = (string) ($event['status'] ?? $event['description'] ?? '');
+            $mapped = $this->mapToOrderStatus($label);
+
+            if (! in_array($mapped, ['delivered', 'returned', 'cancelled'], true)) {
+                continue;
+            }
+
+            if ($found === null || $mapped !== 'delivered') {
+                $found = ['mapped' => $mapped, 'label' => trim($label)];
+            }
+        }
+
+        return $found;
     }
 }
