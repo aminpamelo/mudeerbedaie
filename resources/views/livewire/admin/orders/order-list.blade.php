@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\BackfillEasyParcelTracking;
 use App\Jobs\ExportProductOrders;
 use App\Livewire\Concerns\ProvisionsOrders;
 use App\Models\ClassAssignmentApproval;
@@ -929,6 +930,26 @@ new class extends Component
         $this->dispatch('order-updated', message: 'Export started! The file will be ready shortly. Click "Download Export" when available.');
     }
 
+    public function syncAllEasyParcel(): void
+    {
+        $count = ProductOrder::query()
+            ->where('shipping_provider', 'easyparcel')
+            ->whereNotNull('tracking_id')
+            ->whereNull('delivered_at')
+            ->whereNotIn('status', ['delivered', 'cancelled', 'returned', 'refunded'])
+            ->count();
+
+        if ($count === 0) {
+            $this->dispatch('order-updated', message: 'No in-flight EasyParcel shipments to sync.');
+
+            return;
+        }
+
+        BackfillEasyParcelTracking::dispatch();
+
+        $this->dispatch('order-updated', message: "EasyParcel sync started for {$count} shipment(s). Delivered orders will update over the next few minutes.");
+    }
+
     public function checkExportReady(): void
     {
         if ($this->exportFilename && Storage::disk('local')->exists('exports/'.$this->exportFilename)) {
@@ -1854,6 +1875,14 @@ new class extends Component
                     </div>
                 </flux:button>
             @endif
+            <flux:button variant="outline" wire:click="syncAllEasyParcel" wire:loading.attr="disabled" wire:target="syncAllEasyParcel" size="sm"
+                wire:confirm="Sync all in-flight EasyParcel orders with their latest courier status? Delivered ones will be updated automatically.">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-path" class="w-4 h-4 mr-1.5" wire:loading.class="animate-spin" wire:target="syncAllEasyParcel" />
+                    <span wire:loading.remove wire:target="syncAllEasyParcel">Sync EasyParcel</span>
+                    <span wire:loading wire:target="syncAllEasyParcel">Starting...</span>
+                </div>
+            </flux:button>
             <flux:button variant="primary" :href="route('admin.orders.create')" wire:navigate>
                 <div class="flex items-center justify-center">
                     <flux:icon name="plus" class="w-4 h-4 mr-1.5" />
