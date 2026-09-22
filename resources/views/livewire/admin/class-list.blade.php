@@ -1,40 +1,55 @@
 <?php
 
-use App\Models\ClassModel;
 use App\Models\ClassCategory;
+use App\Models\ClassModel;
 use App\Models\Course;
-use App\Models\Teacher;
 use App\Models\User;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $courseFilter = '';
+
     public $statusFilter = 'active';
+
     public $classTypeFilter = '';
+
     public $categoryFilter = '';
+
     public $viewMode = 'grouped'; // 'list', 'grouped', or 'pic'
+
     public $perPage = 10;
 
     // Category assignment modal
     public $showCategoryModal = false;
+
     public $editingClassId = null;
+
     public $selectedCategoryIds = [];
 
     // Category management modal
     public $showCategoryManageModal = false;
+
     public $editingCategoryId = null;
+
     public $categoryName = '';
+
     public $categoryColor = '#6366f1';
+
     public $categoryDescription = '';
 
     // PIC assignment modal
     public $showPicModal = false;
+
     public $editingPicClassId = null;
+
     public $selectedPicIds = [];
+
     public $picSearch = '';
 
     public function updatingSearch()
@@ -90,12 +105,12 @@ new class extends Component {
             ])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('title', 'like', '%' . $this->search . '%')
+                    $q->where('title', 'like', '%'.$this->search.'%')
                         ->orWhereHas('course', function ($courseQuery) {
-                            $courseQuery->where('name', 'like', '%' . $this->search . '%');
+                            $courseQuery->where('name', 'like', '%'.$this->search.'%');
                         })
                         ->orWhereHas('teacher.user', function ($teacherQuery) {
-                            $teacherQuery->where('name', 'like', '%' . $this->search . '%');
+                            $teacherQuery->where('name', 'like', '%'.$this->search.'%');
                         });
                 });
             })
@@ -314,9 +329,22 @@ new class extends Component {
     {
         $category = ClassCategory::find($categoryId);
         if ($category) {
-            $category->update(['is_active' => !$category->is_active]);
+            $category->update(['is_active' => ! $category->is_active]);
         }
         $this->dispatch('$refresh');
+    }
+
+    public function toggleStudentVisibility($classId): void
+    {
+        $class = ClassModel::find($classId);
+        if ($class) {
+            $class->update(['is_visible_to_students' => ! $class->is_visible_to_students]);
+
+            $this->dispatch('class-visibility-toggled',
+                visible: $class->is_visible_to_students,
+                title: $class->title,
+            );
+        }
     }
 
     public function switchToManageModal(): void
@@ -333,8 +361,8 @@ new class extends Component {
             ->where('role', '!=', 'student')
             ->when($this->picSearch, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->picSearch . '%')
-                      ->orWhere('email', 'like', '%' . $this->picSearch . '%');
+                    $q->where('name', 'like', '%'.$this->picSearch.'%')
+                        ->orWhere('email', 'like', '%'.$this->picSearch.'%');
                 });
             })
             ->orderBy('name')
@@ -624,9 +652,12 @@ new class extends Component {
                                 </td>
 
                                 <td class="px-3 py-2 whitespace-nowrap">
-                                    <flux:badge size="sm" :class="$class->status_badge_class">
-                                        {{ ucfirst($class->status) }}
-                                    </flux:badge>
+                                    <div class="flex flex-col items-start gap-1.5">
+                                        <flux:badge size="sm" :class="$class->status_badge_class">
+                                            {{ ucfirst($class->status) }}
+                                        </flux:badge>
+                                        <x-class-visibility-toggle :class-model="$class" />
+                                    </div>
                                 </td>
 
                                 <td class="px-3 py-2 whitespace-nowrap">
@@ -759,9 +790,12 @@ new class extends Component {
                                         </td>
 
                                         <td class="px-3 py-2 whitespace-nowrap">
-                                            <flux:badge size="sm" :class="$class->status_badge_class">
-                                                {{ ucfirst($class->status) }}
-                                            </flux:badge>
+                                            <div class="flex flex-col items-start gap-1.5">
+                                                <flux:badge size="sm" :class="$class->status_badge_class">
+                                                    {{ ucfirst($class->status) }}
+                                                </flux:badge>
+                                                <x-class-visibility-toggle :class-model="$class" />
+                                            </div>
                                         </td>
 
                                         <td class="px-3 py-2 whitespace-nowrap">
@@ -890,9 +924,12 @@ new class extends Component {
                                         </td>
 
                                         <td class="px-3 py-2 whitespace-nowrap">
-                                            <flux:badge size="sm" :class="$class->status_badge_class">
-                                                {{ ucfirst($class->status) }}
-                                            </flux:badge>
+                                            <div class="flex flex-col items-start gap-1.5">
+                                                <flux:badge size="sm" :class="$class->status_badge_class">
+                                                    {{ ucfirst($class->status) }}
+                                                </flux:badge>
+                                                <x-class-visibility-toggle :class-model="$class" />
+                                            </div>
                                         </td>
 
                                         <td class="px-3 py-2 whitespace-nowrap">

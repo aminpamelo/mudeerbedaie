@@ -9,6 +9,7 @@ use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Livewire\Volt\Volt;
 
 uses(RefreshDatabase::class);
 
@@ -96,6 +97,19 @@ it('renders the admin class edit form with image + visibility controls', functio
         ->assertOk()
         ->assertSee('Class Image')
         ->assertSee('Show to students');
+});
+
+it('toggles student visibility inline from the admin class list', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $class = ClassModel::factory()->create(['is_visible_to_students' => true, 'status' => 'active']);
+
+    $component = Volt::actingAs($admin)->test('admin.class-list');
+
+    $component->call('toggleStudentVisibility', $class->id);
+    expect($class->fresh()->is_visible_to_students)->toBeFalse();
+
+    $component->call('toggleStudentVisibility', $class->id);
+    expect($class->fresh()->is_visible_to_students)->toBeTrue();
 });
 
 it('blocks direct access to a hidden class detail page', function () {
