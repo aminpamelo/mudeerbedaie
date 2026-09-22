@@ -4,6 +4,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new class extends Component
 {
@@ -25,10 +26,9 @@ new class extends Component
         $this->resetPage();
     }
 
-    public function getTickets()
+    protected function filteredTicketsQuery()
     {
         return Ticket::query()
-            ->with(['order', 'customer', 'assignedTo'])
             ->when($this->search, fn($q) => $q->search($this->search))
             ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->when($this->categoryFilter, fn($q) => $q->where('category', $this->categoryFilter))
@@ -36,8 +36,46 @@ new class extends Component
             ->when($this->assigneeFilter, fn($q) => $this->assigneeFilter === 'unassigned'
                 ? $q->whereNull('assigned_to')
                 : $q->where('assigned_to', $this->assigneeFilter))
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'desc');
+    }
+
+    public function getTickets()
+    {
+        return $this->filteredTicketsQuery()
+            ->with(['order', 'customer', 'assignedTo'])
             ->paginate(20);
+    }
+
+    public function export(): StreamedResponse
+    {
+        $tickets = $this->filteredTicketsQuery()
+            ->with(['order', 'customer', 'assignedTo'])
+            ->get();
+
+        $filename = 'support-tickets-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($tickets) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel renders non-ASCII names correctly
+
+            fputcsv($out, ['Ticket Number', 'Subject', 'Order', 'Customer', 'Category', 'Priority', 'Status', 'Assigned To', 'Created']);
+
+            foreach ($tickets as $ticket) {
+                fputcsv($out, [
+                    $ticket->ticket_number,
+                    $ticket->subject,
+                    $ticket->order?->order_number ?? '',
+                    $ticket->getCustomerName(),
+                    $ticket->getCategoryLabel(),
+                    ucfirst($ticket->priority),
+                    $ticket->getStatusLabel(),
+                    $ticket->assignedTo?->name ?? 'Unassigned',
+                    $ticket->created_at?->format('Y-m-d H:i') ?? '',
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     public function getStaffMembers()
@@ -69,12 +107,21 @@ new class extends Component
             <flux:heading size="xl">Support Tickets</flux:heading>
             <flux:text class="mt-2">Manage customer support tickets for orders</flux:text>
         </div>
-        <flux:button variant="primary" :href="route('admin.customer-service.tickets.create')" wire:navigate>
-            <div class="flex items-center justify-center">
-                <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                New Ticket
-            </div>
-        </flux:button>
+        <div class="flex items-center gap-2">
+            <flux:button variant="outline" wire:click="export" wire:loading.attr="disabled" wire:target="export">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-2" />
+                    <span wire:loading.remove wire:target="export">Download</span>
+                    <span wire:loading wire:target="export">Preparing...</span>
+                </div>
+            </flux:button>
+            <flux:button variant="primary" :href="route('admin.customer-service.tickets.create')" wire:navigate>
+                <div class="flex items-center justify-center">
+                    <flux:icon name="plus" class="w-4 h-4 mr-2" />
+                    New Ticket
+                </div>
+            </flux:button>
+        </div>
     </div>
 
     @php $counts = $this->getStatusCounts(); @endphp
