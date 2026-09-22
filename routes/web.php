@@ -137,6 +137,14 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Livewire\Volt\Volt;
 
+// Email open/click tracking for CRM broadcasts (public, signature-verified).
+Route::get('email/track/open/{log}', [App\Http\Controllers\EmailTrackingController::class, 'open'])
+    ->name('email.track.open')
+    ->middleware('signed');
+Route::get('email/track/click/{log}', [App\Http\Controllers\EmailTrackingController::class, 'click'])
+    ->name('email.track.click')
+    ->middleware('signed');
+
 Route::get('/', function (Request $request) {
     // Check for custom domain - serve funnel if detected
     $customDomain = $request->attributes->get('custom_domain');

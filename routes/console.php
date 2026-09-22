@@ -33,6 +33,9 @@ Schedule::command('blog:publish-scheduled')->everyMinute()->withoutOverlapping()
 // Dispatch Cekbot broadcasts whose scheduled time has arrived.
 Schedule::command('cekbot:run-broadcasts')->everyMinute()->withoutOverlapping();
 
+// Dispatch scheduled CRM email broadcasts whose time has arrived.
+Schedule::command('broadcasts:send-scheduled')->everyMinute()->withoutOverlapping();
+
 // Daily pixel installation health check on published funnels
 Schedule::command('funnel:pixel-health')->dailyAt('02:30');
 

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Broadcast;
 use App\Models\BroadcastLog;
 use App\Models\Student;
+use App\Services\Broadcast\BroadcastTrackingInjector;
 use App\Services\MergeTag\MergeTagEngine;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -22,102 +23,107 @@ class SendBroadcastEmail implements ShouldQueue
 
     public function handle(): void
     {
-        // Get all unique recipients from selected audiences
-        $recipients = $this->broadcast->recipients;
+        $broadcast = $this->broadcast;
 
-        if ($recipients->isEmpty()) {
-            $this->broadcast->update([
-                'status' => 'failed',
-                'total_failed' => $this->broadcast->total_recipients,
-            ]);
+        // Resume-safe: never re-send anyone already delivered in a prior run.
+        $alreadySent = $broadcast->logs()->where('status', 'sent')->pluck('student_id')->all();
+        $recipientIds = array_values(array_diff($broadcast->recipientStudentIds(), $alreadySent));
+
+        if (empty($recipientIds)) {
+            // Nothing left to send: either an empty audience or a completed resume.
+            $this->finalize($broadcast, empty($alreadySent) ? 'failed' : 'sent');
 
             return;
         }
 
-        $totalSent = 0;
-        $totalFailed = 0;
+        foreach (collect($recipientIds)->chunk(100) as $chunk) {
+            // Honour pause/cancel requested from the UI mid-send.
+            if (in_array($broadcast->fresh()->status, ['paused', 'cancelled'], true)) {
+                $this->syncTotals($broadcast);
 
-        // Send emails in chunks to avoid memory issues
-        $recipients->chunk(100)->each(function ($chunk) use (&$totalSent, &$totalFailed) {
-            foreach ($chunk as $student) {
-                $email = $student->user?->email;
-
-                // Skip students with no email address — the logs table requires one.
-                if (! $email) {
-                    $totalFailed++;
-                    Log::warning('SendBroadcastEmail: skipping student with no email', [
-                        'broadcast_id' => $this->broadcast->id,
-                        'student_id' => $student->id,
-                    ]);
-
-                    continue;
-                }
-
-                $log = null;
-
-                try {
-                    $log = BroadcastLog::create([
-                        'broadcast_id' => $this->broadcast->id,
-                        'student_id' => $student->id,
-                        'email' => $email,
-                        'status' => 'pending',
-                    ]);
-
-                    $content = $this->replaceMergeTags($this->broadcast->getEffectiveContent(), $student);
-                    $subject = $this->replaceMergeTags($this->broadcast->subject, $student);
-
-                    Mail::html($content, function ($message) use ($student, $email, $subject) {
-                        $message->to($email, $student->user->name)
-                            ->subject($subject)
-                            ->from($this->broadcast->from_email, $this->broadcast->from_name);
-
-                        if ($this->broadcast->reply_to_email) {
-                            $message->replyTo($this->broadcast->reply_to_email);
-                        }
-                    });
-
-                    $log->update([
-                        'status' => 'sent',
-                        'sent_at' => now(),
-                    ]);
-
-                    $totalSent++;
-                } catch (\Throwable $e) {
-                    $totalFailed++;
-
-                    Log::error('SendBroadcastEmail: failed to send', [
-                        'broadcast_id' => $this->broadcast->id,
-                        'student_id' => $student->id,
-                        'email' => $email,
-                        'log_created' => (bool) $log,
-                        'error' => $e->getMessage(),
-                    ]);
-
-                    if ($log) {
-                        $log->update([
-                            'status' => 'failed',
-                            'error_message' => $e->getMessage(),
-                        ]);
-                    } else {
-                        // Log row creation itself failed — record the failure separately so it's still visible in UI.
-                        BroadcastLog::create([
-                            'broadcast_id' => $this->broadcast->id,
-                            'student_id' => $student->id,
-                            'email' => $email,
-                            'status' => 'failed',
-                            'error_message' => $e->getMessage(),
-                        ]);
-                    }
-                }
+                return;
             }
-        });
 
-        // Update broadcast stats
-        $this->broadcast->update([
-            'status' => $totalFailed === 0 ? 'sent' : ($totalSent > 0 ? 'sent' : 'failed'),
-            'total_sent' => $totalSent,
-            'total_failed' => $totalFailed,
+            $students = Student::whereIn('id', $chunk)->with('user')->get();
+
+            foreach ($students as $student) {
+                $this->sendToStudent($broadcast, $student);
+            }
+        }
+
+        $this->finalize($broadcast, 'sent');
+    }
+
+    private function sendToStudent(Broadcast $broadcast, Student $student): void
+    {
+        $email = $student->user?->email;
+
+        if (! $email) {
+            BroadcastLog::updateOrCreate(
+                ['broadcast_id' => $broadcast->id, 'student_id' => $student->id],
+                ['email' => '', 'status' => 'failed', 'error_message' => 'No email address'],
+            );
+
+            return;
+        }
+
+        $log = BroadcastLog::updateOrCreate(
+            ['broadcast_id' => $broadcast->id, 'student_id' => $student->id],
+            ['email' => $email, 'status' => 'pending', 'error_message' => null],
+        );
+
+        try {
+            $content = $this->replaceMergeTags($broadcast->getEffectiveContent(), $student);
+            $content = app(BroadcastTrackingInjector::class)->inject($content, $log);
+            $subject = $this->replaceMergeTags($broadcast->subject, $student);
+
+            Mail::html($content, function ($message) use ($broadcast, $student, $email, $subject) {
+                $message->to($email, $student->user->name)
+                    ->subject($subject)
+                    ->from($broadcast->from_email, $broadcast->from_name);
+
+                if ($broadcast->reply_to_email) {
+                    $message->replyTo($broadcast->reply_to_email);
+                }
+            });
+
+            $log->update(['status' => 'sent', 'sent_at' => now()]);
+        } catch (\Throwable $e) {
+            Log::error('SendBroadcastEmail: failed to send', [
+                'broadcast_id' => $broadcast->id,
+                'student_id' => $student->id,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+
+            $log->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
+        }
+    }
+
+    private function finalize(Broadcast $broadcast, string $completedStatus): void
+    {
+        // A pause/cancel may have landed while the last chunk was sending.
+        if (in_array($broadcast->fresh()->status, ['paused', 'cancelled'], true)) {
+            $this->syncTotals($broadcast);
+
+            return;
+        }
+
+        $sent = $broadcast->logs()->where('status', 'sent')->count();
+
+        $broadcast->update([
+            'status' => $sent > 0 ? $completedStatus : 'failed',
+            'total_sent' => $sent,
+            'total_failed' => $broadcast->logs()->where('status', 'failed')->count(),
             'sent_at' => now(),
+        ]);
+    }
+
+    private function syncTotals(Broadcast $broadcast): void
+    {
+        $broadcast->update([
+            'total_sent' => $broadcast->logs()->where('status', 'sent')->count(),
+            'total_failed' => $broadcast->logs()->where('status', 'failed')->count(),
         ]);
     }
 

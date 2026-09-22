@@ -78,4 +78,53 @@ class Broadcast extends Model
     {
         return $this->isVisualEditor() ? ($this->html_content ?? '') : ($this->content ?? '');
     }
+
+    /**
+     * The student IDs this broadcast targets — the snapshot taken at build time,
+     * falling back to the union of its audiences' members.
+     *
+     * @return array<int, int>
+     */
+    public function recipientStudentIds(): array
+    {
+        if (! empty($this->selected_students)) {
+            return $this->selected_students;
+        }
+
+        return $this->audiences
+            ->flatMap(fn (Audience $audience) => $audience->students()->pluck('students.id')->all())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function isInProgress(): bool
+    {
+        return in_array($this->status, ['sending', 'paused'], true);
+    }
+
+    public function canPause(): bool
+    {
+        return $this->status === 'sending';
+    }
+
+    public function canResume(): bool
+    {
+        return $this->status === 'paused';
+    }
+
+    public function canCancel(): bool
+    {
+        return in_array($this->status, ['scheduled', 'sending', 'paused'], true);
+    }
+
+    public function openedCount(): int
+    {
+        return $this->logs()->whereNotNull('opened_at')->count();
+    }
+
+    public function clickedCount(): int
+    {
+        return $this->logs()->whereNotNull('clicked_at')->count();
+    }
 }
