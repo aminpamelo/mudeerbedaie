@@ -1,4 +1,4 @@
-import { Users, User } from 'lucide-react';
+import { Users, User, ShieldCheck } from 'lucide-react';
 import { cn, timeAgo, contactDisplay } from '@/cekbot-admin/lib/utils';
 
 export default function ConversationList({ conversations, selectedId, onSelect, multiSession }) {
@@ -44,9 +44,18 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
                   </span>
                 )}
               </div>
-              {multiSession && c.session && (
-                <span className="mt-1 inline-block rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-white/40">
-                  {c.session.label}
+              {(multiSession || c.session?.provider === 'cloud_api') && c.session && (
+                <span className="mt-1 flex flex-wrap items-center gap-1">
+                  {multiSession && (
+                    <span className="inline-block rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-white/40">
+                      {c.session.label}
+                    </span>
+                  )}
+                  {c.session.provider === 'cloud_api' && (
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                      <ShieldCheck className="h-2.5 w-2.5" strokeWidth={2.6} /> Rasmi
+                    </span>
+                  )}
                 </span>
               )}
             </div>

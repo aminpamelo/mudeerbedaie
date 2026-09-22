@@ -28,7 +28,7 @@ class InboxController extends Controller
         $sessionId = $request->integer('session') ?: null;
 
         $conversations = CekbotConversation::query()
-            ->with(['session:id,label,session_name,phone_number', 'handedOverBy:id,name', 'assignee:id,name'])
+            ->with(['session:id,label,session_name,phone_number,provider', 'handedOverBy:id,name', 'assignee:id,name'])
             ->active()
             ->when($sessionId, fn ($q) => $q->where('cekbot_session_id', $sessionId))
             ->orderByDesc('last_message_at')
@@ -40,12 +40,13 @@ class InboxController extends Controller
             'conversations' => $conversations,
             'sessions' => CekbotSession::query()
                 ->orderBy('label')
-                ->get(['id', 'label', 'session_name', 'phone_number', 'status'])
+                ->get(['id', 'label', 'session_name', 'phone_number', 'status', 'provider'])
                 ->map(fn (CekbotSession $s) => [
                     'id' => $s->id,
                     'label' => $s->label,
                     'phone_number' => $s->phone_number,
                     'is_working' => $s->isWorking(),
+                    'provider' => $s->provider ?: CekbotSession::PROVIDER_WAHA,
                 ]),
             'filterSessionId' => $sessionId,
             'staff' => \App\Models\User::query()
@@ -69,7 +70,7 @@ class InboxController extends Controller
             ->map(fn (CekbotMessage $m) => $this->shapeMessage($m));
 
         return response()->json([
-            'conversation' => $this->shapeConversation($conversation->load(['session:id,label,session_name,phone_number', 'handedOverBy:id,name', 'assignee:id,name'])),
+            'conversation' => $this->shapeConversation($conversation->load(['session:id,label,session_name,phone_number,provider', 'handedOverBy:id,name', 'assignee:id,name'])),
             'messages' => $messages,
             'notes' => $conversation->notes()->with('author:id,name')->latest('id')->get()->map(fn (CekbotConversationNote $n) => [
                 'id' => $n->id,
@@ -224,6 +225,7 @@ class InboxController extends Controller
                 'id' => $c->session->id,
                 'label' => $c->session->label,
                 'phone' => $c->session->phone_number,
+                'provider' => $c->session->provider ?: CekbotSession::PROVIDER_WAHA,
             ] : null,
         ];
     }

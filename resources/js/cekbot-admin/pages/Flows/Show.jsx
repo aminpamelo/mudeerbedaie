@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon, Smartphone, ShieldCheck, Server } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Field, Input, Textarea, Select, Toggle } from '@/cekbot-admin/components/Ui';
 import { buildPreview } from '@/cekbot-admin/lib/flowPreview';
-import { cn } from '@/cekbot-admin/lib/utils';
+import { cn, formatPhone } from '@/cekbot-admin/lib/utils';
 
 /** Render WhatsApp-style *bold* segments. */
 function WaText({ text }) {
@@ -176,7 +176,7 @@ export default function Show() {
   return (
     <CekbotLayout
       title={data.name || 'Flow'}
-      subtitle={`Funnel untuk ${flow.session_label ?? 'nombor ini'}`}
+      subtitle={`Funnel untuk ${flow.session_label ?? 'nombor ini'}${flow.session_phone ? ` · ${formatPhone(flow.session_phone)}` : ''}`}
       actions={
         <>
           <Button variant="ghost" href={route('cekbot.flows')}><ArrowLeft className="h-4 w-4" /> Kembali</Button>
@@ -189,6 +189,35 @@ export default function Show() {
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
         {/* Builder */}
         <form onSubmit={save} className="space-y-5">
+          {/* Which WhatsApp number this funnel runs on. */}
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3.5">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-500/12 text-emerald-300">
+              <Smartphone className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[13px] font-semibold text-white">{flow.session_label ?? 'Nombor tidak diketahui'}</p>
+                {flow.session_provider === 'cloud_api' ? (
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                    <ShieldCheck className="h-2.5 w-2.5" strokeWidth={2.6} /> WhatsApp Rasmi
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] font-semibold text-white/50">
+                    <Server className="h-2.5 w-2.5" strokeWidth={2.6} /> WAHA
+                  </span>
+                )}
+                {flow.session_is_working ? (
+                  <span className="inline-block rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">Bersambung</span>
+                ) : (
+                  <span className="inline-block rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">Belum bersambung</span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[12px] text-white/45">
+                {flow.session_phone ? formatPhone(flow.session_phone) : 'Nombor belum dipautkan'} — funnel ini berjalan pada nombor WhatsApp ini.
+              </p>
+            </div>
+          </div>
+
           <SectionCard icon={Workflow} title="Asas & pencetus" hint="Bila flow ini bermula.">
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3.5">

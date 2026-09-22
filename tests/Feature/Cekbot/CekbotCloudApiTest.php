@@ -198,6 +198,22 @@ it('routes a shared Meta app webhook to Cekbot when the number is a cloud number
         ->and(WhatsAppMessage::query()->count())->toBe(0);
 });
 
+it('shows an official (cloud) conversation in the Cekbot inbox flagged as cloud_api', function () {
+    fakeGraphOk();
+    $session = cloudSession();
+    enableBotFor($session, ['default_reply' => 'ok']);
+
+    $this->postJson('/api/cekbot/cloud/webhook', cloudInboundPayload('PNID123', 'hello'))->assertOk();
+
+    $this->actingAs($this->admin)
+        ->get('/admin/cekbot/inbox')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Inbox/Index', false)
+            ->where('conversations.0.name', 'Ali')
+            ->where('conversations.0.session.provider', 'cloud_api'));
+});
+
 it('creates a cloud number and auto-generates a verify token', function () {
     $this->actingAs($this->admin)
         ->post(route('cekbot.sessions.store'), [

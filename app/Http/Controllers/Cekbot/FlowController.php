@@ -32,6 +32,7 @@ class FlowController extends Controller
                 'label' => $session->label,
                 'phone_number' => $session->phone_number,
                 'is_working' => $session->isWorking(),
+                'provider' => $session->provider ?: CekbotSession::PROVIDER_WAHA,
                 'flows' => $session->flows->map(fn (CekbotFlow $flow) => [
                     'id' => $flow->id,
                     'name' => $flow->name,
@@ -240,6 +241,9 @@ class FlowController extends Controller
             'id' => $flow->id,
             'cekbot_session_id' => $flow->cekbot_session_id,
             'session_label' => $flow->session?->label,
+            'session_phone' => $flow->session?->phone_number,
+            'session_provider' => $flow->session?->provider ?: CekbotSession::PROVIDER_WAHA,
+            'session_is_working' => (bool) $flow->session?->isWorking(),
             'name' => $flow->name,
             'is_active' => $flow->is_active,
             'use_ai' => $flow->use_ai,

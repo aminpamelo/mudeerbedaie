@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Workflow, Pencil, Trash2, ShoppingBag, Sparkles, List } from 'lucide-react';
+import { Plus, Workflow, Pencil, Trash2, ShoppingBag, Sparkles, List, ShieldCheck } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Badge, Field, Input, Toggle, EmptyState, Modal } from '@/cekbot-admin/components/Ui';
 import { cn } from '@/cekbot-admin/lib/utils';
@@ -150,10 +150,11 @@ export default function Index() {
               type="button"
               onClick={() => setSelectedId(s.id)}
               className={cn(
-                'rounded-xl px-3.5 py-2 text-[13px] font-semibold transition-colors',
+                'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold transition-colors',
                 s.id === selected?.id ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20' : 'bg-white/5 text-white/60 hover:bg-white/10'
               )}
             >
+              {s.provider === 'cloud_api' && <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" strokeWidth={2.4} />}
               {s.label}
             </button>
           ))}

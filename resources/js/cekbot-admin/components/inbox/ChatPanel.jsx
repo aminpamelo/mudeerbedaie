@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Send, Loader2, Check, CheckCheck, User, Users, Bot } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Check, CheckCheck, User, Users, Bot, ShieldCheck } from 'lucide-react';
 import { cn, clockTime, formatPhone, contactDisplay, mediaLabel } from '@/cekbot-admin/lib/utils';
 import ConversationTools from '@/cekbot-admin/components/inbox/ConversationTools';
 
@@ -100,7 +100,14 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
           {conversation.is_group ? <Users className="h-4 w-4" /> : <User className="h-4 w-4" />}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-semibold text-white">{title}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-[14px] font-semibold text-white">{title}</p>
+            {conversation.session?.provider === 'cloud_api' && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                <ShieldCheck className="h-2.5 w-2.5" strokeWidth={2.6} /> Rasmi
+              </span>
+            )}
+          </div>
           <p className="truncate text-[11.5px] text-white/40">
             {[subPhone, conversation.session?.label].filter(Boolean).join(' · ') || '—'}
           </p>
