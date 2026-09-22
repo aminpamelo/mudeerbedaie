@@ -114,6 +114,14 @@ class Order extends Model
                 $order->order_number = self::generateOrderNumber();
             }
         });
+
+        // Credit an email-broadcast conversion when a course/subscription order
+        // settles (best-effort — the service swallows its own errors).
+        static::updated(function (Order $order): void {
+            if ($order->wasChanged('status') && $order->status === 'paid') {
+                app(\App\Services\Broadcast\BroadcastConversionService::class)->attributeCourseOrder($order);
+            }
+        });
     }
 
     // Relationships

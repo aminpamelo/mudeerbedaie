@@ -41,6 +41,11 @@ class EmailTrackingController extends Controller
 
         $log->markClicked();
 
-        return redirect()->away($target);
+        // Remember which broadcast recipient this browser is, so a same-domain
+        // purchase within the next 30 days can be attributed to this campaign
+        // (high-confidence "clicked" attribution). Cross-domain / different-device
+        // purchases are still caught later by recipient matching.
+        return redirect()->away($target)
+            ->withCookie(cookie('bcast_ref', (string) $log->id, 60 * 24 * 30));
     }
 }

@@ -156,11 +156,18 @@ new class extends Component {
             ->where('broadcast_id', $this->broadcast->id)
             ->groupBy('student_id');
 
+        // Purchases attributed to this campaign, summed per recipient.
+        $conversions = DB::table('broadcast_conversions')
+            ->selectRaw('student_id, SUM(amount) as conv_revenue, COUNT(*) as conv_orders')
+            ->where('broadcast_id', $this->broadcast->id)
+            ->groupBy('student_id');
+
         $query = Student::query()
             ->whereIn('students.id', $ids)
             ->leftJoin('users', 'users.id', '=', 'students.user_id')
             ->leftJoinSub($latestLogs, 'latest', 'latest.student_id', '=', 'students.id')
             ->leftJoin('broadcast_logs', 'broadcast_logs.id', '=', 'latest.max_id')
+            ->leftJoinSub($conversions, 'conv', 'conv.student_id', '=', 'students.id')
             ->select([
                 'students.id',
                 'students.student_id',
@@ -171,6 +178,8 @@ new class extends Component {
                 'broadcast_logs.opened_at as delivery_opened_at',
                 'broadcast_logs.clicked_at as delivery_clicked_at',
                 'broadcast_logs.error_message as delivery_error',
+                'conv.conv_revenue as conv_revenue',
+                'conv.conv_orders as conv_orders',
             ]);
 
         if ($this->recipientSearch !== '') {
@@ -208,6 +217,9 @@ new class extends Component {
         $total = (int) ($this->broadcast->total_recipients ?: count($this->broadcast->recipientStudentIds()));
         $queued = max(0, $total - $sent - $failed - $skipped);
 
+        $orders = $this->broadcast->conversions()->count();
+        $revenue = (float) $this->broadcast->conversions()->sum('amount');
+
         return [
             'recipients' => $this->recipientsQuery()->paginate(20),
             'audiences' => $this->broadcast->audiences()->withCount('students')->get(),
@@ -219,9 +231,12 @@ new class extends Component {
                 'clicked' => $clicked,
                 'queued' => $queued,
                 'skipped' => $skipped,
+                'orders' => $orders,
+                'revenue' => $revenue,
                 'open_rate' => $sent > 0 ? round($opened / $sent * 100, 1) : 0.0,
                 'click_rate' => $sent > 0 ? round($clicked / $sent * 100, 1) : 0.0,
                 'sent_rate' => $total > 0 ? round($sent / $total * 100, 1) : 0.0,
+                'conversion_rate' => $sent > 0 ? round($orders / $sent * 100, 1) : 0.0,
                 'processed_pct' => $total > 0 ? min(100, round(($sent + $failed) / $total * 100)) : 0,
             ],
         ];
@@ -520,6 +535,34 @@ new class extends Component {
         @endphp
 
         <div class="space-y-5">
+            <!-- Revenue attributed to this campaign -->
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"><flux:icon name="shopping-bag" class="h-4 w-4" /></span>
+                        <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Orders</p>
+                    </div>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ number_format($metrics['orders']) }}</p>
+                    <p class="text-[11px] text-zinc-400 dark:text-zinc-500">attributed purchases</p>
+                </div>
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/10">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><flux:icon name="banknotes" class="h-4 w-4" /></span>
+                        <p class="text-[11px] font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Revenue</p>
+                    </div>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">RM{{ number_format($metrics['revenue'], 2) }}</p>
+                    <p class="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">from this blast</p>
+                </div>
+                <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"><flux:icon name="cursor-arrow-rays" class="h-4 w-4" /></span>
+                        <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conversion</p>
+                    </div>
+                    <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $metrics['conversion_rate'] }}%</p>
+                    <p class="text-[11px] text-zinc-400 dark:text-zinc-500">of sent purchased</p>
+                </div>
+            </div>
+
             <!-- Delivery breakdown -->
             <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -604,6 +647,7 @@ new class extends Component {
                                 <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Delivery</th>
                                 <th class="px-4 py-2.5 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Opened</th>
                                 <th class="px-4 py-2.5 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Clicked</th>
+                                <th class="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Purchased</th>
                                 <th class="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Action</th>
                             </tr>
                         </thead>
@@ -654,6 +698,15 @@ new class extends Component {
                                             <span class="text-zinc-300 dark:text-zinc-600">—</span>
                                         @endif
                                     </td>
+                                    <td class="px-4 py-2.5 whitespace-nowrap text-right">
+                                        @if((int) ($r->conv_orders ?? 0) > 0)
+                                            <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" title="{{ $r->conv_orders }} order(s)">
+                                                RM{{ number_format((float) $r->conv_revenue, 2) }}
+                                            </span>
+                                        @else
+                                            <span class="text-zinc-300 dark:text-zinc-600">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2.5 text-right">
                                         @if($canResendRow)
                                             <button type="button" wire:click="resendOne({{ $r->id }})" wire:loading.attr="disabled" wire:target="resendOne" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">
@@ -667,7 +720,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-4 py-16 text-center">
+                                    <td colspan="8" class="px-4 py-16 text-center">
                                         <flux:icon name="chart-bar" class="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
                                         <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">No recipients found</p>
                                         <p class="mt-1 text-[13px] text-zinc-400 dark:text-zinc-500">

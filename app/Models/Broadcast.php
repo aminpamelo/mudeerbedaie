@@ -54,6 +54,11 @@ class Broadcast extends Model
         return $this->hasMany(BroadcastLog::class);
     }
 
+    public function conversions(): HasMany
+    {
+        return $this->hasMany(BroadcastConversion::class);
+    }
+
     public function getRecipientsAttribute(): \Illuminate\Support\Collection
     {
         // Use selected students if available, otherwise use all students from audiences

@@ -131,6 +131,21 @@ class ProductOrder extends Model
         ];
     }
 
+    /**
+     * Credit an email-broadcast conversion the moment an order settles. Every
+     * payment path (Stripe, Bayarcash/FPX, COD, manual) ends by saving the order
+     * with payment_status 'paid', so this one hook covers them all. Best-effort —
+     * the service swallows its own errors so it can never break a payment.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (ProductOrder $order): void {
+            if ($order->wasChanged('payment_status') && $order->payment_status === 'paid') {
+                app(\App\Services\Broadcast\BroadcastConversionService::class)->attributeProductOrder($order);
+            }
+        });
+    }
+
     protected $appends = ['receipt_attachment_url'];
 
     public function getReceiptAttachmentUrlAttribute(): ?string
