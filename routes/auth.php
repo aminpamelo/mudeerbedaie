@@ -24,6 +24,13 @@ Route::middleware('guest')->group(function () {
     Volt::route('fighter/login', 'auth.fighter-login')
         ->name('fighter.login');
 
+    // Dedicated Student sign-in surface. Same auth backend as `login`, with a
+    // light, BeDaie-themed UI matching the student portal (/my). Any role can
+    // sign in; the `dashboard` route re-routes by role afterwards, so a
+    // student lands on /my and anyone else on their usual dashboard.
+    Volt::route('student/login', 'auth.student-login')
+        ->name('student-login');
+
     // Registration disabled — accounts are created manually by admin
     // Volt::route('register', 'auth.register')
     //     ->name('register');
