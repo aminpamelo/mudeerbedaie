@@ -25,13 +25,13 @@ class SendBroadcastEmail implements ShouldQueue
     {
         $broadcast = $this->broadcast;
 
-        // Resume-safe: never re-send anyone already delivered in a prior run.
-        $alreadySent = $broadcast->logs()->where('status', 'sent')->pluck('student_id')->all();
-        $recipientIds = array_values(array_diff($broadcast->recipientStudentIds(), $alreadySent));
+        // Resume-safe: never re-process anyone already delivered or skipped.
+        $done = $broadcast->logs()->whereIn('status', ['sent', 'skipped'])->pluck('student_id')->all();
+        $recipientIds = array_values(array_diff($broadcast->recipientStudentIds(), $done));
 
         if (empty($recipientIds)) {
             // Nothing left to send: either an empty audience or a completed resume.
-            $this->finalize($broadcast, empty($alreadySent) ? 'failed' : 'sent');
+            $this->finalize($broadcast, empty($done) ? 'failed' : 'sent');
 
             return;
         }
@@ -62,6 +62,15 @@ class SendBroadcastEmail implements ShouldQueue
             BroadcastLog::updateOrCreate(
                 ['broadcast_id' => $broadcast->id, 'student_id' => $student->id],
                 ['email' => '', 'status' => 'failed', 'error_message' => 'No email address'],
+            );
+
+            return;
+        }
+
+        if ($this->isUndeliverablePlaceholder($email)) {
+            BroadcastLog::updateOrCreate(
+                ['broadcast_id' => $broadcast->id, 'student_id' => $student->id],
+                ['email' => $email, 'status' => 'skipped', 'error_message' => 'Placeholder email ('.$email.') — not sent'],
             );
 
             return;
@@ -98,6 +107,17 @@ class SendBroadcastEmail implements ShouldQueue
 
             $log->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Reserved example domains never accept mail — they are used as placeholders
+     * for imported contacts with no real email, so sending would only bounce.
+     */
+    private function isUndeliverablePlaceholder(string $email): bool
+    {
+        $domain = strtolower(substr(strrchr($email, '@') ?: '@', 1));
+
+        return in_array($domain, ['example.com', 'example.net', 'example.org'], true);
     }
 
     private function finalize(Broadcast $broadcast, string $completedStatus): void

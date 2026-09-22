@@ -149,13 +149,13 @@ it('does not send or log anything when the campaign is cancelled', function () {
 });
 
 it('is resume-safe and never re-processes an already-sent recipient', function () {
-    $s1 = bcStudent('s1@example.com');
-    $s2 = bcStudent('s2@example.com');
+    $s1 = bcStudent('s1@gmail.com');
+    $s2 = bcStudent('s2@gmail.com');
     $b = bcBroadcast(['status' => 'sending', 'selected_students' => [$s1->id, $s2->id], 'total_recipients' => 2]);
 
     // s1 delivered in a prior run — its log must be left completely untouched.
     BroadcastLog::create([
-        'broadcast_id' => $b->id, 'student_id' => $s1->id, 'email' => 's1@example.com',
+        'broadcast_id' => $b->id, 'student_id' => $s1->id, 'email' => 's1@gmail.com',
         'status' => 'sent', 'sent_at' => Carbon::parse('2026-01-01 10:00:00'),
     ]);
 
@@ -181,6 +181,27 @@ it('injects open and click tracking into email html', function () {
     expect($html)->toContain('email/track/open')                 // open pixel appended
         ->and($html)->toContain('email/track/click')             // link wrapped
         ->and($html)->not->toContain('href="https://example.com/go"'); // original link rewritten
+});
+
+it('skips undeliverable placeholder emails instead of sending them', function () {
+    $real = bcStudent('real@gmail.com');
+    $placeholder = bcStudent('student60123456@example.com');
+    $b = bcBroadcast(['status' => 'sending', 'selected_students' => [$real->id, $placeholder->id], 'total_recipients' => 2]);
+
+    SendBroadcastEmail::dispatchSync($b);
+
+    expect(BroadcastLog::where('student_id', $placeholder->id)->first()->status)->toBe('skipped')
+        ->and(BroadcastLog::where('student_id', $real->id)->first()->status)->toBe('sent');
+});
+
+it('treats example.net and example.org as placeholders too', function () {
+    $net = bcStudent('x@example.net');
+    $org = bcStudent('y@example.org');
+    $b = bcBroadcast(['status' => 'sending', 'selected_students' => [$net->id, $org->id], 'total_recipients' => 2]);
+
+    SendBroadcastEmail::dispatchSync($b);
+
+    expect(BroadcastLog::where('status', 'skipped')->count())->toBe(2);
 });
 
 /*

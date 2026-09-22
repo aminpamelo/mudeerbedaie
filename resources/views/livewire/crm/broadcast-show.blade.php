@@ -115,6 +115,7 @@ new class extends Component {
         match ($this->recipientFilter) {
             'sent' => $query->where('broadcast_logs.status', 'sent'),
             'failed' => $query->where('broadcast_logs.status', 'failed'),
+            'skipped' => $query->where('broadcast_logs.status', 'skipped'),
             'opened' => $query->whereNotNull('broadcast_logs.opened_at'),
             'clicked' => $query->whereNotNull('broadcast_logs.clicked_at'),
             'queued' => $query->where(fn ($w) => $w->whereNull('broadcast_logs.status')->orWhere('broadcast_logs.status', 'pending')),
@@ -131,10 +132,11 @@ new class extends Component {
     {
         $sent = $this->broadcast->logs()->where('status', 'sent')->distinct()->count('student_id');
         $failed = $this->broadcast->logs()->where('status', 'failed')->distinct()->count('student_id');
+        $skipped = $this->broadcast->logs()->where('status', 'skipped')->distinct()->count('student_id');
         $opened = $this->broadcast->logs()->whereNotNull('opened_at')->distinct()->count('student_id');
         $clicked = $this->broadcast->logs()->whereNotNull('clicked_at')->distinct()->count('student_id');
         $total = (int) ($this->broadcast->total_recipients ?: count($this->broadcast->recipientStudentIds()));
-        $queued = max(0, $total - $sent - $failed);
+        $queued = max(0, $total - $sent - $failed - $skipped);
 
         return [
             'recipients' => $this->recipientsQuery()->paginate(20),
@@ -146,6 +148,7 @@ new class extends Component {
                 'opened' => $opened,
                 'clicked' => $clicked,
                 'queued' => $queued,
+                'skipped' => $skipped,
                 'open_rate' => $sent > 0 ? round($opened / $sent * 100, 1) : 0.0,
                 'click_rate' => $sent > 0 ? round($clicked / $sent * 100, 1) : 0.0,
                 'sent_rate' => $total > 0 ? round($sent / $total * 100, 1) : 0.0,
@@ -273,7 +276,7 @@ new class extends Component {
     <!-- KPI Cards -->
     @php
         $cards = [
-            ['label' => 'Recipients', 'value' => number_format($metrics['total']), 'sub' => null, 'icon' => 'users', 'chip' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'],
+            ['label' => 'Recipients', 'value' => number_format($metrics['total']), 'sub' => $metrics['skipped'] > 0 ? number_format($metrics['skipped']).' skipped (invalid)' : null, 'icon' => 'users', 'chip' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'],
             ['label' => 'Sent', 'value' => number_format($metrics['sent']), 'sub' => $metrics['sent_rate'].'% of recipients', 'icon' => 'paper-airplane', 'chip' => 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'],
             ['label' => 'Opened', 'value' => number_format($metrics['opened']), 'sub' => $metrics['open_rate'].'% open rate', 'icon' => 'envelope-open', 'chip' => 'bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400'],
             ['label' => 'Clicked', 'value' => number_format($metrics['clicked']), 'sub' => $metrics['click_rate'].'% click rate', 'icon' => 'cursor-arrow-rays', 'chip' => 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'],
@@ -331,6 +334,7 @@ new class extends Component {
                         <flux:select.option value="opened">Opened ({{ number_format($metrics['opened']) }})</flux:select.option>
                         <flux:select.option value="clicked">Clicked ({{ number_format($metrics['clicked']) }})</flux:select.option>
                         <flux:select.option value="failed">Failed ({{ number_format($metrics['failed']) }})</flux:select.option>
+                        <flux:select.option value="skipped">Skipped ({{ number_format($metrics['skipped']) }})</flux:select.option>
                         <flux:select.option value="queued">Queued ({{ number_format($metrics['queued']) }})</flux:select.option>
                     </flux:select>
                 </div>
@@ -355,6 +359,7 @@ new class extends Component {
                                 $deliveryStyle = match($delivery) {
                                     'sent' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
                                     'failed' => 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                                    'skipped' => 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
                                     'pending' => 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
                                     default => 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
                                 };
@@ -370,9 +375,9 @@ new class extends Component {
                                 <td class="px-4 py-2.5 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-300">{{ $r->user_email ?? '—' }}</td>
                                 <td class="px-4 py-2.5 whitespace-nowrap">
                                     <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {{ $deliveryStyle }}">{{ $deliveryLabel }}</span>
-                                    @if($delivery === 'failed' && $r->delivery_error)
+                                    @if(in_array($delivery, ['failed', 'skipped'], true) && $r->delivery_error)
                                         <flux:tooltip content="{{ $r->delivery_error }}">
-                                            <flux:icon name="information-circle" class="ml-1 inline h-3.5 w-3.5 text-red-400" />
+                                            <flux:icon name="information-circle" class="ml-1 inline h-3.5 w-3.5 {{ $delivery === 'failed' ? 'text-red-400' : 'text-orange-400' }}" />
                                         </flux:tooltip>
                                     @endif
                                 </td>
