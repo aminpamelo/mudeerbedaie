@@ -16,7 +16,12 @@ class SendBroadcastEmail implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public Broadcast $broadcast)
+    /**
+     * @param  array<int, int>|null  $onlyStudentIds  When set, (re)send to just
+     *                                                these recipients — used by the
+     *                                                report's per-row / bulk resend.
+     */
+    public function __construct(public Broadcast $broadcast, public ?array $onlyStudentIds = null)
     {
         //
     }
@@ -24,6 +29,14 @@ class SendBroadcastEmail implements ShouldQueue
     public function handle(): void
     {
         $broadcast = $this->broadcast;
+
+        // Targeted resend: (re)send to an explicit subset regardless of their
+        // prior outcome, without touching the campaign's overall completion state.
+        if ($this->onlyStudentIds !== null) {
+            $this->resendTo($broadcast, $this->onlyStudentIds);
+
+            return;
+        }
 
         // Resume-safe: never re-process anyone already delivered or skipped.
         $done = $broadcast->logs()->whereIn('status', ['sent', 'skipped'])->pluck('student_id')->all();
@@ -52,6 +65,33 @@ class SendBroadcastEmail implements ShouldQueue
         }
 
         $this->finalize($broadcast, 'sent');
+    }
+
+    /**
+     * (Re)send to an explicit subset of the campaign's recipients. Unlike a
+     * normal run this ignores the "already sent/skipped" guard so a delivered or
+     * failed recipient can be sent again, and it never flips the broadcast's own
+     * status — it only refreshes the per-recipient logs and totals.
+     *
+     * @param  array<int, int>  $studentIds
+     */
+    private function resendTo(Broadcast $broadcast, array $studentIds): void
+    {
+        // Constrain to genuine targets so the report can never email someone
+        // outside the campaign's audience.
+        $ids = array_values(array_intersect(
+            array_map('intval', $broadcast->recipientStudentIds()),
+            array_map('intval', $studentIds),
+        ));
+
+        if (empty($ids)) {
+            return;
+        }
+
+        Student::whereIn('id', $ids)->with('user')->get()
+            ->each(fn (Student $student) => $this->sendToStudent($broadcast, $student));
+
+        $this->syncTotals($broadcast);
     }
 
     private function sendToStudent(Broadcast $broadcast, Student $student): void

@@ -16,6 +16,9 @@ new class extends Component {
     public string $recipientFilter = '';
     public ?string $flash = null;
 
+    /** @var array<int, string> selected student ids for bulk resend (Report tab) */
+    public array $selected = [];
+
     public function mount(Broadcast $broadcast): void
     {
         $this->broadcast = $broadcast;
@@ -24,17 +27,84 @@ new class extends Component {
     public function updatingRecipientSearch(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function updatingRecipientFilter(): void
     {
         $this->resetPage();
+        $this->selected = [];
     }
 
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
+        $this->selected = [];
         $this->resetPage();
+    }
+
+    /**
+     * Re-queue the campaign email to a single recipient (per-row action).
+     */
+    public function resendOne(int $studentId): void
+    {
+        SendBroadcastEmail::dispatch($this->broadcast, [$studentId]);
+        $this->flash = 'Email re-queued to that recipient.';
+    }
+
+    /**
+     * Re-queue the campaign email to every checked recipient (bulk action).
+     */
+    public function resendSelected(): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $this->selected)));
+
+        if (empty($ids)) {
+            $this->flash = 'Select at least one recipient to resend.';
+
+            return;
+        }
+
+        SendBroadcastEmail::dispatch($this->broadcast, $ids);
+        $this->flash = count($ids).' email'.(count($ids) === 1 ? '' : 's').' re-queued.';
+        $this->selected = [];
+    }
+
+    /**
+     * Re-queue the campaign email to everyone who previously failed.
+     */
+    public function resendFailed(): void
+    {
+        $ids = $this->broadcast->logs()
+            ->where('status', 'failed')
+            ->pluck('student_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($ids)) {
+            $this->flash = 'No failed recipients to resend.';
+
+            return;
+        }
+
+        SendBroadcastEmail::dispatch($this->broadcast, $ids);
+        $this->flash = count($ids).' failed email'.(count($ids) === 1 ? '' : 's').' re-queued.';
+        $this->selected = [];
+    }
+
+    /**
+     * Toggle selection of every recipient on the current page.
+     */
+    public function toggleSelectPage(): void
+    {
+        $pageIds = $this->recipientsQuery()->paginate(20)->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $allSelected = ! empty($pageIds) && count(array_intersect($pageIds, $this->selected)) === count($pageIds);
+
+        $this->selected = $allSelected
+            ? array_values(array_diff($this->selected, $pageIds))
+            : array_values(array_unique(array_merge($this->selected, $pageIds)));
     }
 
     public function pause(): void
@@ -303,7 +373,7 @@ new class extends Component {
     <!-- Tabs -->
     <div class="mb-5 border-b border-zinc-200 dark:border-zinc-700">
         <nav class="-mb-px flex gap-6">
-            @foreach(['recipients' => 'Recipients', 'overview' => 'Overview', 'content' => 'Content'] as $tab => $label)
+            @foreach(['recipients' => 'Recipients', 'report' => 'Report', 'overview' => 'Overview', 'content' => 'Content'] as $tab => $label)
                 <button
                     wire:click="setTab('{{ $tab }}')"
                     class="cursor-pointer border-b-2 px-1 py-3 text-sm font-medium transition-colors {{ $activeTab === $tab ? 'border-emerald-500 text-zinc-900 dark:border-emerald-400 dark:text-zinc-100' : 'border-transparent text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300' }}"
@@ -312,7 +382,7 @@ new class extends Component {
                     @if($tab === 'recipients')
                         <span class="ml-1 tabular-nums text-zinc-400">{{ number_format($metrics['total']) }}</span>
                     @endif
-                    @if($tab === 'recipients' && $metrics['failed'] > 0)
+                    @if(in_array($tab, ['recipients', 'report'], true) && $metrics['failed'] > 0)
                         <span class="ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">{{ $metrics['failed'] }}</span>
                     @endif
                 </button>
@@ -432,6 +502,194 @@ new class extends Component {
                     {{ $recipients->links() }}
                 </div>
             @endif
+        </div>
+    @endif
+
+    <!-- Report -->
+    @if($activeTab === 'report')
+        @php
+            $totalForBar = max(1, $metrics['total']);
+            $segments = [
+                ['label' => 'Sent', 'count' => $metrics['sent'], 'bar' => 'bg-emerald-500', 'dot' => 'bg-emerald-500'],
+                ['label' => 'Failed', 'count' => $metrics['failed'], 'bar' => 'bg-red-500', 'dot' => 'bg-red-500'],
+                ['label' => 'Skipped', 'count' => $metrics['skipped'], 'bar' => 'bg-orange-400', 'dot' => 'bg-orange-400'],
+                ['label' => 'Queued', 'count' => $metrics['queued'], 'bar' => 'bg-zinc-300 dark:bg-zinc-600', 'dot' => 'bg-zinc-300 dark:bg-zinc-600'],
+            ];
+            $pageIds = $recipients->pluck('id')->map(fn ($i) => (string) $i)->all();
+            $pageAllSelected = ! empty($pageIds) && count(array_intersect($pageIds, $selected)) === count($pageIds);
+        @endphp
+
+        <div class="space-y-5">
+            <!-- Delivery breakdown -->
+            <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Delivery breakdown</h3>
+                    <div class="flex items-center gap-4 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        <span>Open rate <span class="font-semibold text-sky-600 dark:text-sky-400">{{ $metrics['open_rate'] }}%</span></span>
+                        <span>Click rate <span class="font-semibold text-violet-600 dark:text-violet-400">{{ $metrics['click_rate'] }}%</span></span>
+                    </div>
+                </div>
+                <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                    @foreach($segments as $s)
+                        @if($s['count'] > 0)
+                            <div class="{{ $s['bar'] }}" style="width: {{ round($s['count'] / $totalForBar * 100, 2) }}%" title="{{ $s['label'] }}: {{ number_format($s['count']) }}"></div>
+                        @endif
+                    @endforeach
+                </div>
+                <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+                    @foreach($segments as $s)
+                        <span class="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                            <span class="h-2 w-2 rounded-full {{ $s['dot'] }}"></span>
+                            {{ $s['label'] }}
+                            <span class="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ number_format($s['count']) }}</span>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+
+            <!-- Actionable recipient report -->
+            <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="flex flex-col gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="relative sm:w-72">
+                        <flux:input wire:model.live.debounce.300ms="recipientSearch" placeholder="Search name, email or ID…" icon="magnifying-glass" size="sm" clearable />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-44">
+                            <flux:select wire:model.live="recipientFilter" size="sm">
+                                <flux:select.option value="">All ({{ number_format($metrics['total']) }})</flux:select.option>
+                                <flux:select.option value="sent">Sent ({{ number_format($metrics['sent']) }})</flux:select.option>
+                                <flux:select.option value="opened">Opened ({{ number_format($metrics['opened']) }})</flux:select.option>
+                                <flux:select.option value="clicked">Clicked ({{ number_format($metrics['clicked']) }})</flux:select.option>
+                                <flux:select.option value="failed">Failed ({{ number_format($metrics['failed']) }})</flux:select.option>
+                                <flux:select.option value="skipped">Skipped ({{ number_format($metrics['skipped']) }})</flux:select.option>
+                                <flux:select.option value="queued">Queued ({{ number_format($metrics['queued']) }})</flux:select.option>
+                            </flux:select>
+                        </div>
+                        @if($metrics['failed'] > 0)
+                            <flux:button size="sm" variant="outline" wire:click="resendFailed" wire:confirm="Resend the campaign email to all {{ number_format($metrics['failed']) }} failed recipient(s)?" wire:loading.attr="disabled" wire:target="resendFailed">
+                                <div class="flex items-center justify-center text-red-600 dark:text-red-400">
+                                    <flux:icon name="arrow-path" class="mr-1.5 h-4 w-4" />
+                                    Resend all failed
+                                </div>
+                            </flux:button>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Bulk action bar -->
+                @if(count($selected) > 0)
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-900/40 dark:bg-emerald-900/15">
+                        <span class="text-sm font-medium text-emerald-800 dark:text-emerald-300">{{ count($selected) }} selected</span>
+                        <div class="flex items-center gap-2">
+                            <flux:button size="sm" variant="primary" wire:click="resendSelected" wire:confirm="Resend the campaign email to the {{ count($selected) }} selected recipient(s)?" wire:loading.attr="disabled" wire:target="resendSelected">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="arrow-path" class="mr-1.5 h-4 w-4" />
+                                    Resend selected
+                                </div>
+                            </flux:button>
+                            <flux:button size="sm" variant="ghost" wire:click="$set('selected', [])">Clear</flux:button>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="overflow-x-auto" wire:loading.class.delay="opacity-60">
+                    <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+                            <tr>
+                                <th class="w-10 px-4 py-2.5 text-left">
+                                    <input type="checkbox" wire:click="toggleSelectPage" @checked($pageAllSelected) class="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-600 dark:bg-zinc-800" aria-label="Select page" />
+                                </th>
+                                <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Client</th>
+                                <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Email</th>
+                                <th class="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Delivery</th>
+                                <th class="px-4 py-2.5 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Opened</th>
+                                <th class="px-4 py-2.5 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Clicked</th>
+                                <th class="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            @forelse($recipients as $r)
+                                @php
+                                    $delivery = $r->delivery_status ?? 'queued';
+                                    $deliveryStyle = match($delivery) {
+                                        'sent' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                                        'failed' => 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                                        'skipped' => 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+                                        'pending' => 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                                        default => 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+                                    };
+                                    $deliveryLabel = $delivery === 'pending' ? 'Queued' : ucfirst($delivery);
+                                    $canResendRow = in_array($delivery, ['sent', 'failed', 'skipped'], true);
+                                @endphp
+                                <tr wire:key="report-{{ $r->id }}" class="transition-colors hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 {{ in_array((string) $r->id, $selected, true) ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : '' }}">
+                                    <td class="px-4 py-2.5">
+                                        <input type="checkbox" value="{{ $r->id }}" wire:model.live="selected" class="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-600 dark:bg-zinc-800" aria-label="Select recipient" />
+                                    </td>
+                                    <td class="px-4 py-2.5 whitespace-nowrap">
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $r->user_name ?? 'Unknown' }}</p>
+                                        @if($r->student_id)
+                                            <p class="text-xs text-zinc-400 dark:text-zinc-500">ID: {{ $r->student_id }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2.5 whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-300">{{ $r->user_email ?? '—' }}</td>
+                                    <td class="px-4 py-2.5 whitespace-nowrap">
+                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {{ $deliveryStyle }}">{{ $deliveryLabel }}</span>
+                                        @if(in_array($delivery, ['failed', 'skipped'], true) && $r->delivery_error)
+                                            <flux:tooltip content="{{ $r->delivery_error }}">
+                                                <flux:icon name="information-circle" class="ml-1 inline h-3.5 w-3.5 {{ $delivery === 'failed' ? 'text-red-400' : 'text-orange-400' }}" />
+                                            </flux:tooltip>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2.5 text-center">
+                                        @if($r->delivery_opened_at)
+                                            <flux:icon name="check-circle" class="inline h-4 w-4 text-sky-500" />
+                                        @else
+                                            <span class="text-zinc-300 dark:text-zinc-600">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2.5 text-center">
+                                        @if($r->delivery_clicked_at)
+                                            <flux:icon name="check-circle" class="inline h-4 w-4 text-violet-500" />
+                                        @else
+                                            <span class="text-zinc-300 dark:text-zinc-600">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right">
+                                        @if($canResendRow)
+                                            <button type="button" wire:click="resendOne({{ $r->id }})" wire:loading.attr="disabled" wire:target="resendOne" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20">
+                                                <flux:icon name="arrow-path" class="h-3.5 w-3.5" />
+                                                Resend
+                                            </button>
+                                        @else
+                                            <span class="text-xs text-zinc-300 dark:text-zinc-600">—</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="px-4 py-16 text-center">
+                                        <flux:icon name="chart-bar" class="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+                                        <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">No recipients found</p>
+                                        <p class="mt-1 text-[13px] text-zinc-400 dark:text-zinc-500">
+                                            @if($recipientSearch || $recipientFilter)
+                                                Try adjusting your search or filter.
+                                            @else
+                                                This broadcast has no target recipients yet.
+                                            @endif
+                                        </p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($recipients->hasPages())
+                    <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                        {{ $recipients->links() }}
+                    </div>
+                @endif
+            </div>
         </div>
     @endif
 
