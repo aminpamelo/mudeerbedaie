@@ -555,9 +555,12 @@ new class extends Component {
                         @forelse ($this->classes as $class)
                             <tr wire:key="list-{{ $class->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
                                 <td class="px-3 py-2 whitespace-nowrap">
-                                    <a href="{{ route('classes.show', $class) }}" class="block">
-                                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
-                                        <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                    <a href="{{ route('classes.show', $class) }}" class="flex items-center gap-2.5">
+                                        <x-class-thumb :class-model="$class" />
+                                        <div>
+                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
+                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                        </div>
                                     </a>
                                 </td>
 
@@ -710,9 +713,12 @@ new class extends Component {
                                 @foreach($group['classes'] as $class)
                                     <tr wire:key="grouped-{{ $class->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
                                         <td class="px-3 py-2 whitespace-nowrap">
-                                            <a href="{{ route('classes.show', $class) }}" class="block">
-                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
-                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                            <a href="{{ route('classes.show', $class) }}" class="flex items-center gap-2.5">
+                                                <x-class-thumb :class-model="$class" />
+                                                <div>
+                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
+                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                                </div>
                                             </a>
                                         </td>
 
@@ -839,9 +845,12 @@ new class extends Component {
                                 @foreach($group['classes'] as $class)
                                     <tr wire:key="pic-{{ $class->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
                                         <td class="px-3 py-2 whitespace-nowrap">
-                                            <a href="{{ route('classes.show', $class) }}" class="block">
-                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
-                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                            <a href="{{ route('classes.show', $class) }}" class="flex items-center gap-2.5">
+                                                <x-class-thumb :class-model="$class" />
+                                                <div>
+                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
+                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                                </div>
                                             </a>
                                         </td>
 

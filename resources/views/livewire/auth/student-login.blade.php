@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -10,52 +11,97 @@ use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 /**
- * Dedicated Student login page (Bahasa Melayu).
+ * Dedicated Student login page (Bahasa Melayu) — phone-only sign-in.
  *
- * Auth logic mirrors the generic auth.login Volt — phone-or-email + password,
- * rate-limited, remember-me, intended-URL redirect. The only difference is
- * the mounted layout + copy: students land on a light, BeDaie-themed page
- * rather than the shared simple-auth layout.
+ * By product decision, students sign in with just their registered phone
+ * number (no password). Their portal only exposes classes/subscriptions they
+ * have already purchased, so the owner accepts the lower assurance in exchange
+ * for a friction-free login for non-technical students.
  *
- * Post-login routing is handled by the `dashboard` route's role switch,
- * which already redirects `student` users to `student.dashboard` (/my). So
- * any role CAN successfully sign in here — they just land on whichever
- * dashboard matches their role.
+ * SECURITY GUARDRAILS:
+ *  - Phone-only auth is restricted to `role = student` accounts only. An
+ *    admin/teacher phone will NOT authenticate here — those roles must use the
+ *    password-backed `/login`. This keeps the passwordless shortcut from ever
+ *    reaching a privileged account.
+ *  - The attempt is rate-limited per phone+IP to blunt number enumeration.
+ *  - Login is always "remember me" so the browser keeps a long-lived session
+ *    and the student rarely has to sign in again.
+ *
+ * Post-login routing is handled by the `dashboard` route's role switch, which
+ * redirects `student` users to `student.dashboard` (/my).
  */
 new #[Layout('components.layouts.student-auth')] class extends Component
 {
-    public string $login = '';
-
-    public string $password = '';
-
-    public bool $remember = false;
+    public string $phone = '';
 
     public function authenticate(): void
     {
         $this->validate([
-            'login' => ['required', 'string'],
-            'password' => ['required', 'string'],
+            'phone' => ['required', 'string'],
         ], attributes: [
-            'login' => 'nombor telefon atau emel',
-            'password' => 'kata laluan',
+            'phone' => 'nombor telefon',
         ]);
 
         $this->ensureIsNotRateLimited();
 
-        $loginField = filter_var($this->login, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+        $user = $this->resolveStudentByPhone($this->phone);
 
-        if (! Auth::attempt([$loginField => $this->login, 'password' => $this->password], $this->remember)) {
+        if (! $user) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'login' => 'Maklumat log masuk tidak betul. Sila cuba sekali lagi.',
+                'phone' => 'Nombor telefon tidak dijumpai. Pastikan ia sama seperti yang didaftarkan, atau hubungi admin.',
             ]);
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        // Always remember → long-lived browser session so students stay logged
+        // in and rarely need to re-enter their number.
+        Auth::login($user, true);
         Session::regenerate();
 
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+    }
+
+    /**
+     * Find the single student whose stored phone matches the typed number.
+     *
+     * Stored numbers use the `+60` + local-number-with-leading-zero shape
+     * (e.g. `+600123456789`). Students may type any common variant, so we
+     * normalise to a set of candidate stored forms and match on role=student.
+     */
+    protected function resolveStudentByPhone(string $input): ?User
+    {
+        $digits = preg_replace('/\D/', '', $input);
+
+        if ($digits === '' || strlen($digits) < 7) {
+            return null;
+        }
+
+        // Derive the local part (must begin with a leading 0, matching storage).
+        if (str_starts_with($digits, '600')) {
+            $local = substr($digits, 2);            // 600123… → 0123…
+        } elseif (str_starts_with($digits, '60')) {
+            $local = '0'.substr($digits, 2);        // 60123…  → 0123…
+        } elseif (str_starts_with($digits, '0')) {
+            $local = $digits;                        // 0123…   → 0123…
+        } else {
+            $local = '0'.$digits;                    // 123…    → 0123…
+        }
+
+        $candidates = array_values(array_unique(array_filter([
+            '+60'.$local,               // canonical stored form
+            '+'.$digits,                // if they typed the full 60… string
+            '+60'.$digits,             // if they typed a bare local number
+            '+60'.ltrim($local, '0'),  // fallback: stored without the extra 0
+            $local,                     // bare local, just in case
+        ])));
+
+        return User::query()
+            ->where('role', 'student')
+            ->whereIn('phone', $candidates)
+            ->first();
     }
 
     protected function ensureIsNotRateLimited(): void
@@ -69,13 +115,13 @@ new #[Layout('components.layouts.student-auth')] class extends Component
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'login' => "Terlalu banyak cubaan. Sila cuba lagi dalam {$seconds} saat.",
+            'phone' => "Terlalu banyak cubaan. Sila cuba lagi dalam {$seconds} saat.",
         ]);
     }
 
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->login).'|'.request()->ip());
+        return Str::transliterate(Str::lower($this->phone).'|'.request()->ip());
     }
 }; ?>
 
@@ -106,11 +152,11 @@ new #[Layout('components.layouts.student-auth')] class extends Component
             </span>
         </h1>
         <p class="mt-[10px] text-[14px] leading-[1.5] text-[var(--color-muted)]">
-            Log masuk untuk akses kelas, kursus dan langganan anda.
+            Masukkan nombor telefon anda untuk log masuk ke kelas dan kursus anda.
         </p>
     </div>
 
-    {{-- Row 3: Status flash (e.g. after password reset) --}}
+    {{-- Row 3: Status flash --}}
     @if (session('status'))
         <div class="mt-5 flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[12.5px] font-medium text-emerald-700">
             <span class="h-[6px] w-[6px] rounded-full bg-emerald-500" aria-hidden="true"></span>
@@ -118,70 +164,29 @@ new #[Layout('components.layouts.student-auth')] class extends Component
         </div>
     @endif
 
-    {{-- Row 4: Form --}}
+    {{-- Row 4: Form — phone only --}}
     <form wire:submit.prevent="authenticate" class="mt-6 flex flex-col gap-3" novalidate>
 
         <div class="sla-field">
             <input
-                id="sla-login"
-                type="text"
+                id="sla-phone"
+                type="tel"
+                inputmode="tel"
                 class="sla-field-input"
-                wire:model.live="login"
+                wire:model="phone"
                 required
                 autofocus
-                autocomplete="username"
+                autocomplete="tel"
                 placeholder=" "
             >
-            <label for="sla-login" class="sla-field-label">
-                Nombor telefon atau emel
+            <label for="sla-phone" class="sla-field-label">
+                Nombor telefon
             </label>
-            @error('login')
+            @error('phone')
                 <div class="sla-error" role="alert">
                     <span>{{ $message }}</span>
                 </div>
             @enderror
-        </div>
-
-        <div class="sla-field" x-data="{ visible: false }">
-            <input
-                id="sla-password"
-                class="sla-field-input"
-                :type="visible ? 'text' : 'password'"
-                wire:model.live="password"
-                required
-                autocomplete="current-password"
-                placeholder=" "
-            >
-            <label for="sla-password" class="sla-field-label">
-                Kata laluan
-            </label>
-            <button
-                type="button"
-                @click="visible = !visible"
-                class="sla-pw-toggle"
-                aria-label="Tunjuk atau sorok kata laluan"
-            >
-                <span x-show="!visible">Tunjuk</span>
-                <span x-show="visible" x-cloak>Sorok</span>
-            </button>
-            @error('password')
-                <div class="sla-error" role="alert">
-                    <span>{{ $message }}</span>
-                </div>
-            @enderror
-        </div>
-
-        <div class="flex items-center justify-between pt-[2px]">
-            <label class="flex cursor-pointer select-none items-center gap-[10px]">
-                <input type="checkbox" class="sla-check" wire:model="remember">
-                <span class="text-[13px] font-medium text-[var(--color-ink-2)]">Ingat saya</span>
-            </label>
-
-            @if (Route::has('password.request'))
-                <a href="{{ route('password.request') }}" class="sla-link" wire:navigate>
-                    Lupa kata laluan?
-                </a>
-            @endif
         </div>
 
         <button
@@ -211,8 +216,8 @@ new #[Layout('components.layouts.student-auth')] class extends Component
             </svg>
         </div>
         <div class="text-[12px] leading-[1.5] text-[var(--color-muted)]">
-            Akaun anda didaftarkan oleh pihak admin. Hubungi admin jika anda
-            belum terima maklumat log masuk.
+            Guna nombor telefon yang anda daftarkan. Anda akan kekal log masuk
+            pada peranti ini. Hubungi admin jika nombor tidak dikenali.
         </div>
     </div>
 </div>

@@ -1,34 +1,60 @@
 <?php
 
-use App\Models\ClassModel;
 use App\Models\ClassCategory;
+use App\Models\ClassModel;
 use App\Models\Course;
 use App\Models\Teacher;
 use App\Models\User;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
-new class extends Component {
+new class extends Component
+{
+    use WithFileUploads;
+
     public ClassModel $class;
+
     public $course_id;
+
     public $teacher_id;
+
     public $title;
+
     public $description;
+
+    public $image;
+
+    public $is_visible_to_students = true;
+
     public $date_time;
+
     public $duration_minutes;
+
     public $class_type;
+
     public $max_capacity;
+
     public $location;
+
     public $meeting_url;
+
     public $whatsapp_group_link;
+
     public $teacher_rate;
+
     public $rate_type;
+
     public $commission_type;
+
     public $commission_value;
+
     public $notes;
+
     public $status;
 
     // Storefront visibility
     public $showOnStorefront = false;
+
     public $storefrontDescription = '';
 
     // Category selection
@@ -36,28 +62,42 @@ new class extends Component {
 
     // PIC selection
     public $pic_ids = [];
+
     public $picSearch = '';
 
     // Category creation modal
     public $showCategoryModal = false;
+
     public $newCategoryName = '';
+
     public $newCategoryColor = '#6366f1';
 
     // Timetable properties
     public $enable_timetable = false;
+
     public $weekly_schedule = [];
+
     public $monthly_schedule = [];
+
     public $recurrence_pattern = 'weekly';
+
     public $start_date = '';
+
     public $end_date = '';
 
     // Document shipment properties
     public $enable_document_shipment = false;
+
     public $shipment_frequency = 'monthly';
+
     public $shipment_start_date = '';
+
     public $shipment_product_id = null;
+
     public $shipment_warehouse_id = null;
+
     public $shipment_quantity_per_student = 1;
+
     public $shipment_notes = '';
 
     public function mount(ClassModel $class): void
@@ -86,6 +126,9 @@ new class extends Component {
         // Populate storefront fields
         $this->showOnStorefront = $class->show_on_storefront ?? false;
         $this->storefrontDescription = $class->storefront_description ?? '';
+
+        // Populate student-portal visibility
+        $this->is_visible_to_students = $class->is_visible_to_students ?? true;
 
         // Populate category ids
         $this->category_ids = $class->categories->pluck('id')->toArray();
@@ -135,8 +178,8 @@ new class extends Component {
                 ->where('role', '!=', 'student')
                 ->when($this->picSearch, function ($query) {
                     $query->where(function ($q) {
-                        $q->where('name', 'like', '%' . $this->picSearch . '%')
-                          ->orWhere('email', 'like', '%' . $this->picSearch . '%');
+                        $q->where('name', 'like', '%'.$this->picSearch.'%')
+                            ->orWhere('email', 'like', '%'.$this->picSearch.'%');
                     });
                 })
                 ->orderBy('name')
@@ -152,6 +195,8 @@ new class extends Component {
             'teacher_id' => 'required|exists:teachers,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'image' => 'nullable|image|max:4096',
+            'is_visible_to_students' => 'boolean',
             'date_time' => 'required|date',
             'duration_minutes' => 'required|integer|min:15|max:480',
             'class_type' => 'required|in:individual,group',
@@ -180,7 +225,16 @@ new class extends Component {
         // Check if changing course affects existing attendance records
         if ($this->course_id != $this->class->course_id) {
             $this->addError('course_id', 'Cannot change course as attendance records already exist.');
+
             return;
+        }
+
+        // Replace the cover image only when a new one is uploaded; delete the old file.
+        if ($this->image) {
+            if ($this->class->image_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($this->class->image_path);
+            }
+            $this->class->image_path = $this->image->store('class-images', 'public');
         }
 
         $this->class->update([
@@ -188,6 +242,8 @@ new class extends Component {
             'teacher_id' => $validated['teacher_id'],
             'title' => $validated['title'],
             'description' => $validated['description'],
+            'image_path' => $this->class->image_path,
+            'is_visible_to_students' => (bool) $this->is_visible_to_students,
             'date_time' => $validated['date_time'],
             'duration_minutes' => $validated['duration_minutes'],
             'class_type' => $validated['class_type'],
@@ -197,7 +253,7 @@ new class extends Component {
             'whatsapp_group_link' => $validated['whatsapp_group_link'],
             'teacher_rate' => $validated['teacher_rate'] !== '' ? ($validated['teacher_rate'] ?? 0) : ($this->teacher_rate ?: 0),
             'rate_type' => $validated['rate_type'],
-            'commission_type' => !empty($validated['commission_type']) ? $validated['commission_type'] : $this->commission_type,
+            'commission_type' => ! empty($validated['commission_type']) ? $validated['commission_type'] : $this->commission_type,
             'commission_value' => $validated['commission_value'] !== '' ? ($validated['commission_value'] ?? 0) : ($this->commission_value ?: 0),
             'notes' => $validated['notes'],
             'status' => $validated['status'],
@@ -220,18 +276,18 @@ new class extends Component {
             if ($this->recurrence_pattern === 'monthly') {
                 $scheduleData = $this->filterMonthlySchedule($this->monthly_schedule);
             } else {
-                $scheduleData = array_filter($this->weekly_schedule, fn($times) => !empty($times));
+                $scheduleData = array_filter($this->weekly_schedule, fn ($times) => ! empty($times));
             }
 
             $timetableData = [
                 'weekly_schedule' => $scheduleData,
                 'recurrence_pattern' => $this->recurrence_pattern,
                 'start_date' => $this->start_date,
-                'end_date' => !empty($this->end_date) ? $this->end_date : null,
+                'end_date' => ! empty($this->end_date) ? $this->end_date : null,
                 'is_active' => true,
             ];
 
-            $isNewTimetable = !$this->class->timetable;
+            $isNewTimetable = ! $this->class->timetable;
 
             if ($this->class->timetable) {
                 // Update existing timetable
@@ -294,7 +350,7 @@ new class extends Component {
             return 0;
         }
 
-        return match($this->rate_type) {
+        return match ($this->rate_type) {
             'per_class' => (float) $this->teacher_rate,
             'per_student' => (float) $this->teacher_rate * ($this->max_capacity ?: 1),
             'per_session' => $this->calculateSessionAllowance(),
@@ -309,18 +365,18 @@ new class extends Component {
         }
 
         $course = Course::with('classSettings')->find($this->course_id);
-        if (!$course || !$course->classSettings) {
+        if (! $course || ! $course->classSettings) {
             return 0;
         }
 
-        $sessionFee = match($course->classSettings->billing_type) {
+        $sessionFee = match ($course->classSettings->billing_type) {
             'per_session' => $course->classSettings->price_per_session ?? 0,
             'per_month' => ($course->classSettings->price_per_month ?? 0) / ($course->classSettings->sessions_per_month ?? 1),
             'per_minute' => ($course->classSettings->price_per_minute ?? 0) * $this->duration_minutes,
             default => 0,
         };
 
-        return match($this->commission_type) {
+        return match ($this->commission_type) {
             'percentage' => $sessionFee * ($this->commission_value / 100),
             'fixed' => (float) $this->commission_value,
             default => 0,
@@ -330,7 +386,7 @@ new class extends Component {
     public function cancelClass(): void
     {
         $this->class->update(['status' => 'cancelled']);
-        
+
         session()->flash('success', 'Class has been cancelled.');
         $this->redirect(route('classes.show', $this->class));
     }
@@ -353,8 +409,8 @@ new class extends Component {
         $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
         for ($week = 1; $week <= 4; $week++) {
-            $weekKey = 'week_' . $week;
-            if (!isset($this->monthly_schedule[$weekKey])) {
+            $weekKey = 'week_'.$week;
+            if (! isset($this->monthly_schedule[$weekKey])) {
                 $this->monthly_schedule[$weekKey] = [];
                 foreach ($days as $day) {
                     $this->monthly_schedule[$weekKey][$day] = [];
@@ -370,8 +426,8 @@ new class extends Component {
 
     public function addMonthlyTimeSlot($week, $day): void
     {
-        $weekKey = 'week_' . $week;
-        if (!isset($this->monthly_schedule[$weekKey][$day])) {
+        $weekKey = 'week_'.$week;
+        if (! isset($this->monthly_schedule[$weekKey][$day])) {
             $this->monthly_schedule[$weekKey][$day] = [];
         }
         $this->monthly_schedule[$weekKey][$day][] = '09:00';
@@ -386,7 +442,7 @@ new class extends Component {
 
     public function removeMonthlyTimeSlot($week, $day, $index): void
     {
-        $weekKey = 'week_' . $week;
+        $weekKey = 'week_'.$week;
         if (isset($this->monthly_schedule[$weekKey][$day][$index])) {
             array_splice($this->monthly_schedule[$weekKey][$day], $index, 1);
         }
@@ -397,10 +453,10 @@ new class extends Component {
         $filtered = [];
 
         for ($week = 1; $week <= 4; $week++) {
-            $weekKey = 'week_' . $week;
+            $weekKey = 'week_'.$week;
             if (isset($schedule[$weekKey])) {
-                $weekData = array_filter($schedule[$weekKey], fn($times) => !empty($times));
-                if (!empty($weekData)) {
+                $weekData = array_filter($schedule[$weekKey], fn ($times) => ! empty($times));
+                if (! empty($weekData)) {
                     $filtered[$weekKey] = $weekData;
                 }
             }
@@ -471,7 +527,6 @@ new class extends Component {
         // Force re-render to show the new category
         $this->dispatch('$refresh');
     }
-
 };
 
 ?>
@@ -647,6 +702,36 @@ new class extends Component {
                             <flux:textarea wire:model="description" rows="3"></flux:textarea>
                             <flux:error name="description" />
                         </flux:field>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <flux:field>
+                            <flux:label>Class Image</flux:label>
+                            <div class="flex items-center gap-4">
+                                <div class="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                                    @if ($image)
+                                        <img src="{{ $image->temporaryUrl() }}" class="h-full w-full object-cover" alt="Preview" />
+                                    @elseif ($class->image_url)
+                                        <img src="{{ $class->image_url }}" class="h-full w-full object-cover" alt="{{ $class->title }}" />
+                                    @else
+                                        <div class="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-600">
+                                            <flux:icon.photo class="h-7 w-7" />
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex-1">
+                                    <input type="file" wire:model="image" accept="image/*"
+                                        class="block w-full cursor-pointer text-sm text-zinc-600 dark:text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-violet-700" />
+                                    <flux:text class="mt-1 text-xs">Shown to students on their class card. JPG/PNG, max 4MB. Leave empty to keep the current image.</flux:text>
+                                    <div wire:loading wire:target="image" class="mt-1 text-xs text-violet-600">Uploading…</div>
+                                    <flux:error name="image" />
+                                </div>
+                            </div>
+                        </flux:field>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <flux:switch wire:model="is_visible_to_students" label="Show to students" description="Turn off to hide this class from the student portal (/my). Enrolled students won't see it in their class list." />
                     </div>
                 </div>
             </div>

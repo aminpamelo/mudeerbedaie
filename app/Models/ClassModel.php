@@ -23,6 +23,7 @@ class ClassModel extends Model
         'teacher_id',
         'title',
         'description',
+        'image_path',
         'date_time',
         'duration_minutes',
         'class_type',
@@ -36,6 +37,7 @@ class ClassModel extends Model
         'commission_value',
         'status',
         'show_on_storefront',
+        'is_visible_to_students',
         'notes',
         'storefront_description',
         'enable_document_shipment',
@@ -58,6 +60,7 @@ class ClassModel extends Model
             'teacher_rate' => 'decimal:2',
             'commission_value' => 'decimal:2',
             'show_on_storefront' => 'boolean',
+            'is_visible_to_students' => 'boolean',
             'enable_document_shipment' => 'boolean',
             'shipment_start_date' => 'date',
             'auto_schedule_notifications' => 'boolean',
@@ -400,6 +403,28 @@ class ClassModel extends Model
     public function scopeStorefrontVisible($query)
     {
         return $query->where('status', 'active')->where('show_on_storefront', true);
+    }
+
+    /**
+     * Classes that should appear in the enrolled-student portal (/my).
+     * Distinct from storefront visibility, which governs the public shop.
+     */
+    public function scopeVisibleToStudents($query)
+    {
+        return $query->where('is_visible_to_students', true);
+    }
+
+    /**
+     * Cover-image URL for the class, falling back to the course thumbnail so
+     * existing classes without their own image still render a picture.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if ($this->image_path) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($this->image_path);
+        }
+
+        return $this->course?->thumbnail_url;
     }
 
     public function scopeCancelled($query)

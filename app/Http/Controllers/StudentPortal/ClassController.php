@@ -64,6 +64,11 @@ class ClassController extends Controller
                 continue;
             }
 
+            // Admins can hide a class from the student portal without deleting it.
+            if (! $class->is_visible_to_students) {
+                continue;
+            }
+
             $total = (int) $class->total_sessions_count;
             $done = (int) $class->completed_sessions_count;
 
@@ -72,7 +77,7 @@ class ClassController extends Controller
                 'title' => $class->title,
                 'courseName' => $class->course?->name,
                 'teacherName' => $class->teacher?->user?->name,
-                'thumbnail' => $class->course?->thumbnail_url,
+                'thumbnail' => $class->image_url,
                 'moduleDone' => $done,
                 'moduleTotal' => $total,
                 'progress' => $total > 0 ? (int) round($done / $total * 100) : 0,
@@ -126,6 +131,11 @@ class ClassController extends Controller
 
         if (! $classStudent) {
             abort(403, 'You do not have access to this class.');
+        }
+
+        // A class hidden from the student portal is not viewable, even directly.
+        if (! $class->is_visible_to_students) {
+            abort(404);
         }
 
         $class->load(['course', 'teacher.user', 'timetable']);

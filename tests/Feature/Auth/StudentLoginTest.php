@@ -12,7 +12,8 @@ it('serves a dedicated student login page to guests', function () {
     $this->get('/student/login')
         ->assertOk()
         ->assertSee('Portal Pelajar')
-        ->assertSee('Sambung pembelajaran anda.');
+        ->assertSee('Sambung pembelajaran anda.')
+        ->assertSee('Nombor telefon');
 });
 
 it('keeps the student login guest-only', function () {
@@ -21,16 +22,14 @@ it('keeps the student login guest-only', function () {
         ->assertRedirect();
 });
 
-it('logs a student in via the dedicated page with email', function () {
+it('logs a student in with their exact registered phone', function () {
     $user = User::factory()->create([
         'role' => 'student',
-        'email' => 'pelajar@bedaie.test',
-        'password' => bcrypt('password'),
+        'phone' => '+600123456789',
     ]);
 
     Volt::test('auth.student-login')
-        ->set('login', 'pelajar@bedaie.test')
-        ->set('password', 'password')
+        ->set('phone', '+600123456789')
         ->call('authenticate')
         ->assertHasNoErrors()
         ->assertRedirect(route('dashboard', absolute: false));
@@ -38,18 +37,60 @@ it('logs a student in via the dedicated page with email', function () {
     $this->assertAuthenticatedAs($user);
 });
 
-it('rejects bad credentials on the dedicated page', function () {
-    User::factory()->create([
+it('normalises common phone variants to the stored form', function (string $typed) {
+    $user = User::factory()->create([
         'role' => 'student',
-        'email' => 'pelajar@bedaie.test',
-        'password' => bcrypt('password'),
+        'phone' => '+600123456789',
     ]);
 
     Volt::test('auth.student-login')
-        ->set('login', 'pelajar@bedaie.test')
-        ->set('password', 'salah')
+        ->set('phone', $typed)
         ->call('authenticate')
-        ->assertHasErrors('login');
+        ->assertHasNoErrors();
+
+    $this->assertAuthenticatedAs($user);
+})->with([
+    'local with leading zero' => '0123456789',
+    'spaced local' => '012-345 6789',
+    'full with country code' => '600123456789',
+    'plus prefixed' => '+600123456789',
+    'bare 60 prefix' => '60123456789',
+]);
+
+it('rejects an unknown phone number', function () {
+    User::factory()->create([
+        'role' => 'student',
+        'phone' => '+600123456789',
+    ]);
+
+    Volt::test('auth.student-login')
+        ->set('phone', '+600999999999')
+        ->call('authenticate')
+        ->assertHasErrors('phone');
+
+    $this->assertGuest();
+});
+
+it('never signs in a non-student via phone-only (privileged accounts stay password-gated)', function () {
+    // An admin who happens to share the phone shape must NOT be reachable here.
+    User::factory()->create([
+        'role' => 'admin',
+        'phone' => '+600123456789',
+    ]);
+
+    Volt::test('auth.student-login')
+        ->set('phone', '+600123456789')
+        ->call('authenticate')
+        ->assertHasErrors('phone');
+
+    $this->assertGuest();
+});
+
+it('requires a phone number', function () {
+    Volt::test('auth.student-login')
+        ->set('phone', '')
+        ->call('authenticate')
+        ->assertHasErrors('phone');
 
     $this->assertGuest();
 });
