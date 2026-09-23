@@ -50,6 +50,10 @@ new class extends Component
     // Book the selected EasyParcel service as Cash on Delivery (courier collects the order total).
     public bool $easyParcelCod = false;
 
+    // Editable parcel weight (kg) used for both rate quotes and booking. Defaults to
+    // the order's stored weight, but the admin can override it before booking.
+    public ?float $shipmentWeightKg = null;
+
     public function mount(ProductOrder $order): void
     {
         $this->order = $order->load([
@@ -76,6 +80,27 @@ new class extends Component
 
         // Set order status to component property
         $this->orderStatus = $this->order->status;
+
+        $this->shipmentWeightKg = (float) ($this->order->weight_kg ?: 0.5);
+    }
+
+    /**
+     * The parcel weight to quote/book with — the admin's override, floored at the
+     * EasyParcel minimum so a blank or zero value never produces an invalid payload.
+     */
+    private function effectiveWeightKg(): float
+    {
+        return max((float) $this->shipmentWeightKg, 0.1);
+    }
+
+    /**
+     * A weight change invalidates any quoted rates (price depends on weight), so
+     * clear them and force a fresh fetch.
+     */
+    public function updatedShipmentWeightKg(): void
+    {
+        $this->easyParcelRates = [];
+        $this->easyParcelServiceId = null;
     }
 
     /**
@@ -381,7 +406,7 @@ new class extends Component
                 receiverCity: $shippingAddress->city ?: '',
                 receiverState: $shippingAddress->state ?: '',
                 receiverPostalCode: $shippingAddress->postal_code ?: '',
-                weightKg: $this->order->weight_kg ?: 0.5,
+                weightKg: $this->effectiveWeightKg(),
                 itemDescription: $this->order->parcelContentDescription(),
                 itemValue: $this->order->total_amount,
                 itemQuantity: $this->order->items->sum('quantity_ordered'),
@@ -662,9 +687,14 @@ new class extends Component
                 destinationPostalCode: $shippingAddress->postal_code ?: '',
                 destinationCity: $shippingAddress->city ?: '',
                 destinationState: $shippingAddress->state ?: '',
-                weightKg: (float) ($this->order->weight_kg ?: 0.5),
+                weightKg: $this->effectiveWeightKg(),
                 itemValue: (float) $this->order->total_amount,
             ));
+
+            // Persist the weight the admin quoted with so it sticks for booking.
+            if ((float) $this->order->weight_kg !== $this->effectiveWeightKg()) {
+                $this->order->update(['weight_kg' => $this->effectiveWeightKg()]);
+            }
 
             if (empty($rates)) {
                 session()->flash('error', 'EasyParcel returned no rates for this route (sender '.$sender['postal_code'].' → receiver '.$shippingAddress->postal_code.'). No courier may serve this lane, or your EasyParcel account/connection needs checking in Settings.');
@@ -797,7 +827,7 @@ new class extends Component
                 receiverCity: $shippingAddress->city ?: '',
                 receiverState: $shippingAddress->state ?: '',
                 receiverPostalCode: $shippingAddress->postal_code ?: '',
-                weightKg: (float) ($this->order->weight_kg ?: 0.5),
+                weightKg: $this->effectiveWeightKg(),
                 itemDescription: $this->order->parcelContentDescription(),
                 itemValue: (float) $this->order->total_amount,
                 itemQuantity: (int) $this->order->items->sum('quantity_ordered'),
@@ -820,6 +850,7 @@ new class extends Component
                     'shipping_provider' => 'easyparcel',
                     'status' => 'shipped',
                     'shipped_at' => now(),
+                    'weight_kg' => $this->effectiveWeightKg(),
                     'metadata' => $metadata,
                 ]);
                 $this->orderStatus = 'shipped';
@@ -1761,6 +1792,17 @@ new class extends Component
                                                 <span wire:loading wire:target="getEasyParcelRates">Fetching...</span>
                                             </div>
                                         </flux:button>
+                                    </div>
+
+                                    {{-- Editable parcel weight — used for both the rate quote and the
+                                         booking. Set the real weight here; the default is 0.5 kg. --}}
+                                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                                        <flux:icon name="scale" class="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                                        <label for="ep-weight" class="text-xs font-medium text-indigo-900 dark:text-indigo-200">Parcel weight (kg)</label>
+                                        <input id="ep-weight" type="number" step="0.1" min="0.1"
+                                            wire:model.live.debounce.600ms="shipmentWeightKg"
+                                            class="w-24 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-zinc-800 px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                        <flux:text class="text-xs text-indigo-700 dark:text-indigo-300">Set the actual weight, then Get Rates.</flux:text>
                                     </div>
 
                                     {{-- Recipient contact — a missing phone is the #1 cause of EasyParcel

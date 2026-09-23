@@ -150,6 +150,12 @@ class EasyParcelShippingService implements ShippingProvider
             'width' => 5,
             'length' => 5,
             'height' => 5,
+            // Declare the contents as a SINGLE line whose weight equals the parcel
+            // weight. EasyParcel validates sum(item.weight * item.quantity) <= the
+            // parcel weight, so sending the per-unit weight together with the full
+            // order quantity (e.g. 0.5kg x 100 = 50kg) is rejected as "total item
+            // weight exceeds parcel weight". The parcel weight is the figure that
+            // matters for pricing; the item line only declares the contents.
             'item' => [[
                 'content' => $request->itemDescription ?: 'General goods',
                 'weight' => max($request->weightKg, 0.1),
@@ -158,7 +164,7 @@ class EasyParcelShippingService implements ShippingProvider
                 'height' => 5,
                 'currency_code' => 'MYR',
                 'value' => $request->itemValue ?? 0,
-                'quantity' => max($request->itemQuantity, 1),
+                'quantity' => 1,
             ]],
             'sender' => $this->party($request->senderName, $request->senderPhone, $request->senderAddress, $request->senderCity, $request->senderState, $request->senderPostalCode),
             'receiver' => $this->party($request->receiverName, $request->receiverPhone, $request->receiverAddress, $request->receiverCity, $request->receiverState, $request->receiverPostalCode),
