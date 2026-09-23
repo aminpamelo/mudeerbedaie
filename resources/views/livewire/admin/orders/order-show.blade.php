@@ -1859,6 +1859,7 @@ new class extends Component
 
                                             {{-- Cash on Delivery — only couriers that support it, within their COD limits. --}}
                                             @php
+                                                $selectedRate = collect($easyParcelRates)->firstWhere('service_id', $easyParcelServiceId);
                                                 $cod = $this->selectedCod;
                                                 $codAmount = (float) $order->total_amount;
                                                 $codWithinLimits = $cod && $cod['available']
@@ -1880,12 +1881,29 @@ new class extends Component
                                                 </label>
                                             @endif
 
-                                            <div class="flex justify-end pt-1">
+                                            {{-- Price estimate for the chosen weight + courier, shown before booking. --}}
+                                            @if($selectedRate)
+                                                <div class="mt-1 flex items-center justify-between gap-3 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50/70 dark:bg-indigo-900/30 px-3 py-2.5">
+                                                    <div class="min-w-0">
+                                                        <flux:text class="text-[11px] uppercase tracking-wide text-indigo-500 dark:text-indigo-400">Estimated shipping · {{ number_format((float) $shipmentWeightKg, 2) }} kg</flux:text>
+                                                        <flux:text class="text-sm font-medium truncate">{{ $selectedRate['name'] }}</flux:text>
+                                                    </div>
+                                                    <flux:text class="text-lg font-bold whitespace-nowrap text-indigo-700 dark:text-indigo-300">MYR {{ number_format($selectedRate['price'], 2) }}</flux:text>
+                                                </div>
+                                            @endif
+
+                                            <div class="flex items-center justify-between gap-3 pt-1">
+                                                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ $selectedRate ? 'Paid from your EasyParcel credit.' : 'Select a courier above to see the price.' }}
+                                                </flux:text>
                                                 <flux:button variant="primary" size="sm" wire:click="bookEasyParcelShipment" wire:loading.attr="disabled" wire:target="bookEasyParcelShipment"
-                                                    wire:confirm="{{ $easyParcelCod ? 'Book this COD shipment? The courier will collect MYR '.number_format($codAmount, 2).' from the recipient on delivery; shipping is paid from your EasyParcel credit.' : 'Book this shipment and pay from your EasyParcel credit?' }}">
+                                                    :disabled="! $selectedRate"
+                                                    wire:confirm="{{ $selectedRate ? ($easyParcelCod
+                                                        ? 'Book '.$selectedRate['name'].' as COD? Shipping MYR '.number_format($selectedRate['price'], 2).' is paid from your EasyParcel credit, and the courier collects MYR '.number_format($codAmount, 2).' from the recipient on delivery.'
+                                                        : 'Book '.$selectedRate['name'].' for MYR '.number_format($selectedRate['price'], 2).' shipping? This is paid from your EasyParcel credit.') : '' }}">
                                                     <div class="flex items-center justify-center">
                                                         <flux:icon name="truck" class="w-4 h-4 mr-1" />
-                                                        <span wire:loading.remove wire:target="bookEasyParcelShipment">{{ $easyParcelCod ? 'Book (COD)' : 'Book & Pay' }}</span>
+                                                        <span wire:loading.remove wire:target="bookEasyParcelShipment">{{ $selectedRate ? (($easyParcelCod ? 'Book (COD)' : 'Book & Pay').' · MYR '.number_format($selectedRate['price'], 2)) : 'Book & Pay' }}</span>
                                                         <span wire:loading wire:target="bookEasyParcelShipment">Booking...</span>
                                                     </div>
                                                 </flux:button>
