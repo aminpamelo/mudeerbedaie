@@ -175,18 +175,13 @@ class EasyParcelShippingService implements ShippingProvider
             $shipment = $first['shipments'][0] ?? [];
 
             if (! $this->ok($response) || ($shipment['status'] ?? '') !== 'success') {
-                // EasyParcel nests the real rejection reason inconsistently: a
-                // per-shipment validation error sits on the shipment, an
-                // order-level rejection on the data row, and only the generic
-                // "N requests success, N request error" summary lives at the top.
-                // Prefer the most specific reason and log the raw response so the
-                // true cause (wallet balance, bad phone/postcode, …) is diagnosable.
-                $reason = $shipment['message']
-                    ?? $shipment['remarks']
-                    ?? $first['message']
-                    ?? $first['remarks']
-                    ?? $response['message']
-                    ?? 'Failed to submit EasyParcel order.';
+                // EasyParcel nests the real rejection reason inconsistently and
+                // under varying keys; the top-level only carries the useless
+                // "N requests success, N request error" summary. Dig out the most
+                // specific reason and log the raw response so the true cause
+                // (wallet balance, bad phone/postcode, unserviceable route, …) is
+                // always diagnosable.
+                $reason = $this->extractSubmitError($response);
 
                 Log::warning('EasyParcel submit_orders rejected', [
                     'order' => $request->orderNumber,
@@ -358,6 +353,64 @@ class EasyParcelShippingService implements ShippingProvider
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * Pull the most specific human rejection reason out of a submit_orders
+     * failure. EasyParcel scatters it across differently-named keys on the
+     * per-shipment row, the order row, or a nested errors list, leaving only the
+     * generic "N requests success, N request error" summary at the top — so we
+     * scan the likely keys and fall back to the summary (with a hint) only when
+     * nothing specific is present.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function extractSubmitError(array $response): string
+    {
+        $first = $response['data'][0] ?? [];
+        $shipment = (is_array($first) ? ($first['shipments'][0] ?? []) : []);
+
+        $keys = ['message', 'messagenow', 'error_remark', 'error_remarks', 'remarks', 'remark', 'reason', 'error', 'errors'];
+
+        foreach ([$shipment, $first] as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+
+            foreach ($keys as $key) {
+                $value = $node[$key] ?? null;
+
+                if (is_array($value)) {
+                    $value = implode('; ', array_filter(array_map(
+                        fn ($v) => is_scalar($v) ? trim((string) $v) : null,
+                        $value,
+                    )));
+                }
+
+                $value = is_string($value) ? trim($value) : '';
+                $lower = strtolower($value);
+
+                if ($value !== '' && $lower !== 'error' && $lower !== 'fail' && ! $this->isGenericSubmitSummary($value)) {
+                    return $value;
+                }
+            }
+        }
+
+        $summary = is_string($response['message'] ?? null) ? trim($response['message']) : '';
+
+        return $summary !== ''
+            ? $summary.' — EasyParcel gave no specific reason. Common causes: receiver phone/postcode/address invalid, an unserviceable route for this courier, or insufficient EasyParcel wallet balance.'
+            : 'Failed to submit EasyParcel order.';
+    }
+
+    /**
+     * The unhelpful top-level "N requests success, N request error" summary.
+     */
+    private function isGenericSubmitSummary(string $value): bool
+    {
+        $lower = strtolower($value);
+
+        return str_contains($lower, 'request success') || str_contains($lower, 'requests success') || str_contains($lower, 'request error');
     }
 
     /**
