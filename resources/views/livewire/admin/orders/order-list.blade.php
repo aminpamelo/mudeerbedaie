@@ -556,12 +556,13 @@ new class extends Component
                     'platform' => $query->whereNotNull('platform_id'),
                     'storefront' => $query->where('source', 'storefront'),
                     'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                        $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
+                        $q->whereNotIn('source', ['funnel', 'pos', 'storefront', 'whatsapp_bot'])
                             ->orWhereNull('source');
                     }),
                     'funnel' => $this->excludeFighterSources($query->where('source', 'funnel')),
                     'pos' => $this->excludeFighterSources($query->where('source', 'pos')),
                     'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
+                    'chatbot' => $query->where('source', 'whatsapp_bot'),
                     default => $query
                 };
             })
@@ -763,6 +764,15 @@ new class extends Component
             ];
         }
 
+        if ($order->source === 'whatsapp_bot') {
+            return [
+                'type' => 'chatbot',
+                'label' => 'Chatbot',
+                'color' => 'teal',
+                'icon' => 'chat-bubble-left-right',
+            ];
+        }
+
         if ($order->source === 'storefront') {
             return [
                 'type' => 'storefront',
@@ -846,12 +856,13 @@ new class extends Component
                 'platform' => $query->whereNotNull('platform_id'),
                 'storefront' => $query->where('source', 'storefront'),
                 'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                    $q->whereNotIn('source', ['funnel', 'pos', 'storefront'])
+                    $q->whereNotIn('source', ['funnel', 'pos', 'storefront', 'whatsapp_bot'])
                         ->orWhereNull('source');
                 }),
                 'funnel' => $this->excludeFighterSources($query->where('source', 'funnel')),
                 'pos' => $this->excludeFighterSources($query->where('source', 'pos')),
                 'fighter' => $query->whereIn('sales_source_id', $this->fighterSalesSourceIds()),
+                'chatbot' => $query->where('source', 'whatsapp_bot'),
                 default => $query
             };
         }
@@ -1069,7 +1080,8 @@ new class extends Component
             SUM(CASE WHEN source = 'funnel'{$fighterExclusion} THEN 1 ELSE 0 END) as funnel,
             SUM(CASE WHEN source = 'pos'{$fighterExclusion} THEN 1 ELSE 0 END) as pos,
             SUM(CASE WHEN source = 'storefront' THEN 1 ELSE 0 END) as storefront,
-            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos', 'storefront')) THEN 1 ELSE 0 END) as agent_company
+            SUM(CASE WHEN source = 'whatsapp_bot' THEN 1 ELSE 0 END) as chatbot,
+            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos', 'storefront', 'whatsapp_bot')) THEN 1 ELSE 0 END) as agent_company
         ")->first();
 
         return [
@@ -1079,6 +1091,7 @@ new class extends Component
             'agent_company' => $counts->agent_company ?? 0,
             'funnel' => $counts->funnel ?? 0,
             'pos' => $counts->pos ?? 0,
+            'chatbot' => $counts->chatbot ?? 0,
             'fighter' => empty($fighterSourceIds)
                 ? 0
                 : ProductOrder::visibleInAdmin()->whereIn('sales_source_id', $fighterSourceIds)->count(),
@@ -1962,6 +1975,7 @@ new class extends Component
                         'funnel' => ['label' => 'Funnel', 'icon' => 'funnel', 'count' => $sourceCounts['funnel'], 'color' => 'green'],
                         'pos' => ['label' => 'POS', 'icon' => 'calculator', 'count' => $sourceCounts['pos'], 'color' => 'orange'],
                         'fighter' => ['label' => 'Fighter', 'icon' => 'fire', 'count' => $sourceCounts['fighter'], 'color' => 'red'],
+                        'chatbot' => ['label' => 'Chatbot', 'icon' => 'chat-bubble-left-right', 'count' => $sourceCounts['chatbot'], 'color' => 'teal'],
                     ];
                 @endphp
                 @foreach($sourceTabs as $key => $tab)
@@ -1973,6 +1987,7 @@ new class extends Component
                             'orange' => 'bg-orange-500 text-white dark:bg-orange-500 shadow-sm',
                             'emerald' => 'bg-emerald-600 text-white dark:bg-emerald-500 shadow-sm',
                             'red' => 'bg-red-600 text-white dark:bg-red-500 shadow-sm',
+                            'teal' => 'bg-teal-600 text-white dark:bg-teal-500 shadow-sm',
                             default => 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm',
                         };
                         $sourceInactiveStyles = match($tab['color']) {
@@ -1982,6 +1997,7 @@ new class extends Component
                             'orange' => 'bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/30',
                             'emerald' => 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30',
                             'red' => 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30',
+                            'teal' => 'bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-900/20 dark:text-teal-400 dark:hover:bg-teal-900/30',
                             default => 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-600',
                         };
                         $sourceCountStyles = match($tab['color']) {
@@ -1991,6 +2007,7 @@ new class extends Component
                             'orange' => $sourceTab === $key ? 'text-orange-200' : 'text-orange-400 dark:text-orange-500',
                             'emerald' => $sourceTab === $key ? 'text-emerald-200' : 'text-emerald-400 dark:text-emerald-500',
                             'red' => $sourceTab === $key ? 'text-red-200' : 'text-red-400 dark:text-red-500',
+                            'teal' => $sourceTab === $key ? 'text-teal-200' : 'text-teal-400 dark:text-teal-500',
                             default => $sourceTab === $key ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-400 dark:text-zinc-500',
                         };
                     @endphp
@@ -2435,6 +2452,18 @@ new class extends Component
                                                     <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $order->salesSource->color }}"></span>
                                                     {{ $order->salesSource->name }}
                                                 </span>
+                                            @endif
+                                        </div>
+                                    @elseif($order->source === 'whatsapp_bot')
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                            @if($order->metadata['cekbot_flow_name'] ?? null)
+                                                <flux:text size="xs" class="text-zinc-400">{{ Str::limit($order->metadata['cekbot_flow_name'], 28) }}</flux:text>
                                             @endif
                                         </div>
                                     @elseif($order->source === 'pos')
