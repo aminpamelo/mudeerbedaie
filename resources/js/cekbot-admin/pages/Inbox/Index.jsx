@@ -24,7 +24,6 @@ export default function Index() {
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState(false);
   const [mobileView, setMobileView] = useState('list');
-  const pollRef = useRef(null);
   const selectedIdRef = useRef(null);
   useEffect(() => { selectedIdRef.current = selected?.id ?? null; }, [selected?.id]);
 
@@ -65,18 +64,37 @@ export default function Index() {
     });
   }
 
-  // Poll the open conversation for new messages (fallback if WebSocket drops).
+  // Auto-refresh the OPEN chat every 5s while the tab is visible. Paused when a
+  // live socket is connected (it drives updates then) or when the tab is hidden.
   useEffect(() => {
     if (!selected) return undefined;
-    pollRef.current = setInterval(() => loadMessages(selected.id, { silent: true }), 15000);
-    return () => clearInterval(pollRef.current);
-  }, [selected?.id, loadMessages]);
+    const id = setInterval(() => {
+      if (!live && document.visibilityState === 'visible') loadMessages(selectedIdRef.current, { silent: true });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [selected?.id, loadMessages, live]);
 
-  // Periodically refresh the conversation list (fallback if WebSocket drops).
+  // Auto-refresh the CONVERSATION LIST every 8s while visible, and do an instant
+  // catch-up the moment the operator returns to the tab. No requests fire while
+  // the tab is hidden or while the live socket is handling updates.
   useEffect(() => {
-    const t = setInterval(() => router.reload({ only: ['conversations'], preserveScroll: true, preserveState: true }), 30000);
-    return () => clearInterval(t);
-  }, []);
+    const reloadList = () => router.reload({ only: ['conversations'], preserveScroll: true, preserveState: true });
+    const id = setInterval(() => {
+      if (!live && document.visibilityState === 'visible') reloadList();
+    }, 8000);
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      reloadList();
+      if (selectedIdRef.current) loadMessages(selectedIdRef.current, { silent: true });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [live, loadMessages]);
 
   // Real-time inbox via Laravel Reverb (WebSocket). Instantly refreshes the
   // conversation list and the open chat when a message is stored server-side.
@@ -172,11 +190,11 @@ export default function Index() {
       actions={
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold ${live ? 'bg-emerald-500/12 text-emerald-300' : 'bg-white/5 text-white/40'}`}
-            title={live ? 'Sambungan masa nyata aktif' : 'Tiada sambungan masa nyata — guna auto-refresh'}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold ${live ? 'bg-emerald-500/12 text-emerald-300' : 'bg-amber-500/12 text-amber-300'}`}
+            title={live ? 'Sambungan masa nyata aktif' : 'Auto-segerak setiap beberapa saat semasa tab aktif'}
           >
-            <span className={`h-2 w-2 rounded-full ${live ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'}`} />
-            {live ? 'Live' : 'Luar talian'}
+            <span className={`h-2 w-2 rounded-full animate-pulse ${live ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            {live ? 'Live' : 'Auto'}
           </span>
           <Button variant="secondary" onClick={refresh} disabled={refreshing}>
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={2.2} /> {refreshing ? 'Menyegar…' : 'Segar semula'}
