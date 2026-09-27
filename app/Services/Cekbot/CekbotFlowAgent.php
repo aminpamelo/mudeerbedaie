@@ -30,12 +30,12 @@ class CekbotFlowAgent
      * Produce the next reply for an active flow conversation. Creates the order
      * as a side effect when the model calls create_order with valid details.
      *
-     * @return array{reply: ?string, order: ?ProductOrder}
+     * @return array{reply: ?string, order: ?ProductOrder, send_qr: bool}
      */
     public function respond(CekbotFlow $flow, CekbotConversation $conversation, string $message): array
     {
         if (blank(config('openai.api_key'))) {
-            return ['reply' => null, 'order' => null];
+            return ['reply' => null, 'order' => null, 'send_qr' => false];
         }
 
         $flow->loadMissing(['packages.cekbotProduct', 'packages.product']);
@@ -43,6 +43,7 @@ class CekbotFlowAgent
         try {
             $messages = $this->buildMessages($flow, $conversation, $message);
             $createdOrder = null;
+            $sendQr = false;
 
             // Function-calling loop: the model chats, then calls create_order
             // once the customer has confirmed. We run the tool and feed the
@@ -62,7 +63,7 @@ class CekbotFlowAgent
                 if (empty($toolCalls)) {
                     $content = trim((string) ($choice->content ?? ''));
 
-                    return ['reply' => $content !== '' ? $content : null, 'order' => $createdOrder];
+                    return ['reply' => $content !== '' ? $content : null, 'order' => $createdOrder, 'send_qr' => $sendQr];
                 }
 
                 $messages[] = [
@@ -77,7 +78,16 @@ class CekbotFlowAgent
 
                 foreach ($toolCalls as $tc) {
                     $args = json_decode($tc->function->arguments, true) ?: [];
-                    [$result, $order] = $this->runTool($flow, $conversation, $tc->function->name, $args);
+
+                    if ($tc->function->name === 'send_payment_qr') {
+                        $sendQr = $this->offersQr($flow);
+                        $result = json_encode($sendQr
+                            ? ['success' => true, 'instruction' => 'Gambar QR akan dihantar selepas mesej anda. Beritahu pelanggan QR dihantar & boleh scan untuk bayar.']
+                            : ['success' => false, 'error' => 'Tiada QR untuk flow ini.'], JSON_UNESCAPED_UNICODE);
+                        $order = null;
+                    } else {
+                        [$result, $order] = $this->runTool($flow, $conversation, $tc->function->name, $args);
+                    }
 
                     if ($order) {
                         $createdOrder = $order;
@@ -91,12 +101,20 @@ class CekbotFlowAgent
                 }
             }
 
-            return ['reply' => null, 'order' => $createdOrder];
+            return ['reply' => null, 'order' => $createdOrder, 'send_qr' => $sendQr];
         } catch (\Throwable $e) {
             Log::warning('Cekbot flow agent failed', ['flow_id' => $flow->id, 'error' => $e->getMessage()]);
 
-            return ['reply' => null, 'order' => null];
+            return ['reply' => null, 'order' => null, 'send_qr' => false];
         }
+    }
+
+    /**
+     * Whether this flow has a transfer QR/bank poster the agent may send.
+     */
+    private function offersQr(CekbotFlow $flow): bool
+    {
+        return $flow->payment_transfer_enabled && filled($flow->bank_image);
     }
 
     /**
@@ -121,7 +139,7 @@ class CekbotFlowAgent
             $paymentSchema['enum'] = $methods;
         }
 
-        return [[
+        $tools = [[
             'type' => 'function',
             'function' => [
                 'name' => 'create_order',
@@ -144,6 +162,19 @@ class CekbotFlowAgent
                 ],
             ],
         ]];
+
+        if ($this->offersQr($flow)) {
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'send_payment_qr',
+                    'description' => 'Hantar gambar QR / poster bank kepada pelanggan. Panggil bila pelanggan minta QR atau nak bayar secara transfer.',
+                    'parameters' => ['type' => 'object', 'properties' => new \stdClass],
+                ],
+            ];
+        }
+
+        return $tools;
     }
 
     /**
@@ -282,6 +313,17 @@ class CekbotFlowAgent
             }
         }
 
+        if ($flow->payment_transfer_enabled && filled($flow->bank_details)) {
+            $lines[] = '';
+            $lines[] = 'MAKLUMAT BANK (boleh diberi terus bila pelanggan tanya):';
+            $lines[] = trim((string) $flow->bank_details);
+        }
+
+        if ($this->offersQr($flow)) {
+            $lines[] = '';
+            $lines[] = 'QR BAYARAN: Ada. Bila pelanggan tanya QR atau nak scan untuk bayar, panggil fungsi send_payment_qr. JANGAN kata tiada QR.';
+        }
+
         $askAddress = $flow->payment_cod_enabled;
 
         $lines[] = '';
@@ -295,6 +337,7 @@ class CekbotFlowAgent
         $lines[] = '7. SEBELUM cipta pesanan, RINGKASKAN semua maklumat (pakej, harga, cara bayar, nama, no. telefon'.($askAddress ? ', alamat' : '').') dan MINTA pelanggan sahkan — contoh: "Betul semua ni? 🙂".';
         $lines[] = '8. HANYA selepas pelanggan sahkan betul ("betul"/"ya"/"ok"), panggil fungsi create_order.';
         $lines[] = '9. Selepas order dicipta, ucap terima kasih & beri no. pesanan. Untuk transfer, beri maklumat bank untuk pelanggan buat bayaran.';
+        $lines[] = '10. Jika pelanggan tanya maklumat bank / nama bank / QR pada bila-bila masa, jawab terus — jangan tahan sehingga borang lengkap. Selepas itu teruskan kumpul maklumat pesanan.';
 
         if (filled($flow->ai_instructions)) {
             $lines[] = '';

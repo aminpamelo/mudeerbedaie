@@ -176,11 +176,12 @@ class CekbotFlowService
 
         $bot->sendReply($conversation, $reply);
 
-        // When a transfer order was just created, follow up with the QR/bank
-        // poster so the customer can pay straight away.
-        if ($result['order']
-            && $result['order']->payment_method === CekbotFlowEnrollment::PAYMENT_TRANSFER
-            && $flow->bank_image) {
+        // Follow up with the QR/bank poster when the customer asked for it, or
+        // when a transfer order was just created so they can pay straight away.
+        $transferOrder = $result['order']
+            && $result['order']->payment_method === CekbotFlowEnrollment::PAYMENT_TRANSFER;
+
+        if (($result['send_qr'] || $transferOrder) && $flow->bank_image) {
             $bot->sendImageReply($conversation, $flow->bankImageUrl(), null);
         }
     }

@@ -150,3 +150,62 @@ it('answers conversationally without forcing a number', function () {
     OpenAI::assertSent(\OpenAI\Resources\Chat::class, fn (string $method, array $params) => $method === 'create'
         && collect($params['tools'] ?? [])->contains(fn ($t) => data_get($t, 'function.name') === 'create_order'));
 });
+
+it('gives the AI the bank details and QR so it can answer before the order', function () {
+    $this->flow->update(['bank_image' => 'cekbot-flows/qr.png']);
+    Http::fake([
+        'waha.test/api/sendText' => Http::response(['id' => 'ai-out'], 201),
+        'waha.test/api/sendImage' => Http::response(['id' => 'ai-img'], 201),
+    ]);
+
+    OpenAI::fake([
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => [
+                'role' => 'assistant',
+                'content' => null,
+                'tool_calls' => [[
+                    'id' => 'call_qr', 'type' => 'function',
+                    'function' => ['name' => 'send_payment_qr', 'arguments' => '{}'],
+                ]],
+            ],
+            'finish_reason' => 'tool_calls',
+        ]]]),
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => ['role' => 'assistant', 'content' => 'Ada! Saya hantar QR ye 🙂'],
+            'finish_reason' => 'stop',
+        ]]]),
+    ]);
+
+    aiInbound('nak order, ada qr ke?', 'q1');
+
+    OpenAI::assertSent(\OpenAI\Resources\Chat::class, fn (string $method, array $params) => $method === 'create'
+        && str_contains($params['messages'][0]['content'], 'Maybank 5121xxxx')
+        && str_contains($params['messages'][0]['content'], 'send_payment_qr')
+        && collect($params['tools'])->contains(fn ($t) => data_get($t, 'function.name') === 'send_payment_qr'));
+
+    $img = \App\Models\CekbotMessage::query()->where('type', 'image')->latest('id')->first();
+    expect($img)->not->toBeNull()
+        ->and($img->media_url)->toContain('cekbot-flows/qr.png');
+
+    expect(ProductOrder::query()->where('source', 'whatsapp_bot')->exists())->toBeFalse();
+});
+
+it('does not offer the QR tool when no QR is uploaded', function () {
+    OpenAI::fake([
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => ['role' => 'assistant', 'content' => 'Boleh transfer ke Maybank ye.'],
+            'finish_reason' => 'stop',
+        ]]]),
+    ]);
+
+    aiInbound('nak order, bank apa?', 'q2');
+
+    OpenAI::assertSent(\OpenAI\Resources\Chat::class, fn (string $method, array $params) => $method === 'create'
+        && ! collect($params['tools'])->contains(fn ($t) => data_get($t, 'function.name') === 'send_payment_qr')
+        && ! str_contains($params['messages'][0]['content'], 'QR BAYARAN'));
+
+    expect(\App\Models\CekbotMessage::query()->where('type', 'image')->exists())->toBeFalse();
+});
