@@ -21,6 +21,7 @@ use App\Http\Controllers\Cekbot\BroadcastController as CekbotBroadcastController
 use App\Http\Controllers\Cekbot\FlowController as CekbotFlowController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
 use App\Http\Controllers\Cekbot\LeadController as CekbotLeadController;
+use App\Http\Controllers\Cekbot\OrderController as CekbotOrderController;
 use App\Http\Controllers\Cekbot\ProductController as CekbotProductController;
 use App\Http\Controllers\Cekbot\SessionController as CekbotSessionController;
 use App\Http\Controllers\Cekbot\SettingsController as CekbotSettingsController;
@@ -1978,6 +1979,9 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::post('flows/{flow}/bank-image', [CekbotFlowController::class, 'uploadBankImage'])->name('flows.bank-image.store');
         Route::delete('flows/{flow}/bank-image', [CekbotFlowController::class, 'destroyBankImage'])->name('flows.bank-image.destroy');
         Route::delete('flows/{flow}', [CekbotFlowController::class, 'destroy'])->name('flows.destroy');
+
+        // Orders created by the bot (flows)
+        Route::get('orders', [CekbotOrderController::class, 'index'])->name('orders');
 
         // Fasa 3 — Auto-reply rules + bot settings
         Route::get('auto-reply', [CekbotAutoReplyController::class, 'index'])->name('auto-reply');
