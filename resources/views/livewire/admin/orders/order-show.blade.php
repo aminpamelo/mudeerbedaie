@@ -184,6 +184,17 @@ new class extends Component
 
             // Note: Stock management is now handled by order status changes, not payment status
 
+            // Keep the order's own payment_status in sync with the payment record,
+            // so paid-transition hooks (broadcast attribution, Cekbot notify) fire.
+            $orderPaymentStatus = $paymentStatus === 'completed' ? 'paid' : $paymentStatus;
+
+            if ($this->order->payment_status !== $orderPaymentStatus) {
+                $this->order->update([
+                    'payment_status' => $orderPaymentStatus,
+                    'paid_time' => $orderPaymentStatus === 'paid' ? ($this->order->paid_time ?? now()) : $this->order->paid_time,
+                ]);
+            }
+
             // Add system note
             $this->order->addSystemNote("Payment status changed to {$paymentStatus}");
 

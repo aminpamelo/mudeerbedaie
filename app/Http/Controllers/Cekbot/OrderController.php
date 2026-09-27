@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Cekbot;
 use App\Http\Controllers\Controller;
 use App\Models\CekbotFlow;
 use App\Models\ProductOrder;
-use App\Services\Cekbot\CekbotBotService;
 use App\Services\Cekbot\CekbotPaymentProof;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -95,7 +94,7 @@ class OrderController extends Controller
     /**
      * Team confirms a bot transfer order's payment after checking the receipt.
      */
-    public function confirmPayment(Request $request, ProductOrder $order, CekbotPaymentProof $proofs, CekbotBotService $bot): RedirectResponse
+    public function confirmPayment(Request $request, ProductOrder $order, CekbotPaymentProof $proofs): RedirectResponse
     {
         abort_unless($order->source === 'whatsapp_bot', 404);
 
@@ -103,7 +102,7 @@ class OrderController extends Controller
             return back()->with('success', 'Pesanan ini sudah disahkan.');
         }
 
-        $proofs->confirm($order, $request->user(), $bot);
+        $proofs->confirm($order, $request->user());
 
         return back()->with('success', 'Bayaran disahkan & pelanggan dimaklumkan di WhatsApp.');
     }

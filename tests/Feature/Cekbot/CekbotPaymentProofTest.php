@@ -196,3 +196,50 @@ it('downloads Cloud API media via the Graph media id', function () {
     expect($media)->toBe(['body' => 'PNG-BYTES', 'mime' => 'image/png']);
     Http::assertSent(fn ($r) => str_contains($r->url(), 'MEDIA123') && $r->hasHeader('Authorization', 'Bearer token-abc'));
 });
+
+it('notifies the bot customer once per milestone wherever the order is updated', function () {
+    fakeTransferOrderCall();
+    proofInbound('n1', 'nak order, semua betul');
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+    $sent = fn () => CekbotMessage::query()->where('direction', 'out')->where('type', 'text')->count();
+
+    $before = $sent();
+    $order->update(['payment_status' => 'paid']);
+    expect($sent())->toBe($before + 1)->and(lastProofReply())->toContain('disahkan');
+
+    $order->update(['status' => 'processing']);
+    expect(lastProofReply())->toContain('sedang kami proses');
+
+    $order->update(['status' => 'shipped', 'tracking_id' => 'JT123456']);
+    expect(lastProofReply())->toContain('telah dihantar')->toContain('JT123456');
+
+    // Re-saving the same milestone doesn't message the customer again.
+    $count = $sent();
+    $order->update(['status' => 'processing']);
+    $order->update(['status' => 'shipped']);
+    expect($sent())->toBe($count);
+});
+
+it('never messages customers for orders that did not come from the bot', function () {
+    $order = ProductOrder::factory()->create(['source' => 'funnel', 'payment_status' => 'pending', 'status' => 'pending']);
+
+    $order->update(['payment_status' => 'paid']);
+    $order->update(['status' => 'shipped']);
+
+    expect(CekbotMessage::query()->where('direction', 'out')->exists())->toBeFalse();
+    Http::assertNothingSent();
+});
+
+it('syncs the order payment status from the admin order page so the customer is told', function () {
+    fakeTransferOrderCall();
+    proofInbound('s1', 'nak order, semua betul');
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+
+    \Livewire\Volt\Volt::actingAs(User::factory()->admin()->create())
+        ->test('admin.orders.order-show', ['order' => $order])
+        ->call('updatePaymentStatus', 'completed');
+
+    expect($order->fresh()->payment_status)->toBe('paid')
+        ->and($order->fresh()->paid_time)->not->toBeNull()
+        ->and(lastProofReply())->toContain('disahkan');
+});

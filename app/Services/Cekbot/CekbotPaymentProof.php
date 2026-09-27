@@ -12,8 +12,7 @@ use Illuminate\Support\Str;
 /**
  * Payment-proof handling for transfer orders created by a Cekbot flow: stores
  * the receipt the customer sends on WhatsApp against the order (awaiting team
- * confirmation), and lets the team confirm the payment — which marks the order
- * paid and tells the customer on WhatsApp.
+ * confirmation), and lets the team confirm the payment (marking it paid).
  */
 class CekbotPaymentProof
 {
@@ -58,20 +57,13 @@ class CekbotPaymentProof
     }
 
     /**
-     * Team confirms the transfer: mark the order paid and notify the customer.
+     * Team confirms the transfer: mark the order paid. The customer is told on
+     * WhatsApp by {@see CekbotOrderNotifier} via the order's updated hook.
      */
-    public function confirm(ProductOrder $order, User $user, CekbotBotService $bot): void
+    public function confirm(ProductOrder $order, User $user): void
     {
         $order->markPaymentAsConfirmed($user->id, (string) $order->receipt_attachment);
         $order->addSystemNote('Bayaran transfer disahkan oleh '.$user->name.' (Cekbot).');
-
-        $conversation = CekbotConversation::query()
-            ->with('session')
-            ->find(data_get($order->metadata, 'cekbot_conversation_id'));
-
-        if ($conversation?->session) {
-            $bot->sendReply($conversation, 'Alhamdulillah, pembayaran untuk pesanan *'.$order->order_number.'* telah disahkan ✅ Terima kasih! Kami akan proses pesanan anda segera 🙏');
-        }
     }
 
     private function extension(string $mime): string

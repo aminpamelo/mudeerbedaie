@@ -143,6 +143,11 @@ class ProductOrder extends Model
             if ($order->wasChanged('payment_status') && $order->payment_status === 'paid') {
                 app(\App\Services\Broadcast\BroadcastConversionService::class)->attributeProductOrder($order);
             }
+
+            // WhatsApp-bot orders: tell the customer about payment/processing/shipping.
+            if ($order->source === 'whatsapp_bot') {
+                app(\App\Services\Cekbot\CekbotOrderNotifier::class)->handle($order);
+            }
         });
     }
 
