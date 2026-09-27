@@ -1982,6 +1982,7 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
 
         // Orders created by the bot (flows)
         Route::get('orders', [CekbotOrderController::class, 'index'])->name('orders');
+        Route::post('orders/{order}/confirm-payment', [CekbotOrderController::class, 'confirmPayment'])->name('orders.confirm-payment');
 
         // Fasa 3 — Auto-reply rules + bot settings
         Route::get('auto-reply', [CekbotAutoReplyController::class, 'index'])->name('auto-reply');

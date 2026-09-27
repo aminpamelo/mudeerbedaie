@@ -2,9 +2,11 @@
 
 namespace App\Services\Cekbot;
 
+use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
 use App\Services\WhatsApp\MetaCloudProvider;
 use App\Services\WhatsApp\WahaSessionManager;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 /**
@@ -57,6 +59,50 @@ class CekbotOutbound
             accessToken: (string) $session->access_token,
             apiVersion: $session->resolvedApiVersion(),
         );
+    }
+
+    /**
+     * Download an inbound media message's file (e.g. a payment receipt). WAHA
+     * exposes a URL on its own host; the Cloud API sends a media id that must be
+     * resolved to a short-lived URL with the number's access token.
+     *
+     * @return array{body: string, mime: string}|null
+     */
+    public function fetchInboundMedia(CekbotSession $session, CekbotMessage $message): ?array
+    {
+        if (! $session->isCloudApi()) {
+            return filled($message->media_url) ? $this->waha->fetchMediaBody($message->media_url) : null;
+        }
+
+        $payload = $message->payload ?? [];
+        $mediaId = data_get($payload, ($payload['type'] ?? 'image').'.id');
+
+        if (blank($mediaId) || blank($session->access_token)) {
+            return null;
+        }
+
+        try {
+            $meta = Http::withToken((string) $session->access_token)->timeout(20)
+                ->get('https://graph.facebook.com/'.$session->resolvedApiVersion().'/'.$mediaId);
+
+            $url = $meta->json('url');
+            if (! $meta->successful() || blank($url)) {
+                return null;
+            }
+
+            $file = Http::withToken((string) $session->access_token)->timeout(30)->get($url);
+
+            if (! $file->successful()) {
+                return null;
+            }
+
+            return [
+                'body' => $file->body(),
+                'mime' => $meta->json('mime_type') ?: ($file->header('Content-Type') ?: 'application/octet-stream'),
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

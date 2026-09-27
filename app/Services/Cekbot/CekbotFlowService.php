@@ -7,6 +7,7 @@ use App\Models\CekbotFlow;
 use App\Models\CekbotFlowEnrollment;
 use App\Models\CekbotFlowPackage;
 use App\Models\CekbotLeadCategory;
+use App\Models\CekbotMessage;
 use App\Models\ProductOrder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +32,7 @@ class CekbotFlowService
     public function __construct(
         private CekbotFlowAgent $agent,
         private CekbotFlowOrderCreator $orders,
+        private CekbotPaymentProof $proofs,
     ) {}
 
     /**
@@ -40,6 +42,10 @@ class CekbotFlowService
     {
         try {
             $enrollment = $conversation->activeFlowEnrollment();
+
+            if ($enrollment?->current_step === CekbotFlowEnrollment::STEP_AWAIT_PROOF) {
+                return $this->handleProof($enrollment, $conversation, $body, $type, $bot);
+            }
 
             if ($enrollment) {
                 $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product']);
@@ -162,7 +168,12 @@ class CekbotFlowService
         $result = $this->agent->respond($flow, $conversation, $body);
 
         if ($result['order']) {
-            $this->orders->completeEnrollment($enrollment, $result['order']);
+            // Transfer orders stay open, waiting for the customer's receipt.
+            if ($result['order']->payment_method === CekbotFlowEnrollment::PAYMENT_TRANSFER) {
+                $this->orders->awaitProof($enrollment, $result['order']);
+            } else {
+                $this->orders->completeEnrollment($enrollment, $result['order']);
+            }
             $this->setCategory($conversation, 'Deal');
         }
 
@@ -359,6 +370,66 @@ class CekbotFlowService
         $enrollment->save();
 
         $this->finalize($enrollment, $flow, $conversation, $bot);
+
+        $message = $this->latestInbound($conversation);
+        $order = ProductOrder::query()->find($enrollment->fresh()->product_order_id);
+
+        if ($order && $message && in_array($message->type, ['image', 'document'], true)) {
+            $this->proofs->attach($order, $conversation, $message);
+        }
+    }
+
+    /**
+     * A transfer order is waiting for its payment receipt. An image/document is
+     * stored as the proof (for the team to confirm); text gets a reminder, and
+     * after a couple of reminders the bot lets the conversation go so it isn't
+     * stuck on this step forever. Returns false to hand the turn to the normal
+     * reply engine.
+     */
+    private function handleProof(CekbotFlowEnrollment $enrollment, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): bool
+    {
+        $order = $enrollment->order;
+        $enrollment->update(['last_activity_at' => now()]);
+
+        if (! $order) {
+            $this->orders->completeEnrollment($enrollment, null);
+
+            return false;
+        }
+
+        $message = $this->latestInbound($conversation);
+
+        if ($message && in_array($type, ['image', 'document'], true)) {
+            $this->proofs->attach($order, $conversation, $message);
+            $this->orders->completeEnrollment($enrollment, $order);
+
+            $bot->sendReply($conversation, 'Terima kasih! 🙏 Bukti pembayaran untuk pesanan *'.$order->order_number.'* telah kami terima. Team kami akan semak & sahkan tak lama lagi, dan kami akan maklumkan di sini ye 😊');
+
+            return true;
+        }
+
+        $reminders = (int) $enrollment->answer('proof_reminders', 0);
+
+        if ($reminders >= 2) {
+            $this->orders->completeEnrollment($enrollment, $order);
+
+            return false;
+        }
+
+        $enrollment->putData(['proof_reminders' => $reminders + 1]);
+        $enrollment->save();
+
+        $bot->sendReply($conversation, 'Baik 🙏 Boleh hantar *gambar / screenshot resit* pembayaran di sini ye? Team kami akan sahkan pesanan *'.$order->order_number.'* selepas semak resit.');
+
+        return true;
+    }
+
+    private function latestInbound(CekbotConversation $conversation): ?CekbotMessage
+    {
+        return $conversation->messages()
+            ->where('direction', CekbotMessage::DIRECTION_IN)
+            ->latest('id')
+            ->first();
     }
 
     /**

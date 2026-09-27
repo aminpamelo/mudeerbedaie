@@ -34,6 +34,9 @@ class CekbotFlowEnrollment extends Model
 
     public const STEP_AWAIT_RECEIPT = 'await_receipt';
 
+    /** Transfer order created — waiting for the customer's payment receipt. */
+    public const STEP_AWAIT_PROOF = 'await_proof';
+
     public const STEP_DONE = 'done';
 
     public const PAYMENT_TRANSFER = 'bank_transfer';

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ShoppingBag, Search, Wallet, Clock, CalendarDays, ChevronDown, Workflow, CreditCard, CircleDollarSign, ExternalLink, X, Sparkles } from 'lucide-react';
+import { ShoppingBag, Search, Wallet, Clock, CalendarDays, ChevronDown, Workflow, CreditCard, CircleDollarSign, ExternalLink, X, Sparkles, FileCheck2, CheckCircle2, Receipt } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
-import { Card, Badge, Select, Input, EmptyState } from '@/cekbot-admin/components/Ui';
+import { Card, Badge, Button, Select, Input, EmptyState } from '@/cekbot-admin/components/Ui';
 import { cn, formatPhone, formatDate, clockTime } from '@/cekbot-admin/lib/utils';
 
 const PAYMENT_METHODS = {
@@ -12,6 +12,7 @@ const PAYMENT_METHODS = {
 
 const PAYMENT_STATUSES = {
   pending: { label: 'Belum bayar', color: 'amber' },
+  proof: { label: 'Resit diterima', color: 'blue' },
   paid: { label: 'Dibayar', color: 'emerald' },
   failed: { label: 'Gagal', color: 'red' },
   refunded: { label: 'Refund', color: 'slate' },
@@ -63,7 +64,17 @@ export default function Index() {
   const stats = props.stats ?? {};
   const filters = props.filters ?? {};
   const [search, setSearch] = useState(filters.search ?? '');
+  const [confirmingId, setConfirmingId] = useState(null);
   const first = useRef(true);
+
+  function confirmPayment(order) {
+    if (!window.confirm(`Sahkan bayaran untuk ${order.order_number}? Pelanggan akan dimaklumkan di WhatsApp.`)) return;
+    setConfirmingId(order.id);
+    router.post(route('cekbot.orders.confirm-payment', order.id), {}, {
+      preserveScroll: true,
+      onFinish: () => setConfirmingId(null),
+    });
+  }
 
   function visit(params) {
     router.get(route('cekbot.orders'), { search, flow: filters.flow, payment: filters.payment, status: filters.status, ...params }, { preserveState: true, preserveScroll: true, replace: true });
@@ -88,9 +99,10 @@ export default function Index() {
     <CekbotLayout title="Order" subtitle="Semua order yang dicipta oleh bot WhatsApp">
       <Head title="Order" />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat icon={ShoppingBag} label="Jumlah order" value={stats.total ?? 0} tint="bg-emerald-500/15 text-emerald-300" />
         <Stat icon={Wallet} label="Jumlah jualan" value={money('RM', stats.revenue)} tint="bg-sky-500/15 text-sky-300" />
+        <Stat icon={FileCheck2} label="Perlu disahkan" value={stats.awaiting_confirmation ?? 0} tint="bg-blue-500/15 text-blue-300" />
         <Stat icon={Clock} label="Belum bayar" value={stats.pending_payment ?? 0} tint="bg-amber-500/15 text-amber-300" />
         <Stat icon={CalendarDays} label="Hari ini" value={stats.today ?? 0} tint="bg-violet-500/15 text-violet-300" />
       </div>
@@ -159,6 +171,7 @@ export default function Index() {
                 {orders.data.map((order) => {
                   const method = PAYMENT_METHODS[order.payment_method];
                   const payStatus = PAYMENT_STATUSES[order.payment_status];
+                  const awaitingConfirmation = order.payment_status === 'pending' && order.payment_method === 'bank_transfer';
                   const waNumber = String(order.chat_id || order.customer_phone || '').replace(/\D/g, '');
 
                   return (
@@ -186,7 +199,13 @@ export default function Index() {
                         <div className="flex flex-wrap gap-1">
                           {method ? <Badge color={method.color}>{method.label}</Badge> : <span className="text-white/25">—</span>}
                           {payStatus && <Badge color={payStatus.color}>{payStatus.label}</Badge>}
+                          {order.proof_submitted && order.payment_status === 'pending' && <Badge color="blue"><Receipt className="h-3 w-3" /> Resit diterima</Badge>}
                         </div>
+                        {order.receipt_url && (
+                          <a href={order.receipt_url} target="_blank" rel="noopener" className="mt-1 inline-flex items-center gap-1 text-[11.5px] font-medium text-sky-300 hover:underline">
+                            <Receipt className="h-3 w-3" /> Lihat resit
+                          </a>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-white/60">{order.flow_name ?? '—'}</div>
@@ -195,9 +214,16 @@ export default function Index() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
+                        <div className="flex flex-col items-end gap-1.5">
+                        {awaitingConfirmation && (
+                          <Button size="sm" variant={order.proof_submitted ? 'primary' : 'secondary'} loading={confirmingId === order.id} onClick={() => confirmPayment(order)}>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Sahkan bayaran
+                          </Button>
+                        )}
                         <a href={order.url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] font-medium text-white/50 hover:text-emerald-300">
                           <ExternalLink className="h-3.5 w-3.5" /> Lihat
                         </a>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -1943,7 +1943,7 @@
     ]
   },
   "resources/js/cekbot-admin/app.jsx": {
-    "file": "assets/app-BBW9gRU8.js",
+    "file": "assets/app-CMaNnbFv.js",
     "name": "app",
     "src": "resources/js/cekbot-admin/app.jsx",
     "isEntry": true,
@@ -1992,6 +1992,8 @@
       "_wallet-BGLkeQCL.js",
       "_calendar-days-fzCHL8uo.js",
       "_credit-card-okeDKXxD.js",
+      "_receipt-B-GNdwAU.js",
+      "_circle-check-BCWIpMVB.js",
       "_external-link-B3MhSNVx.js",
       "_link-2-BdJRO9hu.js",
       "_book-open-JOTX0WFB.js",
@@ -2002,7 +2004,6 @@
       "_circle-question-mark-6bkeH7nf.js",
       "_quote-DrGTpx-u.js",
       "_circle-alert-c4mlcwxD.js",
-      "_circle-check-BCWIpMVB.js",
       "_phone-CEWFMG2M.js",
       "_log-out-DwPXQJGX.js",
       "_copy-BmKOaL8B.js",

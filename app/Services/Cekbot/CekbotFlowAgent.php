@@ -241,9 +241,14 @@ class CekbotFlowAgent
             'instruction' => 'Sahkan pesanan berjaya kepada pelanggan, beri no. pesanan, dan ucap terima kasih.',
         ];
 
-        if ($method === CekbotFlowEnrollment::PAYMENT_TRANSFER && filled($flow->bank_details)) {
-            $result['bank_details'] = $flow->bank_details;
-            $result['instruction'] = 'Sahkan pesanan berjaya, beri no. pesanan, dan beri maklumat bank ini untuk pelanggan buat pembayaran transfer.';
+        if ($method === CekbotFlowEnrollment::PAYMENT_TRANSFER) {
+            $result['instruction'] = 'Sahkan pesanan berjaya, beri no. pesanan'
+                .(filled($flow->bank_details) ? ', dan beri maklumat bank ini untuk pelanggan buat pembayaran transfer' : '')
+                .'. Minta pelanggan hantar gambar/screenshot resit di chat ini selepas transfer supaya team boleh sahkan pembayaran.';
+
+            if (filled($flow->bank_details)) {
+                $result['bank_details'] = $flow->bank_details;
+            }
         }
 
         if (filled($flow->confirmation_message)) {
@@ -336,7 +341,7 @@ class CekbotFlowAgent
         $lines[] = '6. BACA jawapan pelanggan. Jika mana-mana maklumat tak lengkap atau tiada (contoh: no. telefon tidak diberi), minta secara spesifik maklumat yang tiada itu sahaja.';
         $lines[] = '7. SEBELUM cipta pesanan, RINGKASKAN semua maklumat (pakej, harga, cara bayar, nama, no. telefon'.($askAddress ? ', alamat' : '').') dan MINTA pelanggan sahkan — contoh: "Betul semua ni? 🙂".';
         $lines[] = '8. HANYA selepas pelanggan sahkan betul ("betul"/"ya"/"ok"), panggil fungsi create_order.';
-        $lines[] = '9. Selepas order dicipta, ucap terima kasih & beri no. pesanan. Untuk transfer, beri maklumat bank untuk pelanggan buat bayaran.';
+        $lines[] = '9. Selepas order dicipta, ucap terima kasih & beri no. pesanan. Untuk transfer, beri maklumat bank & minta pelanggan hantar gambar/screenshot resit di chat ini selepas bayar, supaya team boleh sahkan.';
         $lines[] = '10. Jika pelanggan tanya maklumat bank / nama bank / QR pada bila-bila masa, jawab terus — jangan tahan sehingga borang lengkap. Selepas itu teruskan kumpul maklumat pesanan.';
 
         if (filled($flow->ai_instructions)) {

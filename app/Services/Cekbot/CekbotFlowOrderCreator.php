@@ -97,13 +97,25 @@ class CekbotFlowOrderCreator
      * Mark an enrollment completed and attach the created order, and file the
      * conversation under the "Deal" pipeline stage.
      */
-    public function completeEnrollment(CekbotFlowEnrollment $enrollment, ProductOrder $order): void
+    public function completeEnrollment(CekbotFlowEnrollment $enrollment, ?ProductOrder $order): void
     {
         $enrollment->update([
             'status' => CekbotFlowEnrollment::STATUS_COMPLETED,
             'current_step' => CekbotFlowEnrollment::STEP_DONE,
-            'product_order_id' => $order->id,
+            'product_order_id' => $order?->id ?? $enrollment->product_order_id,
             'completed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Keep the enrollment open after a transfer order is created, so the next
+     * image/document the customer sends is captured as the payment receipt.
+     */
+    public function awaitProof(CekbotFlowEnrollment $enrollment, ProductOrder $order): void
+    {
+        $enrollment->update([
+            'current_step' => CekbotFlowEnrollment::STEP_AWAIT_PROOF,
+            'product_order_id' => $order->id,
         ]);
     }
 }
