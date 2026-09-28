@@ -327,3 +327,52 @@ it('still sends the QR and waits for the receipt when nothing was paid before th
     expect(CekbotMessage::query()->where('direction', 'out')->where('type', 'image')->count())->toBe(1)
         ->and(CekbotFlowEnrollment::query()->latest('id')->first()->current_step)->toBe(CekbotFlowEnrollment::STEP_AWAIT_PROOF);
 });
+
+it('sends the tracking number as a follow-up when it arrives after the order shipped', function () {
+    fakeTransferOrderCall();
+    proofInbound('tr1', 'nak order, semua betul');
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+    $sent = fn () => CekbotMessage::query()->where('direction', 'out')->where('type', 'text')->count();
+
+    // Shipped without a tracking number yet.
+    $order->update(['status' => 'shipped']);
+    expect(lastProofReply())->toContain('dalam proses penghantaran')->not->toContain('No. tracking');
+
+    // Tracking added later → follow-up with the number + link.
+    $order->update(['tracking_id' => 'ER123456789MY']);
+    expect(lastProofReply())->toContain('No. tracking')->toContain('ER123456789MY')->toContain('tracking.my');
+
+    // Re-saving the same number doesn't repeat it; a corrected number is sent.
+    $count = $sent();
+    $order->update(['shipping_provider' => 'jnt']);
+    expect($sent())->toBe($count);
+
+    $order->update(['tracking_id' => 'JT999']);
+    expect($sent())->toBe($count + 1)->and(lastProofReply())->toContain('JT999');
+});
+
+it('includes the tracking number in the shipped message when both are set together', function () {
+    fakeTransferOrderCall();
+    proofInbound('tr2', 'nak order, semua betul');
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+
+    $order->update(['status' => 'shipped', 'tracking_id' => 'ER555']);
+    $count = CekbotMessage::query()->where('direction', 'out')->where('type', 'text')->count();
+
+    expect(lastProofReply())->toContain('dalam proses penghantaran')->toContain('ER555');
+
+    // No separate tracking follow-up for the same number.
+    $order->update(['tracking_id' => 'ER555']);
+    expect(CekbotMessage::query()->where('direction', 'out')->where('type', 'text')->count())->toBe($count);
+});
+
+it('does not send tracking before the order is shipped', function () {
+    fakeTransferOrderCall();
+    proofInbound('tr3', 'nak order, semua betul');
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+    $count = CekbotMessage::query()->where('direction', 'out')->count();
+
+    $order->update(['tracking_id' => 'ER777']);
+
+    expect(CekbotMessage::query()->where('direction', 'out')->count())->toBe($count);
+});

@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Log;
  *
  * Driven by ProductOrder's `updated` hook, so it fires no matter where the
  * team changes the order (Cekbot Orders page, admin order page, EasyParcel
- * sync). Each milestone is sent at most once, tracked in the order metadata.
+ * sync). Each milestone is sent at most once, tracked in the order metadata;
+ * a tracking number added after shipping is sent as a follow-up (once per number).
  */
 class CekbotOrderNotifier
 {
@@ -25,14 +26,21 @@ class CekbotOrderNotifier
             return;
         }
 
+        $notifiedTracking = data_get($order->metadata, 'cekbot_notified.tracking_id');
+
         $milestone = match (true) {
             $order->wasChanged('payment_status') && $order->payment_status === 'paid' => 'paid',
             $order->wasChanged('status') && $order->status === 'shipped' => 'shipped',
+            // Shipped first, tracking number added later (e.g. EasyParcel AWB
+            // generated after booking) — send the number as a follow-up.
+            $order->status === 'shipped' && $order->wasChanged('tracking_id')
+                && filled($order->tracking_id) && $order->tracking_id !== $notifiedTracking
+                && data_get($order->metadata, 'cekbot_notified.shipped') => 'tracking',
             $order->wasChanged('status') && $order->status === 'processing' => 'processing',
             default => null,
         };
 
-        if ($milestone === null || data_get($order->metadata, "cekbot_notified.{$milestone}")) {
+        if ($milestone === null || ($milestone !== 'tracking' && data_get($order->metadata, "cekbot_notified.{$milestone}"))) {
             return;
         }
 
@@ -49,6 +57,9 @@ class CekbotOrderNotifier
 
             $metadata = $order->metadata ?? [];
             $metadata['cekbot_notified'][$milestone] = now()->toIso8601String();
+            if (in_array($milestone, ['shipped', 'tracking'], true) && filled($order->tracking_id)) {
+                $metadata['cekbot_notified']['tracking_id'] = $order->tracking_id;
+            }
             $order->metadata = $metadata;
             $order->saveQuietly();
         } catch (\Throwable $e) {
@@ -68,6 +79,11 @@ class CekbotOrderNotifier
             'paid' => "Alhamdulillah, pembayaran untuk pesanan {$number} telah disahkan ✅ Terima kasih! Kami akan proses pesanan anda segera 🙏",
             'processing' => "Pesanan {$number} anda sedang kami proses sekarang 📦 Kami akan maklumkan bila pesanan dihantar ye 🙏",
             'shipped' => $this->shippedMessage($order, $number),
+            'tracking' => implode("\n", [
+                "No. tracking untuk pesanan {$number} 🚚",
+                '',
+                ...$this->trackingLines($order),
+            ]),
         };
     }
 
@@ -77,13 +93,23 @@ class CekbotOrderNotifier
 
         if ($order->tracking_id) {
             $lines[] = '';
-            $lines[] = 'No. tracking: *'.$order->tracking_id.'*'.($order->shipping_provider_label ? ' ('.$order->shipping_provider_label.')' : '');
-            $lines[] = 'Semak status: '.$order->tracking_url;
+            array_push($lines, ...$this->trackingLines($order));
         }
 
         $lines[] = '';
         $lines[] = 'Terima kasih kerana membeli dengan kami 🤍';
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function trackingLines(ProductOrder $order): array
+    {
+        return [
+            'No. tracking: *'.$order->tracking_id.'*'.($order->shipping_provider_label ? ' ('.$order->shipping_provider_label.')' : ''),
+            'Semak status: '.$order->tracking_url,
+        ];
     }
 }
