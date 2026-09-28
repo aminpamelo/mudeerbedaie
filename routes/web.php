@@ -1917,7 +1917,7 @@ Route::middleware(['auth', 'role:admin', HandleMindpalInertiaRequests::class])
 // CEKBOT — WhatsApp number/session manager at /admin/cekbot, powered by WAHA.
 // HandleCekbotInertiaRequests overrides the root view to `cekbot.app`.
 // ============================================================================
-Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
+Route::middleware(['auth', 'role:admin,employee', HandleCekbotInertiaRequests::class])
     ->prefix('admin/cekbot')
     ->name('cekbot.')
     ->group(function () {

@@ -461,6 +461,9 @@
                         {{ __('MindPal') }}
                     </flux:navlist.item>
 
+                @endif
+
+                @if(auth()->user()->isAdmin() || auth()->user()->isEmployee())
                     <flux:navlist.item
                         icon="chat-bubble-oval-left"
                         href="/admin/cekbot"

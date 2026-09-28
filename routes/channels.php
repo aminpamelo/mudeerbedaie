@@ -6,7 +6,7 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
 
-// Cekbot real-time inbox — admins only (mirrors the /admin/cekbot route gate).
+// Cekbot real-time inbox — admins & employees (mirrors the /admin/cekbot route gate).
 Broadcast::channel('cekbot-inbox', function ($user) {
-    return $user->isAdmin();
+    return $user->isAdmin() || $user->isEmployee();
 });
