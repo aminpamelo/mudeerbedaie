@@ -39,7 +39,7 @@ function confirmation(flow, vars) {
 
 /**
  * Build the scripted conversation for a payment path ('cod' | 'transfer').
- * Returns [{ from: 'bot'|'cust', text }].
+ * Returns [{ from: 'bot'|'cust', text, image? }].
  */
 export function buildPreview(flow, path = 'cod') {
   const msgs = [];
@@ -52,6 +52,11 @@ export function buildPreview(flow, path = 'cod') {
   // 1. Trigger + package menu.
   const triggerWord = (flow.trigger_keywords || [])[0] || 'nak order';
   cust(triggerWord);
+  // Scripted opening messages go out verbatim, before anything else.
+  (flow.opening_messages || []).forEach((m) => {
+    if (m.type === 'image' && m.url) msgs.push({ from: 'bot', text: m.caption || '', image: m.url });
+    if (m.type === 'text' && (m.text || '').trim()) bot(m.text);
+  });
   const intro = (flow.welcome_message || '').trim();
   bot(intro ? `${intro}\n\n${packageMenu(flow)}` : packageMenu(flow));
 

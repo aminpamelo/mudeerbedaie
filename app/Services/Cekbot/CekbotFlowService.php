@@ -115,6 +115,8 @@ class CekbotFlowService
 
         $this->setCategory($conversation, 'Berminat');
 
+        $this->sendOpening($flow, $conversation, $bot);
+
         $intro = trim((string) $flow->welcome_message);
         $menu = $this->packageMenu($flow);
 
@@ -139,7 +141,32 @@ class CekbotFlowService
 
         $this->setCategory($conversation, 'Berminat');
 
+        // A scripted opening replaces the AI's first reply; the AI takes over
+        // from the customer's next message.
+        if ($this->sendOpening($flow, $conversation, $bot)) {
+            return;
+        }
+
         $this->runAgent($enrollment, $flow, $conversation, $body, $type, $bot);
+    }
+
+    /**
+     * Send the flow's scripted opening messages verbatim, in order. Returns
+     * whether anything was sent.
+     */
+    private function sendOpening(CekbotFlow $flow, CekbotConversation $conversation, CekbotBotService $bot): bool
+    {
+        $messages = $flow->openingMessages();
+
+        foreach ($messages as $message) {
+            if ($message['type'] === 'image') {
+                $bot->sendImageReply($conversation, $message['url'], $message['caption']);
+            } else {
+                $bot->sendReply($conversation, $message['text']);
+            }
+        }
+
+        return $messages !== [];
     }
 
     /**

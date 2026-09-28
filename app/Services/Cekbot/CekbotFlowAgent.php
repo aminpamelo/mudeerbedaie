@@ -430,7 +430,7 @@ class CekbotFlowAgent
         }
 
         $label = $message->direction === CekbotMessage::DIRECTION_OUT
-            ? '[Gambar QR / poster bayaran dihantar]'
+            ? '[Gambar dihantar]'
             : '[Pelanggan hantar '.($message->type === 'image' ? 'gambar' : 'dokumen').' — kemungkinan resit bayaran]';
 
         return trim($label.' '.$body);

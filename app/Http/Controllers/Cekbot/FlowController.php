@@ -9,6 +9,7 @@ use App\Models\CekbotSession;
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\SalesSource;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -22,6 +23,8 @@ use Inertia\Response;
  */
 class FlowController extends Controller
 {
+    private const OPENING_DIR = 'cekbot-flows/opening';
+
     public function index(): Response
     {
         $sessions = CekbotSession::query()
@@ -130,6 +133,11 @@ class FlowController extends Controller
             'trigger_keywords' => 'nullable|array|max:50',
             'trigger_keywords.*' => 'nullable|string|max:255',
             'welcome_message' => 'nullable|string|max:4096',
+            'opening_messages' => 'nullable|array|max:10',
+            'opening_messages.*.type' => 'required|in:text,image',
+            'opening_messages.*.text' => 'nullable|required_if:opening_messages.*.type,text|string|max:4096',
+            'opening_messages.*.path' => ['nullable', 'required_if:opening_messages.*.type,image', 'string', 'max:255', 'starts_with:'.self::OPENING_DIR.'/'.$flow->id.'/', 'not_regex:/\.\./'],
+            'opening_messages.*.caption' => 'nullable|string|max:1024',
             'package_prompt' => 'nullable|string|max:1000',
             'confirmation_message' => 'nullable|string|max:4096',
             'ask_payment' => 'boolean',
@@ -155,6 +163,11 @@ class FlowController extends Controller
 
         $packages = $validated['packages'] ?? [];
         unset($validated['packages']);
+
+        if (array_key_exists('opening_messages', $validated)) {
+            $validated['opening_messages'] = $this->normaliseOpening($validated['opening_messages'] ?? []);
+            $this->deleteOrphanedOpeningImages($flow, $validated['opening_messages']);
+        }
 
         $flow->update($validated);
 
@@ -186,6 +199,24 @@ class FlowController extends Controller
         return back()->with('success', 'Gambar bank/QR dimuat naik.');
     }
 
+    /**
+     * Upload an image for the opening sequence. Returns its path/url; it is
+     * attached to the flow when the builder saves.
+     */
+    public function uploadOpeningImage(Request $request, CekbotFlow $flow): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|image|max:5120',
+        ]);
+
+        $path = $request->file('image')->store(self::OPENING_DIR.'/'.$flow->id, 'public');
+
+        return response()->json([
+            'path' => $path,
+            'url' => Storage::disk('public')->url($path),
+        ]);
+    }
+
     public function destroyBankImage(CekbotFlow $flow): RedirectResponse
     {
         if (filled($flow->bank_image)) {
@@ -201,6 +232,8 @@ class FlowController extends Controller
         if (filled($flow->bank_image)) {
             Storage::disk('public')->delete($flow->bank_image);
         }
+
+        Storage::disk('public')->deleteDirectory(self::OPENING_DIR.'/'.$flow->id);
 
         $flow->delete();
 
@@ -264,6 +297,7 @@ class FlowController extends Controller
             'match_type' => $flow->match_type,
             'trigger_keywords' => $flow->trigger_keywords ?? [],
             'welcome_message' => $flow->welcome_message,
+            'opening_messages' => $flow->openingMessages(),
             'package_prompt' => $flow->package_prompt,
             'confirmation_message' => $flow->confirmation_message,
             'ask_payment' => $flow->ask_payment,
@@ -284,5 +318,37 @@ class FlowController extends Controller
                 'currency' => $p->currency,
             ])->values(),
         ];
+    }
+
+    /**
+     * Keep only the fields each opening message type uses.
+     *
+     * @param  array<int, array<string, mixed>>  $messages
+     * @return array<int, array<string, string|null>>
+     */
+    private function normaliseOpening(array $messages): array
+    {
+        return collect($messages)
+            ->map(fn (array $m) => $m['type'] === 'image'
+                ? ['type' => 'image', 'path' => $m['path'], 'caption' => filled($m['caption'] ?? null) ? trim($m['caption']) : null]
+                : ['type' => 'text', 'text' => trim((string) $m['text'])])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Delete opening images that were removed from the sequence.
+     *
+     * @param  array<int, array<string, string|null>>  $messages
+     */
+    private function deleteOrphanedOpeningImages(CekbotFlow $flow, array $messages): void
+    {
+        $kept = collect($messages)->pluck('path')->filter();
+
+        collect($flow->opening_messages ?? [])
+            ->pluck('path')
+            ->filter()
+            ->reject(fn (string $path) => $kept->contains($path))
+            ->each(fn (string $path) => Storage::disk('public')->delete($path));
     }
 }

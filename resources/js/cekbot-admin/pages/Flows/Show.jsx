@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon, Smartphone, ShieldCheck, Server } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon, Smartphone, ShieldCheck, Server, ChevronUp, ChevronDown, Type } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Field, Input, Textarea, Select, Toggle } from '@/cekbot-admin/components/Ui';
 import { buildPreview } from '@/cekbot-admin/lib/flowPreview';
@@ -57,6 +59,110 @@ function BankImage({ flowId, imageUrl }) {
   );
 }
 
+/**
+ * Scripted opening messages — text and image bubbles sent verbatim, in order,
+ * as soon as the flow triggers (before the AI / menu takes over).
+ */
+function OpeningMessages({ flowId, messages, onChange, errors }) {
+  const fileRef = useRef(null);
+  const [uploadingIndex, setUploadingIndex] = useState(null);
+  const targetIndex = useRef(null);
+
+  function update(index, patch) {
+    onChange(messages.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+  }
+  function move(index, delta) {
+    const next = [...messages];
+    const [item] = next.splice(index, 1);
+    next.splice(index + delta, 0, item);
+    onChange(next);
+  }
+  function remove(index) {
+    onChange(messages.filter((_, i) => i !== index));
+  }
+  function addText() {
+    onChange([...messages, { type: 'text', text: '', path: '', caption: '', url: '' }]);
+  }
+  function pickImage(index) {
+    targetIndex.current = index;
+    fileRef.current?.click();
+  }
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    if (fileRef.current) fileRef.current.value = '';
+    if (!file) return;
+
+    const index = targetIndex.current;
+    setUploadingIndex(index ?? messages.length);
+    try {
+      const body = new FormData();
+      body.append('image', file);
+      const { data: uploaded } = await axios.post(route('cekbot.flows.opening-image.store', flowId), body);
+      if (index === null) {
+        onChange([...messages, { type: 'image', text: '', path: uploaded.path, caption: '', url: uploaded.url }]);
+      } else {
+        update(index, { path: uploaded.path, url: uploaded.url });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.errors?.image?.[0] ?? 'Gagal muat naik gambar.');
+    } finally {
+      setUploadingIndex(null);
+    }
+  }
+
+  return (
+    <Field
+      label="Mesej pembuka (dihantar tepat, ikut susunan)"
+      hint="Dihantar sebaik pelanggan trigger flow — sebelum AI / menu ambil alih. Dalam mod AI, AI mula balas pada mesej pelanggan yang seterusnya."
+    >
+      <div className="space-y-2.5">
+        {messages.map((m, i) => (
+          <div key={i} className="rounded-xl bg-white/[0.04] p-3 ring-1 ring-inset ring-white/8">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11.5px] font-semibold text-white/50">
+                {m.type === 'image' ? <ImageIcon className="h-3.5 w-3.5" /> : <Type className="h-3.5 w-3.5" />}
+                Mesej {i + 1} · {m.type === 'image' ? 'Gambar' : 'Teks'}
+              </span>
+              <div className="flex items-center gap-0.5">
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="grid h-7 w-7 place-items-center rounded-lg text-white/40 hover:bg-white/8 hover:text-white disabled:opacity-25" aria-label="Naik"><ChevronUp className="h-4 w-4" /></button>
+                <button type="button" disabled={i === messages.length - 1} onClick={() => move(i, 1)} className="grid h-7 w-7 place-items-center rounded-lg text-white/40 hover:bg-white/8 hover:text-white disabled:opacity-25" aria-label="Turun"><ChevronDown className="h-4 w-4" /></button>
+                <button type="button" onClick={() => remove(i)} className="grid h-7 w-7 place-items-center rounded-lg text-white/40 hover:bg-rose-500/15 hover:text-rose-300" aria-label="Buang mesej"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+
+            {m.type === 'image' ? (
+              <div className="flex gap-3">
+                <button type="button" onClick={() => pickImage(i)} className="relative shrink-0" title="Tukar gambar">
+                  <img src={m.url} alt="" className="h-20 w-20 rounded-lg object-cover ring-1 ring-inset ring-white/10" />
+                  {uploadingIndex === i && <span className="absolute inset-0 grid place-items-center rounded-lg bg-black/60 text-[11px] text-white">…</span>}
+                </button>
+                <div className="flex-1">
+                  <Input value={m.caption ?? ''} onChange={(e) => update(i, { caption: e.target.value })} placeholder="Caption (pilihan)" />
+                  <p className="mt-1 text-[11px] text-white/35">Klik gambar untuk tukar.</p>
+                </div>
+              </div>
+            ) : (
+              <Textarea rows={3} value={m.text ?? ''} onChange={(e) => update(i, { text: e.target.value })} placeholder="Cth: Assalamualaikum! 🌙 Terima kasih berminat dengan Buku Panduan Qadha Solat…" />
+            )}
+            {(errors[`opening_messages.${i}.text`] || errors[`opening_messages.${i}.path`]) && (
+              <p className="mt-1 text-[11.5px] font-semibold text-rose-400">{errors[`opening_messages.${i}.text`] || errors[`opening_messages.${i}.path`]}</p>
+            )}
+          </div>
+        ))}
+
+        {messages.length < 10 && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={addText}><Type className="h-3.5 w-3.5" /> Tambah teks</Button>
+            <Button variant="secondary" size="sm" onClick={() => pickImage(null)} loading={uploadingIndex === messages.length}><ImageIcon className="h-3.5 w-3.5" /> Tambah gambar</Button>
+          </div>
+        )}
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+    </Field>
+  );
+}
+
 function SectionCard({ icon: Icon, title, hint, children }) {
   return (
     <Card className="p-5">
@@ -89,6 +195,9 @@ export default function Show() {
     match_type: flow.match_type ?? 'contains',
     trigger_keywords: flow.trigger_keywords ?? [],
     welcome_message: flow.welcome_message ?? '',
+    opening_messages: (flow.opening_messages ?? []).map((m) => ({
+      type: m.type, text: m.text ?? '', path: m.path ?? '', caption: m.caption ?? '', url: m.url ?? '',
+    })),
     package_prompt: flow.package_prompt ?? '',
     confirmation_message: flow.confirmation_message ?? '',
     ask_payment: flow.ask_payment ?? true,
@@ -301,9 +410,10 @@ export default function Show() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={MessageSquareText} title="Mesej alu-aluan" hint={form.data.use_ai && aiAvailable ? 'Panduan gaya untuk AI (AI akan olah sendiri).' : 'Mesej pertama + arahan pilih pakej.'}>
+          <SectionCard icon={MessageSquareText} title="Mesej alu-aluan" hint={form.data.use_ai && aiAvailable ? 'Mesej pembuka tetap + panduan gaya untuk AI.' : 'Mesej pertama + arahan pilih pakej.'}>
             <div className="space-y-4">
-              <Field label="Mesej alu-aluan (pilihan)" error={errors.welcome_message}>
+              <OpeningMessages flowId={flow.id} messages={data.opening_messages} onChange={(v) => setData('opening_messages', v)} errors={errors} />
+              <Field label={form.data.use_ai && aiAvailable ? 'Panduan alu-aluan untuk AI (pilihan)' : 'Mesej alu-aluan (pilihan)'} error={errors.welcome_message}>
                 <Textarea rows={2} value={data.welcome_message} onChange={(e) => setData('welcome_message', e.target.value)}
                   placeholder="Cth: Salam! 🙌 Terima kasih berminat dengan produk kami." />
               </Field>
@@ -490,7 +600,8 @@ export default function Show() {
                     'max-w-[85%] rounded-2xl px-3 py-2 text-[12.5px] leading-relaxed shadow-sm',
                     m.from === 'cust' ? 'rounded-br-sm bg-emerald-600 text-white' : 'rounded-bl-sm bg-white/10 text-white/90'
                   )}>
-                    <WaText text={m.text} />
+                    {m.image && <img src={m.image} alt="" className={cn('w-48 max-w-full rounded-xl object-cover', m.text && 'mb-1.5')} />}
+                    {m.text && <WaText text={m.text} />}
                   </div>
                 </div>
               ))}

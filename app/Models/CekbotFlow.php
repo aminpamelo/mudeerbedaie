@@ -27,6 +27,7 @@ class CekbotFlow extends Model
         'match_type',
         'trigger_keywords',
         'welcome_message',
+        'opening_messages',
         'package_prompt',
         'confirmation_message',
         'ask_payment',
@@ -51,6 +52,7 @@ class CekbotFlow extends Model
             'is_active' => 'boolean',
             'use_ai' => 'boolean',
             'trigger_keywords' => 'array',
+            'opening_messages' => 'array',
             'ask_payment' => 'boolean',
             'payment_transfer_enabled' => 'boolean',
             'payment_cod_enabled' => 'boolean',
@@ -111,6 +113,32 @@ class CekbotFlow extends Model
         return filled($this->bank_image)
             ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->bank_image)
             : null;
+    }
+
+    /**
+     * The scripted opening sequence sent verbatim when the flow triggers, with
+     * public image URLs resolved. Empty entries are dropped.
+     *
+     * @return array<int, array{type: string, text: ?string, path: ?string, caption: ?string, url: ?string}>
+     */
+    public function openingMessages(): array
+    {
+        return collect($this->opening_messages ?? [])
+            ->map(function ($message) {
+                $type = ($message['type'] ?? 'text') === 'image' ? 'image' : 'text';
+                $path = $type === 'image' ? ($message['path'] ?? null) : null;
+
+                return [
+                    'type' => $type,
+                    'text' => $type === 'text' ? trim((string) ($message['text'] ?? '')) : null,
+                    'path' => $path,
+                    'caption' => $type === 'image' ? (trim((string) ($message['caption'] ?? '')) ?: null) : null,
+                    'url' => $path ? \Illuminate\Support\Facades\Storage::disk('public')->url($path) : null,
+                ];
+            })
+            ->filter(fn (array $m) => $m['type'] === 'image' ? filled($m['path']) : filled($m['text']))
+            ->values()
+            ->all();
     }
 
     /**

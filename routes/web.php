@@ -1978,6 +1978,7 @@ Route::middleware(['auth', 'role:admin', HandleCekbotInertiaRequests::class])
         Route::put('flows/{flow}/active', [CekbotFlowController::class, 'toggle'])->name('flows.toggle');
         Route::post('flows/{flow}/bank-image', [CekbotFlowController::class, 'uploadBankImage'])->name('flows.bank-image.store');
         Route::delete('flows/{flow}/bank-image', [CekbotFlowController::class, 'destroyBankImage'])->name('flows.bank-image.destroy');
+        Route::post('flows/{flow}/opening-image', [CekbotFlowController::class, 'uploadOpeningImage'])->name('flows.opening-image.store');
         Route::delete('flows/{flow}', [CekbotFlowController::class, 'destroy'])->name('flows.destroy');
 
         // Orders created by the bot (flows)
