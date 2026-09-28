@@ -186,3 +186,26 @@ it('lets the customer cancel mid-funnel', function () {
     expect($enrollment->status)->toBe(CekbotFlowEnrollment::STATUS_ABANDONED);
     expect(ProductOrder::query()->where('source', 'whatsapp_bot')->count())->toBe(0);
 });
+
+it('records the linked shop package on the order line', function () {
+    $shopPackage = \App\Models\Package::factory()->create(['name' => 'Bundle Qadha Solat', 'price' => 79]);
+    makeFlow($this->session->id, [], [
+        ['label' => 'Bundle', 'price' => null, 'shop_package_id' => $shopPackage->id, 'sort_order' => 1],
+    ]);
+
+    flowInbound('nak order', 'sp1');
+    flowInbound('1', 'sp2');
+    flowInbound('cod', 'sp3');
+    flowInbound('Ali Bin Abu', 'sp4');
+    flowInbound('No 5, Jalan Mawar, 43000 Kajang, Selangor', 'sp5');
+
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+    $item = $order->items()->first();
+
+    expect((float) $order->total_amount)->toBe(79.0)
+        ->and($item->package_id)->toBe($shopPackage->id)
+        ->and($item->itemable_type)->toBe(\App\Models\Package::class)
+        ->and($item->itemable_id)->toBe($shopPackage->id)
+        ->and($item->product_id)->toBeNull()
+        ->and($item->isPackage())->toBeTrue();
+});

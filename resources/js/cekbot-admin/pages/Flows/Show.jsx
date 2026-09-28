@@ -76,6 +76,7 @@ export default function Show() {
   const { props } = usePage();
   const flow = props.flow;
   const catalogProducts = props.catalogProducts ?? [];
+  const catalogPackages = props.catalogPackages ?? [];
   const cekbotProducts = props.cekbotProducts ?? [];
   const salesSources = props.salesSources ?? [];
   const aiAvailable = props.aiAvailable;
@@ -101,6 +102,7 @@ export default function Show() {
       id: p.id,
       cekbot_product_id: p.cekbot_product_id ?? '',
       product_id: p.product_id ?? '',
+      shop_package_id: p.shop_package_id ?? '',
       label: p.label ?? '',
       price: p.price ?? '',
       currency: p.currency ?? 'RM',
@@ -121,7 +123,7 @@ export default function Show() {
   }
 
   function addPackage() {
-    setData('packages', [...data.packages, { cekbot_product_id: '', product_id: '', label: '', price: '', currency: 'RM' }]);
+    setData('packages', [...data.packages, { cekbot_product_id: '', product_id: '', shop_package_id: '', label: '', price: '', currency: 'RM' }]);
   }
   function updatePackage(index, patch) {
     setData('packages', data.packages.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -130,23 +132,26 @@ export default function Show() {
     setData('packages', data.packages.filter((_, i) => i !== index));
   }
   // The product select encodes which source is linked: "catalog:ID" (shop
-  // product) or "cekbot:ID" (Cekbot knowledge product).
+  // product), "package:ID" (shop package) or "cekbot:ID" (Cekbot knowledge product).
   function packageSelectValue(pkg) {
     if (pkg.product_id) return `catalog:${pkg.product_id}`;
+    if (pkg.shop_package_id) return `package:${pkg.shop_package_id}`;
     if (pkg.cekbot_product_id) return `cekbot:${pkg.cekbot_product_id}`;
     return '';
   }
   function onSelectProduct(index, value) {
     const row = data.packages[index];
     if (!value) {
-      updatePackage(index, { product_id: '', cekbot_product_id: '' });
+      updatePackage(index, { product_id: '', shop_package_id: '', cekbot_product_id: '' });
       return;
     }
     const [type, id] = value.split(':');
-    if (type === 'catalog') {
-      const product = catalogProducts.find((p) => String(p.id) === String(id));
+    if (type === 'catalog' || type === 'package') {
+      const source = type === 'catalog' ? catalogProducts : catalogPackages;
+      const product = source.find((p) => String(p.id) === String(id));
       updatePackage(index, {
-        product_id: id,
+        product_id: type === 'catalog' ? id : '',
+        shop_package_id: type === 'package' ? id : '',
         cekbot_product_id: '',
         label: row.label || product?.name || '',
         price: row.price === '' && product?.price != null ? product.price : row.price,
@@ -156,6 +161,7 @@ export default function Show() {
       updatePackage(index, {
         cekbot_product_id: id,
         product_id: '',
+        shop_package_id: '',
         label: row.label || product?.name || '',
         price: row.price === '' && product?.price != null ? product.price : row.price,
         currency: product?.currency || row.currency || 'RM',
@@ -322,14 +328,21 @@ export default function Show() {
                     <button type="button" onClick={() => removePackage(i)} className="text-white/40 hover:text-rose-300" aria-label="Buang pakej"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                   <div className="grid gap-2.5 sm:grid-cols-2">
-                    <Field label="Link ke produk (pilihan)" className="sm:col-span-2"
-                      hint={catalogProducts.length === 0 && cekbotProducts.length === 0 ? 'Belum ada produk — tambah di Produk (kedai) dahulu, atau isi label + harga secara manual.' : 'Link ke produk kedai supaya order rujuk produk sebenar & harga auto-isi.'}>
+                    <Field label="Link ke produk / package (pilihan)" className="sm:col-span-2"
+                      hint={catalogProducts.length === 0 && catalogPackages.length === 0 && cekbotProducts.length === 0 ? 'Belum ada produk — tambah di Produk (kedai) dahulu, atau isi label + harga secara manual.' : 'Link ke produk / package kedai supaya order rujuk item sebenar & harga auto-isi.'}>
                       <Select value={packageSelectValue(pkg)} onChange={(e) => onSelectProduct(i, e.target.value)}>
                         <option value="">— Custom (tiada link produk) —</option>
                         {catalogProducts.length > 0 && (
                           <optgroup label="Produk kedai">
                             {catalogProducts.map((p) => (
                               <option key={`c${p.id}`} value={`catalog:${p.id}`}>{p.name}{p.price != null ? ` (RM${p.price})` : ''}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {catalogPackages.length > 0 && (
+                          <optgroup label="Package kedai">
+                            {catalogPackages.map((p) => (
+                              <option key={`p${p.id}`} value={`package:${p.id}`}>{p.name}{p.price != null ? ` (RM${p.price})` : ''}</option>
                             ))}
                           </optgroup>
                         )}

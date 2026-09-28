@@ -170,3 +170,49 @@ it('deletes a flow', function () {
 
     expect(CekbotFlow::query()->find($flow->id))->toBeNull();
 });
+
+it('links a package to a shop catalogue package and resolves its price', function () {
+    $shopPackage = \App\Models\Package::factory()->create(['name' => 'Bundle Qadha Solat', 'price' => 79]);
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+
+    test()->actingAs($this->admin)
+        ->get(route('cekbot.flows.show', $flow->id))
+        ->assertInertia(fn ($page) => $page->component('Flows/Show', false)
+            ->where('catalogPackages.0.name', 'Bundle Qadha Solat')
+            ->where('catalogPackages.0.price', 79));
+
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.flows.update', $flow->id), [
+            'name' => 'F1',
+            'match_type' => 'contains',
+            'trigger_keywords' => ['minat'],
+            'ask_payment' => true,
+            'payment_transfer_enabled' => true,
+            'payment_cod_enabled' => true,
+            'ask_name' => true,
+            'packages' => [
+                ['shop_package_id' => $shopPackage->id, 'product_id' => null, 'cekbot_product_id' => null, 'label' => 'Bundle', 'price' => null, 'currency' => 'RM'],
+            ],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $pkg = $flow->packages()->first();
+    expect($pkg->shop_package_id)->toBe($shopPackage->id)
+        ->and($pkg->effectivePrice())->toBe(79.0)
+        ->and($pkg->orderProductId())->toBeNull();
+
+    test()->actingAs($this->admin)
+        ->get(route('cekbot.flows.show', $flow->id))
+        ->assertInertia(fn ($page) => $page->where('flow.packages.0.shop_package_id', $shopPackage->id));
+});
+
+it('rejects an unknown shop package id', function () {
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.flows.update', $flow->id), [
+            'name' => 'F1', 'match_type' => 'contains', 'trigger_keywords' => ['minat'],
+            'packages' => [['shop_package_id' => 999999, 'label' => 'X', 'currency' => 'RM']],
+        ])
+        ->assertSessionHasErrors('packages.0.shop_package_id');
+});

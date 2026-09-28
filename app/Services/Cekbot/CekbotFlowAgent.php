@@ -38,7 +38,7 @@ class CekbotFlowAgent
             return ['reply' => null, 'order' => null, 'send_qr' => false];
         }
 
-        $flow->loadMissing(['packages.cekbotProduct', 'packages.product']);
+        $flow->loadMissing(['packages.cekbotProduct', 'packages.product', 'packages.shopPackage']);
 
         try {
             $messages = $this->buildMessages($flow, $conversation, $message);
@@ -226,6 +226,7 @@ class CekbotFlowAgent
             'price' => $package->effectivePrice(),
             'currency' => $package->effectiveCurrency(),
             'product_id' => $package->orderProductId(),
+            'package_id' => $package->shop_package_id,
             'payment_method' => $method,
             'name' => $customerName,
             'phone' => $phoneRaw,
@@ -369,6 +370,12 @@ class CekbotFlowAgent
                 foreach ($product->faqPairs() as $faq) {
                     $parts[] = '   Soalan: '.$faq['question'].' — Jawapan: '.$faq['answer'];
                 }
+            }
+
+            $shopPackage = $p->shopPackage;
+            $about = trim(strip_tags((string) ($shopPackage?->short_description ?: $shopPackage?->description)));
+            if ($about !== '') {
+                $parts[] = '   '.Str::limit($about, 500);
             }
 
             return implode("\n", $parts);

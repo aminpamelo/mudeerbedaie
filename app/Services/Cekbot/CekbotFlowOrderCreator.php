@@ -5,6 +5,7 @@ namespace App\Services\Cekbot;
 use App\Models\CekbotConversation;
 use App\Models\CekbotFlow;
 use App\Models\CekbotFlowEnrollment;
+use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
 
@@ -21,6 +22,7 @@ class CekbotFlowOrderCreator
      *     price?: float|int|string|null,
      *     currency?: string|null,
      *     product_id?: int|null,
+     *     package_id?: int|null,
      *     payment_method?: string|null,
      *     name?: string|null,
      *     phone?: string|null,
@@ -38,6 +40,7 @@ class CekbotFlowOrderCreator
         $method = $details['payment_method'] ?? null;
         $address = trim((string) ($details['address'] ?? '')) ?: null;
         $catalogProductId = $details['product_id'] ?? null;
+        $shopPackageId = $details['package_id'] ?? null;
 
         $order = ProductOrder::create([
             'order_number' => ProductOrder::generateOrderNumber(),
@@ -70,9 +73,10 @@ class CekbotFlowOrderCreator
         ]);
 
         $order->items()->create([
-            'product_id' => $catalogProductId,
-            'itemable_type' => $catalogProductId ? Product::class : null,
-            'itemable_id' => $catalogProductId,
+            'product_id' => $shopPackageId ? null : $catalogProductId,
+            'package_id' => $shopPackageId,
+            'itemable_type' => $shopPackageId ? Package::class : ($catalogProductId ? Product::class : null),
+            'itemable_id' => $shopPackageId ?? $catalogProductId,
             'product_name' => $label,
             'quantity_ordered' => 1,
             'unit_price' => $price,

@@ -48,7 +48,7 @@ class CekbotFlowService
             }
 
             if ($enrollment) {
-                $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product']);
+                $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product', 'flow.packages.shopPackage']);
 
                 if ($enrollment->flow->aiEnabled()) {
                     $this->advanceAi($enrollment, $conversation, $body, $bot);
@@ -91,7 +91,7 @@ class CekbotFlowService
         return $conversation->session
             ->flows()
             ->active()
-            ->with(['packages.cekbotProduct', 'packages.product'])
+            ->with(['packages.cekbotProduct', 'packages.product', 'packages.shopPackage'])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -202,7 +202,7 @@ class CekbotFlowService
      */
     private function advance(CekbotFlowEnrollment $enrollment, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
     {
-        $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product']);
+        $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product', 'flow.packages.shopPackage']);
         $flow = $enrollment->flow;
         $text = trim($body);
 
@@ -242,6 +242,7 @@ class CekbotFlowService
             'package_id' => $package->id,
             'cekbot_product_id' => $package->cekbot_product_id,
             'product_id' => $package->orderProductId(),
+            'shop_package_id' => $package->shop_package_id,
             'package_label' => $package->label,
             'price' => $package->effectivePrice(),
             'currency' => $package->effectiveCurrency(),
@@ -442,6 +443,7 @@ class CekbotFlowService
             'price' => (float) $enrollment->answer('price', 0),
             'currency' => (string) $enrollment->answer('currency', 'RM'),
             'product_id' => $enrollment->answer('product_id'),
+            'package_id' => $enrollment->answer('shop_package_id'),
             'payment_method' => $enrollment->answer('payment_method'),
             'name' => $enrollment->answer('name'),
             'phone' => $conversation->phoneNumber(),

@@ -209,3 +209,39 @@ it('does not offer the QR tool when no QR is uploaded', function () {
 
     expect(\App\Models\CekbotMessage::query()->where('type', 'image')->exists())->toBeFalse();
 });
+
+it('records the linked shop package when the AI creates the order', function () {
+    $shopPackage = \App\Models\Package::factory()->create(['name' => 'Bundle Qadha Solat', 'price' => 79, 'short_description' => 'Buku fizikal + ebook panduan qadha solat']);
+    $this->flow->packages()->first()->update(['shop_package_id' => $shopPackage->id, 'price' => null]);
+
+    OpenAI::fake([
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => [
+                'role' => 'assistant', 'content' => null,
+                'tool_calls' => [[
+                    'id' => 'call_pk', 'type' => 'function',
+                    'function' => ['name' => 'create_order', 'arguments' => json_encode([
+                        'package' => 'Pakej A', 'payment_method' => 'cod',
+                        'customer_name' => 'Ali', 'customer_phone' => '0123456789', 'address' => 'No 5, Kajang',
+                    ])],
+                ]],
+            ],
+            'finish_reason' => 'tool_calls',
+        ]]]),
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => ['role' => 'assistant', 'content' => 'Siap!'],
+            'finish_reason' => 'stop',
+        ]]]),
+    ]);
+
+    aiInbound('nak order, semua betul', 'pk1');
+
+    $item = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail()->items()->first();
+    expect($item->package_id)->toBe($shopPackage->id)
+        ->and((float) $item->unit_price)->toBe(79.0);
+
+    // The package description is given to the AI so it can describe the offer.
+    OpenAI::assertSent(\OpenAI\Resources\Chat::class, fn (string $method, array $params) => str_contains($params['messages'][0]['content'], 'Buku fizikal + ebook panduan qadha solat'));
+});

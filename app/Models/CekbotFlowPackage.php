@@ -19,6 +19,7 @@ class CekbotFlowPackage extends Model
         'cekbot_flow_id',
         'cekbot_product_id',
         'product_id',
+        'shop_package_id',
         'label',
         'price',
         'currency',
@@ -65,8 +66,18 @@ class CekbotFlowPackage extends Model
     }
 
     /**
+     * The shop catalogue package (bundle) this offer sells (optional).
+     *
+     * @return BelongsTo<Package, $this>
+     */
+    public function shopPackage(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'shop_package_id');
+    }
+
+    /**
      * Effective selling price — the package override, else the linked catalogue
-     * product's price, else the Cekbot product's price, else 0.
+     * product's / shop package's price, else the Cekbot product's price, else 0.
      */
     public function effectivePrice(): float
     {
@@ -76,6 +87,10 @@ class CekbotFlowPackage extends Model
 
         if ($this->product_id && $this->product) {
             return (float) ($this->product->price ?? 0);
+        }
+
+        if ($this->shop_package_id && $this->shopPackage) {
+            return (float) ($this->shopPackage->price ?? 0);
         }
 
         return (float) ($this->cekbotProduct?->price ?? 0);
@@ -96,6 +111,10 @@ class CekbotFlowPackage extends Model
      */
     public function orderProductId(): ?int
     {
+        if ($this->shop_package_id) {
+            return null;
+        }
+
         return $this->product_id ?? $this->cekbotProduct?->product_id;
     }
 }
