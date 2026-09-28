@@ -51,7 +51,7 @@ class CekbotFlowService
                 $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product', 'flow.packages.shopPackage']);
 
                 if ($enrollment->flow->aiEnabled()) {
-                    $this->advanceAi($enrollment, $conversation, $body, $bot);
+                    $this->advanceAi($enrollment, $conversation, $body, $type, $bot);
                 } else {
                     $this->advance($enrollment, $conversation, $body, $type, $bot);
                 }
@@ -63,7 +63,7 @@ class CekbotFlowService
 
             if ($flow) {
                 if ($flow->aiEnabled()) {
-                    $this->startAi($flow, $conversation, $body, $bot);
+                    $this->startAi($flow, $conversation, $body, $type, $bot);
                 } else {
                     $this->start($flow, $conversation, $bot);
                 }
@@ -125,7 +125,7 @@ class CekbotFlowService
      * Start an AI-driven flow: enrol, then let the agent respond to the very
      * message that triggered it (so it greets & presents packages naturally).
      */
-    private function startAi(CekbotFlow $flow, CekbotConversation $conversation, string $body, CekbotBotService $bot): void
+    private function startAi(CekbotFlow $flow, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
     {
         $enrollment = CekbotFlowEnrollment::create([
             'cekbot_conversation_id' => $conversation->id,
@@ -139,13 +139,13 @@ class CekbotFlowService
 
         $this->setCategory($conversation, 'Berminat');
 
-        $this->runAgent($enrollment, $flow, $conversation, $body, $bot);
+        $this->runAgent($enrollment, $flow, $conversation, $body, $type, $bot);
     }
 
     /**
      * Advance an AI-driven flow.
      */
-    private function advanceAi(CekbotFlowEnrollment $enrollment, CekbotConversation $conversation, string $body, CekbotBotService $bot): void
+    private function advanceAi(CekbotFlowEnrollment $enrollment, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
     {
         $enrollment->update(['last_activity_at' => now()]);
 
@@ -156,23 +156,44 @@ class CekbotFlowService
             return;
         }
 
-        $this->runAgent($enrollment, $enrollment->flow, $conversation, $body, $bot);
+        $this->runAgent($enrollment, $enrollment->flow, $conversation, $body, $type, $bot);
     }
 
     /**
      * Run the AI agent for a turn: send its reply, and finalise the enrollment
      * when it creates an order.
      */
-    private function runAgent(CekbotFlowEnrollment $enrollment, CekbotFlow $flow, CekbotConversation $conversation, string $body, CekbotBotService $bot): void
+    private function runAgent(CekbotFlowEnrollment $enrollment, CekbotFlow $flow, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
     {
-        $result = $this->agent->respond($flow, $conversation, $body);
+        // Customers often pay by QR and send the receipt before the order is
+        // placed — remember it so it isn't asked for again later.
+        if (in_array($type, ['image', 'document'], true) && ($message = $this->latestInbound($conversation))) {
+            $enrollment->putData(['proof_message_id' => $message->id]);
+            $enrollment->save();
+        }
 
-        if ($result['order']) {
-            // Transfer orders stay open, waiting for the customer's receipt.
-            if ($result['order']->payment_method === CekbotFlowEnrollment::PAYMENT_TRANSFER) {
-                $this->orders->awaitProof($enrollment, $result['order']);
+        $proofMessageId = $enrollment->answer('proof_message_id');
+        $qrSent = (bool) $enrollment->answer('qr_sent', false);
+
+        $result = $this->agent->respond($flow, $conversation, $body, [
+            'proof_received' => filled($proofMessageId),
+            'qr_sent' => $qrSent,
+        ]);
+
+        $order = $result['order'];
+        $transferOrder = $order && $order->payment_method === CekbotFlowEnrollment::PAYMENT_TRANSFER;
+
+        if ($order) {
+            $proofMessage = $proofMessageId ? CekbotMessage::query()->find($proofMessageId) : null;
+
+            if ($transferOrder && $proofMessage) {
+                $this->proofs->attach($order, $conversation, $proofMessage);
+                $this->orders->completeEnrollment($enrollment, $order);
+            } elseif ($transferOrder) {
+                // Transfer orders stay open, waiting for the customer's receipt.
+                $this->orders->awaitProof($enrollment, $order);
             } else {
-                $this->orders->completeEnrollment($enrollment, $result['order']);
+                $this->orders->completeEnrollment($enrollment, $order);
             }
             $this->setCategory($conversation, 'Deal');
         }
@@ -188,12 +209,13 @@ class CekbotFlowService
         $bot->sendReply($conversation, $reply);
 
         // Follow up with the QR/bank poster when the customer asked for it, or
-        // when a transfer order was just created so they can pay straight away.
-        $transferOrder = $result['order']
-            && $result['order']->payment_method === CekbotFlowEnrollment::PAYMENT_TRANSFER;
+        // after a transfer order — unless they already have it or already paid.
+        $autoQr = $transferOrder && ! $qrSent && blank($proofMessageId);
 
-        if (($result['send_qr'] || $transferOrder) && $flow->bank_image) {
+        if (($result['send_qr'] || $autoQr) && $flow->bank_image) {
             $bot->sendImageReply($conversation, $flow->bankImageUrl(), null);
+            $enrollment->putData(['qr_sent' => true]);
+            $enrollment->save();
         }
     }
 

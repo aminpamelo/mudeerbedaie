@@ -30,9 +30,10 @@ class CekbotFlowAgent
      * Produce the next reply for an active flow conversation. Creates the order
      * as a side effect when the model calls create_order with valid details.
      *
+     * @param  array{proof_received?: bool, qr_sent?: bool}  $context  Funnel state the model can't see in the chat text.
      * @return array{reply: ?string, order: ?ProductOrder, send_qr: bool}
      */
-    public function respond(CekbotFlow $flow, CekbotConversation $conversation, string $message): array
+    public function respond(CekbotFlow $flow, CekbotConversation $conversation, string $message, array $context = []): array
     {
         if (blank(config('openai.api_key'))) {
             return ['reply' => null, 'order' => null, 'send_qr' => false];
@@ -41,7 +42,7 @@ class CekbotFlowAgent
         $flow->loadMissing(['packages.cekbotProduct', 'packages.product', 'packages.shopPackage']);
 
         try {
-            $messages = $this->buildMessages($flow, $conversation, $message);
+            $messages = $this->buildMessages($flow, $conversation, $message, $context);
             $createdOrder = null;
             $sendQr = false;
 
@@ -86,7 +87,7 @@ class CekbotFlowAgent
                             : ['success' => false, 'error' => 'Tiada QR untuk flow ini.'], JSON_UNESCAPED_UNICODE);
                         $order = null;
                     } else {
-                        [$result, $order] = $this->runTool($flow, $conversation, $tc->function->name, $args);
+                        [$result, $order] = $this->runTool($flow, $conversation, $tc->function->name, $args, $context);
                     }
 
                     if ($order) {
@@ -168,7 +169,7 @@ class CekbotFlowAgent
                 'type' => 'function',
                 'function' => [
                     'name' => 'send_payment_qr',
-                    'description' => 'Hantar gambar QR / poster bank kepada pelanggan. Panggil bila pelanggan minta QR atau nak bayar secara transfer.',
+                    'description' => 'Hantar gambar QR / poster bank kepada pelanggan. Panggil HANYA bila pelanggan minta QR, atau nak bayar transfer dan belum terima QR. Jangan panggil bila pelanggan kata dah bayar.',
                     'parameters' => ['type' => 'object', 'properties' => new \stdClass],
                 ],
             ];
@@ -181,7 +182,7 @@ class CekbotFlowAgent
      * @param  array<string, mixed>  $args
      * @return array{0: string, 1: ?ProductOrder}
      */
-    private function runTool(CekbotFlow $flow, CekbotConversation $conversation, string $name, array $args): array
+    private function runTool(CekbotFlow $flow, CekbotConversation $conversation, string $name, array $args, array $context = []): array
     {
         if ($name !== 'create_order') {
             return [json_encode(['error' => 'Tool tidak dikenali.']), null];
@@ -250,6 +251,11 @@ class CekbotFlowAgent
             if (filled($flow->bank_details)) {
                 $result['bank_details'] = $flow->bank_details;
             }
+
+            if ($context['proof_received'] ?? false) {
+                unset($result['bank_details']);
+                $result['instruction'] = 'Sahkan pesanan berjaya & beri no. pesanan. Resit bayaran pelanggan SUDAH diterima tadi — JANGAN minta resit atau beri maklumat bank lagi. Maklumkan team kami akan semak & sahkan bayaran, dan akan maklumkan di sini.';
+            }
         }
 
         if (filled($flow->confirmation_message)) {
@@ -272,9 +278,19 @@ class CekbotFlowAgent
     /**
      * @return array<int, array{role: string, content: string}>
      */
-    private function buildMessages(CekbotFlow $flow, CekbotConversation $conversation, string $message): array
+    private function buildMessages(CekbotFlow $flow, CekbotConversation $conversation, string $message, array $context = []): array
     {
-        $messages = [['role' => 'system', 'content' => $this->systemPrompt($flow)]];
+        $system = $this->systemPrompt($flow);
+
+        if ($context['proof_received'] ?? false) {
+            $system .= "\n\nSTATUS SEMASA: Pelanggan SUDAH hantar resit/bukti bayaran (gambar) dalam chat ini. JANGAN minta resit lagi. Terima kasih, dan teruskan kumpul maklumat yang belum ada untuk cipta pesanan.";
+        }
+
+        if ($context['qr_sent'] ?? false) {
+            $system .= "\n\nSTATUS SEMASA: Gambar QR bayaran SUDAH dihantar dalam chat ini. Jangan hantar semula melainkan pelanggan minta secara jelas.";
+        }
+
+        $messages = [['role' => 'system', 'content' => $system]];
 
         $history = $this->history($conversation);
         foreach ($history as $entry) {
@@ -284,7 +300,7 @@ class CekbotFlowAgent
         // Ensure the current message is present (it usually is the last history
         // turn already, since it's stored before the bot runs).
         $last = end($history);
-        if ($last === false || trim((string) $last['content']) !== trim($message)) {
+        if ($last === false || ! str_ends_with(trim((string) $last['content']), trim($message))) {
             $messages[] = ['role' => 'user', 'content' => $message];
         }
 
@@ -338,7 +354,7 @@ class CekbotFlowAgent
         $lines[] = '2. JANGAN paksa pelanggan balas dengan nombor. Faham maksud & kehendak mereka daripada ayat biasa.';
         $lines[] = '3. Jawab soalan produk guna maklumat pakej di atas sahaja. Jangan reka fakta; jika tak pasti, cakap anda akan semak.';
         $lines[] = '4. Bila jelas pelanggan berminat dengan satu pakej, sahkan pakej & harganya, kemudian tanya cara bayar (jika ada lebih satu pilihan dan belum jelas).';
-        $lines[] = '5. Selepas cara bayar dipilih, minta maklumat SEPERTI BORANG dalam satu mesej: Nama penuh, No. telefon'.($askAddress ? ', dan Alamat penuh (untuk COD)' : '').'.';
+        $lines[] = '5. Selepas cara bayar dipilih, minta maklumat SEPERTI BORANG dalam satu mesej: Nama penuh, No. telefon'.($askAddress ? ', dan Alamat penghantaran penuh' : '').'.';
         $lines[] = '6. BACA jawapan pelanggan. Jika mana-mana maklumat tak lengkap atau tiada (contoh: no. telefon tidak diberi), minta secara spesifik maklumat yang tiada itu sahaja.';
         $lines[] = '7. SEBELUM cipta pesanan, RINGKASKAN semua maklumat (pakej, harga, cara bayar, nama, no. telefon'.($askAddress ? ', alamat' : '').') dan MINTA pelanggan sahkan — contoh: "Betul semua ni? 🙂".';
         $lines[] = '8. HANYA selepas pelanggan sahkan betul ("betul"/"ya"/"ok"), panggil fungsi create_order.';
@@ -388,17 +404,36 @@ class CekbotFlowAgent
     private function history(CekbotConversation $conversation): array
     {
         return $conversation->messages()
-            ->whereNotNull('body')
             ->orderByDesc('id')
             ->limit(12)
             ->get()
             ->reverse()
             ->map(fn (CekbotMessage $m) => [
                 'role' => $m->direction === CekbotMessage::DIRECTION_OUT ? 'assistant' : 'user',
-                'content' => (string) $m->body,
+                'content' => $this->historyContent($m),
             ])
+            ->filter(fn (array $entry) => $entry['content'] !== '')
             ->values()
             ->all();
+    }
+
+    /**
+     * Text the model sees for a past message. Media has no body of its own, so
+     * it's described — otherwise a receipt photo is invisible to the model.
+     */
+    private function historyContent(CekbotMessage $message): string
+    {
+        $body = trim((string) $message->body);
+
+        if (! in_array($message->type, ['image', 'document'], true)) {
+            return $body;
+        }
+
+        $label = $message->direction === CekbotMessage::DIRECTION_OUT
+            ? '[Gambar QR / poster bayaran dihantar]'
+            : '[Pelanggan hantar '.($message->type === 'image' ? 'gambar' : 'dokumen').' — kemungkinan resit bayaran]';
+
+        return trim($label.' '.$body);
     }
 
     private function resolvePackage(CekbotFlow $flow, string $needle): ?CekbotFlowPackage

@@ -243,3 +243,87 @@ it('syncs the order payment status from the admin order page so the customer is 
         ->and($order->fresh()->paid_time)->not->toBeNull()
         ->and(lastProofReply())->toContain('disahkan');
 });
+
+function aiSays(string $content): CreateResponse
+{
+    return CreateResponse::fake(['choices' => [[
+        'index' => 0,
+        'message' => ['role' => 'assistant', 'content' => $content],
+        'finish_reason' => 'stop',
+    ]]]);
+}
+
+function aiCalls(string $tool, array $args = []): CreateResponse
+{
+    return CreateResponse::fake(['choices' => [[
+        'index' => 0,
+        'message' => [
+            'role' => 'assistant', 'content' => null,
+            'tool_calls' => [['id' => 'call_'.$tool, 'type' => 'function', 'function' => ['name' => $tool, 'arguments' => json_encode($args ?: new stdClass)]]],
+        ],
+        'finish_reason' => 'tool_calls',
+    ]]]);
+}
+
+it('uses a receipt sent before the order instead of asking for it again', function () {
+    $this->flow->update(['bank_image' => 'cekbot-flows/qr.png']);
+
+    OpenAI::fake([
+        // "nak order, qr ada?" → AI sends the QR.
+        aiCalls('send_payment_qr'),
+        aiSays('Ada! Ini QR ye.'),
+        // Receipt photo (caption "done transfer") → AI asks for details.
+        aiSays('Terima kasih! Boleh beri nama, telefon & alamat?'),
+        // Details confirmed → AI creates the transfer order.
+        aiCalls('create_order', [
+            'package' => 'Pakej A', 'payment_method' => 'transfer',
+            'customer_name' => 'Ahmad Amin', 'customer_phone' => '0165756060', 'address' => 'Lot 1697, Kota Bharu',
+        ]),
+        aiSays('Pesanan berjaya! Team akan sahkan bayaran.'),
+    ]);
+
+    proofInbound('e1', 'nak order, qr ada?');
+    expect(CekbotMessage::query()->where('direction', 'out')->where('type', 'image')->count())->toBe(1);
+
+    proofInbound('e2', 'done transfer', 'https://waha.test/api/files/default/receipt.jpg');
+    $enrollment = CekbotFlowEnrollment::query()->latest('id')->first();
+    expect($enrollment->answer('proof_message_id'))->not->toBeNull();
+
+    proofInbound('e3', 'ya betul semua');
+
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->firstOrFail();
+    expect($order->receipt_attachment)->toStartWith('cekbot-receipts/')
+        ->and(data_get($order->metadata, 'payment_proof_submitted_at'))->not->toBeNull()
+        ->and($order->payment_status)->toBe('pending');
+
+    // Already has the receipt → the enrollment closes; no "send your receipt" wait.
+    expect($enrollment->fresh()->status)->toBe(CekbotFlowEnrollment::STATUS_COMPLETED);
+
+    // QR was sent once only — not again after the order.
+    expect(CekbotMessage::query()->where('direction', 'out')->where('type', 'image')->count())->toBe(1);
+
+    // The model saw the photo, knew the receipt & QR were already handled, and
+    // the order result told it not to ask for the receipt again.
+    OpenAI::assertSent(\OpenAI\Resources\Chat::class, function (string $method, array $params) {
+        $system = $params['messages'][0]['content'];
+        $sawPhoto = collect($params['messages'])->contains(fn ($m) => str_contains((string) ($m['content'] ?? ''), 'kemungkinan resit bayaran'));
+        $toolResult = collect($params['messages'])->firstWhere('role', 'tool');
+
+        return $toolResult !== null
+            && $sawPhoto
+            && str_contains($system, 'SUDAH hantar resit')
+            && str_contains($system, 'QR bayaran SUDAH dihantar')
+            && str_contains($toolResult['content'], 'JANGAN minta resit')
+            && ! str_contains($toolResult['content'], 'bank_details');
+    });
+});
+
+it('still sends the QR and waits for the receipt when nothing was paid before the order', function () {
+    $this->flow->update(['bank_image' => 'cekbot-flows/qr.png']);
+    fakeTransferOrderCall();
+
+    proofInbound('w1', 'nak order, semua betul');
+
+    expect(CekbotMessage::query()->where('direction', 'out')->where('type', 'image')->count())->toBe(1)
+        ->and(CekbotFlowEnrollment::query()->latest('id')->first()->current_step)->toBe(CekbotFlowEnrollment::STEP_AWAIT_PROOF);
+});
