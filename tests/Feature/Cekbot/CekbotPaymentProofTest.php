@@ -211,7 +211,7 @@ it('notifies the bot customer once per milestone wherever the order is updated',
     expect(lastProofReply())->toContain('sedang kami proses');
 
     $order->update(['status' => 'shipped', 'tracking_id' => 'JT123456']);
-    expect(lastProofReply())->toContain('telah dihantar')->toContain('JT123456');
+    expect(lastProofReply())->toContain('dalam proses penghantaran')->toContain('2-3 hari')->toContain('JT123456');
 
     // Re-saving the same milestone doesn't message the customer again.
     $count = $sent();

@@ -73,7 +73,7 @@ class CekbotOrderNotifier
 
     private function shippedMessage(ProductOrder $order, string $number): string
     {
-        $lines = ["Pesanan {$number} anda telah dihantar 🚚"];
+        $lines = ["Pesanan {$number} anda kini dalam proses penghantaran 🚚 InsyaAllah 2-3 hari lagi akan sampai."];
 
         if ($order->tracking_id) {
             $lines[] = '';
