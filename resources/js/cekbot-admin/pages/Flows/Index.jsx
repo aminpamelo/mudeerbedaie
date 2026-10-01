@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Workflow, Pencil, Trash2, ShoppingBag, Sparkles, List, ShieldCheck } from 'lucide-react';
+import { Plus, Workflow, Pencil, Copy, Trash2, ShoppingBag, Sparkles, List, ShieldCheck } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Badge, Field, Input, Toggle, EmptyState, Modal } from '@/cekbot-admin/components/Ui';
 import { cn } from '@/cekbot-admin/lib/utils';
@@ -46,6 +46,10 @@ function FlowCard({ flow }) {
     router.put(route('cekbot.flows.toggle', flow.id), { is_active: !flow.is_active }, { preserveScroll: true });
   }
 
+  function duplicate() {
+    router.post(route('cekbot.flows.duplicate', flow.id));
+  }
+
   function remove() {
     if (!window.confirm(`Padam flow "${flow.name}"?`)) return;
     router.delete(route('cekbot.flows.destroy', flow.id), { preserveScroll: true });
@@ -83,6 +87,9 @@ function FlowCard({ flow }) {
       <div className="mt-4 flex items-center gap-2 border-t border-white/8 pt-3">
         <Button size="sm" variant="secondary" href={route('cekbot.flows.show', flow.id)} className="flex-1">
           <Pencil className="h-3.5 w-3.5" /> Sunting
+        </Button>
+        <Button size="sm" variant="secondary" onClick={duplicate} aria-label="Duplicate" title="Duplicate flow">
+          <Copy className="h-3.5 w-3.5" />
         </Button>
         <Button size="sm" variant="danger" onClick={remove} aria-label="Padam">
           <Trash2 className="h-3.5 w-3.5" />

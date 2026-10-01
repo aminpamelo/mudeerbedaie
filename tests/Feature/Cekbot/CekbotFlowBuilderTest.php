@@ -216,3 +216,61 @@ it('rejects an unknown shop package id', function () {
         ])
         ->assertSessionHasErrors('packages.0.shop_package_id');
 });
+
+it('duplicates a flow with its packages and images as an inactive draft', function () {
+    Storage::fake('public');
+
+    $flow = CekbotFlow::create([
+        'cekbot_session_id' => $this->session->id,
+        'name' => 'Funnel Safi Bida',
+        'is_active' => true,
+        'use_ai' => true,
+        'trigger_keywords' => ['minat'],
+        'bank_details' => 'Maybank 123',
+    ]);
+    $bankPath = UploadedFile::fake()->image('qr.png')->store('cekbot-flows', 'public');
+    $openingPath = UploadedFile::fake()->image('cover.jpg')->store("cekbot-flows/opening/{$flow->id}", 'public');
+    $flow->update([
+        'bank_image' => $bankPath,
+        'opening_messages' => [
+            ['type' => 'text', 'text' => 'Assalamualaikum'],
+            ['type' => 'image', 'path' => $openingPath, 'caption' => 'Cover'],
+        ],
+    ]);
+    CekbotFlowPackage::create(['cekbot_flow_id' => $flow->id, 'label' => 'Pakej A', 'price' => 50, 'currency' => 'RM', 'sort_order' => 0]);
+    CekbotFlowPackage::create(['cekbot_flow_id' => $flow->id, 'label' => 'Pakej B', 'price' => 90, 'currency' => 'RM', 'sort_order' => 1]);
+
+    test()->actingAs($this->admin)
+        ->post(route('cekbot.flows.duplicate', $flow->id))
+        ->assertRedirect();
+
+    $copy = CekbotFlow::query()->where('id', '!=', $flow->id)->sole();
+
+    expect($copy->name)->toBe('Funnel Safi Bida (Salinan)')
+        ->and($copy->is_active)->toBeFalse()
+        ->and($copy->use_ai)->toBeTrue()
+        ->and($copy->trigger_keywords)->toBe(['minat'])
+        ->and($copy->bank_details)->toBe('Maybank 123')
+        ->and($copy->created_by)->toBe($this->admin->id)
+        ->and($copy->packages()->pluck('label')->all())->toBe(['Pakej A', 'Pakej B'])
+        ->and($flow->packages()->count())->toBe(2)
+        ->and($copy->bank_image)->not->toBe($bankPath)
+        ->and($copy->opening_messages[0])->toBe(['type' => 'text', 'text' => 'Assalamualaikum'])
+        ->and($copy->opening_messages[1]['path'])->toStartWith("cekbot-flows/opening/{$copy->id}/");
+
+    Storage::disk('public')->assertExists([$copy->bank_image, $copy->opening_messages[1]['path']]);
+
+    test()->actingAs($this->admin)->delete(route('cekbot.flows.destroy', $copy->id));
+
+    Storage::disk('public')->assertExists([$bankPath, $openingPath]);
+});
+
+it('forbids non-admins from duplicating a flow', function () {
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+
+    test()->actingAs(User::factory()->create())
+        ->post(route('cekbot.flows.duplicate', $flow->id))
+        ->assertForbidden();
+
+    expect(CekbotFlow::query()->count())->toBe(1);
+});

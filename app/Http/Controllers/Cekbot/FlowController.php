@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cekbot;
 
 use App\Http\Controllers\Controller;
 use App\Models\CekbotFlow;
+use App\Models\CekbotFlowPackage;
 use App\Models\CekbotProduct;
 use App\Models\CekbotSession;
 use App\Models\Package;
@@ -12,7 +13,9 @@ use App\Models\SalesSource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -225,6 +228,53 @@ class FlowController extends Controller
         }
 
         return back()->with('success', 'Gambar dibuang.');
+    }
+
+    /**
+     * Copy a flow (settings, packages and images) into a new inactive draft,
+     * so it can be tweaked without disturbing the live original.
+     */
+    public function duplicate(Request $request, CekbotFlow $flow): RedirectResponse
+    {
+        $copy = DB::transaction(function () use ($request, $flow): CekbotFlow {
+            $copy = $flow->replicate(['bank_image', 'opening_messages']);
+            $copy->name = $flow->name.' (Salinan)';
+            $copy->is_active = false;
+            $copy->created_by = $request->user()->id;
+            $copy->save();
+
+            $flow->packages->each(fn (CekbotFlowPackage $package) => $package->replicate()->fill(['cekbot_flow_id' => $copy->id])->save());
+
+            $disk = Storage::disk('public');
+
+            if (filled($flow->bank_image) && $disk->exists($flow->bank_image)) {
+                $bankPath = 'cekbot-flows/'.Str::random(40).'.'.pathinfo($flow->bank_image, PATHINFO_EXTENSION);
+                $disk->copy($flow->bank_image, $bankPath);
+                $copy->bank_image = $bankPath;
+            }
+
+            $copy->opening_messages = collect($flow->opening_messages ?? [])
+                ->map(function (array $message) use ($disk, $copy): array {
+                    if (($message['type'] ?? null) !== 'image' || blank($message['path'] ?? null) || ! $disk->exists($message['path'])) {
+                        return $message;
+                    }
+
+                    $newPath = self::OPENING_DIR.'/'.$copy->id.'/'.basename($message['path']);
+                    $disk->copy($message['path'], $newPath);
+
+                    return [...$message, 'path' => $newPath];
+                })
+                ->values()
+                ->all() ?: null;
+
+            $copy->save();
+
+            return $copy;
+        });
+
+        return redirect()
+            ->route('cekbot.flows.show', $copy->id)
+            ->with('success', 'Flow disalin sebagai draf. Tukar keyword trigger sebelum aktifkan.');
     }
 
     public function destroy(CekbotFlow $flow): RedirectResponse
