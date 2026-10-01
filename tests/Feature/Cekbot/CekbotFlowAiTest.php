@@ -245,3 +245,44 @@ it('records the linked shop package when the AI creates the order', function () 
     // The package description is given to the AI so it can describe the offer.
     OpenAI::assertSent(\OpenAI\Resources\Chat::class, fn (string $method, array $params) => str_contains($params['messages'][0]['content'], 'Buku fizikal + ebook panduan qadha solat'));
 });
+
+it('matches a package whose saved label has extra spaces when the AI re-types it', function () {
+    $this->flow->packages()->delete();
+    CekbotFlowPackage::create(['cekbot_flow_id' => $this->flow->id, 'label' => 'Pakej  1 Buah Buku Sahaja', 'price' => 49, 'currency' => 'RM', 'sort_order' => 0]);
+    CekbotFlowPackage::create(['cekbot_flow_id' => $this->flow->id, 'label' => 'Pakej 2 Buah Buku', 'price' => 69, 'currency' => 'RM', 'sort_order' => 1]);
+
+    OpenAI::fake([
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => [
+                'role' => 'assistant',
+                'content' => null,
+                'tool_calls' => [[
+                    'id' => 'call_1', 'type' => 'function',
+                    'function' => [
+                        'name' => 'create_order',
+                        'arguments' => json_encode([
+                            'package' => '*Pakej 1 Buah Buku Sahaja*',
+                            'payment_method' => 'transfer',
+                            'customer_name' => 'Ahmad Testing',
+                            'customer_phone' => '0123456789',
+                            'address' => 'Kota Bharu 16100 Kelantan',
+                        ]),
+                    ],
+                ]],
+            ],
+            'finish_reason' => 'tool_calls',
+        ]]]),
+        CreateResponse::fake(['choices' => [[
+            'index' => 0,
+            'message' => ['role' => 'assistant', 'content' => 'Order diterima!'],
+            'finish_reason' => 'stop',
+        ]]]),
+    ]);
+
+    aiInbound('minat, semua betul', 'a-space');
+
+    $order = ProductOrder::query()->where('source', 'whatsapp_bot')->first();
+    expect($order)->not->toBeNull()
+        ->and((float) $order->total_amount)->toBe(49.0);
+});

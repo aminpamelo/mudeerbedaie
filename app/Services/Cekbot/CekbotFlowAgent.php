@@ -438,26 +438,35 @@ class CekbotFlowAgent
 
     private function resolvePackage(CekbotFlow $flow, string $needle): ?CekbotFlowPackage
     {
-        $needle = mb_strtolower(trim($needle));
+        $needle = $this->normaliseLabel($needle);
         if ($needle === '') {
             return $flow->packages->count() === 1 ? $flow->packages->first() : null;
         }
 
         // Exact, then contains either direction.
         foreach ($flow->packages as $package) {
-            if (mb_strtolower(trim($package->label)) === $needle) {
+            if ($this->normaliseLabel($package->label) === $needle) {
                 return $package;
             }
         }
 
         foreach ($flow->packages as $package) {
-            $label = mb_strtolower(trim($package->label));
+            $label = $this->normaliseLabel($package->label);
             if ($label !== '' && (str_contains($label, $needle) || str_contains($needle, $label))) {
                 return $package;
             }
         }
 
         return $flow->packages->count() === 1 ? $flow->packages->first() : null;
+    }
+
+    /**
+     * Compare labels loosely: the model re-types them with single spaces and
+     * WhatsApp markdown, so "*Pakej  1 Buku*" must match "Pakej 1 Buku".
+     */
+    private function normaliseLabel(?string $label): string
+    {
+        return mb_strtolower(Str::squish(str_replace(['*', '_', '~', '`'], ' ', (string) $label)));
     }
 
     private function normalisePayment(string $value): ?string

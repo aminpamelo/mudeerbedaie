@@ -307,7 +307,7 @@ class FlowController extends Controller
                 'cekbot_product_id' => $package['cekbot_product_id'] ?? null,
                 'product_id' => $package['product_id'] ?? null,
                 'shop_package_id' => $package['shop_package_id'] ?? null,
-                'label' => trim((string) $package['label']),
+                'label' => Str::squish((string) $package['label']),
                 'price' => $package['price'] !== null && $package['price'] !== '' ? $package['price'] : null,
                 'currency' => $package['currency'] ?? 'RM',
                 'sort_order' => $index,

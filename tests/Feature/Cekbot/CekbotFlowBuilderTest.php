@@ -274,3 +274,18 @@ it('forbids non-admins from duplicating a flow', function () {
 
     expect(CekbotFlow::query()->count())->toBe(1);
 });
+
+it('collapses repeated spaces in package labels on save', function () {
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.flows.update', $flow->id), [
+            'name' => 'F1',
+            'match_type' => 'contains',
+            'trigger_keywords' => ['minat'],
+            'packages' => [['label' => '  Pakej  1 Buah   Buku ', 'price' => 49]],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($flow->packages()->value('label'))->toBe('Pakej 1 Buah Buku');
+});
