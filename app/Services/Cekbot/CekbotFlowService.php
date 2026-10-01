@@ -47,6 +47,18 @@ class CekbotFlowService
                 return $this->handleProof($enrollment, $conversation, $body, $type, $bot);
             }
 
+            // A Click-to-WhatsApp ad outranks keywords: the customer is routed to
+            // that ad's flow even mid-funnel, since they just showed new intent.
+            $adId = CekbotFlow::adIdFromPayload($this->latestInbound($conversation)?->payload);
+            $adFlow = $adId ? $this->activeFlows($conversation)->first(fn (CekbotFlow $flow) => $flow->matchesAd($adId)) : null;
+
+            if ($adFlow && $adFlow->id !== $enrollment?->cekbot_flow_id) {
+                $enrollment?->update(['status' => CekbotFlowEnrollment::STATUS_ABANDONED]);
+                $this->startFlow($adFlow, $conversation, $body, $type, $bot);
+
+                return true;
+            }
+
             if ($enrollment) {
                 $enrollment->loadMissing(['flow.packages.cekbotProduct', 'flow.packages.product', 'flow.packages.shopPackage']);
 
@@ -62,11 +74,7 @@ class CekbotFlowService
             $flow = $this->matchingFlow($conversation, $body);
 
             if ($flow) {
-                if ($flow->aiEnabled()) {
-                    $this->startAi($flow, $conversation, $body, $type, $bot);
-                } else {
-                    $this->start($flow, $conversation, $bot);
-                }
+                $this->startFlow($flow, $conversation, $body, $type, $bot);
 
                 return true;
             }
@@ -88,6 +96,16 @@ class CekbotFlowService
      */
     private function matchingFlow(CekbotConversation $conversation, string $body): ?CekbotFlow
     {
+        return $this->activeFlows($conversation)->first(fn (CekbotFlow $flow) => $flow->matches($body));
+    }
+
+    /**
+     * Active flows on this number that have packages to offer, in priority order.
+     *
+     * @return Collection<int, CekbotFlow>
+     */
+    private function activeFlows(CekbotConversation $conversation): Collection
+    {
         return $conversation->session
             ->flows()
             ->active()
@@ -95,7 +113,17 @@ class CekbotFlowService
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->first(fn (CekbotFlow $flow) => $flow->packages->isNotEmpty() && $flow->matches($body));
+            ->filter(fn (CekbotFlow $flow) => $flow->packages->isNotEmpty())
+            ->values();
+    }
+
+    private function startFlow(CekbotFlow $flow, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
+    {
+        if ($flow->aiEnabled()) {
+            $this->startAi($flow, $conversation, $body, $type, $bot);
+        } else {
+            $this->start($flow, $conversation, $bot);
+        }
     }
 
     /**

@@ -26,6 +26,7 @@ class CekbotFlow extends Model
         'ai_instructions',
         'match_type',
         'trigger_keywords',
+        'trigger_ads',
         'welcome_message',
         'opening_messages',
         'package_prompt',
@@ -52,6 +53,7 @@ class CekbotFlow extends Model
             'is_active' => 'boolean',
             'use_ai' => 'boolean',
             'trigger_keywords' => 'array',
+            'trigger_ads' => 'array',
             'opening_messages' => 'array',
             'ask_payment' => 'boolean',
             'payment_transfer_enabled' => 'boolean',
@@ -154,6 +156,38 @@ class CekbotFlow extends Model
     /**
      * Whether an inbound message should trigger this flow.
      */
+    /**
+     * Whether this flow is triggered by the given Click-to-WhatsApp ad id.
+     */
+    public function matchesAd(?string $adId): bool
+    {
+        if (blank($adId)) {
+            return false;
+        }
+
+        return collect($this->trigger_ads ?? [])
+            ->contains(fn ($ad) => (string) data_get($ad, 'id') === (string) $adId);
+    }
+
+    /**
+     * The ad id carried by an inbound message that came from a Click-to-WhatsApp
+     * ad (Meta Cloud API `referral`), or null for an ordinary message.
+     *
+     * @param  array<string, mixed>|null  $payload
+     */
+    public static function adIdFromPayload(?array $payload): ?string
+    {
+        $referral = $payload['referral'] ?? null;
+
+        if (! is_array($referral) || ($referral['source_type'] ?? 'ad') !== 'ad') {
+            return null;
+        }
+
+        $id = trim((string) ($referral['source_id'] ?? ''));
+
+        return $id !== '' ? $id : null;
+    }
+
     public function matches(string $body): bool
     {
         $body = trim(mb_strtolower($body));

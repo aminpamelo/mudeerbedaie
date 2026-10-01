@@ -2,11 +2,119 @@ import { useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon, Smartphone, ShieldCheck, Server, ChevronUp, ChevronDown, Type } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Workflow, Banknote, Truck, MessageSquareText, Tag, Sparkles, Image as ImageIcon, Smartphone, ShieldCheck, Server, ChevronUp, ChevronDown, Type, Megaphone, Search } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Field, Input, Textarea, Select, Toggle } from '@/cekbot-admin/components/Ui';
 import { buildPreview } from '@/cekbot-admin/lib/flowPreview';
 import { cn, formatPhone } from '@/cekbot-admin/lib/utils';
+
+/**
+ * Pick the Click-to-WhatsApp ads that start this flow. Searches the connected
+ * Facebook ad accounts; an ad id can also be pasted for ads outside them.
+ */
+function AdTriggerPicker({ value, onChange, error }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [connected, setConnected] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [manualId, setManualId] = useState('');
+  const timer = useRef(null);
+
+  function search(q) {
+    setQuery(q);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      setLoading(true);
+      axios.get(route('cekbot.flows.ads-search'), { params: { q } })
+        .then(({ data }) => { setResults(data.ads ?? []); setConnected(data.connected); })
+        .catch(() => toast.error('Gagal ambil senarai iklan.'))
+        .finally(() => setLoading(false));
+    }, 350);
+  }
+
+  function openPicker() {
+    setOpen(true);
+    if (results.length === 0) search('');
+  }
+
+  function add(ad) {
+    if (value.some((a) => a.id === ad.id)) return;
+    onChange([...value, { id: ad.id, name: ad.name ?? null }]);
+  }
+
+  function addManual() {
+    const id = manualId.trim();
+    if (!/^\d{5,30}$/.test(id)) { toast.error('ID iklan mesti nombor sahaja.'); return; }
+    add({ id, name: null });
+    setManualId('');
+  }
+
+  return (
+    <Field
+      label="Iklan pencetus (Click-to-WhatsApp)"
+      hint="Pelanggan yang klik iklan ni terus masuk flow ni, walaupun ayat greeting dia lain. Iklan diutamakan berbanding keyword."
+      error={error}
+    >
+      {value.length > 0 && (
+        <div className="mb-2 flex flex-col gap-1.5">
+          {value.map((ad) => (
+            <div key={ad.id} className="flex items-center gap-2 rounded-lg bg-white/[0.06] px-2.5 py-1.5 ring-1 ring-inset ring-white/10">
+              <Megaphone className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12.5px] font-medium text-white/85">{ad.name || 'Iklan (nama tak diketahui)'}</p>
+                <p className="font-mono text-[10.5px] text-white/40">ID {ad.id}</p>
+              </div>
+              <button type="button" onClick={() => onChange(value.filter((a) => a.id !== ad.id))} className="text-white/40 hover:text-rose-300" aria-label="Buang iklan"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!open ? (
+        <Button variant="secondary" onClick={openPicker}><Megaphone className="h-4 w-4" /> Pilih iklan</Button>
+      ) : (
+        <div className="rounded-xl bg-white/[0.03] p-2.5 ring-1 ring-inset ring-white/10">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/35" />
+            <Input autoFocus value={query} onChange={(e) => search(e.target.value)} placeholder="Cari nama iklan…" className="pl-8" />
+          </div>
+          <div className="mt-2 max-h-64 overflow-y-auto">
+            {loading && <p className="px-1 py-2 text-[12px] text-white/40">Mencari…</p>}
+            {!loading && !connected && <p className="px-1 py-2 text-[12px] text-amber-300/80">Belum ada akaun iklan Facebook disambung. Tampal ID iklan di bawah.</p>}
+            {!loading && connected && results.length === 0 && <p className="px-1 py-2 text-[12px] text-white/40">Tiada iklan dijumpai.</p>}
+            {!loading && results.map((ad) => {
+              const picked = value.some((a) => a.id === ad.id);
+              return (
+                <button
+                  key={ad.id}
+                  type="button"
+                  disabled={picked}
+                  onClick={() => add(ad)}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-white/[0.06] disabled:opacity-40"
+                >
+                  {ad.thumbnail
+                    ? <img src={ad.thumbnail} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                    : <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/8"><Megaphone className="h-4 w-4 text-white/40" /></div>}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12.5px] font-medium text-white/85">{ad.name}</p>
+                    <p className="truncate text-[10.5px] text-white/40">{ad.account} · {ad.status === 'ACTIVE' ? 'Aktif' : 'Tidak aktif'}</p>
+                  </div>
+                  {picked ? <span className="text-[11px] text-emerald-300">Dipilih</span> : <Plus className="h-3.5 w-3.5 text-white/40" />}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex gap-2 border-t border-white/8 pt-2">
+            <Input value={manualId} onChange={(e) => setManualId(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addManual(); } }} placeholder="Atau tampal ID iklan" />
+            <Button variant="secondary" onClick={addManual}>Tambah</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)}>Tutup</Button>
+          </div>
+        </div>
+      )}
+    </Field>
+  );
+}
 
 /** Render WhatsApp-style *bold* segments. */
 function WaText({ text }) {
@@ -194,6 +302,7 @@ export default function Show() {
     ai_instructions: flow.ai_instructions ?? '',
     match_type: flow.match_type ?? 'contains',
     trigger_keywords: flow.trigger_keywords ?? [],
+    trigger_ads: flow.trigger_ads ?? [],
     welcome_message: flow.welcome_message ?? '',
     opening_messages: (flow.opening_messages ?? []).map((m) => ({
       type: m.type, text: m.text ?? '', path: m.path ?? '', caption: m.caption ?? '', url: m.url ?? '',
@@ -372,6 +481,12 @@ export default function Show() {
                   </div>
                 )}
               </Field>
+
+              <AdTriggerPicker
+                value={data.trigger_ads}
+                onChange={(ads) => setData('trigger_ads', ads)}
+                error={errors.trigger_ads || Object.entries(errors).find(([k]) => k.startsWith('trigger_ads.'))?.[1]}
+              />
 
               <Field label="Padanan keyword" className="w-full sm:w-56">
                 <Select value={data.match_type} onChange={(e) => setData('match_type', e.target.value)}>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Workflow, Pencil, Copy, Trash2, ShoppingBag, Sparkles, List, ShieldCheck } from 'lucide-react';
+import { Plus, Workflow, Pencil, Copy, Trash2, ShoppingBag, Sparkles, List, ShieldCheck, Megaphone } from 'lucide-react';
 import CekbotLayout from '@/cekbot-admin/layouts/CekbotLayout';
 import { Card, Button, Badge, Field, Input, Toggle, EmptyState, Modal } from '@/cekbot-admin/components/Ui';
 import { cn } from '@/cekbot-admin/lib/utils';
@@ -67,11 +67,14 @@ function FlowCard({ flow }) {
             </Badge>
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
+            {flow.trigger_ads_count > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] text-emerald-200"><Megaphone className="h-2.5 w-2.5" /> {flow.trigger_ads_count} iklan</span>
+            )}
             {(flow.trigger_keywords || []).length ? (
               flow.trigger_keywords.map((k, i) => (
                 <span key={i} className="rounded-md bg-white/8 px-1.5 py-0.5 text-[11px] text-white/60">{k}</span>
               ))
-            ) : (
+            ) : flow.trigger_ads_count > 0 ? null : (
               <span className="text-[11.5px] text-amber-300/80">⚠️ Belum ada keyword trigger</span>
             )}
           </div>

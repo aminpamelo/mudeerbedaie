@@ -1973,6 +1973,7 @@ Route::middleware(['auth', 'role:admin,employee', HandleCekbotInertiaRequests::c
         // Flows — guided sales-funnel builder (greet → pilih pakej → bayar → order)
         Route::get('flows', [CekbotFlowController::class, 'index'])->name('flows');
         Route::post('flows', [CekbotFlowController::class, 'store'])->name('flows.store');
+        Route::get('flows-ads-search', [CekbotFlowController::class, 'searchAds'])->name('flows.ads-search');
         Route::get('flows/{flow}', [CekbotFlowController::class, 'show'])->name('flows.show');
         Route::put('flows/{flow}', [CekbotFlowController::class, 'update'])->name('flows.update');
         Route::put('flows/{flow}/active', [CekbotFlowController::class, 'toggle'])->name('flows.toggle');

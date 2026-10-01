@@ -7,9 +7,11 @@ use App\Models\CekbotFlow;
 use App\Models\CekbotFlowPackage;
 use App\Models\CekbotProduct;
 use App\Models\CekbotSession;
+use App\Models\FacebookAdAccount;
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\SalesSource;
+use App\Services\Funnel\FacebookAdsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,6 +48,7 @@ class FlowController extends Controller
                     'is_active' => $flow->is_active,
                     'use_ai' => $flow->use_ai,
                     'trigger_keywords' => $flow->trigger_keywords ?? [],
+                    'trigger_ads_count' => count($flow->trigger_ads ?? []),
                     'packages_count' => $flow->packages_count,
                 ])->values(),
             ]);
@@ -135,6 +138,9 @@ class FlowController extends Controller
             'match_type' => 'required|in:contains,exact,starts',
             'trigger_keywords' => 'nullable|array|max:50',
             'trigger_keywords.*' => 'nullable|string|max:255',
+            'trigger_ads' => 'nullable|array|max:50',
+            'trigger_ads.*.id' => ['required', 'string', 'regex:/^\d{5,30}$/'],
+            'trigger_ads.*.name' => 'nullable|string|max:255',
             'welcome_message' => 'nullable|string|max:4096',
             'opening_messages' => 'nullable|array|max:10',
             'opening_messages.*.type' => 'required|in:text,image',
@@ -163,6 +169,14 @@ class FlowController extends Controller
         $validated['trigger_keywords'] = array_values(array_filter(
             array_map('trim', $validated['trigger_keywords'] ?? [])
         ));
+
+        if (array_key_exists('trigger_ads', $validated)) {
+            $validated['trigger_ads'] = collect($validated['trigger_ads'] ?? [])
+                ->map(fn (array $ad) => ['id' => $ad['id'], 'name' => filled($ad['name'] ?? null) ? trim($ad['name']) : null])
+                ->unique('id')
+                ->values()
+                ->all();
+        }
 
         $packages = $validated['packages'] ?? [];
         unset($validated['packages']);
@@ -277,6 +291,20 @@ class FlowController extends Controller
             ->with('success', 'Flow disalin sebagai draf. Tukar keyword trigger sebelum aktifkan.');
     }
 
+    /**
+     * Search Facebook ads (all connected ad accounts) for the flow's ad trigger
+     * picker.
+     */
+    public function searchAds(Request $request, FacebookAdsService $ads): JsonResponse
+    {
+        $request->validate(['q' => 'nullable|string|max:100']);
+
+        return response()->json([
+            'connected' => FacebookAdAccount::query()->where('account_status', 1)->exists(),
+            'ads' => $ads->searchAds((string) $request->query('q', '')),
+        ]);
+    }
+
     public function destroy(CekbotFlow $flow): RedirectResponse
     {
         if (filled($flow->bank_image)) {
@@ -346,6 +374,7 @@ class FlowController extends Controller
             'ai_instructions' => $flow->ai_instructions,
             'match_type' => $flow->match_type,
             'trigger_keywords' => $flow->trigger_keywords ?? [],
+            'trigger_ads' => $flow->trigger_ads ?? [],
             'welcome_message' => $flow->welcome_message,
             'opening_messages' => $flow->openingMessages(),
             'package_prompt' => $flow->package_prompt,

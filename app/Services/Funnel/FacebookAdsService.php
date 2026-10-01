@@ -5,6 +5,9 @@ namespace App\Services\Funnel;
 use App\Models\FacebookAdAccount;
 use App\Models\FacebookAdConnection;
 use App\Models\FacebookAdInsight;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -213,6 +216,67 @@ class FacebookAdsService
                 ? 'Sync complete.'
                 : 'Sync complete with some account errors: '.implode(' | ', array_slice($errors, 0, 3)),
         ];
+    }
+
+    /**
+     * Search ads by name across every active ad account (all connections), for
+     * pickers such as Cekbot's "start this flow from ad X". Live, not synced —
+     * cached briefly so typing doesn't hammer the Graph API.
+     *
+     * @return array<int, array{id: string, name: string, status: ?string, account: ?string, thumbnail: ?string}>
+     */
+    public function searchAds(string $query = '', int $limitPerAccount = 25): array
+    {
+        $query = trim($query);
+
+        return Cache::remember('facebook-ads-search:'.md5(mb_strtolower($query)), now()->addMinutes(5), function () use ($query, $limitPerAccount): array {
+            $accounts = FacebookAdAccount::query()
+                ->with('connection')
+                ->where('account_status', 1)
+                ->get()
+                ->filter(fn (FacebookAdAccount $account) => filled($account->connection?->access_token))
+                ->values();
+
+            if ($accounts->isEmpty()) {
+                return [];
+            }
+
+            $filtering = [['field' => 'effective_status', 'operator' => 'IN', 'value' => ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED', 'IN_PROCESS', 'WITH_ISSUES']]];
+            if ($query !== '') {
+                $filtering[] = ['field' => 'name', 'operator' => 'CONTAIN', 'value' => $query];
+            }
+
+            $responses = Http::pool(fn (Pool $pool) => $accounts->map(
+                fn (FacebookAdAccount $account) => $pool->as((string) $account->id)->timeout(20)->get($this->url("/act_{$account->account_id}/ads"), [
+                    'fields' => 'id,name,effective_status,creative{thumbnail_url}',
+                    'filtering' => json_encode($filtering),
+                    'limit' => $limitPerAccount,
+                    'access_token' => $account->connection->access_token,
+                ])
+            )->all());
+
+            return $accounts
+                ->flatMap(function (FacebookAdAccount $account) use ($responses): array {
+                    $response = $responses[(string) $account->id] ?? null;
+
+                    if (! $response instanceof Response || ! $response->successful()) {
+                        return [];
+                    }
+
+                    return collect($response->json('data', []))
+                        ->map(fn (array $ad) => [
+                            'id' => (string) $ad['id'],
+                            'name' => (string) ($ad['name'] ?? $ad['id']),
+                            'status' => $ad['effective_status'] ?? null,
+                            'account' => $account->name,
+                            'thumbnail' => data_get($ad, 'creative.thumbnail_url'),
+                        ])
+                        ->all();
+                })
+                ->sortBy(fn (array $ad) => $ad['status'] === 'ACTIVE' ? 0 : 1)
+                ->values()
+                ->all();
+        });
     }
 
     protected function url(string $path): string
