@@ -1936,7 +1936,7 @@
     ]
   },
   "resources/js/cekbot-admin/app.jsx": {
-    "file": "assets/app-BxPvdwTX.js",
+    "file": "assets/app-D1ukHQ8y.js",
     "name": "app",
     "src": "resources/js/cekbot-admin/app.jsx",
     "isEntry": true,
@@ -1970,6 +1970,7 @@
       "_check-zxjLPANd.js",
       "_shield-check-DdgNa2kg.js",
       "_list-CDApeUtL.js",
+      "_copy-BmKOaL8B.js",
       "_tag-b4fo3fs2.js",
       "_truck-Cgan-TWp.js",
       "_image-BUCnwoTr.js",
@@ -2000,17 +2001,16 @@
       "_circle-alert-c4mlcwxD.js",
       "_phone-CEWFMG2M.js",
       "_log-out-DwPXQJGX.js",
-      "_copy-BmKOaL8B.js",
       "_info-DPiZBwFF.js",
       "_circle-x-9fACU5Ak.js",
       "_index-B8foo2Z8.js"
     ],
     "css": [
-      "assets/cekbot-DW9TYZyq.css"
+      "assets/cekbot-E8TelIe6.css"
     ]
   },
   "resources/js/cekbot-admin/styles/cekbot.css": {
-    "file": "assets/cekbot-DW9TYZyq.css",
+    "file": "assets/cekbot-E8TelIe6.css",
     "src": "resources/js/cekbot-admin/styles/cekbot.css",
     "isEntry": true,
     "name": "cekbot",
