@@ -289,3 +289,18 @@ it('collapses repeated spaces in package labels on save', function () {
 
     expect($flow->packages()->value('label'))->toBe('Pakej 1 Buah Buku');
 });
+
+it('accepts long AI instructions up to 15000 characters and rejects longer', function () {
+    $flow = CekbotFlow::create(['cekbot_session_id' => $this->session->id, 'name' => 'F1']);
+    $base = ['name' => 'F1', 'match_type' => 'contains', 'trigger_keywords' => ['minat'], 'packages' => [['label' => 'Pakej', 'price' => 49]]];
+
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.flows.update', $flow->id), $base + ['ai_instructions' => str_repeat('a', 15000)])
+        ->assertSessionHasNoErrors();
+
+    expect(mb_strlen($flow->fresh()->ai_instructions))->toBe(15000);
+
+    test()->actingAs($this->admin)
+        ->put(route('cekbot.flows.update', $flow->id), $base + ['ai_instructions' => str_repeat('a', 15001)])
+        ->assertSessionHasErrors('ai_instructions');
+});

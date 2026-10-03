@@ -134,7 +134,7 @@ class FlowController extends Controller
             'name' => 'required|string|max:255',
             'is_active' => 'boolean',
             'use_ai' => 'boolean',
-            'ai_instructions' => 'nullable|string|max:4096',
+            'ai_instructions' => 'nullable|string|max:15000',
             'match_type' => 'required|in:contains,exact,starts',
             'trigger_keywords' => 'nullable|array|max:50',
             'trigger_keywords.*' => 'nullable|string|max:255',

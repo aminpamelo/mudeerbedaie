@@ -8,6 +8,9 @@ import { Card, Button, Field, Input, Textarea, Select, Toggle } from '@/cekbot-a
 import { buildPreview } from '@/cekbot-admin/lib/flowPreview';
 import { cn, formatPhone } from '@/cekbot-admin/lib/utils';
 
+/** Must match the `ai_instructions` max rule in FlowController. */
+const AI_INSTRUCTIONS_MAX = 15000;
+
 /**
  * Pick the Click-to-WhatsApp ads that start this flow. Searches the connected
  * Facebook ad accounts; an ad id can also be pasted for ads outside them.
@@ -517,8 +520,12 @@ export default function Show() {
               )}
 
               {form.data.use_ai && aiAvailable && (
-                <Field label="Arahan tambahan untuk AI (pilihan)" hint="Cth: tekankan promosi, gaya bahasa, jangan janji diskaun, dsb." error={errors.ai_instructions}>
-                  <Textarea rows={3} value={form.data.ai_instructions} onChange={(e) => setData('ai_instructions', e.target.value)}
+                <Field
+                  label="Arahan tambahan untuk AI (pilihan)"
+                  hint={`Cth: tekankan promosi, gaya bahasa, jangan janji diskaun, dsb. · ${(form.data.ai_instructions || '').length.toLocaleString()} / ${AI_INSTRUCTIONS_MAX.toLocaleString()} aksara`}
+                  error={errors.ai_instructions}
+                >
+                  <Textarea rows={8} maxLength={AI_INSTRUCTIONS_MAX} value={form.data.ai_instructions} onChange={(e) => setData('ai_instructions', e.target.value)}
                     placeholder="Cth: Guna bahasa santai & mesra. Galakkan COD. Jangan janji apa-apa yang tiada dalam maklumat pakej." />
                 </Field>
               )}
