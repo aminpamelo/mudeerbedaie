@@ -59,11 +59,23 @@ function MessageBubble({ message }) {
 export default function ChatPanel({ conversation, messages, loading, onSend, sending, onBack, canReply, onHandover, onRelease, staff = [], availableLabels = [], notes = [], onAssign, onLabels, onAddNote }) {
   const [text, setText] = useState('');
   const scrollRef = useRef(null);
+  // Follow new messages only while the operator is at the bottom, so the 5s
+  // refresh doesn't yank them down while they read older messages.
+  const stickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    stickToBottomRef.current = true;
+  }, [conversation?.id]);
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (el) stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   if (!conversation) {
     return (
@@ -87,6 +99,7 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
     e.preventDefault();
     const value = text.trim();
     if (!value) return;
+    stickToBottomRef.current = true;
     onSend(value, () => setText(''));
   }
 
@@ -143,7 +156,7 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
         onAddNote={onAddNote}
       />
 
-      <div ref={scrollRef} className="scroll-thin flex-1 space-y-2 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} onScroll={onScroll} className="scroll-thin flex-1 space-y-2 overflow-y-auto px-4 py-4">
         {loading ? (
           <div className="grid h-full place-items-center"><Loader2 className="h-6 w-6 animate-spin text-white/40" /></div>
         ) : messages.length === 0 ? (

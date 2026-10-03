@@ -31,11 +31,31 @@ export default function ChatPanel({
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
 
+    // Follow new messages only while the operator is at the bottom, so the 5s
+    // refresh doesn't yank them down while they read older messages.
+    const stickToBottomRef = useRef(true);
+
     useEffect(() => {
-        if (messagesEndRef.current) {
+        stickToBottomRef.current = true;
+    }, [conversation?.id]);
+
+    useEffect(() => {
+        if (messagesEndRef.current && stickToBottomRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
+
+    function handleScroll() {
+        const el = messagesContainerRef.current;
+        if (el) {
+            stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }
+    }
+
+    function handleSend(...args) {
+        stickToBottomRef.current = true;
+        return onSendReply(...args);
+    }
 
     const isServiceWindowOpen = conversation.is_service_window_open &&
         conversation.service_window_expires_at &&
@@ -52,6 +72,7 @@ export default function ChatPanel({
             {/* Messages Area */}
             <div
                 ref={messagesContainerRef}
+                onScroll={handleScroll}
                 className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-3 wa-chat-bg wa-scroll"
             >
                 {loading ? (
@@ -107,7 +128,7 @@ export default function ChatPanel({
 
             {/* Reply Input */}
             <ReplyInput
-                onSend={onSendReply}
+                onSend={handleSend}
                 sending={sending}
                 isServiceWindowOpen={isServiceWindowOpen}
                 onShowTemplatePicker={onShowTemplatePicker}
