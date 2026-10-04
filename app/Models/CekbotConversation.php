@@ -24,6 +24,7 @@ class CekbotConversation extends Model
         'archived_at',
         'handed_over_at',
         'handed_over_by',
+        'context_reset_at',
         'assigned_to',
         'labels',
         'lead_category_id',
@@ -40,6 +41,7 @@ class CekbotConversation extends Model
             'last_message_at' => 'datetime',
             'archived_at' => 'datetime',
             'handed_over_at' => 'datetime',
+            'context_reset_at' => 'datetime',
             'labels' => 'array',
         ];
     }
@@ -100,6 +102,20 @@ class CekbotConversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(CekbotMessage::class, 'cekbot_conversation_id');
+    }
+
+    /**
+     * Messages the bot should remember: everything since the last admin reset
+     * (all messages when the chat was never reset).
+     *
+     * @return HasMany<CekbotMessage, $this>
+     */
+    public function botContextMessages(): HasMany
+    {
+        return $this->messages()->when(
+            $this->context_reset_at,
+            fn ($query) => $query->where('created_at', '>=', $this->context_reset_at)
+        );
     }
 
     /**

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Send, Loader2, Check, CheckCheck, User, Users, Bot, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Check, CheckCheck, User, Users, Bot, ShieldCheck, RotateCcw } from 'lucide-react';
 import { cn, clockTime, formatPhone, contactDisplay, mediaLabel } from '@/cekbot-admin/lib/utils';
 import ConversationTools from '@/cekbot-admin/components/inbox/ConversationTools';
 
@@ -56,7 +56,17 @@ function MessageBubble({ message }) {
   );
 }
 
-export default function ChatPanel({ conversation, messages, loading, onSend, sending, onBack, canReply, onHandover, onRelease, staff = [], availableLabels = [], notes = [], onAssign, onLabels, onAddNote }) {
+function ResetDivider({ at }) {
+  return (
+    <div className="flex items-center gap-2 py-1 text-[10.5px] font-semibold text-amber-300/80">
+      <span className="h-px flex-1 bg-amber-300/25" />
+      <RotateCcw className="h-3 w-3" strokeWidth={2.4} /> Perbualan direset {clockTime(at)}: bot mula semula dari sini
+      <span className="h-px flex-1 bg-amber-300/25" />
+    </div>
+  );
+}
+
+export default function ChatPanel({ conversation, messages, loading, onSend, sending, onBack, canReply, onHandover, onRelease, onResetContext, staff = [], availableLabels = [], notes = [], onAssign, onLabels, onAddNote }) {
   const [text, setText] = useState('');
   const scrollRef = useRef(null);
   // Follow new messages only while the operator is at the bottom, so the 5s
@@ -90,6 +100,12 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
       </div>
     );
   }
+
+  // Where the "bot reset" marker sits: before the first message after the reset.
+  const resetAt = conversation.context_reset_at ? new Date(conversation.context_reset_at) : null;
+  const resetIndex = resetAt
+    ? (() => { const i = messages.findIndex((m) => m.sent_at && new Date(m.sent_at) >= resetAt); return i === -1 ? messages.length : i; })()
+    : -1;
 
   const title = contactDisplay(conversation.name, conversation.phone, conversation.is_group);
   const digits = String(conversation.phone || '').replace(/\D/g, '');
@@ -127,6 +143,12 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          {onResetContext && (
+            <button type="button" onClick={onResetContext} title="Reset perbualan: bot lupa chat sebelum ni (untuk test flow semula)"
+              className="flex items-center gap-1.5 rounded-lg bg-white/8 px-2.5 py-1.5 text-[12px] font-semibold text-white/70 hover:bg-white/12">
+              <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.2} /> <span className="hidden sm:inline">Reset</span>
+            </button>
+          )}
           {conversation.handed_over ? (
             <>
               <span className="hidden items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-semibold text-amber-300 sm:inline-flex">
@@ -162,7 +184,15 @@ export default function ChatPanel({ conversation, messages, loading, onSend, sen
         ) : messages.length === 0 ? (
           <div className="grid h-full place-items-center text-center text-[12.5px] text-white/35">Belum ada mesej.</div>
         ) : (
-          messages.map((m) => <MessageBubble key={m.id} message={m} />)
+          <>
+            {messages.map((m, i) => (
+              <div key={m.id} className="space-y-2">
+                {i === resetIndex && <ResetDivider at={conversation.context_reset_at} />}
+                <MessageBubble message={m} />
+              </div>
+            ))}
+            {resetIndex === messages.length && <ResetDivider at={conversation.context_reset_at} />}
+          </>
         )}
       </div>
 

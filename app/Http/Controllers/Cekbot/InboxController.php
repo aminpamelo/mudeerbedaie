@@ -6,6 +6,7 @@ use App\Events\Cekbot\CekbotMessageReceived;
 use App\Http\Controllers\Controller;
 use App\Models\CekbotConversation;
 use App\Models\CekbotConversationNote;
+use App\Models\CekbotFlowEnrollment;
 use App\Models\CekbotLabel;
 use App\Models\CekbotMessage;
 use App\Models\CekbotSession;
@@ -138,6 +139,26 @@ class InboxController extends Controller
         return back()->with('success', 'Perbualan diserah semula kepada bot.');
     }
 
+    /**
+     * Make the bot treat this chat as brand new — for re-testing a flow on the
+     * same contact. Ends any active flow, hands the chat back to the bot and
+     * hides earlier messages from the bot's memory. Message history is kept.
+     */
+    public function resetContext(CekbotConversation $conversation): RedirectResponse
+    {
+        $conversation->flowEnrollments()
+            ->where('status', CekbotFlowEnrollment::STATUS_ACTIVE)
+            ->update(['status' => CekbotFlowEnrollment::STATUS_ABANDONED]);
+
+        $conversation->update([
+            'context_reset_at' => now(),
+            'handed_over_at' => null,
+            'handed_over_by' => null,
+        ]);
+
+        return back()->with('success', 'Perbualan direset. Mesej seterusnya akan dilayan macam chat baru.');
+    }
+
     public function archive(CekbotConversation $conversation): RedirectResponse
     {
         $conversation->update(['archived_at' => now()]);
@@ -218,6 +239,7 @@ class InboxController extends Controller
                 'at' => $c->handed_over_at->toIso8601String(),
                 'by' => $c->relationLoaded('handedOverBy') ? $c->handedOverBy?->name : null,
             ] : null,
+            'context_reset_at' => $c->context_reset_at?->toIso8601String(),
             'assigned_to' => $c->assigned_to,
             'assignee' => $c->relationLoaded('assignee') ? $c->assignee?->name : null,
             'labels' => $c->labels ?? [],

@@ -160,6 +160,14 @@ export default function Index() {
     });
   }
 
+  function resetContext() {
+    if (!selected) return;
+    if (!window.confirm('Reset perbualan ni? Bot akan lupa chat sebelum ni dan layan mesej seterusnya macam chat baru (sesuai untuk test flow semula). Sejarah mesej tak dipadam.')) return;
+    router.post(route('cekbot.inbox.reset', selected.id), {}, {
+      preserveScroll: true, preserveState: true, onSuccess: () => loadMessages(selected.id, { silent: true }),
+    });
+  }
+
   function assign(userId) {
     if (!selected) return;
     router.post(route('cekbot.inbox.assign', selected.id), { assigned_to: userId }, {
@@ -238,6 +246,7 @@ export default function Index() {
             onBack={() => setMobileView('list')}
             onHandover={handover}
             onRelease={release}
+            onResetContext={resetContext}
             staff={props.staff || []}
             availableLabels={props.availableLabels || []}
             notes={notes}

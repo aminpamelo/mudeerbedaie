@@ -100,7 +100,7 @@ class CekbotBotService
         }
 
         // 2. Welcome message on the first inbound message of a conversation.
-        $inboundCount = $conversation->messages()->where('direction', CekbotMessage::DIRECTION_IN)->count();
+        $inboundCount = $conversation->botContextMessages()->where('direction', CekbotMessage::DIRECTION_IN)->count();
         if ($inboundCount <= 1 && filled($settings->welcome_message)) {
             return $settings->welcome_message;
         }

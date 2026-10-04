@@ -403,7 +403,7 @@ class CekbotFlowAgent
      */
     private function history(CekbotConversation $conversation): array
     {
-        return $conversation->messages()
+        return $conversation->botContextMessages()
             ->orderByDesc('id')
             ->limit(12)
             ->get()

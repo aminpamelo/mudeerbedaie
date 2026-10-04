@@ -300,7 +300,7 @@ PROMPT;
      */
     private function history(CekbotConversation $conversation): array
     {
-        return $conversation->messages()
+        return $conversation->botContextMessages()
             ->whereNotNull('body')
             ->orderByDesc('id')
             ->limit(8)
