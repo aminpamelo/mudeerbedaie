@@ -186,7 +186,7 @@ class CekbotBotService
         }
 
         $session = $conversation->session;
-        $result = $this->out->sendVideo($session, $conversation->chat_id, $media->url(), null, $media->mime ?: 'video/mp4');
+        $result = $this->out->sendVideo($session, $conversation->chat_id, $media->url(), null, $media->mime() ?: 'video/mp4');
 
         CekbotMessage::create([
             'cekbot_conversation_id' => $conversation->id,
@@ -197,7 +197,7 @@ class CekbotBotService
             'type' => 'video',
             'body' => null,
             'media_url' => $media->url(),
-            'media_mime' => $media->mime,
+            'media_mime' => $media->mime(),
             'ack' => $result['success'] ? 'sent' : 'failed',
             'sent_by_user_id' => null,
             'sent_at' => now(),

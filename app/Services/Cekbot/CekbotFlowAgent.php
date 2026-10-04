@@ -225,9 +225,11 @@ class CekbotFlowAgent
     private function mediaLibrary(): Collection
     {
         return $this->mediaLibrary ??= CekbotMedia::query()
+            ->with('media')
+            ->whereHas('media', fn ($query) => CekbotMedia::constrainToSendable($query))
             ->orderBy('key')
             ->limit(self::MEDIA_LIMIT)
-            ->get(['id', 'key', 'title', 'description', 'type', 'path', 'mime']);
+            ->get();
     }
 
     /**

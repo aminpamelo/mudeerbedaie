@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CekbotMedia;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -10,83 +11,138 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
 });
 
-it('renders the media library page', function () {
+it('renders the Cekbot media page with keys and their library files', function () {
     CekbotMedia::factory()->create(['key' => 'testimoni-1']);
 
     test()->actingAs($this->admin)
         ->get(route('cekbot.media'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Media/Index', false)->has('media', 1)->where('media.0.key', 'testimoni-1'));
+        ->assertInertia(fn ($page) => $page->component('Media/Index', false)
+            ->has('media', 1)
+            ->where('media.0.key', 'testimoni-1')
+            ->where('media.0.sendable', true));
 });
 
-it('uploads an image with a key', function () {
+it('lists only WhatsApp-sendable Media Library items in the picker', function () {
+    $jpg = Media::factory()->create(['title' => 'Testi JPG', 'file_size' => 400_000]);
+    $mp4 = Media::factory()->video()->create(['title' => 'Testi MP4', 'file_size' => 3_000_000]);
+    Media::factory()->create(['title' => 'Big JPG', 'file_size' => 9_000_000]);
+    Media::factory()->create(['title' => 'Gif', 'mime_type' => 'image/gif', 'file_size' => 100_000]);
+    Media::factory()->video()->create(['title' => 'Mov', 'mime_type' => 'video/quicktime', 'file_size' => 1_000_000]);
+    Media::factory()->video()->create(['title' => 'Big MP4', 'file_size' => 20_000_000]);
+    CekbotMedia::factory()->create(['key' => 'dah-ada', 'media_id' => $jpg->id]);
+
+    $items = test()->actingAs($this->admin)
+        ->getJson(route('cekbot.media.library'))
+        ->assertOk()
+        ->json('items');
+
+    expect(collect($items)->pluck('id')->sort()->values()->all())->toBe(collect([$jpg->id, $mp4->id])->sort()->values()->all())
+        ->and(collect($items)->firstWhere('id', $jpg->id)['key'])->toBe('dah-ada');
+
+    test()->actingAs($this->admin)
+        ->getJson(route('cekbot.media.library', ['type' => 'video', 'q' => 'Testi']))
+        ->assertJsonCount(1, 'items')
+        ->assertJsonPath('items.0.id', $mp4->id);
+});
+
+it('keys an existing Media Library item without copying the file', function () {
+    $media = Media::factory()->video()->create(['file_size' => 3_000_000]);
+
+    test()->actingAs($this->admin)
+        ->post(route('cekbot.media.store'), ['media_id' => $media->id, 'key' => 'video-testimoni', 'title' => 'Video'])
+        ->assertSessionHasNoErrors();
+
+    $item = CekbotMedia::query()->sole();
+    expect($item->media_id)->toBe($media->id)
+        ->and($item->isVideo())->toBeTrue()
+        ->and(Media::query()->count())->toBe(1);
+});
+
+it('refuses a library item WhatsApp cannot send', function () {
+    $mov = Media::factory()->video()->create(['mime_type' => 'video/quicktime', 'file_size' => 1_000_000]);
+
+    test()->actingAs($this->admin)
+        ->post(route('cekbot.media.store'), ['media_id' => $mov->id, 'key' => 'mov'])
+        ->assertSessionHasErrors('media_id');
+
+    expect(CekbotMedia::query()->count())->toBe(0);
+});
+
+it('uploads a new file into the shared Media Library and keys it', function () {
     test()->actingAs($this->admin)
         ->post(route('cekbot.media.store'), [
             'file' => UploadedFile::fake()->image('testi.jpg'),
             'key' => 'testimoni-1',
             'title' => 'Testimoni Puan Aminah',
-            'description' => 'Bila pelanggan ragu-ragu',
         ])
         ->assertSessionHasNoErrors();
 
-    $media = CekbotMedia::query()->sole();
-    expect($media->key)->toBe('testimoni-1')
-        ->and($media->type)->toBe(CekbotMedia::TYPE_IMAGE)
-        ->and($media->created_by)->toBe($this->admin->id);
-    Storage::disk('public')->assertExists($media->path);
+    $media = Media::query()->sole();
+    expect($media->title)->toBe('Testimoni Puan Aminah')
+        ->and($media->type)->toBe('image')
+        ->and($media->tags)->toBe(['cekbot'])
+        ->and($media->uploader_id)->toBe($this->admin->id)
+        ->and(CekbotMedia::query()->sole()->media_id)->toBe($media->id);
+    Storage::disk('public')->assertExists($media->file_path);
 });
 
-it('uploads a video', function () {
-    test()->actingAs($this->admin)
-        ->post(route('cekbot.media.store'), [
-            'file' => UploadedFile::fake()->create('testi.mp4', 2048, 'video/mp4'),
-            'key' => 'video-testimoni',
-        ])
-        ->assertSessionHasNoErrors();
-
-    expect(CekbotMedia::query()->sole()->type)->toBe(CekbotMedia::TYPE_VIDEO);
-});
-
-it('rejects images over 5MB, videos over 16MB and other file types', function (UploadedFile $file) {
+it('rejects uploads WhatsApp cannot send', function (UploadedFile $file) {
     test()->actingAs($this->admin)
         ->post(route('cekbot.media.store'), ['file' => $file, 'key' => 'fail'])
         ->assertSessionHasErrors('file');
 
-    expect(CekbotMedia::query()->count())->toBe(0);
+    expect(Media::query()->count())->toBe(0);
 })->with([
     'big image' => fn () => UploadedFile::fake()->create('big.jpg', 6000, 'image/jpeg'),
     'big video' => fn () => UploadedFile::fake()->create('big.mp4', 17000, 'video/mp4'),
-    'pdf' => fn () => UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf'),
+    'webp' => fn () => UploadedFile::fake()->create('a.webp', 100, 'image/webp'),
+    'mov' => fn () => UploadedFile::fake()->create('a.mov', 100, 'video/quicktime'),
 ]);
+
+it('requires a library pick or a file', function () {
+    test()->actingAs($this->admin)
+        ->post(route('cekbot.media.store'), ['key' => 'kosong'])
+        ->assertSessionHasErrors('file');
+});
 
 it('validates the key format and uniqueness', function (string $key) {
     CekbotMedia::factory()->create(['key' => 'testimoni-1']);
+    $media = Media::factory()->create(['file_size' => 100_000]);
 
     test()->actingAs($this->admin)
-        ->post(route('cekbot.media.store'), ['file' => UploadedFile::fake()->image('a.jpg'), 'key' => $key])
+        ->post(route('cekbot.media.store'), ['media_id' => $media->id, 'key' => $key])
         ->assertSessionHasErrors('key');
 })->with(['duplicate' => 'testimoni-1', 'spaces' => 'testi moni', 'uppercase' => 'Testimoni', 'empty' => '']);
 
 it('updates the key, title and description', function () {
-    $media = CekbotMedia::factory()->create(['key' => 'lama']);
+    $item = CekbotMedia::factory()->create(['key' => 'lama']);
 
     test()->actingAs($this->admin)
-        ->put(route('cekbot.media.update', $media->id), ['key' => 'baru', 'title' => 'Tajuk', 'description' => 'Bila'])
+        ->put(route('cekbot.media.update', $item->id), ['key' => 'baru', 'title' => 'Tajuk', 'description' => 'Bila'])
         ->assertSessionHasNoErrors();
 
-    expect($media->fresh()->only(['key', 'title', 'description']))->toBe(['key' => 'baru', 'title' => 'Tajuk', 'description' => 'Bila']);
+    expect($item->fresh()->only(['key', 'title', 'description']))->toBe(['key' => 'baru', 'title' => 'Tajuk', 'description' => 'Bila']);
 });
 
-it('deletes the media and its file', function () {
-    $path = UploadedFile::fake()->image('a.jpg')->store(CekbotMedia::DIRECTORY, 'public');
-    $media = CekbotMedia::factory()->create(['path' => $path]);
+it('removes the key but keeps the file in the Media Library', function () {
+    $item = CekbotMedia::factory()->create();
 
-    test()->actingAs($this->admin)->delete(route('cekbot.media.destroy', $media->id))->assertRedirect();
+    test()->actingAs($this->admin)->delete(route('cekbot.media.destroy', $item->id))->assertRedirect();
+
+    expect(CekbotMedia::query()->count())->toBe(0)
+        ->and(Media::query()->whereKey($item->media_id)->exists())->toBeTrue();
+});
+
+it('drops the key when the library file is deleted', function () {
+    $item = CekbotMedia::factory()->create();
+
+    $item->media->delete();
 
     expect(CekbotMedia::query()->count())->toBe(0);
-    Storage::disk('public')->assertMissing($path);
 });
 
 it('forbids non-admins from the media library', function () {
     test()->actingAs(User::factory()->create())->get(route('cekbot.media'))->assertForbidden();
+    test()->actingAs(User::factory()->create())->getJson(route('cekbot.media.library'))->assertForbidden();
 });

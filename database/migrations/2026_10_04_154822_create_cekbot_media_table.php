@@ -7,20 +7,17 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Shared Cekbot media library: images/videos (e.g. testimonials) the flow
-     * AI can send mid-conversation, referenced by a short key.
+     * Cekbot keys onto the shared Media Library: each row names a library
+     * image/video (e.g. a testimonial) with a short key the flow AI sends by.
      */
     public function up(): void
     {
         Schema::create('cekbot_media', function (Blueprint $table) {
             $table->id();
             $table->string('key', 60)->unique();
+            $table->foreignId('media_id')->constrained('media')->cascadeOnDelete();
             $table->string('title')->nullable();
             $table->text('description')->nullable();
-            $table->string('type', 10);
-            $table->string('path');
-            $table->string('mime', 100)->nullable();
-            $table->unsignedBigInteger('size')->default(0);
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

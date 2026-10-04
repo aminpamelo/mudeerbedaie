@@ -1991,6 +1991,7 @@ Route::middleware(['auth', 'role:admin,employee', HandleCekbotInertiaRequests::c
 
         // Media library — images/videos the flow AI sends by key
         Route::get('media', [CekbotMediaController::class, 'index'])->name('media');
+        Route::get('media-library', [CekbotMediaController::class, 'library'])->name('media.library');
         Route::post('media', [CekbotMediaController::class, 'store'])->name('media.store');
         Route::put('media/{media}', [CekbotMediaController::class, 'update'])->name('media.update');
         Route::delete('media/{media}', [CekbotMediaController::class, 'destroy'])->name('media.destroy');

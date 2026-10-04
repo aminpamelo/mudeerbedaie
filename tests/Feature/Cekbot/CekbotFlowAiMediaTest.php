@@ -127,3 +127,16 @@ it('sends a video to a Meta Cloud number as a video message', function () {
         && $r['type'] === 'video'
         && $r['video']['link'] === 'https://cdn.test/v.mp4');
 });
+
+it('does not offer library files WhatsApp cannot send', function () {
+    CekbotMedia::factory()->create([
+        'key' => 'video-mov',
+        'media_id' => \App\Models\Media::factory()->video()->state(['mime_type' => 'video/quicktime', 'file_size' => 1_000_000]),
+    ]);
+    OpenAI::fake([CreateResponse::fake(['choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => 'Hai'], 'finish_reason' => 'stop']]])]);
+
+    mediaInbound('qadha');
+
+    OpenAI::assertSent(Chat::class, fn (string $method, array $params) => ! collect($params['tools'])->contains(fn ($t) => data_get($t, 'function.name') === 'send_media')
+        && ! str_contains(collect($params['messages'])->firstWhere('role', 'system')['content'] ?? '', 'video-mov'));
+});
