@@ -50,6 +50,20 @@ class CekbotOutbound
     }
 
     /**
+     * @return array{success: bool, message_id: ?string, error: ?string}
+     */
+    public function sendVideo(CekbotSession $session, string $chatId, string $url, ?string $caption = null, string $mimetype = 'video/mp4'): array
+    {
+        if ($session->isCloudApi()) {
+            return $this->normalize(
+                $this->cloudProvider($session)->sendVideo(self::toPhone($chatId), $url, $caption)
+            );
+        }
+
+        return $this->waha->sendVideo($session->session_name, $chatId, $url, $caption, $mimetype);
+    }
+
+    /**
      * Build the Cloud API client from a number's stored credentials.
      */
     public function cloudProvider(CekbotSession $session): MetaCloudProvider

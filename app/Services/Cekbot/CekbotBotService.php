@@ -5,6 +5,7 @@ namespace App\Services\Cekbot;
 use App\Events\Cekbot\CekbotMessageReceived;
 use App\Models\CekbotAutoReply;
 use App\Models\CekbotConversation;
+use App\Models\CekbotMedia;
 use App\Models\CekbotMessage;
 use Illuminate\Support\Str;
 
@@ -168,6 +169,43 @@ class CekbotBotService
         $conversation->update([
             'last_message_at' => now(),
             'last_message_preview' => Str::limit($reply, 255),
+        ]);
+
+        CekbotMessageReceived::dispatch($conversation->id, $session->id, 'out');
+    }
+
+    /**
+     * Send a media-library item (image or video) as a bot reply.
+     */
+    public function sendMediaReply(CekbotConversation $conversation, CekbotMedia $media): void
+    {
+        if (! $media->isVideo()) {
+            $this->sendImageReply($conversation, $media->url(), null);
+
+            return;
+        }
+
+        $session = $conversation->session;
+        $result = $this->out->sendVideo($session, $conversation->chat_id, $media->url(), null, $media->mime ?: 'video/mp4');
+
+        CekbotMessage::create([
+            'cekbot_conversation_id' => $conversation->id,
+            'cekbot_session_id' => $session->id,
+            'waha_message_id' => $result['message_id'] ?? null,
+            'direction' => CekbotMessage::DIRECTION_OUT,
+            'from_me' => true,
+            'type' => 'video',
+            'body' => null,
+            'media_url' => $media->url(),
+            'media_mime' => $media->mime,
+            'ack' => $result['success'] ? 'sent' : 'failed',
+            'sent_by_user_id' => null,
+            'sent_at' => now(),
+        ]);
+
+        $conversation->update([
+            'last_message_at' => now(),
+            'last_message_preview' => '🎥 Video',
         ]);
 
         CekbotMessageReceived::dispatch($conversation->id, $session->id, 'out');

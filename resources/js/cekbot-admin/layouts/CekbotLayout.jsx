@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { Bot, Smartphone, MessageCircle, Users, Zap, Package, Megaphone, BarChart3, Settings, Menu, X, ArrowLeft, Workflow, ShoppingBag } from 'lucide-react';
+import { Bot, Smartphone, MessageCircle, Users, Zap, Package, Megaphone, BarChart3, Settings, Menu, X, ArrowLeft, Workflow, ShoppingBag, Images } from 'lucide-react';
 import { cn, initialsFrom } from '@/cekbot-admin/lib/utils';
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { label: 'Order', href: '/admin/cekbot/orders', icon: ShoppingBag },
   { label: 'Auto-Reply', href: '/admin/cekbot/auto-reply', icon: Zap },
   { label: 'Produk', href: '/admin/cekbot/products', icon: Package },
+  { label: 'Media', href: '/admin/cekbot/media', icon: Images },
   { label: 'Broadcast', href: '/admin/cekbot/broadcast', icon: Megaphone },
   { label: 'Analitik', href: '/admin/cekbot/analytics', icon: BarChart3 },
   { label: 'Tetapan', href: '/admin/cekbot/settings', icon: Settings },

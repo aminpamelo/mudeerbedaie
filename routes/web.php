@@ -21,6 +21,7 @@ use App\Http\Controllers\Cekbot\BroadcastController as CekbotBroadcastController
 use App\Http\Controllers\Cekbot\FlowController as CekbotFlowController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
 use App\Http\Controllers\Cekbot\LeadController as CekbotLeadController;
+use App\Http\Controllers\Cekbot\MediaController as CekbotMediaController;
 use App\Http\Controllers\Cekbot\OrderController as CekbotOrderController;
 use App\Http\Controllers\Cekbot\ProductController as CekbotProductController;
 use App\Http\Controllers\Cekbot\SessionController as CekbotSessionController;
@@ -1987,6 +1988,12 @@ Route::middleware(['auth', 'role:admin,employee', HandleCekbotInertiaRequests::c
         Route::post('products/{product}/testimonials', [CekbotProductController::class, 'storeTestimonial'])->name('products.testimonials.store');
         Route::delete('products/{product}/testimonials/{testimonial}', [CekbotProductController::class, 'destroyTestimonial'])->name('products.testimonials.destroy');
         Route::delete('products/{product}', [CekbotProductController::class, 'destroy'])->name('products.destroy');
+
+        // Media library — images/videos the flow AI sends by key
+        Route::get('media', [CekbotMediaController::class, 'index'])->name('media');
+        Route::post('media', [CekbotMediaController::class, 'store'])->name('media.store');
+        Route::put('media/{media}', [CekbotMediaController::class, 'update'])->name('media.update');
+        Route::delete('media/{media}', [CekbotMediaController::class, 'destroy'])->name('media.destroy');
 
         // Flows — guided sales-funnel builder (greet → pilih pakej → bayar → order)
         Route::get('flows', [CekbotFlowController::class, 'index'])->name('flows');

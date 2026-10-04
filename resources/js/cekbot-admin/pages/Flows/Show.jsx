@@ -532,6 +532,14 @@ export default function Show() {
                 >
                   <Textarea rows={8} maxLength={AI_INSTRUCTIONS_MAX} value={form.data.ai_instructions} onChange={(e) => setData('ai_instructions', e.target.value)}
                     placeholder="Cth: Guna bahasa santai & mesra. Galakkan COD. Jangan janji apa-apa yang tiada dalam maklumat pakej." />
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-white/45">
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Nak AI hantar gambar/video (cth testimoni)? Muat naik di{' '}
+                      <a href={route('cekbot.media')} target="_blank" rel="noopener" className="font-semibold text-emerald-300 hover:underline">Media</a>,
+                      {' '}kemudian tulis di sini, cth <span className="font-mono text-white/70">"lepas terangkan pakej, hantar testimoni-1"</span>.
+                    </span>
+                  </p>
                 </Field>
               )}
             </div>

@@ -423,6 +423,35 @@ class WahaSessionManager
     }
 
     /**
+     * Send a video by public URL.
+     *
+     * @return array{success: bool, message_id: ?string, error: ?string}
+     */
+    public function sendVideo(string $sessionName, string $chatId, string $url, ?string $caption = null, string $mimetype = 'video/mp4'): array
+    {
+        try {
+            $response = $this->client()->post('/api/sendVideo', [
+                'session' => $sessionName,
+                'chatId' => $this->chatId($chatId),
+                'file' => ['url' => $url, 'mimetype' => $mimetype],
+                'caption' => $caption,
+                'convert' => false,
+                'asNote' => false,
+            ]);
+
+            $data = $response->json();
+
+            if ($response->successful() && ! empty($data['id'])) {
+                return ['success' => true, 'message_id' => is_array($data['id']) ? ($data['id']['_serialized'] ?? null) : $data['id'], 'error' => null];
+            }
+
+            return ['success' => false, 'message_id' => null, 'error' => $this->error('send video', $response->status(), $data)->getMessage()];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message_id' => null, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Convert a recipient into a WAHA chat id (pass through existing ids).
      */
     private function chatId(string $recipient): string

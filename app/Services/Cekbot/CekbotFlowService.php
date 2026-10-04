@@ -263,6 +263,10 @@ class CekbotFlowService
 
         $bot->sendReply($conversation, $reply);
 
+        foreach ($result['media'] ?? [] as $media) {
+            $bot->sendMediaReply($conversation, $media);
+        }
+
         // Follow up with the QR/bank poster when the customer asked for it, or
         // after a transfer order — unless they already have it or already paid.
         $autoQr = $transferOrder && ! $qrSent && blank($proofMessageId);

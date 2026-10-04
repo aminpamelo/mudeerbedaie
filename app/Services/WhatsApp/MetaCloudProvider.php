@@ -48,6 +48,43 @@ class MetaCloudProvider implements WhatsAppProviderInterface
     }
 
     /**
+     * Send a video message by public URL.
+     *
+     * @return array<string, mixed>
+     */
+    public function sendVideo(string $phoneNumber, string $videoUrl, ?string $caption = null): array
+    {
+        try {
+            $video = ['link' => $videoUrl];
+
+            if ($caption !== null) {
+                $video['caption'] = $caption;
+            }
+
+            $response = Http::withToken($this->accessToken)
+                ->timeout(30)
+                ->post($this->baseUrl(), [
+                    'messaging_product' => 'whatsapp',
+                    'to' => $phoneNumber,
+                    'type' => 'video',
+                    'video' => $video,
+                ]);
+
+            return $this->parseResponse($response, 'video', $phoneNumber);
+        } catch (\Exception $e) {
+            Log::error('Meta Cloud API: video message exception', [
+                'phone' => $phoneNumber,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Send an image message.
      *
      * @return array{success: bool, message_id: ?string, message: ?string, error: ?string}

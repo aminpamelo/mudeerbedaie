@@ -6,8 +6,10 @@ use App\Models\CekbotConversation;
 use App\Models\CekbotFlow;
 use App\Models\CekbotFlowEnrollment;
 use App\Models\CekbotFlowPackage;
+use App\Models\CekbotMedia;
 use App\Models\CekbotMessage;
 use App\Models\ProductOrder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use OpenAI\Laravel\Facades\OpenAI;
@@ -24,6 +26,12 @@ use OpenAI\Laravel\Facades\OpenAI;
  */
 class CekbotFlowAgent
 {
+    /** Most media items listed to the model, to keep the prompt bounded. */
+    private const MEDIA_LIMIT = 50;
+
+    /** @var Collection<int, CekbotMedia>|null */
+    private ?Collection $mediaLibrary = null;
+
     public function __construct(private CekbotFlowOrderCreator $orders) {}
 
     /**
@@ -31,20 +39,24 @@ class CekbotFlowAgent
      * as a side effect when the model calls create_order with valid details.
      *
      * @param  array{proof_received?: bool, qr_sent?: bool}  $context  Funnel state the model can't see in the chat text.
-     * @return array{reply: ?string, order: ?ProductOrder, send_qr: bool}
+     * @return array{reply: ?string, order: ?ProductOrder, send_qr: bool, media: array<int, CekbotMedia>}
      */
     public function respond(CekbotFlow $flow, CekbotConversation $conversation, string $message, array $context = []): array
     {
         if (blank(config('openai.api_key'))) {
-            return ['reply' => null, 'order' => null, 'send_qr' => false];
+            return ['reply' => null, 'order' => null, 'send_qr' => false, 'media' => []];
         }
 
         $flow->loadMissing(['packages.cekbotProduct', 'packages.product', 'packages.shopPackage']);
+
+        $this->mediaLibrary = null;
 
         try {
             $messages = $this->buildMessages($flow, $conversation, $message, $context);
             $createdOrder = null;
             $sendQr = false;
+            /** @var array<string, CekbotMedia> $media */
+            $media = [];
 
             // Function-calling loop: the model chats, then calls create_order
             // once the customer has confirmed. We run the tool and feed the
@@ -64,7 +76,7 @@ class CekbotFlowAgent
                 if (empty($toolCalls)) {
                     $content = trim((string) ($choice->content ?? ''));
 
-                    return ['reply' => $content !== '' ? $content : null, 'order' => $createdOrder, 'send_qr' => $sendQr];
+                    return ['reply' => $content !== '' ? $content : null, 'order' => $createdOrder, 'send_qr' => $sendQr, 'media' => array_values($media)];
                 }
 
                 $messages[] = [
@@ -86,6 +98,15 @@ class CekbotFlowAgent
                             ? ['success' => true, 'instruction' => 'Gambar QR akan dihantar selepas mesej anda. Beritahu pelanggan QR dihantar & boleh scan untuk bayar.']
                             : ['success' => false, 'error' => 'Tiada QR untuk flow ini.'], JSON_UNESCAPED_UNICODE);
                         $order = null;
+                    } elseif ($tc->function->name === 'send_media') {
+                        $item = $this->mediaLibrary()->firstWhere('key', trim((string) ($args['key'] ?? '')));
+                        if ($item) {
+                            $media[$item->key] = $item;
+                        }
+                        $result = json_encode($item
+                            ? ['success' => true, 'instruction' => 'Media "'.$item->key.'" akan dihantar selepas mesej anda. Jangan tulis link atau nama fail; cukup sebut ringkas (cth "Ni testimoni pelanggan kami 👇").']
+                            : ['success' => false, 'error' => 'Media tidak wujud. Guna salah satu key dalam senarai MEDIA sahaja.'], JSON_UNESCAPED_UNICODE);
+                        $order = null;
                     } else {
                         [$result, $order] = $this->runTool($flow, $conversation, $tc->function->name, $args, $context);
                     }
@@ -102,11 +123,11 @@ class CekbotFlowAgent
                 }
             }
 
-            return ['reply' => null, 'order' => $createdOrder, 'send_qr' => $sendQr];
+            return ['reply' => null, 'order' => $createdOrder, 'send_qr' => $sendQr, 'media' => array_values($media)];
         } catch (\Throwable $e) {
             Log::warning('Cekbot flow agent failed', ['flow_id' => $flow->id, 'error' => $e->getMessage()]);
 
-            return ['reply' => null, 'order' => null, 'send_qr' => false];
+            return ['reply' => null, 'order' => null, 'send_qr' => false, 'media' => []];
         }
     }
 
@@ -175,7 +196,38 @@ class CekbotFlowAgent
             ];
         }
 
+        $library = $this->mediaLibrary();
+        if ($library->isNotEmpty()) {
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'send_media',
+                    'description' => 'Hantar satu gambar/video dari pustaka MEDIA kepada pelanggan (cth testimoni). Panggil bila arahan syarikat suruh hantar media tertentu, atau bila media itu jelas membantu jawab pelanggan. Boleh panggil beberapa kali untuk beberapa media. Jangan hantar media yang sama berulang kali.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'key' => ['type' => 'string', 'enum' => $library->pluck('key')->values()->all(), 'description' => 'Key media dari senarai MEDIA.'],
+                        ],
+                        'required' => ['key'],
+                    ],
+                ],
+            ];
+        }
+
         return $tools;
+    }
+
+    /**
+     * The shared media library the agent may send from (loaded once per turn).
+     *
+     * @return Collection<int, CekbotMedia>
+     */
+    private function mediaLibrary(): Collection
+    {
+        return $this->mediaLibrary ??= CekbotMedia::query()
+            ->orderBy('key')
+            ->limit(self::MEDIA_LIMIT)
+            ->get(['id', 'key', 'title', 'description', 'type', 'path', 'mime']);
     }
 
     /**
@@ -344,6 +396,18 @@ class CekbotFlowAgent
         if ($this->offersQr($flow)) {
             $lines[] = '';
             $lines[] = 'QR BAYARAN: Ada. Bila pelanggan tanya QR atau nak scan untuk bayar, panggil fungsi send_payment_qr. JANGAN kata tiada QR.';
+        }
+
+        $library = $this->mediaLibrary();
+        if ($library->isNotEmpty()) {
+            $lines[] = '';
+            $lines[] = 'MEDIA (gambar/video yang boleh dihantar dengan fungsi send_media, ikut key):';
+            foreach ($library as $item) {
+                $lines[] = '- '.$item->key.' ('.($item->isVideo() ? 'video' : 'gambar').')'
+                    .(filled($item->title) ? ': '.$item->title : '')
+                    .(filled($item->description) ? ' — '.Str::limit(trim((string) $item->description), 200) : '');
+            }
+            $lines[] = 'Bila arahan syarikat sebut key media (cth "hantar testimoni-1"), panggil send_media dengan key itu pada masa yang disebut. Jangan tulis key atau link dalam mesej kepada pelanggan.';
         }
 
         $askAddress = $flow->payment_cod_enabled;
