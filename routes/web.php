@@ -34,7 +34,9 @@ use App\Http\Controllers\Ceo\StaffKpiController;
 use App\Http\Controllers\Ceo\TaskMonitoringController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\Fighter\BusinessManagerController;
 use App\Http\Controllers\Fighter\CatalogController;
+use App\Http\Controllers\Fighter\DailyReportingController;
 use App\Http\Controllers\Fighter\FunnelLibraryController;
 use App\Http\Controllers\Fighter\NotificationController;
 use App\Http\Controllers\Fighter\OrderController;
@@ -565,6 +567,20 @@ Route::middleware(['auth', 'role:fighter,admin', HandleFighterInertiaRequests::c
             ->name('funnel-library.copy');
         Route::get('performance', [PerformanceController::class, 'index'])
             ->name('performance');
+        Route::get('daily-reporting', [DailyReportingController::class, 'index'])
+            ->name('daily-reporting');
+        Route::get('business-manager', [BusinessManagerController::class, 'index'])
+            ->name('business-manager');
+        Route::post('business-manager', [BusinessManagerController::class, 'store'])
+            ->name('business-manager.store');
+        Route::put('business-manager/{connection}', [BusinessManagerController::class, 'update'])
+            ->name('business-manager.update');
+        Route::delete('business-manager/{connection}', [BusinessManagerController::class, 'destroy'])
+            ->name('business-manager.destroy');
+        Route::post('business-manager/{connection}/sync', [BusinessManagerController::class, 'sync'])
+            ->name('business-manager.sync');
+        Route::put('business-manager/funnels/{funnel:uuid}', [BusinessManagerController::class, 'linkFunnel'])
+            ->name('business-manager.link-funnel');
         Route::get('orders', [OrderController::class, 'index'])
             ->name('orders');
         Route::get('orders/create', [OrderController::class, 'create'])

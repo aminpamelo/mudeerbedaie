@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\FacebookAdAccount;
-use App\Models\FacebookAdInsight;
 use App\Models\Funnel;
 use App\Models\FunnelOrder;
 use App\Models\FunnelProduct;
@@ -12,7 +11,6 @@ use App\Services\Funnel\FunnelStudioReportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 /**
  * Cross-funnel pages for the Funnel Studio shell: global Orders, Products,
@@ -783,10 +781,7 @@ class FunnelStudioController extends Controller
         $user = $request->user();
         $isPrivileged = $user && in_array($user->role, ['admin', 'employee'], true);
         $adAccountIds = FacebookAdAccount::query()
-            ->when(! $isPrivileged, fn (Builder $q) => $q->whereHas(
-                'connection',
-                fn (Builder $c) => $c->where('user_id', $user?->id)
-            ))
+            ->when(! $isPrivileged, fn (Builder $q) => $q->ownedBy((int) $user?->id))
             ->pluck('id')
             ->all();
 
@@ -796,62 +791,10 @@ class FunnelStudioController extends Controller
         return response()->json([
             'data' => array_merge($report, [
                 'can_see_spend' => $isPrivileged,
-                'by_funnel' => $this->dailyReportingByFunnel($funnelIds, $from, $adAccountIds),
+                'by_funnel' => $reports->byFunnel($funnelIds, $adAccountIds, $report['days']),
                 'by_team' => $this->teamPerformance($funnelIds, $from),
             ]),
         ]);
-    }
-
-    /**
-     * Per-funnel slice of the daily report: sales & orders in the window, plus
-     * the spend and ROAS of the ad account the funnel is linked to (its
-     * Ads Source), when one is set. Only funnels with activity are returned.
-     *
-     * @param  array<int, int>  $funnelIds
-     * @param  array<int, int>  $adAccountIds
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
-     */
-    protected function dailyReportingByFunnel(array $funnelIds, Carbon $from, array $adAccountIds): \Illuminate\Support\Collection
-    {
-        $salesByFunnel = FunnelOrder::query()
-            ->whereIn('funnel_id', $funnelIds)
-            ->where('created_at', '>=', $from)
-            ->selectRaw('funnel_id, SUM(funnel_revenue) as revenue, COUNT(*) as orders')
-            ->groupBy('funnel_id')
-            ->get()
-            ->keyBy('funnel_id');
-
-        $spendByAccount = FacebookAdInsight::query()
-            ->whereIn('facebook_ad_account_id', $adAccountIds)
-            ->where('date', '>=', $from->toDateString())
-            ->selectRaw('facebook_ad_account_id, SUM(spend) as spend')
-            ->groupBy('facebook_ad_account_id')
-            ->get()
-            ->keyBy('facebook_ad_account_id');
-
-        return Funnel::query()
-            ->whereIn('id', $funnelIds)
-            ->get(['id', 'uuid', 'name', 'status', 'settings'])
-            ->map(function (Funnel $funnel) use ($salesByFunnel, $spendByAccount) {
-                $sales = (float) ($salesByFunnel[$funnel->id]->revenue ?? 0);
-                $orders = (int) ($salesByFunnel[$funnel->id]->orders ?? 0);
-                $accountId = data_get($funnel->settings, 'ads.facebook_ad_account_id');
-                $spend = $accountId !== null ? (float) ($spendByAccount[$accountId]->spend ?? 0) : null;
-
-                return [
-                    'funnel_uuid' => $funnel->uuid,
-                    'funnel_name' => $funnel->name,
-                    'status' => $funnel->status,
-                    'sales' => round($sales, 2),
-                    'orders' => $orders,
-                    'linked_spend' => $spend !== null ? round($spend, 2) : null,
-                    'linked_spend_with_sst' => $spend !== null ? round($spend * (1 + FunnelStudioReportService::SST_RATE), 2) : null,
-                    'roas' => ($spend !== null && $spend > 0) ? round($sales / $spend, 2) : null,
-                ];
-            })
-            ->filter(fn (array $row) => $row['sales'] > 0 || $row['orders'] > 0 || ($row['linked_spend'] ?? 0) > 0)
-            ->sortByDesc('sales')
-            ->values();
     }
 
     /**

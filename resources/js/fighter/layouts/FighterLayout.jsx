@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, TrendingUp, ShoppingBag, Package, Bell, LogOut, Menu, X, Swords, Library } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, ShoppingBag, Package, Bell, LogOut, Menu, X, Swords, Library, CalendarDays, Briefcase } from 'lucide-react';
 import { cn, initialsFrom } from '@/fighter/lib/utils';
 import NotificationBell from '@/fighter/components/NotificationBell';
 import CreateFunnelButton from '@/fighter/components/CreateFunnelButton';
@@ -9,6 +9,8 @@ const NAV = [
   { label: 'Dashboard', href: '/fighter', icon: LayoutDashboard, exact: true },
   { label: 'Funnel Library', href: '/fighter/funnel-library', icon: Library },
   { label: 'Performance', href: '/fighter/performance', icon: TrendingUp },
+  { label: 'Daily Reporting', href: '/fighter/daily-reporting', icon: CalendarDays },
+  { label: 'Business Manager', href: '/fighter/business-manager', icon: Briefcase },
   { label: 'Orders', href: '/fighter/orders', icon: ShoppingBag },
   { label: 'Products', href: '/fighter/products', icon: Package },
   { label: 'Notifications', href: '/fighter/notifications', icon: Bell },

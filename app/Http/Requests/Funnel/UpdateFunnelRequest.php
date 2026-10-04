@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Funnel;
 
+use App\Models\FacebookAdAccount;
 use App\Models\Funnel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -58,7 +59,19 @@ class UpdateFunnelRequest extends FormRequest
             'settings.pixel_settings.tiktok' => ['nullable', 'array'],
             // Ads attribution — which ad account feeds this funnel
             'settings.ads' => ['nullable', 'array'],
-            'settings.ads.facebook_ad_account_id' => ['nullable', 'integer'],
+            'settings.ads.facebook_ad_account_id' => [
+                'nullable',
+                'integer',
+                // Fighters may only attribute a funnel to ad accounts under
+                // their own Business Managers.
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $user = $this->user();
+                    if ($value !== null && $user?->isFighter()
+                        && ! FacebookAdAccount::query()->ownedBy($user->id)->whereKey($value)->exists()) {
+                        $fail('Choose an ad account from your own Business Manager.');
+                    }
+                },
+            ],
             'show_orders_in_admin' => ['sometimes', 'boolean'],
             'disable_shipping' => ['sometimes', 'boolean'],
             'shipping_settings' => ['nullable', 'array'],

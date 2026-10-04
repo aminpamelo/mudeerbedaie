@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Funnel;
 
 use App\Models\FacebookAdInsight;
+use App\Models\Funnel;
 use App\Models\FunnelOrder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -113,5 +114,62 @@ class FunnelStudioReportService
             'daily' => $series,
             'monthly' => $monthly,
         ];
+    }
+
+    /**
+     * Per-funnel slice of the daily report: sales & orders in the window, plus
+     * the spend and ROAS of the ad account the funnel is linked to (its Ads
+     * Source), when one is set and visible. Only funnels with activity.
+     *
+     * @param  array<int, int>  $funnelIds
+     * @param  array<int, int>  $adAccountIds
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function byFunnel(array $funnelIds, array $adAccountIds, int $days): Collection
+    {
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+        $from = now()->subDays($days - 1)->startOfDay();
+        $adAccountIds = array_map('intval', $adAccountIds);
+
+        $salesByFunnel = FunnelOrder::query()
+            ->whereIn('funnel_id', $funnelIds)
+            ->where('created_at', '>=', $from)
+            ->selectRaw('funnel_id, SUM(funnel_revenue) as revenue, COUNT(*) as orders')
+            ->groupBy('funnel_id')
+            ->get()
+            ->keyBy('funnel_id');
+
+        $spendByAccount = FacebookAdInsight::query()
+            ->whereIn('facebook_ad_account_id', $adAccountIds)
+            ->where('date', '>=', $from->toDateString())
+            ->selectRaw('facebook_ad_account_id, SUM(spend) as spend')
+            ->groupBy('facebook_ad_account_id')
+            ->get()
+            ->keyBy('facebook_ad_account_id');
+
+        return Funnel::query()
+            ->whereIn('id', $funnelIds)
+            ->get(['id', 'uuid', 'name', 'status', 'settings'])
+            ->map(function (Funnel $funnel) use ($salesByFunnel, $spendByAccount, $adAccountIds) {
+                $sales = (float) ($salesByFunnel[$funnel->id]->revenue ?? 0);
+                $orders = (int) ($salesByFunnel[$funnel->id]->orders ?? 0);
+                $accountId = data_get($funnel->settings, 'ads.facebook_ad_account_id');
+                $visible = $accountId !== null && in_array((int) $accountId, $adAccountIds, true);
+                $spend = $visible ? (float) ($spendByAccount[$accountId]->spend ?? 0) : null;
+
+                return [
+                    'funnel_uuid' => $funnel->uuid,
+                    'funnel_name' => $funnel->name,
+                    'status' => $funnel->status,
+                    'sales' => round($sales, 2),
+                    'orders' => $orders,
+                    'linked_spend' => $spend !== null ? round($spend, 2) : null,
+                    'linked_spend_with_sst' => $spend !== null ? round($spend * (1 + self::SST_RATE), 2) : null,
+                    'roas' => ($spend !== null && $spend > 0) ? round($sales / $spend, 2) : null,
+                ];
+            })
+            ->filter(fn (array $row) => $row['sales'] > 0 || $row['orders'] > 0 || ($row['linked_spend'] ?? 0) > 0)
+            ->sortByDesc('sales')
+            ->values();
     }
 }

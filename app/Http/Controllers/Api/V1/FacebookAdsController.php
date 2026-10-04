@@ -6,13 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\FacebookAdAccount;
 use App\Models\FacebookAdConnection;
 use App\Models\FacebookAdInsight;
+use App\Services\Funnel\FacebookAdConnectionManager;
 use App\Services\Funnel\FacebookAdsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * Facebook Ads connections for the Funnel Studio. Admin/employee manage the
- * shared company Business Managers; fighter self-linking comes later.
+ * shared company Business Managers; fighters link their own BMs from the
+ * Fighter portal (Fighter\BusinessManagerController).
  */
 class FacebookAdsController extends Controller
 {
@@ -68,7 +70,7 @@ class FacebookAdsController extends Controller
         return response()->json(['data' => $connections]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, FacebookAdConnectionManager $manager): JsonResponse
     {
         $this->authorizeManage($request);
 
@@ -78,34 +80,21 @@ class FacebookAdsController extends Controller
             'access_token' => ['required', 'string'],
         ]);
 
-        $connection = FacebookAdConnection::create($validated);
-
-        $verify = $this->adsService->verifyConnection($connection);
-        $accountsCount = 0;
-        if ($verify['success']) {
-            $accounts = $this->adsService->syncAdAccounts($connection);
-            $accountsCount = $accounts['count'] ?? 0;
-        } else {
-            // Don't keep a broken connection from a failed onboarding attempt —
-            // the wizard lets the user fix the token and retry cleanly.
-            $connection->delete();
-        }
+        $result = $manager->connect($validated);
 
         return response()->json([
-            'success' => $verify['success'],
-            'message' => $verify['message'],
-            'connection_id' => $verify['success'] ? $connection->id : null,
-            'accounts_count' => $accountsCount,
-        ], $verify['success'] ? 201 : 422);
+            'success' => $result['success'],
+            'message' => $result['message'],
+            'connection_id' => $result['connection']?->id,
+            'accounts_count' => $result['accounts_count'],
+        ], $result['success'] ? 201 : 422);
     }
 
     /**
      * Edit a connection's name, Business Manager ID, and/or access token.
-     * The name is applied as-is; changing the BM ID or pasting a new token
-     * re-verifies with Facebook. A failed verify rolls the credentials back
-     * so a previously-working connection is never broken by a bad edit.
+     * See FacebookAdConnectionManager::update() for the verify/rollback rules.
      */
-    public function update(Request $request, FacebookAdConnection $connection): JsonResponse
+    public function update(Request $request, FacebookAdConnection $connection, FacebookAdConnectionManager $manager): JsonResponse
     {
         $this->authorizeManage($request);
 
@@ -115,66 +104,13 @@ class FacebookAdsController extends Controller
             'access_token' => ['nullable', 'string'],
         ]);
 
-        $newBmId = preg_replace('/\s+/', '', $validated['business_manager_id']);
-        $bmChanged = $newBmId !== $connection->business_manager_id;
-        $tokenProvided = filled($validated['access_token'] ?? null);
+        $result = $manager->update($connection, $validated);
 
-        // Name is non-verifiable, so it is always applied.
-        if (! $bmChanged && ! $tokenProvided) {
-            $connection->update(['name' => $validated['name']]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Connection updated.',
-                'accounts_count' => $connection->adAccounts()->count(),
-            ]);
+        if (! $result['success']) {
+            return response()->json(['success' => false, 'message' => $result['message']], 422);
         }
 
-        // Snapshot the last working credentials + status so a failed verify
-        // can be rolled back cleanly.
-        $previous = [
-            'business_manager_id' => $connection->business_manager_id,
-            'access_token' => $connection->access_token,
-            'status' => $connection->status,
-            'status_message' => $connection->status_message,
-        ];
-
-        $attributes = [
-            'name' => $validated['name'],
-            'business_manager_id' => $newBmId,
-        ];
-        if ($tokenProvided) {
-            $attributes['access_token'] = trim($validated['access_token']);
-        }
-        $connection->update($attributes);
-
-        $verify = $this->adsService->verifyConnection($connection);
-
-        if (! $verify['success']) {
-            // Restore the working credentials + status; keep the new name.
-            $connection->update($previous + ['name' => $validated['name']]);
-
-            return response()->json([
-                'success' => false,
-                'message' => $verify['message'],
-            ], 422);
-        }
-
-        // A different BM means the old ad accounts (and their insights) belong
-        // elsewhere — clear them before pulling the new BM's accounts.
-        if ($bmChanged) {
-            $oldAccountIds = $connection->adAccounts()->pluck('id');
-            FacebookAdInsight::whereIn('facebook_ad_account_id', $oldAccountIds)->delete();
-            $connection->adAccounts()->delete();
-        }
-
-        $accounts = $this->adsService->syncAdAccounts($connection);
-
-        return response()->json([
-            'success' => true,
-            'message' => $verify['message'],
-            'accounts_count' => $accounts['count'] ?? 0,
-        ]);
+        return response()->json($result);
     }
 
     public function destroy(Request $request, FacebookAdConnection $connection): JsonResponse
@@ -200,11 +136,14 @@ class FacebookAdsController extends Controller
 
     /**
      * Flat list of ad accounts for the funnel "which ads app feeds this
-     * funnel" selector.
+     * funnel" selector. Fighters only see accounts under their own BMs.
      */
     public function accounts(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         $accounts = FacebookAdAccount::query()
+            ->when($user?->isFighter(), fn ($q) => $q->ownedBy($user->id))
             ->with('connection:id,name')
             ->orderBy('name')
             ->get()

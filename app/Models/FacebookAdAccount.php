@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -24,6 +25,15 @@ class FacebookAdAccount extends Model
     public function insights(): HasMany
     {
         return $this->hasMany(FacebookAdInsight::class);
+    }
+
+    /**
+     * Accounts under Business Manager connections owned by the given user
+     * (a fighter's self-linked BMs).
+     */
+    public function scopeOwnedBy(Builder $query, int $userId): Builder
+    {
+        return $query->whereHas('connection', fn (Builder $c) => $c->where('user_id', $userId));
     }
 
     /**
