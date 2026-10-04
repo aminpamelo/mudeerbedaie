@@ -360,6 +360,9 @@
                     <flux:navlist.item icon="arrow-path" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="currency-dollar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
+                    @if(auth()->user()->isAdmin())
+                        <flux:navlist.item icon="rocket-launch" :href="route('admin.reports.fighters')" :current="request()->routeIs('admin.reports.fighters')" wire:navigate>{{ __('Fighter Performance Report') }}</flux:navlist.item>
+                    @endif
                 </flux:navlist.group>
 
                 <flux:navlist.group

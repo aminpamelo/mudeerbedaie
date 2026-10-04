@@ -1304,6 +1304,7 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     Volt::route('reports/packages-orders', 'admin.reports.packages-orders')->name('admin.reports.packages-orders');
     Volt::route('reports/student-product-orders', 'admin.reports.student-product-orders')->name('admin.reports.student-product-orders');
     Volt::route('reports/student-class-enrollments', 'admin.reports.student-class-enrollments')->name('admin.reports.student-class-enrollments');
+    Volt::route('reports/fighters', 'admin.reports.fighters')->name('admin.reports.fighters');
 
     // Product Management routes
     Volt::route('products', 'admin.products.product-list')->name('products.index');
