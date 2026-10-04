@@ -16,6 +16,17 @@ class CekbotMessage extends Model
 
     public const DIRECTION_OUT = 'out';
 
+    /** Why the bot stayed silent on an inbound message (see bot_skip_reason). */
+    public const SKIP_BOT_DISABLED = 'bot_disabled';
+
+    public const SKIP_NOT_TEST_NUMBER = 'not_test_number';
+
+    public const SKIP_GROUP = 'group';
+
+    public const SKIP_HANDED_OVER = 'handed_over';
+
+    public const SKIP_NO_MATCH = 'no_match';
+
     protected $fillable = [
         'cekbot_conversation_id',
         'cekbot_session_id',
@@ -27,6 +38,7 @@ class CekbotMessage extends Model
         'media_url',
         'media_mime',
         'ack',
+        'bot_skip_reason',
         'payload',
         'sent_by_user_id',
         'sent_at',

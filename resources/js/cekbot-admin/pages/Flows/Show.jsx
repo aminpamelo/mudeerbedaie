@@ -483,6 +483,11 @@ export default function Show() {
                     ))}
                   </div>
                 )}
+                {data.trigger_keywords.some((k) => k.trim().split(/\s+/).length > 3) && (
+                  <p className="mt-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11.5px] leading-snug text-amber-200/90">
+                    ⚠️ Keyword panjang (lebih 3 perkataan) hanya kena kalau pelanggan taip ayat penuh tu. Tambah juga keyword pendek, cth <strong>qadha solat</strong>, supaya mesej ringkas pun trigger flow.
+                  </p>
+                )}
               </Field>
 
               <AdTriggerPicker

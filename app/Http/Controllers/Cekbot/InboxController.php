@@ -265,6 +265,7 @@ class InboxController extends Controller
             'body' => $m->body,
             'media_url' => $m->media_url ? route('cekbot.inbox.media', $m->id) : null,
             'ack' => $m->ack,
+            'bot_skip_reason' => $m->bot_skip_reason,
             'sent_by' => $m->sentBy?->name,
             'sent_at' => ($m->sent_at ?? $m->created_at)?->toIso8601String(),
         ];

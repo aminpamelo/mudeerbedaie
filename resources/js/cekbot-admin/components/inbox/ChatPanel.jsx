@@ -12,6 +12,15 @@ function AckIcon({ ack }) {
   return <Check className="h-3.5 w-3.5 text-white/40" strokeWidth={2.4} />;
 }
 
+/** Why the bot stayed silent on a customer message — mirrors CekbotMessage::SKIP_*. */
+const SKIP_REASONS = {
+  bot_disabled: 'Bot dimatikan dalam Tetapan',
+  not_test_number: 'Mod ujian aktif: nombor ni tiada dalam senarai nombor ujian',
+  group: 'Mesej group: bot tak balas group',
+  handed_over: 'Chat diambil alih admin. Tekan "Serah ke bot" untuk aktifkan semula',
+  no_match: 'Tiada flow/keyword yang padan, dan tiada jawapan default atau AI dalam Tetapan',
+};
+
 function MessageBubble({ message }) {
   const out = message.direction === 'out';
   const bot = out && !message.sent_by; // outbound without a user = bot auto-reply
@@ -45,6 +54,12 @@ function MessageBubble({ message }) {
         {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
         {!message.media_url && !message.body && (
           <p className="italic text-white/60">{mediaLabel(message.type) || '💬 Mesej'}</p>
+        )}
+        {!out && SKIP_REASONS[message.bot_skip_reason] && (
+          <p className="mt-1 flex items-start gap-1 rounded-md bg-amber-500/10 px-1.5 py-1 text-[10.5px] leading-snug text-amber-200/90">
+            <Bot className="mt-px h-3 w-3 shrink-0" strokeWidth={2.4} />
+            <span>Bot tak balas: {SKIP_REASONS[message.bot_skip_reason]}</span>
+          </p>
         )}
         <div className={cn('mt-1 flex items-center justify-end gap-1 text-[10.5px]', out ? 'text-white/70' : 'text-white/35')}>
           {out && message.sent_by && <span className="mr-1">{message.sent_by}</span>}

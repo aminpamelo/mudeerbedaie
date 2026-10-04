@@ -33,20 +33,28 @@ class CekbotBotService
         $settings = $session?->botSetting;
 
         if (! $settings || ! $settings->bot_enabled) {
+            $this->markSkipped($conversation, CekbotMessage::SKIP_BOT_DISABLED);
+
             return;
         }
 
         // Test mode: only reply to whitelisted numbers (avoid blasting everyone).
         if (! $settings->repliesTo($conversation->chat_id)) {
+            $this->markSkipped($conversation, CekbotMessage::SKIP_NOT_TEST_NUMBER);
+
             return;
         }
 
         if ($conversation->is_group && ! $settings->reply_to_groups) {
+            $this->markSkipped($conversation, CekbotMessage::SKIP_GROUP);
+
             return;
         }
 
         // A conversation taken over by a human pauses the bot (Fasa 6).
         if ($conversation->handed_over_at !== null) {
+            $this->markSkipped($conversation, CekbotMessage::SKIP_HANDED_OVER);
+
             return;
         }
 
@@ -59,10 +67,25 @@ class CekbotBotService
         $reply = $this->decideReply($conversation, $settings, (string) $body);
 
         if ($reply === null || trim($reply) === '') {
+            $this->markSkipped($conversation, CekbotMessage::SKIP_NO_MATCH);
+
             return;
         }
 
         $this->sendReply($conversation, $reply);
+    }
+
+    /**
+     * Record on the customer's latest message why the bot stayed silent, so the
+     * inbox can explain it instead of the bot looking broken.
+     */
+    private function markSkipped(CekbotConversation $conversation, string $reason): void
+    {
+        $conversation->messages()
+            ->where('direction', CekbotMessage::DIRECTION_IN)
+            ->latest('id')
+            ->first()
+            ?->update(['bot_skip_reason' => $reason]);
     }
 
     /**
