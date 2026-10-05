@@ -113,17 +113,39 @@ class CekbotFlowService
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->filter(fn (CekbotFlow $flow) => $flow->packages->isNotEmpty())
+            ->filter(fn (CekbotFlow $flow) => $flow->isRunnable())
             ->values();
     }
 
     private function startFlow(CekbotFlow $flow, CekbotConversation $conversation, string $body, string $type, CekbotBotService $bot): void
     {
-        if ($flow->aiEnabled()) {
+        if ($flow->isInfoOnly()) {
+            $this->runInfoFlow($flow, $conversation, $bot);
+        } elseif ($flow->aiEnabled()) {
             $this->startAi($flow, $conversation, $body, $type, $bot);
         } else {
             $this->start($flow, $conversation, $bot);
         }
+    }
+
+    /**
+     * Info-only flow (no packages): send the opening messages and close the
+     * enrollment straight away, so later messages aren't held by the flow.
+     */
+    private function runInfoFlow(CekbotFlow $flow, CekbotConversation $conversation, CekbotBotService $bot): void
+    {
+        CekbotFlowEnrollment::create([
+            'cekbot_conversation_id' => $conversation->id,
+            'cekbot_flow_id' => $flow->id,
+            'status' => CekbotFlowEnrollment::STATUS_COMPLETED,
+            'current_step' => CekbotFlowEnrollment::STEP_DONE,
+            'data' => [],
+            'started_at' => now(),
+            'last_activity_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $this->sendOpening($flow, $conversation, $bot);
     }
 
     /**

@@ -84,7 +84,7 @@ function FlowCard({ flow }) {
 
       <div className="mt-3 flex items-center gap-1.5 text-[12px] text-white/45">
         <ShoppingBag className="h-3.5 w-3.5" />
-        {flow.packages_count} pakej ditawarkan
+        {flow.packages_count > 0 ? `${flow.packages_count} pakej ditawarkan` : 'Flow info (hantar mesej pembuka sahaja)'}
       </div>
 
       <div className="mt-4 flex items-center gap-2 border-t border-white/8 pt-3">

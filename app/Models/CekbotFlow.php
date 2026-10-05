@@ -118,6 +118,24 @@ class CekbotFlow extends Model
     }
 
     /**
+     * A flow with no packages only shares information (e.g. a group link): it
+     * sends its opening messages and ends — no AI chat, no order.
+     */
+    public function isInfoOnly(): bool
+    {
+        return $this->packages->isEmpty();
+    }
+
+    /**
+     * Whether triggering this flow would do anything: sell packages, or at
+     * least send an opening message.
+     */
+    public function isRunnable(): bool
+    {
+        return ! $this->isInfoOnly() || $this->openingMessages() !== [];
+    }
+
+    /**
      * The scripted opening sequence sent verbatim when the flow triggers, with
      * public image URLs resolved. Empty entries are dropped.
      *

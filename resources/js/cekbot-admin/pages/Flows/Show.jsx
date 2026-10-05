@@ -562,8 +562,10 @@ export default function Show() {
           <SectionCard icon={Tag} title="Pakej ditawarkan" hint="Senarai pilihan yang bot tunjuk (bernombor).">
             <div className="space-y-3">
               {data.packages.length === 0 && (
-                <p className="rounded-xl border border-dashed border-white/10 py-6 text-center text-[12.5px] text-white/40">
-                  Belum ada pakej. Tambah sekurang-kurangnya satu untuk flow berfungsi.
+                <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-[12.5px] leading-relaxed text-white/45">
+                  Tiada pakej = <span className="font-semibold text-white/75">flow info sahaja</span>: bila keyword kena, bot hantar
+                  {' '}<span className="font-semibold text-white/75">mesej pembuka</span> (cth link group) dan berhenti. Tiada AI, tiada order.
+                  {' '}Pastikan ada mesej pembuka. Tambah pakej kalau nak bot menjual.
                 </p>
               )}
               {data.packages.map((pkg, i) => (
