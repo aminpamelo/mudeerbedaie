@@ -7,6 +7,7 @@ use App\Models\CekbotFlow;
 use App\Models\CekbotFlowEnrollment;
 use App\Models\CekbotFlowPackage;
 use App\Models\CekbotLeadCategory;
+use App\Models\CekbotMedia;
 use App\Models\CekbotMessage;
 use App\Models\ProductOrder;
 use Illuminate\Support\Collection;
@@ -283,11 +284,7 @@ class CekbotFlowService
             $reply = 'Maaf, boleh ulang sekali lagi? 🙂';
         }
 
-        $bot->sendReply($conversation, $reply);
-
-        foreach ($result['media'] ?? [] as $media) {
-            $bot->sendMediaReply($conversation, $media);
-        }
+        $this->sendAgentReply($conversation, $reply, $result['media'] ?? [], $bot);
 
         // Follow up with the QR/bank poster when the customer asked for it, or
         // after a transfer order — unless they already have it or already paid.
@@ -298,6 +295,104 @@ class CekbotFlowService
             $enrollment->putData(['qr_sent' => true]);
             $enrollment->save();
         }
+    }
+
+    /**
+     * Deliver the agent's reply as WhatsApp bubbles: "[[SPLIT]]" starts a new
+     * message, and a line that names library media ("[[MEDIA:key]]" or the
+     * "hantar key" phrasing teams write in their scripts) sends that media in
+     * place instead of as text. Media the agent asked for via the tool but
+     * didn't place inline follows at the end.
+     *
+     * @param  array<int, CekbotMedia>  $toolMedia
+     */
+    private function sendAgentReply(CekbotConversation $conversation, string $reply, array $toolMedia, CekbotBotService $bot): void
+    {
+        $library = CekbotMedia::query()
+            ->with('media')
+            ->whereHas('media', fn ($query) => CekbotMedia::constrainToSendable($query))
+            ->get()
+            ->keyBy(fn (CekbotMedia $item) => mb_strtolower($item->key));
+
+        $sent = [];
+        $bubbles = 0;
+
+        foreach (preg_split('/\[\[\s*SPLIT\s*\]\]/i', $reply) as $segment) {
+            $buffer = [];
+
+            foreach (preg_split('/\R/u', $segment) as $line) {
+                $media = $this->inlineMedia($line, $library);
+
+                if ($media === null) {
+                    $buffer[] = $line;
+
+                    continue;
+                }
+
+                $bubbles += $this->flushBubble($conversation, $buffer, $bot);
+                $buffer = [];
+
+                if (! isset($sent[$media->key])) {
+                    $bot->sendMediaReply($conversation, $media);
+                    $sent[$media->key] = true;
+                    $bubbles++;
+                }
+            }
+
+            $bubbles += $this->flushBubble($conversation, $buffer, $bot);
+        }
+
+        foreach ($toolMedia as $media) {
+            if (! isset($sent[$media->key])) {
+                $bot->sendMediaReply($conversation, $media);
+                $sent[$media->key] = true;
+                $bubbles++;
+            }
+        }
+
+        if ($bubbles === 0) {
+            $bot->sendReply($conversation, 'Maaf, boleh ulang sekali lagi? 🙂');
+        }
+    }
+
+    /**
+     * Send the buffered lines as one text bubble (skipping blank ones).
+     *
+     * @param  array<int, string>  $lines
+     */
+    private function flushBubble(CekbotConversation $conversation, array $lines, CekbotBotService $bot): int
+    {
+        $text = trim(implode("\n", $lines));
+
+        if ($text === '') {
+            return 0;
+        }
+
+        $bot->sendReply($conversation, $text);
+
+        return 1;
+    }
+
+    /**
+     * The library media a reply line stands for, if the whole line is a media
+     * marker: "[[MEDIA:key]]", "[[key]]" or "hantar key" (optionally bulleted).
+     *
+     * @param  \Illuminate\Support\Collection<string, CekbotMedia>  $library
+     */
+    private function inlineMedia(string $line, Collection $library): ?CekbotMedia
+    {
+        $text = trim(preg_replace('/^\s*(?:[-*•]|\d+[.)])\s*/u', '', $line));
+
+        if ($text === '' || $library->isEmpty()) {
+            return null;
+        }
+
+        if (preg_match('/^\[\[\s*(?:media\s*:\s*)?([a-z0-9-]+)\s*\]\]$/i', $text, $m)
+            || preg_match('/^`?hantar\s+`?([a-z0-9-]+)`?\.?$/i', $text, $m)) {
+            return $library->get(mb_strtolower($m[1]));
+        }
+
+        return null;
     }
 
     /**

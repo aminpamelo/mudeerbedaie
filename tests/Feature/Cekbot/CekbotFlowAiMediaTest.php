@@ -140,3 +140,68 @@ it('does not offer library files WhatsApp cannot send', function () {
     OpenAI::assertSent(Chat::class, fn (string $method, array $params) => ! collect($params['tools'])->contains(fn ($t) => data_get($t, 'function.name') === 'send_media')
         && ! str_contains(collect($params['messages'])->firstWhere('role', 'system')['content'] ?? '', 'video-mov'));
 });
+
+function mediaAiSays(string $content): void
+{
+    OpenAI::fake([CreateResponse::fake(['choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => $content], 'finish_reason' => 'stop']]])]);
+}
+
+function outboundTrail(): array
+{
+    return CekbotMessage::query()->where('direction', 'out')->orderBy('id')->get()
+        ->map(fn ($m) => $m->type === 'text' ? $m->body : "[{$m->type}]")->all();
+}
+
+it('splits the reply into bubbles and sends "hantar key" media in place (production script)', function () {
+    CekbotMedia::factory()->create(['key' => 'qadhausp']);
+    mediaAiSays("Kalau macam tu, ambil Pakej 1 pun dah okay, cik.\n[[SPLIT]]\nhantar qadhausp\n[[SPLIT]]\nDalam Buku Qadha Solat ni, cik akan belajar tentang:\n✅ Cara kira berapa solat yang tertinggal\n[[SPLIT]]\nCik nak bayar online transfer atau COD?");
+
+    mediaInbound('qadha');
+
+    expect(outboundTrail())->toBe([
+        'Kalau macam tu, ambil Pakej 1 pun dah okay, cik.',
+        '[image]',
+        "Dalam Buku Qadha Solat ni, cik akan belajar tentang:\n✅ Cara kira berapa solat yang tertinggal",
+        'Cik nak bayar online transfer atau COD?',
+    ]);
+});
+
+it('sends [[MEDIA:key]] markers in place, even mid-bubble', function () {
+    CekbotMedia::factory()->video()->create(['key' => 'testimoni-1']);
+    mediaAiSays("Ni testimoni pelanggan kami 👇\n[[MEDIA:testimoni-1]]\nBest kan?");
+
+    mediaInbound('qadha');
+
+    expect(outboundTrail())->toBe(['Ni testimoni pelanggan kami 👇', '[video]', 'Best kan?']);
+});
+
+it('keeps "hantar ..." lines as text when no such media exists', function () {
+    CekbotMedia::factory()->create(['key' => 'qadhausp']);
+    mediaAiSays("Boleh, saya hantar buku esok.\nhantar alamat ye");
+
+    mediaInbound('qadha');
+
+    expect(outboundTrail())->toBe(["Boleh, saya hantar buku esok.\nhantar alamat ye"]);
+});
+
+it('does not send the same media twice when placed inline and via the tool', function () {
+    CekbotMedia::factory()->create(['key' => 'testimoni-1']);
+    mediaToolTurn('testimoni-1', "Ni dia 👇\n[[MEDIA:testimoni-1]]");
+
+    mediaInbound('qadha');
+
+    expect(outboundTrail())->toBe(['Ni dia 👇', '[image]']);
+});
+
+it('tells the AI about [[SPLIT]] and inline media markers', function () {
+    CekbotMedia::factory()->create(['key' => 'testimoni-1']);
+    mediaAiSays('Hai');
+
+    mediaInbound('qadha');
+
+    OpenAI::assertSent(Chat::class, function (string $method, array $params) {
+        $system = collect($params['messages'])->firstWhere('role', 'system')['content'] ?? '';
+
+        return str_contains($system, '[[SPLIT]]') && str_contains($system, '[[MEDIA:key]]');
+    });
+});

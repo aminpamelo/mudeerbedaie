@@ -409,7 +409,7 @@ class CekbotFlowAgent
                     .(filled($item->title) ? ': '.$item->title : '')
                     .(filled($item->description) ? ' — '.Str::limit(trim((string) $item->description), 200) : '');
             }
-            $lines[] = 'Bila arahan syarikat sebut key media (cth "hantar testimoni-1"), panggil send_media dengan key itu pada masa yang disebut. Jangan tulis key atau link dalam mesej kepada pelanggan.';
+            $lines[] = 'Bila arahan syarikat sebut key media (cth "hantar testimoni-1"), letak media itu pada kedudukannya dengan menulis [[MEDIA:key]] pada baris sendiri dalam balasan (cth [[MEDIA:testimoni-1]]). Sistem akan tukar baris itu kepada gambar/video. Jangan tulis link.';
         }
 
         $askAddress = $flow->payment_cod_enabled;
@@ -426,6 +426,7 @@ class CekbotFlowAgent
         $lines[] = '8. HANYA selepas pelanggan sahkan betul ("betul"/"ya"/"ok"), panggil fungsi create_order.';
         $lines[] = '9. Selepas order dicipta, ucap terima kasih & beri no. pesanan. Untuk transfer, beri maklumat bank & minta pelanggan hantar gambar/screenshot resit di chat ini selepas bayar, supaya team boleh sahkan.';
         $lines[] = '10. Jika pelanggan tanya maklumat bank / nama bank / QR pada bila-bila masa, jawab terus — jangan tahan sehingga borang lengkap. Selepas itu teruskan kumpul maklumat pesanan.';
+        $lines[] = '11. Untuk hantar beberapa mesej (bubble) berasingan dalam satu giliran, pisahkan dengan [[SPLIT]]. Sistem akan hantar setiap bahagian sebagai mesej WhatsApp sendiri. Jangan tulis [[SPLIT]] untuk tujuan lain.';
 
         if (filled($flow->ai_instructions)) {
             $lines[] = '';
