@@ -4,6 +4,9 @@ namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\AddFunnelProductTool;
 use App\Mcp\Tools\AddFunnelStepTool;
+use App\Mcp\Tools\CekbotFlowsTool;
+use App\Mcp\Tools\CekbotOrdersTool;
+use App\Mcp\Tools\CekbotOverviewTool;
 use App\Mcp\Tools\ConfigureAffiliatesTool;
 use App\Mcp\Tools\ConfigurePaymentTool;
 use App\Mcp\Tools\ConfigureTrackingTool;
@@ -24,6 +27,8 @@ use App\Mcp\Tools\ListFunnelsTool;
 use App\Mcp\Tools\ListProductsTool;
 use App\Mcp\Tools\PublishFunnelTool;
 use App\Mcp\Tools\RemoveFunnelProductTool;
+use App\Mcp\Tools\TeamSalesOrdersTool;
+use App\Mcp\Tools\TeamSalesReportTool;
 use App\Mcp\Tools\ToggleFunnelAutomationTool;
 use App\Mcp\Tools\UpdateFunnelProductTool;
 use App\Mcp\Tools\UpdateFunnelSettingsTool;
@@ -57,6 +62,10 @@ class FunnelStudioServer extends Server
             traffic/conversions, and orders.
           - list_products, list_funnel_products, list_funnel_steps,
             list_funnel_automations, list_funnel_affiliates — inspect a funnel.
+          - team_sales_report, team_sales_orders — Sales Department → Team
+            Sales: revenue, orders and ranking per salesperson (staff only).
+          - cekbot_overview, cekbot_flows, cekbot_orders — WhatsApp chatbot:
+            conversations, leads, flow funnels and bot orders (admin/employee).
 
         Building & managing a funnel (each mirrors a tab in Funnel Studio):
           - create_landing_page — a whole single-page selling funnel from HTML.
@@ -96,6 +105,13 @@ class FunnelStudioServer extends Server
         ListProductsTool::class,
         FunnelAnalyticsTool::class,
         FunnelOrdersTool::class,
+        // Team Sales
+        TeamSalesReportTool::class,
+        TeamSalesOrdersTool::class,
+        // Cekbot (WhatsApp chatbot)
+        CekbotOverviewTool::class,
+        CekbotFlowsTool::class,
+        CekbotOrdersTool::class,
         // Create
         CreateLandingPageTool::class,
         UpdateLandingPageTool::class,

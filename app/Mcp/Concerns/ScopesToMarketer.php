@@ -40,6 +40,23 @@ trait ScopesToMarketer
     }
 
     /**
+     * Whether the user may read Team Sales figures — same roles as the admin
+     * Sales Department Report page.
+     */
+    protected function canSeeTeamSales(User $user): bool
+    {
+        return in_array($user->role, ['admin', 'employee', 'class_admin', 'sales'], true);
+    }
+
+    /**
+     * Whether the user may read Cekbot (WhatsApp chatbot) data.
+     */
+    protected function canSeeCekbot(User $user): bool
+    {
+        return in_array($user->role, ['admin', 'employee'], true);
+    }
+
+    /**
      * Ad-account ids whose spend the given user may see.
      *
      * @return array<int, int>
