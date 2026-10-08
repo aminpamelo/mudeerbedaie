@@ -7,6 +7,7 @@ use App\Models\CekbotAutoReply;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMedia;
 use App\Models\CekbotMessage;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 
 /**
@@ -20,6 +21,14 @@ use Illuminate\Support\Str;
  */
 class CekbotBotService
 {
+    /**
+     * Per-conversation pacing state for this run: whether the previous bubble
+     * was media, and the inbound message id the typing indicator answers.
+     *
+     * @var array<int, array{after_media: bool, inbound_id: ?string}>
+     */
+    private array $pacing = [];
+
     public function __construct(
         private CekbotOutbound $out,
         private CekbotAiResponder $ai,
@@ -148,8 +157,11 @@ class CekbotBotService
     /**
      * Send a bot reply and record it as an outbound message (no sender user).
      */
-    public function sendReply(CekbotConversation $conversation, string $reply): void
+    public function sendReply(CekbotConversation $conversation, string $reply, bool $paced = true): void
     {
+        if ($paced) {
+            $this->pace($conversation, mb_strlen($reply), false);
+        }
         $session = $conversation->session;
         $result = $this->out->sendText($session, $conversation->chat_id, $reply);
 
@@ -185,6 +197,7 @@ class CekbotBotService
             return;
         }
 
+        $this->pace($conversation, 0, true);
         $session = $conversation->session;
         $result = $this->out->sendVideo($session, $conversation->chat_id, $media->url(), null, $media->mime() ?: 'video/mp4');
 
@@ -217,6 +230,7 @@ class CekbotBotService
      */
     public function sendImageReply(CekbotConversation $conversation, string $url, ?string $caption = null): void
     {
+        $this->pace($conversation, mb_strlen((string) $caption), true);
         $session = $conversation->session;
         $result = $this->out->sendImage($session, $conversation->chat_id, $url, $caption);
 
@@ -240,5 +254,46 @@ class CekbotBotService
         ]);
 
         CekbotMessageReceived::dispatch($conversation->id, $session->id, 'out');
+    }
+
+    /**
+     * Make the bot feel human and keep bubbles in order: show "typing…" and
+     * wait in proportion to the bubble's length, with a longer gap after an
+     * image/video so slower-delivering media isn't overtaken by the next text.
+     */
+    private function pace(CekbotConversation $conversation, int $length, bool $isMedia): void
+    {
+        $config = config('cekbot.typing');
+
+        if (! ($config['enabled'] ?? false)) {
+            return;
+        }
+
+        $state = $this->pacing[$conversation->id] ??= [
+            'after_media' => false,
+            'inbound_id' => CekbotMessage::query()
+                ->where('cekbot_conversation_id', $conversation->id)
+                ->where('direction', CekbotMessage::DIRECTION_IN)
+                ->whereNotNull('waha_message_id')
+                ->latest('id')
+                ->value('waha_message_id'),
+        ];
+
+        $delay = $isMedia
+            ? (int) $config['media_ms']
+            : min((int) $config['max_ms'], (int) $config['base_ms'] + $length * (int) $config['per_char_ms']);
+
+        if ($state['after_media']) {
+            $delay = max($delay, (int) $config['after_media_ms']);
+        }
+
+        $session = $conversation->session;
+        if ($session) {
+            $this->out->showTyping($session, $conversation->chat_id, $state['inbound_id']);
+        }
+
+        Sleep::for($delay)->milliseconds();
+
+        $this->pacing[$conversation->id]['after_media'] = $isMedia;
     }
 }

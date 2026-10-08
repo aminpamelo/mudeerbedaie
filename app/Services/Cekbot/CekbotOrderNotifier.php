@@ -53,7 +53,8 @@ class CekbotOrderNotifier
                 return;
             }
 
-            $this->bot->sendReply($conversation, $this->message($order, $milestone));
+            // Not paced: this runs inside the team's order save request.
+            $this->bot->sendReply($conversation, $this->message($order, $milestone), paced: false);
 
             $metadata = $order->metadata ?? [];
             $metadata['cekbot_notified'][$milestone] = now()->toIso8601String();

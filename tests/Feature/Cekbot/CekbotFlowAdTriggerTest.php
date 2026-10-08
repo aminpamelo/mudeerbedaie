@@ -166,3 +166,34 @@ it('forbids non-admins from searching ads', function () {
         ->getJson(route('cekbot.flows.ads-search'))
         ->assertForbidden();
 });
+
+it('looks an ad up directly when the picker query is an ad id', function () {
+    $admin = User::factory()->admin()->create();
+    $connection = FacebookAdConnection::create(['user_id' => $admin->id, 'name' => 'BM', 'business_manager_id' => '999', 'access_token' => 'tok', 'status' => 'connected']);
+    FacebookAdAccount::create(['facebook_ad_connection_id' => $connection->id, 'account_id' => '111', 'name' => 'Marketer - Mail', 'account_status' => 1]);
+    Http::fake(['graph.facebook.com/*/120260425672970456*' => Http::response([
+        'id' => '120260425672970456', 'name' => 'Takbir', 'effective_status' => 'ACTIVE', 'account_id' => '111',
+        'creative' => ['thumbnail_url' => 'https://img/t.jpg'],
+    ])]);
+
+    test()->actingAs($admin)
+        ->getJson(route('cekbot.flows.ads-search', ['q' => ' 120260425672970456 ']))
+        ->assertOk()
+        ->assertJsonCount(1, 'ads')
+        ->assertJsonPath('ads.0.id', '120260425672970456')
+        ->assertJsonPath('ads.0.name', 'Takbir')
+        ->assertJsonPath('ads.0.account', 'Marketer - Mail');
+
+    Http::assertNotSent(fn ($r) => str_contains($r->url(), '/ads?'));
+});
+
+it('returns no ads when a pasted id is not visible to any connection', function () {
+    $admin = User::factory()->admin()->create();
+    FacebookAdConnection::create(['user_id' => $admin->id, 'name' => 'BM', 'business_manager_id' => '999', 'access_token' => 'tok', 'status' => 'connected']);
+    Http::fake(['graph.facebook.com/*' => Http::response(['error' => ['message' => 'Unsupported get request.']], 400)]);
+
+    test()->actingAs($admin)
+        ->getJson(route('cekbot.flows.ads-search', ['q' => '120260425699999999']))
+        ->assertOk()
+        ->assertJsonCount(0, 'ads');
+});

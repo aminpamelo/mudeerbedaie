@@ -29,4 +29,25 @@ return [
 
     'broadcast_throttle_seconds' => env('CEKBOT_BROADCAST_THROTTLE', 2),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Human-like pacing for bot replies
+    |--------------------------------------------------------------------------
+    |
+    | Before each bot bubble the customer sees "typing…" for a moment that grows
+    | with the message length. A longer pause follows any image/video: WhatsApp
+    | (especially the Cloud API) delivers media slower than text, so without it
+    | a picture sent mid-script lands after the bubbles that follow it.
+    |
+    */
+
+    'typing' => [
+        'enabled' => env('CEKBOT_TYPING_ENABLED', true),
+        'base_ms' => (int) env('CEKBOT_TYPING_BASE_MS', 700),
+        'per_char_ms' => (int) env('CEKBOT_TYPING_PER_CHAR_MS', 25),
+        'max_ms' => (int) env('CEKBOT_TYPING_MAX_MS', 3500),
+        'media_ms' => (int) env('CEKBOT_TYPING_MEDIA_MS', 1500),
+        'after_media_ms' => (int) env('CEKBOT_TYPING_AFTER_MEDIA_MS', 3000),
+    ],
+
 ];

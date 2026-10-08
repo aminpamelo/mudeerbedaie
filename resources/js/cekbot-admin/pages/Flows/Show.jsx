@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
@@ -46,11 +46,46 @@ function AdTriggerPicker({ value, onChange, error }) {
     onChange([...value, { id: ad.id, name: ad.name ?? null }]);
   }
 
+  const [resolving, setResolving] = useState(false);
+
+  // Older picks saved from a pasted id have no name — resolve them once so the
+  // operator can see which ad each id actually is.
+  useEffect(() => {
+    const unnamed = value.filter((ad) => !ad.name);
+    if (unnamed.length === 0) return;
+    Promise.all(unnamed.map((ad) => axios
+      .get(route('cekbot.flows.ads-search'), { params: { q: ad.id } })
+      .then(({ data }) => (data.ads ?? []).find((found) => found.id === ad.id) ?? null)
+      .catch(() => null)))
+      .then((found) => {
+        const names = Object.fromEntries(found.filter(Boolean).map((ad) => [ad.id, ad.name]));
+        if (Object.keys(names).length === 0) return;
+        onChange(value.map((ad) => (names[ad.id] ? { ...ad, name: names[ad.id] } : ad)));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Add a pasted ad id, resolving its name from the connected ad accounts. */
   function addManual() {
     const id = manualId.trim();
     if (!/^\d{5,30}$/.test(id)) { toast.error('ID iklan mesti nombor sahaja.'); return; }
-    add({ id, name: null });
-    setManualId('');
+    if (value.some((a) => a.id === id)) { toast('Iklan ni dah dipilih.'); setManualId(''); return; }
+
+    setResolving(true);
+    axios.get(route('cekbot.flows.ads-search'), { params: { q: id } })
+      .then(({ data }) => {
+        const found = (data.ads ?? []).find((ad) => ad.id === id);
+        if (found) {
+          add(found);
+          toast.success(`Iklan dijumpai: ${found.name}`);
+        } else {
+          add({ id, name: null });
+          toast('ID ditambah, tapi iklan tak dijumpai dalam akaun iklan yang disambung. Semak semula ID tu.', { icon: '⚠️' });
+        }
+        setManualId('');
+      })
+      .catch(() => toast.error('Gagal semak ID iklan. Cuba lagi.'))
+      .finally(() => setResolving(false));
   }
 
   return (
@@ -80,7 +115,7 @@ function AdTriggerPicker({ value, onChange, error }) {
         <div className="rounded-xl bg-white/[0.03] p-2.5 ring-1 ring-inset ring-white/10">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/35" />
-            <Input autoFocus value={query} onChange={(e) => search(e.target.value)} placeholder="Cari nama iklan…" className="pl-8" />
+            <Input autoFocus value={query} onChange={(e) => search(e.target.value)} placeholder="Cari nama atau ID iklan…" className="pl-8" />
           </div>
           <div className="mt-2 max-h-64 overflow-y-auto">
             {loading && <p className="px-1 py-2 text-[12px] text-white/40">Mencari…</p>}
@@ -110,7 +145,7 @@ function AdTriggerPicker({ value, onChange, error }) {
           </div>
           <div className="mt-2 flex gap-2 border-t border-white/8 pt-2">
             <Input value={manualId} onChange={(e) => setManualId(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addManual(); } }} placeholder="Atau tampal ID iklan" />
-            <Button variant="secondary" onClick={addManual}>Tambah</Button>
+            <Button variant="secondary" onClick={addManual} disabled={resolving}>{resolving ? 'Menyemak…' : 'Tambah'}</Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>Tutup</Button>
           </div>
         </div>

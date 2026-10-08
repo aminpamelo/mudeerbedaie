@@ -64,6 +64,23 @@ class CekbotOutbound
     }
 
     /**
+     * Show "typing…" before a bot reply. The Cloud API needs the inbound
+     * message being answered; without one it is skipped. Best-effort.
+     */
+    public function showTyping(CekbotSession $session, string $chatId, ?string $inboundMessageId = null): void
+    {
+        if ($session->isCloudApi()) {
+            if (filled($inboundMessageId)) {
+                $this->cloudProvider($session)->sendTypingIndicator($inboundMessageId);
+            }
+
+            return;
+        }
+
+        $this->waha->startTyping((string) $session->session_name, $chatId);
+    }
+
+    /**
      * Build the Cloud API client from a number's stored credentials.
      */
     public function cloudProvider(CekbotSession $session): MetaCloudProvider

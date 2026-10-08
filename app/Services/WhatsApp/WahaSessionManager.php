@@ -396,6 +396,22 @@ class WahaSessionManager
     }
 
     /**
+     * Show "typing…" in the chat (cleared automatically by the next message).
+     * Best-effort — never throws.
+     */
+    public function startTyping(string $sessionName, string $chatId): bool
+    {
+        try {
+            return $this->client()->post('/api/startTyping', [
+                'session' => $sessionName,
+                'chatId' => $this->chatId($chatId),
+            ])->successful();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Send an image by public URL, with an optional caption.
      *
      * @return array{success: bool, message_id: ?string, error: ?string}

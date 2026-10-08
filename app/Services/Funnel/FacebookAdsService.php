@@ -229,6 +229,14 @@ class FacebookAdsService
     {
         $query = trim($query);
 
+        // A pasted ad id (digits only) is looked up directly — the Graph "name
+        // CONTAIN" filter would never match it.
+        if (preg_match('/^\d{5,30}$/', $query)) {
+            $ad = $this->findAd($query);
+
+            return $ad ? [$ad] : [];
+        }
+
         return Cache::remember('facebook-ads-search:'.md5(mb_strtolower($query)), now()->addMinutes(5), function () use ($query, $limitPerAccount): array {
             $accounts = FacebookAdAccount::query()
                 ->with('connection')
@@ -276,6 +284,57 @@ class FacebookAdsService
                 ->sortBy(fn (array $ad) => $ad['status'] === 'ACTIVE' ? 0 : 1)
                 ->values()
                 ->all();
+        });
+    }
+
+    /**
+     * Look up a single ad by id using whichever connected Business Manager can
+     * see it. Returns null when no connection has access (or it doesn't exist).
+     *
+     * @return array{id: string, name: string, status: ?string, account: ?string, thumbnail: ?string}|null
+     */
+    public function findAd(string $adId): ?array
+    {
+        $adId = trim($adId);
+
+        if (! preg_match('/^\d{5,30}$/', $adId)) {
+            return null;
+        }
+
+        return Cache::remember('facebook-ad-lookup:'.$adId, now()->addMinutes(10), function () use ($adId): ?array {
+            $connections = FacebookAdConnection::query()
+                ->whereNotNull('access_token')
+                ->orderByRaw("CASE WHEN status = 'connected' THEN 0 ELSE 1 END")
+                ->get();
+
+            foreach ($connections as $connection) {
+                try {
+                    $response = Http::timeout(15)->get($this->url("/{$adId}"), [
+                        'fields' => 'id,name,effective_status,account_id,creative{thumbnail_url}',
+                        'access_token' => $connection->access_token,
+                    ]);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if (! $response->successful() || ! $response->json('id')) {
+                    continue;
+                }
+
+                $accountName = FacebookAdAccount::query()
+                    ->where('account_id', (string) $response->json('account_id'))
+                    ->value('name');
+
+                return [
+                    'id' => (string) $response->json('id'),
+                    'name' => (string) ($response->json('name') ?? $adId),
+                    'status' => $response->json('effective_status'),
+                    'account' => $accountName,
+                    'thumbnail' => $response->json('creative.thumbnail_url'),
+                ];
+            }
+
+            return null;
         });
     }
 

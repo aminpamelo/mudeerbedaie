@@ -48,6 +48,28 @@ class MetaCloudProvider implements WhatsAppProviderInterface
     }
 
     /**
+     * Show "typing…" to the customer. The Cloud API ties the indicator to the
+     * inbound message being answered (and marks it read); it clears when the
+     * next message is sent or after ~25s. Best-effort — never throws.
+     */
+    public function sendTypingIndicator(string $inboundMessageId): bool
+    {
+        try {
+            return Http::withToken($this->accessToken)
+                ->timeout(10)
+                ->post($this->baseUrl(), [
+                    'messaging_product' => 'whatsapp',
+                    'status' => 'read',
+                    'message_id' => $inboundMessageId,
+                    'typing_indicator' => ['type' => 'text'],
+                ])
+                ->successful();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Send a video message by public URL.
      *
      * @return array<string, mixed>
