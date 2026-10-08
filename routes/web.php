@@ -18,6 +18,7 @@ use App\Http\Controllers\BlogSeo\TagController as BlogSeoTagController;
 use App\Http\Controllers\Cekbot\AnalyticsController as CekbotAnalyticsController;
 use App\Http\Controllers\Cekbot\AutoReplyController as CekbotAutoReplyController;
 use App\Http\Controllers\Cekbot\BroadcastController as CekbotBroadcastController;
+use App\Http\Controllers\Cekbot\ClosingReferenceController as CekbotClosingReferenceController;
 use App\Http\Controllers\Cekbot\FlowController as CekbotFlowController;
 use App\Http\Controllers\Cekbot\InboxController as CekbotInboxController;
 use App\Http\Controllers\Cekbot\LeadController as CekbotLeadController;
@@ -1990,6 +1991,12 @@ Route::middleware(['auth', 'role:admin,employee', HandleCekbotInertiaRequests::c
         Route::delete('products/{product}', [CekbotProductController::class, 'destroy'])->name('products.destroy');
 
         // Media library — images/videos the flow AI sends by key
+        Route::get('references', [CekbotClosingReferenceController::class, 'index'])->name('references');
+        Route::post('references', [CekbotClosingReferenceController::class, 'store'])->name('references.store');
+        Route::put('references/{reference}', [CekbotClosingReferenceController::class, 'update'])->name('references.update');
+        Route::put('references/{reference}/active', [CekbotClosingReferenceController::class, 'toggle'])->name('references.toggle');
+        Route::delete('references/{reference}', [CekbotClosingReferenceController::class, 'destroy'])->name('references.destroy');
+
         Route::get('media', [CekbotMediaController::class, 'index'])->name('media');
         Route::get('media-library', [CekbotMediaController::class, 'library'])->name('media.library');
         Route::post('media', [CekbotMediaController::class, 'store'])->name('media.store');

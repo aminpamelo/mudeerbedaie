@@ -112,6 +112,10 @@ Schedule::command('hr:check-task-deadlines')->dailyAt('09:00');
 // TikTok Shop analytics sync - daily at 4 AM
 Schedule::command('tiktok:sync-analytics')->dailyAt('04:00');
 
+// Per-day shop GMV (Seller Center Analytics) — refresh the last few days hourly
+// so yesterday's final figure lands soon after TikTok publishes it.
+Schedule::command('tiktok:sync-daily-gmv --days=3')->hourlyAt(20)->withoutOverlapping();
+
 // TikTok Shop per-LIVE performance sync - every 15 minutes (withoutOverlapping guards against a slow run piling up)
 Schedule::command('tiktok:sync-live')->everyFifteenMinutes()->withoutOverlapping();
 

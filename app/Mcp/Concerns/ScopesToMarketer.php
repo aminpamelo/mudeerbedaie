@@ -57,6 +57,14 @@ trait ScopesToMarketer
     }
 
     /**
+     * Whether the user may read TikTok Shop (Seller Center) figures.
+     */
+    protected function canSeeTikTokShop(User $user): bool
+    {
+        return in_array($user->role, ['admin', 'employee'], true);
+    }
+
+    /**
      * Ad-account ids whose spend the given user may see.
      *
      * @return array<int, int>

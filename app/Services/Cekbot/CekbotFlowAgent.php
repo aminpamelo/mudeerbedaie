@@ -2,6 +2,7 @@
 
 namespace App\Services\Cekbot;
 
+use App\Models\CekbotClosingReference;
 use App\Models\CekbotConversation;
 use App\Models\CekbotFlow;
 use App\Models\CekbotFlowEnrollment;
@@ -345,6 +346,10 @@ class CekbotFlowAgent
         }
 
         $messages = [['role' => 'system', 'content' => $system]];
+
+        if ($references = CekbotClosingReference::promptFor($flow->id)) {
+            $messages[] = ['role' => 'system', 'content' => $references];
+        }
 
         $history = $this->history($conversation);
         foreach ($history as $entry) {

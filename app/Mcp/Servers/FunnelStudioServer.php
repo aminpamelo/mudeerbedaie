@@ -29,6 +29,7 @@ use App\Mcp\Tools\PublishFunnelTool;
 use App\Mcp\Tools\RemoveFunnelProductTool;
 use App\Mcp\Tools\TeamSalesOrdersTool;
 use App\Mcp\Tools\TeamSalesReportTool;
+use App\Mcp\Tools\TiktokShopDailyGmvTool;
 use App\Mcp\Tools\ToggleFunnelAutomationTool;
 use App\Mcp\Tools\UpdateFunnelProductTool;
 use App\Mcp\Tools\UpdateFunnelSettingsTool;
@@ -66,6 +67,8 @@ class FunnelStudioServer extends Server
             Sales: revenue, orders and ranking per salesperson (staff only).
           - cekbot_overview, cekbot_flows, cekbot_orders — WhatsApp chatbot:
             conversations, leads, flow funnels and bot orders (admin/employee).
+          - tiktok_shop_daily_gmv — TikTok Seller Center Analytics (not Ads
+            Manager): daily GMV, orders, units per TikTok shop (admin/employee).
 
         Building & managing a funnel (each mirrors a tab in Funnel Studio):
           - create_landing_page — a whole single-page selling funnel from HTML.
@@ -108,6 +111,7 @@ class FunnelStudioServer extends Server
         // Team Sales
         TeamSalesReportTool::class,
         TeamSalesOrdersTool::class,
+        TiktokShopDailyGmvTool::class,
         // Cekbot (WhatsApp chatbot)
         CekbotOverviewTool::class,
         CekbotFlowsTool::class,

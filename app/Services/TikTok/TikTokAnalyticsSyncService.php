@@ -9,6 +9,7 @@ use App\Models\ContentStat;
 use App\Models\PlatformAccount;
 use App\Models\PlatformApp;
 use App\Models\TiktokProductPerformance;
+use App\Models\TiktokShopDailyPerformance;
 use App\Models\TiktokShopPerformanceSnapshot;
 use Illuminate\Support\Facades\Log;
 
@@ -71,6 +72,66 @@ class TikTokAnalyticsSyncService
             'raw_response' => $response,
             'fetched_at' => now(),
         ]);
+    }
+
+    /**
+     * Sync per-day shop performance (GMV, orders, units…) for the last $days
+     * days — the same numbers as Seller Center → Analytics → Key metrics.
+     * Requested in 7-day windows: long per-day ranges make TikTok time out.
+     * TikTok only reports completed days, so the newest row is yesterday.
+     *
+     * @return int Number of days stored.
+     */
+    public function syncShopDailyPerformance(PlatformAccount $account, int $days = 7): int
+    {
+        $client = $this->getClient($account, self::VERSION_SHOP_PERFORMANCE);
+        $end = now()->addDay()->startOfDay();
+        $cursor = now()->subDays(max(1, $days))->startOfDay();
+        $stored = 0;
+
+        while ($cursor->lessThan($end)) {
+            $windowEnd = $cursor->copy()->addDays(7)->min($end);
+
+            $response = $client->Analytics->getShopPerformance([
+                'start_date_ge' => $cursor->format('Y-m-d'),
+                'end_date_lt' => $windowEnd->format('Y-m-d'),
+                'granularity' => '1D',
+            ]);
+
+            foreach ($response['performance']['intervals'] ?? [] as $interval) {
+                if (empty($interval['start_date'])) {
+                    continue;
+                }
+
+                $gmvBy = collect($interval['gmv_breakdowns'] ?? [])->keyBy('type');
+
+                TiktokShopDailyPerformance::updateOrCreate(
+                    ['platform_account_id' => $account->id, 'date' => $interval['start_date']],
+                    [
+                        'gmv' => (float) ($interval['gmv']['amount'] ?? 0),
+                        'gmv_live' => (float) ($gmvBy['LIVE']['amount'] ?? 0),
+                        'gmv_video' => (float) ($gmvBy['VIDEO']['amount'] ?? 0),
+                        'gmv_product_card' => (float) ($gmvBy['PRODUCT_CARD']['amount'] ?? 0),
+                        'orders' => (int) ($interval['orders'] ?? 0),
+                        'sku_orders' => (int) ($interval['sku_orders'] ?? 0),
+                        'units_sold' => (int) ($interval['units_sold'] ?? 0),
+                        'buyers' => (int) ($interval['buyers'] ?? 0),
+                        'product_page_views' => (int) ($interval['product_page_views'] ?? 0),
+                        'product_impressions' => (int) ($interval['product_impressions'] ?? 0),
+                        'avg_order_value' => (float) ($interval['avg_order_value']['amount'] ?? 0),
+                        'refunds' => (float) ($interval['refunds']['amount'] ?? 0),
+                        'cancellations_and_returns' => (int) ($interval['cancellations_and_returns'] ?? 0),
+                        'currency' => $interval['gmv']['currency'] ?? 'MYR',
+                        'fetched_at' => now(),
+                    ]
+                );
+                $stored++;
+            }
+
+            $cursor = $windowEnd;
+        }
+
+        return $stored;
     }
 
     /**

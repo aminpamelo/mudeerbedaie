@@ -3,6 +3,7 @@
 namespace App\Services\Cekbot;
 
 use App\Models\CekbotBotSetting;
+use App\Models\CekbotClosingReference;
 use App\Models\CekbotConversation;
 use App\Models\CekbotMessage;
 use App\Models\CekbotProduct;
@@ -227,6 +228,10 @@ PROMPT;
         $products = $this->productContext();
         if ($products !== null) {
             $messages[] = ['role' => 'system', 'content' => $products];
+        }
+
+        if ($references = CekbotClosingReference::promptFor(null)) {
+            $messages[] = ['role' => 'system', 'content' => $references];
         }
 
         foreach ($this->history($conversation) as $entry) {
