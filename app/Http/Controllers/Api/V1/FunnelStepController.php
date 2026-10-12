@@ -22,7 +22,7 @@ class FunnelStepController extends Controller
         $funnel = Funnel::where('uuid', $funnelUuid)->firstOrFail();
 
         $steps = $funnel->steps()
-            ->with(['draftContent', 'publishedContent', 'products', 'orderBumps'])
+            ->with(['draftContent', 'publishedContent', 'products', 'orderBumps', 'landingPageTemplate:id,name'])
             ->orderBy('sort_order')
             ->get();
 

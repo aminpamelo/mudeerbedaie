@@ -27,6 +27,7 @@ class FacebookAdRule extends Model
 
     protected $fillable = [
         'facebook_ad_account_id',
+        'facebook_ad_strategy_id',
         'created_by',
         'name',
         'level',
@@ -63,6 +64,11 @@ class FacebookAdRule extends Model
     public function adAccount(): BelongsTo
     {
         return $this->belongsTo(FacebookAdAccount::class, 'facebook_ad_account_id');
+    }
+
+    public function strategy(): BelongsTo
+    {
+        return $this->belongsTo(FacebookAdStrategy::class, 'facebook_ad_strategy_id');
     }
 
     public function creator(): BelongsTo

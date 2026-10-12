@@ -284,6 +284,7 @@ class FacebookAdsManagerService
         $launch = FacebookAdLaunch::create([
             'facebook_ad_account_id' => $account->id,
             'funnel_id' => $data['funnel_id'] ?? null,
+            'facebook_ad_strategy_id' => $data['facebook_ad_strategy_id'] ?? null,
             'user_id' => $user?->id,
             'name' => $data['name'],
             'objective' => $data['objective'],
@@ -403,7 +404,7 @@ class FacebookAdsManagerService
     {
         return $this->paginate($account, "/act_{$account->account_id}/insights", [
             'level' => $level,
-            'fields' => "{$level}_id,{$level}_name,".self::INSIGHT_FIELDS,
+            'fields' => ($level === 'campaign' ? '' : 'campaign_id,')."{$level}_id,{$level}_name,".self::INSIGHT_FIELDS,
             'time_range' => json_encode(['since' => $since->toDateString(), 'until' => now()->toDateString()]),
             'filtering' => json_encode([['field' => "{$level}.effective_status", 'operator' => 'IN', 'value' => $effectiveStatuses]]),
             'limit' => 500,

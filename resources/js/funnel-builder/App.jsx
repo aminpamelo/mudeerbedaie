@@ -14,6 +14,7 @@ import StudioOrders from './components/StudioOrders';
 import StudioReports from './components/StudioReports';
 import StudioFacebookAds from './components/StudioFacebookAds';
 import StudioAdsManager from './components/StudioAdsManager';
+import StudioLandingLibrary from './components/StudioLandingLibrary';
 import StudioAutomations from './components/StudioAutomations';
 import StudioAnalytics from './components/StudioAnalytics';
 import StudioDailyReporting from './components/StudioDailyReporting';
@@ -31,6 +32,7 @@ const VIEWS = {
     REPORTS: 'reports',
     FACEBOOK_ADS: 'facebook_ads',
     ADS_MANAGER: 'ads_manager',
+    LANDING_LIBRARY: 'landing_library',
     AUTOMATIONS: 'automations',
     ANALYTICS: 'analytics',
     DAILY_REPORTING: 'daily_reporting',
@@ -45,6 +47,7 @@ const STATIC_PATHS = {
     '/funnel-builder/reports': VIEWS.REPORTS,
     '/funnel-builder/facebook-ads': VIEWS.FACEBOOK_ADS,
     '/funnel-builder/ads-manager': VIEWS.ADS_MANAGER,
+    '/funnel-builder/landing-library': VIEWS.LANDING_LIBRARY,
     '/funnel-builder/automations': VIEWS.AUTOMATIONS,
     '/funnel-builder/analytics': VIEWS.ANALYTICS,
     '/funnel-builder/daily-reporting': VIEWS.DAILY_REPORTING,
@@ -227,6 +230,8 @@ export default function App() {
                 return <StudioFacebookAds />;
             case VIEWS.ADS_MANAGER:
                 return <StudioAdsManager />;
+            case VIEWS.LANDING_LIBRARY:
+                return <StudioLandingLibrary onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.AUTOMATIONS:
                 return <StudioAutomations onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.ANALYTICS:

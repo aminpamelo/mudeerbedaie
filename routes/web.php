@@ -1575,6 +1575,7 @@ Route::middleware(['auth', 'role:admin,employee,sales'])->group(function () {
 Route::middleware(['auth', 'role:admin,employee,fighter'])->group(function () {
     // Funnel Builder SPA - catch all routes and serve the React app
     Route::get('funnel-builder', fn () => view('funnel-builder.index'))->name('funnel-builder.index');
+    Route::get('funnel-builder/landing-preview/{uuid}', \App\Http\Controllers\LandingTemplatePreviewController::class)->name('funnel-builder.landing-preview');
     Route::get('funnel-builder/{any}', fn () => view('funnel-builder.index'))->where('any', '.*')->name('funnel-builder.catchall');
 });
 

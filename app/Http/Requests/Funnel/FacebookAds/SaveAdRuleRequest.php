@@ -22,6 +22,7 @@ class SaveAdRuleRequest extends FormRequest
 
         return [
             'facebook_ad_account_id' => ['required', 'integer', 'exists:facebook_ad_accounts,id'],
+            'facebook_ad_strategy_id' => ['nullable', 'integer', 'exists:facebook_ad_strategies,id'],
             'name' => ['required', 'string', 'max:255'],
             'level' => ['required', Rule::in(FacebookAdRule::LEVELS)],
             'metric' => ['required', Rule::in(FacebookAdRule::METRICS)],

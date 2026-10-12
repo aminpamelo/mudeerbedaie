@@ -124,6 +124,7 @@ use App\Http\Controllers\Api\V1\AffiliateDashboardController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FacebookAdsController;
 use App\Http\Controllers\Api\V1\FacebookAdsManagerController;
+use App\Http\Controllers\Api\V1\FacebookAdStrategyController;
 use App\Http\Controllers\Api\V1\FunnelAffiliateController;
 use App\Http\Controllers\Api\V1\FunnelAutomationController;
 use App\Http\Controllers\Api\V1\FunnelCategoryController;
@@ -137,6 +138,7 @@ use App\Http\Controllers\Api\V1\FunnelPixelLibraryController;
 use App\Http\Controllers\Api\V1\FunnelProductController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
 use App\Http\Controllers\Api\V1\FunnelStudioController;
+use App\Http\Controllers\Api\V1\LandingPageTemplateController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use App\Http\Middleware\AffiliateSessionLifetime;
@@ -248,6 +250,13 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
         Route::put('rules/{rule}', [FacebookAdsManagerController::class, 'updateRule'])->name('rules.update');
         Route::delete('rules/{rule}', [FacebookAdsManagerController::class, 'destroyRule'])->name('rules.destroy');
         Route::post('rules/{rule}/run', [FacebookAdsManagerController::class, 'runRule'])->name('rules.run');
+        Route::get('strategies', [FacebookAdStrategyController::class, 'index'])->name('strategies');
+        Route::post('strategies', [FacebookAdStrategyController::class, 'store'])->name('strategies.store');
+        Route::post('strategies/starters', [FacebookAdStrategyController::class, 'seedStarters'])->name('strategies.starters');
+        Route::put('strategies/{strategy}', [FacebookAdStrategyController::class, 'update'])->name('strategies.update');
+        Route::delete('strategies/{strategy}', [FacebookAdStrategyController::class, 'destroy'])->name('strategies.destroy');
+        Route::post('strategies/{strategy}/apply-rules', [FacebookAdStrategyController::class, 'applyRules'])->name('strategies.apply-rules');
+        Route::post('accounts/{account}/campaign-strategy', [FacebookAdStrategyController::class, 'tagCampaign'])->name('campaign-strategy');
     });
 
     Route::get('funnels', [FunnelController::class, 'index'])->name('api.funnels.index');
@@ -348,6 +357,16 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::get('products/search', [FunnelProductController::class, 'searchProducts'])->name('api.products.search');
     Route::get('courses/search', [FunnelProductController::class, 'searchCourses'])->name('api.courses.search');
     Route::get('packages/search', [FunnelProductController::class, 'searchPackages'])->name('api.packages.search');
+
+    // Landing Library (page-level templates)
+    Route::get('landing-templates', [LandingPageTemplateController::class, 'index'])->name('api.landing-templates.index');
+    Route::get('landing-templates/options', [LandingPageTemplateController::class, 'options'])->name('api.landing-templates.options');
+    Route::post('landing-templates', [LandingPageTemplateController::class, 'store'])->name('api.landing-templates.store');
+    Route::post('landing-templates/import', [LandingPageTemplateController::class, 'import'])->name('api.landing-templates.import');
+    Route::put('landing-templates/{template}', [LandingPageTemplateController::class, 'update'])->name('api.landing-templates.update');
+    Route::delete('landing-templates/{template}', [LandingPageTemplateController::class, 'destroy'])->name('api.landing-templates.destroy');
+    Route::post('funnels/{funnelUuid}/steps/{stepId}/landing-template', [LandingPageTemplateController::class, 'apply'])->name('api.funnels.steps.landing-template.apply');
+    Route::post('funnels/{funnelUuid}/steps/{stepId}/save-as-landing-template', [LandingPageTemplateController::class, 'saveFromStep'])->name('api.funnels.steps.landing-template.save');
 
     // Templates
     Route::get('funnel-templates', function () {

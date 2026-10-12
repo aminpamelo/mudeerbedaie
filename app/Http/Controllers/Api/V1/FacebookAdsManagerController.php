@@ -10,9 +10,11 @@ use App\Http\Requests\Funnel\FacebookAds\UpdateAdStatusRequest;
 use App\Models\FacebookAdAccount;
 use App\Models\FacebookAdAction;
 use App\Models\FacebookAdRule;
+use App\Models\FacebookAdStrategy;
 use App\Models\Funnel;
 use App\Services\Funnel\FacebookAdRuleEngine;
 use App\Services\Funnel\FacebookAdsManagerService;
+use App\Services\Funnel\FacebookAdStrategyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -25,7 +27,10 @@ use RuntimeException;
  */
 class FacebookAdsManagerController extends Controller
 {
-    public function __construct(protected FacebookAdsManagerService $manager) {}
+    public function __construct(
+        protected FacebookAdsManagerService $manager,
+        protected FacebookAdStrategyService $strategies,
+    ) {}
 
     protected function authorizeManage(Request $request): void
     {
@@ -69,6 +74,11 @@ class FacebookAdsManagerController extends Controller
             $rows = $this->manager->listEntities($account->loadMissing('connection'), $validated['level'], $validated['parent_id'] ?? null, $validated['date_preset'] ?? 'last_7d');
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        if ($validated['level'] === 'campaign') {
+            $tags = $this->strategies->strategiesFor(array_column($rows, 'id'));
+            $rows = array_map(fn (array $row) => $row + ['strategy' => $tags[$row['id']] ?? null], $rows);
         }
 
         return response()->json(['data' => $rows]);
@@ -150,6 +160,15 @@ class FacebookAdsManagerController extends Controller
 
         $result = $this->manager->launch($account, $data, $request->user());
 
+        $strategy = isset($data['facebook_ad_strategy_id']) ? FacebookAdStrategy::find($data['facebook_ad_strategy_id']) : null;
+        if ($result['success'] && $strategy) {
+            $this->strategies->tagCampaign($account, (string) $result['launch']->campaign_id, $strategy->id, $data['name'], $request->user());
+            $rulesCreated = $this->strategies->applyRules($strategy, $account, $request->user());
+            if ($rulesCreated) {
+                $result['message'] .= " Tagged \"{$strategy->name}\" and added {$rulesCreated} strategy rule(s) in dry run.";
+            }
+        }
+
         return response()->json([
             'success' => $result['success'],
             'message' => $result['message'],
@@ -197,7 +216,7 @@ class FacebookAdsManagerController extends Controller
         $this->authorizeManage($request);
 
         $rules = FacebookAdRule::query()
-            ->with(['adAccount:id,name,currency', 'creator:id,name'])
+            ->with(['adAccount:id,name,currency', 'creator:id,name', 'strategy:id,name,color'])
             ->latest('id')
             ->get()
             ->map(fn (FacebookAdRule $rule) => $this->ruleResource($rule));
@@ -209,14 +228,14 @@ class FacebookAdsManagerController extends Controller
     {
         $rule = FacebookAdRule::create(array_merge($this->ruleAttributes($request), ['created_by' => $request->user()->id]));
 
-        return response()->json(['success' => true, 'data' => $this->ruleResource($rule->load('adAccount', 'creator'))], 201);
+        return response()->json(['success' => true, 'data' => $this->ruleResource($rule->load('adAccount', 'creator', 'strategy'))], 201);
     }
 
     public function updateRule(SaveAdRuleRequest $request, FacebookAdRule $rule): JsonResponse
     {
         $rule->update($this->ruleAttributes($request));
 
-        return response()->json(['success' => true, 'data' => $this->ruleResource($rule->fresh(['adAccount', 'creator']))]);
+        return response()->json(['success' => true, 'data' => $this->ruleResource($rule->fresh(['adAccount', 'creator', 'strategy']))]);
     }
 
     public function destroyRule(Request $request, FacebookAdRule $rule): JsonResponse
@@ -256,12 +275,13 @@ class FacebookAdsManagerController extends Controller
     protected function ruleResource(FacebookAdRule $rule): array
     {
         return array_merge($rule->only([
-            'id', 'facebook_ad_account_id', 'name', 'level', 'metric', 'operator', 'threshold', 'min_spend',
+            'id', 'facebook_ad_account_id', 'facebook_ad_strategy_id', 'name', 'level', 'metric', 'operator', 'threshold', 'min_spend',
             'lookback_days', 'action', 'action_value', 'max_daily_budget', 'min_daily_budget', 'cooldown_hours',
             'is_active', 'dry_run', 'last_run_summary',
         ]), [
             'description' => $rule->describe(),
             'account_name' => $rule->adAccount?->name,
+            'strategy' => $rule->strategy?->only(['id', 'name', 'color']),
             'currency' => $rule->adAccount?->currency ?: 'MYR',
             'created_by' => $rule->creator?->name,
             'last_run_at' => $rule->last_run_at?->toIso8601String(),

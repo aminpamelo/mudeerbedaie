@@ -22,6 +22,7 @@ class LaunchCampaignRequest extends FormRequest
             'name' => ['required', 'string', 'max:200'],
             'objective' => ['required', 'in:OUTCOME_SALES,OUTCOME_TRAFFIC'],
             'funnel_id' => ['nullable', 'integer', 'exists:funnels,id'],
+            'facebook_ad_strategy_id' => ['nullable', 'integer', 'exists:facebook_ad_strategies,id'],
             'link' => ['required', 'url', 'max:2000'],
             'daily_budget' => ['required', 'numeric', 'min:1', 'max:100000'],
             'page_id' => ['required', 'string', 'regex:/^\d{5,30}$/'],

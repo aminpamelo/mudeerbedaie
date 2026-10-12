@@ -12,12 +12,16 @@ use RuntimeException;
  *
  * Guards: min-spend before judging, per-object cooldown, budget floor/cap,
  * and a hard cap on actions per run so a bad rule can't sweep an account.
+ * Strategy-scoped rules only touch campaigns tagged with that strategy.
  */
 class FacebookAdRuleEngine
 {
     public const MAX_ACTIONS_PER_RUN = 25;
 
-    public function __construct(protected FacebookAdsManagerService $manager) {}
+    public function __construct(
+        protected FacebookAdsManagerService $manager,
+        protected FacebookAdStrategyService $strategies,
+    ) {}
 
     /**
      * @return array{matched: int, applied: int, skipped: int, errors: int, summary: string}
@@ -44,6 +48,11 @@ class FacebookAdRuleEngine
             $result['errors']++;
 
             return $this->finish($rule, $result, 'Insights failed: '.$e->getMessage());
+        }
+
+        if ($rule->facebook_ad_strategy_id) {
+            $strategyCampaigns = array_flip($this->strategies->campaignIds($rule->facebook_ad_strategy_id));
+            $rows = array_values(array_filter($rows, fn (array $row) => isset($strategyCampaigns[(string) ($row['campaign_id'] ?? '')])));
         }
 
         $ids = collect($rows)->pluck("{$rule->level}_id")->filter()->map(fn ($id) => (string) $id)->all();

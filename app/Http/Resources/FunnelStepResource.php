@@ -20,6 +20,10 @@ class FunnelStepResource extends JsonResource
             'settings' => $this->settings,
             'next_step_id' => $this->next_step_id,
             'decline_step_id' => $this->decline_step_id,
+            'landing_page_template_id' => $this->landing_page_template_id,
+            'landing_page_template' => $this->whenLoaded('landingPageTemplate', fn () => $this->landingPageTemplate
+                ? ['id' => $this->landingPageTemplate->id, 'name' => $this->landingPageTemplate->name]
+                : null),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
 

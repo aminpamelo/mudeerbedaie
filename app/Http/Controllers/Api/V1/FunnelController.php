@@ -133,6 +133,7 @@ class FunnelController extends Controller
                 'steps' => fn ($q) => $q->orderBy('sort_order'),
                 'steps.products',
                 'steps.orderBumps',
+                'steps.landingPageTemplate:id,name',
                 'category',
                 'customDomain',
             ])

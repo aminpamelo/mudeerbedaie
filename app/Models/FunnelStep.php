@@ -18,6 +18,7 @@ class FunnelStep extends Model
         'name',
         'slug',
         'type',
+        'landing_page_template_id',
         'sort_order',
         'is_active',
         'settings',
@@ -49,9 +50,14 @@ class FunnelStep extends Model
         return $this->hasMany(FunnelStepContent::class);
     }
 
+    public function landingPageTemplate(): BelongsTo
+    {
+        return $this->belongsTo(LandingPageTemplate::class);
+    }
+
     public function draftContent(): HasOne
     {
-        return $this->hasOne(FunnelStepContent::class)->latest();
+        return $this->hasOne(FunnelStepContent::class)->latest()->latest('id');
     }
 
     public function publishedContent(): HasOne

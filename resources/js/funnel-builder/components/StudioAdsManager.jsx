@@ -5,6 +5,8 @@
  *  - Launch: guided campaign → ad set → creative → ad builder (created PAUSED,
  *    UTM-tagged so funnel sales attribute back to each ad).
  *  - Rules: automated pause / activate / budget rules, hourly, dry-run first.
+ *  - Strategies: playbook library ("skills") — launch presets + bundled rules;
+ *    campaigns are tagged so you know which strategy each one runs.
  *  - Activity: audit log of every write (manual, launch, rule).
  * Requires a connection token with ads_management; admin + employee only.
  */
@@ -58,6 +60,23 @@ const DATE_PRESETS = [
 ];
 
 const LEVEL_LABEL = { campaign: 'Campaign', adset: 'Ad set', ad: 'Ad' };
+
+const STRATEGY_CHIP = {
+    orange: 'bg-orange-100 text-orange-800',
+    green: 'bg-green-100 text-green-800',
+    blue: 'bg-blue-100 text-blue-800',
+    purple: 'bg-purple-100 text-purple-800',
+    red: 'bg-red-100 text-red-700',
+    yellow: 'bg-yellow-100 text-yellow-800',
+    gray: 'bg-gray-100 text-gray-600',
+};
+
+const StrategyChip = ({ strategy, className = '' }) =>
+    strategy ? (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${STRATEGY_CHIP[strategy.color] || STRATEGY_CHIP.gray} ${className}`}>
+            {strategy.name}
+        </span>
+    ) : null;
 
 const STATUS_BADGE = {
     ACTIVE: 'bg-green-100 text-green-800',
@@ -122,6 +141,17 @@ export default function StudioAdsManager() {
     const [loadingAccounts, setLoadingAccounts] = useState(true);
     const [showLaunch, setShowLaunch] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [strategies, setStrategies] = useState([]);
+
+    const loadStrategies = useCallback(() => {
+        api('/api/v1/facebook-ads/manage/strategies')
+            .then((data) => setStrategies(data.data || []))
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        loadStrategies();
+    }, [loadStrategies]);
 
     const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
 
@@ -210,6 +240,7 @@ export default function StudioAdsManager() {
                     <div className="mb-4 flex gap-1 border-b border-gray-200">
                         {[
                             ['campaigns', 'Campaigns'],
+                            ['strategies', 'Strategies'],
                             ['rules', 'Automation Rules'],
                             ['activity', 'Activity Log'],
                         ].map(([key, label]) => (
@@ -226,9 +257,12 @@ export default function StudioAdsManager() {
                     </div>
 
                     {tab === 'campaigns' && account && (
-                        <CampaignsTab key={`${account.id}-${refreshKey}`} account={account} showToast={showToast} />
+                        <CampaignsTab key={`${account.id}-${refreshKey}`} account={account} strategies={strategies} showToast={showToast} />
                     )}
-                    {tab === 'rules' && <RulesTab accounts={accounts} defaultAccountId={account?.id} showToast={showToast} />}
+                    {tab === 'strategies' && (
+                        <StrategiesTab strategies={strategies} account={account} onChanged={loadStrategies} showToast={showToast} />
+                    )}
+                    {tab === 'rules' && <RulesTab accounts={accounts} strategies={strategies} defaultAccountId={account?.id} showToast={showToast} />}
                     {tab === 'activity' && <ActivityTab accountId={account?.id} />}
                 </>
             )}
@@ -236,12 +270,14 @@ export default function StudioAdsManager() {
             {showLaunch && account && (
                 <LaunchWizard
                     account={account}
+                    strategies={strategies.filter((st) => st.is_active)}
                     onClose={() => setShowLaunch(false)}
                     onLaunched={(message) => {
                         setShowLaunch(false);
                         showToast(message);
                         setTab('campaigns');
                         setRefreshKey((k) => k + 1);
+                        loadStrategies();
                     }}
                 />
             )}
@@ -251,7 +287,7 @@ export default function StudioAdsManager() {
 
 /* ───────────────────────────── Campaigns ───────────────────────────── */
 
-function CampaignsTab({ account, showToast }) {
+function CampaignsTab({ account, strategies, showToast }) {
     const [datePreset, setDatePreset] = useState('last_7d');
     const [path, setPath] = useState([]); // [{level, id, name}]
     const [rows, setRows] = useState([]);
@@ -293,6 +329,19 @@ function CampaignsTab({ account, showToast }) {
         }),
         { spend: 0, purchase_value: 0, funnel_revenue: 0, purchases: 0, funnel_orders: 0 },
     );
+
+    const assignStrategy = async (row, strategyId) => {
+        try {
+            const data = await api(`/api/v1/facebook-ads/manage/accounts/${account.id}/campaign-strategy`, {
+                method: 'POST',
+                body: JSON.stringify({ campaign_id: row.id, campaign_name: row.name, strategy_id: strategyId ? Number(strategyId) : null }),
+            });
+            setRows((current) => current.map((r) => (r.id === row.id ? { ...r, strategy: data.strategy } : r)));
+            showToast(data.strategy ? `Tagged "${row.name}" as ${data.strategy.name}` : 'Strategy removed');
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    };
 
     const runConfirmed = async () => {
         setBusy(true);
@@ -378,6 +427,7 @@ function CampaignsTab({ account, showToast }) {
                             <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500">
                                 <th className="w-14 px-4 py-2.5 font-medium">On</th>
                                 <th className="px-4 py-2.5 font-medium">{LEVEL_LABEL[level]}</th>
+                                {level === 'campaign' && <th className="px-4 py-2.5 font-medium">Strategy</th>}
                                 <th className="px-4 py-2.5 text-right font-medium">Daily budget</th>
                                 <th className="px-4 py-2.5 text-right font-medium">Spend</th>
                                 <th className="px-4 py-2.5 text-right font-medium">CTR</th>
@@ -423,6 +473,26 @@ function CampaignsTab({ account, showToast }) {
                                             </div>
                                         </div>
                                     </td>
+                                    {level === 'campaign' && (
+                                        <td className="px-4 py-3">
+                                            <div className="flex flex-col items-start gap-1">
+                                                <StrategyChip strategy={row.strategy} />
+                                                <select
+                                                    value={row.strategy?.id || ''}
+                                                    onChange={(e) => assignStrategy(row, e.target.value)}
+                                                    className="max-w-[150px] rounded border border-gray-200 px-1.5 py-0.5 text-[11px] text-gray-600"
+                                                    title="Which strategy / skill this campaign runs"
+                                                >
+                                                    <option value="">{row.strategy ? 'Remove strategy' : '+ Tag strategy'}</option>
+                                                    {strategies.map((st) => (
+                                                        <option key={st.id} value={st.id}>
+                                                            {st.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </td>
+                                    )}
                                     <td className="px-4 py-3 text-right tabular-nums">
                                         {row.daily_budget !== null ? (
                                             <button
@@ -564,7 +634,7 @@ const CTAS = [
     ['CONTACT_US', 'Contact Us'],
 ];
 
-function LaunchWizard({ account, onClose, onLaunched }) {
+function LaunchWizard({ account, strategies, onClose, onLaunched }) {
     const [step, setStep] = useState(0);
     const [options, setOptions] = useState(null);
     const [error, setError] = useState(null);
@@ -588,6 +658,7 @@ function LaunchWizard({ account, onClose, onLaunched }) {
         description: '',
         call_to_action: 'SHOP_NOW',
         image_hash: '',
+        facebook_ad_strategy_id: '',
     });
 
     const set = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -600,6 +671,21 @@ function LaunchWizard({ account, onClose, onLaunched }) {
             })
             .catch((e) => setError(e.message));
     }, [account.id]);
+
+    const pickStrategy = (id) => {
+        const strategy = strategies.find((st) => String(st.id) === String(id));
+        const preset = strategy?.launch_preset || {};
+        set({
+            facebook_ad_strategy_id: id,
+            ...Object.fromEntries(
+                ['objective', 'daily_budget', 'age_min', 'age_max', 'countries', 'advantage_audience', 'call_to_action']
+                    .filter((key) => preset[key] !== undefined && preset[key] !== null && preset[key] !== '')
+                    .map((key) => [key, preset[key]]),
+            ),
+        });
+    };
+
+    const selectedStrategy = strategies.find((st) => String(st.id) === String(form.facebook_ad_strategy_id));
 
     const pickFunnel = (id) => {
         const funnel = options?.funnels.find((f) => String(f.id) === String(id));
@@ -650,6 +736,7 @@ function LaunchWizard({ account, onClose, onLaunched }) {
             const payload = {
                 ...form,
                 funnel_id: form.funnel_id || null,
+                facebook_ad_strategy_id: form.facebook_ad_strategy_id ? Number(form.facebook_ad_strategy_id) : null,
                 pixel_id: form.objective === 'OUTCOME_SALES' ? form.pixel_id : null,
                 description: form.description || null,
                 daily_budget: Number(form.daily_budget),
@@ -723,6 +810,29 @@ function LaunchWizard({ account, onClose, onLaunched }) {
                 <div className="space-y-4">
                     {step === 0 && (
                         <>
+                            <Field label="Strategy / skill" hint="Fills in the strategy's recommended settings and tags the campaign with it.">
+                                <select value={form.facebook_ad_strategy_id} onChange={(e) => pickStrategy(e.target.value)} className={inputClass}>
+                                    <option value="">— No strategy —</option>
+                                    {strategies.map((st) => (
+                                        <option key={st.id} value={st.id}>
+                                            {st.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+                            {selectedStrategy && (
+                                <details className="rounded-lg border border-gray-200 px-3 py-2 text-sm" open>
+                                    <summary className="cursor-pointer font-medium text-gray-900">
+                                        Playbook: {selectedStrategy.name}
+                                        {selectedStrategy.rule_presets?.length > 0 && (
+                                            <span className="ml-2 text-xs font-normal text-gray-500">
+                                                + {selectedStrategy.rule_presets.length} rule(s) will be added in dry run
+                                            </span>
+                                        )}
+                                    </summary>
+                                    <p className="mt-2 whitespace-pre-line text-xs text-gray-600">{selectedStrategy.playbook || selectedStrategy.description}</p>
+                                </details>
+                            )}
                             <Field label="Funnel" hint="Picks the landing URL (and the funnel's pixel) automatically.">
                                 <select value={form.funnel_id} onChange={(e) => pickFunnel(e.target.value)} className={inputClass}>
                                     <option value="">— Custom URL —</option>
@@ -841,6 +951,7 @@ function LaunchWizard({ account, onClose, onLaunched }) {
                     {step === 3 && (
                         <div className="space-y-3 text-sm">
                             <ReviewRow label="Campaign" value={`${form.name} · ${form.objective === 'OUTCOME_SALES' ? 'Sales' : 'Traffic'}`} />
+                            <ReviewRow label="Strategy" value={selectedStrategy?.name} />
                             <ReviewRow label="Budget" value={`${money(form.daily_budget, account.currency)} / day`} />
                             <ReviewRow label="Audience" value={`${form.countries.toUpperCase()} · ${form.age_min}–${form.age_max}${form.advantage_audience ? ' · Advantage+' : ''}`} />
                             <ReviewRow label="Page" value={options.pages.find((p) => p.id === form.page_id)?.name} />
@@ -910,6 +1021,7 @@ const RULE_PRESETS = [
 
 const emptyRule = (accountId) => ({
     facebook_ad_account_id: accountId || '',
+    facebook_ad_strategy_id: null,
     name: '',
     level: 'adset',
     metric: 'funnel_roas',
@@ -926,7 +1038,7 @@ const emptyRule = (accountId) => ({
     dry_run: true,
 });
 
-function RulesTab({ accounts, defaultAccountId, showToast }) {
+function RulesTab({ accounts, strategies, defaultAccountId, showToast }) {
     const [rules, setRules] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(null);
@@ -1031,6 +1143,7 @@ function RulesTab({ accounts, defaultAccountId, showToast }) {
                                         {rule.dry_run ? 'Dry run' : 'Live'}
                                     </span>
                                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{LEVEL_LABEL[rule.level]}s</span>
+                                    {rule.strategy && <StrategyChip strategy={rule.strategy} />}
                                 </div>
                                 <p className="mt-0.5 text-sm text-gray-600">{rule.description}</p>
                                 <p className="mt-0.5 text-xs text-gray-500">
@@ -1068,6 +1181,7 @@ function RulesTab({ accounts, defaultAccountId, showToast }) {
                 <RuleModal
                     rule={editing}
                     accounts={accounts}
+                    strategies={strategies}
                     onClose={() => setEditing(null)}
                     onSave={async (rule) => {
                         await save(rule);
@@ -1080,7 +1194,7 @@ function RulesTab({ accounts, defaultAccountId, showToast }) {
     );
 }
 
-function RuleModal({ rule, accounts, onClose, onSave }) {
+function RuleModal({ rule, accounts, strategies, onClose, onSave }) {
     const [form, setForm] = useState({ ...emptyRule(), ...rule });
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -1133,6 +1247,21 @@ function RuleModal({ rule, accounts, onClose, onSave }) {
                         </select>
                     </Field>
                 </div>
+
+                <Field label="Applies to" hint="Scope the rule to campaigns tagged with one strategy, or let it watch the whole ad account.">
+                    <select
+                        value={form.facebook_ad_strategy_id || ''}
+                        onChange={(e) => set({ facebook_ad_strategy_id: e.target.value ? Number(e.target.value) : null })}
+                        className={inputClass}
+                    >
+                        <option value="">Every campaign in the ad account</option>
+                        {strategies.map((st) => (
+                            <option key={st.id} value={st.id}>
+                                Only campaigns tagged "{st.name}"
+                            </option>
+                        ))}
+                    </select>
+                </Field>
 
                 <div className="rounded-lg border border-gray-200 p-3">
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">If</span>
@@ -1210,6 +1339,433 @@ function RuleModal({ rule, accounts, onClose, onSave }) {
                         <span className="font-medium">Dry run</span>
                         <span className="block text-xs text-gray-500">Only log what would happen — nothing changes on Facebook.</span>
                     </span>
+                </label>
+            </div>
+        </Modal>
+    );
+}
+
+/* ───────────────────────────── Strategies ───────────────────────────── */
+
+const emptyStrategy = () => ({
+    name: '',
+    color: 'orange',
+    description: '',
+    playbook: '',
+    is_active: true,
+    launch_preset: { objective: 'OUTCOME_SALES', daily_budget: 50, age_min: 18, age_max: 65, countries: 'MY', advantage_audience: true, call_to_action: 'SHOP_NOW' },
+    rule_presets: [],
+});
+
+const emptyRulePreset = () => ({ name: '', level: 'adset', metric: 'funnel_roas', operator: 'lt', threshold: 1, min_spend: 50, lookback_days: 3, action: 'pause', action_value: null, max_daily_budget: null, min_daily_budget: null, cooldown_hours: 24 });
+
+function StrategiesTab({ strategies, account, onChanged, showToast }) {
+    const [editing, setEditing] = useState(null);
+    const [openId, setOpenId] = useState(null);
+    const [busyId, setBusyId] = useState(null);
+    const [seeding, setSeeding] = useState(false);
+
+    const seed = async () => {
+        setSeeding(true);
+        try {
+            const data = await api('/api/v1/facebook-ads/manage/strategies/starters', { method: 'POST' });
+            showToast(data.message);
+            onChanged();
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            setSeeding(false);
+        }
+    };
+
+    const applyRules = async (strategy) => {
+        if (!account) return;
+        setBusyId(strategy.id);
+        try {
+            const data = await api(`/api/v1/facebook-ads/manage/strategies/${strategy.id}/apply-rules`, {
+                method: 'POST',
+                body: JSON.stringify({ account_id: account.id }),
+            });
+            showToast(data.message);
+            onChanged();
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const remove = async (strategy) => {
+        if (!window.confirm(`Delete strategy "${strategy.name}"? Campaign tags and its scoped rules are removed too.`)) return;
+        try {
+            await api(`/api/v1/facebook-ads/manage/strategies/${strategy.id}`, { method: 'DELETE' });
+            showToast('Strategy deleted');
+            onChanged();
+        } catch (e) {
+            showToast(e.message, 'error');
+        }
+    };
+
+    return (
+        <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="max-w-2xl text-sm text-gray-500">
+                    Your team's ad playbooks. Tag each campaign with the strategy it runs (Campaigns tab, or pick one when launching) to see which skill really
+                    makes money. Bundled rules only act on that strategy's campaigns.
+                </p>
+                <div className="flex gap-2">
+                    <button onClick={seed} disabled={seeding} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                        {seeding ? 'Adding...' : 'Add starter strategies'}
+                    </button>
+                    <button onClick={() => setEditing(emptyStrategy())} className="fs-cta rounded-lg px-4 py-1.5 text-sm font-medium text-white">
+                        + New strategy
+                    </button>
+                </div>
+            </div>
+
+            {strategies.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+                    No strategies yet — add the starter pack (Broad Testing, CBO Scaling, Retargeting, Traffic Warm-up) or write your own.
+                </div>
+            ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                    <table className="w-full min-w-[720px] text-sm">
+                        <thead>
+                            <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500">
+                                <th className="px-4 py-2.5 font-medium">Strategy</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Campaigns</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Spend 30d</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Funnel rev. 30d</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Funnel ROAS</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {strategies.map((st) => (
+                                <React.Fragment key={st.id}>
+                                    <tr className="border-t border-gray-100 align-top">
+                                        <td className="max-w-sm px-4 py-3">
+                                            <button onClick={() => setOpenId(openId === st.id ? null : st.id)} className="text-left">
+                                                <span className="flex flex-wrap items-center gap-2">
+                                                    <StrategyChip strategy={st} />
+                                                    {!st.is_active && <span className="text-[11px] text-gray-400">inactive</span>}
+                                                    {st.rule_presets?.length > 0 && (
+                                                        <span className="text-[11px] text-gray-500">{st.rule_presets.length} bundled rule(s)</span>
+                                                    )}
+                                                </span>
+                                                <span className="mt-1 block text-xs text-gray-500">{st.description}</span>
+                                                <span className="mt-1 block text-[11px] font-medium text-orange-600">{openId === st.id ? 'Hide playbook' : 'View playbook'}</span>
+                                            </button>
+                                        </td>
+                                        <td className="px-4 py-3 text-right tabular-nums text-gray-700">{st.stats_30d.campaigns}</td>
+                                        <td className="px-4 py-3 text-right tabular-nums text-gray-700">{money(st.stats_30d.spend, account?.currency)}</td>
+                                        <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                                            {money(st.stats_30d.funnel_revenue, account?.currency)}
+                                            <span className="block text-[11px] text-gray-400">{st.stats_30d.funnel_orders} orders</span>
+                                        </td>
+                                        <td className={`px-4 py-3 text-right tabular-nums ${roasClass(st.stats_30d.funnel_roas)}`}>{st.stats_30d.funnel_roas ?? '—'}</td>
+                                        <td className="w-0 whitespace-nowrap px-4 py-3 text-right">
+                                            <div className="flex justify-end gap-1">
+                                                {st.rule_presets?.length > 0 && account && (
+                                                    <button
+                                                        onClick={() => applyRules(st)}
+                                                        disabled={busyId === st.id}
+                                                        className="rounded px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                                        title={`Create this strategy's rules (dry run) on ${account.name}`}
+                                                    >
+                                                        {busyId === st.id ? 'Adding...' : 'Add rules'}
+                                                    </button>
+                                                )}
+                                                <button onClick={() => setEditing(st)} className="rounded px-2 py-1 text-xs text-gray-700 hover:bg-gray-100">
+                                                    Edit
+                                                </button>
+                                                <button onClick={() => remove(st)} className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50">
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {openId === st.id && (
+                                        <tr className="border-t border-gray-100 bg-gray-50">
+                                            <td colSpan={6} className="px-4 py-4">
+                                                <div className="grid gap-4 md:grid-cols-3" style={{ width: 0, minWidth: '100%' }}>
+                                                    <div className="md:col-span-2">
+                                                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Playbook</span>
+                                                        <p className="whitespace-pre-line text-sm text-gray-700">{st.playbook || 'No playbook written yet.'}</p>
+                                                    </div>
+                                                    <div className="space-y-3 text-xs text-gray-600">
+                                                        {st.launch_preset && (
+                                                            <div>
+                                                                <span className="mb-1 block font-semibold uppercase tracking-wider text-gray-500">Launch defaults</span>
+                                                                {st.launch_preset.objective === 'OUTCOME_TRAFFIC' ? 'Traffic' : 'Sales'} · {money(st.launch_preset.daily_budget, account?.currency)}/day ·{' '}
+                                                                {st.launch_preset.countries} · {st.launch_preset.age_min}–{st.launch_preset.age_max}
+                                                                {st.launch_preset.advantage_audience ? ' · Advantage+' : ''}
+                                                            </div>
+                                                        )}
+                                                        {st.rule_presets?.length > 0 && (
+                                                            <div>
+                                                                <span className="mb-1 block font-semibold uppercase tracking-wider text-gray-500">Bundled rules</span>
+                                                                <ul className="list-disc space-y-0.5 pl-4">
+                                                                    {st.rule_presets.map((r, i) => (
+                                                                        <li key={i}>{describePreset(r)}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {editing && (
+                <StrategyModal
+                    strategy={editing}
+                    onClose={() => setEditing(null)}
+                    onSaved={(message) => {
+                        setEditing(null);
+                        showToast(message);
+                        onChanged();
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+const METRIC_SHORT = { funnel_roas: 'Funnel ROAS', fb_roas: 'FB ROAS', spend: 'Spend', cpa: 'CPA', purchases: 'Purchases', cpc: 'CPC', ctr: 'CTR %' };
+
+const describePreset = (r) => {
+    const action =
+        r.action === 'pause'
+            ? 'pause'
+            : r.action === 'activate'
+              ? 'turn on'
+              : `${r.action === 'increase_budget' ? '+' : '−'}${r.action_value}% budget${r.max_daily_budget ? ` (max ${r.max_daily_budget})` : ''}`;
+    return `${r.name}: ${LEVEL_LABEL[r.level]} ${METRIC_SHORT[r.metric] || r.metric} ${r.operator === 'lt' ? '<' : '>'} ${r.threshold} over ${r.lookback_days}d${
+        r.min_spend ? ` after ${r.min_spend} spend` : ''
+    } → ${action}`;
+};
+
+function StrategyModal({ strategy, onClose, onSaved }) {
+    const [form, setForm] = useState({
+        ...emptyStrategy(),
+        ...strategy,
+        launch_preset: { ...emptyStrategy().launch_preset, ...(strategy.launch_preset || {}) },
+        rule_presets: strategy.rule_presets || [],
+    });
+    const [error, setError] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+    const setPreset = (patch) => setForm((f) => ({ ...f, launch_preset: { ...f.launch_preset, ...patch } }));
+    const setRule = (i, patch) => setForm((f) => ({ ...f, rule_presets: f.rule_presets.map((r, idx) => (idx === i ? { ...r, ...patch } : r)) }));
+
+    const save = async () => {
+        setBusy(true);
+        setError(null);
+        try {
+            const payload = {
+                name: form.name,
+                color: form.color,
+                description: form.description || null,
+                playbook: form.playbook || null,
+                is_active: form.is_active,
+                launch_preset: {
+                    ...form.launch_preset,
+                    daily_budget: Number(form.launch_preset.daily_budget) || null,
+                    age_min: Number(form.launch_preset.age_min) || 18,
+                    age_max: Number(form.launch_preset.age_max) || 65,
+                },
+                rule_presets: form.rule_presets.map((r) => ({
+                    ...r,
+                    threshold: Number(r.threshold),
+                    min_spend: r.min_spend === '' || r.min_spend === null ? 0 : Number(r.min_spend),
+                    lookback_days: Number(r.lookback_days),
+                    cooldown_hours: Number(r.cooldown_hours) || 24,
+                    action_value: ['increase_budget', 'decrease_budget'].includes(r.action) && r.action_value ? Number(r.action_value) : null,
+                    max_daily_budget: r.max_daily_budget ? Number(r.max_daily_budget) : null,
+                    min_daily_budget: r.min_daily_budget ? Number(r.min_daily_budget) : null,
+                })),
+            };
+            await api(strategy.id ? `/api/v1/facebook-ads/manage/strategies/${strategy.id}` : '/api/v1/facebook-ads/manage/strategies', {
+                method: strategy.id ? 'PUT' : 'POST',
+                body: JSON.stringify(payload),
+            });
+            onSaved(strategy.id ? 'Strategy updated' : 'Strategy created');
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const small = 'w-full rounded border border-gray-300 px-2 py-1 text-xs';
+
+    return (
+        <Modal
+            wide
+            title={strategy.id ? 'Edit strategy' : 'New strategy'}
+            onClose={onClose}
+            footer={
+                <>
+                    <button onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700">
+                        Cancel
+                    </button>
+                    <button onClick={save} disabled={busy || !form.name.trim()} className="fs-cta rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                        {busy ? 'Saving...' : 'Save strategy'}
+                    </button>
+                </>
+            }
+        >
+            {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+            <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                        <Field label="Name">
+                            <input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Broad Testing" className={inputClass} />
+                        </Field>
+                    </div>
+                    <Field label="Colour">
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                            {Object.keys(STRATEGY_CHIP).map((c) => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => set({ color: c })}
+                                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STRATEGY_CHIP[c]} ${form.color === c ? 'ring-2 ring-orange-500' : ''}`}
+                                >
+                                    {c}
+                                </button>
+                            ))}
+                        </div>
+                    </Field>
+                </div>
+                <Field label="Short description">
+                    <input value={form.description || ''} onChange={(e) => set({ description: e.target.value })} className={inputClass} />
+                </Field>
+                <Field label="Playbook" hint="The steps the team should follow — shown when launching and on the Strategies tab.">
+                    <textarea rows={6} value={form.playbook || ''} onChange={(e) => set({ playbook: e.target.value })} className={inputClass} />
+                </Field>
+
+                <div className="rounded-lg border border-gray-200 p-3">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">Launch defaults</span>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        <Field label="Objective">
+                            <select value={form.launch_preset.objective} onChange={(e) => setPreset({ objective: e.target.value })} className={inputClass}>
+                                <option value="OUTCOME_SALES">Sales</option>
+                                <option value="OUTCOME_TRAFFIC">Traffic</option>
+                            </select>
+                        </Field>
+                        <Field label="Daily budget">
+                            <input type="number" min="1" value={form.launch_preset.daily_budget ?? ''} onChange={(e) => setPreset({ daily_budget: e.target.value })} className={inputClass} />
+                        </Field>
+                        <Field label="Countries">
+                            <input value={form.launch_preset.countries || ''} onChange={(e) => setPreset({ countries: e.target.value })} className={inputClass} />
+                        </Field>
+                        <Field label="Button">
+                            <select value={form.launch_preset.call_to_action} onChange={(e) => setPreset({ call_to_action: e.target.value })} className={inputClass}>
+                                {CTAS.map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Min age">
+                            <input type="number" min="18" max="65" value={form.launch_preset.age_min} onChange={(e) => setPreset({ age_min: e.target.value })} className={inputClass} />
+                        </Field>
+                        <Field label="Max age">
+                            <input type="number" min="18" max="65" value={form.launch_preset.age_max} onChange={(e) => setPreset({ age_max: e.target.value })} className={inputClass} />
+                        </Field>
+                        <label className="col-span-2 flex items-center gap-2 pt-6 text-sm text-gray-700">
+                            <input type="checkbox" checked={!!form.launch_preset.advantage_audience} onChange={(e) => setPreset({ advantage_audience: e.target.checked })} />
+                            Advantage+ audience
+                        </label>
+                    </div>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Bundled rules</span>
+                        <button
+                            type="button"
+                            onClick={() => set({ rule_presets: [...form.rule_presets, emptyRulePreset()] })}
+                            className="text-xs font-medium text-orange-600 hover:underline"
+                        >
+                            + Add rule
+                        </button>
+                    </div>
+                    {form.rule_presets.length === 0 ? (
+                        <p className="text-xs text-gray-500">No rules — this strategy is a playbook only.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {form.rule_presets.map((r, i) => {
+                                const isBudget = ['increase_budget', 'decrease_budget'].includes(r.action);
+                                return (
+                                    <div key={i} className="rounded border border-gray-200 p-2">
+                                        <div className="mb-2 flex gap-2">
+                                            <input value={r.name} onChange={(e) => setRule(i, { name: e.target.value })} placeholder="Rule name" className={small} />
+                                            <button
+                                                type="button"
+                                                onClick={() => set({ rule_presets: form.rule_presets.filter((_, idx) => idx !== i) })}
+                                                className="shrink-0 px-2 text-xs text-red-600"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-2 md:grid-cols-8">
+                                            <select value={r.level} onChange={(e) => setRule(i, { level: e.target.value })} className={small}>
+                                                <option value="campaign">Campaign</option>
+                                                <option value="adset">Ad set</option>
+                                                <option value="ad">Ad</option>
+                                            </select>
+                                            <select value={r.metric} onChange={(e) => setRule(i, { metric: e.target.value })} className={small}>
+                                                {Object.entries(METRIC_SHORT).map(([value, label]) => (
+                                                    <option key={value} value={value}>
+                                                        {label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <select value={r.operator} onChange={(e) => setRule(i, { operator: e.target.value })} className={small}>
+                                                <option value="lt">&lt;</option>
+                                                <option value="gt">&gt;</option>
+                                            </select>
+                                            <input type="number" step="0.01" value={r.threshold} onChange={(e) => setRule(i, { threshold: e.target.value })} title="Value" className={small} />
+                                            <input type="number" value={r.lookback_days} onChange={(e) => setRule(i, { lookback_days: e.target.value })} title="Days" className={small} />
+                                            <input type="number" value={r.min_spend ?? ''} onChange={(e) => setRule(i, { min_spend: e.target.value })} title="Min spend" placeholder="min spend" className={small} />
+                                            <select value={r.action} onChange={(e) => setRule(i, { action: e.target.value })} className={small}>
+                                                {ACTIONS.map(([value, label]) => (
+                                                    <option key={value} value={value} disabled={r.level === 'ad' && value.includes('budget')}>
+                                                        {label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <input type="number" value={r.cooldown_hours ?? 24} onChange={(e) => setRule(i, { cooldown_hours: e.target.value })} title="Cooldown hours" className={small} />
+                                        </div>
+                                        {isBudget && (
+                                            <div className="mt-2 grid grid-cols-3 gap-2">
+                                                <input type="number" value={r.action_value ?? ''} onChange={(e) => setRule(i, { action_value: e.target.value })} placeholder="By %" className={small} />
+                                                <input type="number" value={r.max_daily_budget ?? ''} onChange={(e) => setRule(i, { max_daily_budget: e.target.value })} placeholder="Max daily budget" className={small} />
+                                                <input type="number" value={r.min_daily_budget ?? ''} onChange={(e) => setRule(i, { min_daily_budget: e.target.value })} placeholder="Min daily budget" className={small} />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            <p className="text-[11px] text-gray-500">Columns: level · metric · op · value · days · min spend · action · cooldown (h)</p>
+                        </div>
+                    )}
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={form.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
+                    Active (shown in the launch wizard)
                 </label>
             </div>
         </Modal>

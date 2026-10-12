@@ -6,12 +6,15 @@
 import React, { useState } from 'react';
 import { stepApi } from '../services/api';
 import { STEP_TYPES } from '../types';
+import { UseTemplateModal, SaveTemplateModal } from './LandingTemplateModals';
 
 export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, showToast }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState(null);
     const [draggedStep, setDraggedStep] = useState(null);
+    const [templateFor, setTemplateFor] = useState(null);
+    const [saveTemplateFor, setSaveTemplateFor] = useState(null);
 
     // Form state for new step
     const [newStep, setNewStep] = useState({
@@ -235,6 +238,16 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                                     <p className="text-sm text-gray-500">
                                         {STEP_TYPES[step.type]?.label || step.type} • /{step.slug}
                                     </p>
+                                    {step.landing_page_template && (
+                                        <a
+                                            href="/funnel-builder/landing-library"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="mt-1 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-800"
+                                            title="Landing Library template this page was built from"
+                                        >
+                                            Template: {step.landing_page_template.name}
+                                        </a>
+                                    )}
                                 </div>
 
                                 {/* Status */}
@@ -261,6 +274,26 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
                                     </button>
+                                    <button
+                                        onClick={() => setTemplateFor(step)}
+                                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                                        title="Use a Landing Library template"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                                        </svg>
+                                    </button>
+                                    {step.has_content && (
+                                        <button
+                                            onClick={() => setSaveTemplateFor(step)}
+                                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                                            title="Save this page to the Landing Library"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                            </svg>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => handleDuplicate(step.id)}
                                         className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
@@ -294,6 +327,32 @@ export default function StepList({ funnelUuid, steps, onRefresh, onEditStep, sho
                         </div>
                     ))}
                 </div>
+            )}
+
+            {templateFor && (
+                <UseTemplateModal
+                    funnelUuid={funnelUuid}
+                    step={templateFor}
+                    onClose={() => setTemplateFor(null)}
+                    onApplied={(message) => {
+                        setTemplateFor(null);
+                        showToast(message);
+                        onRefresh();
+                    }}
+                />
+            )}
+
+            {saveTemplateFor && (
+                <SaveTemplateModal
+                    funnelUuid={funnelUuid}
+                    step={saveTemplateFor}
+                    onClose={() => setSaveTemplateFor(null)}
+                    onSaved={(message) => {
+                        setSaveTemplateFor(null);
+                        showToast(message);
+                        onRefresh();
+                    }}
+                />
             )}
 
             {/* Create Step Modal */}

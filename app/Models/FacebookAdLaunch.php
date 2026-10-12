@@ -14,6 +14,7 @@ class FacebookAdLaunch extends Model
     protected $fillable = [
         'facebook_ad_account_id',
         'funnel_id',
+        'facebook_ad_strategy_id',
         'user_id',
         'name',
         'objective',
