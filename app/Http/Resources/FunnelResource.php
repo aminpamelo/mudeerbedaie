@@ -17,6 +17,7 @@ class FunnelResource extends JsonResource
             'description' => $this->description,
             'type' => $this->type,
             'status' => $this->status,
+            'available_to_fighters' => (bool) $this->available_to_fighters,
             'settings' => $this->settings,
             'thumbnail' => $this->thumbnail,
             'published_at' => $this->published_at?->toIso8601String(),

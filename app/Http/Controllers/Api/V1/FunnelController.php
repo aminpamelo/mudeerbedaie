@@ -210,6 +210,26 @@ class FunnelController extends Controller
     }
 
     /**
+     * Add a funnel to (or remove it from) the Fighter Funnel Library, where
+     * fighters can copy it. Admin/employee only.
+     */
+    public function toggleFighterAvailability(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role, ['admin', 'employee'], true)) {
+            return response()->json(['message' => 'Only admin can manage the Fighter Library.'], 403);
+        }
+
+        $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
+        $funnel->update(['available_to_fighters' => ! $funnel->available_to_fighters]);
+
+        return response()->json([
+            'message' => $funnel->available_to_fighters ? 'Funnel added to the Fighter Library' : 'Funnel removed from the Fighter Library',
+            'available_to_fighters' => $funnel->available_to_fighters,
+        ]);
+    }
+
+    /**
      * Candidate owners for the assign dropdown (admin/employee only).
      */
     public function owners(Request $request): JsonResponse

@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { LayoutDashboard, TrendingUp, ShoppingBag, Package, Bell, LogOut, Menu, X, Swords, Library, CalendarDays, Briefcase } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, ShoppingBag, Package, Bell, LogOut, Menu, X, Swords, Library, CalendarDays, Briefcase, Eye, Zap, BarChart3, LayoutTemplate, ExternalLink } from 'lucide-react';
 import { cn, initialsFrom } from '@/fighter/lib/utils';
 import NotificationBell from '@/fighter/components/NotificationBell';
 import CreateFunnelButton from '@/fighter/components/CreateFunnelButton';
@@ -14,6 +14,17 @@ const NAV = [
   { label: 'Orders', href: '/fighter/orders', icon: ShoppingBag },
   { label: 'Products', href: '/fighter/products', icon: Package },
   { label: 'Notifications', href: '/fighter/notifications', icon: Bell },
+];
+
+/**
+ * Funnel Studio tools (full-page builder app, not Inertia). Every Studio page
+ * is already scoped to the fighter's own funnels and pixels.
+ */
+const STUDIO = [
+  { label: 'Pixel Library', href: '/funnel-builder/pixel-library?from=fighter', icon: Eye },
+  { label: 'Automations', href: '/funnel-builder/automations?from=fighter', icon: Zap },
+  { label: 'Analytics', href: '/funnel-builder/analytics?from=fighter', icon: BarChart3 },
+  { label: 'Landing Library', href: '/funnel-builder/landing-library?from=fighter', icon: LayoutTemplate },
 ];
 
 function isActive(url, href, exact) {
@@ -57,7 +68,7 @@ function Brand() {
 
 function NavLinks({ url, onNavigate }) {
   return (
-    <nav className="flex flex-1 flex-col gap-1">
+    <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scroll-thin">
       {NAV.map((item) => {
         const Icon = item.icon;
         const active = isActive(url, item.href, item.exact);
@@ -79,6 +90,22 @@ function NavLinks({ url, onNavigate }) {
             />
             <span>{item.label}</span>
           </Link>
+        );
+      })}
+
+      <div className="mt-4 px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-white/30">Funnel Studio</div>
+      {STUDIO.map((item) => {
+        const Icon = item.icon;
+        return (
+          <a
+            key={item.href}
+            href={item.href}
+            className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold text-white/60 transition-all hover:bg-white/5 hover:text-white"
+          >
+            <Icon className="h-[17px] w-[17px] text-white/40 transition-colors group-hover:text-white/70" strokeWidth={2} />
+            <span className="flex-1">{item.label}</span>
+            <ExternalLink className="h-3.5 w-3.5 text-white/25 opacity-0 transition-opacity group-hover:opacity-100" strokeWidth={2} />
+          </a>
         );
       })}
     </nav>

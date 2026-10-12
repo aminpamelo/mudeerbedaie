@@ -3,7 +3,8 @@
  * Displays all funnels grouped by category (default) or as a flat grid.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { categoryApi, funnelApi, templateApi } from '../services/api';
 import { FUNNEL_STATUSES } from '../types';
 import ManageCategoriesModal from './ManageCategoriesModal';
@@ -170,6 +171,39 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
         } catch (err) {
             setError(err.message || 'Failed to delete funnel');
         }
+    };
+
+    const canManageFighters = ['admin', 'employee'].includes(window.funnelBuilderConfig?.user?.role);
+
+    const handleTogglePublish = async (funnel) => {
+        try {
+            if (funnel.status === 'published') {
+                await funnelApi.unpublish(funnel.uuid);
+            } else {
+                await funnelApi.publish(funnel.uuid);
+            }
+            loadFunnels();
+        } catch (err) {
+            setError(err.message || 'Failed to update funnel status');
+        }
+    };
+
+    const handleToggleFighter = async (funnel) => {
+        try {
+            const response = await funnelApi.toggleFighterAvailability(funnel.uuid);
+            setFunnels((prev) => prev.map((f) => (f.uuid === funnel.uuid ? { ...f, available_to_fighters: response.available_to_fighters } : f)));
+        } catch (err) {
+            setError(err.message || 'Failed to update Fighter Library');
+        }
+    };
+
+    const actions = {
+        onSelect: onSelectFunnel,
+        onDuplicate: handleDuplicate,
+        onDelete: handleDelete,
+        onTogglePublish: handleTogglePublish,
+        onToggleFighter: handleToggleFighter,
+        canManageFighters,
     };
 
     const handleAssignCategory = async (funnel, categoryId) => {
@@ -356,6 +390,7 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
                     canAssignOwner={canAssignOwner}
                     owners={owners}
                     onAssignOwner={handleAssignOwner}
+                    actions={actions}
                 />
             ) : view === 'flat' ? (
                 <FunnelGrid
@@ -366,6 +401,7 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
                     onDuplicate={handleDuplicate}
                     onDelete={handleDelete}
                     onAssignCategory={handleAssignCategory}
+                    actions={actions}
                 />
             ) : (
                 <div className="space-y-6">
@@ -406,6 +442,7 @@ export default function FunnelList({ onSelectFunnel, onCreateFunnel }) {
                                             onDuplicate={handleDuplicate}
                                             onDelete={handleDelete}
                                             onAssignCategory={handleAssignCategory}
+                                            actions={actions}
                                         />
                                     )
                                 )}
@@ -553,7 +590,7 @@ function EmptyState({ onCreate }) {
     );
 }
 
-function FunnelGrid({ funnels, categories, getStatusBadge, onSelect, onDuplicate, onDelete, onAssignCategory }) {
+function FunnelGrid({ funnels, categories, getStatusBadge, onSelect, onDuplicate, onDelete, onAssignCategory, actions }) {
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {funnels.map((funnel) => (
@@ -566,6 +603,7 @@ function FunnelGrid({ funnels, categories, getStatusBadge, onSelect, onDuplicate
                     onDuplicate={onDuplicate}
                     onDelete={onDelete}
                     onAssignCategory={onAssignCategory}
+                    actions={actions}
                 />
             ))}
         </div>
@@ -574,7 +612,7 @@ function FunnelGrid({ funnels, categories, getStatusBadge, onSelect, onDuplicate
 
 // Table view — the default. One row per funnel with owner, orders, and
 // revenue so the whole operation is scannable at a glance.
-function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete, canAssignOwner, owners, onAssignOwner }) {
+function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete, canAssignOwner, owners, onAssignOwner, actions }) {
     const [assigningUuid, setAssigningUuid] = useState(null);
 
     const fmtRM = (value) => `RM ${Number(value || 0).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
@@ -662,6 +700,11 @@ function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete,
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${getStatusBadge(funnel.status)}`}>
                                         {funnel.status}
                                     </span>
+                                    {funnel.available_to_fighters && (
+                                        <span className="ml-1.5 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700" title="Available in the Fighter Funnel Library">
+                                            Fighter Library
+                                        </span>
+                                    )}
                                 </td>
                                 <td className="px-4 py-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{funnel.steps_count ?? funnel.steps?.length ?? 0}</td>
                                 <td className="px-4 py-3 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{(funnel.sessions_count ?? 0).toLocaleString()}</td>
@@ -675,24 +718,7 @@ function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete,
                                         >
                                             Open
                                         </button>
-                                        <button
-                                            onClick={() => onDuplicate(funnel.uuid)}
-                                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-200"
-                                            title="Duplicate"
-                                        >
-                                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => onDelete(funnel.uuid)}
-                                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:text-red-500"
-                                            title="Delete"
-                                        >
-                                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
+                                        <FunnelActionsMenu funnel={funnel} actions={actions} />
                                     </div>
                                 </td>
                             </tr>
@@ -704,7 +730,7 @@ function FunnelTable({ funnels, getStatusBadge, onSelect, onDuplicate, onDelete,
     );
 }
 
-function FunnelCard({ funnel, categories, getStatusBadge, onSelect, onDuplicate, onDelete, onAssignCategory }) {
+function FunnelCard({ funnel, categories, getStatusBadge, onSelect, onDuplicate, onDelete, onAssignCategory, actions }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const category = funnel.category;
     const colorClasses = getCategoryColorClasses(category?.color);
@@ -801,26 +827,85 @@ function FunnelCard({ funnel, categories, getStatusBadge, onSelect, onDuplicate,
                             </>
                         )}
                     </div>
-                    <button
-                        onClick={() => onDuplicate(funnel.uuid)}
-                        className="rounded-md border border-zinc-200 p-1.5 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                        title="Duplicate"
-                    >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => onDelete(funnel.uuid)}
-                        className="rounded-md border border-zinc-200 p-1.5 text-zinc-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-zinc-700 dark:hover:border-red-800 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                        title="Delete"
-                    >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                    </button>
+                    <FunnelActionsMenu funnel={funnel} actions={actions} bordered />
                 </div>
             </div>
         </div>
+    );
+}
+
+/**
+ * "⋯" actions for a funnel row/card — mirrors the old admin funnel list:
+ * Analytics, Edit, View Live, Publish/Unpublish, Duplicate, Fighter Library
+ * (admin/employee) and Delete. The menu is portalled to <body> with fixed
+ * positioning so the table's horizontal scroll container doesn't clip it.
+ */
+function FunnelActionsMenu({ funnel, actions, bordered = false }) {
+    const [pos, setPos] = useState(null);
+    const buttonRef = useRef(null);
+
+    const open = () => {
+        const rect = buttonRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const width = 224;
+        const menuHeight = 320;
+        const top = rect.bottom + menuHeight > window.innerHeight ? Math.max(8, rect.top - menuHeight) : rect.bottom + 4;
+        setPos({ top, left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)), width });
+    };
+
+    const run = (fn) => () => {
+        setPos(null);
+        fn();
+    };
+
+    const liveUrl = funnel.url || `/f/${funnel.slug}`;
+    const published = funnel.status === 'published';
+
+    const item = 'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800';
+
+    return (
+        <>
+            <button
+                ref={buttonRef}
+                type="button"
+                onClick={() => (pos ? setPos(null) : open())}
+                className={bordered
+                    ? 'rounded-md border border-zinc-200 p-1.5 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300'
+                    : 'rounded-md p-1.5 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-200'}
+                title="More actions"
+                aria-label="More actions"
+            >
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
+                </svg>
+            </button>
+            {pos && createPortal(
+                <>
+                    <div className="fixed inset-0 z-[90]" onClick={() => setPos(null)} />
+                    <div
+                        className="fixed z-[91] overflow-hidden rounded-lg border border-zinc-200 bg-white py-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                        style={{ top: pos.top, left: pos.left, width: pos.width }}
+                        role="menu"
+                    >
+                        <button type="button" className={item} onClick={run(() => actions.onSelect(funnel, 'analytics'))}>Analytics</button>
+                        <button type="button" className={item} onClick={run(() => actions.onSelect(funnel))}>Edit in Builder</button>
+                        <a href={liveUrl} target="_blank" rel="noreferrer" className={item} onClick={() => setPos(null)}>View Live ↗</a>
+                        <div className="my-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                        <button type="button" className={item} onClick={run(() => actions.onTogglePublish(funnel))}>{published ? 'Unpublish' : 'Publish'}</button>
+                        <button type="button" className={item} onClick={run(() => actions.onDuplicate(funnel.uuid))}>Duplicate</button>
+                        {actions.canManageFighters && (
+                            <button type="button" className={item} onClick={run(() => actions.onToggleFighter(funnel))}>
+                                {funnel.available_to_fighters ? 'Remove from Fighter Library' : 'Make available to fighters'}
+                            </button>
+                        )}
+                        <div className="my-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                        <button type="button" className={`${item} !text-red-600 hover:!bg-red-50 dark:hover:!bg-red-900/20`} onClick={run(() => actions.onDelete(funnel.uuid))}>Delete</button>
+                    </div>
+                </>,
+                // Portal into the Studio root (not <body>) so the dark-theme
+                // remaps scoped to .funnel-builder-app still apply.
+                buttonRef.current?.closest('.funnel-builder-app') || document.body,
+            )}
+        </>
     );
 }

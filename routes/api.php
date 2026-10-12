@@ -266,6 +266,7 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::delete('funnels/{uuid}', [FunnelController::class, 'destroy'])->name('api.funnels.destroy');
     Route::post('funnels/{uuid}/duplicate', [FunnelController::class, 'duplicate'])->name('api.funnels.duplicate');
     Route::post('funnels/{uuid}/assign-owner', [FunnelController::class, 'assignOwner'])->name('api.funnels.assign-owner');
+    Route::post('funnels/{uuid}/fighter-availability', [FunnelController::class, 'toggleFighterAvailability'])->name('api.funnels.fighter-availability');
     Route::get('funnel-owners', [FunnelController::class, 'owners'])->name('api.funnels.owners');
     Route::post('funnels/{uuid}/publish', [FunnelController::class, 'publish'])->name('api.funnels.publish');
     Route::post('funnels/{uuid}/unpublish', [FunnelController::class, 'unpublish'])->name('api.funnels.unpublish');

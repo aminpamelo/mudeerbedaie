@@ -111,6 +111,11 @@ export const funnelApi = {
     unpublish: (uuid) => request(`/funnels/${uuid}/unpublish`, {
         method: 'POST',
     }),
+
+    // Add to / remove from the Fighter Funnel Library (admin/employee)
+    toggleFighterAvailability: (uuid) => request(`/funnels/${uuid}/fighter-availability`, {
+        method: 'POST',
+    }),
 };
 
 /**
