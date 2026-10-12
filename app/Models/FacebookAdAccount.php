@@ -3,12 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FacebookAdAccount extends Model
 {
+    /** @use HasFactory<\Database\Factories\FacebookAdAccountFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'facebook_ad_connection_id',
         'account_id',
@@ -20,6 +24,19 @@ class FacebookAdAccount extends Model
     public function connection(): BelongsTo
     {
         return $this->belongsTo(FacebookAdConnection::class, 'facebook_ad_connection_id');
+    }
+
+    public function rules(): HasMany
+    {
+        return $this->hasMany(FacebookAdRule::class);
+    }
+
+    /**
+     * Whether the parent connection's token may write (pause, budget, launch).
+     */
+    public function canManageAds(): bool
+    {
+        return (bool) $this->getRelationValue('connection')?->can_manage_ads;
     }
 
     public function insights(): HasMany

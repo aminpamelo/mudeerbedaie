@@ -48,10 +48,14 @@ class FacebookAdsService
                 return $this->markError($connection, $this->graphError($bm, 'Token is valid but cannot access this Business Manager.'));
             }
 
+            $permissions = $this->grantedPermissions($connection);
+
             $bmName = $bm->json('name');
             $connection->update([
                 'status' => 'connected',
                 'status_message' => 'Connected as '.($me->json('name') ?? 'unknown').' → BM: '.($bmName ?? $connection->business_manager_id),
+                'permissions' => $permissions,
+                'can_manage_ads' => in_array('ads_management', $permissions, true),
             ]);
 
             return ['success' => true, 'message' => "Connected to Business Manager \"{$bmName}\"."];
@@ -336,6 +340,33 @@ class FacebookAdsService
 
             return null;
         });
+    }
+
+    /**
+     * Permissions the token was granted (e.g. ads_read, ads_management).
+     * A failed lookup returns [] so verification never fails on it.
+     *
+     * @return array<int, string>
+     */
+    public function grantedPermissions(FacebookAdConnection $connection): array
+    {
+        try {
+            $response = Http::timeout(20)->get($this->url('/me/permissions'), [
+                'access_token' => $connection->access_token,
+            ]);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        return collect($response->json('data', []))
+            ->filter(fn ($row) => is_array($row) && ($row['status'] ?? null) === 'granted' && isset($row['permission']))
+            ->pluck('permission')
+            ->values()
+            ->all();
     }
 
     protected function url(string $path): string

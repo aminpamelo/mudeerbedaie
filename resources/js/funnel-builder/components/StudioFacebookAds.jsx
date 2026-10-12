@@ -153,6 +153,14 @@ export default function StudioFacebookAds() {
                                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${STATUS_BADGES[connection.status] || 'bg-gray-100 text-gray-600'}`}>
                                             {connection.status}
                                         </span>
+                                        {connection.status === 'connected' && (
+                                            <span
+                                                title={connection.can_manage_ads ? 'Token has ads_management — ads can be run from the Ads Manager page.' : 'Token only has ads_read. Re-generate it with ads_management and paste it via Edit to run ads.'}
+                                                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${connection.can_manage_ads ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}
+                                            >
+                                                {connection.can_manage_ads ? 'Can run ads' : 'Read-only'}
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="mt-0.5 truncate text-xs text-gray-500">
                                         BM {connection.business_manager_id}
@@ -408,7 +416,7 @@ const WIZARD_STEPS = ['Overview', 'Business Manager', 'Access Token', 'Verify'];
 const ERROR_HINTS = [
     'Copy the FULL token — it is long and easy to cut off.',
     'The token must belong to a System User inside this same Business Manager.',
-    'When generating the token, tick the ads_read permission.',
+    'When generating the token, tick ads_read (and ads_management if you want to run ads from the Studio).',
     'The System User must be assigned your ad accounts (Add Assets).',
     'Double-check the Business Manager ID — numbers only.',
 ];
@@ -645,11 +653,14 @@ function ConnectWizard({ onClose, onFinished }) {
                                     </li>
                                     <li>
                                         Click <span className="font-medium">Add Assets</span> → Ad Accounts → select your
-                                        accounts → enable <span className="font-medium">View performance</span>
+                                        accounts → enable <span className="font-medium">Manage campaigns</span> (or{' '}
+                                        <span className="font-medium">View performance</span> for read-only)
                                     </li>
                                     <li>
                                         Click <span className="font-medium">Generate New Token</span> → choose any app →
-                                        tick <span className="font-mono text-xs">ads_read</span> → set expiry to{' '}
+                                        tick <span className="font-mono text-xs">ads_read</span> +{' '}
+                                        <span className="font-mono text-xs">ads_management</span> (needed to run ads from
+                                        the Studio) → set expiry to{' '}
                                         <span className="font-medium">Never</span>
                                     </li>
                                     <li>Copy the token and paste it below</li>

@@ -53,6 +53,7 @@ class FacebookAdsController extends Controller
                 'business_manager_id' => $connection->business_manager_id,
                 'status' => $connection->status,
                 'status_message' => $connection->status_message,
+                'can_manage_ads' => (bool) $connection->can_manage_ads,
                 'last_synced_at' => $connection->last_synced_at?->toIso8601String(),
                 'accounts' => $connection->adAccounts->map(fn (FacebookAdAccount $account) => [
                     'id' => $account->id,

@@ -123,6 +123,7 @@ use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\V1\AffiliateDashboardController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FacebookAdsController;
+use App\Http\Controllers\Api\V1\FacebookAdsManagerController;
 use App\Http\Controllers\Api\V1\FunnelAffiliateController;
 use App\Http\Controllers\Api\V1\FunnelAutomationController;
 use App\Http\Controllers\Api\V1\FunnelCategoryController;
@@ -231,6 +232,23 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::delete('facebook-ads/connections/{connection}', [FacebookAdsController::class, 'destroy'])->name('api.facebook-ads.destroy');
     Route::post('facebook-ads/connections/{connection}/sync', [FacebookAdsController::class, 'sync'])->name('api.facebook-ads.sync');
     Route::get('facebook-ads/accounts', [FacebookAdsController::class, 'accounts'])->name('api.facebook-ads.accounts');
+
+    // Facebook Ads Manager — run ads from the Studio (needs ads_management token)
+    Route::prefix('facebook-ads/manage')->name('api.facebook-ads.manage.')->group(function () {
+        Route::get('accounts', [FacebookAdsManagerController::class, 'accounts'])->name('accounts');
+        Route::get('accounts/{account}/entities', [FacebookAdsManagerController::class, 'entities'])->name('entities');
+        Route::post('accounts/{account}/status', [FacebookAdsManagerController::class, 'updateStatus'])->name('status');
+        Route::post('accounts/{account}/budget', [FacebookAdsManagerController::class, 'updateBudget'])->name('budget');
+        Route::get('accounts/{account}/launch-options', [FacebookAdsManagerController::class, 'launchOptions'])->name('launch-options');
+        Route::post('accounts/{account}/images', [FacebookAdsManagerController::class, 'uploadImage'])->name('images');
+        Route::post('accounts/{account}/launch', [FacebookAdsManagerController::class, 'launch'])->name('launch');
+        Route::get('actions', [FacebookAdsManagerController::class, 'actions'])->name('actions');
+        Route::get('rules', [FacebookAdsManagerController::class, 'rules'])->name('rules');
+        Route::post('rules', [FacebookAdsManagerController::class, 'storeRule'])->name('rules.store');
+        Route::put('rules/{rule}', [FacebookAdsManagerController::class, 'updateRule'])->name('rules.update');
+        Route::delete('rules/{rule}', [FacebookAdsManagerController::class, 'destroyRule'])->name('rules.destroy');
+        Route::post('rules/{rule}/run', [FacebookAdsManagerController::class, 'runRule'])->name('rules.run');
+    });
 
     Route::get('funnels', [FunnelController::class, 'index'])->name('api.funnels.index');
     Route::post('funnels', [FunnelController::class, 'store'])->name('api.funnels.store');

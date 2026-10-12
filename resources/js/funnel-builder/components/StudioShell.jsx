@@ -242,6 +242,7 @@ export default function StudioShell({
         reports: 'Reports',
         daily_reporting: 'Daily Reporting',
         facebook_ads: 'Facebook Ads',
+        ads_manager: 'Ads Manager',
         automations: 'Automations',
         analytics: 'Analytics',
         connect_ai: 'Connect AI',
@@ -386,6 +387,21 @@ export default function StudioShell({
                         </svg>
                     }
                 />
+                {['admin', 'employee'].includes(window.funnelBuilderConfig?.user?.role) && (
+                    <NavItem
+                        active={currentView === 'ads_manager'}
+                        onClick={() => {
+                            setSidebarOpen(false);
+                            onNavigate('ads_manager');
+                        }}
+                        label="Ads Manager"
+                        icon={
+                            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                            </svg>
+                        }
+                    />
+                )}
                 <NavItem
                     active={currentView === 'pixels'}
                     onClick={() => {

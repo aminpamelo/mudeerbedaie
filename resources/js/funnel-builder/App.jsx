@@ -13,6 +13,7 @@ import StudioProducts from './components/StudioProducts';
 import StudioOrders from './components/StudioOrders';
 import StudioReports from './components/StudioReports';
 import StudioFacebookAds from './components/StudioFacebookAds';
+import StudioAdsManager from './components/StudioAdsManager';
 import StudioAutomations from './components/StudioAutomations';
 import StudioAnalytics from './components/StudioAnalytics';
 import StudioDailyReporting from './components/StudioDailyReporting';
@@ -29,6 +30,7 @@ const VIEWS = {
     ORDERS: 'orders',
     REPORTS: 'reports',
     FACEBOOK_ADS: 'facebook_ads',
+    ADS_MANAGER: 'ads_manager',
     AUTOMATIONS: 'automations',
     ANALYTICS: 'analytics',
     DAILY_REPORTING: 'daily_reporting',
@@ -42,6 +44,7 @@ const STATIC_PATHS = {
     '/funnel-builder/orders': VIEWS.ORDERS,
     '/funnel-builder/reports': VIEWS.REPORTS,
     '/funnel-builder/facebook-ads': VIEWS.FACEBOOK_ADS,
+    '/funnel-builder/ads-manager': VIEWS.ADS_MANAGER,
     '/funnel-builder/automations': VIEWS.AUTOMATIONS,
     '/funnel-builder/analytics': VIEWS.ANALYTICS,
     '/funnel-builder/daily-reporting': VIEWS.DAILY_REPORTING,
@@ -222,6 +225,8 @@ export default function App() {
                 return <StudioReports onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.FACEBOOK_ADS:
                 return <StudioFacebookAds />;
+            case VIEWS.ADS_MANAGER:
+                return <StudioAdsManager />;
             case VIEWS.AUTOMATIONS:
                 return <StudioAutomations onSelectFunnel={handleSelectFunnel} />;
             case VIEWS.ANALYTICS:
