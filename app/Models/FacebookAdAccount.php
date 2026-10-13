@@ -19,11 +19,30 @@ class FacebookAdAccount extends Model
         'name',
         'currency',
         'account_status',
+        'monitor_synced_at',
+        'monitor_sync_error',
+        'daily_budget',
+        'lifetime_budgets',
+        'campaign_budgets',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'monitor_synced_at' => 'datetime',
+            'daily_budget' => 'decimal:2',
+            'campaign_budgets' => 'array',
+        ];
+    }
 
     public function connection(): BelongsTo
     {
         return $this->belongsTo(FacebookAdConnection::class, 'facebook_ad_connection_id');
+    }
+
+    public function levelInsights(): HasMany
+    {
+        return $this->hasMany(FacebookAdLevelInsight::class);
     }
 
     public function rules(): HasMany
@@ -51,6 +70,15 @@ class FacebookAdAccount extends Model
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query->whereHas('connection', fn (Builder $c) => $c->where('user_id', $userId));
+    }
+
+    /**
+     * Accounts the Monitor Iklan syncs: active on Meta and under a connected Business Manager.
+     */
+    public function scopeMonitorable(Builder $query): Builder
+    {
+        return $query->where('account_status', '1')
+            ->whereHas('connection', fn (Builder $c) => $c->where('status', 'connected'));
     }
 
     /**

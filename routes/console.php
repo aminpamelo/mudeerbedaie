@@ -42,6 +42,8 @@ Schedule::command('funnel:pixel-health')->dailyAt('02:30');
 // Refresh Facebook Ads insights from every connected Business Manager
 Schedule::command('facebook:sync-ads --days=3')->dailyAt('03:00');
 Schedule::command('facebook:run-ad-rules')->hourly()->withoutOverlapping();
+Schedule::command('facebook:monitor-sync --days=3')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('facebook:monitor-sync --days=30')->dailyAt('04:00')->withoutOverlapping();
 
 // Custom domain verification
 Schedule::job(new VerifyCustomDomains)->everyFiveMinutes()->withoutOverlapping();

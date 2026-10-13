@@ -28,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Monitor Iklan: one per request so the report and creative scoreboard share its window cache.
+        $this->app->scoped(\App\Services\Funnel\Monitor\AdSales::class);
+
         $this->app->singleton(ShippingManager::class, function ($app) {
             $manager = new ShippingManager;
             $manager->registerProvider($app->make(JntShippingService::class));

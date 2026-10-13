@@ -120,6 +120,7 @@ use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
 use App\Http\Controllers\Api\PosController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
+use App\Http\Controllers\Api\V1\AdMonitorController;
 use App\Http\Controllers\Api\V1\AffiliateDashboardController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FacebookAdsController;
@@ -234,6 +235,11 @@ Route::middleware(['auth:sanctum', 'funnel.owner'])->prefix('v1')->group(functio
     Route::delete('facebook-ads/connections/{connection}', [FacebookAdsController::class, 'destroy'])->name('api.facebook-ads.destroy');
     Route::post('facebook-ads/connections/{connection}/sync', [FacebookAdsController::class, 'sync'])->name('api.facebook-ads.sync');
     Route::get('facebook-ads/accounts', [FacebookAdsController::class, 'accounts'])->name('api.facebook-ads.accounts');
+
+    // Monitor Iklan — every ad account's spend vs real funnel sales + Laporan Harian
+    Route::get('ad-monitor', [AdMonitorController::class, 'index'])->name('api.ad-monitor.index');
+    Route::post('ad-monitor/sync', [AdMonitorController::class, 'sync'])->middleware('throttle:6,1')->name('api.ad-monitor.sync');
+    Route::get('ad-monitor/daily', [AdMonitorController::class, 'daily'])->name('api.ad-monitor.daily');
 
     // Facebook Ads Manager — run ads from the Studio (needs ads_management token)
     Route::prefix('facebook-ads/manage')->name('api.facebook-ads.manage.')->group(function () {
