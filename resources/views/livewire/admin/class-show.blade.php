@@ -4189,13 +4189,14 @@ new class extends Component
 
     public function getUpsellAvailableTeachersProperty()
     {
+        // Live hosts can be assigned to teach extra (upsell) classes too.
         return User::where('status', 'active')
             ->where(function ($q) {
                 $q->whereHas('teacher')
-                    ->orWhereIn('role', ['admin', 'class_admin']);
+                    ->orWhereIn('role', ['admin', 'class_admin', 'live_host']);
             })
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'role']);
     }
 
     public function addSessionTeacher(int $sessionId, int $userId): void
@@ -8966,7 +8967,7 @@ new class extends Component
                                                 open: false,
                                                 search: '',
                                                 selectedIds: @js($session->upsell_teacher_ids ?? []),
-                                                items: @js($this->upsellAvailableTeachers->map(fn($u) => ['id' => $u->id, 'name' => $u->name])->values()),
+                                                items: @js($this->upsellAvailableTeachers->map(fn($u) => ['id' => $u->id, 'name' => $u->role === 'live_host' ? $u->name.' (Live Host)' : $u->name])->values()),
                                                 get filtered() {
                                                     let available = this.items.filter(i => !this.selectedIds.includes(i.id));
                                                     if (!this.search) return available;
@@ -9919,7 +9920,7 @@ new class extends Component
                 <flux:label>Teacher</flux:label>
                 <flux:select wire:model="upsellSessionTeacherId" placeholder="Select teacher (optional)">
                     @foreach($this->upsellAvailableTeachers as $teacher)
-                        <flux:select.option value="{{ $teacher->id }}">{{ $teacher->name }}</flux:select.option>
+                        <flux:select.option value="{{ $teacher->id }}">{{ $teacher->name }}{{ $teacher->role === 'live_host' ? ' (Live Host)' : '' }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </flux:field>

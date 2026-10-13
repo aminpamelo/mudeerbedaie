@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Fighter;
 
 use App\Http\Controllers\Controller;
+use App\Models\Package;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,9 +11,9 @@ use Illuminate\Http\Request;
 class CatalogController extends Controller
 {
     /**
-     * Browsable product catalogue for the fighter's order-create screen —
-     * returns the fighter's favourites (pinned) plus a page of active products,
-     * each with image, price and variants.
+     * Browsable catalogue for the fighter's order-create screen — the
+     * fighter's favourites (pinned), a page of active products (image, price,
+     * variants) and the active HQ packages (bundles) with what's inside.
      */
     public function index(Request $request): JsonResponse
     {
@@ -44,9 +45,20 @@ class CatalogController extends Controller
             ->map(fn (Product $p) => $this->toCard($p, in_array($p->id, $favouriteIds, true)))
             ->values();
 
+        $packages = Package::query()
+            ->available()
+            ->with(['products:id,name'])
+            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
+            ->orderBy('name')
+            ->limit(60)
+            ->get()
+            ->map(fn (Package $package) => $this->toPackageCard($package))
+            ->values();
+
         return response()->json([
             'favourites' => $favourites->values(),
             'products' => $products,
+            'packages' => $packages,
         ]);
     }
 
@@ -96,6 +108,23 @@ class CatalogController extends Controller
                 'sku' => $v->sku,
                 'price' => (float) ($v->price ?? $base),
             ])->values(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function toPackageCard(Package $package): array
+    {
+        return [
+            'id' => $package->id,
+            'name' => $package->name,
+            'price' => (float) $package->price,
+            'original_price' => $package->original_price !== null ? (float) $package->original_price : null,
+            'image' => $package->featured_image ?: null,
+            'contents' => $package->products
+                ->map(fn (Product $p) => ($p->pivot->quantity > 1 ? $p->pivot->quantity.'× ' : '').$p->name)
+                ->values(),
         ];
     }
 }

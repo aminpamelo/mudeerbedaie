@@ -113,10 +113,49 @@ function VariantPicker({ product, onPick, onClose }) {
   );
 }
 
+function PackageCard({ pkg, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(pkg)}
+      className="group overflow-hidden rounded-2xl bg-white text-left ring-1 ring-line/70 transition-shadow hover:shadow-[0_10px_30px_-16px_rgba(0,0,0,0.35)]"
+    >
+      <div className="relative aspect-[4/3] w-full bg-surface">
+        <div className="grid h-full w-full place-items-center text-muted-2"><Package className="h-7 w-7" strokeWidth={1.6} /></div>
+        {pkg.image && (
+          <img
+            src={pkg.image}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
+        <span className="absolute left-2 top-2 rounded-full bg-[var(--color-brand)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Pakej</span>
+      </div>
+      <div className="p-3">
+        <div className="line-clamp-2 min-h-[34px] text-[12.5px] font-semibold leading-snug text-ink">{pkg.name}</div>
+        {pkg.contents?.length > 0 && (
+          <div className="mt-0.5 line-clamp-2 text-[11px] text-muted">{pkg.contents.join(', ')}</div>
+        )}
+        <div className="mt-1 flex items-center justify-between">
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-[13px] font-bold text-ink">{formatMoney(pkg.price)}</span>
+            {pkg.original_price > pkg.price && <span className="text-[11px] text-muted-2 line-through">{formatMoney(pkg.original_price)}</span>}
+          </span>
+          <span className="grid h-6 w-6 place-items-center rounded-lg bg-orange-50 text-[var(--color-brand)]"><Plus className="h-3.5 w-3.5" strokeWidth={2.6} /></span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function ProductBrowser({ onAdd }) {
   const [term, setTerm] = useState('');
   const [favourites, setFavourites] = useState([]);
   const [products, setProducts] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [tab, setTab] = useState('products');
   const [loading, setLoading] = useState(true);
   const [variantProduct, setVariantProduct] = useState(null);
   const debounced = useDebounced(term);
@@ -127,6 +166,7 @@ function ProductBrowser({ onAdd }) {
       .then((data) => {
         setFavourites(data.favourites ?? []);
         setProducts(data.products ?? []);
+        setPackages(data.packages ?? []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -168,13 +208,43 @@ function ProductBrowser({ onAdd }) {
         <input
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          placeholder="Search products…"
+          placeholder={tab === 'packages' ? 'Search packages…' : 'Search products…'}
           className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-[13.5px] text-ink outline-none focus:border-[var(--color-brand)]"
         />
       </div>
 
+      <div className="flex gap-1 self-start rounded-xl bg-surface p-1 ring-1 ring-line/70">
+        {[['products', 'Produk', products.length], ['packages', 'Pakej', packages.length]].map(([value, label, count]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTab(value)}
+            className={cn(
+              'rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors',
+              tab === value ? 'bg-[var(--color-brand)] text-white shadow-sm' : 'text-ink-2 hover:bg-white'
+            )}
+          >
+            {label}{!loading && <span className={cn('ml-1.5 text-[11px]', tab === value ? 'text-white/80' : 'text-muted-2')}>{count}</span>}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="grid place-items-center py-16 text-muted-2"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : tab === 'packages' ? (
+        packages.length === 0 ? (
+          <p className="py-10 text-center text-[13px] text-muted">No packages found.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            {packages.map((pkg) => (
+              <PackageCard
+                key={`pkg-${pkg.id}`}
+                pkg={pkg}
+                onClick={(p) => onAdd({ type: 'package', packageId: p.id, name: p.name, unitPrice: p.price })}
+              />
+            ))}
+          </div>
+        )
       ) : (
         <>
           {favourites.length > 0 && (
@@ -223,7 +293,7 @@ function Cart({ items, onQty, onRemove }) {
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface px-4 py-8 text-center">
         <ShoppingBag className="h-6 w-6 text-muted-2" strokeWidth={1.8} />
         <p className="mt-2 text-[13px] font-medium text-ink">Cart is empty</p>
-        <p className="text-[12px] text-muted">Tap a product to add it.</p>
+        <p className="text-[12px] text-muted">Tap a product or package to add it.</p>
       </div>
     );
   }
@@ -234,7 +304,7 @@ function Cart({ items, onQty, onRemove }) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold text-ink">{item.name}</div>
             <div className="text-[11.5px] text-muted">
-              {item.variantName ? `${item.variantName} · ` : ''}{formatMoney(item.unitPrice)} each
+              {item.type === 'package' ? 'Pakej · ' : ''}{item.variantName ? `${item.variantName} · ` : ''}{formatMoney(item.unitPrice)} each
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1 rounded-lg bg-surface p-0.5">
@@ -470,12 +540,12 @@ export default function OrderCreate({ segment }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  const addToCart = ({ productId, name, variantId, variantName, unitPrice }) => {
-    const key = `${productId}-${variantId ?? ''}`;
+  const addToCart = ({ type = 'product', productId, packageId, name, variantId, variantName, unitPrice }) => {
+    const key = type === 'package' ? `pkg-${packageId}` : `${productId}-${variantId ?? ''}`;
     setCart((prev) => {
       const existing = prev.find((c) => c.key === key);
       if (existing) return prev.map((c) => (c.key === key ? { ...c, quantity: c.quantity + 1 } : c));
-      return [...prev, { key, productId, name, variantId, variantName, unitPrice, quantity: 1 }];
+      return [...prev, { key, type, productId, packageId, name, variantId, variantName, unitPrice, quantity: 1 }];
     });
   };
   const setQty = (key, qty) => {
@@ -528,7 +598,9 @@ export default function OrderCreate({ segment }) {
     payment_reference: paymentMethod === 'bank_transfer' ? paymentReference : null,
     shipping_cost: shipping || null,
     notes: notes || null,
-    items: cart.map((c) => ({ itemable_type: 'product', itemable_id: c.productId, product_variant_id: c.variantId || null, quantity: c.quantity, unit_price: c.unitPrice })),
+    items: cart.map((c) => (c.type === 'package'
+      ? { itemable_type: 'package', itemable_id: c.packageId, product_variant_id: null, quantity: c.quantity, unit_price: c.unitPrice }
+      : { itemable_type: 'product', itemable_id: c.productId, product_variant_id: c.variantId || null, quantity: c.quantity, unit_price: c.unitPrice })),
     ...(customerMode === 'existing'
       ? { customer_id: customer.id }
       : {
