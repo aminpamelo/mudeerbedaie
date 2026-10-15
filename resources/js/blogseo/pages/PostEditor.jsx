@@ -317,6 +317,48 @@ function AuthorPicker({ authors, value, onChange, error }) {
   );
 }
 
+/**
+ * AI-written drafts carry the hadith/ayat they cite so an editor can verify
+ * each reference before publishing (from Blog & SEO → Isu Semasa).
+ */
+function AiReviewPanel({ meta }) {
+  const refs = meta?.references ?? [];
+  return (
+    <div className="mb-4 rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-600/15">
+      <div className="flex flex-wrap items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-violet-600" />
+        <p className="text-[13px] font-semibold text-violet-900">Artikel ditulis oleh AI — semak sebelum publish</p>
+        {meta?.source_url && (
+          <a href={meta.source_url} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-violet-700 underline">Isu asal: {meta.source}</a>
+        )}
+      </div>
+      {refs.length > 0 ? (
+        <>
+          <p className="mt-1.5 text-[12px] text-violet-800/80">Sahkan setiap hadis & ayat di bawah (teks, perawi, nombor) dengan sumber muktabar. Buang atau betulkan yang tidak tepat.</p>
+          <ol className="mt-2 space-y-1.5">
+            {refs.map((ref, i) => (
+              <li key={i} className="rounded-xl bg-white/70 px-3 py-2 text-[12.5px] text-ink-2 ring-1 ring-violet-600/10">
+                <span className={cn('mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase', ref.type === 'quran' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                  {ref.type === 'quran' ? 'Ayat' : 'Hadis'}
+                </span>
+                <span className="font-semibold">{ref.citation}</span>
+                {ref.grade && (
+                  <span className={cn('ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold', /daif|tidak pasti/i.test(ref.grade) ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600')}>
+                    {ref.grade}
+                  </span>
+                )}
+                {ref.text && <span className="mt-0.5 block text-muted">{ref.text}</span>}
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : (
+        <p className="mt-1.5 text-[12px] text-violet-800/80">Semak fakta, bahasa dan sebarang petikan agama dalam artikel ini.</p>
+      )}
+    </div>
+  );
+}
+
 export default function PostEditor({ post, categories, authors, allTags, products, media, siteUrl }) {
   const isNew = !post;
 
@@ -508,6 +550,8 @@ export default function PostEditor({ post, categories, authors, allTags, product
       }
     >
       <Head title={isNew ? 'New post' : data.title || 'Edit post'} />
+
+      {post?.ai_meta && <AiReviewPanel meta={post.ai_meta} />}
 
       <div className="grid gap-4 xl:grid-cols-12">
         {/* ============================= MAIN ============================= */}

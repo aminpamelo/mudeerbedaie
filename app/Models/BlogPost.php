@@ -63,6 +63,7 @@ class BlogPost extends Model
         'noindex',
         'seo_score',
         'seo_report',
+        'ai_meta',
         'seo_checked_at',
     ];
 
@@ -82,6 +83,7 @@ class BlogPost extends Model
             'view_count' => 'integer',
             'seo_score' => 'integer',
             'seo_report' => 'array',
+            'ai_meta' => 'array',
         ];
     }
 

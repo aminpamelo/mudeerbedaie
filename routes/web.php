@@ -11,6 +11,7 @@ use App\Http\Controllers\BlogSeo\AuthorController as BlogSeoAuthorController;
 use App\Http\Controllers\BlogSeo\CategoryController as BlogSeoCategoryController;
 use App\Http\Controllers\BlogSeo\CommentController as BlogSeoCommentController;
 use App\Http\Controllers\BlogSeo\DashboardController as BlogSeoDashboardController;
+use App\Http\Controllers\BlogSeo\IssueController as BlogSeoIssueController;
 use App\Http\Controllers\BlogSeo\PostController as BlogSeoPostController;
 use App\Http\Controllers\BlogSeo\SeoController as BlogSeoSeoController;
 use App\Http\Controllers\BlogSeo\SubscriberController as BlogSeoSubscriberController;
@@ -1727,6 +1728,12 @@ Route::middleware(['auth', 'role:admin,employee', HandleBlogSeoInertiaRequests::
         Route::delete('posts/{post}', [BlogSeoPostController::class, 'destroy'])->name('posts.destroy');
 
         // SEO health
+        Route::get('issues', [BlogSeoIssueController::class, 'index'])->name('issues.index');
+        Route::post('issues/capture', [BlogSeoIssueController::class, 'capture'])->name('issues.capture');
+        Route::put('issues/settings', [BlogSeoIssueController::class, 'settings'])->name('issues.settings');
+        Route::post('issues/{issue}/write', [BlogSeoIssueController::class, 'write'])->name('issues.write');
+        Route::post('issues/{issue}/dismiss', [BlogSeoIssueController::class, 'dismiss'])->name('issues.dismiss');
+
         Route::get('seo', [BlogSeoSeoController::class, 'index'])->name('seo');
         Route::post('seo/reanalyse-all', [BlogSeoSeoController::class, 'reanalyseAll'])->name('seo.reanalyse-all');
         Route::post('seo/sitemap', [BlogSeoSeoController::class, 'regenerateSitemap'])->name('seo.sitemap');

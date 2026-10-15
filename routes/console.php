@@ -150,3 +150,8 @@ Schedule::command('easyparcel:sync-tracking')->everyThirtyMinutes()->withoutOver
 Schedule::command('tms:generate-recurring')->dailyAt('06:00');
 Schedule::command('tms:calculate-daily-stats')->dailyAt('23:55');
 Schedule::command('tms:send-reminders')->dailyAt('08:00');
+
+// Blog "Isu Semasa": capture news headlines hourly; auto-write the day's top
+// drafts each morning (count set in Blog & SEO → Isu Semasa; 0 = off).
+Schedule::command('blog:capture-issues')->hourlyAt(5)->withoutOverlapping();
+Schedule::command('blog:auto-write')->dailyAt('07:30');

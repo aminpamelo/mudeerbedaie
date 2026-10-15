@@ -264,6 +264,7 @@ class PostController extends Controller
             'updatedAt' => $post->updated_at?->toIso8601String(),
             'publicUrl' => $post->is_published ? route('blog.show', $post->slug) : null,
             'previewUrl' => route('blogseo.posts.preview', $post),
+            'ai_meta' => $post->ai_meta,
         ];
     }
 
@@ -299,6 +300,7 @@ class PostController extends Controller
             'views' => (int) $post->view_count,
             'publicUrl' => $post->is_published ? route('blog.show', $post->slug) : null,
             'previewUrl' => route('blogseo.posts.preview', $post),
+            'ai_meta' => $post->ai_meta,
         ];
     }
 

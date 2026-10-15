@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import {
   LayoutDashboard, FileText, Gauge, FolderOpen, Hash, Users,
-  MessageSquare, Mail, LogOut, Menu, X, PenLine, ExternalLink,
+  MessageSquare, Mail, LogOut, Menu, X, PenLine, ExternalLink, Newspaper,
 } from 'lucide-react';
 import { cn, initialsFrom } from '@/blogseo/lib/utils';
 
 const NAV = [
   { label: 'Overview', href: '/blog-seo', icon: LayoutDashboard, exact: true },
   { label: 'Posts', href: '/blog-seo/posts', icon: FileText },
+  { label: 'Isu Semasa (AI)', href: '/blog-seo/issues', icon: Newspaper },
   { label: 'SEO Health', href: '/blog-seo/seo', icon: Gauge },
   { label: 'Categories', href: '/blog-seo/categories', icon: FolderOpen },
   { label: 'Authors', href: '/blog-seo/authors', icon: Users },
